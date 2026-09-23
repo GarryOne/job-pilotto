@@ -1,0 +1,43 @@
+name: Daily job discovery
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions schedules use UTC.
+    - cron: '30 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run tests
+        run: python -m unittest discover -s tests
+      - name: Discover Swiss software employers
+        run: python discover.py --pages 1 --max-companies 40
+      - name: Generate canonical digest
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            python daily.py --send --limit 10
+          else
+            python daily.py --limit 10
+          fi
+      - name: Upload daily report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sre-watch-${{ github.run_number }}
+          path: |
+            reports/
+            data/canonical.sqlite
+          if-no-files-found: warn
