@@ -83,8 +83,9 @@ application tracker. Daily hosting and Telegram remain separate next steps.
 ## GitHub Actions
 
 The repository includes `.github/workflows/daily.yml`. It runs the tests,
-discovers Swiss software employers and generates a digest every day at 06:30
-UTC. Run it manually with the workflow-dispatch button after pushing.
+discovers Swiss software employers and generates a digest every four hours
+(00:30, 04:30, 08:30, 12:30, 16:30 and 20:30 UTC). Run it manually with the
+workflow-dispatch button after pushing.
 
 Without secrets, the workflow uploads a report artifact and prints a preview.
 To send the digest to Telegram, add repository secrets named
