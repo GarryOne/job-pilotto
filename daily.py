@@ -70,6 +70,7 @@ def main():
             company_report = json.loads(args.company_report.read_text())
             imported += job_store.import_company_report(db, company_report)
         message = format_digest(db, args.limit)
+        has_new = bool(job_store.digest_jobs(db, limit=1, only_new=True))
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)
     (ROOT / 'reports' / 'daily-latest.txt').write_text(message + '\n', encoding='utf-8')
     (ROOT / 'reports' / 'daily-latest.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
@@ -80,6 +81,9 @@ def main():
     token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN') or keychain_token(), os.getenv('TELEGRAM_CHAT_ID')
     if not token or not chat_id:
         raise SystemExit('--send requires TELEGRAM_CHAT_ID and either TELEGRAM_BOT_TOKEN or the local Keychain entry')
+    if not has_new:
+        print('\nNo new jobs since the last run; nothing sent.')
+        return 0
     send_telegram(message, token, chat_id)
     print(f'\nSent Telegram digest; imported {len(imported)} jobs.')
 

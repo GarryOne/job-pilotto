@@ -8,6 +8,12 @@ on:
 
 permissions:
   contents: read
+  actions: write
+
+# Runs share one SQLite state file; never let two overlap.
+concurrency:
+  group: sre-watch-state
+  cancel-in-progress: false
 
 jobs:
   discover:
@@ -18,6 +24,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      # Cache entries are immutable, so each run saves a new key and the next
+      # run restores the most recent one by prefix.
+      - name: Restore job database
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/canonical.sqlite
+            data/jobs.sqlite
+          key: sre-watch-db-${{ github.run_id }}
+          restore-keys: sre-watch-db-
       - name: Run tests
         run: python -m unittest discover -s tests
       - name: Discover Swiss software employers
@@ -32,6 +48,14 @@ jobs:
           else
             python daily.py --limit 10
           fi
+      - name: Save job database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/canonical.sqlite
+            data/jobs.sqlite
+          key: sre-watch-db-${{ github.run_id }}
       - name: Upload daily report
         if: always()
         uses: actions/upload-artifact@v4

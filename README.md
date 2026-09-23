@@ -87,6 +87,11 @@ discovers Swiss software employers and generates a digest every four hours
 (00:30, 04:30, 08:30, 12:30, 16:30 and 20:30 UTC). Run it manually with the
 workflow-dispatch button after pushing.
 
+Between runs the workflow keeps `data/canonical.sqlite` and `data/jobs.sqlite`
+in the GitHub Actions cache, so each digest lists only jobs first seen in that
+run, and `--send` skips Telegram when there are none. If GitHub evicts the cache,
+the next run starts fresh and sends one repeated digest.
+
 Without secrets, the workflow uploads a report artifact and prints a preview.
 To send the digest to Telegram, add repository secrets named
 `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Secrets are optional and never
