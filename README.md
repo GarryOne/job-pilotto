@@ -91,3 +91,7 @@ To send the digest to Telegram, add repository secrets named
 `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Secrets are optional and never
 belong in the repository. The workflow uses GitHub-hosted Ubuntu runners and
 does not require a server that stays online.
+
+On macOS, `daily.py --send` also reads the optional Keychain entry named
+`sre-watch.telegram.bot-token` when `TELEGRAM_BOT_TOKEN` is not set. The
+Keychain is local only; GitHub Actions still requires the repository secret.

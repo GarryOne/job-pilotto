@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import subprocess
 import urllib.parse
 import urllib.request
 
@@ -35,6 +36,20 @@ def send_telegram(text, token, chat_id):
     return payload
 
 
+def keychain_token():
+    """Read the optional local macOS Keychain token without printing it."""
+    if os.uname().sysname != 'Darwin':
+        return None
+    try:
+        result = subprocess.run(
+            ['security', 'find-generic-password', '-a', os.getenv('USER', ''),
+             '-s', 'sre-watch.telegram.bot-token', '-w'],
+            check=True, capture_output=True, text=True)
+        return result.stdout.strip() or None
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
@@ -62,9 +77,9 @@ def main():
     if not args.send:
         print('\nPreview only. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send.')
         return 0
-    token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN'), os.getenv('TELEGRAM_CHAT_ID')
+    token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN') or keychain_token(), os.getenv('TELEGRAM_CHAT_ID')
     if not token or not chat_id:
-        raise SystemExit('--send requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID')
+        raise SystemExit('--send requires TELEGRAM_CHAT_ID and either TELEGRAM_BOT_TOKEN or the local Keychain entry')
     send_telegram(message, token, chat_id)
     print(f'\nSent Telegram digest; imported {len(imported)} jobs.')
 
