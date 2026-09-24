@@ -122,12 +122,12 @@ def render(report):
         (f'{s["total"]} postings, {s["matches"]} title matches' if s["ok"] else f'FAILED — {esc(s["error"])}') + '</li>'
         for s in report["sources"])
     return f'''<!doctype html><html lang="en"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>SRE Watch</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Job Pilotto</title>
 <style>body{{font:17px system-ui;background:#f4f6fa;color:#182537;max-width:850px;margin:40px auto;padding:0 20px}}
 article{{background:white;border:1px solid #dae1e9;padding:20px;border-radius:12px;margin:14px 0}}h2{{font-size:20px;margin:8px 0}}
 a{{color:#165bba}}small{{color:#526173}}input{{box-sizing:border-box;width:100%;padding:14px;font:inherit;border:1px solid #8294ac;border-radius:8px}}
 [hidden]{{display:none}}p{{line-height:1.5}}</style>
-<h1>SRE Watch</h1><p>{len(jobs)} matching postings · {new} newly seen · {failed} failed sources</p>
+<h1>Job Pilotto</h1><p>{len(jobs)} matching postings · {new} newly seen · {failed} failed sources</p>
 <p>Last scan: {esc(report["generated_at"])}. New means first seen by this watcher, not newly published.</p>
 <p>Worldwide title matches. Location eligibility, seniority and remote conditions have not been screened.</p>
 <label for="filter">Filter by company, title or location</label><input id="filter" placeholder="e.g. Switzerland, remote, platform">

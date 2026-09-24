@@ -1,9 +1,9 @@
 ---
 name: apply-to-job
-description: Fill a job application form for the owner from their SRE Watch application kit, live in Chrome, stopping before Submit. Use when the owner says "apply to <job/URL>", "fill this application", "help me apply", or pastes a job/application link. Also use to record what was learned about an application form or platform.
+description: Fill a job application form for the owner from their Job Pilotto application kit, live in Chrome, stopping before Submit. Use when the owner says "apply to <job/URL>", "fill this application", "help me apply", or pastes a job/application link. Also use to record what was learned about an application form or platform.
 ---
 
-# Apply to a job (SRE Watch)
+# Apply to a job (Job Pilotto)
 
 Goal: the owner's application form, fully and correctly filled from the application kit, in their
 own Chrome, **stopped before Submit**. The owner reviews and clicks Submit. Then the job is marked
@@ -32,7 +32,7 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
 | What | Where |
 |---|---|
 | Kit (cover letter, answers per form field, checks) | Notion Applications row for the job → toggle "📝 Application kit" → JSON code block. Find the row by querying the Applications database (`f56b68942d3b43cbb85a7b1ebfe2df1b`) for the job URL. |
-| No kit yet | `gh workflow run daily.yml -R GarryOne/sre-watch -f mode=prepare -f job=<job URL or 8-hex code>`; wait ~1 min (`gh run watch`). Or the 📝 Prepare button in Telegram. |
+| No kit yet | `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=prepare -f job=<job URL or 8-hex code>`; wait ~1 min (`gh run watch`). Or the 📝 Prepare button in Telegram. |
 | Standard answers | Notion page Application Answers `3e562be8fd868108ae38d1f47d52a811` |
 | Profile | Notion page `3e562be8fd8681579078d09829921b8c` |
 | CV (upload + contact details) | `/Users/mac/Documents/CV.pdf` |
@@ -59,7 +59,7 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    screenshot of the form end. Fix what can be fixed.
 8. **Hand over**: tell the owner in chat: filled fields (count), ❓ items left empty, kit checks,
    "Review and click Submit". Leave the tab open.
-9. **After the owner confirms submission**: `gh workflow run daily.yml -R GarryOne/sre-watch -f mode=apply -f job=<job URL> -f action=applied`
+9. **After the owner confirms submission**: `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
    (or ✅ in Telegram). Then add anything new to **Platform notes** / **Log** below and commit.
 
 ## Full automatic flow (25 Sep 2026)
@@ -181,7 +181,7 @@ Compared claude-in-chrome against three alternatives on real forms, no submissio
   free-text SRE/infra answers), took ~10 minutes, and deliberately left personal/subjective/legal
   fields (academic history, travel commitment, employer count, the privacy-acknowledgment
   checkbox) for the owner even when the prompt supplied answers — the stricter rule now adopted
-  above. Not wired into the SRE Watch pipeline (no Notion/Telegram/GitHub Actions trigger); the
+  above. Not wired into the Job Pilotto pipeline (no Notion/Telegram/GitHub Actions trigger); the
   owner drives it by hand.
 
 None of the three beat this skill on "actually fills the form, stays inside the pipeline, review

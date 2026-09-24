@@ -1,4 +1,4 @@
-# SRE Watch — instructions for any agent (Claude, Codex, or other)
+# Job Pilotto — instructions for any agent (Claude, Codex, or other)
 
 This repo's own files are the canonical source of truth for this project. If you're an agent
 reading this because a session is rooted in this folder, don't keep separate notes elsewhere that

@@ -280,12 +280,12 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
             stats.append(f"{len(hidden_urls)} applied")
         if blocked:
             stats.append(f"{len(blocked)} language-filtered")
-        header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
+        header = (f"✈️ <b>Job Pilotto</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
                   f"<i>{' · '.join(stats)}</i>")
     elif shown:
-        header = f"🇨🇭 <b>SRE Watch</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
+        header = f"✈️ <b>Job Pilotto</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
     else:
-        return ['🇨🇭 <b>SRE Watch</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
+        return ['✈️ <b>Job Pilotto</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
 
     blocks, entries, section, abroad_heading = [header], [], None, False
     for offset, (kind, job) in enumerate(shown):

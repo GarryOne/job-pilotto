@@ -20,7 +20,7 @@ permissions:
 
 # Shares the SQLite state with the digest workflow, so the two never overlap.
 concurrency:
-  group: sre-watch-state
+  group: job-pilotto-state
   cancel-in-progress: false
 
 jobs:
@@ -38,8 +38,8 @@ jobs:
           path: |
             data/canonical.sqlite
             data/jobs.sqlite
-          key: sre-watch-db-${{ github.run_id }}
-          restore-keys: sre-watch-db-
+          key: job-pilotto-db-${{ github.run_id }}
+          restore-keys: job-pilotto-db-
       - name: Run tests
         run: python -m unittest discover -s tests
       - name: Scout new sources
@@ -62,7 +62,7 @@ jobs:
           [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
           curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=❌ SRE Watch source scout failed: ${RUN_URL}" > /dev/null
+            --data-urlencode "text=❌ Job Pilotto source scout failed: ${RUN_URL}" > /dev/null
       - name: Save job database
         if: always()
         uses: actions/cache/save@v4
@@ -70,4 +70,4 @@ jobs:
           path: |
             data/canonical.sqlite
             data/jobs.sqlite
-          key: sre-watch-db-${{ github.run_id }}
+          key: job-pilotto-db-${{ github.run_id }}

@@ -1,9 +1,9 @@
 ---
 name: notion-map
-description: Map of the SRE Watch Notion workspace (page and database IDs, what lives where). Use at the start of a fresh session, or whenever you need to find or link a specific Notion page/database without searching from scratch. Structural reference only — for the project's current state, open the Session Handoff page listed below first.
+description: Map of the Job Pilotto Notion workspace (page and database IDs, what lives where). Use at the start of a fresh session, or whenever you need to find or link a specific Notion page/database without searching from scratch. Structural reference only — for the project's current state, open the Session Handoff page listed below first.
 ---
 
-# SRE Watch — Notion structure
+# Job Pilotto — Notion structure
 
 IDs below are stable (Notion page/database IDs don't change on rename or move); titles can drift.
 If a fetch 404s or the title looks wrong, `notion-search` for the title and update this file.

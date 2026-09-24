@@ -121,7 +121,7 @@ class Tracker:
         if posted:
             properties['Posted'] = {'date': {'start': posted}}
         if not job.get('posted_at'):
-            properties['Notes'] = text('Posted date is when SRE Watch first saw the job.')
+            properties['Notes'] = text('Posted date is when Job Pilotto first saw the job.')
         return self._request('POST', 'pages', {'parent': {'database_id': self.database_id},
                                                'properties': properties})
 

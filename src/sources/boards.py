@@ -74,7 +74,7 @@ class Client:
         if not self.refresh and path.exists() and time.time()-path.stat().st_mtime<21600:
             return json.loads(path.read_text())
         time.sleep(.35)
-        with urlopen(Request(url,headers={'User-Agent':'SREWatch/0.2 (personal job discovery)'}),timeout=15) as r:
+        with urlopen(Request(url,headers={'User-Agent':'JobPilotto/0.1 (personal job discovery)'}),timeout=15) as r:
             data={'url':r.url,'html':r.read(5_000_000).decode('utf-8',errors='replace')}
         path.write_text(json.dumps(data));return data
 

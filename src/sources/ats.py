@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-USER_AGENT = 'SREWatch/0.2 (personal job search; contact via GitHub GarryOne/sre-watch)'
+USER_AGENT = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/job-pilotto)'
 TIMEOUT = 20
 DESCRIPTION_LIMIT = 12000
 

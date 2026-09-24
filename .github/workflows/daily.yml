@@ -33,7 +33,7 @@ permissions:
 # Runs share one SQLite state file; never let two overlap. Apply, more and
 # prepare runs only read it, so they get their own group and a queued run can't displace them.
 concurrency:
-  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare') && format('read-{0}', github.run_id) || 'sre-watch-state' }}
+  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare') && format('read-{0}', github.run_id) || 'job-pilotto-state' }}
   cancel-in-progress: false
 
 env:
@@ -57,8 +57,8 @@ jobs:
           path: |
             data/canonical.sqlite
             data/jobs.sqlite
-          key: sre-watch-db-${{ github.run_id }}
-          restore-keys: sre-watch-db-
+          key: job-pilotto-db-${{ github.run_id }}
+          restore-keys: job-pilotto-db-
       - name: Run tests
         run: python -m unittest discover -s tests
       - name: Discover Swiss software employers
@@ -110,7 +110,7 @@ jobs:
           [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
           curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=❌ SRE Watch ${MODE} run failed: ${RUN_URL}" > /dev/null
+            --data-urlencode "text=❌ Job Pilotto ${MODE} run failed: ${RUN_URL}" > /dev/null
       - name: Save job database
         if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare'
         uses: actions/cache/save@v4
@@ -118,12 +118,12 @@ jobs:
           path: |
             data/canonical.sqlite
             data/jobs.sqlite
-          key: sre-watch-db-${{ github.run_id }}
+          key: job-pilotto-db-${{ github.run_id }}
       - name: Upload daily report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sre-watch-${{ github.run_number }}
+          name: job-pilotto-${{ github.run_number }}
           path: |
             reports/
             data/canonical.sqlite

@@ -74,7 +74,7 @@ def main():
 
     tracker = notion.Tracker.from_env()
     if not tracker:
-        raise SystemExit('NOTION_TOKEN is required (Keychain entry sre-watch.notion.token, or export it)')
+        raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
     if not SEND_SCRIPT.exists():
         raise SystemExit(f'{SEND_SCRIPT} not found')
 
@@ -105,7 +105,7 @@ def main():
 
     print(f"\nQueued {len(pairs)} chat(s) in the ChatGPT/Codex app. For each: review, attach the "
           "résumé if it didn't, click Submit yourself, then run:\n"
-          "  gh workflow run daily.yml -R GarryOne/sre-watch -f mode=apply -f job=<job URL> -f action=applied")
+          "  gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied")
     return 0
 
 

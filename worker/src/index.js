@@ -1,11 +1,11 @@
-// Telegram webhook for @swiss_sre_watch_bot.
+// Telegram webhook for @job_pilotto_bot.
 //
 // Quick commands (/help, /status, /applied) are answered here. Commands that
 // need the job database (/run, /today, /apply_<code>) start the GitHub
 // workflow, which replies in Telegram when it finishes.
 
 const HELP = [
-  '🇨🇭 <b>SRE Watch commands</b>',
+  '🇨🇭 <b>Job Pilotto commands</b>',
   '',
   '/run — crawl now and send the digest (~3 min)',
   '/today — send the current ranked list (~1 min)',
@@ -26,7 +26,7 @@ export function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// "/apply_ab12cd34@swiss_sre_watch_bot" -> { name: "apply", arg: "ab12cd34" }
+// "/apply_ab12cd34@job_pilotto_bot" -> { name: "apply", arg: "ab12cd34" }
 export function parseCommand(text) {
   const match = /^\/([a-z]+)(?:_([0-9a-z]+))?(?:@\w+)?(?:\s|$)/i.exec((text || '').trim());
   return match ? { name: match[1].toLowerCase(), arg: (match[2] || '').toLowerCase() } : null;
@@ -54,7 +54,7 @@ function github(env, path, init = {}) {
     headers: {
       Authorization: `Bearer ${env.GITHUB_TOKEN}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'sre-watch-bot',
+      'User-Agent': 'job-pilotto-bot',
       'X-GitHub-Api-Version': '2022-11-28',
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
     },

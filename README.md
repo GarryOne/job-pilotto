@@ -1,4 +1,4 @@
-# SRE Watch
+# Job Pilotto
 
 Job-search automation for SRE / platform / DevOps roles. Fork it, point it at your own places,
 languages and CV, and it crawls job boards and employer feeds every 4 hours, has Claude score each
@@ -293,7 +293,7 @@ sign up for an account on your behalf. A good agent will pause and ask for those
 want) one that pretends it can skip them. Paste this to get started:
 
 ```
-Clone https://github.com/GarryOne/sre-watch (or my fork of it) into this directory. Read README.md,
+Clone https://github.com/GarryOne/job-pilotto (or my fork of it) into this directory. Read README.md,
 docs/notion-schema.md, and AGENTS.md in full before doing anything else.
 
 Then help me set this up for myself, step by step:

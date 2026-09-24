@@ -1,10 +1,10 @@
-# Telegram webhook for @swiss_sre_watch_bot. Deploy: npm run deploy
-name = "sre-watch-bot"
+# Telegram webhook for @job_pilotto_bot. Deploy: npm run deploy
+name = "job-pilotto-bot"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
 [vars]
-GITHUB_REPO = "GarryOne/sre-watch"
+GITHUB_REPO = "GarryOne/job-pilotto"
 WORKFLOW_FILE = "daily.yml"
 NOTION_APPLICATIONS_DB = "f56b68942d3b43cbb85a7b1ebfe2df1b"
 
