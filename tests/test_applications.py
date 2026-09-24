@@ -66,7 +66,7 @@ class DigestIntegrationTests(unittest.TestCase):
                 job_store.import_watch_report(db, report)
                 tracker = FakeTracker()
                 code = applications.job_code('https://x.test/1')
-                self.assertIn(f'/applied_{code}', daily.format_digest(db))
+                self.assertIn(f'/apply_{code}', daily.format_digest(db))
                 self.assertIn('✅ Marked applied', daily.apply_message(db, code, tracker))
                 self.assertIn('Already tracked', daily.apply_message(db, code, tracker))
                 self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', tracker))

@@ -17,7 +17,7 @@ VISIBLE_STAGES = {'Saved'}
 
 
 def job_code(url):
-    """Short stable code for /applied_<code>; derived from the URL so cache loss can't remap it."""
+    """Short stable code for /apply_<code>; derived from the URL so cache loss can't remap it."""
     return hashlib.sha1(url.strip().encode()).hexdigest()[:8]
 
 

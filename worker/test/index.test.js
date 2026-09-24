@@ -32,7 +32,7 @@ async function send(text, { chatId = 42, secret = 's3cret' } = {}) {
 }
 
 test('parses commands, codes and bot suffixes', () => {
-  assert.deepEqual(parseCommand('/applied_AB12cd34@swiss_sre_watch_bot'), { name: 'applied', arg: 'ab12cd34' });
+  assert.deepEqual(parseCommand('/apply_AB12cd34@swiss_sre_watch_bot'), { name: 'apply', arg: 'ab12cd34' });
   assert.deepEqual(parseCommand('/run'), { name: 'run', arg: '' });
   assert.equal(parseCommand('hello'), null);
 });
@@ -50,9 +50,9 @@ test('ignores chats other than the owner', async () => {
   assert.equal(calls.length, 0);
 });
 
-test('/applied_<code> dispatches the workflow and confirms', async () => {
+test('/apply_<code> dispatches the workflow and confirms', async () => {
   const calls = mockFetch({ '/dispatches': { status: 204 } });
-  await send('/applied_ab12cd34');
+  await send('/apply_ab12cd34');
   assert.match(calls[0].url, /repos\/owner\/repo\/actions\/workflows\/daily\.yml\/dispatches$/);
   assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'apply', job: 'ab12cd34' } });
   assert.equal(calls[1].body.chat_id, '42');
@@ -61,7 +61,7 @@ test('/applied_<code> dispatches the workflow and confirms', async () => {
 
 test('invalid apply code is not dispatched', async () => {
   const calls = mockFetch();
-  await send('/applied_zz');
+  await send('/apply_zz');
   assert.equal(calls.length, 1);
   assert.match(calls[0].body.text, /Tap the/);
 });

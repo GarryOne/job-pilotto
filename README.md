@@ -111,11 +111,11 @@ Keychain is local only; GitHub Actions still requires the repository secret.
 
 `worker/` is a Cloudflare Worker that receives the bot's Telegram webhook.
 `/help`, `/status` and `/applied` are answered by the Worker directly; `/run`,
-`/today` and `/applied_<code>` start this workflow, which replies when done.
+`/today` and `/apply_<code>` start this workflow, which replies when done.
 
 Applications live in the Notion database "Applications — Job Tracker", not in
 SQLite: they can't be re-crawled if the Actions cache is evicted. Tapping
-`/applied_<code>` under a digest job creates its Notion row (Stage = Applied).
+`/apply_<code>` under a digest job creates its Notion row (Stage = Applied).
 Every digest hides jobs whose URL has a Notion row in any stage except Saved.
 Update stages, confirmation emails and interview dates in Notion.
 

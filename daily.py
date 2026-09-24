@@ -65,7 +65,7 @@ def _job_block(index, job):
         details.append(badge)
     if job.get('url'):
         # Telegram turns this into a tappable command in the chat.
-        details.append(f"/applied_{applications.job_code(job['url'])}")
+        details.append(f"/apply_{applications.job_code(job['url'])}")
     title = f"<b>{escape(job['title'])}</b>"
     if job.get('url'):
         title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
@@ -128,7 +128,7 @@ def find_job(db, code):
 
 
 def apply_message(db, code, tracker):
-    """Mark the job with this /applied_<code> as applied in Notion; return the Telegram reply."""
+    """Mark the job with this /apply_<code> as applied in Notion; return the Telegram reply."""
     job = find_job(db, code)
     if not job:
         return f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
@@ -182,7 +182,7 @@ def main():
     parser.add_argument('--mode', choices=MODES, default='scheduled',
                         help='scheduled: send only when new jobs exist; run/today: always send; '
                              'apply: mark --job as applied in Notion')
-    parser.add_argument('--job', help='job code from /applied_<code>, for --mode apply')
+    parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply')
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')

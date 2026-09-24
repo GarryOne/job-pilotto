@@ -1,7 +1,7 @@
 // Telegram webhook for @swiss_sre_watch_bot.
 //
 // Quick commands (/help, /status, /applied) are answered here. Commands that
-// need the job database (/run, /today, /applied_<code>) start the GitHub
+// need the job database (/run, /today, /apply_<code>) start the GitHub
 // workflow, which replies in Telegram when it finishes.
 
 const HELP = [
@@ -10,7 +10,7 @@ const HELP = [
   '/run — crawl now and send the digest (~3 min)',
   '/today — send the current ranked list (~1 min)',
   '/applied — jobs you applied to, with stage',
-  '/applied_&lt;code&gt; — tap the code under a job to mark it applied',
+  '/apply_&lt;code&gt; — tap the code under a job to mark it applied',
   '/status — last workflow runs',
 ].join('\n');
 
@@ -24,7 +24,7 @@ export function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// "/applied_ab12cd34@swiss_sre_watch_bot" -> { name: "applied", arg: "ab12cd34" }
+// "/apply_ab12cd34@swiss_sre_watch_bot" -> { name: "apply", arg: "ab12cd34" }
 export function parseCommand(text) {
   const match = /^\/([a-z]+)(?:_([0-9a-z]+))?(?:@\w+)?(?:\s|$)/i.exec((text || '').trim());
   return match ? { name: match[1].toLowerCase(), arg: (match[2] || '').toLowerCase() } : null;
@@ -78,7 +78,7 @@ export function formatRuns(runs) {
 
 export function formatApplied(pages, databaseUrl) {
   const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
-  if (!pages.length) return `No applications yet. Tap /applied_&lt;code&gt; under a job, or add one in <a href="${databaseUrl}">Notion</a>.`;
+  if (!pages.length) return `No applications yet. Tap /apply_&lt;code&gt; under a job, or add one in <a href="${databaseUrl}">Notion</a>.`;
   const lines = pages.map((page, index) => {
     const p = page.properties;
     const stage = p.Stage?.select?.name || 'No stage';
@@ -121,10 +121,9 @@ export async function handleCommand(env, command) {
       await dispatch(env, { mode: 'today' });
       return '📋 Sending the current list in about a minute.';
     case 'applied':
+      return applied(env);
     case 'apply':
-      // "/applied" alone lists applications; "/applied_<code>" marks one job.
-      if (!command.arg && command.name === 'applied') return applied(env);
-      if (!/^[0-9a-f]{8}$/.test(command.arg)) return 'Tap the /applied_… code shown under a job in the digest.';
+      if (!/^[0-9a-f]{8}$/.test(command.arg)) return 'Tap the /apply_… code shown under a job in the digest.';
       await dispatch(env, { mode: 'apply', job: command.arg });
       return '⏳ Marking it applied in Notion…';
     case 'status': {

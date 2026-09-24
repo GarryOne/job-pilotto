@@ -10,7 +10,7 @@ on:
         options: [scheduled, run, today, apply]
         default: scheduled
       job:
-        description: 'job code from /applied_<code> (apply mode only)'
+        description: 'job code from /apply_<code> (apply mode only)'
         required: false
   schedule:
     # GitHub Actions schedules use UTC.
