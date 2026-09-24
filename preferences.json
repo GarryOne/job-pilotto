@@ -1,4 +1,8 @@
 {
   "_comment": "Hard filters applied before ranking. Mirrors the Notion page 'Profile — CV and Preferences'.",
-  "disqualifying_languages": ["German", "French"]
+  "disqualifying_languages": [
+    "German",
+    "French",
+    "Italian"
+  ]
 }

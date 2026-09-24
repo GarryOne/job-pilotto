@@ -6,6 +6,7 @@ field carries a short evidence quote, and "unknown" is always allowed, so the
 model never has to invent a salary, language rule or employer.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -160,29 +161,45 @@ def load(db):
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM enrichments')}
 
 
-def run(db, model, max_jobs, client=None):
-    """Enrich up to max_jobs pending jobs; returns a one-line summary."""
+def run(db, model, max_jobs, client=None, workers=5):
+    """Enrich up to max_jobs pending jobs; returns a one-line summary.
+
+    API calls run in parallel threads; results are saved from this thread only,
+    because the SQLite connection must not be shared across threads.
+    """
     jobs = pending_jobs(db, max_jobs)
     if not jobs:
         return f'0 job(s) to enrich with {model}'
-    import anthropic  # Only needed when actually calling the API.
+    try:
+        import anthropic  # Only needed when actually calling the API.
+        transient = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)
+        permanent = (anthropic.APIStatusError,)
+    except ImportError:
+        if client is None:
+            raise
+        transient = permanent = ()  # A test client raises none of the SDK's errors.
     client = client or anthropic.Anthropic()
     tokens_in = tokens_out = failures = enriched = 0
-    for job in jobs:
-        try:
-            data, usage = extract(client, model, job)
-        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError) as error:
-            # Transient after the SDK's own retries: stop and let the next run continue.
-            print(f'Stopping early, API unavailable: {type(error).__name__}')
-            break
-        except (anthropic.APIStatusError, RuntimeError, json.JSONDecodeError, StopIteration) as error:
-            failures += 1
-            print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
-            continue
-        save(db, job, model, data)
-        enriched += 1
-        tokens_in += usage.input_tokens
-        tokens_out += usage.output_tokens
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(extract, client, model, job): job for job in jobs}
+        for future in as_completed(futures):
+            job = futures[future]
+            try:
+                data, usage = future.result()
+            except transient as error:
+                # Transient after the SDK's own retries: stop and let the next run continue.
+                print(f'Stopping early, API unavailable: {type(error).__name__}')
+                for pending in futures:
+                    pending.cancel()
+                break
+            except (*permanent, RuntimeError, json.JSONDecodeError, StopIteration) as error:
+                failures += 1
+                print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
+                continue
+            save(db, job, model, data)
+            enriched += 1
+            tokens_in += usage.input_tokens
+            tokens_out += usage.output_tokens
     return (f'Enriched {enriched} of {len(jobs)} job(s) with {model}; {failures} failed; '
             f'tokens in {tokens_in}, out {tokens_out}')
 

@@ -52,6 +52,17 @@ class EnrichTests(unittest.TestCase):
                 seed(db, [{'title': 'SRE', 'description': 'Now also on-call.'}])
                 self.assertEqual(len(enrich.pending_jobs(db, 10)), 1)
 
+    def test_run_enriches_all_pending_jobs_in_parallel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                seed(db, [{'title': f'SRE {i}'} for i in range(12)])
+                client = FakeClient(facts())
+                summary = enrich.run(db, 'claude-haiku-4-5', 50, client=client, workers=4)
+                self.assertIn('Enriched 12 of 12', summary)
+                self.assertEqual(len(client.requests), 12)
+                self.assertEqual(len(enrich.load(db)), 12)
+                self.assertEqual(enrich.pending_jobs(db, 50), [])
+
     def test_request_uses_json_schema_and_effort_only_where_supported(self):
         job = {'title': 'SRE', 'company': 'Example', 'location': 'Zurich', 'description': 'text'}
         client = FakeClient(facts())
