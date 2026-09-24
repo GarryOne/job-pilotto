@@ -308,11 +308,22 @@ Then help me set this up for myself, step by step:
    CLI against my fork, from the values I've given you. Never print a secret back to me or commit
    one to a file.
 4. Deploy the Cloudflare Worker (`worker/setup.sh`) once I've logged in via `wrangler`.
-5. Ask me for my CV and job-search preferences, and draft the Profile and Application Answers
-   Notion pages for me in the structure docs/notion-schema.md describes — mark anything I haven't
-   given you a clear answer for with ❓, don't invent one. Also help me edit config/search.json to my
-   own role, location and tech-stack keywords, and config/preferences.json, config/sources.json and
-   config/scout_seeds.json to my own languages and target employers.
+5. Ask me for my CV, and these questions (skip any I've already answered): target job titles;
+   seniority; locations, ranked in priority order, and whether I'll do remote/relocate; languages I
+   speak and their level; work authorisation for each place I'm targeting; salary target; notice
+   period; a few technologies or practices that signal a good employer for my kind of role; any
+   companies to exclude (e.g. my current employer); LinkedIn/GitHub/portfolio links.
+   From my answers and CV: draft the Profile and Application Answers Notion pages in the structure
+   docs/notion-schema.md describes; edit config/preferences.json (disqualifying languages) and
+   config/scout_seeds.json (target employers/regions) to match. For config/search.json specifically
+   — its values are regex fragments, not plain words — translate my answers into that shape yourself
+   rather than asking me to write regex: e.g. "Frontend Developer, mid-level, open to Berlin and
+   remote-EU" becomes `role_keywords: ["frontend", "front.?end", "react", "\\bui\\b"]` and
+   `locations.top_tier: ["berlin"]`. Show me the generated JSON before writing it, and verify it
+   parses and at least one of my own target job titles matches its `role_keywords` regex (e.g.
+   `python3 -c "import re,json; c=json.load(open('config/search.json')); print(bool(re.search('|'.join(c['role_keywords']), 'my target title', re.I)))"`
+   should print `True`) before moving on. Mark anything I haven't given a clear answer for with ❓ in
+   Notion, never invent one.
 6. Run the test suites (python3 -m unittest discover -s tests, and cd worker && npm test) and fix
    anything that fails before calling this done.
 7. Trigger one real run (mode `run`) and show me what came back in Telegram.
