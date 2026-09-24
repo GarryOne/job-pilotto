@@ -1,0 +1,12 @@
+# Telegram webhook for @swiss_sre_watch_bot. Deploy: npm run deploy
+name = "sre-watch-bot"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+GITHUB_REPO = "GarryOne/sre-watch"
+WORKFLOW_FILE = "daily.yml"
+NOTION_APPLICATIONS_DB = "f56b68942d3b43cbb85a7b1ebfe2df1b"
+
+# Secrets, set with `npx wrangler@4 secret put <NAME>`:
+# TELEGRAM_BOT_TOKEN, OWNER_CHAT_ID, WEBHOOK_SECRET, GITHUB_TOKEN, NOTION_TOKEN

@@ -11,6 +11,7 @@ import subprocess
 import urllib.parse
 import urllib.request
 
+import applications
 import job_store
 import watch
 
@@ -24,7 +25,7 @@ SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|g
                    r"lausanne|lugano|luzern|lucerne|winterthur|zug|st\.? gallen", re.I)
 RELEVANT = re.compile(r"site reliability|\bsre\b|platform|devops|infrastructure|cloud|kubernetes|"
                       r"production engineer|observability", re.I)
-MODES = ('scheduled', 'run', 'today')
+MODES = ('scheduled', 'run', 'today', 'apply')
 
 
 def _work_mode_badge(value):
@@ -62,6 +63,9 @@ def _job_block(index, job):
     badge = _work_mode_badge(job.get('work_mode'))
     if badge:
         details.append(badge)
+    if job.get('url'):
+        # Telegram turns this into a tappable command in the chat.
+        details.append(f"/applied_{applications.job_code(job['url'])}")
     title = f"<b>{escape(job['title'])}</b>"
     if job.get('url'):
         title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
@@ -69,21 +73,24 @@ def _job_block(index, job):
     return f"{index}. {flag}{title}\n" + ' · '.join(details)
 
 
-def build_digest(db, limit=25, rng=None):
+def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
     """Return (messages, new_count) as Telegram HTML; each message fits one Telegram send.
 
     New jobs come first, ranked. Remaining slots are filled with older open jobs
     ("more to explore"), ranked but shuffled within each score so repeat digests vary.
+    Jobs whose URL is in hidden_urls (already applied to) are left out.
     """
     rng = rng or random.Random()
-    everything = job_store.digest_jobs(db, limit=10_000, only_new=False)
+    everything = [j for j in job_store.digest_jobs(db, limit=10_000, only_new=False)
+                  if (j.get('url') or '').strip() not in hidden_urls]
     new_ids = {job['id'] for job in job_store.digest_jobs(db, limit=10_000, only_new=True)}
     new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)[:limit]
     older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)[:limit - len(new)]
     swiss_total = sum(is_swiss(j) for j in everything)
 
     header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · 🎲 {len(older)} more to explore\n"
-              f"<i>{len(everything)} open jobs tracked, {swiss_total} in Switzerland</i>")
+              f"<i>{len(everything)} open jobs tracked, {swiss_total} in Switzerland"
+              + (f", {len(hidden_urls)} applied hidden" if hidden_urls else '') + "</i>")
     blocks = [header]
     index = 1
     for title, section in (('🆕 <b>New since last run</b>', new), ('🎲 <b>More to explore</b>', older)):
@@ -109,8 +116,35 @@ def build_digest(db, limit=25, rng=None):
     return messages, len(new)
 
 
-def format_digest(db, limit=25, rng=None):
-    return '\n\n'.join(build_digest(db, limit, rng)[0])
+def format_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
+    return '\n\n'.join(build_digest(db, limit, rng, hidden_urls)[0])
+
+
+def find_job(db, code):
+    for job in job_store.digest_jobs(db, limit=10_000, only_new=False):
+        if job.get('url') and applications.job_code(job['url']) == code:
+            return job
+    return None
+
+
+def apply_message(db, code, tracker):
+    """Mark the job with this /applied_<code> as applied in Notion; return the Telegram reply."""
+    job = find_job(db, code)
+    if not job:
+        return f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
+    page, created = tracker.mark_applied(job)
+    link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>'
+    title = f"<b>{escape(job['title'])}</b> — {escape(job['company'])}"
+    if created:
+        return f"✅ Marked applied: {title}\nIt won't appear in digests again. Track the stage in {link}."
+    return f"ℹ️ Already tracked: {title}\nSee {link}."
+
+
+def _telegram_credentials():
+    token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN') or keychain_token(), os.getenv('TELEGRAM_CHAT_ID')
+    if not token or not chat_id:
+        raise SystemExit('--send requires TELEGRAM_CHAT_ID and either TELEGRAM_BOT_TOKEN or the local Keychain entry')
+    return token, chat_id
 
 
 def send_telegram(text, token, chat_id):
@@ -146,10 +180,28 @@ def main():
     parser.add_argument('--limit', type=int, default=25)
     parser.add_argument('--send', action='store_true', help='send to Telegram; otherwise print preview only')
     parser.add_argument('--mode', choices=MODES, default='scheduled',
-                        help='scheduled: send only when new jobs exist; run/today: always send')
+                        help='scheduled: send only when new jobs exist; run/today: always send; '
+                             'apply: mark --job as applied in Notion')
+    parser.add_argument('--job', help='job code from /applied_<code>, for --mode apply')
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
+    tracker = applications.Tracker.from_env()
+    if args.mode == 'apply':
+        if not args.job or not tracker:
+            raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
+        with job_store.connect(args.db) as db:
+            reply = apply_message(db, args.job.strip().lower(), tracker)
+        print(reply)
+        if args.send:
+            send_telegram(reply, *_telegram_credentials())
+        return 0
+    hidden = frozenset()
+    if tracker:
+        try:
+            hidden = frozenset(tracker.hidden_urls())
+        except Exception as error:  # A Notion outage shouldn't block the digest.
+            print(f'Warning: could not read Notion applications: {error}')
     sources = json.loads((ROOT / 'sources.json').read_text())
     with job_store.connect(args.db) as db:
         # The feed watcher and canonical store intentionally have different schemas.
@@ -160,7 +212,7 @@ def main():
         if args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += job_store.import_company_report(db, company_report)
-        messages, new_count = build_digest(db, args.limit)
+        messages, new_count = build_digest(db, args.limit, hidden_urls=hidden)
     text = '\n\n'.join(messages)
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)
     (ROOT / 'reports' / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')
@@ -169,9 +221,7 @@ def main():
     if not args.send:
         print('\nPreview only. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send.')
         return 0
-    token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN') or keychain_token(), os.getenv('TELEGRAM_CHAT_ID')
-    if not token or not chat_id:
-        raise SystemExit('--send requires TELEGRAM_CHAT_ID and either TELEGRAM_BOT_TOKEN or the local Keychain entry')
+    token, chat_id = _telegram_credentials()
     if args.mode == 'scheduled' and not new_count:
         print('\nNo new jobs since the last run; nothing sent.')
         return 0

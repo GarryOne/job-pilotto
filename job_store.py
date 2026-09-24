@@ -59,6 +59,10 @@ def connect(path):
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     db.executescript(SCHEMA)
+    # Databases restored from older runs predate these columns.
+    columns = {row['name'] for row in db.execute("PRAGMA table_info(jobs)")}
+    if 'posted_at' not in columns:
+        db.execute("ALTER TABLE jobs ADD COLUMN posted_at TEXT")
     return db
 
 
@@ -102,6 +106,8 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
             work_mode, first_seen_at, last_seen_at, classification, confidence, salary_json, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (key, *fields))
         job_id = cur.lastrowid; status = 'new'
+    if item.get('date_posted'):
+        db.execute("UPDATE jobs SET posted_at=? WHERE id=?", (item['date_posted'], job_id))
     db.execute("INSERT OR IGNORE INTO applications(job_id, status, updated_at) VALUES (?, 'unreviewed', ?)", (job_id, now))
     return job_id, status
 

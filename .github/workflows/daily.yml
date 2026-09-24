@@ -1,13 +1,17 @@
 name: Daily job discovery
+run-name: ${{ inputs.mode || 'scheduled' }}${{ inputs.job && format(' {0}', inputs.job) || '' }}
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scheduled sends only when new jobs exist; run and today always send'
+        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied'
         type: choice
-        options: [scheduled, run, today]
+        options: [scheduled, run, today, apply]
         default: scheduled
+      job:
+        description: 'job code from /applied_<code> (apply mode only)'
+        required: false
   schedule:
     # GitHub Actions schedules use UTC.
     - cron: '30 */4 * * *'
@@ -16,10 +20,15 @@ permissions:
   contents: read
   actions: write
 
-# Runs share one SQLite state file; never let two overlap.
+# Runs share one SQLite state file; never let two overlap. Apply runs only
+# read it, so they get their own group and a queued run can't displace them.
 concurrency:
-  group: sre-watch-state
+  group: ${{ inputs.mode == 'apply' && format('apply-{0}', github.run_id) || 'sre-watch-state' }}
   cancel-in-progress: false
+
+env:
+  MODE: ${{ inputs.mode || 'scheduled' }}
+  NOTION_APPLICATIONS_DB: f56b68942d3b43cbb85a7b1ebfe2df1b
 
 jobs:
   discover:
@@ -43,20 +52,31 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests
       - name: Discover Swiss software employers
+        if: env.MODE == 'scheduled' || env.MODE == 'run'
         run: python discover.py --pages 2 --max-companies 80
       - name: Generate canonical digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          MODE: ${{ inputs.mode || 'scheduled' }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          JOB: ${{ inputs.job }}
         run: |
-          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-            python daily.py --send --limit 25 --mode "$MODE"
-          else
-            python daily.py --limit 25 --mode "$MODE"
-          fi
+          send=""
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
+          python daily.py $send --limit 25 --mode "$MODE" ${JOB:+--job "$JOB"}
+      - name: Report failure to Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=❌ SRE Watch ${MODE} run failed: ${RUN_URL}" > /dev/null
       - name: Save job database
-        if: always()
+        if: always() && env.MODE != 'apply'
         uses: actions/cache/save@v4
         with:
           path: |

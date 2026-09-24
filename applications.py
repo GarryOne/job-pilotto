@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Notion "Applications — Job Tracker": the durable record of jobs applied to.
+
+SQLite in the Actions cache can be evicted; applications cannot be re-crawled,
+so they live in Notion. The canonical job URL is the key shared by both.
+"""
+from datetime import date
+import hashlib
+import json
+import os
+import urllib.request
+
+NOTION_VERSION = '2022-06-28'
+DEFAULT_DATABASE_ID = 'f56b68942d3b43cbb85a7b1ebfe2df1b'
+# Rows in these stages stay eligible for digests; any other stage hides the job.
+VISIBLE_STAGES = {'Saved'}
+
+
+def job_code(url):
+    """Short stable code for /applied_<code>; derived from the URL so cache loss can't remap it."""
+    return hashlib.sha1(url.strip().encode()).hexdigest()[:8]
+
+
+class Tracker:
+    def __init__(self, token, database_id=DEFAULT_DATABASE_ID, opener=urllib.request.urlopen):
+        self.token, self.database_id, self.opener = token, database_id, opener
+
+    @classmethod
+    def from_env(cls):
+        token = os.getenv('NOTION_TOKEN')
+        return cls(token, os.getenv('NOTION_APPLICATIONS_DB') or DEFAULT_DATABASE_ID) if token else None
+
+    def _request(self, method, path, body=None):
+        request = urllib.request.Request(
+            f'https://api.notion.com/v1/{path}', method=method,
+            data=json.dumps(body).encode() if body is not None else None,
+            headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': NOTION_VERSION,
+                     'Content-Type': 'application/json'})
+        with self.opener(request, timeout=20) as response:
+            return json.load(response)
+
+    def _query(self, filter_=None):
+        body, pages = {'page_size': 100}, []
+        if filter_:
+            body['filter'] = filter_
+        while True:
+            result = self._request('POST', f'databases/{self.database_id}/query', body)
+            pages.extend(result['results'])
+            if not result.get('has_more'):
+                return pages
+            body['start_cursor'] = result['next_cursor']
+
+    def hidden_urls(self):
+        """URLs of jobs that should no longer appear in digests (applied, rejected, ...)."""
+        urls = set()
+        for page in self._query():
+            props = page['properties']
+            stage = (props['Stage'].get('select') or {}).get('name')
+            url = props['Job URL'].get('url')
+            if url and stage not in VISIBLE_STAGES:
+                urls.add(url.strip())
+        return urls
+
+    def find(self, url):
+        pages = self._query({'property': 'Job URL', 'url': {'equals': url}})
+        return pages[0] if pages else None
+
+    def mark_applied(self, job, today=None):
+        """Create the application row, or return the existing one. Returns (page, created)."""
+        existing = self.find(job['url'])
+        if existing:
+            return existing, False
+        text = lambda value: {'rich_text': [{'text': {'content': (value or '')[:2000]}}]}
+        posted = (job.get('posted_at') or job.get('first_seen_at') or '')[:10]
+        properties = {
+            'Job': {'title': [{'text': {'content': job['title'][:2000]}}]},
+            'Company': text(job.get('company')),
+            'Location': text(job.get('location')),
+            'Job URL': {'url': job['url']},
+            'Stage': {'select': {'name': 'Applied'}},
+            'Applied on': {'date': {'start': (today or date.today()).isoformat()}},
+            'Source': {'select': {'name': 'Telegram'}},
+        }
+        if posted:
+            properties['Posted'] = {'date': {'start': posted}}
+        if not job.get('posted_at'):
+            properties['Notes'] = text('Posted date is when SRE Watch first saw the job.')
+        page = self._request('POST', 'pages', {'parent': {'database_id': self.database_id},
+                                               'properties': properties})
+        return page, True

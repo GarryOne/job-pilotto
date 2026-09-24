@@ -106,3 +106,27 @@ does not require a server that stays online.
 On macOS, `daily.py --send` also reads the optional Keychain entry named
 `sre-watch.telegram.bot-token` when `TELEGRAM_BOT_TOKEN` is not set. The
 Keychain is local only; GitHub Actions still requires the repository secret.
+
+## Telegram commands and application tracking
+
+`worker/` is a Cloudflare Worker that receives the bot's Telegram webhook.
+`/help`, `/status` and `/applied` are answered by the Worker directly; `/run`,
+`/today` and `/applied_<code>` start this workflow, which replies when done.
+
+Applications live in the Notion database "Applications — Job Tracker", not in
+SQLite: they can't be re-crawled if the Actions cache is evicted. Tapping
+`/applied_<code>` under a digest job creates its Notion row (Stage = Applied).
+Every digest hides jobs whose URL has a Notion row in any stage except Saved.
+Update stages, confirmation emails and interview dates in Notion.
+
+One-time setup:
+
+1. Create a Notion internal integration, copy its token, and connect it to the
+   Applications database (••• → Connections).
+2. Create a fine-grained GitHub token for `GarryOne/sre-watch` with
+   Actions: read and write.
+3. Run `npx wrangler@4 login`, then `worker/setup.sh`. The script prompts for
+   both tokens once (saving them in the Keychain), deploys the Worker, stores its
+   secrets and `NOTION_TOKEN` for Actions, and sets the Telegram webhook.
+
+Worker tests: `cd worker && npm test`.

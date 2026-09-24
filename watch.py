@@ -71,6 +71,8 @@ def scan(sources, db, fetcher=fetch):
                             "company": source["company"], "id": str(job["id"]),
                             "title": job["title"], "location": job["location"].get("name", "Unspecified"),
                             "url": job["absolute_url"],
+                            # Greenhouse's first publication time; absent on older API responses.
+                            "date_posted": job.get("first_published") or "",
                             "status": record(db, source["board"], job, now)
                         })
             report["jobs"].extend(matched)
