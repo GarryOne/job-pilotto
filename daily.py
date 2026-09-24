@@ -15,6 +15,7 @@ import urllib.request
 import applications
 import enrich
 import score
+import scout
 import job_store
 import matches
 import watch
@@ -426,8 +427,10 @@ def main():
         if args.mode != 'more':
             # The feed watcher and canonical store intentionally have different schemas.
             # Keep the source-specific history separate, then import the report.
+            # sources.json plus every active feed the scout found (local table + Notion Source Registry).
+            feeds = scout.active_sources(db, tracker, sources)
             with watch.database(ROOT / 'data' / 'jobs.sqlite') as feed_db:
-                report = watch.scan(sources, feed_db)
+                report = watch.scan(feeds, feed_db)
             imported = job_store.import_watch_report(db, report)
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())

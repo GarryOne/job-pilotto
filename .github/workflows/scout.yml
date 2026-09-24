@@ -1,0 +1,73 @@
+name: Source scout
+run-name: scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
+
+# Grows the list of employer job feeds a small batch at a time. Probes public
+# job-feed APIs only; no AI and no applying.
+on:
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: 'candidates to probe this run'
+        required: false
+        default: '15'
+  schedule:
+    # Once a day, between digest runs (UTC).
+    - cron: '15 6 * * *'
+
+permissions:
+  contents: read
+  actions: write
+
+# Shares the SQLite state with the digest workflow, so the two never overlap.
+concurrency:
+  group: sre-watch-state
+  cancel-in-progress: false
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore job database
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/canonical.sqlite
+            data/jobs.sqlite
+          key: sre-watch-db-${{ github.run_id }}
+          restore-keys: sre-watch-db-
+      - name: Run tests
+        run: python -m unittest discover -s tests
+      - name: Scout new sources
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          BATCH: ${{ inputs.batch || '15' }}
+        run: |
+          send=""
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
+          python scout.py --batch "$BATCH" $send
+      - name: Report failure to Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          curl -fsS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=❌ SRE Watch source scout failed: ${RUN_URL}" > /dev/null
+      - name: Save job database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/canonical.sqlite
+            data/jobs.sqlite
+          key: sre-watch-db-${{ github.run_id }}

@@ -70,6 +70,7 @@ curl -fsS "https://api.telegram.org/bot${TG_TOKEN}/setMyCommands" -H 'Content-Ty
   {"command":"today","description":"Send the current ranked list"},
   {"command":"applied","description":"Jobs I applied to, with stage"},
   {"command":"status","description":"Last workflow runs"},
+  {"command":"scout","description":"Look for new employer job feeds"},
   {"command":"help","description":"Show commands"}]}' >/dev/null
 
 echo "Done. Send /help to @swiss_sre_watch_bot."

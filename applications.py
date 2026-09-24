@@ -47,12 +47,12 @@ class Tracker:
         with self.opener(request, timeout=20) as response:
             return json.load(response)
 
-    def _query(self, filter_=None):
+    def _query(self, filter_=None, database_id=None):
         body, pages = {'page_size': 100}, []
         if filter_:
             body['filter'] = filter_
         while True:
-            result = self._request('POST', f'databases/{self.database_id}/query', body)
+            result = self._request('POST', f'databases/{database_id or self.database_id}/query', body)
             pages.extend(result['results'])
             if not result.get('has_more'):
                 return pages
@@ -131,3 +131,12 @@ class Tracker:
             return page_id
         page = self._request('POST', 'pages', {'parent': {'database_id': database_id}, 'properties': properties})
         return page['id']
+
+    def query_database(self, database_id, filter_=None):
+        return self._query(filter_, database_id)
+
+    def create_page(self, database_id, properties):
+        return self._request('POST', 'pages', {'parent': {'database_id': database_id}, 'properties': properties})
+
+    def update_page(self, page_id, properties):
+        return self._request('PATCH', f'pages/{page_id}', {'properties': properties})

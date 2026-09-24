@@ -10,6 +10,8 @@ import re
 import sqlite3
 import urllib.request
 
+import ats
+
 ROOT = Path(__file__).resolve().parent
 DESCRIPTION_LIMIT = 12000
 
@@ -20,25 +22,35 @@ def plain_text(markup):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", markup))).strip()[:DESCRIPTION_LIMIT]
 
 
-TITLES = re.compile(r"site reliability|\bsre\b|platform engineer|infrastructure engineer|production engineer|devops|cloud engineer", re.I)
+TITLES = re.compile(r"site reliability|\bsre\b|platform engineer|infrastructure|production engineer|devops|"
+                    r"cloud engineer|observability|kubernetes|reliability engineer", re.I)
 
 
-def fetch(board):
-    url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true"
-    request = urllib.request.Request(url, headers={"User-Agent": "SREWatch/0.1"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        payload = json.load(response)
-    jobs = payload["jobs"]
-    if not isinstance(jobs, list):
-        raise ValueError("Invalid jobs response")
-    # Validate the complete source before recording any of its jobs.
-    for job in jobs:
-        for key in ("id", "title", "absolute_url", "location"):
-            if key not in job:
-                raise ValueError(f"Missing field: {key}")
-        if not job["absolute_url"].startswith("https://"):
-            raise ValueError("Expected an HTTPS application link")
-    return jobs
+# Feed jobs outside these places are dropped before they reach the digest or the AI stages.
+PREFERRED_LOCATION = re.compile(
+    r"switzerland|schweiz|suisse|svizzera|z[uü]rich|geneva|gen[eè]ve|genf|basel|bern|lausanne|lugano|zug|"
+    r"winterthur|luzern|lucerne|st\.? ?gallen|\bch\b|berlin|london|dubai|\buae\b|united arab emirates|"
+    r"remote|anywhere|worldwide|global|emea|europe", re.I)
+
+
+def fetch(source):
+    """Normalised jobs for one source: {'company', 'ats' (default greenhouse), 'slug' or legacy 'board'}."""
+    return ats.fetch(source.get("ats", "greenhouse"), source.get("slug") or source["board"])
+
+
+# Remote roles restricted to these regions are not open to someone in Switzerland.
+REMOTE_ELSEWHERE = re.compile(r"\busa?\b|united states|u\.s\.|canada|\bnorth america|latam|latin america|apac|"
+                              r"asia|india|australia|brazil|mexico|americas", re.I)
+PLACE = re.compile(PREFERRED_LOCATION.pattern.replace("|remote|anywhere|worldwide|global|emea|europe", ""), re.I)
+
+
+def wanted_location(job):
+    """Switzerland, Berlin, London or Dubai, or remote that isn't limited to another region."""
+    where = job.get("location") or ""
+    if PLACE.search(where):
+        return True
+    remote = job.get("remote") or re.search(r"remote|anywhere|worldwide|global|emea|europe", where, re.I)
+    return bool(remote) and not REMOTE_ELSEWHERE.search(where)
 
 
 def database(path):
@@ -54,7 +66,7 @@ def record(db, board, job, now):
     # Source timestamps aren't publication dates. Compare the actual listing fields.
     fingerprint = hashlib.sha256(json.dumps({
         "title": job["title"], "location": job["location"],
-        "url": job["absolute_url"]
+        "url": job["url"]
     }, sort_keys=True).encode()).hexdigest()
     previous = db.execute("SELECT fingerprint FROM jobs WHERE board=? AND id=?",
                           (board, str(job["id"]))).fetchone()
@@ -67,23 +79,25 @@ def record(db, board, job, now):
 
 
 def scan(sources, db, fetcher=fetch):
+    """Fetch every source, keep SRE-type titles in preferred locations, record seen history."""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     report = {"generated_at": now, "sources": [], "jobs": []}
     for source in sources:
+        board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
         try:
-            jobs = fetcher(source["board"])
+            jobs = fetcher(source)
             matched = []
             with db:
                 for job in jobs:
-                    if TITLES.search(job["title"]):
+                    if TITLES.search(job["title"]) and wanted_location(job):
                         matched.append({
                             "company": source["company"], "id": str(job["id"]),
-                            "title": job["title"], "location": job["location"].get("name", "Unspecified"),
-                            "url": job["absolute_url"],
-                            # Greenhouse's first publication time; absent on older API responses.
-                            "date_posted": job.get("first_published") or "",
-                            "description": plain_text(job.get("content")),
-                            "status": record(db, source["board"], job, now)
+                            "title": job["title"], "location": job["location"] or "Unspecified",
+                            "url": job["url"], "date_posted": job.get("date_posted") or "",
+                            "description": job.get("description") or "",
+                            "work_mode": "Remote (stated)" if job.get("remote") else "",
+                            "salary_text": job.get("salary") or "",
+                            "status": record(db, board, job, now)
                         })
             report["jobs"].extend(matched)
             report["sources"].append({"company": source["company"], "ok": True,

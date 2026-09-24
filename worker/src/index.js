@@ -12,6 +12,7 @@ const HELP = [
   '/applied — jobs you applied to, with stage',
   '/apply_&lt;code&gt; — tap the code under a job to mark it applied',
   '/status — last workflow runs',
+  '/scout — look for new employer job feeds now (~1 min)',
 ].join('\n');
 
 const STAGE_EMOJI = {
@@ -59,8 +60,8 @@ function github(env, path, init = {}) {
   });
 }
 
-async function dispatch(env, inputs) {
-  const response = await github(env, `actions/workflows/${env.WORKFLOW_FILE}/dispatches`, {
+async function dispatch(env, inputs, workflow = env.WORKFLOW_FILE) {
+  const response = await github(env, `actions/workflows/${workflow}/dispatches`, {
     method: 'POST', body: JSON.stringify({ ref: 'main', inputs }),
   });
   if (response.status !== 204) throw new Error(`GitHub dispatch failed: ${response.status} ${await response.text()}`);
@@ -126,6 +127,9 @@ export async function handleCommand(env, command) {
       if (!/^[0-9a-f]{8}$/.test(command.arg)) return 'Tap the /apply_… code shown under a job in the digest.';
       await dispatch(env, { mode: 'apply', job: command.arg });
       return '⏳ Marking it applied in Notion…';
+    case 'scout':
+      await dispatch(env, { batch: '15' }, 'scout.yml');
+      return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';
     case 'status': {
       const response = await github(env, `actions/workflows/${env.WORKFLOW_FILE}/runs?per_page=5`);
       if (!response.ok) throw new Error(`GitHub runs failed: ${response.status}`);

@@ -1,0 +1,225 @@
+#!/usr/bin/env python3
+"""Public job feeds of common applicant-tracking systems, normalised to one shape.
+
+Every fetcher returns a list of dicts with: id, title, location, url, date_posted,
+description (plain text, may be ''), remote (bool), salary (str, may be '').
+Only documented public endpoints are used; they need no login.
+"""
+import html
+import json
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+
+USER_AGENT = 'SREWatch/0.2 (personal job search; contact via GitHub GarryOne/sre-watch)'
+TIMEOUT = 20
+DESCRIPTION_LIMIT = 12000
+
+
+def _get(url):
+    request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT, 'Accept': 'application/json, text/xml'})
+    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        return response.read()
+
+
+def _json(url):
+    return json.loads(_get(url))
+
+
+def plain(markup):
+    """HTML (possibly escaped twice) to plain text."""
+    text = html.unescape(markup or '')
+    return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()[:DESCRIPTION_LIMIT]
+
+
+def _job(id, title, location, url, date_posted='', description='', remote=False, salary=''):
+    return {'id': str(id), 'title': (title or '').strip(), 'location': (location or '').strip(),
+            'url': url, 'date_posted': date_posted or '', 'description': description or '',
+            'remote': bool(remote), 'salary': salary or ''}
+
+
+def greenhouse(slug):
+    data = _json(f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true')
+    return [_job(j['id'], j['title'], (j.get('location') or {}).get('name', ''), j['absolute_url'],
+                 j.get('first_published') or j.get('updated_at', ''), plain(j.get('content')),
+                 'remote' in ((j.get('location') or {}).get('name', '')).lower())
+            for j in data['jobs']]
+
+
+def lever(slug):
+    data = _json(f'https://api.lever.co/v0/postings/{slug}?mode=json')
+    jobs = []
+    for j in data:
+        categories = j.get('categories') or {}
+        created = j.get('createdAt')
+        posted = ''
+        if created:
+            from datetime import datetime, timezone
+            posted = datetime.fromtimestamp(int(created) / 1000, timezone.utc).isoformat(timespec='seconds')
+        salary = j.get('salaryRange') or {}
+        salary_text = (f"{salary.get('currency', '')} {salary.get('min', '')}–{salary.get('max', '')}".strip()
+                       if salary.get('min') else '')
+        jobs.append(_job(j['id'], j.get('text'), categories.get('location', ''), j['hostedUrl'], posted,
+                         (j.get('descriptionPlain') or '')[:DESCRIPTION_LIMIT],
+                         (j.get('workplaceType') or '').lower() == 'remote', salary_text))
+    return jobs
+
+
+def ashby(slug):
+    data = _json(f'https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true')
+    jobs = []
+    for j in data.get('jobs', []):
+        if j.get('isListed') is False:
+            continue
+        compensation = j.get('compensation') or {}
+        salary = (compensation.get('scrapeableCompensationSalarySummary')
+                  or compensation.get('compensationTierSummary') or '')
+        locations = [j.get('location') or ''] + [s.get('location', '') for s in j.get('secondaryLocations') or []]
+        jobs.append(_job(j['id'], j.get('title'), '; '.join(l for l in locations if l), j['jobUrl'],
+                         j.get('publishedAt', ''), (j.get('descriptionPlain') or '')[:DESCRIPTION_LIMIT],
+                         j.get('isRemote') or (j.get('workplaceType') or '').lower() == 'remote',
+                         salary if j.get('shouldDisplayCompensationOnJobPostings', True) else ''))
+    return jobs
+
+
+def smartrecruiters(slug):
+    jobs, offset = [], 0
+    while True:
+        data = _json(f'https://api.smartrecruiters.com/v1/companies/{slug}/postings?limit=100&offset={offset}')
+        for j in data.get('content', []):
+            location = j.get('location') or {}
+            where = ', '.join(p for p in (location.get('city'), location.get('country')) if p)
+            jobs.append(_job(j['id'], j.get('name'), where, f"https://jobs.smartrecruiters.com/{slug}/{j['id']}",
+                             j.get('releasedDate', ''), '', location.get('remote')))
+        offset += 100
+        if offset >= data.get('totalFound', 0) or offset >= 1000:
+            return jobs
+
+
+def workable(slug):
+    data = _json(f'https://apply.workable.com/api/v1/widget/accounts/{slug}')
+    jobs = []
+    for j in data.get('jobs', []):
+        where = ', '.join(p for p in (j.get('city'), j.get('country')) if p)
+        jobs.append(_job(j.get('shortcode'), j.get('title'), where, j.get('url') or j.get('shortlink'),
+                         j.get('published_on', ''), '', j.get('telecommuting')))
+    return jobs
+
+
+def recruitee(slug):
+    data = _json(f'https://{slug}.recruitee.com/api/offers/')
+    return [_job(j['id'], j.get('title'), j.get('location', ''), j.get('careers_url'), j.get('published_at', ''),
+                 plain(j.get('description')), j.get('remote')) for j in data.get('offers', [])]
+
+
+def personio(slug):
+    root = ET.fromstring(_get(f'https://{slug}.jobs.personio.de/xml'))
+    jobs = []
+    for p in root.findall('position'):
+        offices = [p.findtext('office') or ''] + [o.text or '' for o in p.findall('additionalOffices/office')]
+        description = ' '.join(plain(d.findtext('value')) for d in p.findall('jobDescriptions/jobDescription'))
+        jobs.append(_job(p.findtext('id'), p.findtext('name'), '; '.join(o for o in offices if o),
+                         f"https://{slug}.jobs.personio.de/job/{p.findtext('id')}", p.findtext('createdAt') or '',
+                         description[:DESCRIPTION_LIMIT], 'remote' in ' '.join(offices).lower()))
+    return jobs
+
+
+# Company career sites with a public JSON search (no standard ATS). Queried per role and place,
+# because they list tens of thousands of jobs.
+SEARCH_ROLES = ('site reliability', 'devops', 'platform engineer', 'infrastructure engineer')
+SEARCH_PLACES = ('Switzerland', 'Berlin', 'London', 'Dubai')
+
+
+def amazon(slug='amazon'):
+    from datetime import datetime
+    seen, jobs = set(), []
+    for role in SEARCH_ROLES:
+        for place in SEARCH_PLACES:
+            query = urllib.parse.urlencode({'base_query': role, 'loc_query': place, 'result_limit': 100})
+            for j in _json(f'https://www.amazon.jobs/en/search.json?{query}').get('jobs', []):
+                if j['id_icims'] in seen:
+                    continue
+                seen.add(j['id_icims'])
+                try:
+                    posted = datetime.strptime(j.get('posted_date', ''), '%B %d, %Y').date().isoformat()
+                except ValueError:
+                    posted = ''
+                description = plain(' '.join(j.get(k) or '' for k in
+                                             ('description', 'basic_qualifications', 'preferred_qualifications')))
+                jobs.append(_job(j['id_icims'], j.get('title'), j.get('normalized_location') or j.get('city', ''),
+                                 'https://www.amazon.jobs' + j['job_path'], posted, description))
+    return jobs
+
+
+def netflix(slug='netflix'):
+    from datetime import datetime, timezone
+    seen, jobs = set(), []
+    for role in SEARCH_ROLES + ('reliability',):
+        query = urllib.parse.urlencode({'domain': 'netflix.com', 'query': role, 'num': 100})
+        for j in _json(f'https://explore.jobs.netflix.net/api/apply/v2/jobs?{query}').get('positions', []):
+            if j['id'] in seen:
+                continue
+            seen.add(j['id'])
+            posted = (datetime.fromtimestamp(int(j['t_create']), timezone.utc).date().isoformat()
+                      if j.get('t_create') else '')
+            locations = '; '.join(j.get('locations') or [j.get('location', '')])
+            jobs.append(_job(j['id'], j.get('name'), locations, j['canonicalPositionUrl'], posted,
+                             plain(j.get('job_description')), 'remote' in locations.lower()))
+    return jobs
+
+
+FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
+            'workable': workable, 'recruitee': recruitee, 'personio': personio,
+            'amazon': amazon, 'netflix': netflix}
+# Standard systems a company slug can be guessed for; company sites are listed explicitly.
+GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters')
+
+# Hosts that reveal an ATS and its board slug inside a careers or job URL.
+URL_PATTERNS = [
+    ('greenhouse', r'(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([\w-]+)'),
+    ('greenhouse', r'boards-api\.greenhouse\.io/v1/boards/([\w-]+)'),
+    ('lever', r'jobs\.(?:eu\.)?lever\.co/([\w-]+)'),
+    ('ashby', r'jobs\.ashbyhq\.com/([\w.-]+)'),
+    ('smartrecruiters', r'(?:jobs|careers)\.smartrecruiters\.com/([\w-]+)'),
+    ('workable', r'apply\.workable\.com/([\w-]+)'),
+    ('recruitee', r'([\w-]+)\.recruitee\.com'),
+    ('personio', r'([\w-]+)\.jobs\.personio\.(?:de|com)'),
+]
+IGNORED_SLUGS = {'embed', 'j', 'api', 'v1', 'jobs', 'careers', 'www', 'o'}
+
+
+def detect(url):
+    """(ats, slug) found in a URL, or None."""
+    for name, pattern in URL_PATTERNS:
+        match = re.search(pattern, url or '', re.I)
+        if match and match.group(1).lower() not in IGNORED_SLUGS:
+            return name, match.group(1)
+    return None
+
+
+def slug_guesses(company):
+    """Likely board slugs for a company name: 'Digitec Galaxus AG' -> digitecgalaxus, digitec-galaxus, digitec."""
+    name = re.sub(r'\b(ag|sa|gmbh|ltd|limited|inc|llc|plc|se|group|holding|technologies|technology|labs)\b\.?', '',
+                  company.lower())
+    words = re.findall(r'[a-z0-9]+', name.replace('&', ' and '))
+    if not words:
+        return []
+    guesses = [''.join(words), '-'.join(words), words[0]]
+    return list(dict.fromkeys(g for g in guesses if len(g) >= 3))
+
+
+def fetch(ats, slug):
+    """Jobs from one feed; raises on network/format errors."""
+    return FETCHERS[ats](slug)
+
+
+def probe(ats, slug):
+    """Jobs if this (ats, slug) is a live board with at least one posting, else None."""
+    try:
+        jobs = fetch(ats, slug)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
+            json.JSONDecodeError, OSError):
+        return None
+    return jobs or None

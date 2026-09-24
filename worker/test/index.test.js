@@ -119,6 +119,13 @@ test('/applied queries Notion and formats rows', async () => {
   assert.match(text, /🗓 Interview scheduled · 📅 applied 2026-09-24 · 🗓 2026-10-01T10:00/);
 });
 
+test('/scout dispatches the scout workflow', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await send('/scout');
+  assert.match(calls[0].url, /actions\/workflows\/scout\.yml\/dispatches$/);
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { batch: '15' } });
+});
+
 test('empty applications list points to Notion', () => {
   assert.match(formatApplied([], 'https://notion.test/db'), /No applications yet/);
 });
