@@ -48,6 +48,50 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 - **Notion**: Job Matches (every scored job), Applications — Job Tracker, Employers & Sources, and
   the Profile and Application Answers pages the scorer and kit drafter read.
 
+## Day-to-day use
+
+**The baseline runs itself — there's nothing to trigger.** Every 4 hours GitHub Actions crawls,
+scores, and (if you've turned it on) drafts kits for your best new matches, and Telegram messages
+you the result. If nothing new and good enough showed up, `scheduled` mode stays quiet rather than
+spamming you. This part needs zero daily action from you.
+
+What you actually *do*, day to day, is a mix of two habits:
+
+**1. A couple of minutes, most times you check your phone** — read whatever Telegram sent, and tap
+buttons under jobs you care about: **⭐ Save** to keep something for later, **❌ Dismiss** to hide
+noise (this also tunes future scoring), **✅ Applied** if you applied outside this system, or
+**📝 Prepare** on a good job that didn't get an automatic kit. This is the entire "daily" loop for
+most people — no commands, just reacting to what arrives.
+
+**2. A batch session every few days, when you're ready to actually apply** (this is the "I'd spawn
+job application automations" part of your question) — on your laptop:
+```sh
+tools/apply-batch.sh --max 5
+```
+This looks at everything sitting **Saved with a kit already on it** (built up by habit #1 and by
+auto-drafting) and queues each one into its own Codex chat, already filled in, stopped before
+Submit. You then spend that session reviewing each chat and clicking Submit — the actual "applying"
+still takes your attention, but the form-filling and drafting don't. Nothing forces this to happen
+on a schedule; you run it whenever you have kits piled up and time to review them.
+
+You can also reach for specific Telegram commands on demand, not as a daily ritual:
+
+| When you want | Send |
+|---|---|
+| A fresh crawl right now instead of waiting for the next 4-hourly run | `/run` |
+| The current ranked list without re-crawling | `/today` |
+| What you've applied to and their stage | `/applied` |
+| Jobs you starred | `/saved` |
+| To find new employer feeds outside the daily scout | `/scout` |
+| Whether the last few runs succeeded | `/status` |
+
+**Putting it together, a realistic week looks like:** Telegram pings you a few times a day; you
+tap ⭐/❌ on maybe a dozen jobs without leaving the app; a couple of times that week you open your
+laptop, run `apply-batch.sh`, review 3-5 filled forms over coffee, submit the good ones, and mark
+them applied. The system never applies on its own initiative — it just makes sure that by the time
+you sit down to apply, the tedious part (finding the posting, writing the letter, answering the
+same 15 form questions again) is already done.
+
 ## Prerequisites
 
 **Required — the core pipeline runs entirely in the cloud, any OS:**
