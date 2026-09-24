@@ -270,6 +270,44 @@ cd worker && npm test
 7. Fill in your Profile and Application Answers pages in Notion; edit `config/preferences.json`,
    `config/sources.json` and `config/scout_seeds.json` to your own places, languages and employers.
 
+## Set it up with an AI coding agent
+
+The steps above are written for a person, but an AI coding agent (Claude Code, Codex CLI, or
+similar, with shell and file access) can do most of the mechanical work — creating accounts,
+logging into third-party services, and sharing a Notion page with an integration are the parts
+that genuinely need you, since no agent can click through someone else's OAuth consent screen or
+sign up for an account on your behalf. A good agent will pause and ask for those; don't expect (or
+want) one that pretends it can skip them. Paste this to get started:
+
+```
+Clone https://github.com/GarryOne/sre-watch (or my fork of it) into this directory. Read README.md,
+docs/notion-schema.md, and AGENTS.md in full before doing anything else.
+
+Then help me set this up for myself, step by step:
+
+1. Tell me exactly which accounts I need to create or log into myself (Telegram bot via BotFather,
+   Cloudflare, Notion integration, Anthropic API key) and what each one gives you (a token, an ID) —
+   pause and wait for me to paste each one back to you rather than guessing or inventing a value.
+2. Once I've shared my Notion integration's access, create the databases and pages listed in
+   docs/notion-schema.md for me via the Notion API, with the exact property names and types it
+   specifies. Tell me the resulting page/database IDs.
+3. Set the GitHub secrets and variables README.md's Configuration section lists, using the `gh`
+   CLI against my fork, from the values I've given you. Never print a secret back to me or commit
+   one to a file.
+4. Deploy the Cloudflare Worker (`worker/setup.sh`) once I've logged in via `wrangler`.
+5. Ask me for my CV and job-search preferences, and draft the Profile and Application Answers
+   Notion pages for me in the structure docs/notion-schema.md describes — mark anything I haven't
+   given you a clear answer for with ❓, don't invent one. Also help me edit config/preferences.json,
+   config/sources.json and config/scout_seeds.json to my own target places, languages and employers.
+6. Run the test suites (python3 -m unittest discover -s tests, and cd worker && npm test) and fix
+   anything that fails before calling this done.
+7. Trigger one real run (mode `run`) and show me what came back in Telegram.
+
+Follow every rule in AGENTS.md, especially: never submit a job application on my behalf, ask before
+any step that spends money on AI model calls, and never write my personal data (email, phone,
+answers) into any file that gets committed to git.
+```
+
 ## License and use
 
 Personal-use project; no warranty. It only reads public job-board and employer-feed APIs — no
