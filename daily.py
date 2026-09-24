@@ -109,18 +109,31 @@ def rank_jobs(jobs, rng):
     return sorted(jobs, key=rank_score, reverse=True)
 
 
-def _job_block(index, job):
-    """One job as a small card: bold linked title, then a quoted block of fixed lines.
+LEGAL_SUFFIX = re.compile(r"[\s,]+(AG|SA|S\.A\.|GmbH|Sàrl|S\.à\s?r\.l\.|Ltd\.?|Limited|Inc\.?|LLC|plc|SE|Co\.)$", re.I)
+GENDER_TAG = re.compile(r"\s*\((?:[mwfdxa]\s*[/|,]?\s*)+\)|\s*\((?:all genders?|alle|tous genres)\)", re.I)
+INDENT = '   '
 
-    Line 1: company · location. Line 2: seniority · work mode · signal badges.
-    Line 3: the tappable /apply command.
-    """
-    title = f"<b>{escape(job['title'])}</b>"
+
+def short_company(name):
+    """'Zürich Versicherungs-Gesellschaft AG / Zurich Insurance Company Ltd' -> 'Zürich Versicherungs-Gesellschaft'."""
+    name = re.split(r'\s+/\s+|\s+\|\s+', (name or '').strip())[0]
+    while LEGAL_SUFFIX.search(name):
+        name = LEGAL_SUFFIX.sub('', name)
+    return name or 'Unknown employer'
+
+
+def short_title(title):
+    """Drop gender tags such as (m/f/d), (a), (all genders); keep everything else."""
+    return re.sub(r'\s{2,}', ' ', GENDER_TAG.sub('', title or '')).strip(' -–|') or title
+
+
+def _job_block(index, job):
+    """Layout: bold linked title; company · location · seniority · work mode; signals; /apply."""
+    title = f"<b>{escape(short_title(job['title']))}</b>"
     if job.get('url'):
         title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
-    lines = [f"{escape(job['company'])} · {escape(job.get('location') or 'location not stated')}"]
+    facts = [escape(short_company(job['company'])), escape(job.get('location') or 'location not stated')]
     ai = job.get('ai')
-    facts = []
     if ai and ai['seniority']['value'] in SENIORITY_LABELS:
         facts.append(SENIORITY_LABELS[ai['seniority']['value']])
     mode = {'onsite': 'On-site', 'hybrid': 'Hybrid', 'remote': 'Remote'}.get(ai['work_mode']['value'] if ai else '')
@@ -129,14 +142,18 @@ def _job_block(index, job):
         mode = badge.split(' ', 1)[1] if badge else None
     if mode:
         facts.append(mode)
-    if ai:
-        facts.extend(_ai_badges(ai))
-    if facts:
-        lines.append(' · '.join(facts))
+    lines = [f"{index}. {title}", INDENT + ' · '.join(facts)]
+    signals = _ai_badges(ai) if ai else []
+    if signals:
+        # Short signal lists fit on the facts line; longer ones get their own line.
+        if len(lines[1]) + len(' · '.join(signals)) <= 70:
+            lines[1] += ' · ' + ' · '.join(signals)
+        else:
+            lines.append(INDENT + ' · '.join(signals))
     if job.get('url'):
         # Telegram turns this into a tappable command in the chat.
-        lines.append(f"/apply_{applications.job_code(job['url'])}")
-    return f"{index}. {title}\n<blockquote>" + '\n'.join(lines) + "</blockquote>"
+        lines.append(f"{INDENT}/apply_{applications.job_code(job['url'])}")
+    return '\n'.join(lines)
 
 
 def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):

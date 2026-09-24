@@ -20,8 +20,8 @@ class DigestFormatTests(unittest.TestCase):
         self.assertIn('<b>SRE &lt;Platform&gt; &amp; Ops</b>', message)
         self.assertIn('href="https://example.test/jobs?id=1&amp;x=&quot;y&quot;"', message)
         self.assertIn('A&amp;B &lt;Labs&gt; · Zurich', message)
+        self.assertNotIn('<blockquote>', message)
         self.assertIn('Hybrid', message)
-        self.assertIn('<blockquote>', message)
         self.assertNotIn('<Labs>', message)
 
     def test_ranking_puts_swiss_sre_first(self):
@@ -45,6 +45,15 @@ class DigestFormatTests(unittest.TestCase):
         self.assertTrue(all(len(m) <= daily.TELEGRAM_LIMIT for m in messages))
         self.assertEqual(sum(m.count('https://example.test/') for m in messages), 50)
         self.assertIn(f'part 1/{len(messages)}', messages[0])
+
+    def test_company_and_title_are_shortened(self):
+        self.assertEqual(daily.short_company('Zürich Versicherungs-Gesellschaft AG / Zurich Insurance Company Ltd'),
+                         'Zürich Versicherungs-Gesellschaft')
+        self.assertEqual(daily.short_company('Consult & Pepper AG'), 'Consult & Pepper')
+        self.assertEqual(daily.short_title('Senior Platform Engineer - Identity & Security (m/f/d) 80-100%'),
+                         'Senior Platform Engineer - Identity & Security 80-100%')
+        self.assertEqual(daily.short_title('Site Reliability Engineer (a)'), 'Site Reliability Engineer')
+        self.assertEqual(daily.short_title('Software Development Engineer (all genders)'), 'Software Development Engineer')
 
     def test_unknown_work_mode_is_omitted(self):
         self.assertIsNone(daily._work_mode_badge('Not stated'))
