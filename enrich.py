@@ -160,6 +160,33 @@ def load(db):
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM enrichments')}
 
 
+def run(db, model, max_jobs, client=None):
+    """Enrich up to max_jobs pending jobs; returns a one-line summary."""
+    jobs = pending_jobs(db, max_jobs)
+    if not jobs:
+        return f'0 job(s) to enrich with {model}'
+    import anthropic  # Only needed when actually calling the API.
+    client = client or anthropic.Anthropic()
+    tokens_in = tokens_out = failures = enriched = 0
+    for job in jobs:
+        try:
+            data, usage = extract(client, model, job)
+        except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError) as error:
+            # Transient after the SDK's own retries: stop and let the next run continue.
+            print(f'Stopping early, API unavailable: {type(error).__name__}')
+            break
+        except (anthropic.APIStatusError, RuntimeError, json.JSONDecodeError, StopIteration) as error:
+            failures += 1
+            print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
+            continue
+        save(db, job, model, data)
+        enriched += 1
+        tokens_in += usage.input_tokens
+        tokens_out += usage.output_tokens
+    return (f'Enriched {enriched} of {len(jobs)} job(s) with {model}; {failures} failed; '
+            f'tokens in {tokens_in}, out {tokens_out}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
@@ -168,30 +195,10 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='list pending jobs without calling the API')
     args = parser.parse_args()
     with job_store.connect(args.db) as db:
-        jobs = pending_jobs(db, args.max_jobs)
-        print(f'{len(jobs)} job(s) to enrich with {args.model}')
-        if args.dry_run or not jobs:
-            return 0
-        import anthropic  # Only needed when actually calling the API.
-        client = anthropic.Anthropic()
-        tokens_in = tokens_out = failures = enriched = 0
-        for job in jobs:
-            try:
-                data, usage = extract(client, args.model, job)
-            except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError) as error:
-                # Transient after the SDK's own retries: stop and let the next run continue.
-                print(f'Stopping early, API unavailable: {type(error).__name__}')
-                break
-            except (anthropic.APIStatusError, RuntimeError, json.JSONDecodeError, StopIteration) as error:
-                failures += 1
-                print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
-                continue
-            save(db, job, args.model, data)
-            enriched += 1
-            tokens_in += usage.input_tokens
-            tokens_out += usage.output_tokens
-        print(f'Enriched {enriched} job(s); {failures} failed; '
-              f'tokens in {tokens_in}, out {tokens_out}')
+        if args.dry_run:
+            print(f'{len(pending_jobs(db, args.max_jobs))} job(s) to enrich with {args.model}')
+        else:
+            print(run(db, args.model, args.max_jobs))
     return 0
 
 

@@ -233,6 +233,8 @@ def main():
                         help='scheduled: send only when new jobs exist; run/today: always send; '
                              'apply: mark --job as applied in Notion')
     parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply')
+    parser.add_argument('--enrich-max', type=int, default=0,
+                        help='AI stage 1: extract facts for up to N new/changed jobs after import (0 = off)')
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
@@ -262,6 +264,12 @@ def main():
         if args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += job_store.import_company_report(db, company_report)
+        if args.enrich_max:
+            # Runs after import so fresh descriptions are included. AI trouble never blocks the digest.
+            try:
+                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max))
+            except Exception as error:
+                print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
         messages, new_count = build_digest(db, args.limit, hidden_urls=hidden)
     text = '\n\n'.join(messages)
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)

@@ -54,28 +54,25 @@ jobs:
       - name: Discover Swiss software employers
         if: env.MODE == 'scheduled' || env.MODE == 'run'
         run: python discover.py --pages 2 --max-companies 80
-      # AI stage 1 is off until the repository variable SRE_WATCH_ENRICH_MODEL
-      # names a model, so no API credits are spent by accident. A failure here
-      # never blocks the digest; unenriched jobs simply show no AI badges.
-      - name: Extract job facts with Claude
-        if: (env.MODE == 'scheduled' || env.MODE == 'run') && vars.SRE_WATCH_ENRICH_MODEL != ''
-        continue-on-error: true
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
-        run: |
-          pip install --quiet -r requirements.txt
-          python enrich.py --max-jobs 100
       - name: Generate canonical digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # AI stage 1 stays off until this repository variable names a model,
+          # so no API credits are spent by accident.
+          SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
           JOB: ${{ inputs.job }}
         run: |
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
-          python daily.py $send --limit 25 --mode "$MODE" ${JOB:+--job "$JOB"}
+          enrich=""
+          if [ -n "$SRE_WATCH_ENRICH_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ]; }; then
+            pip install --quiet -r requirements.txt
+            enrich="--enrich-max 100"
+          fi
+          python daily.py $send --limit 25 --mode "$MODE" ${JOB:+--job "$JOB"} $enrich
       - name: Report failure to Telegram
         if: failure()
         env:
