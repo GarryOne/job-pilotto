@@ -2,6 +2,12 @@ name: Daily job discovery
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'scheduled sends only when new jobs exist; run and today always send'
+        type: choice
+        options: [scheduled, run, today]
+        default: scheduled
   schedule:
     # GitHub Actions schedules use UTC.
     - cron: '30 */4 * * *'
@@ -37,16 +43,17 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests
       - name: Discover Swiss software employers
-        run: python discover.py --pages 1 --max-companies 40
+        run: python discover.py --pages 2 --max-companies 80
       - name: Generate canonical digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE: ${{ inputs.mode || 'scheduled' }}
         run: |
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-            python daily.py --send --limit 10
+            python daily.py --send --limit 25 --mode "$MODE"
           else
-            python daily.py --limit 10
+            python daily.py --limit 25 --mode "$MODE"
           fi
       - name: Save job database
         if: always()

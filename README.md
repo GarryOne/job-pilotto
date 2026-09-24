@@ -45,7 +45,7 @@ Source API documentation: https://docs.greenhouse.io/job-board.html
 ## Swiss company discovery
 
 ```sh
-python3 /Users/mac/sre-watch/discover.py --pages 1 --max-companies 40
+python3 /Users/mac/sre-watch/discover.py --pages 2 --max-companies 80
 ```
 
 Open `reports/companies.html`: filter by city, company, job title, Remote or
@@ -86,6 +86,11 @@ The repository includes `.github/workflows/daily.yml`. It runs the tests,
 discovers Swiss software employers and generates a digest every four hours
 (00:30, 04:30, 08:30, 12:30, 16:30 and 20:30 UTC). Run it manually with the
 workflow-dispatch button after pushing.
+
+Each digest lists up to 25 jobs: new jobs first, then "more to explore" from
+older open jobs. Both sections rank Swiss locations first, then SRE-type titles,
+then remote/hybrid; equally ranked jobs are shuffled so repeat digests vary.
+Long digests are split into several Telegram messages.
 
 Between runs the workflow keeps `data/canonical.sqlite` and `data/jobs.sqlite`
 in the GitHub Actions cache, so each digest lists only jobs first seen in that

@@ -5,6 +5,8 @@ from html import escape
 import json
 import os
 from pathlib import Path
+import random
+import re
 import subprocess
 import urllib.parse
 import urllib.request
@@ -14,9 +16,15 @@ import watch
 
 ROOT = Path(__file__).resolve().parent
 
-
 WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', 'Remote mentioned': '🌍 Remote?'}
 TELEGRAM_LIMIT = 4096
+# Leave room for the "part 2/3" suffix Telegram messages get when split.
+CHUNK_LIMIT = TELEGRAM_LIMIT - 200
+SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|genève|genf|basel|bern|"
+                   r"lausanne|lugano|luzern|lucerne|winterthur|zug|st\.? gallen", re.I)
+RELEVANT = re.compile(r"site reliability|\bsre\b|platform|devops|infrastructure|cloud|kubernetes|"
+                      r"production engineer|observability", re.I)
+MODES = ('scheduled', 'run', 'today')
 
 
 def _work_mode_badge(value):
@@ -26,30 +34,83 @@ def _work_mode_badge(value):
     return None
 
 
-def format_digest(db, limit=10):
-    """Build a Telegram HTML digest; every dynamic value is escaped."""
-    jobs = job_store.digest_jobs(db, limit=limit, only_new=True)
-    chosen = jobs or job_store.digest_jobs(db, limit=limit, only_new=False)
-    if jobs:
-        header = f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(jobs)} new job{'s' if len(jobs) != 1 else ''}"
-    else:
-        header = "🇨🇭 <b>SRE Watch</b> · no new jobs, latest listings below"
+def is_swiss(job):
+    return bool(job.get('city')) or bool(SWISS.search(job.get('location') or ''))
+
+
+def rank_score(job):
+    """Higher is better: Swiss location first, then SRE-type titles, then remote."""
+    score = 0
+    if is_swiss(job):
+        score += 4
+    if RELEVANT.search(job.get('title') or ''):
+        score += 2
+    if (job.get('work_mode') or '').startswith(('Remote', 'Hybrid')):
+        score += 1
+    return score
+
+
+def rank_jobs(jobs, rng):
+    """Sort by score; shuffle first so equally scored jobs rotate between digests."""
+    jobs = list(jobs)
+    rng.shuffle(jobs)
+    return sorted(jobs, key=rank_score, reverse=True)
+
+
+def _job_block(index, job):
+    details = [f"🏢 {escape(job['company'])}", f"📍 {escape(job.get('location') or 'Location not stated')}"]
+    badge = _work_mode_badge(job.get('work_mode'))
+    if badge:
+        details.append(badge)
+    title = f"<b>{escape(job['title'])}</b>"
+    if job.get('url'):
+        title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
+    flag = '🇨🇭 ' if is_swiss(job) else ''
+    return f"{index}. {flag}{title}\n" + ' · '.join(details)
+
+
+def build_digest(db, limit=25, rng=None):
+    """Return (messages, new_count) as Telegram HTML; each message fits one Telegram send.
+
+    New jobs come first, ranked. Remaining slots are filled with older open jobs
+    ("more to explore"), ranked but shuffled within each score so repeat digests vary.
+    """
+    rng = rng or random.Random()
+    everything = job_store.digest_jobs(db, limit=10_000, only_new=False)
+    new_ids = {job['id'] for job in job_store.digest_jobs(db, limit=10_000, only_new=True)}
+    new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)[:limit]
+    older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)[:limit - len(new)]
+    swiss_total = sum(is_swiss(j) for j in everything)
+
+    header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · 🎲 {len(older)} more to explore\n"
+              f"<i>{len(everything)} open jobs tracked, {swiss_total} in Switzerland</i>")
     blocks = [header]
-    for index, job in enumerate(chosen, 1):
-        details = [f"🏢 {escape(job['company'])}", f"📍 {escape(job.get('location') or 'Location not stated')}"]
-        badge = _work_mode_badge(job.get('work_mode'))
-        if badge:
-            details.append(badge)
-        title = f"<b>{escape(job['title'])}</b>"
-        if job.get('url'):
-            title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
-        block = f"{index}. {title}\n" + ' · '.join(details)
-        # Stop before Telegram's message limit instead of cutting HTML mid-tag.
-        if len('\n\n'.join(blocks + [block])) > TELEGRAM_LIMIT - 100:
-            blocks.append(f"… and {len(chosen) - index + 1} more in the run report")
-            break
-        blocks.append(block)
-    return '\n\n'.join(blocks)
+    index = 1
+    for title, section in (('🆕 <b>New since last run</b>', new), ('🎲 <b>More to explore</b>', older)):
+        if not section:
+            continue
+        blocks.append(title)
+        for job in section:
+            blocks.append(_job_block(index, job))
+            index += 1
+
+    messages, current = [], ''
+    for block in blocks:
+        candidate = f"{current}\n\n{block}" if current else block
+        if len(candidate) > CHUNK_LIMIT and current:
+            messages.append(current)
+            current = block
+        else:
+            current = candidate
+    if current:
+        messages.append(current)
+    if len(messages) > 1:
+        messages = [f"{m}\n\n<i>part {i}/{len(messages)}</i>" for i, m in enumerate(messages, 1)]
+    return messages, len(new)
+
+
+def format_digest(db, limit=25, rng=None):
+    return '\n\n'.join(build_digest(db, limit, rng)[0])
 
 
 def send_telegram(text, token, chat_id):
@@ -82,8 +143,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
     parser.add_argument('--company-report', type=Path, default=ROOT / 'reports' / 'companies.json')
-    parser.add_argument('--limit', type=int, default=10)
+    parser.add_argument('--limit', type=int, default=25)
     parser.add_argument('--send', action='store_true', help='send to Telegram; otherwise print preview only')
+    parser.add_argument('--mode', choices=MODES, default='scheduled',
+                        help='scheduled: send only when new jobs exist; run/today: always send')
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
@@ -97,23 +160,24 @@ def main():
         if args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += job_store.import_company_report(db, company_report)
-        message = format_digest(db, args.limit)
-        has_new = bool(job_store.digest_jobs(db, limit=1, only_new=True))
+        messages, new_count = build_digest(db, args.limit)
+    text = '\n\n'.join(messages)
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)
-    (ROOT / 'reports' / 'daily-latest.txt').write_text(message + '\n', encoding='utf-8')
+    (ROOT / 'reports' / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')
     (ROOT / 'reports' / 'daily-latest.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
-    print(message)
+    print(text)
     if not args.send:
         print('\nPreview only. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send.')
         return 0
     token, chat_id = os.getenv('TELEGRAM_BOT_TOKEN') or keychain_token(), os.getenv('TELEGRAM_CHAT_ID')
     if not token or not chat_id:
         raise SystemExit('--send requires TELEGRAM_CHAT_ID and either TELEGRAM_BOT_TOKEN or the local Keychain entry')
-    if not has_new:
+    if args.mode == 'scheduled' and not new_count:
         print('\nNo new jobs since the last run; nothing sent.')
         return 0
-    send_telegram(message, token, chat_id)
-    print(f'\nSent Telegram digest; imported {len(imported)} jobs.')
+    for message in messages:
+        send_telegram(message, token, chat_id)
+    print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
 
 
 if __name__ == '__main__':
