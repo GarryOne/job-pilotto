@@ -22,6 +22,7 @@ def job_code(url):
 
 
 PROFILE_PAGE_ID = '3e562be8fd8681579078d09829921b8c'
+MATCHES_DATABASE_ID = '2d8077c592fd45db8d6d5c8e2eea75cb'
 
 
 def _rich(items):
@@ -122,3 +123,11 @@ class Tracker:
                 for row in self._children(block['id']):
                     lines.append(' | '.join(_rich(cell) for cell in row['table_row']['cells']))
         return '\n'.join(line for line in lines if line.strip()).strip()
+
+    def upsert_match(self, properties, page_id=None, database_id=MATCHES_DATABASE_ID):
+        """Create or update one Job Matches row; returns its page id."""
+        if page_id:
+            self._request('PATCH', f'pages/{page_id}', {'properties': properties})
+            return page_id
+        page = self._request('POST', 'pages', {'parent': {'database_id': database_id}, 'properties': properties})
+        return page['id']

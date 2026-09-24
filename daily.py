@@ -16,6 +16,7 @@ import applications
 import enrich
 import score
 import job_store
+import matches
 import watch
 
 ROOT = Path(__file__).resolve().parent
@@ -445,6 +446,16 @@ def main():
                 print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max))
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
+        if tracker and args.mode in ('scheduled', 'run', 'today'):
+            # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
+            try:
+                fits = score.load(db)
+                candidates, _ = eligible_jobs(db, hidden)
+                scored = [dict(j, fit=fits[j['id']]) for j in candidates if j['id'] in fits]
+                open_urls = {j['url'].strip() for j in job_store.digest_jobs(db, limit=10_000) if j.get('url')}
+                print(matches.sync(db, tracker, scored, hidden, open_urls))
+            except Exception as error:
+                print(f'Warning: Notion Job Matches sync skipped: {type(error).__name__}: {error}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden,
