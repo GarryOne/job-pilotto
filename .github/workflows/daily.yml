@@ -7,10 +7,16 @@ on:
       mode:
         description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied'
         type: choice
-        options: [scheduled, run, today, apply]
+        options: [scheduled, run, today, apply, more]
         default: scheduled
       job:
         description: 'job code from /apply_<code> (apply mode only)'
+        required: false
+      page:
+        description: 'page number from a Next button (more mode only)'
+        required: false
+      seed:
+        description: 'ranking seed from a Next button (more mode only)'
         required: false
   schedule:
     # GitHub Actions schedules use UTC.
@@ -20,10 +26,10 @@ permissions:
   contents: read
   actions: write
 
-# Runs share one SQLite state file; never let two overlap. Apply runs only
-# read it, so they get their own group and a queued run can't displace them.
+# Runs share one SQLite state file; never let two overlap. Apply and more runs
+# only read it, so they get their own group and a queued run can't displace them.
 concurrency:
-  group: ${{ inputs.mode == 'apply' && format('apply-{0}', github.run_id) || 'sre-watch-state' }}
+  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more') && format('read-{0}', github.run_id) || 'sre-watch-state' }}
   cancel-in-progress: false
 
 env:
@@ -64,6 +70,8 @@ jobs:
           # so no API credits are spent by accident.
           SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
           JOB: ${{ inputs.job }}
+          PAGE: ${{ inputs.page }}
+          SEED: ${{ inputs.seed }}
         run: |
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
@@ -72,7 +80,7 @@ jobs:
             pip install --quiet -r requirements.txt
             enrich="--enrich-max 100"
           fi
-          python daily.py $send --limit 25 --mode "$MODE" ${JOB:+--job "$JOB"} $enrich
+          python daily.py $send --mode "$MODE" ${JOB:+--job "$JOB"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $enrich
       - name: Report failure to Telegram
         if: failure()
         env:
@@ -85,7 +93,7 @@ jobs:
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
             --data-urlencode "text=❌ SRE Watch ${MODE} run failed: ${RUN_URL}" > /dev/null
       - name: Save job database
-        if: always() && env.MODE != 'apply'
+        if: always() && env.MODE != 'apply' && env.MODE != 'more'
         uses: actions/cache/save@v4
         with:
           path: |

@@ -92,10 +92,13 @@ class EnrichTests(unittest.TestCase):
 
 
 class SalaryTests(unittest.TestCase):
-    def test_salary_needs_a_figure_and_is_trimmed(self):
+    def test_salary_shows_only_the_figure(self):
         self.assertIsNone(daily._salary('In the UK, the base compensation range for this role'))
+        self.assertEqual(daily._salary('In the UK, the Base compensation range for this role is £92,000 - £110,000.'),
+                         '£92,000 - £110,000')
         self.assertEqual(daily._salary('CHF 130k–150k'), 'CHF 130k–150k')
-        self.assertEqual(len(daily._salary('SEK 878,578 - SEK 1,054,294 plus equity and benefits')), 32)
+        self.assertEqual(daily._salary('SEK 878,578 - SEK 1,054,294'), 'SEK 878,578 - SEK 1,054,294')
+        self.assertIsNone(daily._salary('Team of 12 engineers, founded 2019'))
 
 
 if __name__ == '__main__':

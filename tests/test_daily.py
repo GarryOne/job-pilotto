@@ -34,31 +34,42 @@ class DigestFormatTests(unittest.TestCase):
         self.assertEqual([j['title'] for j in ranked],
                          ['Senior SRE', 'Software Engineer', 'Site Reliability Engineer', 'Accountant'])
 
-    def test_25_jobs_fit_one_message_with_collapsed_rest(self):
+    def test_pages_of_ten_continue_with_the_same_seed(self):
         report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer',
-                            'location': 'Zurich', 'url': f'https://example.test/{"x" * 150}/{i}'} for i in range(25)]}
+                            'location': 'Zurich', 'url': f'https://example.test/{i}'} for i in range(25)]}
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                messages, new_count, keyboards = daily.build_digest(db, limit=25)
-        self.assertEqual(new_count, 25)
-        self.assertEqual(len(messages), 1)
-        self.assertLessEqual(daily.visible_length(messages[0]), daily.TELEGRAM_LIMIT)
-        self.assertIn('15 more</b> · <i>tap to expand</i>', messages[0])
-        self.assertIn('<blockquote expandable>', messages[0])
-        self.assertEqual(sum(len(row) for row in keyboards[0]['inline_keyboard']), 25)
+                pages = [daily.build_digest(db, page=p, seed=7) for p in (1, 2, 3, 4)]
+        urls = []
+        for messages, _, keyboards in pages[:3]:
+            self.assertEqual(len(messages), 1)
+            self.assertLessEqual(daily.visible_length(messages[0]), daily.TELEGRAM_LIMIT)
+            urls += [u for u in daily.re.findall(r'href="([^"]+)"', messages[0])]
+        self.assertEqual(len(urls), 25)
+        self.assertEqual(len(set(urls)), 25)  # no job repeated across pages
+        next_buttons = [row[0]['callback_data'] for _, _, kb in pages[:3] for row in kb[0]['inline_keyboard']
+                        if row[0]['callback_data'].startswith('more:')]
+        self.assertEqual(next_buttons, ['more:7:2', 'more:7:3'])
+        self.assertIn('jobs 11–20 of 25', pages[1][0][0])
+        self.assertIn('no more jobs', pages[3][0][0])
 
-    def test_very_long_digest_still_splits_under_telegram_limit(self):
-        report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer ' + 'x' * 120,
-                            'location': 'Zurich', 'url': f'https://example.test/{i}'} for i in range(50)]}
+    def test_consecutive_digests_rotate_older_jobs(self):
+        report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer',
+                            'location': 'Zurich', 'url': f'https://example.test/{i}'} for i in range(25)]}
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                messages, new_count, keyboards = daily.build_digest(db, limit=50)
-        self.assertGreater(len(messages), 1)
-        self.assertTrue(all(daily.visible_length(m) <= daily.TELEGRAM_LIMIT for m in messages))
-        self.assertEqual(sum(m.count('https://example.test/') for m in messages), 50)
-        self.assertEqual(len(keyboards), len(messages))
+                db.execute("UPDATE jobs SET last_seen_at = '2099-01-01T00:00:00+00:00'")  # none are new any more
+                first_ids, second_ids, page2_ids = [], [], []
+                daily.build_digest(db, seed=1, shown_ids=first_ids)
+                daily.mark_shown(db, first_ids, seed=1)
+                # Page 2 of the same digest ignores its own marks and continues the list.
+                daily.build_digest(db, seed=1, page=2, shown_ids=page2_ids)
+                daily.build_digest(db, seed=2, shown_ids=second_ids)
+        self.assertEqual(len(first_ids), 10)
+        self.assertFalse(set(first_ids) & set(second_ids))
+        self.assertFalse(set(first_ids) & set(page2_ids))
 
     def test_company_and_title_are_shortened(self):
         self.assertEqual(daily.short_company('Zürich Versicherungs-Gesellschaft AG / Zurich Insurance Company Ltd'),

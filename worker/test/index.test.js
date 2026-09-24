@@ -78,6 +78,13 @@ test('✅ button dispatches apply and answers the tap', async () => {
   assert.equal(calls[1].body.callback_query_id, 'q1');
 });
 
+test('➕ Next button dispatches the next page with the same seed', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await tap('more:123456:2');
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'more', seed: '123456', page: '2' } });
+  assert.match(calls[1].body.text, /next jobs/);
+});
+
 test('buttons from other chats are ignored', async () => {
   const calls = mockFetch();
   await tap('apply:ab12cd34', { chatId: 7 });

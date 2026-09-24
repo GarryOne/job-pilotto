@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the local scan, import canonical state and optionally send Telegram digest."""
 import argparse
+from datetime import datetime, timedelta, timezone
 from html import escape, unescape
 import json
 import os
@@ -22,12 +23,12 @@ WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', '
 TELEGRAM_LIMIT = 4096
 # Leave room for the footer and "part 2/3" suffix.
 CHUNK_LIMIT = TELEGRAM_LIMIT - 200
-VISIBLE_JOBS = 10  # Shown expanded; the rest sit in a collapsed "tap to expand" quote.
+PAGE_SIZE = 10  # Jobs per digest message; '➕ Next' loads the following page.
 SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|genève|genf|basel|bern|"
                    r"lausanne|lugano|luzern|lucerne|winterthur|zug|st\.? gallen", re.I)
 RELEVANT = re.compile(r"site reliability|\bsre\b|platform|devops|infrastructure|cloud|kubernetes|"
                       r"production engineer|observability", re.I)
-MODES = ('scheduled', 'run', 'today', 'apply')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more')
 PREFERENCES = json.loads((ROOT / 'preferences.json').read_text())
 LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
 SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
@@ -80,12 +81,20 @@ def language_blocked(job):
                             for l in ai['languages'])
 
 
+_CUR = r"(?:CHF|EUR|USD|GBP|SEK|NOK|DKK|PLN|[£$€])"
+_NUM = r"\d[\d'’,. ]*\d(?:\s?[kK])?|\d(?:\s?[kK])?"
+SALARY_FIGURE = re.compile(rf"(?:{_CUR}\s?)?(?:{_NUM})(?:\s?{_CUR})?(?:\s?(?:-|–|to)\s?(?:{_CUR}\s?)?(?:{_NUM})(?:\s?{_CUR})?)?")
+
+
 def _salary(text):
-    """Short salary text, or None when the posting's wording has no actual figure."""
-    text = re.sub(r'\s+', ' ', text or '').strip()
-    if not re.search(r'\d', text):
-        return None
-    return text if len(text) <= 32 else text[:31].rstrip(' ,;-') + '…'
+    """Just the salary figure or range ('SEK 878,578 - SEK 1,054,294'), or None if there is none.
+
+    Needs a currency or a 'k' so that years, percentages and team sizes don't count."""
+    for match in SALARY_FIGURE.finditer(re.sub(r'\s+', ' ', text or '')):
+        figure = match.group(0).strip(" ,.;-–")
+        if re.search(_CUR, figure) or re.search(r'\d\s?[kK]\b', figure):
+            return figure if len(figure) <= 40 else figure[:39] + '…'
+    return None
 
 
 def _ai_badges(ai):
@@ -166,92 +175,109 @@ def _keyboard(entries):
     return {'inline_keyboard': [buttons[i:i + 5] for i in range(0, len(buttons), 5)]} if buttons else None
 
 
-def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
-    """Return (messages, new_count, keyboards): Telegram HTML texts, each fitting one send,
-    and for each text the inline keyboard of '✅ n' buttons for the jobs it lists (or None).
+SHOWN_TABLE = """
+CREATE TABLE IF NOT EXISTS shown (
+    job_id INTEGER PRIMARY KEY REFERENCES jobs(id),
+    last_shown_at TEXT NOT NULL,
+    last_seed INTEGER NOT NULL,
+    times INTEGER NOT NULL DEFAULT 1
+);
+"""
+ROTATION_HOURS = 24
 
-    New jobs come first, ranked. Remaining slots are filled with older open jobs
-    ("more to explore"), ranked but shuffled within each score so repeat digests vary.
-    Jobs whose URL is in hidden_urls (already applied to) are left out.
+
+def recently_shown(db, seed, now=None):
+    """Job ids sent in a digest within ROTATION_HOURS, except by this digest's own seed,
+    so its later pages keep the order its first page was built with."""
+    db.executescript(SHOWN_TABLE)
+    now = now or datetime.now(timezone.utc)
+    cutoff = (now - timedelta(hours=ROTATION_HOURS)).isoformat(timespec='seconds')
+    return {row['job_id'] for row in db.execute(
+        'SELECT job_id FROM shown WHERE last_shown_at >= ? AND last_seed != ?', (cutoff, seed))}
+
+
+def mark_shown(db, job_ids, seed, now=None):
+    db.executescript(SHOWN_TABLE)
+    stamp = (now or datetime.now(timezone.utc)).isoformat(timespec='seconds')
+    db.executemany("""INSERT INTO shown (job_id, last_shown_at, last_seed) VALUES (?, ?, ?)
+        ON CONFLICT(job_id) DO UPDATE SET last_shown_at=excluded.last_shown_at,
+        last_seed=excluded.last_seed, times=shown.times + 1""", [(i, stamp, seed) for i in job_ids])
+    db.commit()
+
+
+def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, shown_ids=None):
+    """Return (messages, new_count, keyboards) for one page of the digest.
+
+    All eligible jobs are ranked once (new first, then "more to explore", shuffled
+    within each score using `seed`, so page 2 continues page 1's order). A page
+    shows PAGE_SIZE jobs in one message, with '✅ n' buttons and, when more jobs
+    remain, a '➕ Next' button that asks for page+1 with the same seed.
+
+    Rotation: among older jobs, those sent in the last ROTATION_HOURS go after the
+    ones not seen yet, so consecutive digests don't open with the same ten.
+    The ids of the jobs on this page are appended to shown_ids when given.
     """
-    rng = rng or random.Random()
+    seed = seed if seed is not None else random.randrange(1, 10**9)
+    rng = rng or random.Random(seed)
     facts = enrich.load(db)
     everything = [dict(j, ai=facts.get(j['id'])) for j in job_store.digest_jobs(db, limit=10_000, only_new=False)
                   if (j.get('url') or '').strip() not in hidden_urls]
     blocked = [j for j in everything if language_blocked(j)]
     everything = [j for j in everything if not language_blocked(j)]
     new_ids = {job['id'] for job in job_store.digest_jobs(db, limit=10_000, only_new=True)}
-    new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)[:limit]
-    older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)[:limit - len(new)]
-    swiss_total = sum(is_swiss(j) for j in everything)
+    new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
+    recent = recently_shown(db, seed)
+    older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)
+    # Stable sort: unseen first, each group keeping its score order.
+    older.sort(key=lambda j: j['id'] in recent)
+    ranked = [('new', j) for j in new] + [('older', j) for j in older]
+    ranked = ranked[:limit]
+    first = (page - 1) * PAGE_SIZE
+    shown = ranked[first:first + PAGE_SIZE]
 
-    stats = [f"{len(everything)} open", f"{swiss_total} 🇨🇭"]
-    if hidden_urls:
-        stats.append(f"{len(hidden_urls)} applied")
-    if blocked:
-        stats.append(f"{len(blocked)} language-filtered")
-    header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · 🎲 {len(older)} to explore\n"
-              f"<i>{' · '.join(stats)}</i>")
-    # Each block carries the (index, code) pairs of the jobs it shows, for the buttons.
-    blocks = [(header, [])]
-    index = 1
-    for title, section in (('🆕 <b>New since last run</b>', new), ('🎲 <b>More to explore</b>', older)):
-        if not section:
-            continue
-        blocks.append((title, []))
-        abroad_heading = False
-        for job in section:
-            # Ranking puts Swiss jobs first; mark where the rest begins instead of flagging every job.
-            if not is_swiss(job) and not abroad_heading:
-                blocks.append(('🌍 <i>Outside Switzerland</i>', []))
-                abroad_heading = True
-            code = applications.job_code(job['url']) if job.get('url') else None
-            blocks.append((_job_block(index, job), [(index, code)] if code else []))
-            index += 1
-    footer = '<i>Applied to one? Tap its ✅ number below.</i>'
-
-    # Preferred: one message, the top jobs visible and the rest in a collapsed
-    # "tap to expand" quote. Telegram's limit counts visible text only (not link URLs).
-    header_blocks = [b for b in blocks if not b[1]][:1]
-    rest = blocks[1:]
-    job_positions = [i for i, (_, e) in enumerate(rest) if e]
-    if len(job_positions) > VISIBLE_JOBS:
-        cut = job_positions[VISIBLE_JOBS]
-        shown, hidden = rest[:cut], rest[cut:]
-        hidden_count = sum(1 for _, e in hidden if e)
-        collapsed = (f"➕ <b>{hidden_count} more</b> · <i>tap to expand</i>\n<blockquote expandable>"
-                     + '\n\n'.join(b for b, _ in hidden) + "</blockquote>")
-        text = '\n\n'.join([header_blocks[0][0]] + [b for b, _ in shown] + [collapsed, footer])
+    if page == 1:
+        swiss_total = sum(is_swiss(j) for j in everything)
+        stats = [f"{len(everything)} open", f"{swiss_total} 🇨🇭"]
+        if hidden_urls:
+            stats.append(f"{len(hidden_urls)} applied")
+        if blocked:
+            stats.append(f"{len(blocked)} language-filtered")
+        header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
+                  f"<i>{' · '.join(stats)}</i>")
+    elif shown:
+        header = f"🇨🇭 <b>SRE Watch</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
     else:
-        text = '\n\n'.join([b for b, _ in blocks] + [footer])
-    if visible_length(text) <= CHUNK_LIMIT:
-        entries = [e for _, block_entries in blocks for e in block_entries]
-        return [text], len(new), [_keyboard(entries)]
+        return ['🇨🇭 <b>SRE Watch</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
 
-    # Fallback for very long digests: split into several messages.
-    parts, text, entries = [], '', []
-    for block, block_entries in blocks:
-        candidate = f"{text}\n\n{block}" if text else block
-        if visible_length(candidate) > CHUNK_LIMIT and text:
-            parts.append((text, entries))
-            text, entries = block, list(block_entries)
-        else:
-            text, entries = candidate, entries + block_entries
-    if text:
-        parts.append((text, entries))
-    total = len(parts)
-    messages = []
-    for i, (text, entries) in enumerate(parts, 1):
-        if entries:
-            text += f"\n\n{footer}"
-        if total > 1:
-            text += f"\n<i>part {i}/{total}</i>"
-        messages.append(text)
-    return messages, len(new), [_keyboard(entries) for _, entries in parts]
+    blocks, entries, section, abroad_heading = [header], [], None, False
+    for offset, (kind, job) in enumerate(shown):
+        index = first + offset + 1
+        if kind != section:
+            section, abroad_heading = kind, False
+            blocks.append('🆕 <b>New since last run</b>' if kind == 'new' else '🎲 <b>More to explore</b>')
+        # Ranking puts Swiss jobs first; mark where the rest begins instead of flagging every job.
+        if not is_swiss(job) and not abroad_heading:
+            blocks.append('🌍 <i>Outside Switzerland</i>')
+            abroad_heading = True
+        blocks.append(_job_block(index, job))
+        if shown_ids is not None:
+            shown_ids.append(job['id'])
+        if job.get('url'):
+            entries.append((index, applications.job_code(job['url'])))
+    remaining = len(ranked) - (first + len(shown))
+    blocks.append('<i>Applied to one? Tap its ✅ number.</i>'
+                  + (f' <i>{remaining} more with ➕.</i>' if remaining else ''))
+    text = '\n\n'.join(blocks)
+    keyboard = _keyboard(entries)
+    if remaining:
+        keyboard = keyboard or {'inline_keyboard': []}
+        keyboard['inline_keyboard'].append(
+            [{'text': f'➕ Next {min(PAGE_SIZE, remaining)}', 'callback_data': f'more:{seed}:{page + 1}'}])
+    return [text], len(new), [keyboard]
 
 
-def format_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
-    return '\n\n'.join(build_digest(db, limit, rng, hidden_urls)[0])
+def format_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None):
+    return '\n\n'.join(build_digest(db, limit, rng, hidden_urls, page, seed)[0])
 
 
 def find_job(db, code):
@@ -313,7 +339,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
     parser.add_argument('--company-report', type=Path, default=ROOT / 'reports' / 'companies.json')
-    parser.add_argument('--limit', type=int, default=25)
+    parser.add_argument('--limit', type=int, default=50, help='jobs in the ranked list, paged 10 at a time')
+    parser.add_argument('--page', type=int, default=1)
+    parser.add_argument('--seed', type=int, help='ranking seed from a ➕ Next button, so pages continue')
     parser.add_argument('--send', action='store_true', help='send to Telegram; otherwise print preview only')
     parser.add_argument('--mode', choices=MODES, default='scheduled',
                         help='scheduled: send only when new jobs exist; run/today: always send; '
@@ -341,13 +369,17 @@ def main():
         except Exception as error:  # A Notion outage shouldn't block the digest.
             print(f'Warning: could not read Notion applications: {error}')
     sources = json.loads((ROOT / 'sources.json').read_text())
+    report, imported = {'jobs': [], 'sources': []}, []
     with job_store.connect(args.db) as db:
-        # The feed watcher and canonical store intentionally have different schemas.
-        # Keep the source-specific history separate, then import the report.
-        with watch.database(ROOT / 'data' / 'jobs.sqlite') as feed_db:
-            report = watch.scan(sources, feed_db)
-        imported = job_store.import_watch_report(db, report)
-        if args.company_report.exists():
+        # A '➕ Next' page reads the stored list as is: importing would mark new jobs
+        # as seen and reorder the list between pages.
+        if args.mode != 'more':
+            # The feed watcher and canonical store intentionally have different schemas.
+            # Keep the source-specific history separate, then import the report.
+            with watch.database(ROOT / 'data' / 'jobs.sqlite') as feed_db:
+                report = watch.scan(sources, feed_db)
+            imported = job_store.import_watch_report(db, report)
+        if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += job_store.import_company_report(db, company_report)
         if args.enrich_max:
@@ -356,7 +388,10 @@ def main():
                 print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max))
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
-        messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden)
+        seed = args.seed or random.randrange(1, 10**9)
+        shown_ids = []
+        messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden,
+                                                      page=args.page, seed=seed, shown_ids=shown_ids)
     text = '\n\n'.join(messages)
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)
     (ROOT / 'reports' / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')
@@ -371,6 +406,10 @@ def main():
         return 0
     for message, keyboard in zip(messages, keyboards):
         send_telegram(message, token, chat_id, keyboard)
+    if args.mode != 'more':
+        # '➕ Next' runs don't save the database, so only first pages count for rotation.
+        with job_store.connect(args.db) as db:
+            mark_shown(db, shown_ids, seed)
     print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
 
 

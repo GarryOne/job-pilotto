@@ -136,14 +136,21 @@ export async function handleCommand(env, command) {
   }
 }
 
-// A tap on a digest's "✅ n" button arrives as callback_query with data "apply:<code>".
+// Digest buttons arrive as callback_query: "apply:<code>" (✅ n) or "more:<seed>:<page>" (➕ Next).
 async function handleButton(env, query) {
   if (String(query.message?.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
-  const code = /^apply:([0-9a-f]{8})$/.exec(query.data || '')?.[1];
+  const apply = /^apply:([0-9a-f]{8})$/.exec(query.data || '');
+  const more = /^more:(\d{1,10}):(\d{1,3})$/.exec(query.data || '');
   try {
-    if (!code) throw new Error('Unknown button');
-    await dispatch(env, { mode: 'apply', job: code });
-    await telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: 'Marking it applied in Notion…' });
+    if (apply) {
+      await dispatch(env, { mode: 'apply', job: apply[1] });
+      await telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: 'Marking it applied in Notion…' });
+    } else if (more) {
+      await dispatch(env, { mode: 'more', seed: more[1], page: more[2] });
+      await telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: 'Loading the next jobs (about a minute)…' });
+    } else {
+      throw new Error('Unknown button');
+    }
   } catch (error) {
     await telegram(env, 'answerCallbackQuery', {
       callback_query_id: query.id, text: `⚠️ ${error.message}`.slice(0, 200), show_alert: true,
