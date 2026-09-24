@@ -54,6 +54,18 @@ jobs:
       - name: Discover Swiss software employers
         if: env.MODE == 'scheduled' || env.MODE == 'run'
         run: python discover.py --pages 2 --max-companies 80
+      # AI stage 1 is off until the repository variable SRE_WATCH_ENRICH_MODEL
+      # names a model, so no API credits are spent by accident. A failure here
+      # never blocks the digest; unenriched jobs simply show no AI badges.
+      - name: Extract job facts with Claude
+        if: (env.MODE == 'scheduled' || env.MODE == 'run') && vars.SRE_WATCH_ENRICH_MODEL != ''
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
+        run: |
+          pip install --quiet -r requirements.txt
+          python enrich.py --max-jobs 40
       - name: Generate canonical digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

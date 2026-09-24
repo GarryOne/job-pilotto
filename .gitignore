@@ -3,3 +3,4 @@ data/
 reports/
 .env
 *.sqlite
+.venv/

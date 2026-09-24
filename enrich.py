@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""AI stage 1: read each new or changed job description and extract structured facts.
+
+Code decides what happened; the model only interprets text. Every extracted
+field carries a short evidence quote, and "unknown" is always allowed, so the
+model never has to invent a salary, language rule or employer.
+"""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+
+import job_store
+
+ROOT = Path(__file__).resolve().parent
+# Bump when the prompt or schema changes so every job is re-extracted once.
+EXTRACTOR_VERSION = 1
+DEFAULT_MODEL = os.getenv('SRE_WATCH_ENRICH_MODEL', 'claude-opus-5')
+
+ENRICHMENT_TABLE = """
+CREATE TABLE IF NOT EXISTS enrichments (
+    job_id INTEGER PRIMARY KEY REFERENCES jobs(id),
+    extractor_version INTEGER NOT NULL,
+    description_hash TEXT NOT NULL,
+    model TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    data_json TEXT NOT NULL
+);
+"""
+
+LANGUAGES = ['English', 'German', 'French', 'Italian', 'Other']
+_evidence = {'type': 'string', 'description': 'Short verbatim quote from the posting, or "" if none'}
+SCHEMA = {
+    'type': 'object',
+    'additionalProperties': False,
+    'required': ['languages', 'english_is_enough', 'seniority', 'work_mode', 'workload', 'salary',
+                 'employer_type', 'role_family', 'technologies', 'on_call', 'confidence'],
+    'properties': {
+        'languages': {
+            'type': 'array',
+            'description': 'Every human language the posting mentions as a requirement or a plus',
+            'items': {
+                'type': 'object', 'additionalProperties': False,
+                'required': ['language', 'level', 'evidence'],
+                'properties': {
+                    'language': {'type': 'string', 'enum': LANGUAGES},
+                    'level': {'type': 'string', 'enum': ['required', 'nice_to_have']},
+                    'evidence': _evidence,
+                },
+            },
+        },
+        'english_is_enough': {
+            'type': 'object', 'additionalProperties': False, 'required': ['value', 'evidence'],
+            'properties': {'value': {'type': 'string', 'enum': ['yes', 'no', 'unknown']}, 'evidence': _evidence},
+        },
+        'seniority': {
+            'type': 'object', 'additionalProperties': False, 'required': ['value', 'evidence'],
+            'properties': {
+                'value': {'type': 'string', 'enum': ['junior', 'mid', 'senior', 'staff_principal', 'lead_manager', 'unknown']},
+                'evidence': _evidence,
+            },
+        },
+        'work_mode': {
+            'type': 'object', 'additionalProperties': False, 'required': ['value', 'remote_scope', 'evidence'],
+            'properties': {
+                'value': {'type': 'string', 'enum': ['onsite', 'hybrid', 'remote', 'unknown']},
+                'remote_scope': {'type': 'string', 'description': 'Where remote work is allowed, e.g. "Switzerland", "EMEA", "worldwide", or ""'},
+                'evidence': _evidence,
+            },
+        },
+        'workload': {'type': 'string', 'description': 'e.g. "100%", "80-100%", or "unknown"'},
+        'salary': {
+            'type': 'object', 'additionalProperties': False, 'required': ['stated', 'text'],
+            'properties': {'stated': {'type': 'boolean'}, 'text': {'type': 'string', 'description': 'Salary exactly as written, or ""'}},
+        },
+        'employer_type': {
+            'type': 'object', 'additionalProperties': False, 'required': ['value', 'evidence'],
+            'properties': {
+                'value': {'type': 'string', 'enum': ['direct_employer', 'recruiter', 'unknown']},
+                'evidence': _evidence,
+            },
+        },
+        'role_family': {'type': 'string', 'enum': ['sre', 'platform', 'devops', 'cloud_infrastructure', 'software',
+                                                   'data', 'security', 'support_it', 'other']},
+        'technologies': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 12 key technologies'},
+        'on_call': {'type': 'string', 'enum': ['yes', 'no', 'unknown']},
+        'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
+    },
+}
+
+SYSTEM = """You extract facts from Swiss job postings for a job-search tool. Report only what the \
+posting says. When a fact is not stated, answer "unknown" (or an empty list/string) rather than \
+guessing from the company name or job title. Evidence must be a short verbatim quote from the posting.
+
+Languages: German may appear as "Deutsch", "fliessend", "verhandlungssicher"; French as "français", \
+"maîtrise". Mark a language "required" only when the posting demands it; "nice_to_have" for "a plus", \
+"von Vorteil", "un atout". A posting written in German or French does not by itself make that language \
+required, but note it in english_is_enough.
+
+employer_type is "recruiter" when the advertiser hires on behalf of an unnamed or different client \
+(staffing agency, "our client"), otherwise "direct_employer"."""
+
+
+def description_hash(job):
+    return hashlib.sha256((job['title'] + '\n' + (job.get('description') or '')).encode()).hexdigest()
+
+
+def pending_jobs(db, limit):
+    """Open jobs with a description whose extraction is missing, outdated or for older text."""
+    db.executescript(ENRICHMENT_TABLE)
+    done = {row['job_id']: row for row in db.execute('SELECT * FROM enrichments')}
+    pending = []
+    for job in job_store.digest_jobs(db, limit=10_000, only_new=False):
+        if not job.get('description'):
+            continue
+        row = done.get(job['id'])
+        if row and row['extractor_version'] == EXTRACTOR_VERSION and row['description_hash'] == description_hash(job):
+            continue
+        pending.append(job)
+    # Newest first, so a capped run spends its budget on what the next digest will show.
+    return sorted(pending, key=lambda j: j['first_seen_at'], reverse=True)[:limit]
+
+
+def extract(client, model, job):
+    """Return (data, usage) for one job via a schema-constrained response."""
+    params = dict(
+        model=model,
+        max_tokens=2000,
+        system=SYSTEM,
+        messages=[{'role': 'user', 'content': (
+            f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n\n"
+            f"Posting:\n{job['description']}")}],
+        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
+    )
+    if not model.startswith('claude-haiku'):
+        # Extraction is routine; low effort keeps thinking short. Haiku 4.5 has no effort setting.
+        params['output_config']['effort'] = 'low'
+    response = client.messages.create(**params)
+    if response.stop_reason != 'end_turn':
+        raise RuntimeError(f'stopped with {response.stop_reason}')
+    text = next(block.text for block in response.content if block.type == 'text')
+    return json.loads(text), response.usage
+
+
+def save(db, job, model, data):
+    db.execute("""INSERT INTO enrichments (job_id, extractor_version, description_hash, model, created_at, data_json)
+        VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(job_id) DO UPDATE SET extractor_version=excluded.extractor_version,
+        description_hash=excluded.description_hash, model=excluded.model, created_at=excluded.created_at,
+        data_json=excluded.data_json""",
+               (job['id'], EXTRACTOR_VERSION, description_hash(job), model,
+                datetime.now(timezone.utc).isoformat(timespec='seconds'), json.dumps(data, ensure_ascii=False)))
+    db.commit()
+
+
+def load(db):
+    """Map job_id -> extracted facts, for the digest."""
+    db.executescript(ENRICHMENT_TABLE)
+    return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM enrichments')}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
+    parser.add_argument('--max-jobs', type=int, default=40, help='cap per run to bound cost')
+    parser.add_argument('--model', default=DEFAULT_MODEL)
+    parser.add_argument('--dry-run', action='store_true', help='list pending jobs without calling the API')
+    args = parser.parse_args()
+    with job_store.connect(args.db) as db:
+        jobs = pending_jobs(db, args.max_jobs)
+        print(f'{len(jobs)} job(s) to enrich with {args.model}')
+        if args.dry_run or not jobs:
+            return 0
+        import anthropic  # Only needed when actually calling the API.
+        client = anthropic.Anthropic()
+        tokens_in = tokens_out = failures = enriched = 0
+        for job in jobs:
+            try:
+                data, usage = extract(client, args.model, job)
+            except (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError) as error:
+                # Transient after the SDK's own retries: stop and let the next run continue.
+                print(f'Stopping early, API unavailable: {type(error).__name__}')
+                break
+            except (anthropic.APIStatusError, RuntimeError, json.JSONDecodeError, StopIteration) as error:
+                failures += 1
+                print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
+                continue
+            save(db, job, args.model, data)
+            enriched += 1
+            tokens_in += usage.input_tokens
+            tokens_out += usage.output_tokens
+        print(f'Enriched {enriched} job(s); {failures} failed; '
+              f'tokens in {tokens_in}, out {tokens_out}')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

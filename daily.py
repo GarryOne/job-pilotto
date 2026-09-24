@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 
 import applications
+import enrich
 import job_store
 import watch
 
@@ -26,6 +27,10 @@ SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|g
 RELEVANT = re.compile(r"site reliability|\bsre\b|platform|devops|infrastructure|cloud|kubernetes|"
                       r"production engineer|observability", re.I)
 MODES = ('scheduled', 'run', 'today', 'apply')
+PREFERENCES = json.loads((ROOT / 'preferences.json').read_text())
+LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
+SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
+                    'lead_manager': 'Lead/Manager'}
 
 
 def _work_mode_badge(value):
@@ -48,7 +53,42 @@ def rank_score(job):
         score += 2
     if (job.get('work_mode') or '').startswith(('Remote', 'Hybrid')):
         score += 1
+    ai = job.get('ai')
+    if ai:
+        if ai['english_is_enough']['value'] == 'yes':
+            score += 1
+        if any(l['level'] == 'nice_to_have' and l['language'] in PREFERENCES['disqualifying_languages']
+               for l in ai['languages']):
+            score -= 1
+        if ai['employer_type']['value'] == 'recruiter':
+            score -= 1
+        if ai['seniority']['value'] == 'junior':
+            score -= 3
     return score
+
+
+def language_blocked(job):
+    """True when AI extraction found a required language the profile can't meet."""
+    ai = job.get('ai')
+    return bool(ai) and any(l['level'] == 'required' and l['language'] in PREFERENCES['disqualifying_languages']
+                            for l in ai['languages'])
+
+
+def _ai_badges(ai):
+    badges = []
+    for lang in ai['languages']:
+        if lang['language'] != 'English':
+            suffix = 'required' if lang['level'] == 'required' else 'a plus'
+            badges.append(f"{LANGUAGE_FLAGS[lang['language']]} {lang['language']} {suffix}")
+    if ai['english_is_enough']['value'] == 'yes':
+        badges.append('🇬🇧 English OK')
+    if ai['seniority']['value'] in SENIORITY_LABELS:
+        badges.append(f"🎚 {SENIORITY_LABELS[ai['seniority']['value']]}")
+    if ai['salary']['stated'] and ai['salary']['text']:
+        badges.append(f"💰 {escape(ai['salary']['text'][:40])}")
+    if ai['employer_type']['value'] == 'recruiter':
+        badges.append('🧑‍💼 Recruiter')
+    return badges
 
 
 def rank_jobs(jobs, rng):
@@ -60,9 +100,14 @@ def rank_jobs(jobs, rng):
 
 def _job_block(index, job):
     details = [f"🏢 {escape(job['company'])}", f"📍 {escape(job.get('location') or 'Location not stated')}"]
-    badge = _work_mode_badge(job.get('work_mode'))
+    ai = job.get('ai')
+    ai_mode = ai['work_mode']['value'] if ai else 'unknown'
+    badge = ({'onsite': '🏢 On-site', 'hybrid': '🔀 Hybrid', 'remote': '🌍 Remote'}.get(ai_mode)
+             or _work_mode_badge(job.get('work_mode')))
     if badge:
         details.append(badge)
+    if ai:
+        details.extend(_ai_badges(ai))
     if job.get('url'):
         # Telegram turns this into a tappable command in the chat.
         details.append(f"/apply_{applications.job_code(job['url'])}")
@@ -81,8 +126,11 @@ def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
     Jobs whose URL is in hidden_urls (already applied to) are left out.
     """
     rng = rng or random.Random()
-    everything = [j for j in job_store.digest_jobs(db, limit=10_000, only_new=False)
+    facts = enrich.load(db)
+    everything = [dict(j, ai=facts.get(j['id'])) for j in job_store.digest_jobs(db, limit=10_000, only_new=False)
                   if (j.get('url') or '').strip() not in hidden_urls]
+    blocked = [j for j in everything if language_blocked(j)]
+    everything = [j for j in everything if not language_blocked(j)]
     new_ids = {job['id'] for job in job_store.digest_jobs(db, limit=10_000, only_new=True)}
     new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)[:limit]
     older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)[:limit - len(new)]
@@ -90,7 +138,9 @@ def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
 
     header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · 🎲 {len(older)} more to explore\n"
               f"<i>{len(everything)} open jobs tracked, {swiss_total} in Switzerland"
-              + (f", {len(hidden_urls)} applied hidden" if hidden_urls else '') + "</i>")
+              + (f", {len(hidden_urls)} applied hidden" if hidden_urls else '')
+              + (f", {len(blocked)} hidden for required {'/'.join(PREFERENCES['disqualifying_languages'])}"
+                 if blocked else '') + "</i>")
     blocks = [header]
     index = 1
     for title, section in (('🆕 <b>New since last run</b>', new), ('🎲 <b>More to explore</b>', older)):
