@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the local scan, import canonical state and optionally send Telegram digest."""
 import argparse
-from html import escape
+from html import escape, unescape
 import json
 import os
 from pathlib import Path
@@ -20,8 +20,9 @@ ROOT = Path(__file__).resolve().parent
 
 WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', 'Remote mentioned': '🌍 Remote?'}
 TELEGRAM_LIMIT = 4096
-# Leave room for the "part 2/3" suffix Telegram messages get when split.
+# Leave room for the footer and "part 2/3" suffix.
 CHUNK_LIMIT = TELEGRAM_LIMIT - 200
+VISIBLE_JOBS = 10  # Shown expanded; the rest sit in a collapsed "tap to expand" quote.
 SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|genève|genf|basel|bern|"
                    r"lausanne|lugano|luzern|lucerne|winterthur|zug|st\.? gallen", re.I)
 RELEVANT = re.compile(r"site reliability|\bsre\b|platform|devops|infrastructure|cloud|kubernetes|"
@@ -31,6 +32,11 @@ PREFERENCES = json.loads((ROOT / 'preferences.json').read_text())
 LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
 SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
                     'lead_manager': 'Lead/Manager'}
+
+
+def visible_length(html_text):
+    """Length Telegram counts against its limit: text without tags, entities decoded."""
+    return len(unescape(re.sub(r'<[^>]+>', '', html_text)))
 
 
 def _work_mode_badge(value):
@@ -204,10 +210,29 @@ def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
             index += 1
     footer = '<i>Applied to one? Tap its ✅ number below.</i>'
 
+    # Preferred: one message, the top jobs visible and the rest in a collapsed
+    # "tap to expand" quote. Telegram's limit counts visible text only (not link URLs).
+    header_blocks = [b for b in blocks if not b[1]][:1]
+    rest = blocks[1:]
+    job_positions = [i for i, (_, e) in enumerate(rest) if e]
+    if len(job_positions) > VISIBLE_JOBS:
+        cut = job_positions[VISIBLE_JOBS]
+        shown, hidden = rest[:cut], rest[cut:]
+        hidden_count = sum(1 for _, e in hidden if e)
+        collapsed = (f"➕ <b>{hidden_count} more</b> · <i>tap to expand</i>\n<blockquote expandable>"
+                     + '\n\n'.join(b for b, _ in hidden) + "</blockquote>")
+        text = '\n\n'.join([header_blocks[0][0]] + [b for b, _ in shown] + [collapsed, footer])
+    else:
+        text = '\n\n'.join([b for b, _ in blocks] + [footer])
+    if visible_length(text) <= CHUNK_LIMIT:
+        entries = [e for _, block_entries in blocks for e in block_entries]
+        return [text], len(new), [_keyboard(entries)]
+
+    # Fallback for very long digests: split into several messages.
     parts, text, entries = [], '', []
     for block, block_entries in blocks:
         candidate = f"{text}\n\n{block}" if text else block
-        if len(candidate) > CHUNK_LIMIT and text:
+        if visible_length(candidate) > CHUNK_LIMIT and text:
             parts.append((text, entries))
             text, entries = block, list(block_entries)
         else:

@@ -34,18 +34,31 @@ class DigestFormatTests(unittest.TestCase):
         self.assertEqual([j['title'] for j in ranked],
                          ['Senior SRE', 'Software Engineer', 'Site Reliability Engineer', 'Accountant'])
 
-    def test_long_digest_splits_under_telegram_limit(self):
+    def test_25_jobs_fit_one_message_with_collapsed_rest(self):
+        report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer',
+                            'location': 'Zurich', 'url': f'https://example.test/{"x" * 150}/{i}'} for i in range(25)]}
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, report)
+                messages, new_count, keyboards = daily.build_digest(db, limit=25)
+        self.assertEqual(new_count, 25)
+        self.assertEqual(len(messages), 1)
+        self.assertLessEqual(daily.visible_length(messages[0]), daily.TELEGRAM_LIMIT)
+        self.assertIn('15 more</b> · <i>tap to expand</i>', messages[0])
+        self.assertIn('<blockquote expandable>', messages[0])
+        self.assertEqual(sum(len(row) for row in keyboards[0]['inline_keyboard']), 25)
+
+    def test_very_long_digest_still_splits_under_telegram_limit(self):
         report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer ' + 'x' * 120,
                             'location': 'Zurich', 'url': f'https://example.test/{i}'} for i in range(50)]}
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
                 messages, new_count, keyboards = daily.build_digest(db, limit=50)
-        self.assertEqual(new_count, 50)
         self.assertGreater(len(messages), 1)
-        self.assertTrue(all(len(m) <= daily.TELEGRAM_LIMIT for m in messages))
+        self.assertTrue(all(daily.visible_length(m) <= daily.TELEGRAM_LIMIT for m in messages))
         self.assertEqual(sum(m.count('https://example.test/') for m in messages), 50)
-        self.assertIn(f'part 1/{len(messages)}', messages[0])
+        self.assertEqual(len(keyboards), len(messages))
 
     def test_company_and_title_are_shortened(self):
         self.assertEqual(daily.short_company('Zürich Versicherungs-Gesellschaft AG / Zurich Insurance Company Ltd'),
