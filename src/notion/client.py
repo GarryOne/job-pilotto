@@ -172,3 +172,17 @@ class Tracker:
                 self._request('DELETE', f"blocks/{child['id']}")
         self._request('PATCH', f'blocks/{page_id}/children', {'children': [block]})
 
+    def read_kit(self, page_id, heading_text):
+        """The application kit dict nested as a JSON code block inside the toggle heading
+
+        written by replace_section(...KIT_HEADING...), or None if the page has no such section."""
+        for child in self._children(page_id):
+            if _rich(child.get(child['type'], {}).get('rich_text')).startswith(heading_text):
+                for grandchild in self._children(child['id']):
+                    if grandchild['type'] == 'code':
+                        try:
+                            return json.loads(_rich(grandchild['code'].get('rich_text')))
+                        except json.JSONDecodeError:
+                            return None
+        return None
+

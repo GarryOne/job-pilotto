@@ -101,6 +101,10 @@ def main():
                         help='AI stage 2: score up to N eligible jobs against the Notion Profile (0 = off)')
     parser.add_argument('--enrich-max', type=int, default=0,
                         help='AI stage 1: extract facts for up to N new/changed jobs after import (0 = off)')
+    parser.add_argument('--auto-kit-max', type=int, default=0,
+                        help='auto-draft application kits for up to N best-scored new jobs per run (0 = off)')
+    parser.add_argument('--auto-kit-min-score', type=int, default=kit.DEFAULT_AUTO_MIN_SCORE,
+                        help='minimum fit score to qualify for an automatic kit')
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
@@ -178,8 +182,21 @@ def main():
                 open_urls = {j['url'].strip() for j in store.digest_jobs(db, limit=10_000) if j.get('url')}
                 applied_urls = hidden - dismissed
                 print(matches.sync(db, tracker, scored, applied_urls, open_urls, dismissed))
+                if args.auto_kit_max:
+                    # Runs after scoring so it sees the same fits; a kit failure never blocks the digest.
+                    summary, drafted_jobs = kit.auto_run(db, scored, tracker, kit.DEFAULT_MODEL,
+                                                         args.auto_kit_max, args.auto_kit_min_score)
+                    print(summary)
+                    if drafted_jobs and args.send:
+                        lines = [f"📝 <b>{len(drafted_jobs)} application kit(s) ready</b> — drafted automatically, "
+                                 "nothing sent."]
+                        for job, page in drafted_jobs:
+                            lines.append(f"• <a href=\"{escape(job['url'], quote=True)}\">{escape(job['title'])}</a>"
+                                         f" — {escape(job['company'])} · "
+                                         f"<a href=\"{escape(page.get('url', ''), quote=True)}\">Notion</a>")
+                        telegram.send('\n'.join(lines), *telegram.credentials())
             except Exception as error:
-                print(f'Warning: Notion Job Matches sync skipped: {type(error).__name__}: {error}')
+                print(f'Warning: Notion Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = digest.build_digest(db, args.limit, hidden_urls=hidden, page=args.page,

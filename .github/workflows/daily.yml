@@ -77,6 +77,9 @@ jobs:
           SRE_WATCH_SCORE_MODEL: ${{ vars.SRE_WATCH_SCORE_MODEL }}
           # Application kits run only when asked (📝 Prepare); optional model override.
           SRE_WATCH_KIT_MODEL: ${{ vars.SRE_WATCH_KIT_MODEL || 'claude-sonnet-5' }}
+          # Auto-draft kits for the best new matches each run; 0/unset = off (📝 Prepare still works manually).
+          SRE_WATCH_AUTO_KIT_MAX: ${{ vars.SRE_WATCH_AUTO_KIT_MAX }}
+          SRE_WATCH_AUTO_KIT_MIN_SCORE: ${{ vars.SRE_WATCH_AUTO_KIT_MIN_SCORE }}
           JOB: ${{ inputs.job }}
           ACTION: ${{ inputs.action || 'applied' }}
           PAGE: ${{ inputs.page }}
@@ -85,13 +88,16 @@ jobs:
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
           ai=""
-          if [ -n "$SRE_WATCH_ENRICH_MODEL$SRE_WATCH_SCORE_MODEL" ] || [ "$MODE" = prepare ]; then pip install --quiet -r requirements.txt; fi
+          if [ -n "$SRE_WATCH_ENRICH_MODEL$SRE_WATCH_SCORE_MODEL$SRE_WATCH_AUTO_KIT_MAX" ] || [ "$MODE" = prepare ]; then pip install --quiet -r requirements.txt; fi
           # Stage 1 runs before stage 2 in every mode that scores, so scores always see the facts.
           if [ -n "$SRE_WATCH_ENRICH_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --enrich-max 100"
           fi
           if [ -n "$SRE_WATCH_SCORE_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --score-max 60"
+          fi
+          if [ -n "$SRE_WATCH_AUTO_KIT_MAX" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
+            ai="$ai --auto-kit-max $SRE_WATCH_AUTO_KIT_MAX ${SRE_WATCH_AUTO_KIT_MIN_SCORE:+--auto-kit-min-score $SRE_WATCH_AUTO_KIT_MIN_SCORE}"
           fi
           python -m src daily $send --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
       - name: Report failure to Telegram

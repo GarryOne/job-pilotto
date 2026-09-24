@@ -9,6 +9,7 @@ block a form filler can use) and to Telegram as copyable blocks.
 
 Nothing here submits anything: the owner reviews and applies.
 """
+from datetime import datetime, timezone
 from html import escape
 import json
 import os
@@ -19,6 +20,15 @@ DEFAULT_MODEL = os.getenv('SRE_WATCH_KIT_MODEL', 'claude-sonnet-5')
 KIT_VERSION = 1
 KIT_HEADING = '📝 Application kit'
 ANSWERS_PAGE_ID = '3e562be8fd868108ae38d1f47d52a811'
+DEFAULT_AUTO_MIN_SCORE = 50
+DEFAULT_AUTO_MAX = 5
+
+AUTO_TABLE = """
+CREATE TABLE IF NOT EXISTS auto_kits (
+    job_id INTEGER PRIMARY KEY REFERENCES jobs(id),
+    created_at TEXT NOT NULL
+);
+"""
 # USD per million tokens, for the cost line in the log (input, output, cache read).
 PRICES = {'claude-sonnet-5': (2.00, 10.00, 0.20)}
 
@@ -148,6 +158,58 @@ def draft(client, model, job, profile, answers, questions):
         if options.get(item['field']) and item['answer'] not in options[item['field']]:
             item['needs_review'] = True
     return kit, response.usage
+
+
+def prepare_one(client, model, job, tracker, profile, answers, opener=None):
+    """Draft and save one kit; returns (kit dict, questions, page, usage). Marks the row Saved."""
+    try:
+        questions = form_questions(job['url'], opener)
+    except Exception as error:  # An unreadable form still gets a kit, with likely questions.
+        print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
+        questions = []
+    drafted, usage = draft(client, model, job, profile, answers, questions)
+    page, _ = tracker.mark(job, 'Saved')
+    tracker.replace_section(page['id'], KIT_HEADING, notion_blocks(job, drafted, questions, model))
+    return drafted, questions, page, usage
+
+
+def pending_for_auto(db, candidates, min_score, max_jobs):
+    """Best-scored eligible jobs with no auto-kit yet, highest score first."""
+    db.executescript(AUTO_TABLE)
+    done = {row['job_id'] for row in db.execute('SELECT job_id FROM auto_kits')}
+    scored = [j for j in candidates if j['id'] not in done and (j.get('fit') or {}).get('score', 0) >= min_score]
+    return sorted(scored, key=lambda j: j['fit']['score'], reverse=True)[:max_jobs]
+
+
+def mark_auto(db, job_id):
+    db.executescript(AUTO_TABLE)
+    db.execute('INSERT OR IGNORE INTO auto_kits (job_id, created_at) VALUES (?, ?)',
+               (job_id, datetime.now(timezone.utc).isoformat(timespec='seconds')))
+    db.commit()
+
+
+def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, opener=None):
+    """Draft kits for the best-scored jobs that don't have one yet.
+
+    Returns (summary line, list of (job, page) for jobs drafted this run) for the digest to mention.
+    Runs after AI stage 2; a job never in `candidates` (ineligible) is never auto-kitted."""
+    pending = pending_for_auto(db, candidates, min_score, max_jobs)
+    if not pending:
+        return '0 kit(s) auto-drafted', []
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    profile, answers = tracker.page_text(), tracker.page_text(ANSWERS_PAGE_ID)
+    drafted_jobs, failures = [], 0
+    for job in pending:
+        try:
+            _, _, page, _ = prepare_one(client, model, job, tracker, profile, answers, opener)
+            mark_auto(db, job['id'])
+            drafted_jobs.append((job, page))
+        except Exception as error:
+            failures += 1
+            print(f"Warning: auto kit failed for job {job['id']}: {type(error).__name__}: {error}")
+    return f'Auto-drafted {len(drafted_jobs)} of {len(pending)} kit(s); {failures} failed', drafted_jobs
 
 
 def cost_line(model, usage):

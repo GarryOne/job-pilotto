@@ -124,5 +124,46 @@ class KitTests(unittest.TestCase):
         self.assertIn('No job', messages[0])
 
 
+class AutoKitTests(unittest.TestCase):
+    def test_pending_for_auto_orders_by_score_and_skips_done(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                jobs = [dict(id=i, fit={'score': s}) for i, s in [(1, 80), (2, 55), (3, 40), (4, 90)]]
+                pending = kit.pending_for_auto(db, jobs, min_score=50, max_jobs=2)
+                self.assertEqual([j['id'] for j in pending], [4, 1])
+                kit.mark_auto(db, 4)
+                pending2 = kit.pending_for_auto(db, jobs, min_score=50, max_jobs=2)
+                self.assertEqual([j['id'] for j in pending2], [1, 2])
+
+    def test_auto_run_drafts_saves_and_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [
+                    {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
+                     'description': 'd'}]})
+                jobs = [{'id': 1, 'title': 'SRE', 'company': 'Acme', 'url': URL, 'description': 'd',
+                        'fit': {'score': 80}}]
+                tracker, client = FakeTracker(), FakeClient()
+                summary, drafted = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5', max_jobs=5, min_score=50,
+                                                client=client, opener=opener)
+                self.assertIn('Auto-drafted 1 of 1', summary)
+                self.assertEqual(len(drafted), 1)
+                self.assertEqual(tracker.marked, [(URL, 'Saved')])
+                # A second run must skip the same job (already recorded).
+                summary2, drafted2 = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5', max_jobs=5, min_score=50,
+                                                  client=client, opener=opener)
+                self.assertIn('0 kit(s)', summary2)
+                self.assertEqual(drafted2, [])
+
+    def test_auto_run_below_threshold_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                jobs = [{'id': 1, 'title': 'SRE', 'company': 'Acme', 'url': URL, 'fit': {'score': 40}}]
+                summary, drafted = kit.auto_run(db, jobs, FakeTracker(), 'm', max_jobs=5, min_score=50,
+                                                client=FakeClient())
+                self.assertIn('0 kit(s)', summary)
+                self.assertEqual(drafted, [])
+
+
 if __name__ == '__main__':
     unittest.main()

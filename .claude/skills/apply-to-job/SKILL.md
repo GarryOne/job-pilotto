@@ -62,6 +62,30 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
 9. **After the owner confirms submission**: `gh workflow run daily.yml -R GarryOne/sre-watch -f mode=apply -f job=<job URL> -f action=applied`
    (or ✅ in Telegram). Then add anything new to **Platform notes** / **Log** below and commit.
 
+## Full automatic flow (25 Sep 2026)
+
+1. **Crawl/score** — already automatic, every 4h.
+2. **Auto-draft kits** — `src/ai/kit.py:auto_run`, wired into `daily.py` for `scheduled`/`run`/`today`
+   modes when the repository variable `SRE_WATCH_AUTO_KIT_MAX` is set (score ≥
+   `SRE_WATCH_AUTO_KIT_MIN_SCORE`, default 50; capped per run). No manual 📝 Prepare tap needed for
+   jobs that qualify; a short Telegram message lists what was drafted. Idempotent — table
+   `auto_kits` in the canonical DB remembers which jobs already got one, so it never re-drafts.
+   Manual 📝 Prepare still works for anything below the threshold or that needs a fresh draft.
+3. **Queue kits into an AI browser agent** — `tools/apply-batch.sh` (wraps
+   `python -m src.ai.apply_batch`): reads every Saved job in Notion Applications that has a kit,
+   builds a plain-text prompt from it, and pastes+sends it into a new ChatGPT/Codex desktop chat
+   via `tools/send-to-chatgpt.sh`, one chat per job. Codex fills the form and stops before Submit
+   on its own approval gate.
+4. **Owner reviews and clicks Submit** — the one step that stays manual, on purpose, in every chat
+   it queued.
+5. **Mark applied** — `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`
+   (or ✅ in Telegram) once submitted.
+
+So the owner's only required actions are: watch each queued chat, click Submit, mark applied.
+Everything before that (discovery, scoring, drafting, opening the chat, typing into it) runs
+without a manual trigger. `tools/apply-batch.sh` still needs a person present per chat, same as
+claude-in-chrome — see "Other tools tried" below for why that step can't be made fully unattended.
+
 ## Fast path: write the framework's state directly, skip clicking
 
 Before falling back to click-then-pick on any dropdown, date picker or multi-step widget, check
