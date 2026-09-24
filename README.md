@@ -151,6 +151,17 @@ Delete `SRE_WATCH_ENRICH_MODEL`/`SRE_WATCH_SCORE_MODEL` at any time to stop all 
 filters, always-crawled employer feeds and scout candidate companies — edit these to your own
 target places, languages and employers.
 
+**`config/search.json` is what makes this a general-purpose job search, not an SRE-in-Switzerland
+one.** It holds every role, location and tech-stack keyword the code uses to decide what counts as
+a relevant job and where: `role_keywords` (job titles you want), `board_discovery_keywords`
+(broader terms for jobs.ch discovery), `jobs_board_search_queries` (the literal search terms run
+against jobs.ch), `quality_stack_keywords` (tech terms the scout uses to judge a new employer feed),
+and `locations.{top_tier,country_wide,abroad}` / `remote_excluded_regions` (your preferred places
+and which "remote" postings don't actually include you). Values are regex fragments (e.g. `"z[uü]rich"`
+matches both spellings, `"\\bsre\\b"` avoids matching inside another word) — copy that style when
+adding your own. A frontend developer targeting Berlin, for example, would set `role_keywords` to
+`["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
+
 For the optional local tooling: `SRE_WATCH_CV_PATH` points `tools/apply-batch.sh` at your CV
 (defaults to `~/Documents/CV.pdf` — the maintainer's own file; set this
 to yours).
@@ -220,6 +231,7 @@ src/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
     matches.py       mirror of scored jobs into Notion Job Matches
 config/
+  search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages)
   sources.json       employer feeds always crawled
   scout_seeds.json   candidate employers for the scout (Tier 1, regions)
@@ -267,8 +279,9 @@ cd worker && npm test
    and command menu — needs a Cloudflare account logged in via `wrangler`).
 6. Trigger a first run by hand: Actions tab → `Daily job discovery` → Run workflow → mode `run`, or
    send `/run` to your bot once the webhook is live.
-7. Fill in your Profile and Application Answers pages in Notion; edit `config/preferences.json`,
-   `config/sources.json` and `config/scout_seeds.json` to your own places, languages and employers.
+7. Fill in your Profile and Application Answers pages in Notion; edit `config/search.json` to your
+   own role/location/tech keywords, and `config/preferences.json`, `config/sources.json` and
+   `config/scout_seeds.json` to your own languages and target employers.
 
 ## Set it up with an AI coding agent
 
@@ -297,8 +310,9 @@ Then help me set this up for myself, step by step:
 4. Deploy the Cloudflare Worker (`worker/setup.sh`) once I've logged in via `wrangler`.
 5. Ask me for my CV and job-search preferences, and draft the Profile and Application Answers
    Notion pages for me in the structure docs/notion-schema.md describes — mark anything I haven't
-   given you a clear answer for with ❓, don't invent one. Also help me edit config/preferences.json,
-   config/sources.json and config/scout_seeds.json to my own target places, languages and employers.
+   given you a clear answer for with ❓, don't invent one. Also help me edit config/search.json to my
+   own role, location and tech-stack keywords, and config/preferences.json, config/sources.json and
+   config/scout_seeds.json to my own languages and target employers.
 6. Run the test suites (python3 -m unittest discover -s tests, and cd worker && npm test) and fix
    anything that fails before calling this done.
 7. Trigger one real run (mode `run`) and show me what came back in Telegram.

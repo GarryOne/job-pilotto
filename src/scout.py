@@ -28,7 +28,7 @@ import urllib.request
 
 from . import store, telegram
 from .notion import client as notion
-from .paths import CANONICAL_DB, CONFIG
+from .paths import CANONICAL_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, feeds
 
 SEEDS = CONFIG / 'scout_seeds.json'
@@ -67,12 +67,13 @@ CREATE TABLE IF NOT EXISTS feed_sources (
     PRIMARY KEY (ats, slug)
 );
 """
-STACK = re.compile(r"kubernetes|terraform|datadog|opentelemetry|prometheus|grafana|\baws\b|helm|observability|"
-                   r"incident|on-call|slo\b", re.I)
-SWISS_OR_ZURICH = re.compile(r"switzerland|schweiz|suisse|z[uü]rich|geneva|gen[eè]ve|basel|bern|lausanne|zug|\bch\b", re.I)
-LOCATION_WORDS = re.compile(r"z[uü]rich|switzerland|berlin|london|dubai|remote", re.I)
-ROLE_WORDS = re.compile(r"\bsre\b|site reliability|platform engineer|devops|infrastructure|production engineer|"
-                        r"observability", re.I)
+_SEARCH = load_search_config()
+STACK = keyword_regex(_SEARCH['quality_stack_keywords'])
+SWISS_OR_ZURICH = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
+                                r'\bch\b'])
+LOCATION_WORDS = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
+                                *_SEARCH['locations']['abroad'], 'remote'])
+ROLE_WORDS = keyword_regex(_SEARCH['role_keywords'])
 
 
 def now():

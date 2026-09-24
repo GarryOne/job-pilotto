@@ -8,17 +8,16 @@ import re
 from . import store
 from .ai import enrich, score
 from .notion import client as notion
-from .paths import CONFIG
+from .paths import CONFIG, keyword_regex, load_search_config
 
 WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', 'Remote mentioned': '🌍 Remote?'}
 TELEGRAM_LIMIT = 4096
 # Leave room for the footer and "part 2/3" suffix.
 CHUNK_LIMIT = TELEGRAM_LIMIT - 200
 PAGE_SIZE = 10  # Jobs per digest message; '➕ Next' loads the following page.
-SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|genève|genf|basel|bern|"
-                   r"lausanne|lugano|luzern|lucerne|winterthur|zug|st\.? gallen", re.I)
-RELEVANT = re.compile(r"site reliability|\bsre\b|platform|devops|infrastructure|cloud|kubernetes|"
-                      r"production engineer|observability", re.I)
+_SEARCH = load_search_config()
+SWISS = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
+RELEVANT = keyword_regex(_SEARCH['role_keywords'])
 PREFERENCES = json.loads((CONFIG / 'preferences.json').read_text())
 LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
 SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
@@ -41,13 +40,12 @@ def is_swiss(job):
     return bool(job.get('city')) or bool(SWISS.search(job.get('location') or ''))
 
 
-ZURICH_AREA = re.compile(r"z[uü]rich|winterthur|\bzug\b|baden|uster|d[uü]bendorf|oerlikon|kloten|glattbrugg|"
-                         r"opfikon|wallisellen|schlieren|dietikon|r[uü]schlikon|thalwil|horgen|b[uü]lach", re.I)
-PREFERRED_ABROAD = re.compile(r"berlin|london|dubai", re.I)
+ZURICH_AREA = keyword_regex(_SEARCH['locations']['top_tier'])
+PREFERRED_ABROAD = keyword_regex(_SEARCH['locations']['abroad'])
 
 
 def location_points(job):
-    """Profile: Zurich area most preferred; anywhere in Switzerland, Berlin, London, Dubai or remote fine."""
+    """Your top-tier place (config/search.json) most preferred; country-wide, listed abroad or remote fine."""
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
     remote = ((job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote'
               or (job.get('work_mode') or '').startswith('Remote'))
@@ -61,7 +59,7 @@ def location_points(job):
 
 
 def rank_score(job):
-    """Higher is better: preferred location first, then SRE-type titles, then remote."""
+    """Higher is better: preferred location first, then role_keywords titles, then remote."""
     score = location_points(job) + (3 if job.get('saved') else 0)
     if RELEVANT.search(job.get('title') or ''):
         score += 2

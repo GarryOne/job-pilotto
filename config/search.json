@@ -1,0 +1,34 @@
+{
+  "role_keywords": [
+    "site reliability", "\\bsre\\b", "platform engineer", "devops", "infrastructure",
+    "production engineer", "cloud engineer", "observability", "kubernetes", "reliability engineer"
+  ],
+  "board_discovery_keywords": [
+    "software", "entwickler", "developer", "développeur", "site reliability", "\\bsre\\b",
+    "devops", "platform engineer", "backend", "frontend", "full.?stack", "forward deployed engineer"
+  ],
+  "jobs_board_search_queries": [
+    "software engineer", "site reliability", "devops engineer", "platform engineer",
+    "cloud engineer", "développeur logiciel"
+  ],
+  "quality_stack_keywords": [
+    "kubernetes", "terraform", "datadog", "opentelemetry", "prometheus", "grafana", "\\baws\\b",
+    "helm", "observability", "incident", "on-call", "slo\\b"
+  ],
+  "locations": {
+    "top_tier": [
+      "z[uü]rich", "winterthur", "\\bzug\\b", "baden", "uster", "d[uü]bendorf", "oerlikon",
+      "kloten", "glattbrugg", "opfikon", "wallisellen", "schlieren", "dietikon", "r[uü]schlikon",
+      "thalwil", "horgen", "b[uü]lach"
+    ],
+    "country_wide": [
+      "switzerland", "schweiz", "suisse", "svizzera", "geneva", "gen[eè]ve", "genf", "basel",
+      "bern", "lausanne", "lugano", "luzern", "lucerne", "st\\.? ?gallen"
+    ],
+    "abroad": ["berlin", "london", "dubai"]
+  },
+  "remote_excluded_regions": [
+    "\\busa?\\b", "united states", "u\\.s\\.", "canada", "north america", "latam",
+    "latin america", "apac", "asia", "india", "australia", "brazil", "mexico", "americas"
+  ]
+}

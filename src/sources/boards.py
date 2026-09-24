@@ -14,8 +14,9 @@ import time
 from urllib.parse import urljoin, urlsplit, urlencode
 from urllib.request import Request, urlopen
 
-from ..paths import DATA, REPORTS
-ROLE = re.compile(r'software|entwickler|developer|développeur|site reliability|\bsre\b|devops|platform engineer|backend|frontend|full.?stack|forward deployed engineer', re.I)
+from ..paths import DATA, REPORTS, keyword_regex, load_search_config
+_SEARCH = load_search_config()
+ROLE = keyword_regex(_SEARCH['board_discovery_keywords'])
 CAREER = re.compile(r'career|karriere|carrière|carriere|stellen|vacanc|recruit|join.?us|offene.?jobs|work.with.us|/jobs(?:/|$)', re.I)
 ATS = {'greenhouse.io':'Greenhouse','lever.co':'Lever','ashbyhq.com':'Ashby','smartrecruiters.com':'SmartRecruiters','myworkdayjobs.com':'Workday','successfactors.com':'SAP SuccessFactors','successfactors.eu':'SAP SuccessFactors','teamtailor.com':'Teamtailor','personio.de':'Personio','personio.com':'Personio','recruitee.com':'Recruitee','apply.workable.com':'Workable','hr4you.com':'HR4YOU'}
 CITIES = {'zurich':['zürich','zurich','zuerich'], 'geneva':['genève','geneva','genf'], 'lausanne':['lausanne'], 'basel':['basel','bâle'], 'bern':['bern','berne'], 'zug':['zug'], 'winterthur':['winterthur'], 'lucerne':['luzern','lucerne'], 'st. gallen':['st. gallen','st.gallen'], 'lugano':['lugano']}
@@ -196,7 +197,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--pages',type=int,default=1);p.add_argument('--max-companies',type=int,default=30);p.add_argument('--refresh',action='store_true');args=p.parse_args()
     if not 1<=args.pages<=10 or not 1<=args.max_companies<=200:p.error('pages: 1–10; max-companies: 1–200')
     client=Client(args.refresh);jobs=[];sources=[]
-    for query in ['software engineer','site reliability','devops engineer','platform engineer','cloud engineer','développeur logiciel']:
+    for query in _SEARCH['jobs_board_search_queries']:
         for page in range(1,args.pages+1):
             url='https://www.jobs.ch/en/vacancies/?'+urlencode({'term':query,'page':page})
             try:

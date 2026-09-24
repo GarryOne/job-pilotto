@@ -11,9 +11,10 @@ import sqlite3
 import urllib.request
 
 from . import ats
-from ..paths import CONFIG, DATA, REPORTS
+from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config
 
 DESCRIPTION_LIMIT = 12000
+_SEARCH = load_search_config()
 
 
 def plain_text(markup):
@@ -22,15 +23,15 @@ def plain_text(markup):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", markup))).strip()[:DESCRIPTION_LIMIT]
 
 
-TITLES = re.compile(r"site reliability|\bsre\b|platform engineer|infrastructure|production engineer|devops|"
-                    r"cloud engineer|observability|kubernetes|reliability engineer", re.I)
+# Feed jobs whose title doesn't match config/search.json's role_keywords never reach the digest.
+TITLES = keyword_regex(_SEARCH['role_keywords'])
 
-
-# Feed jobs outside these places are dropped before they reach the digest or the AI stages.
-PREFERRED_LOCATION = re.compile(
-    r"switzerland|schweiz|suisse|svizzera|z[uü]rich|geneva|gen[eè]ve|genf|basel|bern|lausanne|lugano|zug|"
-    r"winterthur|luzern|lucerne|st\.? ?gallen|\bch\b|berlin|london|dubai|\buae\b|united arab emirates|"
-    r"remote|anywhere|worldwide|global|emea|europe", re.I)
+# Feed jobs outside these places (config/search.json's locations, plus generic remote synonyms)
+# are dropped before they reach the digest or the AI stages.
+_PLACES = [*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide'],
+          *_SEARCH['locations']['abroad'], r'\bch\b', r'\buae\b', 'united arab emirates']
+PLACE = keyword_regex(_PLACES)
+_REMOTE_SYNONYMS = r'remote|anywhere|worldwide|global|emea|europe'
 
 
 def fetch(source):
@@ -38,18 +39,16 @@ def fetch(source):
     return ats.fetch(source.get("ats", "greenhouse"), source.get("slug") or source["board"])
 
 
-# Remote roles restricted to these regions are not open to someone in Switzerland.
-REMOTE_ELSEWHERE = re.compile(r"\busa?\b|united states|u\.s\.|canada|\bnorth america|latam|latin america|apac|"
-                              r"asia|india|australia|brazil|mexico|americas", re.I)
-PLACE = re.compile(PREFERRED_LOCATION.pattern.replace("|remote|anywhere|worldwide|global|emea|europe", ""), re.I)
+# Remote roles restricted to these regions (config/search.json) are not open to someone in your places.
+REMOTE_ELSEWHERE = keyword_regex(_SEARCH['remote_excluded_regions'])
 
 
 def wanted_location(job):
-    """Switzerland, Berlin, London or Dubai, or remote that isn't limited to another region."""
+    """One of your preferred places (config/search.json), or remote that isn't limited elsewhere."""
     where = job.get("location") or ""
     if PLACE.search(where):
         return True
-    remote = job.get("remote") or re.search(r"remote|anywhere|worldwide|global|emea|europe", where, re.I)
+    remote = job.get("remote") or re.search(_REMOTE_SYNONYMS, where, re.I)
     return bool(remote) and not REMOTE_ELSEWHERE.search(where)
 
 
