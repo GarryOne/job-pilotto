@@ -25,14 +25,15 @@ class DigestFormatTests(unittest.TestCase):
         self.assertIn('Hybrid', message)
         self.assertNotIn('<Labs>', message)
 
-    def test_ranking_puts_swiss_sre_first(self):
+    def test_ranking_prefers_zurich_then_switzerland_then_berlin_london_dubai_remote(self):
         jobs = [{'title': 'Accountant', 'location': 'Toronto'},
-                {'title': 'Site Reliability Engineer', 'location': 'Remote - Worldwide'},
-                {'title': 'Software Engineer', 'location': 'Zürich', 'city': 'Zurich'},
-                {'title': 'Senior SRE', 'location': 'Geneva'}]
+                {'title': 'Site Reliability Engineer', 'location': 'London, UK'},
+                {'title': 'Site Reliability Engineer', 'location': 'Geneva'},
+                {'title': 'Site Reliability Engineer', 'location': 'Zürich', 'city': 'Zurich'},
+                {'title': 'Site Reliability Engineer', 'location': 'Toronto'}]
         ranked = daily.rank_jobs(jobs, daily.random.Random(1))
-        self.assertEqual([j['title'] for j in ranked],
-                         ['Senior SRE', 'Software Engineer', 'Site Reliability Engineer', 'Accountant'])
+        self.assertEqual([j['location'] for j in ranked], ['Zürich', 'Geneva', 'London, UK', 'Toronto', 'Toronto'])
+        self.assertEqual(ranked[-1]['title'], 'Accountant')
 
     def test_pages_of_ten_continue_with_the_same_seed(self):
         report = {'jobs': [{'company': f'Company {i}', 'id': str(i), 'title': 'Site Reliability Engineer',

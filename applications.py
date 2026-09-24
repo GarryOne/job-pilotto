@@ -21,6 +21,13 @@ def job_code(url):
     return hashlib.sha1(url.strip().encode()).hexdigest()[:8]
 
 
+PROFILE_PAGE_ID = '3e562be8fd8681579078d09829921b8c'
+
+
+def _rich(items):
+    return ''.join(item.get('plain_text', '') for item in items or [])
+
+
 class Tracker:
     def __init__(self, token, database_id=DEFAULT_DATABASE_ID, opener=urllib.request.urlopen):
         self.token, self.database_id, self.opener = token, database_id, opener
@@ -88,3 +95,30 @@ class Tracker:
         page = self._request('POST', 'pages', {'parent': {'database_id': self.database_id},
                                                'properties': properties})
         return page, True
+
+    def _children(self, block_id):
+        cursor, blocks = None, []
+        while True:
+            suffix = f'?page_size=100&start_cursor={cursor}' if cursor else '?page_size=100'
+            result = self._request('GET', f'blocks/{block_id}/children{suffix}')
+            blocks.extend(result['results'])
+            if not result.get('has_more'):
+                return blocks
+            cursor = result['next_cursor']
+
+    def page_text(self, page_id=PROFILE_PAGE_ID):
+        """Plain-text rendering of a page: headings, paragraphs, lists and table rows."""
+        lines = []
+        for block in self._children(page_id):
+            kind = block['type']
+            body = block.get(kind, {})
+            if kind.startswith('heading_'):
+                lines.append('\n' + '#' * int(kind[-1]) + ' ' + _rich(body.get('rich_text')))
+            elif kind in ('paragraph', 'quote', 'callout'):
+                lines.append(_rich(body.get('rich_text')))
+            elif kind in ('bulleted_list_item', 'numbered_list_item', 'to_do'):
+                lines.append('- ' + _rich(body.get('rich_text')))
+            elif kind == 'table':
+                for row in self._children(block['id']):
+                    lines.append(' | '.join(_rich(cell) for cell in row['table_row']['cells']))
+        return '\n'.join(line for line in lines if line.strip()).strip()

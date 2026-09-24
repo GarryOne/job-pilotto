@@ -14,6 +14,7 @@ import urllib.request
 
 import applications
 import enrich
+import score
 import job_store
 import watch
 
@@ -51,11 +52,28 @@ def is_swiss(job):
     return bool(job.get('city')) or bool(SWISS.search(job.get('location') or ''))
 
 
-def rank_score(job):
-    """Higher is better: Swiss location first, then SRE-type titles, then remote."""
-    score = 0
+ZURICH_AREA = re.compile(r"z[uü]rich|winterthur|\bzug\b|baden|uster|d[uü]bendorf|oerlikon|kloten|glattbrugg|"
+                         r"opfikon|wallisellen|schlieren|dietikon|r[uü]schlikon|thalwil|horgen|b[uü]lach", re.I)
+PREFERRED_ABROAD = re.compile(r"berlin|london|dubai", re.I)
+
+
+def location_points(job):
+    """Profile: Zurich area most preferred; anywhere in Switzerland, Berlin, London, Dubai or remote fine."""
+    where = f"{job.get('location') or ''} {job.get('city') or ''}"
+    remote = ((job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote'
+              or (job.get('work_mode') or '').startswith('Remote'))
+    if ZURICH_AREA.search(where):
+        return 5
     if is_swiss(job):
-        score += 4
+        return 4
+    if PREFERRED_ABROAD.search(where) or remote:
+        return 3
+    return 0
+
+
+def rank_score(job):
+    """Higher is better: preferred location first, then SRE-type titles, then remote."""
+    score = location_points(job)
     if RELEVANT.search(job.get('title') or ''):
         score += 2
     if (job.get('work_mode') or '').startswith(('Remote', 'Hybrid')):
@@ -162,10 +180,14 @@ def _job_block(index, job):
         mode = {'🔀 Hybrid': '🏠 Hybrid'}.get(badge, badge)
     if mode:
         facts.append(mode)
-    lines = [f"{index}. {title}", INDENT + ' · '.join(facts)]
+    fit = job.get('fit')
+    head = f"{index}. {title}" + (f" · 🎯 <b>{fit['score']}</b>" if fit else '')
+    lines = [head, INDENT + ' · '.join(facts)]
     signals = _ai_badges(ai) if ai else []
     if signals:
         lines.append(INDENT + ' · '.join(signals))
+    if fit and fit.get('reason'):
+        lines.append(f"{INDENT}<i>{escape(fit['reason'][:110])}</i>")
     return '\n'.join(lines)
 
 
@@ -205,6 +227,21 @@ def mark_shown(db, job_ids, seed, now=None):
     db.commit()
 
 
+BEST_MATCH_SCORE = 70   # Older jobs at or above this fit score are grouped as best matches.
+UNSCORED_SCORE = 45     # Where unscored jobs sit among scored ones.
+ROTATION_PENALTY = 15   # Points a job loses if it was shown in the last ROTATION_HOURS.
+ROTATION_JITTER = 8     # Random points added per digest, so near-equal matches take turns.
+
+
+def eligible_jobs(db, hidden_urls=frozenset()):
+    """Open jobs the owner could apply to, with stage 1 facts attached; also returns the
+    language-blocked ones. Applied jobs (hidden_urls) are excluded from both."""
+    facts = enrich.load(db)
+    jobs = [dict(j, ai=facts.get(j['id'])) for j in job_store.digest_jobs(db, limit=10_000, only_new=False)
+            if (j.get('url') or '').strip() not in hidden_urls]
+    return [j for j in jobs if not language_blocked(j)], [j for j in jobs if language_blocked(j)]
+
+
 def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, shown_ids=None):
     """Return (messages, new_count, keyboards) for one page of the digest.
 
@@ -219,18 +256,27 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     """
     seed = seed if seed is not None else random.randrange(1, 10**9)
     rng = rng or random.Random(seed)
-    facts = enrich.load(db)
-    everything = [dict(j, ai=facts.get(j['id'])) for j in job_store.digest_jobs(db, limit=10_000, only_new=False)
-                  if (j.get('url') or '').strip() not in hidden_urls]
-    blocked = [j for j in everything if language_blocked(j)]
-    everything = [j for j in everything if not language_blocked(j)]
+    everything, blocked = eligible_jobs(db, hidden_urls)
+    fits = score.load(db)
+    for job in everything:
+        job['fit'] = fits.get(job['id'])
     new_ids = {job['id'] for job in job_store.digest_jobs(db, limit=10_000, only_new=True)}
-    new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
     recent = recently_shown(db, seed)
+    new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
+    new.sort(key=lambda j: -(j['fit'] or {}).get('score', -1))  # stable: unscored keep rule order
     older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)
-    # Stable sort: unseen first, each group keeping its score order.
-    older.sort(key=lambda j: j['id'] in recent)
-    ranked = [('new', j) for j in new] + [('older', j) for j in older]
+    if any(j['fit'] for j in older):
+        # Best matches lead every digest, with light rotation: a match shown in the last
+        # 24 h loses ROTATION_PENALTY points and every score gets a little random jitter.
+        def effective(job):
+            base = job['fit']['score'] if job['fit'] else UNSCORED_SCORE
+            return base - (ROTATION_PENALTY if job['id'] in recent else 0) + rng.uniform(0, ROTATION_JITTER)
+        older.sort(key=effective, reverse=True)
+    else:
+        # Stable sort: unseen first, each group keeping its score order.
+        older.sort(key=lambda j: j['id'] in recent)
+    ranked = [('new', j) for j in new]
+    ranked += [('best' if (j['fit'] or {}).get('score', 0) >= BEST_MATCH_SCORE else 'older', j) for j in older]
     ranked = ranked[:limit]
     first = (page - 1) * PAGE_SIZE
     shown = ranked[first:first + PAGE_SIZE]
@@ -254,7 +300,8 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         index = first + offset + 1
         if kind != section:
             section, abroad_heading = kind, False
-            blocks.append('🆕 <b>New since last run</b>' if kind == 'new' else '🎲 <b>More to explore</b>')
+            blocks.append({'new': '🆕 <b>New since last run</b>', 'best': '🎯 <b>Best matches</b>',
+                           'older': '🎲 <b>More to explore</b>'}[kind])
         # Ranking puts Swiss jobs first; mark where the rest begins instead of flagging every job.
         if not is_swiss(job) and not abroad_heading:
             blocks.append('🌍 <i>Outside Switzerland</i>')
@@ -347,6 +394,8 @@ def main():
                         help='scheduled: send only when new jobs exist; run/today: always send; '
                              'apply: mark --job as applied in Notion')
     parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply')
+    parser.add_argument('--score-max', type=int, default=0,
+                        help='AI stage 2: score up to N eligible jobs against the Notion Profile (0 = off)')
     parser.add_argument('--enrich-max', type=int, default=0,
                         help='AI stage 1: extract facts for up to N new/changed jobs after import (0 = off)')
     args = parser.parse_args()
@@ -388,6 +437,14 @@ def main():
                 print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max))
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
+        if args.score_max and tracker:
+            # Scores only jobs that survive the hard filters; the Profile is re-read every run.
+            try:
+                profile = tracker.page_text()
+                candidates, _ = eligible_jobs(db, hidden)
+                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max))
+            except Exception as error:
+                print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden,

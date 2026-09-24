@@ -69,18 +69,23 @@ jobs:
           # AI stage 1 stays off until this repository variable names a model,
           # so no API credits are spent by accident.
           SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
+          # AI stage 2 (fit scoring) is switched on the same way by its own variable.
+          SRE_WATCH_SCORE_MODEL: ${{ vars.SRE_WATCH_SCORE_MODEL }}
           JOB: ${{ inputs.job }}
           PAGE: ${{ inputs.page }}
           SEED: ${{ inputs.seed }}
         run: |
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
-          enrich=""
+          ai=""
+          if [ -n "$SRE_WATCH_ENRICH_MODEL$SRE_WATCH_SCORE_MODEL" ]; then pip install --quiet -r requirements.txt; fi
           if [ -n "$SRE_WATCH_ENRICH_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ]; }; then
-            pip install --quiet -r requirements.txt
-            enrich="--enrich-max 100"
+            ai="$ai --enrich-max 100"
           fi
-          python daily.py $send --mode "$MODE" ${JOB:+--job "$JOB"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $enrich
+          if [ -n "$SRE_WATCH_SCORE_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
+            ai="$ai --score-max 60"
+          fi
+          python daily.py $send --mode "$MODE" ${JOB:+--job "$JOB"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
       - name: Report failure to Telegram
         if: failure()
         env:
