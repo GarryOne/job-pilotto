@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import worker, { formatApplied, parseCommand } from '../src/index.js';
+import worker, { afterAction, formatApplied, formatSaved, parseCommand, withActionRow } from '../src/index.js';
 
 const env = {
   TELEGRAM_BOT_TOKEN: 'tg', OWNER_CHAT_ID: '42', WEBHOOK_SECRET: 's3cret', GITHUB_TOKEN: 'gh',
@@ -59,21 +59,56 @@ test('/apply_<code> dispatches the workflow and confirms', async () => {
   assert.match(calls[1].body.text, /Marking it applied/);
 });
 
-async function tap(data, { chatId = 42 } = {}) {
+async function tap(data, { chatId = 42, markup } = {}) {
   const pending = [];
   const request = new Request('https://bot.test/telegram', {
     method: 'POST',
     headers: { 'X-Telegram-Bot-Api-Secret-Token': 's3cret' },
-    body: JSON.stringify({ callback_query: { id: 'q1', data, message: { chat: { id: chatId } } } }),
+    body: JSON.stringify({ callback_query: { id: 'q1', data,
+      message: { chat: { id: chatId }, message_id: 9, reply_markup: markup } } }),
   });
   await worker.fetch(request, env, { waitUntil: (p) => pending.push(p) });
   await Promise.all(pending);
 }
 
-test('✅ button dispatches apply and answers the tap', async () => {
+const digestMarkup = { inline_keyboard: [
+  [{ text: '1', callback_data: 'pick:ab12cd34:1' }, { text: '2', callback_data: 'pick:cd34ef56:2' }],
+  [{ text: '➕ Next 10', callback_data: 'more:7:2' }]] };
+
+test('tapping a number adds an action row for that job', async () => {
+  const calls = mockFetch();
+  await tap('pick:cd34ef56:2', { markup: digestMarkup });
+  assert.match(calls[0].url, /editMessageReplyMarkup$/);
+  const rows = calls[0].body.reply_markup.inline_keyboard;
+  assert.deepEqual(rows[0].map((b) => b.callback_data), ['act:a:cd34ef56:2', 'act:s:cd34ef56:2', 'act:d:cd34ef56:2', 'close']);
+  assert.equal(rows.length, 3);
+});
+
+test('Save dispatches a saved action and stars the number', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await tap('act:s:cd34ef56:2', { markup: withActionRow(digestMarkup, 'cd34ef56', 2) });
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'apply', job: 'cd34ef56', action: 'saved' } });
+  const rows = calls[1].body.reply_markup.inline_keyboard;
+  assert.equal(rows.length, 2);  // action row removed
+  assert.equal(rows[0][1].text, '⭐ 2');
+  assert.match(calls[2].url, /answerCallbackQuery$/);
+});
+
+test('Dismiss and Applied map to their actions', () => {
+  assert.equal(afterAction(digestMarkup, 1, '❌').inline_keyboard[0][0].text, '❌ 1');
+});
+
+test('/saved lists saved jobs', () => {
+  assert.match(formatSaved([], 'x'), /No saved jobs/);
+  const page = { properties: { Job: { title: [{ plain_text: 'SRE' }] }, Company: { rich_text: [{ plain_text: 'Acme' }] },
+    'Job URL': { url: 'https://x.test/1' } } };
+  assert.match(formatSaved([page], 'https://n.test'), /Saved jobs<\/b> \(1\)/);
+});
+
+test('legacy ✅ button dispatches apply and answers the tap', async () => {
   const calls = mockFetch({ '/dispatches': { status: 204 } });
   await tap('apply:ab12cd34');
-  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'apply', job: 'ab12cd34' } });
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'apply', job: 'ab12cd34', action: 'applied' } });
   assert.match(calls[1].url, /answerCallbackQuery$/);
   assert.equal(calls[1].body.callback_query_id, 'q1');
 });
@@ -112,7 +147,7 @@ test('/applied queries Notion and formats rows', async () => {
   } };
   const calls = mockFetch({ 'api.notion.com': { json: { results: [page] } } });
   await send('/applied');
-  assert.equal(calls[0].body.filter.select.does_not_equal, 'Saved');
+  assert.deepEqual(calls[0].body.filter.and.map((f) => f.select.does_not_equal), ['Saved', 'Dismissed']);
   const text = calls[1].body.text;
   assert.match(text, /Applications<\/b> \(1\)/);
   assert.match(text, /SRE &lt;Zurich&gt;/);

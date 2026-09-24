@@ -69,7 +69,7 @@ def _hash(props):
     return hashlib.sha256(json.dumps(stable, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None):
+def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset()):
     """Write changed rows; returns a one-line summary. Stops quietly on the first API error."""
     db.executescript(SYNC_TABLE)
     known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
@@ -93,7 +93,8 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None):
     for url, row in known.items():
         if url in current:
             continue
-        status = 'Applied' if url in applied_urls else ('Closed' if open_urls is None or url not in open_urls else None)
+        status = ('Dismissed' if url in dismissed_urls else 'Applied' if url in applied_urls
+                  else 'Closed' if open_urls is None or url not in open_urls else None)
         if not status:
             continue
         marker = f'status:{status}'

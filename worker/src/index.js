@@ -10,7 +10,8 @@ const HELP = [
   '/run — crawl now and send the digest (~3 min)',
   '/today — send the current ranked list (~1 min)',
   '/applied — jobs you applied to, with stage',
-  '/apply_&lt;code&gt; — tap the code under a job to mark it applied',
+  '/saved — jobs you saved with ⭐',
+  'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss',
   '/status — last workflow runs',
   '/scout — look for new employer job feeds now (~1 min)',
 ].join('\n');
@@ -93,6 +94,36 @@ export function formatApplied(pages, databaseUrl) {
   return [`📋 <b>Applications</b> (${pages.length}) · <a href="${databaseUrl}">open in Notion</a>`, '', lines.join('\n\n')].join('\n');
 }
 
+async function queryApplications(env, filter, sorts) {
+  const response = await fetch(`https://api.notion.com/v1/databases/${env.NOTION_APPLICATIONS_DB}/query`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ page_size: 30, filter, sorts }),
+  });
+  if (!response.ok) throw new Error(`Notion query failed: ${response.status}`);
+  return (await response.json()).results;
+}
+
+export function formatSaved(pages, databaseUrl) {
+  const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
+  if (!pages.length) return 'No saved jobs. Tap a job number in a digest, then ⭐ Save.';
+  const lines = pages.map((page, i) => {
+    const p = page.properties;
+    const url = p['Job URL']?.url;
+    const title = `<b>${escapeHtml(text(p.Job) || 'Untitled')}</b>`;
+    return `${i + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title} — ${escapeHtml(text(p.Company))}`;
+  });
+  return [`⭐ <b>Saved jobs</b> (${pages.length}) · <a href="${databaseUrl}">open in Notion</a>`, '', lines.join('\n')].join('\n');
+}
+
+async function saved(env) {
+  const results = await queryApplications(env, { property: 'Stage', select: { equals: 'Saved' } },
+    [{ timestamp: 'created_time', direction: 'descending' }]);
+  return formatSaved(results, `https://www.notion.so/${env.NOTION_APPLICATIONS_DB}`);
+}
+
 async function applied(env) {
   const response = await fetch(`https://api.notion.com/v1/databases/${env.NOTION_APPLICATIONS_DB}/query`, {
     method: 'POST',
@@ -101,7 +132,8 @@ async function applied(env) {
     },
     body: JSON.stringify({
       page_size: 30,
-      filter: { property: 'Stage', select: { does_not_equal: 'Saved' } },
+      filter: { and: [{ property: 'Stage', select: { does_not_equal: 'Saved' } },
+                      { property: 'Stage', select: { does_not_equal: 'Dismissed' } }] },
       sorts: [{ property: 'Applied on', direction: 'descending' }],
     }),
   });
@@ -123,6 +155,8 @@ export async function handleCommand(env, command) {
       return '📋 Sending the current list in about a minute.';
     case 'applied':
       return applied(env);
+    case 'saved':
+      return saved(env);
     case 'apply':
       if (!/^[0-9a-f]{8}$/.test(command.arg)) return 'Tap the /apply_… code shown under a job in the digest.';
       await dispatch(env, { mode: 'apply', job: command.arg });
@@ -141,24 +175,72 @@ export async function handleCommand(env, command) {
 }
 
 // Digest buttons arrive as callback_query: "apply:<code>" (✅ n) or "more:<seed>:<page>" (➕ Next).
+// Digest buttons (callback_query data):
+//   pick:<code>:<n>        number n tapped -> show an action row for that job on the same message
+//   act:<a|s|d>:<code>:<n> Applied / Save / Dismiss -> dispatch an apply run, mark the number button
+//   close                  hide the action row
+//   more:<seed>:<page>     next page;  apply:<code>  legacy ✅ button from older digests
+const ACTIONS = { a: ['applied', '✅', 'Marking it applied in Notion…'],
+                  s: ['saved', '⭐', 'Saved — it stays in digests with a star.'],
+                  d: ['dismissed', '❌', "Dismissed — it won't show again."] };
+
+const isActionRow = (row) => row.some((b) => /^(act:|close)/.test(b.callback_data || ''));
+
+export function withActionRow(markup, code, n) {
+  const rows = (markup?.inline_keyboard || []).filter((row) => !isActionRow(row));
+  const actionRow = [
+    { text: `${n}: ✅ Applied`, callback_data: `act:a:${code}:${n}` },
+    { text: '⭐ Save', callback_data: `act:s:${code}:${n}` },
+    { text: '❌ Dismiss', callback_data: `act:d:${code}:${n}` },
+    { text: '✖', callback_data: 'close' },
+  ];
+  return { inline_keyboard: [actionRow, ...rows] };
+}
+
+export function afterAction(markup, n, emoji) {
+  const rows = (markup?.inline_keyboard || []).filter((row) => !isActionRow(row));
+  return { inline_keyboard: rows.map((row) => row.map((b) => (
+    new RegExp(`^pick:[0-9a-f]{8}:${n}$`).test(b.callback_data || '') ? { ...b, text: `${emoji} ${n}` } : b))) };
+}
+
+async function editButtons(env, query, markup) {
+  await telegram(env, 'editMessageReplyMarkup', {
+    chat_id: query.message.chat.id, message_id: query.message.message_id, reply_markup: markup,
+  });
+}
+
 async function handleButton(env, query) {
   if (String(query.message?.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
-  const apply = /^apply:([0-9a-f]{8})$/.exec(query.data || '');
-  const more = /^more:(\d{1,10}):(\d{1,3})$/.exec(query.data || '');
+  const data = query.data || '';
+  const pick = /^pick:([0-9a-f]{8}):(\d{1,3})$/.exec(data);
+  const act = /^act:([asd]):([0-9a-f]{8}):(\d{1,3})$/.exec(data);
+  const apply = /^apply:([0-9a-f]{8})$/.exec(data);
+  const more = /^more:(\d{1,10}):(\d{1,3})$/.exec(data);
+  const answer = (text, alert = false) => telegram(env, 'answerCallbackQuery',
+    { callback_query_id: query.id, text: text.slice(0, 200), show_alert: alert });
   try {
-    if (apply) {
-      await dispatch(env, { mode: 'apply', job: apply[1] });
-      await telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: 'Marking it applied in Notion…' });
+    if (pick) {
+      await editButtons(env, query, withActionRow(query.message.reply_markup, pick[1], pick[2]));
+      await answer(`Job ${pick[2]}: applied, save or dismiss?`);
+    } else if (act) {
+      const [action, emoji, text] = ACTIONS[act[1]];
+      await dispatch(env, { mode: 'apply', job: act[2], action });
+      await editButtons(env, query, afterAction(query.message.reply_markup, act[3], emoji));
+      await answer(text);
+    } else if (data === 'close') {
+      await editButtons(env, query, afterAction(query.message.reply_markup, '-', ''));
+      await answer('OK');
+    } else if (apply) {
+      await dispatch(env, { mode: 'apply', job: apply[1], action: 'applied' });
+      await answer('Marking it applied in Notion…');
     } else if (more) {
       await dispatch(env, { mode: 'more', seed: more[1], page: more[2] });
-      await telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: 'Loading the next jobs (about a minute)…' });
+      await answer('Loading the next jobs (about a minute)…');
     } else {
       throw new Error('Unknown button');
     }
   } catch (error) {
-    await telegram(env, 'answerCallbackQuery', {
-      callback_query_id: query.id, text: `⚠️ ${error.message}`.slice(0, 200), show_alert: true,
-    });
+    await answer(`⚠️ ${error.message}`, true);
   }
 }
 

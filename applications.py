@@ -14,6 +14,9 @@ NOTION_VERSION = '2022-06-28'
 DEFAULT_DATABASE_ID = 'f56b68942d3b43cbb85a7b1ebfe2df1b'
 # Rows in these stages stay eligible for digests; any other stage hides the job.
 VISIBLE_STAGES = {'Saved'}
+# Stages set from Telegram buttons. A later real application stage is never overwritten by them.
+BUTTON_STAGES = ('Applied', 'Saved', 'Dismissed')
+SOFT_STAGES = {'Saved', 'Dismissed'}
 
 
 def job_code(url):
@@ -58,16 +61,19 @@ class Tracker:
                 return pages
             body['start_cursor'] = result['next_cursor']
 
-    def hidden_urls(self):
-        """URLs of jobs that should no longer appear in digests (applied, rejected, ...)."""
-        urls = set()
+    def url_stages(self):
+        """Job URL -> Stage for every row of the Applications database."""
+        stages = {}
         for page in self._query():
             props = page['properties']
-            stage = (props['Stage'].get('select') or {}).get('name')
             url = props['Job URL'].get('url')
-            if url and stage not in VISIBLE_STAGES:
-                urls.add(url.strip())
-        return urls
+            if url:
+                stages[url.strip()] = (props['Stage'].get('select') or {}).get('name')
+        return stages
+
+    def hidden_urls(self):
+        """URLs of jobs that should no longer appear in digests (applied, dismissed, rejected, ...)."""
+        return {url for url, stage in self.url_stages().items() if stage not in VISIBLE_STAGES}
 
     def find(self, url):
         pages = self._query({'property': 'Job URL', 'url': {'equals': url}})
@@ -75,9 +81,27 @@ class Tracker:
 
     def mark_applied(self, job, today=None):
         """Create the application row, or return the existing one. Returns (page, created)."""
+        page, outcome = self.mark(job, 'Applied', today)
+        return page, outcome == 'created'
+
+    def mark(self, job, stage, today=None):
+        """Record a Telegram button action. Returns (page, 'created' | 'updated' | 'unchanged').
+
+        Saved/Dismissed never replace a real application stage (Applied, Interviewing, ...);
+        Applied replaces Saved/Dismissed."""
         existing = self.find(job['url'])
         if existing:
-            return existing, False
+            current = (existing['properties']['Stage'].get('select') or {}).get('name')
+            if current == stage or (stage in SOFT_STAGES and current not in SOFT_STAGES and current is not None):
+                return existing, 'unchanged'
+            props = {'Stage': {'select': {'name': stage}}}
+            if stage == 'Applied':
+                props['Applied on'] = {'date': {'start': (today or date.today()).isoformat()}}
+            self._request('PATCH', f"pages/{existing['id']}", {'properties': props})
+            return existing, 'updated'
+        return self._create_row(job, stage, today), 'created'
+
+    def _create_row(self, job, stage, today=None):
         text = lambda value: {'rich_text': [{'text': {'content': (value or '')[:2000]}}]}
         posted = (job.get('posted_at') or job.get('first_seen_at') or '')[:10]
         properties = {
@@ -85,17 +109,17 @@ class Tracker:
             'Company': text(job.get('company')),
             'Location': text(job.get('location')),
             'Job URL': {'url': job['url']},
-            'Stage': {'select': {'name': 'Applied'}},
-            'Applied on': {'date': {'start': (today or date.today()).isoformat()}},
+            'Stage': {'select': {'name': stage}},
             'Source': {'select': {'name': 'Telegram'}},
         }
+        if stage == 'Applied':
+            properties['Applied on'] = {'date': {'start': (today or date.today()).isoformat()}}
         if posted:
             properties['Posted'] = {'date': {'start': posted}}
         if not job.get('posted_at'):
             properties['Notes'] = text('Posted date is when SRE Watch first saw the job.')
-        page = self._request('POST', 'pages', {'parent': {'database_id': self.database_id},
+        return self._request('POST', 'pages', {'parent': {'database_id': self.database_id},
                                                'properties': properties})
-        return page, True
 
     def _children(self, block_id):
         cursor, blocks = None, []

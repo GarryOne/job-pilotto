@@ -26,6 +26,7 @@ WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', '
 TELEGRAM_LIMIT = 4096
 # Leave room for the footer and "part 2/3" suffix.
 CHUNK_LIMIT = TELEGRAM_LIMIT - 200
+STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
 PAGE_SIZE = 10  # Jobs per digest message; '➕ Next' loads the following page.
 SWISS = re.compile(r"switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|genève|genf|basel|bern|"
                    r"lausanne|lugano|luzern|lucerne|winterthur|zug|st\.? gallen", re.I)
@@ -75,7 +76,7 @@ def location_points(job):
 
 def rank_score(job):
     """Higher is better: preferred location first, then SRE-type titles, then remote."""
-    score = location_points(job)
+    score = location_points(job) + (3 if job.get('saved') else 0)
     if RELEVANT.search(job.get('title') or ''):
         score += 2
     if (job.get('work_mode') or '').startswith(('Remote', 'Hybrid')):
@@ -183,7 +184,8 @@ def _job_block(index, job):
     if mode:
         facts.append(mode)
     fit = job.get('fit')
-    head = f"{index}. {title}" + (f" · 🎯 <b>{fit['score']}</b>" if fit else '')
+    star = '⭐ ' if job.get('saved') else ''
+    head = f"{index}. {star}{title}" + (f" · 🎯 <b>{fit['score']}</b>" if fit else '')
     lines = [head, INDENT + ' · '.join(facts)]
     signals = _ai_badges(ai) if ai else []
     if signals:
@@ -194,8 +196,9 @@ def _job_block(index, job):
 
 
 def _keyboard(entries):
-    """Inline buttons '✅ n', five per row; the Worker marks job n applied when tapped."""
-    buttons = [{'text': f'✅ {index}', 'callback_data': f'apply:{code}'} for index, code in entries]
+    """Number buttons, five per row. Tapping n makes the Worker show '✅ Applied · ⭐ Save · ❌ Dismiss'
+    for job n on the same message (callback 'pick:<code>:<n>')."""
+    buttons = [{'text': str(index), 'callback_data': f'pick:{code}:{index}'} for index, code in entries]
     return {'inline_keyboard': [buttons[i:i + 5] for i in range(0, len(buttons), 5)]} if buttons else None
 
 
@@ -233,6 +236,7 @@ BEST_MATCH_SCORE = 70   # Older jobs at or above this fit score are grouped as b
 UNSCORED_SCORE = 45     # Where unscored jobs sit among scored ones.
 ROTATION_PENALTY = 15   # Points a job loses if it was shown in the last ROTATION_HOURS.
 ROTATION_JITTER = 8     # Random points added per digest, so near-equal matches take turns.
+SAVED_BONUS = 10        # Saved (⭐) jobs rank higher until applied or dismissed.
 
 
 def eligible_jobs(db, hidden_urls=frozenset()):
@@ -244,7 +248,8 @@ def eligible_jobs(db, hidden_urls=frozenset()):
     return [j for j in jobs if not language_blocked(j)], [j for j in jobs if language_blocked(j)]
 
 
-def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, shown_ids=None):
+def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, shown_ids=None,
+                 saved_urls=frozenset()):
     """Return (messages, new_count, keyboards) for one page of the digest.
 
     All eligible jobs are ranked once (new first, then "more to explore", shuffled
@@ -262,6 +267,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     fits = score.load(db)
     for job in everything:
         job['fit'] = fits.get(job['id'])
+        job['saved'] = (job.get('url') or '').strip() in saved_urls
     new_ids = {job['id'] for job in job_store.digest_jobs(db, limit=10_000, only_new=True)}
     recent = recently_shown(db, seed)
     new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
@@ -271,7 +277,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         # Best matches lead every digest, with light rotation: a match shown in the last
         # 24 h loses ROTATION_PENALTY points and every score gets a little random jitter.
         def effective(job):
-            base = job['fit']['score'] if job['fit'] else UNSCORED_SCORE
+            base = (job['fit']['score'] if job['fit'] else UNSCORED_SCORE) + (SAVED_BONUS if job.get('saved') else 0)
             return base - (ROTATION_PENALTY if job['id'] in recent else 0) + rng.uniform(0, ROTATION_JITTER)
         older.sort(key=effective, reverse=True)
     else:
@@ -314,7 +320,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         if job.get('url'):
             entries.append((index, applications.job_code(job['url'])))
     remaining = len(ranked) - (first + len(shown))
-    blocks.append('<i>Applied to one? Tap its ✅ number.</i>'
+    blocks.append('<i>Tap a job number to mark it applied, save or dismiss it.</i>'
                   + (f' <i>{remaining} more with ➕.</i>' if remaining else ''))
     text = '\n\n'.join(blocks)
     keyboard = _keyboard(entries)
@@ -325,8 +331,8 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     return [text], len(new), [keyboard]
 
 
-def format_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None):
-    return '\n\n'.join(build_digest(db, limit, rng, hidden_urls, page, seed)[0])
+def format_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, saved_urls=frozenset()):
+    return '\n\n'.join(build_digest(db, limit, rng, hidden_urls, page, seed, saved_urls=saved_urls)[0])
 
 
 def find_job(db, code):
@@ -336,17 +342,25 @@ def find_job(db, code):
     return None
 
 
-def apply_message(db, code, tracker):
-    """Mark the job with this /apply_<code> as applied in Notion; return the Telegram reply."""
+ACTIONS = {'applied': 'Applied', 'saved': 'Saved', 'dismissed': 'Dismissed'}
+
+
+def apply_message(db, code, tracker, action='applied'):
+    """Record a Telegram button action for the job with this code in Notion; return the reply text."""
     job = find_job(db, code)
     if not job:
         return f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
-    page, created = tracker.mark_applied(job)
+    stage = ACTIONS[action]
+    page, outcome = tracker.mark(job, stage)
     link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>'
     title = f"<b>{escape(job['title'])}</b> — {escape(job['company'])}"
-    if created:
-        return f"✅ Marked applied: {title}\nIt won't appear in digests again. Track the stage in {link}."
-    return f"ℹ️ Already tracked: {title}\nSee {link}."
+    if outcome == 'unchanged':
+        return f"ℹ️ Already tracked: {title}\nSee {link}."
+    return {
+        'Applied': f"✅ Marked applied: {title}\nIt won't appear in digests again. Track the stage in {link}.",
+        'Saved': f"⭐ Saved: {title}\nIt stays in digests with a star; /saved lists your saved jobs.",
+        'Dismissed': f"❌ Dismissed: {title}\nIt won't appear again, and helps tune the scores.",
+    }[stage]
 
 
 def _telegram_credentials():
@@ -396,6 +410,8 @@ def main():
                         help='scheduled: send only when new jobs exist; run/today: always send; '
                              'apply: mark --job as applied in Notion')
     parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply')
+    parser.add_argument('--action', choices=sorted(ACTIONS), default='applied',
+                        help='for --mode apply: applied, saved or dismissed')
     parser.add_argument('--score-max', type=int, default=0,
                         help='AI stage 2: score up to N eligible jobs against the Notion Profile (0 = off)')
     parser.add_argument('--enrich-max', type=int, default=0,
@@ -408,15 +424,19 @@ def main():
         if not args.job or not tracker:
             raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
         with job_store.connect(args.db) as db:
-            reply = apply_message(db, args.job.strip().lower(), tracker)
+            reply = apply_message(db, args.job.strip().lower(), tracker, args.action)
         print(reply)
-        if args.send:
+        # Save/Dismiss are already confirmed on the button itself; only Applied gets a message (Notion link).
+        if args.send and args.action == 'applied':
             send_telegram(reply, *_telegram_credentials())
         return 0
-    hidden = frozenset()
+    hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
     if tracker:
         try:
-            hidden = frozenset(tracker.hidden_urls())
+            stages = tracker.url_stages()
+            hidden = frozenset(u for u, st in stages.items() if st not in applications.VISIBLE_STAGES)
+            saved = frozenset(u for u, st in stages.items() if st == 'Saved')
+            dismissed = frozenset(u for u, st in stages.items() if st == 'Dismissed')
         except Exception as error:  # A Notion outage shouldn't block the digest.
             print(f'Warning: could not read Notion applications: {error}')
     sources = json.loads((ROOT / 'sources.json').read_text())
@@ -432,6 +452,9 @@ def main():
             with watch.database(ROOT / 'data' / 'jobs.sqlite') as feed_db:
                 report = watch.scan(feeds, feed_db)
             imported = job_store.import_watch_report(db, report)
+            if args.mode in ('scheduled', 'run'):
+                # Only full crawls can tell that a job disappeared.
+                print(f"Closed {job_store.close_stale(db, STALE_DAYS)} job(s) not seen for {STALE_DAYS} days")
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += job_store.import_company_report(db, company_report)
@@ -456,13 +479,14 @@ def main():
                 candidates, _ = eligible_jobs(db, hidden)
                 scored = [dict(j, fit=fits[j['id']]) for j in candidates if j['id'] in fits]
                 open_urls = {j['url'].strip() for j in job_store.digest_jobs(db, limit=10_000) if j.get('url')}
-                print(matches.sync(db, tracker, scored, hidden, open_urls))
+                applied_urls = hidden - dismissed
+                print(matches.sync(db, tracker, scored, applied_urls, open_urls, dismissed))
             except Exception as error:
                 print(f'Warning: Notion Job Matches sync skipped: {type(error).__name__}: {error}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
-        messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden,
-                                                      page=args.page, seed=seed, shown_ids=shown_ids)
+        messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden, page=args.page,
+                                                      seed=seed, shown_ids=shown_ids, saved_urls=saved)
     text = '\n\n'.join(messages)
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)
     (ROOT / 'reports' / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')

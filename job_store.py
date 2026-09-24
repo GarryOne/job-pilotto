@@ -100,7 +100,7 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
               item.get('notes'))
     if existing:
         db.execute("""UPDATE jobs SET source_id=?, company_id=?, title=?, url=?, location=?, city=?,
-            work_mode=?, last_seen_at=?, classification=?, confidence=?, salary_json=?, notes=? WHERE id=?""",
+            work_mode=?, last_seen_at=?, classification=?, confidence=?, salary_json=?, notes=?, state='open' WHERE id=?""",
                    (*fields[:7], fields[8], fields[9], fields[10], fields[11], fields[12], existing['id']))
         job_id = existing['id']; status = 'seen'
     else:
@@ -141,6 +141,15 @@ def import_company_report(db, report):
                     'career_link_found' if company.get('career_pages') else 'needs_research', now, company.get('company')))
     db.commit()
     return statuses
+
+
+def close_stale(db, days=7, now=None):
+    """Close open jobs not seen for `days`; a job seen again is reopened by upsert_job. Returns the count."""
+    from datetime import timedelta
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat(timespec='seconds')
+    closed = db.execute("UPDATE jobs SET state='closed' WHERE state='open' AND last_seen_at < ?", (cutoff,)).rowcount
+    db.commit()
+    return closed
 
 
 def digest_jobs(db, limit=10, only_new=False):

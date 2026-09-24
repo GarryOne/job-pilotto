@@ -17,16 +17,21 @@ class FakeTracker(applications.Tracker):
     """Records Notion API calls instead of making them."""
     def __init__(self, pages=()):
         super().__init__('token', 'db')
-        self.pages, self.created = list(pages), []
+        self.pages, self.created, self.patched = list(pages), [], []
 
     def _request(self, method, path, body=None):
         if path.endswith('/query'):
             wanted = (body.get('filter') or {}).get('url', {}).get('equals')
             results = [p for p in self.pages if wanted in (None, p['properties']['Job URL']['url'])]
             return {'results': results, 'has_more': False}
+        if method == 'PATCH':
+            page = next(p for p in self.pages if p.get('id') == path.split('/')[-1])
+            page['properties']['Stage'] = {'select': body['properties']['Stage']['select']}
+            self.patched.append(body)
+            return page
         self.created.append(body)
-        page = {'url': 'https://notion.test/page', 'properties': {'Job URL': {'url': body['properties']['Job URL']['url']},
-                                                                  'Stage': {'select': {'name': 'Applied'}}}}
+        page = {'id': f'row{len(self.created)}', 'url': 'https://notion.test/page', 'properties': {'Job URL': {'url': body['properties']['Job URL']['url']},
+                                                                  'Stage': {'select': body['properties']['Stage']['select']}}}
         self.pages.append(page)
         return page
 
@@ -57,6 +62,26 @@ class TrackerTests(unittest.TestCase):
         self.assertEqual(len(tracker.created), 1)
 
 
+class ButtonStageTests(unittest.TestCase):
+    job = {'title': 'SRE', 'company': 'Example', 'location': 'Zurich', 'url': 'https://x.test/9'}
+
+    def test_save_then_apply_updates_but_dismiss_never_overwrites_an_application(self):
+        tracker = FakeTracker()
+        self.assertEqual(tracker.mark(self.job, 'Saved')[1], 'created')
+        self.assertNotIn('Applied on', tracker.created[0]['properties'])
+        self.assertEqual(tracker.url_stages(), {'https://x.test/9': 'Saved'})
+        self.assertEqual(tracker.hidden_urls(), set())          # saved jobs stay in digests
+        self.assertEqual(tracker.mark(self.job, 'Applied')[1], 'updated')
+        self.assertIn('Applied on', tracker.patched[0]['properties'])
+        self.assertEqual(tracker.mark(self.job, 'Dismissed')[1], 'unchanged')
+        self.assertEqual(tracker.url_stages(), {'https://x.test/9': 'Applied'})
+
+    def test_dismissed_jobs_are_hidden(self):
+        tracker = FakeTracker()
+        tracker.mark(self.job, 'Dismissed')
+        self.assertEqual(tracker.hidden_urls(), {'https://x.test/9'})
+
+
 class DigestIntegrationTests(unittest.TestCase):
     def test_applied_jobs_are_hidden_and_apply_command_works(self):
         report = {'jobs': [{'company': 'Example', 'id': str(i), 'title': f'SRE {i}', 'location': 'Zurich',
@@ -68,12 +93,16 @@ class DigestIntegrationTests(unittest.TestCase):
                 code = applications.job_code('https://x.test/1')
                 _, _, keyboards = daily.build_digest(db)
                 buttons = [b for row in keyboards[0]['inline_keyboard'] for b in row]
-                self.assertIn(f'apply:{code}', [b['callback_data'] for b in buttons])
-                self.assertTrue(all(b['text'].startswith('✅ ') for b in buttons))
+                self.assertTrue(any(b['callback_data'].startswith(f'pick:{code}:') for b in buttons))
+                self.assertEqual([b['text'] for b in buttons], ['1', '2', '3'])
                 self.assertIn('✅ Marked applied', daily.apply_message(db, code, tracker))
                 self.assertIn('Already tracked', daily.apply_message(db, code, tracker))
                 self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', tracker))
-                message = daily.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()))
+                self.assertIn('⭐ Saved', daily.apply_message(db, applications.job_code('https://x.test/0'), tracker, 'saved'))
+                stages = tracker.url_stages()
+                saved = frozenset(u for u, s in stages.items() if s == 'Saved')
+                message = daily.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)
+                self.assertIn('1. ⭐ <a href="https://x.test/0"', message)  # saved job ranks first, starred
         self.assertNotIn('https://x.test/1"', message)
         self.assertIn('https://x.test/0"', message)
         self.assertIn('1 applied', message)

@@ -17,7 +17,7 @@ class DigestFormatTests(unittest.TestCase):
                 job_store.import_watch_report(db, report)
                 message = daily.format_digest(db)
         self.assertIn('🆕 1 new', message)
-        self.assertIn('Tap its ✅ number', message)
+        self.assertIn('Tap a job number', message)
         self.assertIn('<b>SRE &lt;Platform&gt; &amp; Ops</b>', message)
         self.assertIn('href="https://example.test/jobs?id=1&amp;x=&quot;y&quot;"', message)
         self.assertIn('A&amp;B &lt;Labs&gt; · Zurich', message)

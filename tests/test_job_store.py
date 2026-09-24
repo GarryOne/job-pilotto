@@ -43,6 +43,18 @@ class CanonicalStoreTests(unittest.TestCase):
                 job_store.import_watch_report(db, {'jobs': [dict(job, description='')]})
                 self.assertEqual(job_store.digest_jobs(db)[0]['description'], 'Run Kubernetes in production.')
 
+    def test_stale_jobs_close_and_reopen_when_seen_again(self):
+        from datetime import datetime, timedelta, timezone
+        job = {'company': 'Example', 'id': '1', 'title': 'SRE', 'url': 'https://example.test/1'}
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [job]})
+                later = datetime.now(timezone.utc) + timedelta(days=8)
+                self.assertEqual(job_store.close_stale(db, 7, now=later), 1)
+                self.assertEqual(job_store.digest_jobs(db), [])
+                job_store.import_watch_report(db, {'jobs': [job]})
+                self.assertEqual(len(job_store.digest_jobs(db)), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

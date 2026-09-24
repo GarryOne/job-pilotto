@@ -12,6 +12,10 @@ on:
       job:
         description: 'job code from /apply_<code> (apply mode only)'
         required: false
+      action:
+        description: 'apply mode: applied, saved or dismissed'
+        required: false
+        default: applied
       page:
         description: 'page number from a Next button (more mode only)'
         required: false
@@ -72,6 +76,7 @@ jobs:
           # AI stage 2 (fit scoring) is switched on the same way by its own variable.
           SRE_WATCH_SCORE_MODEL: ${{ vars.SRE_WATCH_SCORE_MODEL }}
           JOB: ${{ inputs.job }}
+          ACTION: ${{ inputs.action || 'applied' }}
           PAGE: ${{ inputs.page }}
           SEED: ${{ inputs.seed }}
         run: |
@@ -85,7 +90,7 @@ jobs:
           if [ -n "$SRE_WATCH_SCORE_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --score-max 60"
           fi
-          python daily.py $send --mode "$MODE" ${JOB:+--job "$JOB"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
+          python daily.py $send --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
       - name: Report failure to Telegram
         if: failure()
         env:
