@@ -62,11 +62,14 @@ class ScoutTests(unittest.TestCase):
                 self.assertEqual(summary['total_feeds'], 2)
                 sources = {(s['ats'], s['slug']) for s in scout.active_sources(db)}
                 self.assertEqual(sources, {('lever', 'bigco'), ('greenhouse', 'farco')})
-                registry = [p for db_id, p in tracker.created if db_id == scout.SOURCE_REGISTRY_DB]
-                self.assertEqual(len(registry), 2)
-                research = [p for db_id, p in tracker.created if db_id == scout.COMPANY_RESEARCH_DB]
-                self.assertEqual(sorted(p['Company']['title'][0]['text']['content'] for p in research),
-                                 ['Bigco', 'Farco', 'Smallco', 'Walledco'])  # 'Nofeed' (standard, no feed) skipped
+                rows = {p['Company']['title'][0]['text']['content']: p for db_id, p in tracker.created
+                        if db_id == scout.EMPLOYERS_DB}
+                self.assertEqual(sorted(rows), ['Bigco', 'Farco', 'Smallco', 'Walledco'])  # 'Nofeed' skipped
+                self.assertTrue(rows['Bigco']['Active']['checkbox'])
+                self.assertEqual(rows['Bigco']['ATS'], {'select': {'name': 'lever'}})
+                self.assertFalse(rows['Smallco']['Active']['checkbox'])
+                self.assertEqual(rows['Walledco']['Feed status'], {'select': {'name': 'Manual watch'}})
+                research = list(rows.values())
                 self.assertTrue(research[0]['Glassdoor']['url'].startswith('https://www.glassdoor.com/'))
                 # Next run continues: nothing pending, nothing re-probed until its recheck date.
                 summary, results = self.run_scout(db)

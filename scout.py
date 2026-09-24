@@ -8,8 +8,8 @@ Each run
 2. probes a small batch of them for a public job feed (Greenhouse, Lever, Ashby,
    Workable, Recruitee, Personio, SmartRecruiters, plus Amazon and Netflix),
 3. scores every feed it finds for quality (0-100) against the owner's goals,
-4. registers useful feeds (Notion Source Registry + local table) so the 4-hourly
-   crawl includes them, grows Notion Company Research, and
+4. registers useful feeds (Notion Employers & Sources + local table) so the
+   4-hourly crawl includes them, and
 5. sends one Telegram summary.
 
 Progress lives in the table scout_candidates, so later runs continue where this
@@ -33,8 +33,8 @@ import watch
 
 ROOT = Path(__file__).resolve().parent
 SEEDS = ROOT / 'scout_seeds.json'
-SOURCE_REGISTRY_DB = '319f2372dd8649699415b672d3111d4c'
-COMPANY_RESEARCH_DB = 'c7fe8570c2ff414086ae9bb1ee2dbf64'
+# Notion "Employers & Sources": one row per employer or job board (formerly Source Registry + Company Research).
+EMPLOYERS_DB = 'c7fe8570c2ff414086ae9bb1ee2dbf64'
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90}
 # Tier 1 feeds are crawled with this many SRE-type roles anywhere: their Zurich/London roles come and go.
@@ -242,22 +242,22 @@ def board_url(system, slug):
 # ---------- registry used by the 4-hourly crawl ----------
 
 def active_sources(db, tracker=None, static=()):
-    """Feeds for watch.scan: static sources.json + local feed_sources + active Notion Source Registry rows."""
+    """Feeds for watch.scan: static sources.json + local feed_sources + active Notion Employers & Sources rows."""
     db.executescript(TABLES)
     sources = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): dict(s) for s in static}
     for row in db.execute('SELECT ats, slug, company FROM feed_sources WHERE active = 1'):
         sources.setdefault((row['ats'], row['slug']), {'company': row['company'], 'ats': row['ats'], 'slug': row['slug']})
     if tracker:
         try:
-            for page in tracker.query_database(SOURCE_REGISTRY_DB, {'property': 'Active', 'checkbox': {'equals': True}}):
+            for page in tracker.query_database(EMPLOYERS_DB, {'property': 'Active', 'checkbox': {'equals': True}}):
                 props = page['properties']
                 system = (props.get('ATS', {}).get('select') or {}).get('name')
                 slug = ''.join(t['plain_text'] for t in props.get('Slug', {}).get('rich_text', []))
-                name = ''.join(t['plain_text'] for t in props['Source']['title'])
+                name = ''.join(t['plain_text'] for t in props['Company']['title'])
                 if system in ats.FETCHERS and slug:
                     sources.setdefault((system, slug), {'company': name, 'ats': system, 'slug': slug})
         except Exception as error:  # Notion down: crawl what we know locally.
-            print(f'Warning: Source Registry not read: {type(error).__name__}: {error}')
+            print(f'Warning: Employers & Sources not read: {type(error).__name__}: {error}')
     return list(sources.values())
 
 
@@ -275,47 +275,41 @@ def research_links(name):
 
 
 def write_notion(tracker, candidate, outcome):
-    """Source Registry row for a found feed; Company Research row for every outcome worth keeping."""
+    """One Employers & Sources row per candidate worth keeping (created or updated by company name)."""
     today = now().date().isoformat()
     glassdoor, levels = research_links(candidate['name'])
     status, system, slug, score, stats = (outcome.get(k) for k in ('status', 'ats', 'slug', 'quality', 'stats'))
-    if status == 'found':
-        tracker.create_page(SOURCE_REGISTRY_DB, {
-            'Source': {'title': [{'text': {'content': candidate['name']}}]},
-            'Kind': {'select': {'name': 'Employer feed'}}, 'Integration': {'select': {'name': 'Working'}},
-            'ATS': {'select': {'name': system}}, 'Slug': _text(slug), 'Active': {'checkbox': True},
-            'Quality': {'number': score}, 'Relevant roles': {'number': stats['relevant']},
-            'In preferred places': {'number': stats['preferred']}, 'Tier': {'select': {'name': candidate['tier']}},
-            'Origin': _text(candidate['origin']), 'Feed': {'url': board_url(system, slug)},
-            'Geography': _text(', '.join(stats['places'])), 'Added': {'date': {'start': today}},
-            'Checked': {'date': {'start': today}},
-            'Notes': _text(f"{stats['jobs']} postings; {stats['relevant']} SRE-type; {stats['preferred']} in preferred "
-                           f"places ({stats['swiss']} in Switzerland); stack overlap {int(stats['stack_share'] * 100)}%"
-                           + ('; salaries published' if stats['salary_published'] else '')),
-        })
-    feed_status = {'found': 'Feed found', 'low': 'Low relevance', 'manual': 'Manual watch', 'none': 'No public feed'}[status]
     if status == 'none' and candidate['tier'] != 'Tier 1':
-        return  # Keep Company Research focused: unfeedable standard companies are only tracked locally.
+        return  # Keep the database focused: unfeedable standard companies are only tracked locally.
+    feed_status = {'found': 'Feed found', 'low': 'Low relevance', 'manual': 'Manual watch', 'none': 'No public feed'}[status]
     props = {
         'Company': {'title': [{'text': {'content': candidate['name']}}]},
-        'Tier': {'select': {'name': candidate['tier']}}, 'Feed status': {'select': {'name': feed_status}},
+        'Kind': {'select': {'name': 'Employer'}}, 'Tier': {'select': {'name': candidate['tier']}},
+        'Feed status': {'select': {'name': feed_status}}, 'Active': {'checkbox': status == 'found'},
         'Origin': _text(candidate['origin']), 'Glassdoor': {'url': glassdoor}, 'levels.fyi': {'url': levels},
         'Checked': {'date': {'start': today}},
     }
     if score is not None:
         props['Quality'] = {'number': score}
     if system:
-        props['ATS'] = _text(system)
-        props['Careers'] = {'url': board_url(system, slug)}
+        props.update({'ATS': {'select': {'name': system}}, 'Slug': _text(slug),
+                      'Feed': {'url': board_url(system, slug)}, 'Careers': {'url': board_url(system, slug)}})
     elif candidate.get('careers'):
         props['Careers'] = {'url': candidate['careers']}
     if stats:
-        props['Cities'] = _text(', '.join(stats['places']))
-    existing = tracker.query_database(COMPANY_RESEARCH_DB, {'property': 'Company', 'title': {'equals': candidate['name']}})
+        props.update({'Cities': _text(', '.join(stats['places'])), 'Relevant roles': {'number': stats['relevant']},
+                      'In preferred places': {'number': stats['preferred']},
+                      'Notes': _text(f"{stats['jobs']} postings; {stats['relevant']} SRE-type; {stats['preferred']} in "
+                                     f"preferred places ({stats['swiss']} in Switzerland); stack overlap "
+                                     f"{int(stats['stack_share'] * 100)}%"
+                                     + ('; salaries published' if stats['salary_published'] else ''))})
+    if status == 'found':
+        props.update({'Integration': {'select': {'name': 'Working'}}, 'Added': {'date': {'start': today}}})
+    existing = tracker.query_database(EMPLOYERS_DB, {'property': 'Company', 'title': {'equals': candidate['name']}})
     if existing:
         tracker.update_page(existing[0]['id'], props)
     else:
-        tracker.create_page(COMPANY_RESEARCH_DB, props)
+        tracker.create_page(EMPLOYERS_DB, props)
 
 
 # ---------- one run ----------
