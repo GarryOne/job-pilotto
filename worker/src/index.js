@@ -136,7 +136,23 @@ export async function handleCommand(env, command) {
   }
 }
 
+// A tap on a digest's "✅ n" button arrives as callback_query with data "apply:<code>".
+async function handleButton(env, query) {
+  if (String(query.message?.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
+  const code = /^apply:([0-9a-f]{8})$/.exec(query.data || '')?.[1];
+  try {
+    if (!code) throw new Error('Unknown button');
+    await dispatch(env, { mode: 'apply', job: code });
+    await telegram(env, 'answerCallbackQuery', { callback_query_id: query.id, text: 'Marking it applied in Notion…' });
+  } catch (error) {
+    await telegram(env, 'answerCallbackQuery', {
+      callback_query_id: query.id, text: `⚠️ ${error.message}`.slice(0, 200), show_alert: true,
+    });
+  }
+}
+
 async function handleUpdate(env, update) {
+  if (update.callback_query) return handleButton(env, update.callback_query);
   const message = update.message;
   // Only the owner's private chat may control the bot; ignore everyone else silently.
   if (!message || String(message.chat?.id) !== String(env.OWNER_CHAT_ID)) return;

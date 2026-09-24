@@ -86,19 +86,21 @@ def _ai_badges(ai):
     """Signals worth an emoji; everything else stays plain text."""
     badges = []
     if ai['english_is_enough']['value'] == 'yes':
-        badges.append('🇬🇧 English OK')
+        badges.append('🇬🇧 English')
     for lang in ai['languages']:
         if lang['language'] == 'Other':
             if lang['level'] == 'required':
-                badges.append('⚠️ another language required')
+                badges.append('⚠️ other language required')
         elif lang['language'] != 'English':
-            suffix = 'required' if lang['level'] == 'required' else 'a plus'
-            badges.append(f"{LANGUAGE_FLAGS[lang['language']]} {lang['language']} {suffix}")
+            suffix = ' required' if lang['level'] == 'required' else ' +'
+            badges.append(f"{LANGUAGE_FLAGS[lang['language']]} {lang['language']}{suffix}")
     salary = _salary(ai['salary']['text']) if ai['salary']['stated'] else None
     if salary:
         badges.append(f"💰 {escape(salary)}")
+    elif ai['salary']['stated']:
+        badges.append('💰 salary info')
     if ai['employer_type']['value'] == 'recruiter':
-        badges.append('🧑‍💼 Recruiter')
+        badges.append('👤 Recruiter')
     return badges
 
 
@@ -127,37 +129,40 @@ def short_title(title):
     return re.sub(r'\s{2,}', ' ', GENDER_TAG.sub('', title or '')).strip(' -–|') or title
 
 
+MODE_LABELS = {'onsite': '🏢 On-site', 'hybrid': '🏠 Hybrid', 'remote': '🌍 Remote'}
+
+
 def _job_block(index, job):
-    """Layout: bold linked title; company · location · seniority · work mode; signals; /apply."""
+    """Layout: bold linked title / company · location · seniority · work mode / signals."""
     title = f"<b>{escape(short_title(job['title']))}</b>"
     if job.get('url'):
         title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
     facts = [escape(short_company(job['company'])), escape(job.get('location') or 'location not stated')]
     ai = job.get('ai')
     if ai and ai['seniority']['value'] in SENIORITY_LABELS:
-        facts.append(SENIORITY_LABELS[ai['seniority']['value']])
-    mode = {'onsite': 'On-site', 'hybrid': 'Hybrid', 'remote': 'Remote'}.get(ai['work_mode']['value'] if ai else '')
+        facts.append(f"<b>{SENIORITY_LABELS[ai['seniority']['value']]}</b>")
+    mode = MODE_LABELS.get(ai['work_mode']['value'] if ai else '')
     if not mode:
         badge = _work_mode_badge(job.get('work_mode'))
-        mode = badge.split(' ', 1)[1] if badge else None
+        mode = {'🔀 Hybrid': '🏠 Hybrid'}.get(badge, badge)
     if mode:
         facts.append(mode)
     lines = [f"{index}. {title}", INDENT + ' · '.join(facts)]
     signals = _ai_badges(ai) if ai else []
     if signals:
-        # Short signal lists fit on the facts line; longer ones get their own line.
-        if len(lines[1]) + len(' · '.join(signals)) <= 70:
-            lines[1] += ' · ' + ' · '.join(signals)
-        else:
-            lines.append(INDENT + ' · '.join(signals))
-    if job.get('url'):
-        # Telegram turns this into a tappable command in the chat.
-        lines.append(f"{INDENT}/apply_{applications.job_code(job['url'])}")
+        lines.append(INDENT + ' · '.join(signals))
     return '\n'.join(lines)
 
 
+def _keyboard(entries):
+    """Inline buttons '✅ n', five per row; the Worker marks job n applied when tapped."""
+    buttons = [{'text': f'✅ {index}', 'callback_data': f'apply:{code}'} for index, code in entries]
+    return {'inline_keyboard': [buttons[i:i + 5] for i in range(0, len(buttons), 5)]} if buttons else None
+
+
 def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
-    """Return (messages, new_count) as Telegram HTML; each message fits one Telegram send.
+    """Return (messages, new_count, keyboards): Telegram HTML texts, each fitting one send,
+    and for each text the inline keyboard of '✅ n' buttons for the jobs it lists (or None).
 
     New jobs come first, ranked. Remaining slots are filled with older open jobs
     ("more to explore"), ranked but shuffled within each score so repeat digests vary.
@@ -174,39 +179,50 @@ def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
     older = rank_jobs([j for j in everything if j['id'] not in new_ids], rng)[:limit - len(new)]
     swiss_total = sum(is_swiss(j) for j in everything)
 
-    header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · 🎲 {len(older)} more to explore\n"
-              f"<i>{len(everything)} open jobs tracked, {swiss_total} in Switzerland"
-              + (f", {len(hidden_urls)} applied hidden" if hidden_urls else '')
-              + (f", {len(blocked)} hidden for required {'/'.join(PREFERENCES['disqualifying_languages'])}"
-                 if blocked else '') + "</i>")
-    blocks = [header]
+    stats = [f"{len(everything)} open", f"{swiss_total} 🇨🇭"]
+    if hidden_urls:
+        stats.append(f"{len(hidden_urls)} applied")
+    if blocked:
+        stats.append(f"{len(blocked)} language-filtered")
+    header = (f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(new)} new · 🎲 {len(older)} to explore\n"
+              f"<i>{' · '.join(stats)}</i>")
+    # Each block carries the (index, code) pairs of the jobs it shows, for the buttons.
+    blocks = [(header, [])]
     index = 1
     for title, section in (('🆕 <b>New since last run</b>', new), ('🎲 <b>More to explore</b>', older)):
         if not section:
             continue
-        blocks.append(title)
+        blocks.append((title, []))
         abroad_heading = False
         for job in section:
             # Ranking puts Swiss jobs first; mark where the rest begins instead of flagging every job.
             if not is_swiss(job) and not abroad_heading:
-                blocks.append('🌍 <i>Outside Switzerland</i>')
+                blocks.append(('🌍 <i>Outside Switzerland</i>', []))
                 abroad_heading = True
-            blocks.append(_job_block(index, job))
+            code = applications.job_code(job['url']) if job.get('url') else None
+            blocks.append((_job_block(index, job), [(index, code)] if code else []))
             index += 1
+    footer = '<i>Applied to one? Tap its ✅ number below.</i>'
 
-    messages, current = [], ''
-    for block in blocks:
-        candidate = f"{current}\n\n{block}" if current else block
-        if len(candidate) > CHUNK_LIMIT and current:
-            messages.append(current)
-            current = block
+    parts, text, entries = [], '', []
+    for block, block_entries in blocks:
+        candidate = f"{text}\n\n{block}" if text else block
+        if len(candidate) > CHUNK_LIMIT and text:
+            parts.append((text, entries))
+            text, entries = block, list(block_entries)
         else:
-            current = candidate
-    if current:
-        messages.append(current)
-    if len(messages) > 1:
-        messages = [f"{m}\n\n<i>part {i}/{len(messages)}</i>" for i, m in enumerate(messages, 1)]
-    return messages, len(new)
+            text, entries = candidate, entries + block_entries
+    if text:
+        parts.append((text, entries))
+    total = len(parts)
+    messages = []
+    for i, (text, entries) in enumerate(parts, 1):
+        if entries:
+            text += f"\n\n{footer}"
+        if total > 1:
+            text += f"\n<i>part {i}/{total}</i>"
+        messages.append(text)
+    return messages, len(new), [_keyboard(entries) for _, entries in parts]
 
 
 def format_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
@@ -240,10 +256,12 @@ def _telegram_credentials():
     return token, chat_id
 
 
-def send_telegram(text, token, chat_id):
+def send_telegram(text, token, chat_id, reply_markup=None):
     endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
-    body = urllib.parse.urlencode({'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML',
-                                   'disable_web_page_preview': 'true'}).encode()
+    fields = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}
+    if reply_markup:
+        fields['reply_markup'] = json.dumps(reply_markup)
+    body = urllib.parse.urlencode(fields).encode()
     request = urllib.request.Request(endpoint, data=body, method='POST')
     with urllib.request.urlopen(request, timeout=20) as response:
         payload = json.load(response)
@@ -313,7 +331,7 @@ def main():
                 print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max))
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
-        messages, new_count = build_digest(db, args.limit, hidden_urls=hidden)
+        messages, new_count, keyboards = build_digest(db, args.limit, hidden_urls=hidden)
     text = '\n\n'.join(messages)
     (ROOT / 'reports').mkdir(parents=True, exist_ok=True)
     (ROOT / 'reports' / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')
@@ -326,8 +344,8 @@ def main():
     if args.mode == 'scheduled' and not new_count:
         print('\nNo new jobs since the last run; nothing sent.')
         return 0
-    for message in messages:
-        send_telegram(message, token, chat_id)
+    for message, keyboard in zip(messages, keyboards):
+        send_telegram(message, token, chat_id, keyboard)
     print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
 
 

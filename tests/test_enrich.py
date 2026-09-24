@@ -86,8 +86,8 @@ class EnrichTests(unittest.TestCase):
                     salary={'stated': True, 'text': 'CHF 130k–150k'}))
                 message = daily.format_digest(db)
         self.assertNotIn('SRE German', message)
-        self.assertIn('1 hidden for required German/French', message)
-        for badge in ('🇬🇧 English OK', 'Senior', '🇫🇷 French a plus', '💰 CHF 130k–150k'):
+        self.assertIn('1 language-filtered', message)
+        for badge in ('🇬🇧 English', '<b>Senior</b>', '🇫🇷 French +', '💰 CHF 130k–150k'):
             self.assertIn(badge, message)
 
 

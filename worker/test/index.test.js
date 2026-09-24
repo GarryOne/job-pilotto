@@ -59,6 +59,31 @@ test('/apply_<code> dispatches the workflow and confirms', async () => {
   assert.match(calls[1].body.text, /Marking it applied/);
 });
 
+async function tap(data, { chatId = 42 } = {}) {
+  const pending = [];
+  const request = new Request('https://bot.test/telegram', {
+    method: 'POST',
+    headers: { 'X-Telegram-Bot-Api-Secret-Token': 's3cret' },
+    body: JSON.stringify({ callback_query: { id: 'q1', data, message: { chat: { id: chatId } } } }),
+  });
+  await worker.fetch(request, env, { waitUntil: (p) => pending.push(p) });
+  await Promise.all(pending);
+}
+
+test('✅ button dispatches apply and answers the tap', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await tap('apply:ab12cd34');
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'apply', job: 'ab12cd34' } });
+  assert.match(calls[1].url, /answerCallbackQuery$/);
+  assert.equal(calls[1].body.callback_query_id, 'q1');
+});
+
+test('buttons from other chats are ignored', async () => {
+  const calls = mockFetch();
+  await tap('apply:ab12cd34', { chatId: 7 });
+  assert.equal(calls.length, 0);
+});
+
 test('invalid apply code is not dispatched', async () => {
   const calls = mockFetch();
   await send('/apply_zz');

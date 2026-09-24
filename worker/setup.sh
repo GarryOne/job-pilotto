@@ -63,7 +63,7 @@ echo "Pointing the Telegram webhook at $WORKER_URL/telegram..."
 curl -fsS "https://api.telegram.org/bot${TG_TOKEN}/setWebhook" \
   --data-urlencode "url=${WORKER_URL}/telegram" \
   --data-urlencode "secret_token=${WEBHOOK_SECRET}" \
-  --data-urlencode 'allowed_updates=["message"]' >/dev/null
+  --data-urlencode 'allowed_updates=["message","callback_query"]' >/dev/null
 
 curl -fsS "https://api.telegram.org/bot${TG_TOKEN}/setMyCommands" -H 'Content-Type: application/json' -d '{"commands":[
   {"command":"run","description":"Crawl now and send the digest"},

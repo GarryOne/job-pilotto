@@ -66,14 +66,17 @@ class DigestIntegrationTests(unittest.TestCase):
                 job_store.import_watch_report(db, report)
                 tracker = FakeTracker()
                 code = applications.job_code('https://x.test/1')
-                self.assertIn(f'/apply_{code}', daily.format_digest(db))
+                _, _, keyboards = daily.build_digest(db)
+                buttons = [b for row in keyboards[0]['inline_keyboard'] for b in row]
+                self.assertIn(f'apply:{code}', [b['callback_data'] for b in buttons])
+                self.assertTrue(all(b['text'].startswith('✅ ') for b in buttons))
                 self.assertIn('✅ Marked applied', daily.apply_message(db, code, tracker))
                 self.assertIn('Already tracked', daily.apply_message(db, code, tracker))
                 self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', tracker))
                 message = daily.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()))
         self.assertNotIn('https://x.test/1"', message)
         self.assertIn('https://x.test/0"', message)
-        self.assertIn('1 applied hidden', message)
+        self.assertIn('1 applied', message)
 
 
 if __name__ == '__main__':

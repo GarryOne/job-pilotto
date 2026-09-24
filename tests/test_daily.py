@@ -17,6 +17,7 @@ class DigestFormatTests(unittest.TestCase):
                 job_store.import_watch_report(db, report)
                 message = daily.format_digest(db)
         self.assertIn('🆕 1 new', message)
+        self.assertIn('Tap its ✅ number', message)
         self.assertIn('<b>SRE &lt;Platform&gt; &amp; Ops</b>', message)
         self.assertIn('href="https://example.test/jobs?id=1&amp;x=&quot;y&quot;"', message)
         self.assertIn('A&amp;B &lt;Labs&gt; · Zurich', message)
@@ -39,7 +40,7 @@ class DigestFormatTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                messages, new_count = daily.build_digest(db, limit=50)
+                messages, new_count, keyboards = daily.build_digest(db, limit=50)
         self.assertEqual(new_count, 50)
         self.assertGreater(len(messages), 1)
         self.assertTrue(all(len(m) <= daily.TELEGRAM_LIMIT for m in messages))
