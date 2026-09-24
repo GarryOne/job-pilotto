@@ -26,13 +26,12 @@ import re
 import urllib.parse
 import urllib.request
 
-import applications
-import ats
-import job_store
-import watch
+from . import store, telegram
+from .notion import client as notion
+from .paths import CANONICAL_DB, CONFIG
+from .sources import ats, feeds
 
-ROOT = Path(__file__).resolve().parent
-SEEDS = ROOT / 'scout_seeds.json'
+SEEDS = CONFIG / 'scout_seeds.json'
 # Notion "Employers & Sources": one row per employer or job board (formerly Source Registry + Company Research).
 EMPLOYERS_DB = 'c7fe8570c2ff414086ae9bb1ee2dbf64'
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
@@ -210,8 +209,8 @@ def find_feed(candidate, probe=ats.probe):
 
 def quality(jobs):
     """Deterministic 0-100 score of how useful a feed is for this search, with its evidence."""
-    relevant = [j for j in jobs if watch.TITLES.search(j['title'])]
-    preferred = [j for j in relevant if watch.wanted_location(j)]
+    relevant = [j for j in jobs if feeds.TITLES.search(j['title'])]
+    preferred = [j for j in relevant if feeds.wanted_location(j)]
     swiss = [j for j in preferred if SWISS_OR_ZURICH.search(j['location'] or '')]
     stack = [j for j in relevant if STACK.search(j.get('description') or '')]
     cutoff = (now() - timedelta(days=90)).date().isoformat()
@@ -242,7 +241,7 @@ def board_url(system, slug):
 # ---------- registry used by the 4-hourly crawl ----------
 
 def active_sources(db, tracker=None, static=()):
-    """Feeds for watch.scan: static sources.json + local feed_sources + active Notion Employers & Sources rows."""
+    """Feeds for feeds.scan: static sources.json + local feed_sources + active Notion Employers & Sources rows."""
     db.executescript(TABLES)
     sources = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): dict(s) for s in static}
     for row in db.execute('SELECT ats, slug, company FROM feed_sources WHERE active = 1'):
@@ -388,19 +387,17 @@ def telegram_summary(summary, results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
+    parser.add_argument('--db', type=Path, default=CANONICAL_DB)
     parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
     args = parser.parse_args()
-    tracker = applications.Tracker.from_env()
-    with job_store.connect(args.db) as db:
+    tracker = notion.Tracker.from_env()
+    with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
     message = telegram_summary(summary, results)
     print(message)
     if args.send:
-        import daily
-        token, chat_id = daily._telegram_credentials()
-        daily.send_telegram(message, token, chat_id)
+        telegram.send(message, *telegram.credentials())
 
 
 if __name__ == '__main__':

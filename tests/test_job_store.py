@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import job_store
+from src import store as job_store
 
 
 class CanonicalStoreTests(unittest.TestCase):

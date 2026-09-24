@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import ats
-import job_store
-import scout
+from src.sources import ats
+from src import store as job_store
+from src import scout
 
 SEEDS = {'excluded': ['Sonar'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
          'tier1': ['Farco'], 'manual_watch': [{'name': 'Walledco', 'careers': 'https://walled.test/jobs'}],

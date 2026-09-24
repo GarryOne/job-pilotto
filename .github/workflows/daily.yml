@@ -63,7 +63,7 @@ jobs:
         run: python -m unittest discover -s tests
       - name: Discover Swiss software employers
         if: env.MODE == 'scheduled' || env.MODE == 'run'
-        run: python discover.py --pages 2 --max-companies 80
+        run: python -m src discover --pages 2 --max-companies 80
       - name: Generate canonical digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -91,7 +91,7 @@ jobs:
           if [ -n "$SRE_WATCH_SCORE_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --score-max 60"
           fi
-          python daily.py $send --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
+          python -m src daily $send --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
       - name: Report failure to Telegram
         if: failure()
         env:

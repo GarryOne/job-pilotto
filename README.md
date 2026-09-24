@@ -1,132 +1,87 @@
-# SRE Watch — first increment
+# SRE Watch
 
-Collect direct Greenhouse postings from Cloudflare, Grafana Labs and Canonical.
-Python 3.10+; no dependencies, subscriptions or API keys required.
+Personal job-search automation for SRE / platform / DevOps roles in Switzerland (Zurich preferred), Berlin, London, Dubai and remote.
 
-```sh
-python3 /Users/mac/sre-watch/watch.py
+Every 4 hours it crawls job boards and employer job feeds, lets Claude read each posting and score its fit against a CV-based profile, and sends a short ranked digest to Telegram. Applications are tracked in Notion. It never applies on your behalf.
+
+```
+Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
+                                  │  SQLite state in the Actions cache
+                                  ▼
+                   AI stage 1: facts (Claude Haiku 4.5)
+                   AI stage 2: fit score vs Profile (Claude Sonnet 5)
+                                  │
+             ┌────────────────────┴────────────────────┐
+             ▼                                         ▼
+   Telegram digest (top 10, buttons)          Notion: Job Matches,
+             │                                Applications, Employers
+             ▼
+   Cloudflare Worker ── commands and buttons ──▶ GitHub Actions runs
 ```
 
-Open `reports/latest.html` in a browser. Use its filter to search locations,
-companies and titles. JSON output is available for a future Telegram adapter.
-Each run also creates timestamped reports. SQLite in `data/` remembers job IDs.
+## What you get
 
-New means first seen locally, not recently published. Changed means the title,
-location or application URL changed. Description changes are not checked yet.
-Results are worldwide; no work authorization, language, seniority or remote
-eligibility is inferred. No AI scoring is used in this increment.
+- **Telegram digest**: top 10 jobs per message, best matches first and rotating between digests. Each job shows its fit score, company, place, seniority, work mode, language and salary signals, and a one-line reason. Tap a job number to mark it **✅ Applied**, **⭐ Save** or **❌ Dismiss**; **➕ Next 10** pages through the list.
+- **Commands**: `/run` (crawl now), `/today` (current list), `/applied`, `/saved`, `/scout` (find new employer feeds), `/status`, `/help`.
+- **Filters**: jobs requiring German, French or Italian are hidden; only roles in the preferred places (or remote open to Europe) are kept; applied and dismissed jobs never return; jobs not seen for 7 days are closed.
+- **Source scout**: once a day it checks 15 candidate employers (Tier 1 companies first, then Hacker News "Who is hiring?", open company lists and jobs.ch employers) for a public job feed, scores each feed's quality and adds the useful ones to the crawl.
+- **Notion**: Job Matches (every scored job), Applications — Job Tracker, Employers & Sources, and the Profile the scorer reads.
 
-One source failing does not prevent the other results being saved. The report
-shows failures and the process returns exit code 1 if any source fails. Jobs
-missing from a source are omitted from that run, not declared permanently closed.
+## Repository layout
 
-Run verification: `python3 -m unittest discover -s /Users/mac/sre-watch/tests`
-
-Next increments:
-1. Confirm locations and role preferences; refine filtering.
-2. Run `python3 /Users/mac/sre-watch/daily.py` to preview a canonical digest.
-The daily command imports the direct employer feeds and, when present,
-`reports/companies.json` from the Swiss company-discovery run. Direct feeds are
-global unless a posting states a Swiss location; the digest keeps that evidence
-visible instead of pretending global remote means Swiss eligibility.
-
-3. Create a private Telegram bot, set `TELEGRAM_BOT_TOKEN` and
-   `TELEGRAM_CHAT_ID`, then run `python3 /Users/mac/sre-watch/daily.py --send`.
-4. Add Telegram Save/Dismiss commands and persistent preferences.
-5. Deploy with daily scheduling and failure notifications.
-6. Add AI explanations and ranking, with a usage budget.
-
-Telegram setup when ready: create a bot with https://t.me/BotFather using
-`/newbot`, then open the new bot and press Start. Store its token in local or
-hosting secrets; do not commit it. No bot or schedule is configured yet.
-
-Source API documentation: https://docs.greenhouse.io/job-board.html
-
-## Swiss company discovery
-
-```sh
-python3 /Users/mac/sre-watch/discover.py --pages 2 --max-companies 80
+```
+src/
+  __main__.py        python -m src <command>
+  daily.py           one digest run: crawl, AI, sync, send (modes below)
+  digest.py          filtering, ranking, rotation, paging, message layout, buttons
+  telegram.py        sending messages
+  store.py           SQLite store (jobs, companies, AI results, shown history)
+  scout.py           daily source scout
+  paths.py           repository paths
+  sources/
+    ats.py           Greenhouse, Lever, Ashby, Workable, Recruitee, Personio,
+                     SmartRecruiters, Amazon and Netflix job feeds
+    feeds.py         crawls the active employer feeds
+    boards.py        jobs.ch and TechTree
+  ai/
+    enrich.py        AI stage 1: facts from each posting, with evidence
+    score.py         AI stage 2: fit score against the Notion Profile
+  notion/
+    client.py        Notion API: Applications, Profile, Job Matches
+    matches.py       mirror of scored jobs into Notion Job Matches
+config/
+  preferences.json   hard filters (disqualifying languages)
+  sources.json       employer feeds always crawled
+  scout_seeds.json   candidate employers for the scout (Tier 1, regions)
+worker/              Cloudflare Worker for the Telegram bot (commands, buttons)
+tests/               Python tests; Worker tests live in worker/test/
+.github/workflows/   daily.yml (every 4 h + on demand), scout.yml (daily)
 ```
 
-Open `reports/companies.html`: filter by city, company, job title, Remote or
-Hybrid. CSV and JSON companions contain evidence links and discovered career
-pages / ATS links. Company size comes from the board profile, not an estimate.
-The crawler searches software engineer, site reliability and développeur
-logiciel on jobs.ch, with bounded pagination. `--pages 2` expands the search.
-`--max-companies` caps enrichment, with discovered/enriched counts reported.
-It also checks SwissDevJobs and TechTree; blocked requests and unsupported
-formats appear in the report. It does not bypass access restrictions.
+## Commands
 
-jobs.ch jobs must have an explicit Swiss country in structured location data;
-expired jobs are excluded when a deadline is provided. TechTree uses visible
-Swiss-city labels; anonymous employer names can remain unresolved. Global
-remote jobs without Swiss location evidence are not included. No AI or search
-API key is needed. No LinkedIn crawling is performed.
+```sh
+python3 -m src daily                  # preview a digest locally (no send)
+python3 -m src daily --send --mode today
+python3 -m src scout --batch 15       # probe candidate employers
+python3 -m src discover --pages 2 --max-companies 80
+python3 -m src feeds                  # employer feeds only, HTML report in reports/
+.venv/bin/python -m src enrich --dry-run
+```
 
-Company websites are followed from board-provided links, then up to three
-career candidates are fetched; linked ATS hosts are detected. This is evidence
-of a reachable careers link, not proof that the board vacancy still appears on
-the official site. Domain names are never invented. Consulting/recruiting firms
-are included and labelled by their actual advertiser names; end clients may be
-undisclosed. Company size is not a hard exclusion criterion.
+`daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send), `today` (no board crawl), `more` (next page of a digest), `apply` (record ✅ / ⭐ / ❌ in Notion).
 
-Remote/hybrid labels are extracted from posting text, not inferred from city.
-“Remote mentioned” is a review flag, not proof of full remote eligibility.
-The tool does not estimate applicant competition. Dates are source dates when
-provided, not a claim that a listing is newly published.
+AI stages run only when the GitHub variables `SRE_WATCH_ENRICH_MODEL` and `SRE_WATCH_SCORE_MODEL` are set; delete them to stop all AI spending.
 
-Network requests time out after 15 seconds; three company workers run with a
-short delay per request. Successful responses are cached for six hours. Use
-`--refresh` to fetch again. Reports show the latest scan; the cache is not an
-application tracker. Daily hosting and Telegram remain separate next steps.
+## Tests
 
-## GitHub Actions
+```sh
+python3 -m unittest discover -s tests
+cd worker && npm test
+```
 
-The repository includes `.github/workflows/daily.yml`. It runs the tests,
-discovers Swiss software employers and generates a digest every four hours
-(00:30, 04:30, 08:30, 12:30, 16:30 and 20:30 UTC). Run it manually with the
-workflow-dispatch button after pushing.
+## Setup and documentation
 
-Each digest lists up to 25 jobs: new jobs first, then "more to explore" from
-older open jobs. Both sections rank Swiss locations first, then SRE-type titles,
-then remote/hybrid; equally ranked jobs are shuffled so repeat digests vary.
-Long digests are split into several Telegram messages.
+Tokens live in the macOS Keychain (`sre-watch.*`), GitHub secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NOTION_TOKEN`, `ANTHROPIC_API_KEY`) and Cloudflare Worker secrets, never in the repository. `worker/setup.sh` deploys the Worker and connects the Telegram webhook.
 
-Between runs the workflow keeps `data/canonical.sqlite` and `data/jobs.sqlite`
-in the GitHub Actions cache, so each digest lists only jobs first seen in that
-run, and `--send` skips Telegram when there are none. If GitHub evicts the cache,
-the next run starts fresh and sends one repeated digest.
-
-Without secrets, the workflow uploads a report artifact and prints a preview.
-To send the digest to Telegram, add repository secrets named
-`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Secrets are optional and never
-belong in the repository. The workflow uses GitHub-hosted Ubuntu runners and
-does not require a server that stays online.
-
-On macOS, `daily.py --send` also reads the optional Keychain entry named
-`sre-watch.telegram.bot-token` when `TELEGRAM_BOT_TOKEN` is not set. The
-Keychain is local only; GitHub Actions still requires the repository secret.
-
-## Telegram commands and application tracking
-
-`worker/` is a Cloudflare Worker that receives the bot's Telegram webhook.
-`/help`, `/status` and `/applied` are answered by the Worker directly; `/run`,
-`/today` and `/apply_<code>` start this workflow, which replies when done.
-
-Applications live in the Notion database "Applications — Job Tracker", not in
-SQLite: they can't be re-crawled if the Actions cache is evicted. Tapping
-`/apply_<code>` under a digest job creates its Notion row (Stage = Applied).
-Every digest hides jobs whose URL has a Notion row in any stage except Saved.
-Update stages, confirmation emails and interview dates in Notion.
-
-One-time setup:
-
-1. Create a Notion internal integration, copy its token, and connect it to the
-   Applications database (••• → Connections).
-2. Create a fine-grained GitHub token for `GarryOne/sre-watch` with
-   Actions: read and write.
-3. Run `npx wrangler@4 login`, then `worker/setup.sh`. The script prompts for
-   both tokens once (saving them in the Keychain), deploys the Worker, stores its
-   secrets and `NOTION_TOKEN` for Actions, and sets the Telegram webhook.
-
-Worker tests: `cd worker && npm test`.
+Full documentation is in the Notion project hub: **Session Handoff — Start Here**, **Technical Reference — Implementation**, **AI Roadmap**, **Decision Log**, **Setup Guide — New User** and **User Guide — Daily Use**. `CLAUDE.md` points a new Claude session there.

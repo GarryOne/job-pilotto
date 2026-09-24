@@ -13,9 +13,9 @@ import json
 import os
 from pathlib import Path
 
-import job_store
+from .. import store
+from ..paths import CANONICAL_DB
 
-ROOT = Path(__file__).resolve().parent
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 1
 DEFAULT_MODEL = os.getenv('SRE_WATCH_ENRICH_MODEL', 'claude-haiku-4-5')
@@ -113,7 +113,7 @@ def pending_jobs(db, limit):
     db.executescript(ENRICHMENT_TABLE)
     done = {row['job_id']: row for row in db.execute('SELECT * FROM enrichments')}
     pending = []
-    for job in job_store.digest_jobs(db, limit=10_000, only_new=False):
+    for job in store.digest_jobs(db, limit=10_000, only_new=False):
         if not job.get('description'):
             continue
         row = done.get(job['id'])
@@ -206,12 +206,12 @@ def run(db, model, max_jobs, client=None, workers=5):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', type=Path, default=ROOT / 'data' / 'canonical.sqlite')
+    parser.add_argument('--db', type=Path, default=CANONICAL_DB)
     parser.add_argument('--max-jobs', type=int, default=40, help='cap per run to bound cost')
     parser.add_argument('--model', default=DEFAULT_MODEL)
     parser.add_argument('--dry-run', action='store_true', help='list pending jobs without calling the API')
     args = parser.parse_args()
-    with job_store.connect(args.db) as db:
+    with store.connect(args.db) as db:
         if args.dry_run:
             print(f'{len(pending_jobs(db, args.max_jobs))} job(s) to enrich with {args.model}')
         else:

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from watch import database, scan, render
+from src.sources.feeds import database, scan, render
 
 
 class WatchTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class WatchTests(unittest.TestCase):
                 self.assertEqual(scan(sources, db, fetch)["jobs"][0]["status"], "seen")
 
     def test_remote_must_be_open_to_europe(self):
-        from watch import wanted_location
+        from src.sources.feeds import wanted_location
         self.assertTrue(wanted_location({"location": "Remote (EMEA)"}))
         self.assertTrue(wanted_location({"location": "Zürich, Switzerland"}))
         self.assertTrue(wanted_location({"location": "London, England, GBR"}))
@@ -45,7 +45,7 @@ class WatchTests(unittest.TestCase):
         self.assertTrue(wanted_location({"location": "Remote - US; London, UK"}))
 
     def test_greenhouse_content_becomes_plain_text(self):
-        from watch import plain_text
+        from src.sources.feeds import plain_text
         self.assertEqual(plain_text("&lt;p&gt;Run &lt;b&gt;Kubernetes&lt;/b&gt; &amp;amp; Terraform&lt;/p&gt;"),
                          "Run Kubernetes & Terraform")
         self.assertEqual(plain_text(None), "")

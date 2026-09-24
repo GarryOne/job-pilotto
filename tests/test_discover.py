@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from discover import parse_jobs, city, mode, platform, useful_links, parse_tree
+from src.sources.boards import parse_jobs, city, mode, platform, useful_links, parse_tree
 
 class DiscoveryTests(unittest.TestCase):
     def test_swiss_jobs_and_expiry(self):

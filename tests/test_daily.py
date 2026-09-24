@@ -3,8 +3,8 @@ import unittest
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import daily
-import job_store
+from src import daily, digest
+from src import store as job_store
 
 
 class DigestFormatTests(unittest.TestCase):
@@ -15,7 +15,7 @@ class DigestFormatTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                message = daily.format_digest(db)
+                message = digest.format_digest(db)
         self.assertIn('🆕 1 new', message)
         self.assertIn('Tap a job number', message)
         self.assertIn('<b>SRE &lt;Platform&gt; &amp; Ops</b>', message)
@@ -31,7 +31,7 @@ class DigestFormatTests(unittest.TestCase):
                 {'title': 'Site Reliability Engineer', 'location': 'Geneva'},
                 {'title': 'Site Reliability Engineer', 'location': 'Zürich', 'city': 'Zurich'},
                 {'title': 'Site Reliability Engineer', 'location': 'Toronto'}]
-        ranked = daily.rank_jobs(jobs, daily.random.Random(1))
+        ranked = digest.rank_jobs(jobs, digest.random.Random(1))
         self.assertEqual([j['location'] for j in ranked], ['Zürich', 'Geneva', 'London, UK', 'Toronto', 'Toronto'])
         self.assertEqual(ranked[-1]['title'], 'Accountant')
 
@@ -41,12 +41,12 @@ class DigestFormatTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                pages = [daily.build_digest(db, page=p, seed=7) for p in (1, 2, 3, 4)]
+                pages = [digest.build_digest(db, page=p, seed=7) for p in (1, 2, 3, 4)]
         urls = []
         for messages, _, keyboards in pages[:3]:
             self.assertEqual(len(messages), 1)
-            self.assertLessEqual(daily.visible_length(messages[0]), daily.TELEGRAM_LIMIT)
-            urls += [u for u in daily.re.findall(r'href="([^"]+)"', messages[0])]
+            self.assertLessEqual(digest.visible_length(messages[0]), digest.TELEGRAM_LIMIT)
+            urls += [u for u in digest.re.findall(r'href="([^"]+)"', messages[0])]
         self.assertEqual(len(urls), 25)
         self.assertEqual(len(set(urls)), 25)  # no job repeated across pages
         next_buttons = [row[0]['callback_data'] for _, _, kb in pages[:3] for row in kb[0]['inline_keyboard']
@@ -63,27 +63,27 @@ class DigestFormatTests(unittest.TestCase):
                 job_store.import_watch_report(db, report)
                 db.execute("UPDATE jobs SET last_seen_at = '2099-01-01T00:00:00+00:00'")  # none are new any more
                 first_ids, second_ids, page2_ids = [], [], []
-                daily.build_digest(db, seed=1, shown_ids=first_ids)
-                daily.mark_shown(db, first_ids, seed=1)
+                digest.build_digest(db, seed=1, shown_ids=first_ids)
+                digest.mark_shown(db, first_ids, seed=1)
                 # Page 2 of the same digest ignores its own marks and continues the list.
-                daily.build_digest(db, seed=1, page=2, shown_ids=page2_ids)
-                daily.build_digest(db, seed=2, shown_ids=second_ids)
+                digest.build_digest(db, seed=1, page=2, shown_ids=page2_ids)
+                digest.build_digest(db, seed=2, shown_ids=second_ids)
         self.assertEqual(len(first_ids), 10)
         self.assertFalse(set(first_ids) & set(second_ids))
         self.assertFalse(set(first_ids) & set(page2_ids))
 
     def test_company_and_title_are_shortened(self):
-        self.assertEqual(daily.short_company('Zürich Versicherungs-Gesellschaft AG / Zurich Insurance Company Ltd'),
+        self.assertEqual(digest.short_company('Zürich Versicherungs-Gesellschaft AG / Zurich Insurance Company Ltd'),
                          'Zürich Versicherungs-Gesellschaft')
-        self.assertEqual(daily.short_company('Consult & Pepper AG'), 'Consult & Pepper')
-        self.assertEqual(daily.short_title('Senior Platform Engineer - Identity & Security (m/f/d) 80-100%'),
+        self.assertEqual(digest.short_company('Consult & Pepper AG'), 'Consult & Pepper')
+        self.assertEqual(digest.short_title('Senior Platform Engineer - Identity & Security (m/f/d) 80-100%'),
                          'Senior Platform Engineer - Identity & Security 80-100%')
-        self.assertEqual(daily.short_title('Site Reliability Engineer (a)'), 'Site Reliability Engineer')
-        self.assertEqual(daily.short_title('Software Development Engineer (all genders)'), 'Software Development Engineer')
+        self.assertEqual(digest.short_title('Site Reliability Engineer (a)'), 'Site Reliability Engineer')
+        self.assertEqual(digest.short_title('Software Development Engineer (all genders)'), 'Software Development Engineer')
 
     def test_unknown_work_mode_is_omitted(self):
-        self.assertIsNone(daily._work_mode_badge('Not stated'))
-        self.assertEqual(daily._work_mode_badge('Remote mentioned; verify conditions'), '🌍 Remote?')
+        self.assertIsNone(digest._work_mode_badge('Not stated'))
+        self.assertEqual(digest._work_mode_badge('Remote mentioned; verify conditions'), '🌍 Remote?')
 
 
 if __name__ == '__main__':

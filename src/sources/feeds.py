@@ -10,9 +10,9 @@ import re
 import sqlite3
 import urllib.request
 
-import ats
+from . import ats
+from ..paths import CONFIG, DATA, REPORTS
 
-ROOT = Path(__file__).resolve().parent
 DESCRIPTION_LIMIT = 12000
 
 
@@ -142,10 +142,10 @@ document.querySelector('#count').textContent=count+' visible jobs';}});</script>
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
-    parser.add_argument("--reports-dir", type=Path, default=ROOT / "reports")
+    parser.add_argument("--data-dir", type=Path, default=DATA)
+    parser.add_argument("--reports-dir", type=Path, default=REPORTS)
     args = parser.parse_args()
-    sources = json.loads((ROOT / "sources.json").read_text())
+    sources = json.loads((CONFIG / "sources.json").read_text())
     with database(args.data_dir / "jobs.sqlite") as db:
         report = scan(sources, db)
     args.reports_dir.mkdir(parents=True, exist_ok=True)

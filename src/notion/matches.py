@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 
-import applications
+from . import client as notion
 
 SYNC_TABLE = """
 CREATE TABLE IF NOT EXISTS notion_matches (
@@ -46,7 +46,7 @@ def properties(job, status):
         'Risk': {'number': fit['components']['risk']},
         'Confidence': {'select': {'name': fit['confidence']}},
         'Job URL': {'url': job['url']},
-        'Code': _text(applications.job_code(job['url'])),
+        'Code': _text(notion.job_code(job['url'])),
         'Status': {'select': {'name': status}},
         'Scored': {'date': {'start': datetime.now(timezone.utc).date().isoformat()}},
     }

@@ -5,9 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import daily
-import job_store
-import score
+from src import daily, digest
+from src import store as job_store
+from src.ai import score
 
 
 def fit(value, reason='Kubernetes + Datadog match; salary not stated'):
@@ -41,7 +41,7 @@ class ScoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 seed_jobs(db, 3)
-                candidates, _ = daily.eligible_jobs(db)
+                candidates, _ = digest.eligible_jobs(db)
                 client = FakeClient()
                 self.assertIn('Scored 3 of 3', score.run(db, candidates, 'Profile v1', 'm', 10, client=client))
                 self.assertIn('0 job(s)', score.run(db, candidates, 'Profile v1', 'm', 10, client=client))
@@ -60,14 +60,14 @@ class ScoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 seed_jobs(db, 20)
-                candidates, _ = daily.eligible_jobs(db)
+                candidates, _ = digest.eligible_jobs(db)
                 for job in candidates:  # job ids 1..20 get scores 41..98
                     score.save(db, job, 'm', fit(38 + 3 * job['id']), 'p')
                 first = []
-                message = daily.build_digest(db, seed=1, shown_ids=first)[0][0]
-                daily.mark_shown(db, first, seed=1)
+                message = digest.build_digest(db, seed=1, shown_ids=first)[0][0]
+                digest.mark_shown(db, first, seed=1)
                 second = []
-                daily.build_digest(db, seed=2, shown_ids=second)
+                digest.build_digest(db, seed=2, shown_ids=second)
         self.assertIn('🎯 <b>Best matches</b>', message)
         self.assertIn('🎯 <b>98</b>', message)
         self.assertIn('<i>Kubernetes + Datadog match; salary not stated</i>', message)

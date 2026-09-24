@@ -4,9 +4,9 @@ from datetime import date
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import applications
-import daily
-import job_store
+from src.notion import client as applications
+from src import daily, digest
+from src import store as job_store
 
 
 def row(url, stage):
@@ -91,7 +91,7 @@ class DigestIntegrationTests(unittest.TestCase):
                 job_store.import_watch_report(db, report)
                 tracker = FakeTracker()
                 code = applications.job_code('https://x.test/1')
-                _, _, keyboards = daily.build_digest(db)
+                _, _, keyboards = digest.build_digest(db)
                 buttons = [b for row in keyboards[0]['inline_keyboard'] for b in row]
                 self.assertTrue(any(b['callback_data'].startswith(f'pick:{code}:') for b in buttons))
                 self.assertEqual([b['text'] for b in buttons], ['1', '2', '3'])
@@ -101,7 +101,7 @@ class DigestIntegrationTests(unittest.TestCase):
                 self.assertIn('⭐ Saved', daily.apply_message(db, applications.job_code('https://x.test/0'), tracker, 'saved'))
                 stages = tracker.url_stages()
                 saved = frozenset(u for u, s in stages.items() if s == 'Saved')
-                message = daily.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)
+                message = digest.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)
                 self.assertIn('1. ⭐ <a href="https://x.test/0"', message)  # saved job ranks first, starred
         self.assertNotIn('https://x.test/1"', message)
         self.assertIn('https://x.test/0"', message)

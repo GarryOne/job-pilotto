@@ -51,7 +51,7 @@ jobs:
         run: |
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
-          python scout.py --batch "$BATCH" $send
+          python -m src scout --batch "$BATCH" $send
       - name: Report failure to Telegram
         if: failure()
         env:

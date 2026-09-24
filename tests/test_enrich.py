@@ -5,9 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import daily
-import enrich
-import job_store
+from src import daily, digest
+from src.ai import enrich
+from src import store as job_store
 
 
 def facts(**overrides):
@@ -84,7 +84,7 @@ class EnrichTests(unittest.TestCase):
                     seniority={'value': 'senior', 'evidence': 'Senior'},
                     languages=[{'language': 'French', 'level': 'nice_to_have', 'evidence': 'French is a plus'}],
                     salary={'stated': True, 'text': 'CHF 130k–150k'}))
-                message = daily.format_digest(db)
+                message = digest.format_digest(db)
         self.assertNotIn('SRE German', message)
         self.assertIn('1 language-filtered', message)
         for badge in ('🇬🇧 English', '<b>Senior</b>', '🇫🇷 French +', '💰 CHF 130k–150k'):
@@ -93,12 +93,12 @@ class EnrichTests(unittest.TestCase):
 
 class SalaryTests(unittest.TestCase):
     def test_salary_shows_only_the_figure(self):
-        self.assertIsNone(daily._salary('In the UK, the base compensation range for this role'))
-        self.assertEqual(daily._salary('In the UK, the Base compensation range for this role is £92,000 - £110,000.'),
+        self.assertIsNone(digest._salary('In the UK, the base compensation range for this role'))
+        self.assertEqual(digest._salary('In the UK, the Base compensation range for this role is £92,000 - £110,000.'),
                          '£92,000 - £110,000')
-        self.assertEqual(daily._salary('CHF 130k–150k'), 'CHF 130k–150k')
-        self.assertEqual(daily._salary('SEK 878,578 - SEK 1,054,294'), 'SEK 878,578 - SEK 1,054,294')
-        self.assertIsNone(daily._salary('Team of 12 engineers, founded 2019'))
+        self.assertEqual(digest._salary('CHF 130k–150k'), 'CHF 130k–150k')
+        self.assertEqual(digest._salary('SEK 878,578 - SEK 1,054,294'), 'SEK 878,578 - SEK 1,054,294')
+        self.assertIsNone(digest._salary('Team of 12 engineers, founded 2019'))
 
 
 if __name__ == '__main__':

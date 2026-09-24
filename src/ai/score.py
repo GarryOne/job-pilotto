@@ -12,7 +12,7 @@ import hashlib
 import json
 import os
 
-import job_store
+from .. import store
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 1

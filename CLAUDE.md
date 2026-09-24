@@ -13,8 +13,9 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Secrets live in the macOS Keychain (`sre-watch.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 
 ## Layout
-- `daily.py` orchestrates a run (modes: scheduled, run, today, more, apply); `watch.py` crawls employer feeds via `ats.py`; `discover.py` crawls jobs.ch / TechTree; `job_store.py` is the SQLite store.
-- `enrich.py` (AI stage 1, Haiku 4.5), `score.py` (AI stage 2, Sonnet 5), `matches.py` (Notion Job Matches), `applications.py` (Notion client), `scout.py` (daily source discovery, seeds in `scout_seeds.json`).
+- Python package `src/` (run with `python -m src <daily|scout|discover|feeds|enrich>`): `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite; `scout.py` source scout; `paths.py` repo paths.
+- `src/sources/` (`ats.py` feed adapters, `feeds.py` employer-feed crawl, `boards.py` jobs.ch/TechTree), `src/ai/` (`enrich.py` stage 1 Haiku 4.5, `score.py` stage 2 Sonnet 5), `src/notion/` (`client.py` Notion API, `matches.py` Job Matches sync).
+- `config/` holds editable settings: `preferences.json`, `sources.json`, `scout_seeds.json`.
 - `worker/` is the Cloudflare Worker for Telegram commands and buttons (`npm test`, `npx wrangler@4 deploy`).
 - Workflows: `.github/workflows/daily.yml` (every 4 h), `scout.yml` (daily).
 

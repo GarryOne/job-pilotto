@@ -14,7 +14,7 @@ import time
 from urllib.parse import urljoin, urlsplit, urlencode
 from urllib.request import Request, urlopen
 
-ROOT = Path(__file__).resolve().parent
+from ..paths import DATA, REPORTS
 ROLE = re.compile(r'software|entwickler|developer|développeur|site reliability|\bsre\b|devops|platform engineer|backend|frontend|full.?stack|forward deployed engineer', re.I)
 CAREER = re.compile(r'career|karriere|carrière|carriere|stellen|vacanc|recruit|join.?us|offene.?jobs|work.with.us|/jobs(?:/|$)', re.I)
 ATS = {'greenhouse.io':'Greenhouse','lever.co':'Lever','ashbyhq.com':'Ashby','smartrecruiters.com':'SmartRecruiters','myworkdayjobs.com':'Workday','successfactors.com':'SAP SuccessFactors','successfactors.eu':'SAP SuccessFactors','teamtailor.com':'Teamtailor','personio.de':'Personio','personio.com':'Personio','recruitee.com':'Recruitee','apply.workable.com':'Workable','hr4you.com':'HR4YOU'}
@@ -68,7 +68,7 @@ class Client:
     def __init__(self, refresh=False): self.refresh=refresh
     def get(self,url):
         if urlsplit(url).scheme not in ('https','http'): raise ValueError('Not an HTTP URL')
-        directory=ROOT/'data'/'discovery-cache';directory.mkdir(parents=True,exist_ok=True)
+        directory=DATA/'discovery-cache';directory.mkdir(parents=True,exist_ok=True)
         path=directory/(hashlib.sha256(url.encode()).hexdigest()+'.json')
         if not self.refresh and path.exists() and time.time()-path.stat().st_mtime<21600:
             return json.loads(path.read_text())
@@ -217,7 +217,7 @@ def main():
         for company in pool.map(lambda pair:enrich(pair,client),list(groups.items())[:args.max_companies]):
             report['companies'].append(company);print('Checked:',company['company'],flush=True)
     report['companies'].sort(key=lambda c:(not bool(c['career_pages']),-(c['min_employees'] or 0),c['company']))
-    out=ROOT/'reports';out.mkdir(exist_ok=True)
+    out=REPORTS;out.mkdir(exist_ok=True)
     (out/'companies.html').write_text(render(report))
     (out/'companies.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
     with (out/'companies.csv').open('w',newline='') as f:
