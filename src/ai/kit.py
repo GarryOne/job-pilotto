@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""Application kit: a drafted cover letter and form answers for one job, on request.
+
+Triggered by the 📝 Prepare button. Reads the Notion Profile and Application
+Answers pages, the posting and its stage 1/2 results, and (for Greenhouse) the
+real application form, then asks Claude for a cover letter plus one answer per
+form question. The kit goes to the job's Notion page (readable text plus a JSON
+block a form filler can use) and to Telegram as copyable blocks.
+
+Nothing here submits anything: the owner reviews and applies.
+"""
+from html import escape
+import json
+import os
+import re
+import urllib.request
+
+DEFAULT_MODEL = os.getenv('SRE_WATCH_KIT_MODEL', 'claude-sonnet-5')
+KIT_VERSION = 1
+KIT_HEADING = '📝 Application kit'
+ANSWERS_PAGE_ID = '3e562be8fd868108ae38d1f47d52a811'
+# USD per million tokens, for the cost line in the log (input, output, cache read).
+PRICES = {'claude-sonnet-5': (2.00, 10.00, 0.20)}
+
+# Filled from the owner's contact details or the CV file, not drafted.
+PERSONAL_FIELDS = {'first_name', 'last_name', 'preferred_name', 'email', 'phone', 'resume', 'resume_text',
+                   'cover_letter', 'cover_letter_text', 'longitude', 'latitude'}
+GREENHOUSE_JOB = re.compile(r'greenhouse\.io/([\w-]+)/jobs/(\d+)')
+
+SCHEMA = {
+    'type': 'object',
+    'additionalProperties': False,
+    'required': ['cover_letter', 'answers', 'highlights', 'check_before_sending'],
+    'properties': {
+        'cover_letter': {'type': 'string', 'description': 'Plain text, paragraphs separated by blank lines'},
+        'answers': {
+            'type': 'array',
+            'items': {
+                'type': 'object', 'additionalProperties': False,
+                'required': ['field', 'question', 'answer', 'needs_review'],
+                'properties': {
+                    'field': {'type': 'string', 'description': 'Form field name as given, or "" if not from a form'},
+                    'question': {'type': 'string'},
+                    'answer': {'type': 'string', 'description': 'For select fields: one option label, verbatim'},
+                    'needs_review': {'type': 'boolean',
+                                     'description': 'True when the answer rests on a guess or a ❓ field'},
+                },
+            },
+        },
+        'highlights': {'type': 'array', 'items': {'type': 'string'},
+                       'description': '3-5 CV points to lead with for this job'},
+        'check_before_sending': {'type': 'array', 'items': {'type': 'string'},
+                                 'description': 'Facts the owner must confirm (sponsorship, salary, language, ...)'},
+    },
+}
+
+SYSTEM = """You prepare job applications for one candidate. Their profile and standard \
+answers follow. You draft; the candidate reviews and submits.
+
+Rules:
+- Use only facts from the profile, the standard answers and the posting. Never invent \
+experience, numbers, employers, certifications or links.
+- Cover letter: follow the style in the standard answers; by default 200-250 words, three short \
+paragraphs, English, direct and specific. Open with the role and one concrete reason the candidate \
+fits. Tie 2-3 real achievements (with their numbers) to the posting's needs. No clichés ("I am \
+writing to express", "passionate", "perfect fit"), no greeting line or signature.
+- Answers: one entry per form question you are given, in order, using its field name. For select \
+fields answer with exactly one of the listed options. Work authorisation and sponsorship depend \
+on the job's country: use the standard answers for that country. Demographic questions: use the \
+standard answer (default: decline). Consent/acknowledge questions: answer with the acknowledging \
+option and set needs_review.
+- With no form given, answer the questions this posting's application most likely asks \
+(why this company, why this role, relevant experience), field "".
+- Where the standard answer is marked ❓ or missing, write your best short draft and set \
+needs_review; never state a guess as fact. Salary: only a figure from the standard answers.
+- check_before_sending: short items the candidate must verify, e.g. a required language, a \
+sponsorship answer, a ❓ field you relied on.
+
+Candidate profile:
+"""
+
+
+def greenhouse_ref(url):
+    match = GREENHOUSE_JOB.search(url or '')
+    return match.groups() if match else None
+
+
+def form_questions(url, opener=None):
+    """Questions of the job's application form, or [] when the form isn't readable (non-Greenhouse)."""
+    ref = greenhouse_ref(url)
+    if not ref:
+        return []
+    api = f'https://boards-api.greenhouse.io/v1/boards/{ref[0]}/jobs/{ref[1]}?questions=true'
+    request = urllib.request.Request(api, headers={'User-Agent': 'SREWatch/0.2 (personal job search)'})
+    with (opener or urllib.request.urlopen)(request, timeout=20) as response:
+        data = json.load(response)
+    groups = [('', data.get('questions') or []), ('', data.get('location_questions') or [])]
+    for block in data.get('compliance') or []:
+        groups.append(('Demographic', block.get('questions') or []))
+    questions = []
+    for kind, items in groups:
+        for item in items:
+            fields = [f for f in item.get('fields', []) if f.get('name') not in PERSONAL_FIELDS
+                      and f.get('type') != 'input_hidden']
+            for field in fields[:1]:
+                questions.append({
+                    'field': field['name'], 'label': item.get('label', ''), 'required': bool(item.get('required')),
+                    'type': field.get('type', ''), 'kind': kind,
+                    'options': [v.get('label', '') for v in field.get('values') or []],
+                })
+    return questions
+
+
+def _question_text(questions):
+    if not questions:
+        return 'No form available: answer the likely questions.'
+    lines = []
+    for q in questions:
+        options = f" Options: {' | '.join(q['options'])}" if q['options'] else ''
+        tag = f"{q['kind']}, " if q['kind'] else ''
+        lines.append(f"- field {q['field']} ({tag}{'required' if q['required'] else 'optional'}, {q['type']}): "
+                     f"{q['label']}.{options}")
+    return '\n'.join(lines)
+
+
+def draft(client, model, job, profile, answers, questions):
+    """One Claude call; returns (kit dict, usage)."""
+    context = {'stage_1_facts': job.get('ai') or {}, 'fit': job.get('fit') or {}}
+    params = dict(
+        model=model,
+        max_tokens=8000,
+        # Profile + standard answers are the same for every job: cached across kits.
+        system=[{'type': 'text', 'text': SYSTEM + profile + '\n\nStandard answers:\n' + answers,
+                 'cache_control': {'type': 'ephemeral'}}],
+        messages=[{'role': 'user', 'content': (
+            f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
+            f"URL: {job['url']}\nAnalysis so far: {json.dumps(context, ensure_ascii=False)}\n\n"
+            f"Application form questions:\n{_question_text(questions)}\n\nPosting:\n{job.get('description') or ''}")}],
+        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
+    )
+    response = client.messages.create(**params)
+    if response.stop_reason != 'end_turn':
+        raise RuntimeError(f'stopped with {response.stop_reason}')
+    kit = json.loads(next(block.text for block in response.content if block.type == 'text'))
+    options = {q['field']: q['options'] for q in questions}
+    for item in kit['answers']:
+        # A select answer that isn't one of the options can't be filled in; flag it.
+        if options.get(item['field']) and item['answer'] not in options[item['field']]:
+            item['needs_review'] = True
+    return kit, response.usage
+
+
+def cost_line(model, usage):
+    price_in, price_out, price_cache = PRICES.get(model, (0, 0, 0))
+    cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
+    written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
+    usd = (usage.input_tokens * price_in + written * price_in * 1.25 + cached * price_cache
+           + usage.output_tokens * price_out) / 1e6
+    return (f'Kit drafted with {model}; tokens in {usage.input_tokens} (+{cached} cached, {written} cache write), '
+            f'out {usage.output_tokens}; ~USD {usd:.3f}')
+
+
+def telegram_messages(job, kit, questions, notion_url=None, limit=3800):
+    """Copyable Telegram HTML messages: header, cover letter, answers (split to fit 4096 chars)."""
+    title = f"<a href=\"{escape(job['url'], quote=True)}\"><b>{escape(job['title'])}</b></a> — {escape(job['company'])}"
+    source = 'form questions from Greenhouse' if questions else 'no form read; likely questions'
+    header = [f'📝 <b>Application kit</b>\n{title}', f'<i>{source}. Tap a block to copy it. Nothing was sent.</i>']
+    if notion_url:
+        header.append(f'<a href="{escape(notion_url, quote=True)}">Open in Notion</a>')
+    if kit['check_before_sending']:
+        header.append('⚠️ <b>Check before sending</b>\n' + '\n'.join(f'• {escape(c)}' for c in kit['check_before_sending']))
+    if kit['highlights']:
+        header.append('💡 <b>Lead with</b>\n' + '\n'.join(f'• {escape(h)}' for h in kit['highlights']))
+    blocks = ['\n\n'.join(header), f"✉️ <b>Cover letter</b>\n<pre>{escape(kit['cover_letter'])}</pre>"]
+    for item in kit['answers']:
+        flag = ' ❓' if item['needs_review'] else ''
+        blocks.append(f"<b>{escape(item['question'])}</b>{flag}\n<code>{escape(item['answer'])}</code>")
+    messages, current = [], ''
+    for block in blocks:
+        if len(block) > limit:  # a very long cover letter: cut the block, the full text is in Notion
+            block = block[:limit - 20] + '…</pre>' if block.endswith('</pre>') else block[:limit]
+        if current and len(current) + len(block) + 2 > limit:
+            messages.append(current)
+            current = ''
+        current = f'{current}\n\n{block}' if current else block
+    if current:
+        messages.append(current)
+    return messages
+
+
+def notion_blocks(job, kit, questions, model):
+    """One toggle heading with the kit: readable sections plus a JSON code block for a form filler."""
+    def text(content, bold=False):
+        chunks = [content[i:i + 1900] for i in range(0, len(content), 1900)] or ['']
+        return [{'type': 'text', 'text': {'content': c}, 'annotations': {'bold': bold}} for c in chunks]
+
+    def block(kind, content, bold=False):
+        return {'object': 'block', 'type': kind, kind: {'rich_text': text(content, bold)}}
+
+    blocks = [block('paragraph', f"Drafted by {model} for {job['title']} — {job['company']}. "
+                                 f"{'Form questions read from Greenhouse.' if questions else 'No form read.'} "
+                                 'Review before sending; nothing was submitted.')]
+    if kit['check_before_sending']:
+        blocks.append(block('heading_3', '⚠️ Check before sending'))
+        blocks += [block('bulleted_list_item', c) for c in kit['check_before_sending']]
+    if kit['highlights']:
+        blocks.append(block('heading_3', '💡 Lead with'))
+        blocks += [block('bulleted_list_item', h) for h in kit['highlights']]
+    blocks.append(block('heading_3', '✉️ Cover letter'))
+    blocks += [block('paragraph', p) for p in kit['cover_letter'].split('\n\n') if p.strip()]
+    blocks.append(block('heading_3', '🧾 Form answers'))
+    for item in kit['answers']:
+        blocks.append(block('paragraph', item['question'] + (' ❓' if item['needs_review'] else ''), bold=True))
+        blocks.append(block('paragraph', item['answer']))
+    payload = json.dumps({'version': KIT_VERSION, 'url': job['url'], 'model': model, **kit},
+                         ensure_ascii=False, indent=1)
+    blocks.append(block('heading_3', 'Machine-readable kit'))
+    blocks.append({'object': 'block', 'type': 'code',
+                   'code': {'language': 'json', 'rich_text': text(payload)}})
+    # One toggle heading holds the kit, so a new kit replaces it without touching the owner's notes.
+    heading = block('heading_2', KIT_HEADING)
+    heading['heading_2'].update(is_toggleable=True, children=blocks)
+    return heading

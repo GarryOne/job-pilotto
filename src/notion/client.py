@@ -164,3 +164,11 @@ class Tracker:
 
     def update_page(self, page_id, properties):
         return self._request('PATCH', f'pages/{page_id}', {'properties': properties})
+
+    def replace_section(self, page_id, heading_text, block):
+        """Replace the top-level block whose text starts with heading_text (or append one) on a page."""
+        for child in self._children(page_id):
+            if _rich(child.get(child['type'], {}).get('rich_text')).startswith(heading_text):
+                self._request('DELETE', f"blocks/{child['id']}")
+        self._request('PATCH', f'blocks/{page_id}/children', {'children': [block]})
+

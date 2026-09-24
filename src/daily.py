@@ -6,7 +6,7 @@ import json
 import random
 
 from . import digest, scout, store, telegram
-from .ai import enrich, score
+from .ai import enrich, kit, score
 from .notion import client as notion, matches
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from .paths import CANONICAL_DB, CONFIG, DATA, REPORTS
 from .sources import feeds
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare')
 
 
 def find_job(db, code):
@@ -45,6 +45,29 @@ def apply_message(db, code, tracker, action='applied'):
     }[stage]
 
 
+def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None):
+    """Draft the application kit for one job; save it on its Notion Applications row.
+
+    Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
+    job = find_job(db, code)
+    if not job:
+        return [f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
+    job = dict(job, ai=enrich.load(db).get(job['id']), fit=score.load(db).get(job['id']))
+    try:
+        questions = kit.form_questions(job['url'], opener)
+    except Exception as error:  # An unreadable form still gets a kit, with likely questions.
+        print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
+        questions = []
+    profile, answers = tracker.page_text(), tracker.page_text(kit.ANSWERS_PAGE_ID)
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    drafted, usage = kit.draft(client, model, job, profile, answers, questions)
+    page, _ = tracker.mark(job, 'Saved')
+    tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
+    return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=CANONICAL_DB)
@@ -55,8 +78,8 @@ def main():
     parser.add_argument('--send', action='store_true', help='send to Telegram; otherwise print preview only')
     parser.add_argument('--mode', choices=MODES, default='scheduled',
                         help='scheduled: send only when new jobs exist; run/today: always send; '
-                             'apply: mark --job as applied in Notion')
-    parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply')
+                             'apply: mark --job as applied in Notion; prepare: draft its application kit')
+    parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply or prepare')
     parser.add_argument('--action', choices=sorted(ACTIONS), default='applied',
                         help='for --mode apply: applied, saved or dismissed')
     parser.add_argument('--score-max', type=int, default=0,
@@ -76,6 +99,18 @@ def main():
         # Save/Dismiss are already confirmed on the button itself; only Applied gets a message (Notion link).
         if args.send and args.action == 'applied':
             telegram.send(reply, *telegram.credentials())
+        return 0
+    if args.mode == 'prepare':
+        if not args.job or not tracker:
+            raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
+        with store.connect(args.db) as db:
+            messages, log = prepare_kit(db, args.job.strip().lower(), tracker)
+        print(log)
+        print('\n\n'.join(messages))
+        if args.send:
+            credentials = telegram.credentials()
+            for message in messages:
+                telegram.send(message, *credentials)
         return 0
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
     if tracker:

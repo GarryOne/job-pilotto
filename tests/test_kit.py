@@ -1,0 +1,117 @@
+import io
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import daily
+from src import store as job_store
+from src.ai import kit
+from src.notion import client as notion
+
+URL = 'https://job-boards.greenhouse.io/acme/jobs/123'
+FORM = {
+    'questions': [
+        {'label': 'First Name', 'required': True, 'fields': [{'name': 'first_name', 'type': 'input_text'}]},
+        {'label': 'Resume/CV', 'required': True, 'fields': [{'name': 'resume', 'type': 'input_file'},
+                                                           {'name': 'resume_text', 'type': 'textarea'}]},
+        {'label': 'Why Acme?', 'required': True, 'fields': [{'name': 'question_1', 'type': 'textarea'}]},
+        {'label': 'Need sponsorship?', 'required': True, 'fields': [
+            {'name': 'question_2', 'type': 'multi_value_single_select',
+             'values': [{'label': 'Yes', 'value': 1}, {'label': 'No', 'value': 0}]}]},
+    ],
+    'location_questions': [{'label': 'Latitude', 'required': True, 'fields': [{'name': 'latitude', 'type': 'input_hidden'}]}],
+    'compliance': [{'type': 'eeoc', 'questions': [{'label': 'Gender', 'required': False, 'fields': [
+        {'name': 'gender', 'type': 'multi_value_single_select', 'values': [{'label': 'Decline to self-identify'}]}]}]}],
+}
+KIT = {'cover_letter': 'Para one.\n\nPara two.', 'highlights': ['Datadog migration'],
+       'check_before_sending': ['Sponsorship answer for the UK'],
+       'answers': [{'field': 'question_1', 'question': 'Why Acme?', 'answer': 'Reliability at scale.', 'needs_review': False},
+                   {'field': 'question_2', 'question': 'Need sponsorship?', 'answer': 'No sponsorship', 'needs_review': False}]}
+
+
+def opener(request, timeout=None):
+    return io.BytesIO(json.dumps(FORM).encode())
+
+
+class FakeClient:
+    def __init__(self):
+        self.requests, self.messages = [], self
+
+    def create(self, **params):
+        self.requests.append(params)
+        return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(KIT))],
+                               usage=SimpleNamespace(input_tokens=1000, output_tokens=500,
+                                                     cache_read_input_tokens=0, cache_creation_input_tokens=0))
+
+
+class FakeTracker:
+    def __init__(self):
+        self.marked, self.sections = [], []
+
+    def page_text(self, page_id=notion.PROFILE_PAGE_ID):
+        return 'Profile text' if page_id == notion.PROFILE_PAGE_ID else 'Answers text'
+
+    def mark(self, job, stage):
+        self.marked.append((job['url'], stage))
+        return {'id': 'page-1', 'url': 'https://notion.test/page-1'}, 'created'
+
+    def replace_section(self, page_id, heading, block):
+        self.sections.append((page_id, heading, block))
+
+
+class KitTests(unittest.TestCase):
+    def test_reads_greenhouse_questions_without_personal_fields(self):
+        questions = kit.form_questions(URL, opener)
+        self.assertEqual([q['field'] for q in questions], ['question_1', 'question_2', 'gender'])
+        self.assertEqual(questions[1]['options'], ['Yes', 'No'])
+        self.assertEqual(questions[2]['kind'], 'Demographic')
+        self.assertEqual(kit.form_questions('https://jobs.lever.co/acme/1', opener), [])
+
+    def test_select_answer_outside_options_needs_review(self):
+        questions = kit.form_questions(URL, opener)
+        drafted, _ = kit.draft(FakeClient(), 'm', {'title': 'SRE', 'company': 'Acme', 'url': URL}, 'p', 'a', questions)
+        self.assertFalse(drafted['answers'][0]['needs_review'])
+        self.assertTrue(drafted['answers'][1]['needs_review'])
+
+    def test_telegram_messages_fit_and_escape(self):
+        long_kit = dict(KIT, answers=[{'field': f'q{i}', 'question': f'Q{i} <x>', 'answer': 'A' * 400,
+                                       'needs_review': i % 2 == 0} for i in range(20)])
+        messages = kit.telegram_messages({'title': 'SRE', 'company': 'Acme', 'url': URL}, long_kit, [], 'https://n.test')
+        self.assertGreater(len(messages), 1)
+        self.assertTrue(all(len(m) <= 4096 for m in messages))
+        self.assertIn('Q1 &lt;x&gt;', ''.join(messages))
+        self.assertIn('<pre>Para one.', messages[0])
+
+    def test_prepare_saves_kit_on_saved_row_and_logs_cost(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [
+                    {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
+                     'description': 'Kubernetes.'}]})
+                tracker, client = FakeTracker(), FakeClient()
+                messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5', opener)
+        self.assertEqual(tracker.marked, [(URL, 'Saved')])
+        page_id, heading, block = tracker.sections[0]
+        self.assertEqual((page_id, heading), ('page-1', kit.KIT_HEADING))
+        self.assertTrue(block['heading_2']['is_toggleable'])
+        payload = block['heading_2']['children'][-1]['code']['rich_text'][0]['text']['content']
+        self.assertEqual(json.loads(payload)['answers'][0]['field'], 'question_1')
+        system = client.requests[0]['system'][0]
+        self.assertIn('Profile text', system['text'])
+        self.assertIn('Answers text', system['text'])
+        self.assertIn('field question_2', client.requests[0]['messages'][0]['content'])
+        self.assertIn('USD 0.007', log)
+        self.assertIn('Application kit', messages[0])
+
+    def test_unknown_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                messages, _ = daily.prepare_kit(db, 'deadbeef', FakeTracker(), FakeClient())
+        self.assertIn('No job', messages[0])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -81,7 +81,18 @@ test('tapping a number adds an action row for that job', async () => {
   assert.match(calls[0].url, /editMessageReplyMarkup$/);
   const rows = calls[0].body.reply_markup.inline_keyboard;
   assert.deepEqual(rows[0].map((b) => b.callback_data), ['act:a:cd34ef56:2', 'act:s:cd34ef56:2', 'act:d:cd34ef56:2', 'close']);
-  assert.equal(rows.length, 3);
+  assert.deepEqual(rows[1].map((b) => b.callback_data), ['act:p:cd34ef56:2']);
+  assert.equal(rows.length, 4);
+});
+
+test('Prepare dispatches a prepare run and marks the number', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await tap('act:p:cd34ef56:2', { markup: withActionRow(digestMarkup, 'cd34ef56', 2) });
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'prepare', job: 'cd34ef56' } });
+  const rows = calls[1].body.reply_markup.inline_keyboard;
+  assert.equal(rows.length, 2);  // both action rows removed
+  assert.equal(rows[0][1].text, '📝 2');
+  assert.match(calls[2].body.text, /application kit/);
 });
 
 test('Save dispatches a saved action and stars the number', async () => {

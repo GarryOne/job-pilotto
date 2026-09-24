@@ -5,12 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied'
+        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit'
         type: choice
-        options: [scheduled, run, today, apply, more]
+        options: [scheduled, run, today, apply, more, prepare]
         default: scheduled
       job:
-        description: 'job code from /apply_<code> (apply mode only)'
+        description: 'job code from /apply_<code> (apply and prepare modes)'
         required: false
       action:
         description: 'apply mode: applied, saved or dismissed'
@@ -30,10 +30,10 @@ permissions:
   contents: read
   actions: write
 
-# Runs share one SQLite state file; never let two overlap. Apply and more runs
-# only read it, so they get their own group and a queued run can't displace them.
+# Runs share one SQLite state file; never let two overlap. Apply, more and
+# prepare runs only read it, so they get their own group and a queued run can't displace them.
 concurrency:
-  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more') && format('read-{0}', github.run_id) || 'sre-watch-state' }}
+  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare') && format('read-{0}', github.run_id) || 'sre-watch-state' }}
   cancel-in-progress: false
 
 env:
@@ -75,6 +75,8 @@ jobs:
           SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
           # AI stage 2 (fit scoring) is switched on the same way by its own variable.
           SRE_WATCH_SCORE_MODEL: ${{ vars.SRE_WATCH_SCORE_MODEL }}
+          # Application kits run only when asked (📝 Prepare); optional model override.
+          SRE_WATCH_KIT_MODEL: ${{ vars.SRE_WATCH_KIT_MODEL || 'claude-sonnet-5' }}
           JOB: ${{ inputs.job }}
           ACTION: ${{ inputs.action || 'applied' }}
           PAGE: ${{ inputs.page }}
@@ -83,7 +85,7 @@ jobs:
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
           ai=""
-          if [ -n "$SRE_WATCH_ENRICH_MODEL$SRE_WATCH_SCORE_MODEL" ]; then pip install --quiet -r requirements.txt; fi
+          if [ -n "$SRE_WATCH_ENRICH_MODEL$SRE_WATCH_SCORE_MODEL" ] || [ "$MODE" = prepare ]; then pip install --quiet -r requirements.txt; fi
           # Stage 1 runs before stage 2 in every mode that scores, so scores always see the facts.
           if [ -n "$SRE_WATCH_ENRICH_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --enrich-max 100"
@@ -104,7 +106,7 @@ jobs:
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
             --data-urlencode "text=❌ SRE Watch ${MODE} run failed: ${RUN_URL}" > /dev/null
       - name: Save job database
-        if: always() && env.MODE != 'apply' && env.MODE != 'more'
+        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare'
         uses: actions/cache/save@v4
         with:
           path: |

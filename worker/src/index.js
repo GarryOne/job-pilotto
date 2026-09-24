@@ -11,7 +11,7 @@ const HELP = [
   '/today — send the current ranked list (~1 min)',
   '/applied — jobs you applied to, with stage',
   '/saved — jobs you saved with ⭐',
-  'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss',
+  'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
   '/scout — look for new employer job feeds now (~1 min)',
 ].join('\n');
@@ -178,11 +178,13 @@ export async function handleCommand(env, command) {
 // Digest buttons (callback_query data):
 //   pick:<code>:<n>        number n tapped -> show an action row for that job on the same message
 //   act:<a|s|d>:<code>:<n> Applied / Save / Dismiss -> dispatch an apply run, mark the number button
+//   act:p:<code>:<n>       Prepare -> dispatch a prepare run (application kit), mark the number button
 //   close                  hide the action row
 //   more:<seed>:<page>     next page;  apply:<code>  legacy ✅ button from older digests
 const ACTIONS = { a: ['applied', '✅', 'Marking it applied in Notion…'],
                   s: ['saved', '⭐', 'Saved — it stays in digests with a star.'],
-                  d: ['dismissed', '❌', "Dismissed — it won't show again."] };
+                  d: ['dismissed', '❌', "Dismissed — it won't show again."],
+                  p: [null, '📝', 'Drafting the application kit; it arrives in about a minute.'] };
 
 const isActionRow = (row) => row.some((b) => /^(act:|close)/.test(b.callback_data || ''));
 
@@ -194,7 +196,8 @@ export function withActionRow(markup, code, n) {
     { text: '❌ Dismiss', callback_data: `act:d:${code}:${n}` },
     { text: '✖', callback_data: 'close' },
   ];
-  return { inline_keyboard: [actionRow, ...rows] };
+  const prepareRow = [{ text: `${n}: 📝 Prepare application kit`, callback_data: `act:p:${code}:${n}` }];
+  return { inline_keyboard: [actionRow, prepareRow, ...rows] };
 }
 
 export function afterAction(markup, n, emoji) {
@@ -213,7 +216,7 @@ async function handleButton(env, query) {
   if (String(query.message?.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
   const data = query.data || '';
   const pick = /^pick:([0-9a-f]{8}):(\d{1,3})$/.exec(data);
-  const act = /^act:([asd]):([0-9a-f]{8}):(\d{1,3})$/.exec(data);
+  const act = /^act:([asdp]):([0-9a-f]{8}):(\d{1,3})$/.exec(data);
   const apply = /^apply:([0-9a-f]{8})$/.exec(data);
   const more = /^more:(\d{1,10}):(\d{1,3})$/.exec(data);
   const answer = (text, alert = false) => telegram(env, 'answerCallbackQuery',
@@ -224,7 +227,7 @@ async function handleButton(env, query) {
       await answer(`Job ${pick[2]}: applied, save or dismiss?`);
     } else if (act) {
       const [action, emoji, text] = ACTIONS[act[1]];
-      await dispatch(env, { mode: 'apply', job: act[2], action });
+      await dispatch(env, action ? { mode: 'apply', job: act[2], action } : { mode: 'prepare', job: act[2] });
       await editButtons(env, query, afterAction(query.message.reply_markup, act[3], emoji));
       await answer(text);
     } else if (data === 'close') {
