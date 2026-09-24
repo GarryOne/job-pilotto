@@ -106,6 +106,17 @@ class KitTests(unittest.TestCase):
         self.assertIn('USD 0.007', log)
         self.assertIn('Application kit', messages[0])
 
+    def test_find_job_by_page_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [
+                    {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
+                     'url': 'https://boards.greenhouse.io/acme/jobs/123?gh_jid=123', 'description': 'd'}]})
+                for ref in (URL, 'https://acme.com/careers?gh_jid=123', notion.job_code(
+                        'https://boards.greenhouse.io/acme/jobs/123?gh_jid=123')):
+                    self.assertEqual(daily.find_job(db, daily._job_arg(ref))['title'], 'SRE', ref)
+                self.assertIsNone(daily.find_job(db, 'https://job-boards.greenhouse.io/acme/jobs/999'))
+
     def test_unknown_code(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

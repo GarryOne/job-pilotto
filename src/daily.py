@@ -4,6 +4,7 @@ import argparse
 from html import escape
 import json
 import random
+import re
 
 from . import digest, scout, store, telegram
 from .ai import enrich, kit, score
@@ -18,10 +19,24 @@ MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare')
 
 
 def find_job(db, code):
+    """Job by its 8-hex code, or by URL (the browser extension sends the page it is on)."""
+    wanted = _url_key(code) if '/' in code else None
     for job in store.digest_jobs(db, limit=10_000, only_new=False):
-        if job.get('url') and notion.job_code(job['url']) == code:
+        url = job.get('url')
+        if url and (notion.job_code(url) == code or (wanted and _url_key(url) == wanted)):
             return job
     return None
+
+
+def _job_arg(value):
+    value = value.strip()
+    return value if '/' in value else value.lower()
+
+
+def _url_key(url):
+    """Greenhouse links to one job come in several forms; compare them by board-independent job id."""
+    match = re.search(r'greenhouse\.io/[\w-]+/jobs/(\d+)', url) or re.search(r'[?&]gh_jid=(\d+)', url)
+    return f'greenhouse:{match.group(1)}' if match else url.split('?')[0].split('#')[0].rstrip('/').lower()
 
 
 ACTIONS = {'applied': 'Applied', 'saved': 'Saved', 'dismissed': 'Dismissed'}
@@ -94,7 +109,7 @@ def main():
         if not args.job or not tracker:
             raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
         with store.connect(args.db) as db:
-            reply = apply_message(db, args.job.strip().lower(), tracker, args.action)
+            reply = apply_message(db, _job_arg(args.job), tracker, args.action)
         print(reply)
         # Save/Dismiss are already confirmed on the button itself; only Applied gets a message (Notion link).
         if args.send and args.action == 'applied':
@@ -104,7 +119,7 @@ def main():
         if not args.job or not tracker:
             raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
         with store.connect(args.db) as db:
-            messages, log = prepare_kit(db, args.job.strip().lower(), tracker)
+            messages, log = prepare_kit(db, _job_arg(args.job), tracker)
         print(log)
         print('\n\n'.join(messages))
         if args.send:
