@@ -87,8 +87,15 @@ class EnrichTests(unittest.TestCase):
                 message = daily.format_digest(db)
         self.assertNotIn('SRE German', message)
         self.assertIn('1 hidden for required German/French', message)
-        for badge in ('🇬🇧 English OK', '🎚 Senior', '🇫🇷 French a plus', '💰 CHF 130k–150k'):
+        for badge in ('🇬🇧 English OK', 'Senior', '🇫🇷 French a plus', '💰 CHF 130k–150k'):
             self.assertIn(badge, message)
+
+
+class SalaryTests(unittest.TestCase):
+    def test_salary_needs_a_figure_and_is_trimmed(self):
+        self.assertIsNone(daily._salary('In the UK, the base compensation range for this role'))
+        self.assertEqual(daily._salary('CHF 130k–150k'), 'CHF 130k–150k')
+        self.assertEqual(len(daily._salary('SEK 878,578 - SEK 1,054,294 plus equity and benefits')), 32)
 
 
 if __name__ == '__main__':

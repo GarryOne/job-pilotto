@@ -19,8 +19,9 @@ class DigestFormatTests(unittest.TestCase):
         self.assertIn('🆕 1 new', message)
         self.assertIn('<b>SRE &lt;Platform&gt; &amp; Ops</b>', message)
         self.assertIn('href="https://example.test/jobs?id=1&amp;x=&quot;y&quot;"', message)
-        self.assertIn('🏢 A&amp;B &lt;Labs&gt;', message)
-        self.assertIn('🔀 Hybrid', message)
+        self.assertIn('A&amp;B &lt;Labs&gt; · Zurich', message)
+        self.assertIn('Hybrid', message)
+        self.assertIn('<blockquote>', message)
         self.assertNotIn('<Labs>', message)
 
     def test_ranking_puts_swiss_sre_first(self):

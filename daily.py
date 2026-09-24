@@ -74,18 +74,29 @@ def language_blocked(job):
                             for l in ai['languages'])
 
 
+def _salary(text):
+    """Short salary text, or None when the posting's wording has no actual figure."""
+    text = re.sub(r'\s+', ' ', text or '').strip()
+    if not re.search(r'\d', text):
+        return None
+    return text if len(text) <= 32 else text[:31].rstrip(' ,;-') + '…'
+
+
 def _ai_badges(ai):
+    """Signals worth an emoji; everything else stays plain text."""
     badges = []
-    for lang in ai['languages']:
-        if lang['language'] != 'English':
-            suffix = 'required' if lang['level'] == 'required' else 'a plus'
-            badges.append(f"{LANGUAGE_FLAGS[lang['language']]} {lang['language']} {suffix}")
     if ai['english_is_enough']['value'] == 'yes':
         badges.append('🇬🇧 English OK')
-    if ai['seniority']['value'] in SENIORITY_LABELS:
-        badges.append(f"🎚 {SENIORITY_LABELS[ai['seniority']['value']]}")
-    if ai['salary']['stated'] and ai['salary']['text']:
-        badges.append(f"💰 {escape(ai['salary']['text'][:40])}")
+    for lang in ai['languages']:
+        if lang['language'] == 'Other':
+            if lang['level'] == 'required':
+                badges.append('⚠️ another language required')
+        elif lang['language'] != 'English':
+            suffix = 'required' if lang['level'] == 'required' else 'a plus'
+            badges.append(f"{LANGUAGE_FLAGS[lang['language']]} {lang['language']} {suffix}")
+    salary = _salary(ai['salary']['text']) if ai['salary']['stated'] else None
+    if salary:
+        badges.append(f"💰 {escape(salary)}")
     if ai['employer_type']['value'] == 'recruiter':
         badges.append('🧑‍💼 Recruiter')
     return badges
@@ -99,23 +110,33 @@ def rank_jobs(jobs, rng):
 
 
 def _job_block(index, job):
-    details = [f"🏢 {escape(job['company'])}", f"📍 {escape(job.get('location') or 'Location not stated')}"]
-    ai = job.get('ai')
-    ai_mode = ai['work_mode']['value'] if ai else 'unknown'
-    badge = ({'onsite': '🏢 On-site', 'hybrid': '🔀 Hybrid', 'remote': '🌍 Remote'}.get(ai_mode)
-             or _work_mode_badge(job.get('work_mode')))
-    if badge:
-        details.append(badge)
-    if ai:
-        details.extend(_ai_badges(ai))
-    if job.get('url'):
-        # Telegram turns this into a tappable command in the chat.
-        details.append(f"/apply_{applications.job_code(job['url'])}")
+    """One job as a small card: bold linked title, then a quoted block of fixed lines.
+
+    Line 1: company · location. Line 2: seniority · work mode · signal badges.
+    Line 3: the tappable /apply command.
+    """
     title = f"<b>{escape(job['title'])}</b>"
     if job.get('url'):
         title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
-    flag = '🇨🇭 ' if is_swiss(job) else ''
-    return f"{index}. {flag}{title}\n" + ' · '.join(details)
+    lines = [f"{escape(job['company'])} · {escape(job.get('location') or 'location not stated')}"]
+    ai = job.get('ai')
+    facts = []
+    if ai and ai['seniority']['value'] in SENIORITY_LABELS:
+        facts.append(SENIORITY_LABELS[ai['seniority']['value']])
+    mode = {'onsite': 'On-site', 'hybrid': 'Hybrid', 'remote': 'Remote'}.get(ai['work_mode']['value'] if ai else '')
+    if not mode:
+        badge = _work_mode_badge(job.get('work_mode'))
+        mode = badge.split(' ', 1)[1] if badge else None
+    if mode:
+        facts.append(mode)
+    if ai:
+        facts.extend(_ai_badges(ai))
+    if facts:
+        lines.append(' · '.join(facts))
+    if job.get('url'):
+        # Telegram turns this into a tappable command in the chat.
+        lines.append(f"/apply_{applications.job_code(job['url'])}")
+    return f"{index}. {title}\n<blockquote>" + '\n'.join(lines) + "</blockquote>"
 
 
 def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
@@ -147,7 +168,12 @@ def build_digest(db, limit=25, rng=None, hidden_urls=frozenset()):
         if not section:
             continue
         blocks.append(title)
+        abroad_heading = False
         for job in section:
+            # Ranking puts Swiss jobs first; mark where the rest begins instead of flagging every job.
+            if not is_swiss(job) and not abroad_heading:
+                blocks.append('🌍 <i>Outside Switzerland</i>')
+                abroad_heading = True
             blocks.append(_job_block(index, job))
             index += 1
 
