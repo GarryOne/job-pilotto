@@ -11,11 +11,20 @@ import sqlite3
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
+DESCRIPTION_LIMIT = 12000
+
+
+def plain_text(markup):
+    """Greenhouse sends HTML-escaped HTML; return readable plain text."""
+    markup = html.unescape(markup or "")
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", markup))).strip()[:DESCRIPTION_LIMIT]
+
+
 TITLES = re.compile(r"site reliability|\bsre\b|platform engineer|infrastructure engineer|production engineer|devops|cloud engineer", re.I)
 
 
 def fetch(board):
-    url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs"
+    url = f"https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true"
     request = urllib.request.Request(url, headers={"User-Agent": "SREWatch/0.1"})
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.load(response)
@@ -73,6 +82,7 @@ def scan(sources, db, fetcher=fetch):
                             "url": job["absolute_url"],
                             # Greenhouse's first publication time; absent on older API responses.
                             "date_posted": job.get("first_published") or "",
+                            "description": plain_text(job.get("content")),
                             "status": record(db, source["board"], job, now)
                         })
             report["jobs"].extend(matched)

@@ -144,7 +144,9 @@ def enrich(pair,client):
         try:
             detail=client.get(job['url'])
             posting=next(walk(Page(detail['html']).schemas,'JobPosting'),{})
-            job['work_mode']=mode(job['title']+' '+str(posting.get('jobLocationType',''))+' '+text(posting.get('description','')))
+            description=text(posting.get('description',''))
+            job['work_mode']=mode(job['title']+' '+str(posting.get('jobLocationType',''))+' '+description)
+            job['description']=description[:12000]
         except Exception as e:
             c['notes'].append(f'Job detail unavailable; remote conditions unverified: {type(e).__name__}')
     try:

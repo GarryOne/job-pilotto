@@ -29,6 +29,12 @@ class WatchTests(unittest.TestCase):
             with database(Path(tmp) / "db") as db:
                 self.assertEqual(scan(sources, db, fetch)["jobs"][0]["status"], "seen")
 
+    def test_greenhouse_content_becomes_plain_text(self):
+        from watch import plain_text
+        self.assertEqual(plain_text("&lt;p&gt;Run &lt;b&gt;Kubernetes&lt;/b&gt; &amp;amp; Terraform&lt;/p&gt;"),
+                         "Run Kubernetes & Terraform")
+        self.assertEqual(plain_text(None), "")
+
 
 if __name__ == "__main__":
     unittest.main()

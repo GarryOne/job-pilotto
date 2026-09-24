@@ -34,6 +34,15 @@ class CanonicalStoreTests(unittest.TestCase):
                 job_store.upsert_job(db, second, 'Employer feed')
                 self.assertEqual(db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0], 1)
 
+    def test_description_is_kept_when_a_later_fetch_has_none(self):
+        job = {'company': 'Example', 'id': '1', 'title': 'SRE', 'url': 'https://example.test/1',
+               'description': 'Run Kubernetes in production.'}
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [job]})
+                job_store.import_watch_report(db, {'jobs': [dict(job, description='')]})
+                self.assertEqual(job_store.digest_jobs(db)[0]['description'], 'Run Kubernetes in production.')
+
 
 if __name__ == '__main__':
     unittest.main()
