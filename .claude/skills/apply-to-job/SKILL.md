@@ -72,10 +72,13 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    `auto_kits` in the canonical DB remembers which jobs already got one, so it never re-drafts.
    Manual 📝 Prepare still works for anything below the threshold or that needs a fresh draft.
 3. **Queue kits into an AI browser agent** — `tools/apply-batch.sh` (wraps
-   `python -m src.ai.apply_batch`): reads every Saved job in Notion Applications that has a kit,
+   `python -m src.ai.apply_batch`): reads every job **Saved** with a kit in Notion Applications,
    builds a plain-text prompt from it, and pastes+sends it into a new ChatGPT/Codex desktop chat
    via `tools/send-to-chatgpt.sh`, one chat per job. Codex fills the form and stops before Submit
-   on its own approval gate.
+   on its own approval gate. Right after queueing a job, it moves that row's Stage from **Saved**
+   to **Applying** in Notion — so a second run (or the next auto-kit cycle) never queues the same
+   job into a second chat. If a paste-only chat is abandoned without sending, reset that job's
+   Stage back to Saved in Notion to make it eligible again.
 4. **Owner reviews and clicks Submit** — the one step that stays manual, on purpose, in every chat
    it queued.
 5. **Mark applied** — `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`

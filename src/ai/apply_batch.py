@@ -96,6 +96,10 @@ def main():
             path = handle.name
         cmd = [str(SEND_SCRIPT)] + ([] if args.paste_only else ['--send']) + ['-f', path]
         subprocess.run(cmd, check=True)
+        # Mark it out of 'Saved' immediately so a second run (or the next auto-kit cycle) never
+        # queues the same job into a second chat. Re-queue a job by setting its Stage back to
+        # Saved in Notion if a paste-only chat was abandoned without sending.
+        tracker.mark({'url': kit_data['url']}, 'Applying')
         time.sleep(args.gap)
 
     print(f"\nQueued {len(pairs)} chat(s) in the ChatGPT/Codex app. For each: review, attach the "
