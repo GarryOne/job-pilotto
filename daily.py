@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the local scan, import canonical state and optionally send Telegram digest."""
 import argparse
+from html import escape
 import json
 import os
 from pathlib import Path
@@ -14,20 +15,47 @@ import watch
 ROOT = Path(__file__).resolve().parent
 
 
+WORK_MODE_BADGES = {'Hybrid': '🔀 Hybrid', 'Remote (stated)': '🌍 Remote', 'Remote mentioned': '🌍 Remote?'}
+TELEGRAM_LIMIT = 4096
+
+
+def _work_mode_badge(value):
+    for prefix, badge in WORK_MODE_BADGES.items():
+        if (value or '').startswith(prefix):
+            return badge
+    return None
+
+
 def format_digest(db, limit=10):
+    """Build a Telegram HTML digest; every dynamic value is escaped."""
     jobs = job_store.digest_jobs(db, limit=limit, only_new=True)
-    all_jobs = job_store.digest_jobs(db, limit=limit, only_new=False)
-    chosen = jobs or all_jobs
-    lines = [f"SRE Watch · {len(jobs)} new jobs" if jobs else "SRE Watch · no new jobs"]
+    chosen = jobs or job_store.digest_jobs(db, limit=limit, only_new=False)
+    if jobs:
+        header = f"🇨🇭 <b>SRE Watch</b> · 🆕 {len(jobs)} new job{'s' if len(jobs) != 1 else ''}"
+    else:
+        header = "🇨🇭 <b>SRE Watch</b> · no new jobs, latest listings below"
+    blocks = [header]
     for index, job in enumerate(chosen, 1):
-        location = job.get('location') or 'Location not stated'
-        lines.append(f"\n{index}. {job['title']} — {job['company']}\n{location} · {job.get('work_mode') or 'work mode not stated'}\n{job['url']}")
-    return '\n'.join(lines)
+        details = [f"🏢 {escape(job['company'])}", f"📍 {escape(job.get('location') or 'Location not stated')}"]
+        badge = _work_mode_badge(job.get('work_mode'))
+        if badge:
+            details.append(badge)
+        title = f"<b>{escape(job['title'])}</b>"
+        if job.get('url'):
+            title = f'<a href="{escape(job["url"], quote=True)}">{title}</a>'
+        block = f"{index}. {title}\n" + ' · '.join(details)
+        # Stop before Telegram's message limit instead of cutting HTML mid-tag.
+        if len('\n\n'.join(blocks + [block])) > TELEGRAM_LIMIT - 100:
+            blocks.append(f"… and {len(chosen) - index + 1} more in the run report")
+            break
+        blocks.append(block)
+    return '\n\n'.join(blocks)
 
 
 def send_telegram(text, token, chat_id):
     endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
-    body = urllib.parse.urlencode({'chat_id': chat_id, 'text': text, 'disable_web_page_preview': 'true'}).encode()
+    body = urllib.parse.urlencode({'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML',
+                                   'disable_web_page_preview': 'true'}).encode()
     request = urllib.request.Request(endpoint, data=body, method='POST')
     with urllib.request.urlopen(request, timeout=20) as response:
         payload = json.load(response)
