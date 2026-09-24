@@ -14,6 +14,10 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
   never auto-apply. Changes only if the owner supersedes that decision there.)
 - Only facts from the kit, the Notion Profile, Application Answers and the CV. Never invent.
 - Anything marked ❓ in the kit, or a field with no source: leave it empty, list it for the owner.
+- **Legal-acknowledgment checkboxes** ("I have read and agree to...", privacy notices, terms) are
+  always left for the owner to check themselves, even when the kit supplies an answer for them —
+  it's the owner's agreement to make, not something to assert on their behalf. (Adopted 25 Sep 2026
+  after observing this as a hard rule in a Codex desktop-app comparison run — see Log.)
 - Never fill passwords or create accounts (Workday, SuccessFactors, Taleo ask for one): stop and
   hand over to the owner.
 - CAPTCHA or "verify you are human": the owner solves it. Never try to bypass it.
@@ -136,7 +140,30 @@ would, no menu, no portal, no animation to wait for.
 - For a form with no reusable ATS pattern (a one-off Google Form, a random careers page), plain
   click-and-type is fine — don't spend time hunting for a fast path that will never be reused.
 
+## Other tools tried (25 Sep 2026) — none replace this skill, keep for context
+
+Compared claude-in-chrome against three alternatives on real forms, no submission:
+- **ChatGPT Atlas** — discontinued by OpenAI; its own shutdown screen points to a Chrome
+  extension or the ChatGPT desktop app instead.
+- **Perplexity Comet, signed out** — could not act on the page at all ("I'm unable to interact
+  with the browser page"); its agentic "Computer" feature is paywalled behind Perplexity Pro.
+  Not tested with Pro.
+- **ChatGPT/Codex desktop app** (`tools/send-to-chatgpt.sh` pastes a prompt into it, since there's
+  no API/MCP access to read its results back — only the owner can watch and report) — genuinely
+  filled real fields on the harder Canonical form (contact details, résumé, LinkedIn, long
+  free-text SRE/infra answers), took ~10 minutes, and deliberately left personal/subjective/legal
+  fields (academic history, travel commitment, employer count, the privacy-acknowledgment
+  checkbox) for the owner even when the prompt supplied answers — the stricter rule now adopted
+  above. Not wired into the SRE Watch pipeline (no Notion/Telegram/GitHub Actions trigger); the
+  owner drives it by hand.
+
+None of the three beat this skill on "actually fills the form, stays inside the pipeline, review
+gate enforced in code rather than by the model's own judgment call." Re-test before switching.
+
 ## Log (newest first; one line per application or finding)
+- 2026-09-25 · Tools · compared against Atlas (discontinued), Comet (needs Pro, couldn't act
+  signed out) and the Codex desktop app (worked, slower, stricter on legal fields) — see "Other
+  tools tried" above. Added `tools/send-to-chatgpt.sh` to paste prompts into the desktop app.
 - 2026-09-25 · Skill · pulled in a fast-path idea (write framework state directly, skip clicking)
   and a leak-guard rule from the open-source skill Li7777777/job-application-autofill; fixed a
   screenshot-scale bug that caused a real misclick during today's fill (see Efficiency).
