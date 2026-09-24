@@ -65,7 +65,7 @@ jobs:
           SRE_WATCH_ENRICH_MODEL: ${{ vars.SRE_WATCH_ENRICH_MODEL }}
         run: |
           pip install --quiet -r requirements.txt
-          python enrich.py --max-jobs 40
+          python enrich.py --max-jobs 100
       - name: Generate canonical digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

@@ -17,7 +17,7 @@ import job_store
 ROOT = Path(__file__).resolve().parent
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 1
-DEFAULT_MODEL = os.getenv('SRE_WATCH_ENRICH_MODEL', 'claude-opus-5')
+DEFAULT_MODEL = os.getenv('SRE_WATCH_ENRICH_MODEL', 'claude-haiku-4-5')
 
 ENRICHMENT_TABLE = """
 CREATE TABLE IF NOT EXISTS enrichments (
