@@ -111,6 +111,46 @@ For the optional local tooling: `SRE_WATCH_CV_PATH` points `tools/apply-batch.sh
 (defaults to `~/Documents/CV.pdf` — the maintainer's own file; set this
 to yours).
 
+## How the application automation works
+
+Drafting and filling can be automated end to end; **submitting never is.** The full pipeline, in
+order:
+
+1. **A kit gets drafted.** For your best-scored new matches (score ≥ `SRE_WATCH_AUTO_KIT_MIN_SCORE`,
+   up to `SRE_WATCH_AUTO_KIT_MAX` per crawl) this happens automatically after AI stage 2, with no
+   action from you. For any other job, tap **📝 Prepare application kit** under it in Telegram, or
+   run `python -m src daily --mode prepare --job <job URL>`.
+   - Claude reads the employer's real application form where it can (currently Greenhouse's public
+     API — other ATS platforms get a best-guess set of likely questions instead), plus your Profile
+     and Application Answers pages, and drafts a cover letter and one answer per question.
+   - Anything it isn't confident about is drafted anyway but flagged ❓ for your review, never
+     stated as settled fact — sponsorship requirements, salary, language, and anything your
+     Application Answers page marks ❓ itself.
+   - The kit is saved as a "📝 Application kit" section on the job's Notion Applications row (JSON
+     included, for the next step to read), and sent to Telegram as copyable blocks. The row moves
+     to Stage **Saved** if it wasn't tracked yet. Cost is roughly USD 0.04-0.07 per kit.
+2. **The kit gets filled into a real form.** Two ways to do this, both stop before Submit:
+   - **Live, with an AI coding assistant driving a real browser** — ask Claude (with
+     [Claude in Chrome](https://claude.ai/chrome)) or another browser-capable assistant to fill the
+     job from its kit; see `.claude/skills/apply-to-job/SKILL.md` for the exact steps and
+     per-platform notes (it's written to be readable by any agent, not just Claude).
+   - **Queued into the ChatGPT/Codex desktop app** (macOS only) — `tools/apply-batch.sh` reads
+     every Saved job with a kit, builds a plain-text prompt from it, and pastes-and-sends it into a
+     new Codex chat per job via `tools/send-to-chatgpt.sh`. Codex fills the form in its own
+     embedded browser and stops on its own approval gate. Right after queueing, that job's Stage
+     moves to **Applying** so a second run never queues it twice.
+3. **You review and click Submit yourself**, in every case, in every tool. Nothing in this project
+   can do that step for you — that's deliberate, not a current limitation.
+4. **You mark it applied**: tap ✅ under the job in Telegram, or
+   `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`.
+
+Two safety rules worth knowing if you extend this: legal-acknowledgment checkboxes ("I agree
+to...", privacy notices) are always left for you to check yourself, even when the kit has an
+answer for the question — and nothing here should ever be pointed at a "click Submit" action
+without a human confirming first. See `.claude/skills/apply-to-job/SKILL.md`'s Log for what's been
+learned running this against real forms, and `AGENTS.md` for the same rules aimed at any agent
+working in this repo.
+
 ## Repository layout
 
 ```
