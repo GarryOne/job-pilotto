@@ -61,10 +61,29 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
     known option list, and every plain input — has no such dependency and belongs in the single
     upfront JS batch.
 
+## Before you start (session/tooling gotchas, 25 Sep 2026)
+- **This skill is project-scoped to sre-watch.** If the session started in a different working
+  directory, the `Skill` tool's registry does not pick it up even after `cd`-ing into
+  `/Users/mac/sre-watch` mid-session (observed: two failed `Skill("apply-to-job")` calls in a row).
+  Don't retry the `Skill` tool after a `cd` — go straight to `Read` on
+  `/Users/mac/sre-watch/.claude/skills/apply-to-job/SKILL.md` and follow it as plain instructions.
+- **Kit lookup: skip the schema fetch.** The Applications data source URL
+  (`collection://346d7756-bafc-4dff-881f-2710819d90da`) and the `Job URL` column name are already
+  known (see Inputs below) — go straight to a `notion-query-data-sources` SQL query
+  (`WHERE "Job URL" LIKE '%<id>%'`) instead of fetching the database schema first. The `rows`/filter
+  mode has a stricter input shape that's easy to get wrong on the first try; SQL mode with a `LIKE`
+  is more forgiving and gets the row url in one call.
+- **The auto-mark-applied polling step (Steps §9) can get blocked.** A `ScheduleWakeup` whose
+  eventual action is `gh workflow run ... -f action=applied` was rejected by the permission
+  classifier as an "External System Writes" risk in at least one session, even though the skill
+  frames it as owner-pre-authorized. Don't spend a retry rediscovering this each time: if the
+  schedule call is denied, skip straight to telling the owner the manual `gh workflow run` command
+  to run themselves after they click Submit — same as the existing Fallback bullet.
+
 ## Inputs
 | What | Where |
 |---|---|
-| Kit (cover letter, answers per form field, checks) | Notion Applications row for the job → toggle "📝 Application kit" → JSON code block. Find the row by querying the Applications database (`f56b68942d3b43cbb85a7b1ebfe2df1b`) for the job URL. |
+| Kit (cover letter, answers per form field, checks) | Notion Applications row for the job → toggle "📝 Application kit" → JSON code block. Find the row by querying the Applications database (`f56b68942d3b43cbb85a7b1ebfe2df1b`, data source `collection://346d7756-bafc-4dff-881f-2710819d90da`) for the job URL — SQL mode, not schema-fetch-then-rows mode (see gotchas above). |
 | No kit yet | `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=prepare -f job=<job URL or 8-hex code>`; wait ~1 min (`gh run watch`). Or the 📝 Prepare button in Telegram. |
 | Standard answers | Notion page Application Answers `3e562be8fd868108ae38d1f47d52a811` |
 | Profile | Notion page `3e562be8fd8681579078d09829921b8c` |
@@ -240,6 +259,17 @@ would, no menu, no portal, no animation to wait for.
 - **The resume/CV file input is a plain hidden `<input type="file">`**: use the `file_upload` tool
   with its element ref (from `read_page`/`find`), never click the visible "Attach" button — that
   opens a native OS file picker the tools can't see into.
+- **`id="country"` next to the Phone field is the phone country-code selector, not a mailing/work
+  country field** — its option list is dial codes (`"Switzerland +41"`, `"Romania +40"`, ...), not
+  country names. Match it against the candidate's phone number's country, not their work-location
+  country (a separate `question_<n>` field usually asks "In which country do you currently work?"
+  explicitly — fill that one with the work country instead). Confirmed by a wrong first guess
+  (25 Sep 2026, Canonical form) that dumped 150+ dial-code options into context before catching it.
+- **Verifying the resume/CV upload: don't re-query `input#resume.files`.** Greenhouse swaps the file
+  input's surrounding DOM out after a successful attach (the element may no longer be found the same
+  way), so a post-upload `.files.length` check can wrongly read as empty/not-found. Confirm instead
+  by reading the attached filename text that appears in the Resume/CV section (or a screenshot) —
+  both reliably show the uploaded filename. Observed 25 Sep 2026 on a Canonical form.
 - `candidate-location` (the required "Location (City)" field) is an async city-search combobox,
   separate from the phone `country` selector right above it — easy to click the wrong one when the
   page has scrolled between screenshots; always re-screenshot or re-`find` immediately before this
@@ -343,3 +373,11 @@ gate enforced in code rather than by the model's own judgment call." Re-test bef
 - 2026-09-25 · Greenhouse · Grafana Labs Staff Databases SRE · form fully filled (all fields,
   CV uploaded, all 4 dropdowns), verified field-by-field, left open for the owner; nothing
   submitted. One misclick along the way (screenshot-scale bug, see above), caught and corrected.
+- 2026-09-25 · Greenhouse · Canonical Senior SRE · form filled from a session that started outside
+  sre-watch (had to `cd` in and read SKILL.md as a plain file — the `Skill` tool never picked up the
+  project-scoped skill after `cd`, see "Before you start" above). Owner self-assessed dead time
+  afterward and asked for fixes: added the skip-schema-fetch SQL shortcut for kit lookup, the
+  phone-country-code-vs-work-country field disambiguation, and the resume-upload verification note
+  (all folded into Platform notes / Before-you-start above). Also hit a permission-classifier denial
+  on the Steps §9 auto-mark-applied `ScheduleWakeup` ("External System Writes") — noted as a known
+  gotcha instead of a thing to rediscover each time.
