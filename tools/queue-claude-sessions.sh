@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# queue-claude-sessions.sh — open one new Terminal window per job, each running its own
+# interactive Claude Code session in the sre-watch repo, pre-seeded with an apply-to-job prompt.
+#
+# Unlike send-to-chatgpt.sh (which has to paste into a single shared desktop-app window because
+# there's no CLI/API access to it), Claude Code has a real CLI — so this spawns genuinely separate
+# `claude` processes, one per job, each in its own window, running in parallel. Each session still
+# stops before Submit and needs the owner to review + approve tool calls as usual; this only saves
+# the "open a session, cd, type the prompt" busywork of doing that by hand for several jobs.
+#
+# Usage:
+#   queue-claude-sessions.sh <job_url> [job_url ...]
+#   queue-claude-sessions.sh -f jobs.txt              # one job URL per line
+#
+# Requires: the `jobpilot` alias's target repo checked out at ~/sre-watch, Terminal.app, and
+#           Accessibility permission for whichever app runs this script (System Settings ->
+#           Privacy & Security -> Accessibility) so System Events can open Terminal windows.
+
+set -euo pipefail
+
+REPO_DIR="$HOME/sre-watch"
+TERMINAL_APP="Terminal"   # switch to "iTerm" if that's what's installed/preferred
+GAP=3                     # seconds between spawning windows, so they don't all hit Chrome/Notion at once simultaneously
+
+urls=()
+if [ "${1:-}" = "-f" ]; then
+  while IFS= read -r line; do
+    [ -n "$line" ] && urls+=("$line")
+  done < "$2"
+else
+  for a in "$@"; do urls+=("$a"); done
+fi
+
+if [ "${#urls[@]}" -eq 0 ]; then
+  echo "Usage: $0 <job_url> [job_url ...]   or   $0 -f jobs.txt" >&2
+  exit 1
+fi
+
+TMP_DIR="$(mktemp -d)"
+# Clean up the prompt files a bit later, well after every spawned Terminal has had time to read
+# its own file — not immediately, since `do script` returns before the new shell actually runs.
+( sleep 60 && rm -rf "$TMP_DIR" ) >/dev/null 2>&1 &
+disown
+
+i=0
+for url in "${urls[@]}"; do
+  i=$((i + 1))
+  prompt_file="$TMP_DIR/prompt_$i.txt"
+  cat > "$prompt_file" <<PROMPT
+Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the form in Chrome (claude-in-chrome), fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. Start now.
+PROMPT
+
+  osascript <<OSA
+tell application "$TERMINAL_APP"
+  activate
+  do script "cd '$REPO_DIR' && claude \"\$(cat '$prompt_file')\""
+end tell
+OSA
+
+  echo "Queued session $i/${#urls[@]}: $url"
+  sleep "$GAP"
+done
+
+echo
+echo "Queued ${#urls[@]} Claude Code session(s), one per Terminal window, running in parallel."
+echo "Each stops before Submit — review and approve tool calls per window as usual, then Submit yourself."
