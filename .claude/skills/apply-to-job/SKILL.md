@@ -129,6 +129,16 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
 6. **Files**: CV with the `file_upload` tool on `input#resume`. Cover letter: a text box
    (`Enter manually` → `#cover_letter_text`) gets the kit's `cover_letter`; a file-only field gets
    the letter as a PDF or .txt made in the scratchpad.
+   - **Upload the resume LAST, after every other field/dropdown on the form is already filled —
+     never before.** A successful attach can be silently wiped by a later re-render: on a Canonical
+     form (26 Sep 2026) the CV was attached correctly mid-flow, then a subsequent
+     `selectReactOption` call on an unrelated field (or Greenhouse's own DOM swap after attach — see
+     Platform notes) reset `input#resume` back to empty with no error, no console warning, nothing —
+     caught only because the owner looked at a screenshot and said "I don't see the CV uploaded."
+     Re-uploading it *after* all text/dropdown JS calls are done, as the final fill step, avoids the
+     interaction entirely. If any later step in Verify (§7) still needs to touch a field after the
+     resume is attached, re-check the resume last, right before handover — don't trust an earlier
+     "Uploaded 1 file(s)" tool result as still true by the time you hand off.
 7. **Verify**: one JS pass listing every required field that is still empty or invalid, plus a
    screenshot of the form end. Fix what can be fixed. Reusable snippet (works for both plain inputs
    and react-select comboboxes; checks the displayed value, not `.value`, which react-select
@@ -211,8 +221,8 @@ cases.
 
 1. **Crawl/score** — already automatic, every 4h.
 2. **Auto-draft kits** — `src/ai/kit.py:auto_run`, wired into `daily.py` for `scheduled`/`run`/`today`
-   modes when the repository variable `SRE_WATCH_AUTO_KIT_MAX` is set (score ≥
-   `SRE_WATCH_AUTO_KIT_MIN_SCORE`, default 50; capped per run). No manual 📝 Prepare tap needed for
+   modes when the repository variable `JOB_PILOTTO_AUTO_KIT_MAX` is set (score ≥
+   `JOB_PILOTTO_AUTO_KIT_MIN_SCORE`, default 50; capped per run). No manual 📝 Prepare tap needed for
    jobs that qualify; a short Telegram message lists what was drafted. Idempotent — table
    `auto_kits` in the canonical DB remembers which jobs already got one, so it never re-drafts.
    Manual 📝 Prepare still works for anything below the threshold or that needs a fresh draft.
@@ -314,6 +324,13 @@ would, no menu, no portal, no animation to wait for.
   way), so a post-upload `.files.length` check can wrongly read as empty/not-found. Confirm instead
   by reading the attached filename text that appears in the Resume/CV section (or a screenshot) —
   both reliably show the uploaded filename. Observed 25 Sep 2026 on a Canonical form.
+- **The resume attach can also be genuinely, not just apparently, undone later in the flow** — a
+  real regression, not the stale-DOM-reference false negative above. On a Canonical form (26 Sep
+  2026) the CV showed attached (filename visible, `.files.length === 1`) right after upload, then
+  after further JS calls selected other dropdowns, both the filename text and `.files` came back
+  empty — the form had reverted to the Attach/Dropbox/Google Drive/Enter-manually button state.
+  Trigger not fully isolated; treat any later field interaction as a risk and see the fix in Steps
+  §6 (upload resume last, re-verify immediately before handover, don't trust an earlier success).
 - `candidate-location` (the required "Location (City)" field) is an async city-search combobox,
   separate from the phone `country` selector right above it — easy to click the wrong one when the
   page has scrolled between screenshots; always re-screenshot or re-`find` immediately before this
@@ -396,6 +413,12 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-26 · Greenhouse · Canonical Senior Site Reliability Engineer · owner caught the resume
+  silently missing after hand-over ("I don't see the CV uploaded") — it had attached successfully
+  mid-flow, then a later field interaction reset `input#resume` to empty with no error. Re-uploaded
+  and confirmed held this time. Added a standing rule: upload the resume LAST, after all other
+  fields/dropdowns are filled, and re-verify it immediately before handover rather than trusting an
+  earlier successful upload result — see Steps §6 and Platform notes above.
 - 2026-09-26 · Greenhouse · Canonical Site Reliability / Gitops Engineer · owner caught two classes
   of bug after hand-over: (1) Education section (School/Degree/Discipline) left as "Select..." —
   the kit doesn't carry it and it's not browser-required, so it was skipped entirely; fixed live

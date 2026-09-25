@@ -172,14 +172,14 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `NOTION_MATCHES_DB` | your Job Matches database ID |
 | `NOTION_ANSWERS_PAGE_ID` | your Application Answers page ID |
 | `NOTION_EMPLOYERS_DB` | your Employers & Sources database ID (optional — the crawler falls back to `config/sources.json` without it) |
-| `SRE_WATCH_ENRICH_MODEL` | e.g. `claude-haiku-4-5` — turns on AI stage 1 |
-| `SRE_WATCH_SCORE_MODEL` | e.g. `claude-sonnet-5` — turns on AI stage 2 |
-| `SRE_WATCH_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5` if unset) |
-| `SRE_WATCH_AUTO_KIT_MAX` | auto-draft kits for up to N best new matches per crawl (0/unset = off) |
-| `SRE_WATCH_AUTO_KIT_MIN_SCORE` | minimum fit score to qualify (default 50) |
+| `JOB_PILOTTO_ENRICH_MODEL` | e.g. `claude-haiku-4-5` — turns on AI stage 1 |
+| `JOB_PILOTTO_SCORE_MODEL` | e.g. `claude-sonnet-5` — turns on AI stage 2 |
+| `JOB_PILOTTO_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5` if unset) |
+| `JOB_PILOTTO_AUTO_KIT_MAX` | auto-draft kits for up to N best new matches per crawl (0/unset = off) |
+| `JOB_PILOTTO_AUTO_KIT_MIN_SCORE` | minimum fit score to qualify (default 50) |
 | `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
-Delete `SRE_WATCH_ENRICH_MODEL`/`SRE_WATCH_SCORE_MODEL` at any time to stop all AI spending.
+Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop all AI spending.
 
 `config/preferences.json`, `config/sources.json` and `config/scout_seeds.json` hold your hard
 filters, always-crawled employer feeds and scout candidate companies — edit these to your own
@@ -205,8 +205,8 @@ to yours).
 Drafting and filling can be automated end to end; **submitting never is.** The full pipeline, in
 order:
 
-1. **A kit gets drafted.** For your best-scored new matches (score ≥ `SRE_WATCH_AUTO_KIT_MIN_SCORE`,
-   up to `SRE_WATCH_AUTO_KIT_MAX` per crawl) this happens automatically after AI stage 2, with no
+1. **A kit gets drafted.** For your best-scored new matches (score ≥ `JOB_PILOTTO_AUTO_KIT_MIN_SCORE`,
+   up to `JOB_PILOTTO_AUTO_KIT_MAX` per crawl) this happens automatically after AI stage 2, with no
    action from you. For any other job, tap **📝 Prepare application kit** under it in Telegram, or
    run `python -m src daily --mode prepare --job <job URL>`.
    - Claude reads the employer's real application form where it can (currently Greenhouse's public

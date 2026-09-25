@@ -17,7 +17,7 @@ from .. import store
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
-DEFAULT_MODEL = os.getenv('SRE_WATCH_SCORE_MODEL', 'claude-sonnet-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_SCORE_MODEL', 'claude-sonnet-5')
 
 SCORES_TABLE = """
 CREATE TABLE IF NOT EXISTS scores (

@@ -18,7 +18,7 @@ import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 
-DEFAULT_MODEL = os.getenv('SRE_WATCH_KIT_MODEL', 'claude-sonnet-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', 'claude-sonnet-5')
 KIT_VERSION = 1
 KIT_HEADING = '📝 Application kit'
 ANSWERS_PAGE_ID = os.getenv('NOTION_ANSWERS_PAGE_ID', '3e562be8fd868108ae38d1f47d52a811')
