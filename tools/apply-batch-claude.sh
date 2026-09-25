@@ -25,6 +25,12 @@ REPO_DIR="$HOME/sre-watch"
 TERMINAL_APP="Terminal"   # switch to "iTerm" if that's what's installed/preferred
 GAP=3                     # seconds between spawning windows, so they don't all hit Chrome/Notion at once simultaneously
 
+# Same Keychain fallback as apply-batch-chatgpt.sh: --next and --mark-applying below both need
+# NOTION_TOKEN, and this script is usually launched fresh (not already carrying it in the shell).
+if [ -z "${NOTION_TOKEN:-}" ]; then
+  export NOTION_TOKEN="$(security find-generic-password -a "$USER" -s job-pilotto.notion.token -w 2>/dev/null || true)"
+fi
+
 urls=()
 case "${1:-}" in
   -f)
