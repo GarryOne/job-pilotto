@@ -24,7 +24,7 @@ from ..notion import client as notion
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SEND_SCRIPT = REPO_ROOT / 'tools' / 'send-to-chatgpt.sh'
-DEFAULT_CV = os.getenv('SRE_WATCH_CV_PATH', str(Path.home() / 'Documents' / 'CV.pdf'))
+DEFAULT_CV = os.getenv('JOB_PILOTTO_CV_PATH', str(Path.home() / 'Documents' / 'CV.pdf'))
 
 PROMPT = """Open a browser, navigate to {url}, and fill out the job application form. Do not \
 click Submit — stop once every field is filled and show me a summary.

@@ -196,7 +196,7 @@ matches both spellings, `"\\bsre\\b"` avoids matching inside another word) — c
 adding your own. A frontend developer targeting Berlin, for example, would set `role_keywords` to
 `["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
 
-For the optional local tooling: `SRE_WATCH_CV_PATH` points `tools/apply-batch-chatgpt.sh` at your CV
+For the optional local tooling: `JOB_PILOTTO_CV_PATH` points `tools/apply-batch-chatgpt.sh` at your CV
 (defaults to `~/Documents/CV.pdf` — the maintainer's own file; set this
 to yours).
 
