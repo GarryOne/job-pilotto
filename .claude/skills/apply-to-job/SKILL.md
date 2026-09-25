@@ -56,7 +56,24 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    (`Enter manually` → `#cover_letter_text`) gets the kit's `cover_letter`; a file-only field gets
    the letter as a PDF or .txt made in the scratchpad.
 7. **Verify**: one JS pass listing every required field that is still empty or invalid, plus a
-   screenshot of the form end. Fix what can be fixed.
+   screenshot of the form end. Fix what can be fixed. Reusable snippet (works for both plain inputs
+   and react-select comboboxes; checks the displayed value, not `.value`, which react-select
+   clears):
+   ```js
+   function unfilledRequiredFields(form) {
+     const empty = [];
+     form.querySelectorAll('[required], [aria-required="true"]').forEach(el => {
+       const isCombo = el.getAttribute('role') === 'combobox';
+       const filled = isCombo
+         ? !!el.closest('[class*=select__container]')?.querySelector('[class*=single-value]')
+         : el.type === 'file' ? el.files.length > 0 : (el.value || '').trim() !== '';
+       if (!filled) empty.push(el.id || el.name || el.outerHTML.slice(0, 60));
+     });
+     return empty;
+   }
+   ```
+   An empty result doesn't guarantee *correct* answers — it only rules out the most common failure
+   mode (a field silently never got filled). Still read the screenshot before handing over.
 8. **Hand over**: tell the owner in chat: filled fields (count), ❓ items left empty, kit checks,
    "Review and click Submit". Leave the tab open.
 9. **After the owner confirms submission**: `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
@@ -105,15 +122,35 @@ would, no menu, no portal, no animation to wait for.
 - **How to find the fiber key**: `Object.keys(el).find(k => k.startsWith('__reactFiber') ||
   k.startsWith('__reactProps') || k.startsWith('__reactInternalInstance'))` — the exact prefix
   depends on the React version the site ships.
-- **Where it failed for Greenhouse's react-select** (tried 25 Sep 2026): reading `__reactProps`
-  off the `input[role=combobox]` or its `.select__control` wrapper gave an `onMouseDown`/`onFocus`
-  that didn't open the menu when invoked directly. That's very likely the wrong node — react-select's
-  own `onChange` lives on the top-level `<Select>` component instance, higher up the fiber tree, not
-  on the DOM node the input renders into. **Untested next step**: walk up `el.parentElement` chain
-  reading the fiber at each level until one's `memoizedProps` has an `onChange` whose signature
-  looks like `(option, actionMeta) => ...` plus an `options` array matching what's on screen; call
-  `onChange({value, label}, {action: 'select-option'})` directly. If this works it removes the
-  click entirely and the "menu didn't open" class of bug disappears.
+- **Confirmed working for Greenhouse's react-select (25 Sep 2026, live on a real Canonical form,
+  two different dropdown fields — no click, no menu, works cold from page load):** reading
+  `__reactProps` directly off the `input[role=combobox]` or its `.select__control` wrapper gives
+  the *wrong* handler — an `onMouseDown`/`onFocus`/native `onChange(e)` that expects a real DOM
+  event (`e.target.value`) and throws if called with an option object. The **real** react-select
+  `onChange(option, actionMeta)` lives ~16 levels up the **fiber `.return` chain** (React's own
+  parent-in-tree pointer — not `el.parentElement`, which walks the DOM and misses it). Find it by
+  arity, not depth (depth varies by site): walk `.return` collecting every `memoizedProps` that has
+  both `onChange` (a function with `.length >= 2` — the giveaway that it takes `(option,
+  actionMeta)`, not a lone DOM event) and an `options` array. Reusable snippet:
+  ```js
+  function selectReactOption(inputEl, matchLabel) {
+    const fiberKey = Object.keys(inputEl).find(k => k.startsWith('__reactFiber'));
+    let node = inputEl[fiberKey];
+    for (let i = 0; i < 25 && node; i++, node = node.return) {
+      const p = node.memoizedProps;
+      if (p && typeof p.onChange === 'function' && Array.isArray(p.options) && p.onChange.length >= 2) {
+        const option = p.options.find(o => o.label === matchLabel);
+        if (!option) return {ok: false, why: 'no such option', options: p.options.map(o => o.label)};
+        p.onChange(option, {action: 'select-option'});
+        return {ok: true};
+      }
+    }
+    return {ok: false, why: 'no select onChange found'};
+  }
+  ```
+  This makes every Greenhouse dropdown a one-call, click-free operation — use it as the *first*
+  attempt on any Greenhouse form's react-select fields, before falling back to the click-then-pick
+  method in Platform notes below.
 - Whether or not the direct write works, always verify by reading the value back from the DOM
   (`[class*=single-value]`, not `.value` — react-select clears its search input after a pick).
 - This is worth 30 seconds of trying per new platform; fall back to real-click-then-JS-pick the
@@ -123,12 +160,14 @@ would, no menu, no portal, no animation to wait for.
 ### Greenhouse (job-boards.greenhouse.io) — verified 25 Sep 2026 on Grafana Labs, full fill
 - Text inputs: ids `first_name`, `last_name`, `preferred_name`, `email`, `phone`,
   `question_<n>`; native setter + `input` event works. Fill all of them in one JS pass.
-- Dropdowns are react-select: `input#question_<n>[role=combobox]` inside `.select__container`,
-  clickable `.select__control`. **Synthetic JS events do not open them** (mousedown, ArrowDown,
-  typing, calling React props on the input or its `.control` wrapper all failed — that's likely
-  the wrong fiber node; see Fast path above for the untested fix). A real click on `.select__control`
-  opens it; then options are `#react-select-question_<n>-option-<i>` and a JS `click()` on the right
-  option selects it (verified repeatedly). Selected value shows in `[class*=single-value]`
+- Dropdowns are react-select: `input#question_<n>[role=combobox]` inside `.select__container`.
+  **Use the Fast path's `selectReactOption()` first** (confirmed working, zero clicks) — reading
+  React props off the input or `.select__control` directly gives the wrong handler (a native
+  `onChange(e)`, not react-select's `onChange(option, actionMeta)`); the real one is ~16 levels up
+  the fiber `.return` chain, found by arity. Fallback if that ever fails on a given field: a real
+  click on `.select__control` opens the menu; options are `#react-select-question_<n>-option-<i>`
+  and a JS `click()` on the right option selects it (verified repeatedly). Selected value shows in
+  `[class*=single-value]`
   (`.value` on the input itself stays empty — it's just react-select's search box).
 - **Clicking straight from one open dropdown into the next field's control can close the first one
   without opening the second** (observed twice) — verify `aria-expanded` after clicking and click
@@ -190,6 +229,11 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-25 · Greenhouse fast path confirmed · validated live on a real Canonical application form
+  (two react-select fields, gender and a Yes/No question): the fiber `.return`-chain walk finds
+  react-select's real `onChange(option, actionMeta)` by arity (`.length >= 2`) and calling it
+  directly sets the value with zero clicks, works cold, no menu ever opens. Promoted from
+  "untested" to the default first attempt for Greenhouse dropdowns — see Fast path above.
 - 2026-09-25 · Tools · compared against Atlas (discontinued), Comet (needs Pro, couldn't act
   signed out) and the Codex desktop app (worked, slower, stricter on legal fields) — see "Other
   tools tried" above. Added `tools/send-to-chatgpt.sh` to paste prompts into the desktop app.
