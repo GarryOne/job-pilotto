@@ -126,6 +126,12 @@ def main():
                         help="flip one job's Stage to Applying and exit — for apply-batch-claude.sh, "
                              'so a Claude Code session queued for a job is deduped the same way the '
                              'ChatGPT/Codex path already dedupes its own queued chats')
+    parser.add_argument('--mark-applied', metavar='URL',
+                        help="flip one job's Stage to Applied and exit. Reliable even when "
+                             "`src.daily --mode apply` can't find the job (that path looks it up in "
+                             'the local jobs.sqlite crawl cache, which can be stale, evicted in CI, or '
+                             "never populated for a job you only ever saw in Notion) — this looks the "
+                             'row up by URL directly in Notion instead, the same way --mark-applying does.')
     args = parser.parse_args()
 
     if args.file and args.urls:
@@ -140,6 +146,11 @@ def main():
     if args.mark_applying:
         _, outcome = tracker.mark({'url': args.mark_applying}, 'Applying')
         print(f'{args.mark_applying}: {outcome}')
+        return 0
+
+    if args.mark_applied:
+        _, outcome = tracker.mark({'url': args.mark_applied}, 'Applied')
+        print(f'{args.mark_applied}: {outcome}')
         return 0
 
     if args.next is not None:

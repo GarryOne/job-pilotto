@@ -207,17 +207,28 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
      "Thank you for applying" / "Your application has been submitted" state) once Submit succeeds —
      treat either signal as submitted. A `computer` screenshot is a fine confirmation before acting
      if the URL alone is ambiguous.
-   - The moment submission is detected: run
-     `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
-     immediately, without asking — the owner already authorized this by asking for the automation,
-     and the underlying hard rule ("never click Submit") isn't touched; this only reacts *after* a
-     human click. Then stop rescheduling for this job and tell the owner it's marked.
+   - The moment submission is detected: mark it applied immediately, without asking — the owner
+     already authorized this by asking for the automation, and the underlying hard rule ("never
+     click Submit") isn't touched; this only reacts *after* a human click. Then stop rescheduling
+     for this job and tell the owner it's marked. **Use `python3 -m src.ai.apply_batch --mark-applied
+     <job URL>` (needs `NOTION_TOKEN`, e.g. from Keychain — see other scripts in `tools/` for the
+     `security find-generic-password ... job-pilotto.notion.token` pattern), not
+     `gh workflow run daily.yml -f mode=apply -f job=<URL> -f action=applied`.** The `daily.yml`/
+     `src.daily --mode apply` path looks the job up in the local `jobs.sqlite` crawl cache first —
+     that cache is ephemeral in GitHub Actions (can be evicted between runs) and may never have been
+     populated at all for a job you only ever saw in Notion, so it silently replies "No job with
+     code ... it may have closed" even for a job that's very much still open and tracked. Confirmed
+     broken this way twice in a row on 26 Sep 2026 (real Canonical and Scale AI applications). Prefer
+     the local `python3 -m src.daily --mode apply --job <URL> --action applied` over the `gh workflow
+     run` form when you do want the digest-suppression side effects of the full `daily.py` path (it
+     also works only when the job is in the local SQLite) — but `apply_batch.py --mark-applied` is
+     the one that works regardless, since it reads/writes Notion directly by URL, the same way
+     `--mark-applying` already did for the Applying stage.
    - If nothing changes after a reasonable bound (e.g. ~2 hours / a handful of wakeups), stop
      polling silently — the owner may still be reviewing, may submit later, or may have closed the
      tab — and fall back to the manual path below. Never poll indefinitely.
    - **Fallback (tab closed, session ended, or detection never fired)**: the owner runs
-     `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
-     themselves, or taps ✅ in Telegram.
+     `python3 -m src.ai.apply_batch --mark-applied <job URL>` themselves, or taps ✅ in Telegram.
    - This only works while this session and tab are alive — it is not a persistent background
      watcher across sessions. A fully unattended version would need the Cloudflare Worker or a
      GitHub Action polling Greenhouse instead; not built, since the owner is normally present to
@@ -267,8 +278,8 @@ cases.
    the owner doesn't have to open Notion to remember what to double-check per job.
 4. **Owner reviews and clicks Submit** — the one step that stays manual, on purpose, in every chat
    it queued.
-5. **Mark applied** — `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`
-   (or ✅ in Telegram) once submitted.
+5. **Mark applied** — `python3 -m src.ai.apply_batch --mark-applied <job URL>` (or ✅ in Telegram)
+   once submitted. See Steps §9 for why this, not `gh workflow run daily.yml -f mode=apply`.
 
 So the owner's only required actions are: watch each queued chat, click Submit, mark applied.
 Everything before that (discovery, scoring, drafting, opening the chat, typing into it) runs
