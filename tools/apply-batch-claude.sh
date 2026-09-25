@@ -8,12 +8,14 @@
 # stops before Submit and needs the owner to review + approve tool calls as usual; this only saves
 # the "open a session, cd, type the prompt" busywork of doing that by hand for several jobs.
 #
-# Usage:
+# Usage (same shape as apply-batch-chatgpt.sh and apply-batch-codex-terminal.sh):
 #   tools/apply-batch-claude.sh <job_url> [job_url ...]
 #   tools/apply-batch-claude.sh -f jobs.txt          # one job URL per line
 #   tools/apply-batch-claude.sh --max 3   (or -n 3)  # auto-pick the N highest-scored jobs that
 #                                                     # are Saved+kitted but not yet started —
 #                                                     # via `python -m src.ai.apply_batch --next N`
+# No --dry-run here (a spawned Claude Code session has no such mode) — use it on
+# apply-batch-chatgpt.sh or apply-batch-codex-terminal.sh instead to preview a job list.
 #
 # Requires: the `jobpilot` alias's target repo checked out at ~/sre-watch, Terminal.app, and
 #           Accessibility permission for whichever app runs this script (System Settings ->

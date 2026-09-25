@@ -9,7 +9,15 @@ Codex fills the form and stops before Submit on its own (its "Ask for approval" 
 chat, click Submit yourself, then mark it applied. There is no tool to read a chat's result back,
 so the owner is the one watching every chat this queues.
 
-Usage: python -m src.ai.apply_batch [--max 5] [--paste-only] [--dry-run]
+Usage:
+  python -m src.ai.apply_batch [--max 5] [--paste-only] [--dry-run]
+  python -m src.ai.apply_batch <job_url> [job_url ...] [--paste-only] [--dry-run]
+  python -m src.ai.apply_batch -f jobs.txt [--paste-only] [--dry-run]
+
+Same input shape as tools/apply-batch-claude.sh and tools/apply-batch-codex-terminal.sh: with no
+URLs/-f given, auto-picks the --max highest-scored Saved+kitted jobs; with explicit URLs or -f,
+uses exactly those (each must already be Saved with a kit — Stage isn't used to select them, only
+to fetch the kit) and --max is ignored.
 """
 import argparse
 import os
@@ -74,6 +82,21 @@ def unstarted_urls_by_score(tracker, max_jobs):
     return [kit_data['url'] for _, kit_data in pairs[:max_jobs]]
 
 
+def pairs_for_urls(tracker, urls):
+    """(row, kit) pairs for explicit job URLs, in the given order. Raises if a URL has no row or
+    no kit yet — explicit URLs are a deliberate choice, so fail loud rather than silently skip."""
+    pairs = []
+    for url in urls:
+        row = tracker.find(url)
+        if not row:
+            raise SystemExit(f'No Applications row for {url} — prepare a kit first (📝 Prepare).')
+        kit_data = tracker.read_kit(row['id'], KIT_HEADING)
+        if not kit_data:
+            raise SystemExit(f'No kit drafted yet for {url} — prepare a kit first (📝 Prepare).')
+        pairs.append((row, kit_data))
+    return pairs
+
+
 def build_prompt(kit_data, cv):
     lines = [f"- Cover letter: {kit_data['cover_letter']}"]
     for answer in kit_data['answers']:
@@ -84,7 +107,13 @@ def build_prompt(kit_data, cv):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--max', type=int, default=5, help='at most this many chats')
+    parser.add_argument('urls', nargs='*', metavar='job_url',
+                        help='explicit job URL(s) to queue; each must already have a kit drafted. '
+                             'Mutually exclusive with --max/-n (default auto-pick).')
+    parser.add_argument('-f', '--file', metavar='PATH',
+                        help='file of job URLs, one per line, same as passing them as positional args')
+    parser.add_argument('--max', '-n', type=int, default=5, dest='max', metavar='N',
+                        help='at most this many chats, auto-picked by score — ignored if urls/-f given')
     parser.add_argument('--cv', default=str(DEFAULT_CV))
     parser.add_argument('--paste-only', action='store_true',
                         help="don't press Return in each chat; review the pasted text first")
@@ -98,6 +127,11 @@ def main():
                              'so a Claude Code session queued for a job is deduped the same way the '
                              'ChatGPT/Codex path already dedupes its own queued chats')
     args = parser.parse_args()
+
+    if args.file and args.urls:
+        raise SystemExit('Use -f or explicit URLs, not both')
+    if args.file:
+        args.urls = [line.strip() for line in Path(args.file).read_text().splitlines() if line.strip()]
 
     tracker = notion.Tracker.from_env()
     if not tracker:
@@ -116,11 +150,14 @@ def main():
     if not SEND_SCRIPT.exists():
         raise SystemExit(f'{SEND_SCRIPT} not found')
 
-    pairs = ready_jobs(tracker, args.max)
-    if not pairs:
-        print('No Saved jobs with a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
-              '`gh workflow run daily.yml -f mode=prepare -f job=<job URL>`.')
-        return 0
+    if args.urls:
+        pairs = pairs_for_urls(tracker, args.urls)
+    else:
+        pairs = ready_jobs(tracker, args.max)
+        if not pairs:
+            print('No Saved jobs with a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
+                  '`gh workflow run daily.yml -f mode=prepare -f job=<job URL>`.')
+            return 0
 
     for row, kit_data in pairs:
         title, company = _title(row), row['properties'].get('Company', {})

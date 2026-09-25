@@ -7,8 +7,8 @@
 # https://playwright.dev/mcp/configuration/browser-extension
 # Approve each extension connection and choose the intended job tab when prompted.
 #
-# Usage:
-#   tools/apply-batch-codex-terminal.sh [--max 5] [--dry-run]
+# Usage (same shape as apply-batch-claude.sh and apply_batch.py/apply-batch-chatgpt.sh):
+#   tools/apply-batch-codex-terminal.sh [--max 5 | -n 5] [--dry-run]
 #   tools/apply-batch-codex-terminal.sh https://example.com/job/123 [more URLs]
 #   tools/apply-batch-codex-terminal.sh -f jobs.txt
 
@@ -23,12 +23,12 @@ source_chosen=false
 urls=()
 
 usage() {
-  echo "Usage: $0 [--max N | -f jobs.txt | job_url ...] [--dry-run]" >&2
+  echo "Usage: $0 [--max N | -n N | -f jobs.txt | job_url ...] [--dry-run]" >&2
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --max)
+    --max|-n)
       [ "$#" -ge 2 ] || { usage; exit 2; }
       [[ "$2" =~ ^[1-9][0-9]*$ ]] || { echo "--max needs a positive integer" >&2; exit 2; }
       max_jobs="$2"
