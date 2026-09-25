@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 from .. import store
-from ..paths import CANONICAL_DB
+from ..paths import JOBS_DB
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 1
@@ -206,7 +206,7 @@ def run(db, model, max_jobs, client=None, workers=5):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', type=Path, default=CANONICAL_DB)
+    parser.add_argument('--db', type=Path, default=JOBS_DB)
     parser.add_argument('--max-jobs', type=int, default=40, help='cap per run to bound cost')
     parser.add_argument('--model', default=DEFAULT_MODEL)
     parser.add_argument('--dry-run', action='store_true', help='list pending jobs without calling the API')

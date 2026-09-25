@@ -235,7 +235,10 @@ src/
   daily.py           one digest run: crawl, AI, sync, send (modes below)
   digest.py          filtering, ranking, rotation, paging, message layout, buttons
   telegram.py        sending messages
-  store.py           SQLite store (jobs, companies, AI results, shown history)
+  store.py           SQLite store (jobs, companies, AI results, shown history) —
+                     `data/jobs.sqlite`, created automatically on first run, nothing to set up;
+                     it's a disposable crawl/scoring cache, not a durable record — applications,
+                     kits and scores that matter are mirrored into Notion (see below)
   scout.py           daily source scout
   paths.py           repository paths
   sources/

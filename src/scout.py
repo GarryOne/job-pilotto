@@ -28,7 +28,7 @@ import urllib.request
 
 from . import store, telegram
 from .notion import client as notion
-from .paths import CANONICAL_DB, CONFIG, keyword_regex, load_search_config
+from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, feeds
 
 SEEDS = CONFIG / 'scout_seeds.json'
@@ -388,7 +388,7 @@ def telegram_summary(summary, results):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', type=Path, default=CANONICAL_DB)
+    parser.add_argument('--db', type=Path, default=JOBS_DB)
     parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
     args = parser.parse_args()

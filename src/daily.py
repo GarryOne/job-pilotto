@@ -11,7 +11,7 @@ from .ai import enrich, kit, score
 from .notion import client as notion, matches
 from pathlib import Path
 
-from .paths import CANONICAL_DB, CONFIG, DATA, REPORTS
+from .paths import JOBS_DB, CONFIG, DATA, REPORTS
 from .sources import feeds
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
@@ -85,7 +85,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--db', type=Path, default=CANONICAL_DB)
+    parser.add_argument('--db', type=Path, default=JOBS_DB)
     parser.add_argument('--company-report', type=Path, default=REPORTS / 'companies.json')
     parser.add_argument('--limit', type=int, default=50, help='jobs in the ranked list, paged 10 at a time')
     parser.add_argument('--page', type=int, default=1)

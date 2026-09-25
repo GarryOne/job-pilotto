@@ -54,9 +54,7 @@ jobs:
       - name: Restore job database
         uses: actions/cache/restore@v4
         with:
-          path: |
-            data/canonical.sqlite
-            data/jobs.sqlite
+          path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
           restore-keys: job-pilotto-db-
       - name: Run tests
@@ -117,10 +115,22 @@ jobs:
         if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare'
         uses: actions/cache/save@v4
         with:
-          path: |
-            data/canonical.sqlite
-            data/jobs.sqlite
+          path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
+      - name: Backup job database
+        # Separate from the cache above: a cache entry can be evicted (GitHub prunes under
+        # storage pressure or after ~7 days unused) without warning. An artifact isn't subject to
+        # that — it just expires on its own fixed schedule — so this is real insurance against
+        # losing jobs.sqlite between scheduled runs, not a duplicate of the cache step. The file
+        # is a disposable crawl/scoring cache either way (see README) — nothing here is the
+        # durable record; that's Notion.
+        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare'
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-pilotto-jobs-db
+          path: data/jobs.sqlite
+          retention-days: 90
+          if-no-files-found: warn
       - name: Upload daily report
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,5 +138,5 @@ jobs:
           name: job-pilotto-${{ github.run_number }}
           path: |
             reports/
-            data/canonical.sqlite
+            data/jobs.sqlite
           if-no-files-found: warn

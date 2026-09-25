@@ -35,9 +35,7 @@ jobs:
       - name: Restore job database
         uses: actions/cache/restore@v4
         with:
-          path: |
-            data/canonical.sqlite
-            data/jobs.sqlite
+          path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
           restore-keys: job-pilotto-db-
       - name: Run tests
@@ -67,7 +65,16 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: |
-            data/canonical.sqlite
-            data/jobs.sqlite
+          path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
+      - name: Backup job database
+        # See daily.yml's own "Backup job database" step: separate from the cache above because
+        # a cache entry can be evicted without warning; an artifact just expires on its own
+        # schedule instead. Real insurance, not a duplicate.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-pilotto-jobs-db
+          path: data/jobs.sqlite
+          retention-days: 90
+          if-no-files-found: warn

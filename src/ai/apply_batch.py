@@ -58,7 +58,7 @@ def unstarted_urls_by_score(tracker, max_jobs):
     """Saved+kitted job URLs (not yet Applying/Applied/...), ranked by AI fit score descending.
 
     Score comes straight from the Job Matches — AI Scored Notion database (synced there by
-    src/notion/matches.py) rather than the local canonical.sqlite — this only needs to read
+    src/notion/matches.py) rather than the local jobs.sqlite — this only needs to read
     Score/Job URL, both of which already live in Notion, so it has no sqlite dependency. Jobs
     with no score on file (not yet scored) sort last rather than being excluded, so a fresh kit
     still gets queued even if scoring hasn't caught up."""
