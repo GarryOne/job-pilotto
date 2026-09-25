@@ -233,7 +233,7 @@ src/
     matches.py       mirror of scored jobs into Notion Job Matches
 config/
   search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
-  preferences.json   hard filters (disqualifying languages)
+  preferences.json   hard filters (disqualifying languages, excluded companies)
   sources.json       employer feeds always crawled
   scout_seeds.json   candidate employers for the scout (Tier 1, regions)
 worker/              Cloudflare Worker for the Telegram bot (commands, buttons)

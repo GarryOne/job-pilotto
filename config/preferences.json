@@ -4,5 +4,6 @@
     "German",
     "French",
     "Italian"
-  ]
+  ],
+  "excluded_companies": []
 }

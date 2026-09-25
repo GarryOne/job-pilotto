@@ -89,6 +89,16 @@ def language_blocked(job):
                             for l in ai['languages'])
 
 
+def company_excluded(job):
+    """True when the job's company is on config/preferences.json's excluded_companies list."""
+    company = (job.get('company') or '').strip().casefold()
+    return any(company == name.strip().casefold() for name in PREFERENCES.get('excluded_companies', []))
+
+
+def hard_filtered(job):
+    return language_blocked(job) or company_excluded(job)
+
+
 _CUR = r"(?:CHF|EUR|USD|GBP|SEK|NOK|DKK|PLN|[£$€])"
 _NUM = r"\d[\d'’,. ]*\d(?:\s?[kK])?|\d(?:\s?[kK])?"
 SALARY_FIGURE = re.compile(rf"(?:{_CUR}\s?)?(?:{_NUM})(?:\s?{_CUR})?(?:\s?(?:-|–|to)\s?(?:{_CUR}\s?)?(?:{_NUM})(?:\s?{_CUR})?)?")
@@ -228,11 +238,12 @@ SAVED_BONUS = 10        # Saved (⭐) jobs rank higher until applied or dismisse
 
 def eligible_jobs(db, hidden_urls=frozenset()):
     """Open jobs the owner could apply to, with stage 1 facts attached; also returns the
-    language-blocked ones. Applied jobs (hidden_urls) are excluded from both."""
+    hard-filtered ones (required disqualifying language, or an excluded company). Applied jobs
+    (hidden_urls) are excluded from both."""
     facts = enrich.load(db)
     jobs = [dict(j, ai=facts.get(j['id'])) for j in store.digest_jobs(db, limit=10_000, only_new=False)
             if (j.get('url') or '').strip() not in hidden_urls]
-    return [j for j in jobs if not language_blocked(j)], [j for j in jobs if language_blocked(j)]
+    return [j for j in jobs if not hard_filtered(j)], [j for j in jobs if hard_filtered(j)]
 
 
 def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=None, shown_ids=None,
@@ -282,7 +293,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         if hidden_urls:
             stats.append(f"{len(hidden_urls)} applied")
         if blocked:
-            stats.append(f"{len(blocked)} language-filtered")
+            stats.append(f"{len(blocked)} filtered")
         header = (f"✈️ <b>{BRAND_NAME}</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
                   f"<i>{' · '.join(stats)}</i>")
     elif shown:

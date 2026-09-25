@@ -86,9 +86,30 @@ class EnrichTests(unittest.TestCase):
                     salary={'stated': True, 'text': 'CHF 130k–150k'}))
                 message = digest.format_digest(db)
         self.assertNotIn('SRE German', message)
-        self.assertIn('1 language-filtered', message)
+        self.assertIn('1 filtered', message)
         for badge in ('🇬🇧 English', '<b>Senior</b>', '🇫🇷 French +', '💰 CHF 130k–150k'):
             self.assertIn(badge, message)
+
+
+class ExcludedCompanyTests(unittest.TestCase):
+    def test_excluded_company_is_hard_filtered_like_a_language(self):
+        original = digest.PREFERENCES.get('excluded_companies', [])
+        digest.PREFERENCES['excluded_companies'] = ['Current Employer']
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                    job_store.import_watch_report(db, {'jobs': [
+                        {'company': 'Current Employer', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
+                         'url': 'https://x.test/1', 'description': 'd'},
+                        {'company': 'current employer', 'id': '2', 'title': 'SRE', 'location': 'Zurich',
+                         'url': 'https://x.test/2', 'description': 'd'},
+                        {'company': 'Other Co', 'id': '3', 'title': 'SRE', 'location': 'Zurich',
+                         'url': 'https://x.test/3', 'description': 'd'}]})
+                    eligible, blocked = digest.eligible_jobs(db)
+            self.assertEqual({j['id'] for j in eligible}, {3})
+            self.assertEqual({j['id'] for j in blocked}, {1, 2})  # case-insensitive match
+        finally:
+            digest.PREFERENCES['excluded_companies'] = original
 
 
 class SalaryTests(unittest.TestCase):
