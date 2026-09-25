@@ -73,6 +73,33 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
     the resulting options via JS, then pick. Everything else — every field with a fixed, already-
     known option list, and every plain input — has no such dependency and belongs in the single
     upfront JS batch.
+  - **If `selectViaOnSelect()` itself is blocked** (observed 26 Sep 2026 on a Claude Code session: a
+    "Browser Input Exfil" sandbox classifier rejected the fiber-write JS call outright, with no
+    retry or rephrasing able to get it through — don't try to route around a tool-permission denial
+    like that, it's a hard stop, not a bug to work past) — **do not fall back to raw pixel-coordinate
+    `computer` clicks from a screenshot.** That's the exact slow path this section already warns
+    against, and it reproduced the same wrong-field/stale-coordinate failures again on 26 Sep 2026
+    (typed "Computer Science" into Degree instead of Discipline; School reset itself after a résumé
+    re-upload) despite being documented as a known trap the day before. The working middle ground,
+    entirely read-only DOM geometry (not state writes, so it doesn't trip the same classifier):
+    1. Click the field by **element `ref`** (from `find()`/`read_page()`), never by raw `(x, y)` —
+       a ref resolves against the live DOM at click time, so it can't go stale from a reflow the way
+       a coordinate from an earlier screenshot can.
+    2. Once a dropdown's menu is open (fixed-option *or*, after typing, async-search), run one
+       read-only `javascript_tool` call: `Array.from(document.querySelectorAll('[class*="option"]'))
+       .filter(el => el.offsetParent !== null && el.children.length === 0).map(el => { const r =
+       el.getBoundingClientRect(); return {text: el.textContent.trim(), x: Math.round(r.x+r.width/2),
+       y: Math.round(r.y+r.height/2)}; })` — gives exact click coordinates for every visible option
+       in one shot, read fresh from the current layout.
+    3. `computer` `left_click` at the matched option's `{x, y}` immediately — no intermediate
+       screenshot needed, since the coordinates just came from the live DOM, not a stale image.
+    4. Screenshot only at checkpoints (start, after résumé upload, end-of-form), not after every
+       micro-action — re-screenshotting after each click to "make sure" is itself what balloons a
+       ~5-field section into 15+ tool calls.
+    - **Re-verify the whole form once, right after the résumé upload specifically** — that upload is
+      the one known point (see Platform notes) where Greenhouse can silently reset unrelated fields
+      that were already filled, so a single full-scroll check there catches it in one pass instead
+      of discovering it piecemeal later.
 
 ## Before you start (session/tooling gotchas, 25 Sep 2026)
 - **This skill is project-scoped to sre-watch.** If the session started in a different working
