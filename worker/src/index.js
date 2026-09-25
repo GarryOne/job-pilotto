@@ -5,7 +5,7 @@
 // workflow, which replies in Telegram when it finishes.
 
 const HELP = [
-  '🇨🇭 <b>Job Pilotto commands</b>',
+  '✈️ <b>SRE Job Pilotto commands</b>',
   '',
   '/run — crawl now and send the digest (~3 min)',
   '/today — send the current ranked list (~1 min)',

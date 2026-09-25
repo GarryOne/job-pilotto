@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 from html import escape, unescape
 import json
+import os
 import random
 import re
 
@@ -19,6 +20,8 @@ _SEARCH = load_search_config()
 SWISS = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
 RELEVANT = keyword_regex(_SEARCH['role_keywords'])
 PREFERENCES = json.loads((CONFIG / 'preferences.json').read_text())
+# The tool's own name is "Job Pilotto" (generic, any fork); this is your own digest's display name.
+BRAND_NAME = os.getenv('DIGEST_BRAND_NAME', 'Job Pilotto')
 LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
 SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
                     'lead_manager': 'Lead/Manager'}
@@ -280,12 +283,12 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
             stats.append(f"{len(hidden_urls)} applied")
         if blocked:
             stats.append(f"{len(blocked)} language-filtered")
-        header = (f"✈️ <b>Job Pilotto</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
+        header = (f"✈️ <b>{BRAND_NAME}</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
                   f"<i>{' · '.join(stats)}</i>")
     elif shown:
-        header = f"✈️ <b>Job Pilotto</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
+        header = f"✈️ <b>{BRAND_NAME}</b> · jobs {first + 1}–{first + len(shown)} of {len(ranked)}"
     else:
-        return ['✈️ <b>Job Pilotto</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
+        return [f'✈️ <b>{BRAND_NAME}</b> · no more jobs in this list. Send /today for a fresh one.'], len(new), [None]
 
     blocks, entries, section, abroad_heading = [header], [], None, False
     for offset, (kind, job) in enumerate(shown):

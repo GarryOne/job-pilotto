@@ -144,6 +144,7 @@ None of group two is required for the core pipeline; it only matters if you want
 | `SRE_WATCH_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5` if unset) |
 | `SRE_WATCH_AUTO_KIT_MAX` | auto-draft kits for up to N best new matches per crawl (0/unset = off) |
 | `SRE_WATCH_AUTO_KIT_MIN_SCORE` | minimum fit score to qualify (default 50) |
+| `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
 Delete `SRE_WATCH_ENRICH_MODEL`/`SRE_WATCH_SCORE_MODEL` at any time to stop all AI spending.
 

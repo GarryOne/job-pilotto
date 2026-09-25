@@ -34,7 +34,7 @@ def keychain_token():
     try:
         result = subprocess.run(
             ['security', 'find-generic-password', '-a', os.getenv('USER', ''),
-             '-s', 'sre-watch.telegram.bot-token', '-w'],
+             '-s', 'job-pilotto.telegram.bot-token', '-w'],
             check=True, capture_output=True, text=True)
         return result.stdout.strip() or None
     except (OSError, subprocess.CalledProcessError):

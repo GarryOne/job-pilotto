@@ -11,7 +11,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - After each change: tests pass → commit → push to `main` → update Notion (hub current state, Run Log, Technical Reference; Decision Log when a decision changes; Handoff "Current state" / "Open threads" at the end of a session).
 - Ask before spending money on AI (new model or large re-runs); show measured cost.
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.
-- Secrets live in the macOS Keychain (`sre-watch.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
+- Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 
 ## Layout
 - Python package `src/` (run with `python -m src <daily|scout|discover|feeds|enrich>`): `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite; `scout.py` source scout; `paths.py` repo paths.
