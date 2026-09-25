@@ -19,6 +19,11 @@
     const elements = Array.from(document.querySelectorAll('input, textarea, select'));
     return elements.find(el => el.id === field || el.name === field);
   };
+  // react-select (every Greenhouse dropdown) renders a text input that is only its search box:
+  // setting its value selects nothing, and the chosen option lives in the container instead.
+  const isCombo = element => element.getAttribute('role') === 'combobox';
+  const comboFilled = element => !!element.closest('[class*=select__container], [class*=container]')
+    ?.querySelector('[class*=single-value], [class*=multi-value]');
   window.__jobPilottoFillKnownFields = entries => {
     if (!window.__jobPilottoGuardActive) return {error: 'submit guard is inactive'};
     const filled = [], skipped = [];
@@ -27,6 +32,10 @@
       const element = byField(key);
       if (!element || !writable(element) || typeof item.value !== 'string') {
         skipped.push(key);
+        continue;
+      }
+      if (isCombo(element)) {
+        skipped.push(`${key} (combobox: pick its option instead)`);
         continue;
       }
       if (element.tagName === 'SELECT') {
@@ -45,9 +54,20 @@
   };
   window.__jobPilottoAuditVisibleFields = () => Array.from(
     document.querySelectorAll('input, textarea, select'))
-    .filter(el => visible(el) && !el.disabled && !['hidden', 'submit', 'button', 'reset'].includes(el.type))
+    .filter(el => visible(el) && !el.disabled && !['hidden', 'submit', 'button', 'reset', 'search'].includes(el.type))
     .map(el => ({field: el.id || el.name || label(el), label: label(el),
-      type: el.type || el.tagName.toLowerCase(), required: !!(el.required || el.getAttribute('aria-required') === 'true'),
+      type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),
+      required: !!(el.required || el.getAttribute('aria-required') === 'true'),
       legal: forbidden.test(label(el)), filled: el.type === 'file' ? !!el.files?.length :
+        isCombo(el) ? comboFilled(el) :
         ['checkbox', 'radio'].includes(el.type) ? !!el.checked : !!String(el.value || '').trim()}));
+  // Read-only: text and viewport centre of every option in the currently open dropdown menu, so a
+  // click lands on live coordinates instead of a position eyeballed from an older screenshot.
+  window.__jobPilottoOptionPositions = () => Array.from(document.querySelectorAll('[class*="option"]'))
+    .filter(el => el.offsetParent !== null && el.children.length === 0)
+    .map(el => {
+      const box = el.getBoundingClientRect();
+      return {text: el.textContent.trim().slice(0, 80), x: Math.round(box.x + box.width / 2),
+        y: Math.round(box.y + box.height / 2), onScreen: box.top >= 0 && box.bottom <= innerHeight};
+    });
 })();

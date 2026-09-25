@@ -9,6 +9,13 @@ Goal: the owner's application form, fully and correctly filled from the applicat
 own Chrome, **stopped before Submit**. The owner reviews and clicks Submit. Then the job is marked
 applied. Speed matters: a Greenhouse form should take under 3 minutes.
 
+**Golden rule (see `AGENTS.md`): map once → build the whole plan → one fill call → verify once →
+upload résumé → re-verify once.** Use the helpers in `tools/browser-form-fastpath.js`
+(`__jobPilottoAuditVisibleFields`, `__jobPilottoFillKnownFields`, `__jobPilottoOptionPositions`),
+injected after `tools/browser-submit-guard.js`; with claude-in-chrome, Read each file and pass its
+text to `javascript_tool`. Anything you end up doing by hand that could be deterministic belongs
+in that file next time — keep evolving it.
+
 ## Hard rules
 - **Never click Submit / Apply / Send.** Stop, show the summary, let the owner click. (Decision Log:
   never auto-apply. Changes only if the owner supersedes that decision there.)

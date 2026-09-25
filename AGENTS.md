@@ -26,6 +26,32 @@ Point your own global config at these files rather than keeping a second copy:
   **Application Answers — Standard Form Fields** pages (see notion-map for their IDs); treat a
   local cache of them as exactly that, a cache, not a second source of truth.
 
+## Golden rule for filling any form: a handful of tool calls, not dozens
+
+A form we have already seen should never be filled one field at a time with a screenshot per
+field. The flow, for every agent and every tool:
+
+1. **Map once.** One page evaluation lists every field (id, type, label, required, filled) —
+   `window.__jobPilottoAuditVisibleFields()`.
+2. **Build the plan before filling.** Decide every field → value up front from the kit, the
+   Profile and Application Answers (Profile's confirmed answers beat the kit's guesses). No
+   deciding values mid-form.
+3. **One fill call.** Inject `tools/browser-submit-guard.js` then `tools/browser-form-fastpath.js`
+   (Playwright init script, or the file's text passed to the page's JS tool), then fill every
+   plain field in one evaluation with `window.__jobPilottoFillKnownFields(plan)`. Fields it skips
+   (Greenhouse dropdowns are react-select comboboxes): open, read live option coordinates with
+   `window.__jobPilottoOptionPositions()`, click — no screenshot per field.
+4. **Verify once** with the audit.
+5. **Upload the résumé** (last — Greenhouse can reset other fields after an upload).
+6. **Re-verify once**, then hand over. Never Submit.
+
+**Keep evolving `tools/browser-form-fastpath.js`.** Whenever a step was done by hand that could
+be deterministic, add it there (commit it, and note it in the apply-to-job skill's Log), so the
+next run is faster. Its limits stay: no submit, no legal/consent fields, no checkbox clicks, and
+it returns field ids and status only, never applicant values. If a session's tool-permission check
+blocks an action, don't build that action into this helper to get past the check — the owner
+decides that through their own permission settings.
+
 ## Hard rules (same as CLAUDE.md, repeated because this file may be read on its own)
 
 - Never click Submit on a job application. Ever. The owner reviews and submits every application
