@@ -18,6 +18,14 @@
 # Requires: the `jobpilot` alias's target repo checked out at ~/sre-watch, Terminal.app, and
 #           Accessibility permission for whichever app runs this script (System Settings ->
 #           Privacy & Security -> Accessibility) so System Events can open Terminal windows.
+#
+# Each session runs with `--permission-mode bypassPermissions` — no tool-approval prompts at all,
+# not just for Read/browser calls, so it can actually run unattended in a spawned window instead
+# of stalling on the first CV read or click. That's a real widening of blast radius (any tool call
+# in that session executes without review), acceptable here only because: the task is narrow
+# (fill one form from an already-drafted kit), the skill's own hard rule keeps it from ever
+# clicking Submit regardless of tool permissions, and you're still watching the window it opens.
+# Don't reuse this pattern for a less scoped prompt.
 
 set -euo pipefail
 
@@ -76,7 +84,7 @@ PROMPT
   osascript <<OSA
 tell application "$TERMINAL_APP"
   activate
-  do script "cd '$REPO_DIR' && claude \"\$(cat '$prompt_file')\""
+  do script "cd '$REPO_DIR' && claude --permission-mode bypassPermissions \"\$(cat '$prompt_file')\""
 end tell
 OSA
 
