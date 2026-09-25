@@ -69,10 +69,10 @@ features and source code as of September 2026; it is not a measured accuracy or 
 | [AgentSpan](https://github.com/agentspan-ai/agentspan) | Durable agent runs, execution history, and human approvals; its maintainers say the project moved into [Orkes Conductor](https://orkes.io/blog/open-sourcing-agentspan-durable-ai-agents/). | Potential orchestration infrastructure if application sessions need recovery and audit trails, not a job discovery or form-filling replacement. |
 
 **Current gap:** form filling is driven by a browser agent and application-kit instructions, not a
-verified form engine. The batch launchers queue work, but they do not measure field-level accuracy or
-confirm completion across Greenhouse, Lever, Workday, and other ATSs. A structured post-fill audit,
-explicit handling of uncertain answers, and a resumable review queue are the most useful ideas to
-borrow. Until those are in place, applicants must inspect the filled form before submitting it.
+verified form engine. The Terminal Codex path now records a structured post-fill report and active
+fill time, but those checks are reported by the agent; independent field-level accuracy and a
+browser-enforced Submit block across ATSs remain to be built. Applicants must inspect the filled
+form before submitting it.
 
 ## Day-to-day use
 
@@ -218,7 +218,7 @@ order:
    - The kit is saved as a "📝 Application kit" section on the job's Notion Applications row (JSON
      included, for the next step to read), and sent to Telegram as copyable blocks. The row moves
      to Stage **Saved** if it wasn't tracked yet. Cost is roughly USD 0.04-0.07 per kit.
-2. **The kit gets filled into a real form.** Three ways to trigger this, freely interchangeable —
+2. **The kit gets filled into a real form.** Four ways to trigger this, freely interchangeable —
    pick whichever's open, or run several at once for different jobs — all of them stop before
    Submit:
    - **Ask an AI coding assistant directly, in whatever session you already have open** — ask
@@ -237,12 +237,21 @@ order:
      every Saved job with a kit, builds a plain-text prompt from it, and pastes-and-sends it into a
      new Codex chat per job via `tools/send-to-chatgpt.sh`. Codex fills the form in its own
      embedded browser and stops on its own approval gate.
-   The two **queueing** scripts (Claude sessions or ChatGPT/Codex chats) each flip the job's Stage
+   - **Queue observable Terminal Codex runs** (macOS only) — `tools/apply-batch-codex-terminal.sh`
+     starts one `codex exec` process per job through the Playwright Chrome extension. Its runner
+     saves a private trace and structured field/attachment review report outside the repo, checks
+     the report for missing evidence, and updates the Notion row's **Next step**. If review-ready,
+     it also records active **Form fill time (min)** immediately. Use
+     `python3 -m src.ai.apply_run --status` to see ready, blocked, failed, or stale runs, and
+     `python3 -m src.ai.apply_run --report <job URL>` for its field and attachment checklist; rerun a
+     failed or stale URL after inspecting the browser tab. This path has not yet been benchmarked
+     across ATS forms, and its report is based on the agent's observations.
+   The **queueing** scripts each flip the job's Stage
    to **Applying** right after queueing, so a second run never queues the same job twice. Asking an
    assistant directly in a session you already have open doesn't touch Stage on its own — you're
    driving that session, so there's nothing to dedupe against.
-3. **You review and click Submit yourself**, in every case, in every tool. Nothing in this project
-   can do that step for you — that's deliberate, not a current limitation.
+3. **You review and click Submit yourself**, in every case, in every tool. The agents are instructed
+   to stop before Submit; a browser-level technical block is still needed, so review their work.
 4. **You mark it applied**: tap ✅ under the job in Telegram, or
    `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`.
 

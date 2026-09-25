@@ -17,7 +17,6 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CODEX_BIN="$(command -v codex || true)"
 NPX_BIN="$(command -v npx || true)"
-PLAYWRIGHT_MCP_VERSION=0.0.82
 GAP=3
 DRY_RUN=false
 source_chosen=false
@@ -96,24 +95,20 @@ if [ "$DRY_RUN" = false ]; then
 fi
 
 for url in "${urls[@]}"; do
-  prompt="Read AGENTS.md and .claude/skills/apply-to-job/SKILL.md. Fill the application at $url using its drafted kit from Notion Applications, the saved Profile/Application Answers, and the CV. Follow the skill's facts and submission rules. Its claude-in-chrome tool directions are for Claude; use the Playwright MCP browser tools connected through the Playwright Chrome extension instead. Check the kit's blockers before opening the form. Verify the form and leave it open for my review. Never click Submit, never accept legal terms for me, and leave unknown personal facts empty. Report any blockers and fields I must review."
   if [ "$DRY_RUN" = true ]; then
-    printf 'Would open Codex for %s\n%s\n\n' "$url" "$prompt"
+    printf 'Would open observable Codex run for %s\n' "$url"
     continue
   fi
 
   # Pass values as osascript arguments, then shell-quote them in AppleScript.
   # This keeps job URLs out of executable AppleScript and shell syntax.
-  osascript - "$REPO_DIR" "$CODEX_BIN" "$NPX_BIN" "$PLAYWRIGHT_MCP_VERSION" "$prompt" <<'APPLESCRIPT'
+  osascript - "$REPO_DIR" "$CODEX_BIN" "$NPX_BIN" "$url" <<'APPLESCRIPT'
 on run argv
   set repoDir to item 1 of argv
   set codexBin to item 2 of argv
   set npxBin to item 3 of argv
-  set mcpVersion to item 4 of argv
-  set initialPrompt to item 5 of argv
-  set mcpCommand to "mcp_servers.playwright.command=" & quoted form of npxBin
-  set mcpArgs to "mcp_servers.playwright.args=[" & quoted form of "-y" & "," & quoted form of ("@playwright/mcp@" & mcpVersion) & "," & quoted form of "--extension" & "]"
-  set shellCommand to "cd " & quoted form of repoDir & " && " & quoted form of codexBin & " -C " & quoted form of repoDir & " -c " & quoted form of mcpCommand & " -c " & quoted form of mcpArgs & " " & quoted form of initialPrompt
+  set jobUrl to item 4 of argv
+  set shellCommand to "cd " & quoted form of repoDir & " && JOB_PILOTTO_CODEX_BIN=" & quoted form of codexBin & " JOB_PILOTTO_NPX_BIN=" & quoted form of npxBin & " python3 -m src.ai.apply_run " & quoted form of jobUrl
   tell application "Terminal"
     activate
     do script shellCommand
@@ -121,10 +116,8 @@ on run argv
 end run
 APPLESCRIPT
 
-  (cd "$REPO_DIR" && python3 -m src.ai.apply_batch --mark-applying "$url") || \
-    echo "Warning: could not mark $url Applying; check Notion before another batch" >&2
-  echo "Queued Codex session: $url"
+  echo "Queued observable Codex session: $url"
   sleep "$GAP"
 done
 
-echo "Review each Terminal session and browser tab, then click Submit yourself."
+echo "Review each Terminal session and browser tab, then click Submit yourself. Run python3 -m src.ai.apply_run --status to inspect outcomes."

@@ -21,6 +21,7 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Posted | Date | Posting date from the source, or first-seen date if unknown |
 | Next interview | Date | You fill this in manually |
 | Next step | Text | You fill this in manually |
+| Form fill time (min) | Number | Active AI form-filling minutes, written at the ready-for-review handoff |
 | Notes | Text | You fill this in manually |
 | Salary | Text | You fill this in manually |
 | Contact | Text | You fill this in manually |

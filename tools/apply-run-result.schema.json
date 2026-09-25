@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "page_url", "form_field_count", "fields", "attachments", "unanswered", "checks", "fill_intervals", "summary"],
+  "properties": {
+    "status": {"type": "string", "enum": ["ready", "needs_user", "failed"]},
+    "page_url": {"type": "string"},
+    "form_field_count": {"type": "integer", "minimum": 0},
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["label", "source", "required", "observed", "matches_source"],
+        "properties": {
+          "label": {"type": "string"},
+          "source": {"type": "string"},
+          "required": {"type": "boolean"},
+          "observed": {"type": "boolean"},
+          "matches_source": {"type": "boolean"}
+        }
+      }
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["label", "present"],
+        "properties": {"label": {"type": "string"}, "present": {"type": "boolean"}}
+      }
+    },
+    "unanswered": {"type": "array", "items": {"type": "string"}},
+    "checks": {
+      "type": "object", "additionalProperties": false,
+      "required": ["submit_untouched", "legal_acknowledgments_untouched", "browser_form_inspected"],
+      "properties": {
+        "submit_untouched": {"type": "boolean"},
+        "legal_acknowledgments_untouched": {"type": "boolean"},
+        "browser_form_inspected": {"type": "boolean"}
+      }
+    },
+    "fill_intervals": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["start", "end"],
+        "properties": {"start": {"type": "string"}, "end": {"type": "string"}}
+      }
+    },
+    "summary": {"type": "string"}
+  }
+}

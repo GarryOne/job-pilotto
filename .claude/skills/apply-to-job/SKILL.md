@@ -165,6 +165,14 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
 
 ## Full automatic flow (25 Sep 2026)
 
+**Observable Terminal Codex option (25 Sep 2026):** `tools/apply-batch-codex-terminal.sh`
+starts `src/ai/apply_run.py`, which captures the Codex JSONL trace and a structured final
+field/attachment report in a private local directory outside the repo. It records Next step in
+Notion and, only for a review-ready report, active Form fill time (min). Check
+`python3 -m src.ai.apply_run --status` for failed or stale runs before retrying. The report is
+agent-observed evidence, not an independent browser audit or a code-level Submit lock. Never put
+the private trace, applicant values, or screenshots into this skill or git.
+
 1. **Crawl/score** — already automatic, every 4h.
 2. **Auto-draft kits** — `src/ai/kit.py:auto_run`, wired into `daily.py` for `scheduled`/`run`/`today`
    modes when the repository variable `SRE_WATCH_AUTO_KIT_MAX` is set (score ≥
