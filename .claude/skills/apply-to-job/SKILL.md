@@ -69,9 +69,14 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
   - **The only genuine two-step case is an async-search combobox** (its own `loadOptions` fetches
     matches from a remote API only after a query is typed — Greenhouse's School/Degree/Discipline
     fields, Ashby/Greenhouse city-search fields). You cannot know the exact option label before
-    triggering that search, so it truly needs one round trip: type the query via `computer`, read
-    the resulting options via JS, then pick. Everything else — every field with a fixed, already-
-    known option list, and every plain input — has no such dependency and belongs in the single
+    triggering that search, so it truly needs one round trip: type the query via `computer`, **read
+    the resulting options via a `getBoundingClientRect()` JS call (same as the fixed-option
+    dropdowns), then click at the returned coordinates** — not a screenshot you eyeball. A run on
+    26 Sep 2026 correctly did the JS-geometry read for every fixed-option dropdown but reverted to
+    "screenshot, look for the option, click" for these async fields specifically, which is the same
+    slow/stale-coordinate pattern this section exists to avoid — the fix is the same technique, just
+    applied here too, not a different one. Everything else — every field with a fixed, already-known
+    option list, and every plain input — has no async dependency at all and belongs in the single
     upfront JS batch.
   - **If `selectViaOnSelect()` itself is blocked** (observed 26 Sep 2026 on a Claude Code session: a
     "Browser Input Exfil" sandbox classifier rejected the fiber-write JS call outright, with no
@@ -137,6 +142,11 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the description.
 3. **Map fields in one JS pass**: list `form input, textarea` with `id`, `type`, `role`,
    `aria-required` and label text. Match kit answers by `field` (= element id; strip `[]`).
+   **Keep the returned JSON compact** (short keys, truncate label text to ~60-80 chars, no
+   whitespace/indentation) — a full unfiltered dump of a long Greenhouse form's fields can exceed
+   the tool result size limit and come back truncated, forcing a second call to get the rest
+   (observed 26 Sep 2026). If it still truncates, split by scrolling to the truncation point and
+   querying only the remaining elements, rather than re-requesting the whole form again.
 4. **Fill text fields in one JS pass** (native setter so React sees it):
    `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el, v); el.dispatchEvent(new Event('input',{bubbles:true}))`
    (use `HTMLTextAreaElement.prototype` for textareas). First/last name, email, phone from the CV.
