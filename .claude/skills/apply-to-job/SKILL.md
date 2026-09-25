@@ -34,6 +34,32 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
   "map fields" + "fill text fields", another for "fix a field" + "re-verify" + "screenshot". Adopted
   25 Sep 2026 after direct owner feedback that watching one-call-at-a-time execution (assess, run
   JS, assess again, upload, assess again...) was unacceptably slow; see Log.
+  - **Go further: batch as much of the whole form as possible in ONE call, not just pairs of
+    steps.** After the initial field-mapping pass tells you every field's id/type, you already know
+    enough to write out clicks/types/uploads for the *entire* form (text fields, file upload,
+    every dropdown) as a single `browser_batch` — don't split into "name/email/phone", then a
+    separate call for "resume", then another for "dropdowns" unless a step's outcome actually
+    changes what the next step needs to do (e.g. an async-search combobox whose options only exist
+    after you've typed a query). File upload, clicks and JS calls can all be items in the same
+    `browser_batch` array alongside `computer`/`navigate`. Owner feedback 25 Sep 2026: still too
+    chunky even after adopting `browser_batch` — "why don't you do everything, all the fields in
+    one shot... same for uploading CV, everything async, in parallel, as much as possible."
+  - **Default to one JS call for every plain text field and static-option dropdown; never use
+    pixel-coordinate `computer` clicks on a react-select field.** Once the field-mapping pass has
+    every id, write one `javascript_tool` call that loops over ALL of them — native-setter text
+    fills plus `selectReactOption()` fiber writes for every dropdown with a fixed option list — and
+    execute it as a single call. Mixing in `computer` clicks for some dropdowns is what causes the
+    real slowdown: selecting one option can reflow the page, making the next pixel coordinate stale
+    and forcing a re-screenshot-and-retry loop (observed 25 Sep 2026 on a Canonical form's Education
+    section). JS calls read the DOM fresh every time, so they never go stale from a reflow — that's
+    the reason to prefer them over clicking, not just speed.
+  - **The only genuine two-step case is an async-search combobox** (its own `loadOptions` fetches
+    matches from a remote API only after a query is typed — Greenhouse's School/Degree/Discipline
+    fields, Ashby/Greenhouse city-search fields). You cannot know the exact option label before
+    triggering that search, so it truly needs one round trip: type the query via `computer`, read
+    the resulting options via JS, then pick. Everything else — every field with a fixed, already-
+    known option list, and every plain input — has no such dependency and belongs in the single
+    upfront JS batch.
 
 ## Inputs
 | What | Where |
@@ -91,8 +117,32 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
      already has it and it stops showing up as ❓. Leave genuinely **job-specific** items
      (this company's travel requirement, this role's on-call expectation) per-job — those aren't a
      coverage gap, they're correct per-job judgment calls.
-9. **After the owner confirms submission**: `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
-   (or ✅ in Telegram). Then add anything new to **Platform notes** / **Log** below and commit.
+9. **Auto-detect submission and mark applied — no owner action needed, if the tab is still open in
+   this session.** Adopted 25 Sep 2026 after the owner asked to automate this step. Right after
+   hand-over, note the tab's current URL (the job/application page) and use `ScheduleWakeup` to
+   check back every 120–300s (long enough to not spam wakeups, short enough that "applied" lands in
+   Notion soon after the owner actually submits):
+   - On each wake, call `tabs_context_mcp` for that tab and compare its URL/title to the noted one.
+   - Greenhouse navigates to a `.../confirmation` URL (or the page title/body changes to a
+     "Thank you for applying" / "Your application has been submitted" state) once Submit succeeds —
+     treat either signal as submitted. A `computer` screenshot is a fine confirmation before acting
+     if the URL alone is ambiguous.
+   - The moment submission is detected: run
+     `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
+     immediately, without asking — the owner already authorized this by asking for the automation,
+     and the underlying hard rule ("never click Submit") isn't touched; this only reacts *after* a
+     human click. Then stop rescheduling for this job and tell the owner it's marked.
+   - If nothing changes after a reasonable bound (e.g. ~2 hours / a handful of wakeups), stop
+     polling silently — the owner may still be reviewing, may submit later, or may have closed the
+     tab — and fall back to the manual path below. Never poll indefinitely.
+   - **Fallback (tab closed, session ended, or detection never fired)**: the owner runs
+     `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
+     themselves, or taps ✅ in Telegram.
+   - This only works while this session and tab are alive — it is not a persistent background
+     watcher across sessions. A fully unattended version would need the Cloudflare Worker or a
+     GitHub Action polling Greenhouse instead; not built, since the owner is normally present to
+     review and click Submit anyway.
+   Then add anything new to **Platform notes** / **Log** below and commit.
 
 ## Full automatic flow (25 Sep 2026)
 
