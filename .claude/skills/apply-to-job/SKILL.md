@@ -165,6 +165,13 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
      alone won't work here since the option list is empty before a query is typed. (Missed entirely
      on a Canonical application 25→26 Sep 2026 — three fields left as "Select..." — caught by the
      owner from a screenshot; see Log.)
+     - **These three must stay sequential, but each needs only two round trips and no screenshot.**
+       Typing into all three back to back does NOT work: focusing the next react-select blurs the
+       previous one, and react-select closes its menu and clears the typed query on blur, so the
+       earlier searches are lost. (A 26 Sep 2026 revision of this file briefly advised that; it was
+       wrong and has been removed.) Per field: one `browser_batch` of click-by-ref + type + ~1s
+       wait, then the `getBoundingClientRect()` read (Fast path) and an immediate click at the
+       returned coordinates. No screenshot to "see if the option appeared" — the JS read answers that.
 6. **Files**: CV with the `file_upload` tool on `input#resume`. Cover letter: a text box
    (`Enter manually` → `#cover_letter_text`) gets the kit's `cover_letter`; a file-only field gets
    the letter as a PDF or .txt made in the scratchpad.
