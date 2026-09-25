@@ -187,7 +187,35 @@ would, no menu, no portal, no animation to wait for.
   and reviews/submits personally).
 - Invisible reCAPTCHA badge on the page: submission by a bot would be scored; another reason the
   owner submits.
-### Lever, Ashby, Workable, Personio, SmartRecruiters
+### Ashby (jobs.ashbyhq.com/<board>/<id>/application) — verified 25 Sep 2026 on DeepL, no fiber trick needed
+- The listing/board API (`api.ashbyhq.com/posting-api/job-board/<slug>`) does **not** expose
+  application questions — only posting content. The real form only exists on the live
+  `/application` page. Fine for filling live; it just means the kit can't pre-draft Ashby answers
+  from an API the way it can for Greenhouse, only from likely-question guesses.
+- Plain `<input>`/`<textarea>` with native `<label for>` — `el.labels[0].textContent` gives the
+  real question text directly, no DOM archaeology needed. Native setter + `input` event fills them.
+- Selection questions are **native checkboxes and radios**, not a custom widget — a plain `.click()`
+  works, verified (`checkbox.checked` flips and persists). No react-select, no fiber walk required
+  despite the page being React — Ashby renders real native form controls.
+- System fields: `#_systemfield_name`, `#_systemfield_email`, resume via `input[type=file]`
+  (`#_systemfield_resume`), a phone field, and one `[role=combobox]` text input for
+  location/company autocomplete (type + wait + pick, same pattern as Greenhouse's `candidate-location`).
+- Overall: **simpler to fill than Greenhouse** once you're on the live page.
+### Lever (jobs.lever.co/<board>/<id>/apply) — verified 25 Sep 2026 on Palantir, not a React app at all
+- Confirmed `!Object.keys(el).find(k=>k.startsWith('__react'))` — Lever's form has zero React
+  involvement. Plain `.value` assignment + `input`/`change` events works on every text field, no
+  special technique needed anywhere.
+- Named fields, not id'd: use `input[name="org"]` etc., not `#org` — `name="name"`, `name="email"`,
+  `name="phone"`, `name="org"` (current company), `name="urls[LinkedIn]"` / `urls[GitHub]` /
+  `urls[Portfolio]`.
+- `#location-input` is a Google-Places-style autocomplete with a paired hidden
+  `#selected-location`; typing into it didn't surface a `.suggestions` list the way tested — needs
+  another look before relying on it; a plain typed value may or may not satisfy the paired hidden
+  field on its own.
+- Checkboxes (e.g. language/skill tags as `cards[<uuid>][field<n>]`) are plain native checkboxes,
+  `.click()` works, verified.
+- Resume: `#resume-upload-input`, a plain file input — same `file_upload` tool approach as Greenhouse.
+### Workable, Personio, SmartRecruiters
 - Not yet seen. Record ids, widget types and what worked the first time.
 ### Workday, SuccessFactors, Taleo
 - Account per employer, multi-page. Owner logs in; fill page by page from the kit; never create
@@ -229,6 +257,13 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-25 · Ashby + Lever, first look · tested live on real forms (DeepL "Head of Product
+  Growth", Palantir "Backend Software Engineer") — no login, no submission, nothing sent. Neither
+  needs Greenhouse's fiber trick: Ashby renders native checkboxes/radios with real `<label for>`
+  text despite being React; Lever isn't React at all, plain `.value` assignment works everywhere.
+  Both simpler to fill than Greenhouse once on the live page; neither platform's public listing API
+  exposes application questions (only Greenhouse does), so kits for these still rely on likely-
+  question guesses, not real ones. See Platform notes above.
 - 2026-09-25 · Greenhouse fast path confirmed · validated live on a real Canonical application form
   (two react-select fields, gender and a Yes/No question): the fiber `.return`-chain walk finds
   react-select's real `onChange(option, actionMeta)` by arity (`.length >= 2`) and calling it
