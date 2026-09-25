@@ -89,6 +89,10 @@ def main():
         company = ''.join(t.get('plain_text', '') for t in company.get('rich_text', []))
         prompt = build_prompt(kit_data, args.cv)
         print(f"--- {title} — {company} ({kit_data['url']}) ---")
+        if kit_data.get('check_before_sending'):
+            print('⚠️  Check before sending:')
+            for item in kit_data['check_before_sending']:
+                print(f'   • {item}')
         if args.dry_run:
             print(prompt)
             continue
@@ -106,6 +110,13 @@ def main():
     print(f"\nQueued {len(pairs)} chat(s) in the ChatGPT/Codex app. For each: review, attach the "
           "résumé if it didn't, click Submit yourself, then run:\n"
           "  gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied")
+    checks = [(row, kit_data) for row, kit_data in pairs if kit_data.get('check_before_sending')]
+    if checks and not args.dry_run:
+        print('\nThings to double-check before you submit, one job at a time:')
+        for row, kit_data in checks:
+            print(f"\n{_title(row)} ({kit_data['url']}):")
+            for item in kit_data['check_before_sending']:
+                print(f'  • {item}')
     return 0
 
 

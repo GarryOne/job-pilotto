@@ -78,7 +78,9 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    on its own approval gate. Right after queueing a job, it moves that row's Stage from **Saved**
    to **Applying** in Notion — so a second run (or the next auto-kit cycle) never queues the same
    job into a second chat. If a paste-only chat is abandoned without sending, reset that job's
-   Stage back to Saved in Notion to make it eligible again.
+   Stage back to Saved in Notion to make it eligible again. It also prints each job's
+   `check_before_sending` list as it queues (and again in a consolidated summary at the end), so
+   the owner doesn't have to open Notion to remember what to double-check per job.
 4. **Owner reviews and clicks Submit** — the one step that stays manual, on purpose, in every chat
    it queued.
 5. **Mark applied** — `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`
