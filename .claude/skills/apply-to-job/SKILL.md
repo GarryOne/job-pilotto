@@ -27,6 +27,13 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
   Never write a real name, email, phone, address, salary figure or answer text into them — use
   `<placeholder>` the way this file already does. Findings about a *site* (field ids, widget
   behaviour, error text) are fine; findings about *this application* (what was typed) are not.
+- **Always use `browser_batch` for multi-step browser work**, never a string of separate
+  `javascript_tool`/`computer`/screenshot calls one at a time. Load it up front (it's a deferred
+  tool: `ToolSearch("select:mcp__claude-in-chrome__browser_batch")` alongside the rest of the core
+  set) and group whatever steps don't depend on seeing an intermediate result — e.g. one batch for
+  "map fields" + "fill text fields", another for "fix a field" + "re-verify" + "screenshot". Adopted
+  25 Sep 2026 after direct owner feedback that watching one-call-at-a-time execution (assess, run
+  JS, assess again, upload, assess again...) was unacceptably slow; see Log.
 
 ## Inputs
 | What | Where |
@@ -76,6 +83,14 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    mode (a field silently never got filled). Still read the screenshot before handing over.
 8. **Hand over**: tell the owner in chat: filled fields (count), ❓ items left empty, kit checks,
    "Review and click Submit". Leave the tab open.
+   - **Grow coverage**: every kit is drafted fresh from the Profile and Application Answers pages
+     each time (`kit.py` reads both live, no caching) — so a ❓ or a `check_before_sending` item
+     that's a **stable, non-job-specific fact** (education, permit, standard demographic answers,
+     years/companies worked, salary target, notice period) is worth asking the owner to confirm
+     once and saving straight to Profile or Application Answers. Once saved, every future kit
+     already has it and it stops showing up as ❓. Leave genuinely **job-specific** items
+     (this company's travel requirement, this role's on-call expectation) per-job — those aren't a
+     coverage gap, they're correct per-job judgment calls.
 9. **After the owner confirms submission**: `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=apply -f job=<job URL> -f action=applied`
    (or ✅ in Telegram). Then add anything new to **Platform notes** / **Log** below and commit.
 
