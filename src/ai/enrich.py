@@ -17,7 +17,7 @@ from .. import store
 from ..paths import JOBS_DB
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
-EXTRACTOR_VERSION = 1
+EXTRACTOR_VERSION = 2
 DEFAULT_MODEL = os.getenv('SRE_WATCH_ENRICH_MODEL', 'claude-haiku-4-5')
 
 ENRICHMENT_TABLE = """
@@ -37,7 +37,7 @@ SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'required': ['languages', 'english_is_enough', 'seniority', 'work_mode', 'workload', 'salary',
-                 'employer_type', 'role_family', 'technologies', 'on_call', 'confidence'],
+                 'employer_type', 'role_family', 'technologies', 'on_call', 'visa_sponsorship', 'confidence'],
     'properties': {
         'languages': {
             'type': 'array',
@@ -87,6 +87,13 @@ SCHEMA = {
                                                    'data', 'security', 'support_it', 'other']},
         'technologies': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 12 key technologies'},
         'on_call': {'type': 'string', 'enum': ['yes', 'no', 'unknown']},
+        'visa_sponsorship': {
+            'type': 'object', 'additionalProperties': False, 'required': ['value', 'evidence'],
+            'properties': {
+                'value': {'type': 'string', 'enum': ['offered', 'not_offered', 'unknown']},
+                'evidence': _evidence,
+            },
+        },
         'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
     },
 }
@@ -101,7 +108,11 @@ Languages: German may appear as "Deutsch", "fliessend", "verhandlungssicher"; Fr
 required, but note it in english_is_enough.
 
 employer_type is "recruiter" when the advertiser hires on behalf of an unnamed or different client \
-(staffing agency, "our client"), otherwise "direct_employer"."""
+(staffing agency, "our client"), otherwise "direct_employer".
+
+visa_sponsorship is "offered" only when the posting explicitly says it sponsors work visas or relocation \
+permits; "not_offered" only when it explicitly requires existing work authorization or says it does not \
+sponsor; "unknown" when the posting says nothing about it (do not infer this from the country)."""
 
 
 def description_hash(job):

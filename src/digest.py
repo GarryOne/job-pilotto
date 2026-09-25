@@ -45,6 +45,16 @@ def is_swiss(job):
 
 ZURICH_AREA = keyword_regex(_SEARCH['locations']['top_tier'])
 PREFERRED_ABROAD = keyword_regex(_SEARCH['locations']['abroad'])
+# Listed "abroad" locations outside the EU/CH, where the owner (EU citizen) needs visa sponsorship.
+NON_EU_ABROAD = keyword_regex([loc for loc in _SEARCH['locations']['abroad'] if loc not in ('berlin',)])
+
+
+def needs_sponsorship(job):
+    """True when the job's location is outside the EU/Switzerland, so the owner would need visa sponsorship."""
+    if is_swiss(job):
+        return False
+    where = f"{job.get('location') or ''} {job.get('city') or ''}"
+    return bool(NON_EU_ABROAD.search(where))
 
 
 def location_points(job):
@@ -115,7 +125,7 @@ def _salary(text):
     return None
 
 
-def _ai_badges(ai):
+def _ai_badges(ai, job=None):
     """Signals worth an emoji; everything else stays plain text."""
     badges = []
     if ai['english_is_enough']['value'] == 'yes':
@@ -134,6 +144,11 @@ def _ai_badges(ai):
         badges.append('💰 salary info')
     if ai['employer_type']['value'] == 'recruiter':
         badges.append('👤 Recruiter')
+    sponsorship = ai.get('visa_sponsorship', {}).get('value')
+    if sponsorship == 'offered':
+        badges.append('🛂 sponsorship offered')
+    elif sponsorship == 'not_offered' or (job and needs_sponsorship(job)):
+        badges.append('🔴 visa sponsorship needed')
     return badges
 
 
@@ -184,7 +199,7 @@ def _job_block(index, job):
     star = '⭐ ' if job.get('saved') else ''
     head = f"{index}. {star}{title}" + (f" · 🎯 <b>{fit['score']}</b>" if fit else '')
     lines = [head, INDENT + ' · '.join(facts)]
-    signals = _ai_badges(ai) if ai else []
+    signals = _ai_badges(ai, job) if ai else []
     if signals:
         lines.append(INDENT + ' · '.join(signals))
     if fit and fit.get('reason'):

@@ -16,7 +16,7 @@ from .. import paths as _paths  # noqa: F401 (import side effect: loads .env bef
 from .. import store
 
 # Bump when the prompt or schema changes so every job is re-scored once.
-SCORER_VERSION = 1
+SCORER_VERSION = 2
 DEFAULT_MODEL = os.getenv('SRE_WATCH_SCORE_MODEL', 'claude-sonnet-5')
 
 SCORES_TABLE = """
@@ -61,7 +61,9 @@ Score each posting for fit, using only the profile and the posting.
 Rules:
 - Role fit compares the posting's responsibilities and required skills with the candidate's real \
 experience. Name concrete matches (e.g. "Datadog + Terraform monitoring"), not generic praise.
-- Location covers Swiss work eligibility, commute from the home base, remote policy and workload.
+- Location covers commute from the home base, remote policy and workload. Needing visa sponsorship is not \
+a location penalty by itself (the candidate is EU-eligible and open to sponsored roles); the digest already \
+flags it separately.
 - Compensation: compare only an advertised salary with the target. If no salary is stated, give 50 \
 and list it as a gap. Never invent a figure or a net amount.
 - Growth covers scope, technical depth and seniority relative to the candidate's level.
