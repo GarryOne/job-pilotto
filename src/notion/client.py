@@ -10,6 +10,8 @@ import json
 import os
 import urllib.request
 
+from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
+
 NOTION_VERSION = '2022-06-28'
 # The default IDs below (here and in scout.py, kit.py) are the maintainer's own Notion workspace.
 # Fork this project and set the matching environment variable to point at your own instead —

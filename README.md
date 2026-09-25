@@ -127,6 +127,13 @@ None of group two is required for the core pipeline; it only matters if you want
 
 ## Configuration
 
+**Running locally**: on macOS, the maintainer's own scripts (`tools/apply-batch-*.sh`) read
+`NOTION_TOKEN` from the Keychain entry `job-pilotto.notion.token` if it's not already exported.
+Everywhere else — another OS, CI, or if you'd rather not use Keychain at all — copy
+`.env.example` to `.env` and fill in real values; `src/paths.py` loads it automatically (no
+library, no manual `source` step) the first time any part of this project runs, without
+overriding a variable your shell already has set. `.env` is git-ignored, never committed.
+
 **GitHub repository secrets** (Settings → Secrets and variables → Actions):
 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NOTION_TOKEN`, `ANTHROPIC_API_KEY`.
 

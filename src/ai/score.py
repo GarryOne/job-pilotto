@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 
+from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
 
 # Bump when the prompt or schema changes so every job is re-scored once.

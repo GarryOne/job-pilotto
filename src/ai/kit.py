@@ -16,6 +16,8 @@ import os
 import re
 import urllib.request
 
+from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
+
 DEFAULT_MODEL = os.getenv('SRE_WATCH_KIT_MODEL', 'claude-sonnet-5')
 KIT_VERSION = 1
 KIT_HEADING = '📝 Application kit'
