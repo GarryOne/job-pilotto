@@ -3,14 +3,14 @@
 # bot's webhook at it and register the command menu. Safe to re-run.
 #
 # Prerequisites: `npx wrangler@4 login` done, `gh auth login` done, and the
-# Telegram token in the macOS Keychain (job-pilotto.telegram.bot-token).
+# Telegram token in the macOS Keychain (sre-watch.telegram.bot-token).
 set -euo pipefail
 cd "$(dirname "$0")"
 
 REPO=GarryOne/job-pilotto
 WRANGLER="npx --yes wrangler@4"
 
-TG_TOKEN="$(security find-generic-password -a "$USER" -s job-pilotto.telegram.bot-token -w)"
+TG_TOKEN="$(security find-generic-password -a "$USER" -s sre-watch.telegram.bot-token -w)"
 
 keychain() { security find-generic-password -a "$USER" -s "$1" -w 2>/dev/null || true; }
 ask() {  # ask <keychain service> <prompt>: reuse the Keychain value or prompt once and save it
@@ -22,16 +22,16 @@ ask() {  # ask <keychain service> <prompt>: reuse the Keychain value or prompt o
   printf %s "$value"
 }
 
-NOTION_TOKEN="$(ask job-pilotto.notion.token 'Notion integration token (ntn_...)')"
-GITHUB_TOKEN="$(ask job-pilotto.github.dispatch-token 'GitHub fine-grained token with Actions read/write on job-pilotto')"
-WEBHOOK_SECRET="$(keychain job-pilotto.telegram.webhook-secret)"
+NOTION_TOKEN="$(ask sre-watch.notion.token 'Notion integration token (ntn_...)')"
+GITHUB_TOKEN="$(ask sre-watch.github.dispatch-token 'GitHub fine-grained token with Actions read/write on GarryOne/job-pilotto')"
+WEBHOOK_SECRET="$(keychain sre-watch.telegram.webhook-secret)"
 if [ -z "$WEBHOOK_SECRET" ]; then
   WEBHOOK_SECRET="$(openssl rand -hex 32)"
-  security add-generic-password -U -a "$USER" -s job-pilotto.telegram.webhook-secret -w "$WEBHOOK_SECRET"
+  security add-generic-password -U -a "$USER" -s sre-watch.telegram.webhook-secret -w "$WEBHOOK_SECRET"
 fi
 
 # The owner is whoever sent /start; getUpdates stops working once the webhook is set.
-OWNER_CHAT_ID="$(keychain job-pilotto.telegram.chat-id)"
+OWNER_CHAT_ID="$(keychain sre-watch.telegram.chat-id)"
 if [ -z "$OWNER_CHAT_ID" ]; then
   OWNER_CHAT_ID="$(curl -fsS "https://api.telegram.org/bot${TG_TOKEN}/getUpdates" | python3 -c '
 import json, sys
@@ -39,7 +39,7 @@ chats = {u["message"]["chat"]["id"] for u in json.load(sys.stdin)["result"]
          if u.get("message", {}).get("chat", {}).get("type") == "private"}
 print(chats.pop() if len(chats) == 1 else "")')"
   [ -n "$OWNER_CHAT_ID" ] || { echo "Send /start to the bot, then re-run." >&2; exit 1; }
-  security add-generic-password -U -a "$USER" -s job-pilotto.telegram.chat-id -w "$OWNER_CHAT_ID"
+  security add-generic-password -U -a "$USER" -s sre-watch.telegram.chat-id -w "$OWNER_CHAT_ID"
 fi
 
 echo "Deploying Worker..."
@@ -74,4 +74,4 @@ curl -fsS "https://api.telegram.org/bot${TG_TOKEN}/setMyCommands" -H 'Content-Ty
   {"command":"scout","description":"Look for new employer job feeds"},
   {"command":"help","description":"Show commands"}]}' >/dev/null
 
-echo "Done. Send /help to @job_pilotto_bot."
+echo "Done. Send /help to @swiss_sre_watch_bot."

@@ -1,5 +1,5 @@
 {
-  "name": "job-pilotto-bot",
+  "name": "sre-watch-bot",
   "private": true,
   "type": "module",
   "scripts": {

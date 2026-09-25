@@ -74,7 +74,7 @@ def main():
 
     tracker = notion.Tracker.from_env()
     if not tracker:
-        raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+        raise SystemExit('NOTION_TOKEN is required (Keychain entry sre-watch.notion.token, or export it)')
     if not SEND_SCRIPT.exists():
         raise SystemExit(f'{SEND_SCRIPT} not found')
 
