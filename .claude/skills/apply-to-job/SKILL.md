@@ -516,6 +516,15 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-26 · Greenhouse · Anthropic Staff SWE Infrastructure · no React expandos (`__reactFiber*`)
+  were visible on any element from the extension's `javascript_tool` context on this board, so
+  `selectViaOnSelect()` found nothing (not blocked, just invisible — likely an isolated JS world).
+  Worked in one `browser_batch`: `computer` left_click by `ref` on each combobox, then a JS `.click()`
+  on `[id^="react-select-<id>-option"]` matched by text (phone `country`: type the country first).
+  Native-setter text fills still worked. Form has no Education/EEOC section; its "AI Policy for
+  Application" dropdown is an acknowledgment ("confirm your understanding by selecting Yes") → left
+  for the owner as a legal-acknowledgment field. "Additional Information" invites a cover letter →
+  took the kit's `cover_letter`. Resume uploaded last; held through the final check.
 - 2026-09-26 · Greenhouse · Canonical Site Reliability / Gitops Engineer · **critical fast-path bug
   found and fixed**: the owner clicked Submit for real and got "This field is required" on 8
   dropdowns that were visually filled correctly (`[class*=single-value]` showed the right text in
