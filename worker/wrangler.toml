@@ -1,5 +1,5 @@
-# Telegram webhook for @swiss_sre_watch_bot. Deploy: npm run deploy
-name = "sre-watch-bot"
+# Telegram webhook for @sre_job_pilotto_bot. Deploy: npm run deploy
+name = "sre-job-pilotto-bot"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 

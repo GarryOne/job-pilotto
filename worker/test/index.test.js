@@ -32,7 +32,7 @@ async function send(text, { chatId = 42, secret = 's3cret' } = {}) {
 }
 
 test('parses commands, codes and bot suffixes', () => {
-  assert.deepEqual(parseCommand('/apply_AB12cd34@swiss_sre_watch_bot'), { name: 'apply', arg: 'ab12cd34' });
+  assert.deepEqual(parseCommand('/apply_AB12cd34@sre_job_pilotto_bot'), { name: 'apply', arg: 'ab12cd34' });
   assert.deepEqual(parseCommand('/run'), { name: 'run', arg: '' });
   assert.equal(parseCommand('hello'), null);
 });
