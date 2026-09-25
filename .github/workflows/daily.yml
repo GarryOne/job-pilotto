@@ -77,6 +77,8 @@ jobs:
           SRE_WATCH_SCORE_MODEL: ${{ vars.SRE_WATCH_SCORE_MODEL }}
           # Application kits run only when asked (📝 Prepare); optional model override.
           SRE_WATCH_KIT_MODEL: ${{ vars.SRE_WATCH_KIT_MODEL || 'claude-sonnet-5' }}
+          # Your digest's display name; the tool's own name stays generic (Job Pilotto).
+          DIGEST_BRAND_NAME: ${{ vars.DIGEST_BRAND_NAME }}
           # Auto-draft kits for the best new matches each run; 0/unset = off (📝 Prepare still works manually).
           SRE_WATCH_AUTO_KIT_MAX: ${{ vars.SRE_WATCH_AUTO_KIT_MAX }}
           SRE_WATCH_AUTO_KIT_MIN_SCORE: ${{ vars.SRE_WATCH_AUTO_KIT_MIN_SCORE }}
