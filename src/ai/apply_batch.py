@@ -54,6 +54,26 @@ def ready_jobs(tracker, max_jobs):
     return pairs
 
 
+def unstarted_urls_by_score(tracker, max_jobs):
+    """Saved+kitted job URLs (not yet Applying/Applied/...), ranked by AI fit score descending.
+
+    Score comes straight from the Job Matches — AI Scored Notion database (synced there by
+    src/notion/matches.py) rather than the local canonical.sqlite — this only needs to read
+    Score/Job URL, both of which already live in Notion, so it has no sqlite dependency. Jobs
+    with no score on file (not yet scored) sort last rather than being excluded, so a fresh kit
+    still gets queued even if scoring hasn't caught up."""
+    pairs = ready_jobs(tracker, max_jobs=1000)
+    match_rows = tracker.query_database(notion.MATCHES_DATABASE_ID)
+    url_score = {}
+    for row in match_rows:
+        url = row['properties'].get('Job URL', {}).get('url')
+        score = row['properties'].get('Score', {}).get('number')
+        if url is not None and score is not None:
+            url_score[url] = score
+    pairs.sort(key=lambda pair: url_score.get(pair[1]['url'], -1), reverse=True)
+    return [kit_data['url'] for _, kit_data in pairs[:max_jobs]]
+
+
 def build_prompt(kit_data, cv):
     lines = [f"- Cover letter: {kit_data['cover_letter']}"]
     for answer in kit_data['answers']:
@@ -70,11 +90,29 @@ def main():
                         help="don't press Return in each chat; review the pasted text first")
     parser.add_argument('--gap', type=float, default=3.0, help='seconds between chats')
     parser.add_argument('--dry-run', action='store_true', help='print what would run; touch nothing')
+    parser.add_argument('--next', type=int, metavar='N',
+                        help='print the N highest-scored not-yet-started (Saved+kitted) job URLs, '
+                             'one per line, and exit — for queue-claude-sessions.sh --max; touches nothing')
+    parser.add_argument('--mark-applying', metavar='URL',
+                        help="flip one job's Stage to Applying and exit — for queue-claude-sessions.sh, "
+                             'so a Claude Code session queued for a job is deduped the same way the '
+                             'ChatGPT/Codex path already dedupes its own queued chats')
     args = parser.parse_args()
 
     tracker = notion.Tracker.from_env()
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+
+    if args.mark_applying:
+        _, outcome = tracker.mark({'url': args.mark_applying}, 'Applying')
+        print(f'{args.mark_applying}: {outcome}')
+        return 0
+
+    if args.next is not None:
+        for url in unstarted_urls_by_score(tracker, args.next):
+            print(url)
+        return 0
+
     if not SEND_SCRIPT.exists():
         raise SystemExit(f'{SEND_SCRIPT} not found')
 
