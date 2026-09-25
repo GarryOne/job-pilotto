@@ -58,8 +58,10 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
   - **Default to one JS call for every plain text field and static-option dropdown; never use
     pixel-coordinate `computer` clicks on a react-select field.** Once the field-mapping pass has
     every id, write one `javascript_tool` call that loops over ALL of them — native-setter text
-    fills plus `selectReactOption()` fiber writes for every dropdown with a fixed option list — and
-    execute it as a single call. Mixing in `computer` clicks for some dropdowns is what causes the
+    fills plus `selectViaOnSelect()` fiber writes (see Fast path — **not** `selectReactOption()`,
+    which only satisfies react-select's own display and leaves Greenhouse's real validation
+    thinking the field is empty) for every dropdown with a fixed option list — and execute it as a
+    single call. Mixing in `computer` clicks for some dropdowns is what causes the
     real slowdown: selecting one option can reflow the page, making the next pixel coordinate stale
     and forcing a re-screenshot-and-retry loop (observed 25 Sep 2026 on a Canonical form's Education
     section). JS calls read the DOM fresh every time, so they never go stale from a reflow — that's
@@ -269,44 +271,83 @@ would, no menu, no portal, no animation to wait for.
   parent-in-tree pointer — not `el.parentElement`, which walks the DOM and misses it). Find it by
   arity, not depth (depth varies by site): walk `.return` collecting every `memoizedProps` that has
   both `onChange` (a function with `.length >= 2` — the giveaway that it takes `(option,
-  actionMeta)`, not a lone DOM event) and an `options` array. Reusable snippet:
+  actionMeta)`, not a lone DOM event) and an `options` array.
+- **⚠️ That react-select `onChange` is NOT the end of the chain on Greenhouse — it only updates
+  react-select's own internal display state, not Greenhouse's actual field/validation state.**
+  Confirmed broken 26 Sep 2026: `selectReactOption()` below made 8 dropdowns visually show the
+  right value (`[class*=single-value]` read back correctly, looked completely filled in every
+  screenshot) — but the owner's own real Submit click showed every one of them as "This field is
+  required," meaning Greenhouse's serialized form data never actually held the value. Walking
+  further up the *same* fiber `.return` chain (~4–5 more levels past react-select's own `onChange`)
+  finds a **second, distinct handler: `onSelect(option)`** (arity 1, not 2 — no `actionMeta`) on a
+  Greenhouse-authored wrapper component that also carries the field's live `error` string. That
+  `onSelect` is the one that actually writes into Greenhouse's form state. **Always call `onSelect`,
+  never stop at react-select's own `onChange`.** Reusable snippet (finds and calls the real one):
   ```js
-  function selectReactOption(inputEl, matchLabel) {
-    const fiberKey = Object.keys(inputEl).find(k => k.startsWith('__reactFiber'));
-    let node = inputEl[fiberKey];
-    for (let i = 0; i < 25 && node; i++, node = node.return) {
+  function selectViaOnSelect(id, matchLabel) {
+    const el = document.getElementById(id);
+    if (!el) return {ok:false, why:'no element'};
+    const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber'));
+    let node = el[fiberKey];
+    for (let i = 0; i < 30 && node; i++, node = node.return) {
       const p = node.memoizedProps;
-      if (p && typeof p.onChange === 'function' && Array.isArray(p.options) && p.onChange.length >= 2) {
+      if (p && typeof p.onSelect === 'function' && Array.isArray(p.options)) {
         const option = p.options.find(o => o.label === matchLabel);
-        if (!option) return {ok: false, why: 'no such option', options: p.options.map(o => o.label)};
-        p.onChange(option, {action: 'select-option'});
-        return {ok: true};
+        if (!option) return {ok:false, why:'no such option', options:p.options.map(o=>o.label)};
+        p.onSelect(option);  // arity 1 — just the option, no actionMeta
+        return {ok:true};
       }
     }
-    return {ok: false, why: 'no select onChange found'};
+    return {ok:false, why:'no onSelect found (react-select onChange is not enough)'};
   }
   ```
-  This makes every Greenhouse dropdown a one-call, click-free operation — use it as the *first*
-  attempt on any Greenhouse form's react-select fields, before falling back to the click-then-pick
-  method in Platform notes below.
+  For a **multi-select** field (id ending `[]`, e.g. nationality), `onSelect` still has arity 1 but
+  expects an **array** of the full new selection: `p.onSelect([option1, option2, ...])`, not a bare
+  option.
+  For **async-search comboboxes** (School/Degree/Discipline, city search — see Fast path's own note
+  below and Steps §5), the wrapper's `options` prop is empty/undefined even after typing (the
+  option list lives inside react-select's own internal async state, not passed up to the wrapper as
+  a prop), so this `onSelect` walk finds nothing populated — the type→wait→click-the-rendered-option
+  flow is the only working method for those, not the fast path at all.
+- **The DOM-visible "required"/red-error state on Greenhouse is NOT a reliable live signal — do not
+  trust it either way.** It does not clear reactively when a field's value changes (confirmed: it
+  stayed red even after a fully genuine, trusted mouse click on the correct option, not just after
+  the JS fast path) — it only re-evaluates on the app's own validate pass, apparently triggered by
+  the next real Submit click. So: (a) a field that still shows red after you filled it is *not*
+  proof you failed — don't loop retrying it; but (b) a field that looks unfilled or filled cannot be
+  trusted from screenshots alone either — **always confirm real state by calling the same
+  `onSelect`-owning fiber node's props again and reading the current `error` string live, or by
+  reading `[class*=single-value]` right after the `onSelect` call**, not by trusting an old
+  screenshot or an old required-list scan taken before the fix.
 - Whether or not the direct write works, always verify by reading the value back from the DOM
-  (`[class*=single-value]`, not `.value` — react-select clears its search input after a pick).
+  (`[class*=single-value]`, not `.value` — react-select clears its search input after a pick) —
+  but remember this only confirms react-select's *display*, not Greenhouse's saved value; the
+  `onSelect` call above is what actually needs to have fired.
 - This is worth 30 seconds of trying per new platform; fall back to real-click-then-JS-pick the
   moment it doesn't pan out. Record which one worked in Platform notes below.
+- **Verify with a real Submit click is the only ground truth for this bug class.** Since the owner
+  is the one who clicks Submit anyway (hard rule), their first real click doubles as the definitive
+  validation check. If they report fields showing as required/empty despite looking filled, that is
+  this exact bug — re-fill with `onSelect`, not `selectReactOption`/`onChange`.
 
 ## Platform notes (update after every application)
 ### Greenhouse (job-boards.greenhouse.io) — verified 25 Sep 2026 on Grafana Labs, full fill
 - Text inputs: ids `first_name`, `last_name`, `preferred_name`, `email`, `phone`,
   `question_<n>`; native setter + `input` event works. Fill all of them in one JS pass.
 - Dropdowns are react-select: `input#question_<n>[role=combobox]` inside `.select__container`.
-  **Use the Fast path's `selectReactOption()` first** (confirmed working, zero clicks) — reading
-  React props off the input or `.select__control` directly gives the wrong handler (a native
-  `onChange(e)`, not react-select's `onChange(option, actionMeta)`); the real one is ~16 levels up
-  the fiber `.return` chain, found by arity. Fallback if that ever fails on a given field: a real
-  click on `.select__control` opens the menu; options are `#react-select-question_<n>-option-<i>`
-  and a JS `click()` on the right option selects it (verified repeatedly). Selected value shows in
-  `[class*=single-value]`
-  (`.value` on the input itself stays empty — it's just react-select's search box).
+  **Use the Fast path's `selectViaOnSelect()` — not `selectReactOption()`.** Reading React props
+  off the input or `.select__control` directly gives the wrong handler (a native `onChange(e)`, not
+  react-select's own `onChange(option, actionMeta)`), and — the part that actually bit us in
+  production — even react-select's *own* `onChange` is still one layer too shallow: it only updates
+  react-select's own display, not Greenhouse's real validated form value. The one that matters is
+  `onSelect(option)`, a few more levels up the same fiber chain, on a Greenhouse-authored wrapper.
+  See Fast path above for the full writeup and snippet. Fallback if `onSelect` isn't found on a
+  given field: a real click on `.select__control` opens the menu; options are
+  `#react-select-question_<n>-option-<i>` and a JS `click()` on the right option selects it
+  (verified repeatedly, and this path *does* correctly reach Greenhouse's real onSelect too, since
+  it's a genuine click). Selected value shows in `[class*=single-value]`
+  (`.value` on the input itself stays empty — it's just react-select's search box) — but remember
+  this only confirms the *display*, not that `onSelect` actually fired; verify that separately.
 - **Clicking straight from one open dropdown into the next field's control can close the first one
   without opening the second** (observed twice) — verify `aria-expanded` after clicking and click
   again if it's still `false`.
@@ -413,6 +454,22 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-26 · Greenhouse · Canonical Site Reliability / Gitops Engineer · **critical fast-path bug
+  found and fixed**: the owner clicked Submit for real and got "This field is required" on 8
+  dropdowns that were visually filled correctly (`[class*=single-value]` showed the right text in
+  every screenshot). Root cause: `selectReactOption()`'s fiber walk stops at react-select's own
+  `onChange(option, actionMeta)`, which only updates react-select's internal display — Greenhouse's
+  real form/validation state is written by a separate `onSelect(option)` handler a few more fiber
+  levels up, on a Greenhouse-authored wrapper, which the old snippet never reached. Also discovered:
+  Greenhouse's red "required" error banners are NOT reactive to value changes — they stayed red even
+  after a fully genuine trusted mouse click, and only re-evaluate on the app's own validate pass
+  (apparently tied to the next real Submit), so the banner is not usable as a live correctness
+  signal in either direction. Fixed live on the form via a new `selectViaOnSelect()` helper (see
+  Fast path); all 8 fields plus the standalone EEOC fields and Education re-verified correct
+  afterward. Every place the skill referenced `selectReactOption()` for Greenhouse has been updated
+  to point at `selectViaOnSelect()` instead — this was the default technique for every Greenhouse
+  application since 25 Sep 2026, so past applications filled this way may have silently submitted
+  with fewer answers than they appeared to have; worth a spot-check if any are still pending.
 - 2026-09-26 · Greenhouse · Canonical Senior Site Reliability Engineer · owner caught the resume
   silently missing after hand-over ("I don't see the CV uploaded") — it had attached successfully
   mid-flow, then a later field interaction reset `input#resume` to empty with no error. Re-uploaded
