@@ -142,9 +142,16 @@ in that file next time — keep evolving it.
 | CV (upload + contact details) | `/Users/mac/Documents/CV.pdf` |
 
 ## Steps
-1. **Kit.** Get the kit JSON. If the kit's `check_before_sending` has blockers (location
-   restriction, required language, sponsorship for UK/Dubai), show them to the owner and ask
-   whether to continue before opening the form.
+1. **Kit + both Notion pages.** Get the kit JSON, and read **both** the Profile page and the
+   Application Answers page before filling. They hold different things: Profile has CV facts,
+   demographics, education and contact details; **Application Answers has availability and pay —
+   notice period / earliest start, salary per country, eligibility and sponsorship per country,
+   links, company count, "how did you hear".** A 26 Sep 2026 run left "earliest start date" empty
+   and reported "no notice period on the Profile" although Application Answers had it — it only
+   read the Profile. A kit ❓ is resolved if either page answers it.
+   Sponsorship is not a blocker: the owner applies anyway (answer from Application Answers, e.g.
+   "will require sponsorship"). Only a required language the owner doesn't speak, or a hard
+   location restriction the owner can't meet, is worth showing before opening the form.
 2. **Open the form** in a new Chrome tab (claude-in-chrome). Greenhouse: the form is on the job
    page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the description.
 3. **Map fields in one JS pass**: list `form input, textarea` with `id`, `type`, `role`,
