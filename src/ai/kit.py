@@ -80,6 +80,9 @@ numbers) tied to the posting's needs, then stop — no closing "I look forward t
 clichés ("I am writing to express", "passionate", "team player", "wear many hats", "perfect fit"), \
 no greeting line; sign off with just the name, no "Best regards" formality. Avoid rigid, uniform \
 paragraph structure and generic phrasing — these are the biggest tells that a letter is AI-drafted.
+- Voice: write in the candidate's own voice as described in the standard answers' cover letter
+style (direct, personal, openly says what excites him, plain words, short sentences), and match
+its example answer. Never polished marketing or AI-sounding phrasing.
 - Pick achievements per question and per role, not the same headline everywhere. The
 observability/monitoring migration belongs only where monitoring, observability, platform work
 or "a big initiative you drove" is what's asked. "Why this company / why this role" questions are
