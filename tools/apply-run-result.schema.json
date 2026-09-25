@@ -31,11 +31,12 @@
     "unanswered": {"type": "array", "items": {"type": "string"}},
     "checks": {
       "type": "object", "additionalProperties": false,
-      "required": ["submit_untouched", "legal_acknowledgments_untouched", "browser_form_inspected"],
+      "required": ["submit_untouched", "legal_acknowledgments_untouched", "browser_form_inspected", "guard_active"],
       "properties": {
         "submit_untouched": {"type": "boolean"},
         "legal_acknowledgments_untouched": {"type": "boolean"},
-        "browser_form_inspected": {"type": "boolean"}
+        "browser_form_inspected": {"type": "boolean"},
+        "guard_active": {"type": "boolean"}
       }
     },
     "fill_intervals": {

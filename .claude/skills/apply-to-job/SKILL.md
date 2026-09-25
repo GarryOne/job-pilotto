@@ -172,6 +172,14 @@ Notion and, only for a review-ready report, active Form fill time (min). Check
 `python3 -m src.ai.apply_run --status` for failed or stale runs before retrying. The report is
 agent-observed evidence, not an independent browser audit or a code-level Submit lock. Never put
 the private trace, applicant values, or screenshots into this skill or git.
+The Terminal Codex path now injects `tools/browser-submit-guard.js` (blocks ordinary Submit and
+legal-consent actions until the owner unlocks the page) and `tools/browser-form-fastpath.js`
+(plain text/static-select filling and value-free field inventory). The guard catches accidents;
+arbitrary browser code or unusual site behavior can bypass it. Require the guard to be active
+before filling, use the deterministic helper for supported fields, and spend agent judgment on
+the skipped fields. The independent cross-ATS benchmark procedure is
+`docs/application-benchmark.md`; do not claim measured accuracy until it has real human-reviewed
+cases.
 
 1. **Crawl/score** — already automatic, every 4h.
 2. **Auto-draft kits** — `src/ai/kit.py:auto_run`, wired into `daily.py` for `scheduled`/`run`/`today`

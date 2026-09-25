@@ -18,7 +18,7 @@ def result(start, end):
                     'observed': True, 'matches_source': True}],
         'attachments': [{'label': 'Resume', 'present': True}], 'unanswered': [],
         'checks': {'submit_untouched': True, 'legal_acknowledgments_untouched': True,
-                   'browser_form_inspected': True},
+                   'browser_form_inspected': True, 'guard_active': True},
         'fill_intervals': [{'start': start.isoformat(), 'end': end.isoformat()}],
         'summary': 'Ready for applicant review.'
     }
@@ -36,6 +36,7 @@ class AuditTests(unittest.TestCase):
     def test_rejects_missing_or_mismatched_evidence(self):
         for change in (
             lambda x: x['checks'].update(submit_untouched=False),
+            lambda x: x['checks'].update(guard_active=False),
             lambda x: x['fields'][0].update(matches_source=False),
             lambda x: x.update(form_field_count=2),
             lambda x: x['attachments'][0].update(present=False),
@@ -78,6 +79,8 @@ class RunnerTests(unittest.TestCase):
             tracker = FakeTracker()
 
             def fake_codex(command, **kwargs):
+                self.assertIn('browser-submit-guard.js', ' '.join(command))
+                self.assertIn('browser-form-fastpath.js', ' '.join(command))
                 output = Path(command[command.index('--output-last-message') + 1])
                 now = datetime.now(timezone.utc)
                 output.write_text(json.dumps(result(now, now)))

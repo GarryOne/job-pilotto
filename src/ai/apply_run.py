@@ -16,6 +16,8 @@ from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / 'tools' / 'apply-run-result.schema.json'
+GUARD = ROOT / 'tools' / 'browser-submit-guard.js'
+FASTPATH = ROOT / 'tools' / 'browser-form-fastpath.js'
 STATE_DIR = Path(os.getenv('JOB_PILOTTO_APPLY_RUN_DIR',
                            str(Path.home() / 'Library' / 'Application Support' / 'JobPilotto' / 'apply-runs')))
 TIMEOUT = 45 * 60
@@ -60,7 +62,7 @@ def audit(result, url, started, ended):
         return 'needs_user', None, 'missing HTTPS browser form URL'
     checks = result.get('checks') or {}
     if not all(checks.get(k) is True for k in ('submit_untouched',
-               'legal_acknowledgments_untouched', 'browser_form_inspected')):
+               'legal_acknowledgments_untouched', 'browser_form_inspected', 'guard_active')):
         return 'needs_user', None, 'submission, legal, or browser check missing'
     fields = result.get('fields') or []
     if not fields or result.get('form_field_count') != len(fields) or any(
@@ -83,7 +85,13 @@ def audit(result, url, started, ended):
 def _prompt(url):
     return (f'Read AGENTS.md and .claude/skills/apply-to-job/SKILL.md. Fill the application at {url} '
             'using its Notion kit, saved Profile/Application Answers, and CV. Use the Playwright MCP '
-            'Chrome extension. Never click Submit/Apply/Send, never check legal acknowledgments, '
+            'Chrome extension. Open a NEW browser tab for the job so the init-script guard loads. '
+            'Before filling, verify window.__jobPilottoGuardActive is true; if not, stop and report '
+            'failed. For plain text and static select fields, call window.__jobPilottoFillKnownFields '
+            'with exact field IDs/names and sourced values in one browser evaluation, then use '
+            'window.__jobPilottoAuditVisibleFields to identify gaps. Use your judgment only for '
+            'skipped or unfamiliar widgets and questions. Never click Submit/Apply/Send, never '
+            'unlock the guard, never check legal acknowledgments, '
             'never create an account, and leave unknown facts blank. Stop before submission. '
             'Inspect the actual rendered browser form after filling. Count every visible non-legal '
             'input as form_field_count and include each in fields. Compare every populated field '
@@ -150,7 +158,7 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
     command = [codex, 'exec', '--json', '--output-schema', str(SCHEMA),
                '--output-last-message', str(result_path), '-C', str(ROOT),
                '-c', f'mcp_servers.playwright.command={json.dumps(npx)}',
-               '-c', 'mcp_servers.playwright.args=["-y","@playwright/mcp@0.0.82","--extension"]',
+               '-c', f'mcp_servers.playwright.args={json.dumps(["-y", "@playwright/mcp@0.0.82", "--extension", "--init-script", str(GUARD), "--init-script", str(FASTPATH)])}',
                _prompt(url)]
     try:
         agent_env = os.environ.copy()

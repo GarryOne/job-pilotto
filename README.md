@@ -69,10 +69,10 @@ features and source code as of September 2026; it is not a measured accuracy or 
 | [AgentSpan](https://github.com/agentspan-ai/agentspan) | Durable agent runs, execution history, and human approvals; its maintainers say the project moved into [Orkes Conductor](https://orkes.io/blog/open-sourcing-agentspan-durable-ai-agents/). | Potential orchestration infrastructure if application sessions need recovery and audit trails, not a job discovery or form-filling replacement. |
 
 **Current gap:** form filling is driven by a browser agent and application-kit instructions, not a
-verified form engine. The Terminal Codex path now records a structured post-fill report and active
-fill time, but those checks are reported by the agent; independent field-level accuracy and a
-browser-enforced Submit block across ATSs remain to be built. Applicants must inspect the filled
-form before submitting it.
+verified form engine. The Terminal Codex path records a structured post-fill report and active
+fill time. It now loads an accidental-Submit/consent guard and a deterministic helper for ordinary
+fields, but the report is still agent-observed, the guard is not a security boundary, and live
+cross-ATS accuracy has not been measured. Applicants must inspect the filled form before submitting.
 
 ## Day-to-day use
 
@@ -245,13 +245,18 @@ order:
      `python3 -m src.ai.apply_run --status` to see ready, blocked, failed, or stale runs, and
      `python3 -m src.ai.apply_run --report <job URL>` for its field and attachment checklist; rerun a
      failed or stale URL after inspecting the browser tab. This path has not yet been benchmarked
-     across ATS forms, and its report is based on the agent's observations.
+     across ATS forms, and its report is based on the agent's observations. An injected browser
+     script blocks ordinary Submit and legal-consent actions until you explicitly unlock the page;
+     it can be bypassed by arbitrary browser code or unusual site behavior, so it is an accident
+     guard, not a guarantee. A second script fills known plain fields and audits visible fields
+     without another model call. See [the benchmark procedure](docs/application-benchmark.md).
    The **queueing** scripts each flip the job's Stage
    to **Applying** right after queueing, so a second run never queues the same job twice. Asking an
    assistant directly in a session you already have open doesn't touch Stage on its own — you're
    driving that session, so there's nothing to dedupe against.
 3. **You review and click Submit yourself**, in every case, in every tool. The agents are instructed
-   to stop before Submit; a browser-level technical block is still needed, so review their work.
+   to stop before Submit; the Terminal Codex path also has an accident guard. Review their work and
+   unlock the page only when you are ready to make the final legal choices and submit.
 4. **You mark it applied**: tap ✅ under the job in Telegram, or
    `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`.
 
