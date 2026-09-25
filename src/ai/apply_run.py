@@ -12,6 +12,7 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
+from .kit import KIT_HEADING
 from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +57,9 @@ def _duration(intervals, started, ended):
 def audit(result, url, started, ended):
     """Accept only an explicit, complete, browser-checked handoff."""
     if result.get('status') != 'ready':
+        unanswered = result.get('unanswered') or []
+        if unanswered:
+            return 'needs_user', None, 'owner input needed: ' + '; '.join(unanswered)[:300]
         return result.get('status', 'failed'), None, 'agent did not report a review-ready form'
     actual = urlparse(result.get('page_url', ''))
     if actual.scheme != 'https' or not actual.hostname:
@@ -113,6 +117,14 @@ def _mark(tracker, url, next_step, minutes=None):
     tracker.update_page(row['id'], props)
 
 
+def _essential_checks(kit):
+    """Checks that need a personal eligibility answer before browser work starts."""
+    words = ('eligib', 'sponsor', 'authoriz', 'work permit', 'visa', 'relocat',
+             'required language', 'right to work')
+    return [item for item in kit.get('check_before_sending', [])
+            if any(word in item.casefold() for word in words)]
+
+
 def _tracker():
     tracker = Tracker.from_env()
     if tracker:
@@ -146,10 +158,20 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
     stage = (row['properties'].get('Stage', {}).get('select') or {}).get('name')
     if stage not in ('Saved', 'Applying'):
         raise RuntimeError(f'Cannot start a browser run for Stage {stage}')
+    kit = tracker.read_kit(row['id'], KIT_HEADING)
+    if not kit:
+        raise RuntimeError('No application kit found for this job')
     tracker.mark({'url': url}, 'Applying')
     started = datetime.now(timezone.utc)
     state = {'url': url, 'status': 'running', 'started_at': started.isoformat(), 'updated_at': started.isoformat()}
     _write_json(state_path, state)
+    checks = _essential_checks(kit)
+    if checks:
+        reason = 'owner input needed: ' + '; '.join(checks)[:300]
+        state.update(status='needs_user', reason=reason)
+        _write_json(state_path, state)
+        _mark(tracker, url, reason)
+        return state
     trace_path = STATE_DIR / f'{job_code(url)}.jsonl'
     result_path = STATE_DIR / f'{job_code(url)}.result.json'
     result_path.unlink(missing_ok=True)
@@ -195,6 +217,8 @@ def main(argv=None):
     parser.add_argument('url', nargs='?')
     parser.add_argument('--status', action='store_true', help='show saved run states')
     parser.add_argument('--report', metavar='URL', help='show field and attachment audit for one job')
+    parser.add_argument('--reconcile', metavar='URL',
+                        help='re-audit a completed local result and update its Notion Next step')
     parser.add_argument('--expire-hours', type=float, default=2,
                         help='mark running records older than this as stale when listing status')
     args = parser.parse_args(argv)
@@ -211,6 +235,27 @@ def main(argv=None):
             print(f"  {'✓' if item.get('present') else 'CHECK'} attachment: {item.get('label', '?')}")
         for item in result.get('unanswered', []):
             print(f'  CHECK unanswered: {item}')
+        return 0
+    if args.reconcile:
+        url = args.reconcile
+        state_path = STATE_DIR / f'{job_code(url)}.json'
+        state = _read_json(state_path)
+        result = _read_json(STATE_DIR / f'{job_code(url)}.result.json')
+        if not state or not result or state.get('url') != url:
+            parser.error('no completed run for that URL')
+        started = datetime.fromisoformat(state['started_at'])
+        ended = datetime.fromisoformat(state['updated_at'])
+        status, minutes, reason = audit(result, url, started, ended)
+        state.update(status=status, minutes=minutes, reason=reason)
+        tracker = _tracker()
+        if not tracker:
+            parser.error('NOTION_TOKEN is required')
+        if status == 'ready':
+            _mark(tracker, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
+        else:
+            _mark(tracker, url, f'Form needs review: {reason or status}')
+        _write_json(state_path, state)
+        print(f'{status}: {url} — {reason}')
         return 0
     if args.status:
         _private_dir(STATE_DIR)

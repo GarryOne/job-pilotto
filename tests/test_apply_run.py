@@ -53,6 +53,12 @@ class AuditTests(unittest.TestCase):
         sample['fill_intervals'].append({'start': (self.start + timedelta(minutes=2)).isoformat(),
                                          'end': (self.start + timedelta(minutes=4)).isoformat()})
         self.assertEqual(apply_run.audit(sample, URL, self.start, self.end)[0], 'needs_user')
+
+    def test_unanswered_eligibility_is_a_user_blocker(self):
+        sample = {'status': 'failed', 'unanswered': ['Location eligibility requires owner review']}
+        self.assertEqual(apply_run.audit(sample, URL, self.start, self.end),
+                         ('needs_user', None,
+                          'owner input needed: Location eligibility requires owner review'))
         sample['fill_intervals'] = [{'start': (self.start - timedelta(minutes=1)).isoformat(),
                                      'end': self.start.isoformat()}]
         self.assertEqual(apply_run.audit(sample, URL, self.start, self.end)[0], 'needs_user')
@@ -68,6 +74,9 @@ class FakeTracker:
 
     def mark(self, job, stage):
         self.marked.append(stage)
+
+    def read_kit(self, page_id, heading):
+        return {'url': URL, 'check_before_sending': []}
 
     def update_page(self, page_id, properties):
         self.updated.append(properties)
@@ -94,6 +103,17 @@ class RunnerTests(unittest.TestCase):
             self.assertTrue((Path(directory) / f'{apply_run.job_code(URL)}.json').exists())
             with self.assertRaises(RuntimeError):
                 apply_run.run(URL, tracker)
+
+    def test_eligibility_check_stops_before_codex(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(apply_run, 'STATE_DIR', Path(directory)):
+            tracker = FakeTracker()
+            tracker.read_kit = lambda page_id, heading: {
+                'url': URL, 'check_before_sending': ['Confirm location eligibility']}
+            with patch.object(apply_run.subprocess, 'run') as codex:
+                state = apply_run.run(URL, tracker)
+            self.assertEqual(state['status'], 'needs_user')
+            self.assertIn('location eligibility', state['reason'])
+            codex.assert_not_called()
 
 
 if __name__ == '__main__':

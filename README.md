@@ -242,9 +242,13 @@ order:
      saves a private trace and structured field/attachment review report outside the repo, checks
      the report for missing evidence, and updates the Notion row's **Next step**. If review-ready,
      it also records active **Form fill time (min)** immediately. Use
-     `python3 -m src.ai.apply_run --status` to see ready, blocked, failed, or stale runs, and
+     `python3 -m src.ai.apply_run --status` to see ready, needs_user, failed, or stale runs, and
      `python3 -m src.ai.apply_run --report <job URL>` for its field and attachment checklist; rerun a
-     failed or stale URL after inspecting the browser tab. This path has not yet been benchmarked
+     failed or stale URL after inspecting the browser tab. Before starting Codex, the runner checks
+     the kit for flagged eligibility, work authorization, visa, sponsorship, relocation, and required
+     language questions. Those jobs stop as `needs_user` and update Notion **Next step** without a
+     model call. An agent that discovers a missing personal answer also reports `needs_user`; resolve
+     the answer before retrying. This path has not yet been benchmarked
      across ATS forms, and its report is based on the agent's observations. An injected browser
      script blocks ordinary Submit and legal-consent actions until you explicitly unlock the page;
      it can be bypassed by arbitrary browser code or unusual site behavior, so it is an accident

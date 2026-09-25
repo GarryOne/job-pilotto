@@ -169,7 +169,13 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
 starts `src/ai/apply_run.py`, which captures the Codex JSONL trace and a structured final
 field/attachment report in a private local directory outside the repo. It records Next step in
 Notion and, only for a review-ready report, active Form fill time (min). Check
-`python3 -m src.ai.apply_run --status` for failed or stale runs before retrying. The report is
+`python3 -m src.ai.apply_run --status` for needs_user, failed, or stale runs before retrying. The
+runner checks kit flags for essential eligibility, authorization, sponsorship, visa, relocation,
+and required language answers before launching Codex; it records `needs_user` in the local state
+and Notion Next step when one is unresolved. An unanswered personal question found by the agent
+also yields `needs_user`. Resolve those facts from the owner before retrying. Use
+`python3 -m src.ai.apply_run --reconcile <job URL>` to re-audit a completed local result after a
+runner fix, without another model call. The report is
 agent-observed evidence, not an independent browser audit or a code-level Submit lock. Never put
 the private trace, applicant values, or screenshots into this skill or git.
 The Terminal Codex path now injects `tools/browser-submit-guard.js` (blocks ordinary Submit and
