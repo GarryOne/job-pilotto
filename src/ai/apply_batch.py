@@ -92,9 +92,9 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='print what would run; touch nothing')
     parser.add_argument('--next', type=int, metavar='N',
                         help='print the N highest-scored not-yet-started (Saved+kitted) job URLs, '
-                             'one per line, and exit — for queue-claude-sessions.sh --max; touches nothing')
+                             'one per line, and exit — for apply-batch-claude.sh --max; touches nothing')
     parser.add_argument('--mark-applying', metavar='URL',
-                        help="flip one job's Stage to Applying and exit — for queue-claude-sessions.sh, "
+                        help="flip one job's Stage to Applying and exit — for apply-batch-claude.sh, "
                              'so a Claude Code session queued for a job is deduped the same way the '
                              'ChatGPT/Codex path already dedupes its own queued chats')
     args = parser.parse_args()

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# apply-batch.sh — queue every ready application kit into the ChatGPT/Codex desktop app.
+# apply-batch-chatgpt.sh — queue every ready application kit into the ChatGPT/Codex desktop app.
 # Thin wrapper around `python -m src.ai.apply_batch`; see that module's docstring for the flow.
 #
 # Usage:
-#   tools/apply-batch.sh                 # queue up to 5 chats, pasted AND sent
-#   tools/apply-batch.sh --max 3         # fewer chats
-#   tools/apply-batch.sh --paste-only    # paste but don't send, review first
-#   tools/apply-batch.sh --dry-run       # print the prompts, touch nothing
+#   tools/apply-batch-chatgpt.sh                 # queue up to 5 chats, pasted AND sent
+#   tools/apply-batch-chatgpt.sh --max 3         # fewer chats
+#   tools/apply-batch-chatgpt.sh --paste-only    # paste but don't send, review first
+#   tools/apply-batch-chatgpt.sh --dry-run       # print the prompts, touch nothing
 #
 # Requires NOTION_TOKEN (Keychain entry job-pilotto.notion.token, or export it) and iTerm's
 # Accessibility permission (System Settings -> Privacy & Security -> Accessibility) for

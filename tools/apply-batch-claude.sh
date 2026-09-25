@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# queue-claude-sessions.sh — open one new Terminal window per job, each running its own
+# apply-batch-claude.sh — open one new Terminal window per job, each running its own
 # interactive Claude Code session in the sre-watch repo, pre-seeded with an apply-to-job prompt.
 #
 # Unlike send-to-chatgpt.sh (which has to paste into a single shared desktop-app window because
@@ -9,11 +9,11 @@
 # the "open a session, cd, type the prompt" busywork of doing that by hand for several jobs.
 #
 # Usage:
-#   queue-claude-sessions.sh <job_url> [job_url ...]
-#   queue-claude-sessions.sh -f jobs.txt              # one job URL per line
-#   queue-claude-sessions.sh --max 3   (or -n 3)      # auto-pick the N highest-scored jobs that
-#                                                      # are Saved+kitted but not yet started —
-#                                                      # via `python -m src.ai.apply_batch --next N`
+#   tools/apply-batch-claude.sh <job_url> [job_url ...]
+#   tools/apply-batch-claude.sh -f jobs.txt          # one job URL per line
+#   tools/apply-batch-claude.sh --max 3   (or -n 3)  # auto-pick the N highest-scored jobs that
+#                                                     # are Saved+kitted but not yet started —
+#                                                     # via `python -m src.ai.apply_batch --next N`
 #
 # Requires: the `jobpilot` alias's target repo checked out at ~/sre-watch, Terminal.app, and
 #           Accessibility permission for whichever app runs this script (System Settings ->

@@ -17,7 +17,7 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
                                   │
              ┌────────────────────┼────────────────────┐
              ▼                    ▼                     ▼
-   Telegram digest (top 10)   Notion: Job Matches,   tools/apply-batch.sh
+   Telegram digest (top 10)   Notion: Job Matches,   tools/apply-batch-chatgpt.sh
    with buttons               Applications, Profile   queues kits into an
              │                                         AI browser agent
              ▼
@@ -42,7 +42,7 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   tailored cover letter and one answer per real form question (read from the employer's own
   application form where supported), flags anything it isn't sure about instead of guessing, and
   saves it to the job's Notion row. Available on demand too, via the 📝 Prepare button.
-- **Queueing kits into an AI browser agent**: `tools/apply-batch.sh` (macOS only) pastes each ready
+- **Queueing kits into an AI browser agent**: `tools/apply-batch-chatgpt.sh` (macOS only) pastes each ready
   kit into a new ChatGPT/Codex desktop chat, which fills the real form and stops before Submit.
   You review and submit every application yourself, in every case.
 - **Notion**: Job Matches (every scored job), Applications — Job Tracker, Employers & Sources, and
@@ -66,7 +66,7 @@ most people — no commands, just reacting to what arrives.
 **2. A batch session every few days, when you're ready to actually apply** (this is the "I'd spawn
 job application automations" part of your question) — on your laptop:
 ```sh
-tools/apply-batch.sh --max 5
+tools/apply-batch-chatgpt.sh --max 5
 ```
 This looks at everything sitting **Saved with a kit already on it** (built up by habit #1 and by
 auto-drafting) and queues each one into its own Codex chat, already filled in, stopped before
@@ -87,8 +87,8 @@ You can also reach for specific Telegram commands on demand, not as a daily ritu
 
 **Putting it together, a realistic week looks like:** Telegram pings you a few times a day; you
 tap ⭐/❌ on maybe a dozen jobs without leaving the app; a couple of times that week you open your
-laptop, run `apply-batch.sh`, review 3-5 filled forms over coffee, submit the good ones, and mark
-them applied. The system never applies on its own initiative — it just makes sure that by the time
+laptop, run `apply-batch-chatgpt.sh` or `apply-batch-claude.sh`, review 3-5 filled forms over
+coffee, submit the good ones, and mark them applied. The system never applies on its own initiative — it just makes sure that by the time
 you sit down to apply, the tedious part (finding the posting, writing the letter, answering the
 same 15 form questions again) is already done.
 
@@ -115,7 +115,7 @@ same 15 form questions again) is already done.
 
 **Optional — local "apply" tooling, macOS only:**
 
-7. A **Mac**, since `tools/send-to-chatgpt.sh` and `tools/apply-batch.sh` use `osascript`/System
+7. A **Mac**, since `tools/send-to-chatgpt.sh` and `tools/apply-batch-chatgpt.sh` use `osascript`/System
    Events.
 8. The **ChatGPT/Codex desktop app**, signed in, with your terminal app granted **Accessibility**
    permission (System Settings → Privacy & Security → Accessibility).
@@ -163,7 +163,7 @@ matches both spellings, `"\\bsre\\b"` avoids matching inside another word) — c
 adding your own. A frontend developer targeting Berlin, for example, would set `role_keywords` to
 `["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
 
-For the optional local tooling: `SRE_WATCH_CV_PATH` points `tools/apply-batch.sh` at your CV
+For the optional local tooling: `SRE_WATCH_CV_PATH` points `tools/apply-batch-chatgpt.sh` at your CV
 (defaults to `~/Documents/CV.pdf` — the maintainer's own file; set this
 to yours).
 
@@ -192,7 +192,7 @@ order:
      Claude (with [Claude in Chrome](https://claude.ai/chrome)) or another browser-capable assistant
      to fill the job from its kit; see `.claude/skills/apply-to-job/SKILL.md` for the exact steps
      and per-platform notes (it's written to be readable by any agent, not just Claude).
-   - **Queue one or more Claude Code sessions** (macOS only) — `tools/queue-claude-sessions.sh`
+   - **Queue one or more Claude Code sessions** (macOS only) — `tools/apply-batch-claude.sh`
      opens one new Terminal window per job, each running its own `claude` process pre-seeded with
      the apply-to-job prompt, so several applications run in parallel unattended until each needs
      your review. Pass job URLs directly, `-f jobs.txt`, or `--max N` / `-n N` to auto-pick the N
@@ -200,7 +200,7 @@ order:
      the Job Matches — AI Scored Notion database). The `jobpilot` shell alias (`cd ~/sre-watch &&
      claude`) is worth setting up alongside this so a plain `claude` session also always starts in
      the right directory.
-   - **Queue the ChatGPT/Codex desktop app instead** (macOS only) — `tools/apply-batch.sh` reads
+   - **Queue the ChatGPT/Codex desktop app instead** (macOS only) — `tools/apply-batch-chatgpt.sh` reads
      every Saved job with a kit, builds a plain-text prompt from it, and pastes-and-sends it into a
      new Codex chat per job via `tools/send-to-chatgpt.sh`. Codex fills the form in its own
      embedded browser and stops on its own approval gate.
@@ -242,7 +242,7 @@ src/
     kit.py           AI stage 3: application kit (cover letter + form answers), on demand or auto
     apply_batch.py   queues ready kits into the ChatGPT/Codex desktop app; also `--next N`
                      (highest-scored Saved+kitted URLs) and `--mark-applying URL`, both used
-                     by tools/queue-claude-sessions.sh
+                     by tools/apply-batch-claude.sh
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
     matches.py       mirror of scored jobs into Notion Job Matches
@@ -253,10 +253,10 @@ config/
   scout_seeds.json   candidate employers for the scout (Tier 1, regions)
 worker/              Cloudflare Worker for the Telegram bot (commands, buttons)
 tools/
-  send-to-chatgpt.sh        pastes (and optionally sends) a prompt into the ChatGPT/Codex desktop app
-  apply-batch.sh            queues every ready application kit into a new Codex chat, one per job
-  queue-claude-sessions.sh  opens one Terminal window per job, each its own `claude` session
-                            pre-seeded with the apply-to-job prompt; `--max N` auto-picks by score
+  send-to-chatgpt.sh       pastes (and optionally sends) a prompt into the ChatGPT/Codex desktop app
+  apply-batch-chatgpt.sh   queues every ready application kit into a new Codex chat, one per job
+  apply-batch-claude.sh    opens one Terminal window per job, each its own `claude` session
+                           pre-seeded with the apply-to-job prompt; `--max N` auto-picks by score
 .claude/skills/      apply-to-job (how to fill a form from a kit) and notion-map (page/DB index)
 AGENTS.md            instructions for any agent (Claude, Codex, or other) working in this repo
 tests/               Python tests; Worker tests live in worker/test/
@@ -272,9 +272,9 @@ python3 -m src scout --batch 15       # probe candidate employers
 python3 -m src discover --pages 2 --max-companies 80
 python3 -m src feeds                  # employer feeds only, HTML report in reports/
 .venv/bin/python -m src enrich --dry-run
-tools/apply-batch.sh --dry-run        # preview what would be queued into Codex
-tools/queue-claude-sessions.sh --max 3            # auto-pick top-3 by score, one Claude session each
-tools/queue-claude-sessions.sh <job_url> [more...] # or queue specific jobs by URL
+tools/apply-batch-chatgpt.sh --dry-run        # preview what would be queued into Codex
+tools/apply-batch-claude.sh --max 3            # auto-pick top-3 by score, one Claude session each
+tools/apply-batch-claude.sh <job_url> [more...] # or queue specific jobs by URL
 ```
 
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),

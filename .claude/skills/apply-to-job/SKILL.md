@@ -172,7 +172,7 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    jobs that qualify; a short Telegram message lists what was drafted. Idempotent — table
    `auto_kits` in the canonical DB remembers which jobs already got one, so it never re-drafts.
    Manual 📝 Prepare still works for anything below the threshold or that needs a fresh draft.
-3. **Queue kits into an AI browser agent** — `tools/apply-batch.sh` (wraps
+3. **Queue kits into an AI browser agent** — `tools/apply-batch-chatgpt.sh` (wraps
    `python -m src.ai.apply_batch`): reads every job **Saved** with a kit in Notion Applications,
    builds a plain-text prompt from it, and pastes+sends it into a new ChatGPT/Codex desktop chat
    via `tools/send-to-chatgpt.sh`, one chat per job. Codex fills the form and stops before Submit
@@ -189,7 +189,7 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
 
 So the owner's only required actions are: watch each queued chat, click Submit, mark applied.
 Everything before that (discovery, scoring, drafting, opening the chat, typing into it) runs
-without a manual trigger. `tools/apply-batch.sh` still needs a person present per chat, same as
+without a manual trigger. `tools/apply-batch-chatgpt.sh` still needs a person present per chat, same as
 claude-in-chrome — see "Other tools tried" below for why that step can't be made fully unattended.
 
 ## Fast path: write the framework's state directly, skip clicking

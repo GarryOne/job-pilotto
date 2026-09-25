@@ -10,7 +10,7 @@ duplicate what's here — read these instead, and update them if something's mis
   which one answers which kind of question. Read this instead of searching Notion from scratch.
 - **`.claude/skills/apply-to-job/SKILL.md`** — how to fill a job application form from an
   application kit (per-platform findings, the fast-path technique, the leak guard, the full
-  automatic flow via `tools/apply-batch.sh`). Read this before filling any job form for this
+  automatic flow via `tools/apply-batch-chatgpt.sh`). Read this before filling any job form for this
   project, whether invoked by a person or by another agent.
 
 ## If you're Codex, or another agent with your own global instructions/skills/memory
