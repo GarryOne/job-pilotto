@@ -14,6 +14,17 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
   never auto-apply. Changes only if the owner supersedes that decision there.)
 - Only facts from the kit, the Notion Profile, Application Answers and the CV. Never invent.
 - Anything marked ❓ in the kit, or a field with no source: leave it empty, list it for the owner.
+- **Profile's confirmed demographic answers beat the kit's own demographic guesses.** The kit is
+  drafted per-job from a prompt and often defaults standalone EEOC/demographic fields (a bare
+  `gender`, `race`, `hispanic_ethnicity`, `veteran_status`, `disability_status` — as opposed to a
+  job-specific `question_<n>` demographic question) to a generic "decline to answer" even when the
+  Profile page has a specific value the owner already confirmed (e.g. "Gender identity: …", "Race:
+  White / European", "Hispanic or Latino? No", disability/veteran "None of the above"). Before
+  filling any bare (non-`question_`) EEOC field, check the Profile page's "Application form answers
+  — voluntary demographic surveys" section for a confirmed value and use that over whatever the kit
+  says. (Adopted 26 Sep 2026 after the owner caught three wrong fields — gender, Hispanic/Latino,
+  veteran status — all filled from a stale kit default instead of the confirmed Profile answer on a
+  Canonical application; see Log.)
 - **Legal-acknowledgment checkboxes** ("I have read and agree to...", privacy notices, terms) are
   always left for the owner to check themselves, even when the kit supplies an answer for them —
   it's the owner's agreement to make, not something to assert on their behalf. (Adopted 25 Sep 2026
@@ -104,6 +115,17 @@ applied. Speed matters: a Greenhouse form should take under 3 minutes.
    if the framework doesn't expose one, open with a *real* click, then pick the option by JS.
    Verify `aria-expanded === 'true'` before picking — a click can land on the wrong control or can
    close a still-open previous dropdown instead of opening the new one; if so, click again.
+   - **Education (School/Degree/Discipline) is a real field, not an optional one to skip.** It's
+     not required by the browser, and the kit doesn't carry it (its answers are per-job form
+     questions, not this static section), so it's easy to walk past — but the Notion Profile page
+     has a confirmed `# Education` table (school, degree, discipline) and it should always be
+     filled from there when present. All three are **async-search comboboxes** (empty `options`
+     until you type): click the field, type the value, wait ~1s, read
+     `[id^="react-select-<field>-option"]` for the match, and `.click()` it — same pattern as
+     Greenhouse's `candidate-location`/city-search fields elsewhere in this doc. `selectReactOption`
+     alone won't work here since the option list is empty before a query is typed. (Missed entirely
+     on a Canonical application 25→26 Sep 2026 — three fields left as "Select..." — caught by the
+     owner from a screenshot; see Log.)
 6. **Files**: CV with the `file_upload` tool on `input#resume`. Cover letter: a text box
    (`Enter manually` → `#cover_letter_text`) gets the kit's `cover_letter`; a file-only field gets
    the letter as a PDF or .txt made in the scratchpad.
@@ -374,6 +396,15 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-26 · Greenhouse · Canonical Site Reliability / Gitops Engineer · owner caught two classes
+  of bug after hand-over: (1) Education section (School/Degree/Discipline) left as "Select..." —
+  the kit doesn't carry it and it's not browser-required, so it was skipped entirely; fixed live
+  from the Profile page's `# Education` table by typing into each async-search combobox and picking
+  the match. (2) Three standalone EEOC fields (`gender`, `hispanic_ethnicity`, `veteran_status`)
+  were filled with the kit's generic "decline to answer" default instead of the Profile page's
+  specific confirmed answers (Male, No, not a veteran) — fixed live. Added both as standing rules
+  above (Profile-over-kit for demographics; Education is not optional) so future runs don't repeat
+  either.
 - 2026-09-25 · Ashby + Lever, first look · tested live on real forms (DeepL "Head of Product
   Growth", Palantir "Backend Software Engineer") — no login, no submission, nothing sent. Neither
   needs Greenhouse's fiber trick: Ashby renders native checkboxes/radios with real `<label for>`
