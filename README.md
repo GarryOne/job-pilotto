@@ -52,8 +52,9 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 - 👆 **Buttons**: ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare application kit · ➕ Next 10.
 - 📈 **Outcome buttons**: `/applied` lists your applications; tap a number when you hear back →
   📬 Confirmed · 📞 Screening · 🗓 Interview · 🎤 Interviewing · 🎉 Offer · ❌ Rejected · 💤 No reply.
-- 💡 **One insight a day** (see below), with 👍 Useful · 👎 Not useful · ✅ I'll act on it.
-- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/insight`, `/scout`, `/status`, `/help`.
+- 💡 **One insight a day** and a 📊 **weekly report** on Mondays (see below), with 👍 Useful · 👎 Not
+  useful · ✅ I'll act on it.
+- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/insight`, `/weekly`, `/scout`, `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
 - 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
@@ -86,10 +87,17 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   (technologies your best-fit jobs ask for that your CV doesn't show, where the eligible jobs are,
   what blocks you, and — once there are enough applications — which groups get replies), then
   Claude Sonnet 5 picks the one finding worth acting on today. About USD 0.03 a day. Findings about
-  why applications fail wait until a group has at least 10 applications.
+  why applications fail wait until a group has at least 10 applications. Your 👍/👎/✅ steer the next ones.
+- 📊 **A weekly report** every Monday instead of the daily insight: the week's applications and
+  replies, how the market moved, how you rated the week's insights, what worked and up to three
+  changes for next week. The full report (with the numbers) is a page in 💡 Insights; Telegram
+  gets the summary and a link. About USD 0.04 a week.
+- 🧾 **Existing applications included**: `python3 -m src.notion.ledger backfill` records every
+  application tracked before the ledger existed.
 
 ### 🗂️ Tracking in Notion
-- 📋 Job Matches (every scored job), Applications — Job Tracker, Employers & Sources.
+- 📋 Job Matches (every scored job, with its technologies and role family), Applications — Job
+  Tracker (with the frozen application record), 📈 Application Events, 💡 Insights, Employers & Sources.
 - 👤 Profile and Application Answers pages — the single source for the scorer, the kit drafter and
   every form filler. Answer a question once and it's reused on every form.
 
@@ -439,17 +447,20 @@ src/
                      `--top-unprepared N`, `--mark-applying/--mark-applied/--mark-closed URL`
     apply_run.py     observable runs: Codex runner, `--record` (Claude runs), `--status`,
                      `--report`, `--context`, `--learnings`
+    insights.py      daily insight and Monday weekly report: stats by code, written by Sonnet 5
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
     matches.py       mirror of scored jobs into Notion Job Matches
     runs.py          🤖 Agent Runs: one row per form-filling session, learnings read back
     cron_runs.py     ⏰ Cronjob Runs: one row per scheduled crawl, with AI cost and a mini-report
+    ledger.py        application record frozen at Applied, 📈 Application Events, the scheduled
+                     sync (hand edits, No response after 30 days) and `backfill`
 config/
   search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages, excluded companies)
   sources.json       employer feeds always crawled
   scout_seeds.json   candidate employers for the scout (Tier 1, regions)
-worker/              Cloudflare Worker for the Telegram bot (commands, buttons)
+worker/              Cloudflare Worker for the Telegram bot (commands, buttons, outcome and insight feedback)
 tools/
   send-to-chatgpt.sh       pastes (and optionally sends) a prompt into the ChatGPT/Codex desktop app
   apply-batch-chatgpt.sh   queues every ready application kit into a new Codex chat, one per job
@@ -491,13 +502,16 @@ python3 -m src.ai.apply_batch --mark-applied <job_url>
 python3 -m src.notion.ledger record <job_url> [--force]   # (re)freeze an application record
 python3 -m src.notion.ledger event <job_url> Screening    # log an outcome by hand
 python3 -m src.notion.ledger sync --dry-run               # what the scheduled sync would log
+python3 -m src.notion.ledger backfill                     # records for applications made before the ledger
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
+python3 -m src daily --send --mode weekly                 # the weekly report now (Sonnet 5, ~USD 0.04)
 ```
 
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),
 `today` (no board crawl), `more` (next page of a digest), `apply` (record ✅ / ⭐ / ❌ in Notion),
-`prepare` (draft an application kit for one job), `insight` (send an insight now). Scheduled runs add
-`--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set, which sends one insight a day.
+`prepare` (draft an application kit for one job), `insight` (send an insight now), `weekly` (send the
+weekly report now). Scheduled runs add `--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set: the first
+run after 04:00 UTC sends the day's insight, or the weekly report on Mondays.
 
 ## Tests
 
