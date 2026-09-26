@@ -84,6 +84,30 @@ def unstarted_urls_by_score(tracker, max_jobs):
     return [kit_data['url'] for _, kit_data in pairs[:max_jobs]]
 
 
+def top_unprepared_urls(tracker, max_jobs):
+    """Highest-scored open Job Matches with no kit yet and not applied/dismissed — the jobs worth a
+    📝 Prepare run next. Scores come from the Job Matches database (synced by stage 2)."""
+    stages = tracker.url_stages()
+    rows = tracker.query_database(notion.MATCHES_DATABASE_ID)
+    ranked = []
+    for row in rows:
+        props = row['properties']
+        url = (props.get('Job URL') or {}).get('url')
+        score = (props.get('Score') or {}).get('number')
+        status = ((props.get('Status') or {}).get('select') or {}).get('name')
+        if url and score is not None and status in (None, 'Open') and stages.get(url) in (None, 'Saved'):
+            ranked.append((score, url))
+    urls = []
+    for _, url in sorted(ranked, reverse=True):
+        row = tracker.find(url)
+        if row and tracker.read_kit(row['id'], KIT_HEADING):
+            continue
+        urls.append(url)
+        if len(urls) >= max_jobs:
+            break
+    return urls
+
+
 def pairs_for_urls(tracker, urls):
     """(row, kit) pairs for explicit job URLs, in the given order. Raises if a URL has no row or
     no kit yet — explicit URLs are a deliberate choice, so fail loud rather than silently skip."""
@@ -124,6 +148,9 @@ def main():
     parser.add_argument('--next', type=int, metavar='N',
                         help='print the N highest-scored not-yet-started (Saved+kitted) job URLs, '
                              'one per line, and exit — for apply-batch-claude.sh --max; touches nothing')
+    parser.add_argument('--top-unprepared', type=int, metavar='N',
+                        help='print the N highest-scored open jobs with no kit yet, one per line, and '
+                             'exit — for tools/prepare-top.sh; touches nothing')
     parser.add_argument('--mark-applying', metavar='URL',
                         help="flip one job's Stage to Applying and exit — for apply-batch-claude.sh, "
                              'so a Claude Code session queued for a job is deduped the same way the '
@@ -153,6 +180,11 @@ def main():
     if args.mark_applied:
         _, outcome = tracker.mark({'url': args.mark_applied}, 'Applied')
         print(f'{args.mark_applied}: {outcome}')
+        return 0
+
+    if args.top_unprepared is not None:
+        for url in top_unprepared_urls(tracker, args.top_unprepared):
+            print(url)
         return 0
 
     if args.next is not None:

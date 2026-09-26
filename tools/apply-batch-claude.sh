@@ -54,9 +54,8 @@ case "${1:-}" in
       [ -n "$line" ] && urls+=("$line")
     done < <(cd "$REPO_DIR" && python3 -m src.ai.apply_batch --next "$n")
     if [ "${#urls[@]}" -eq 0 ]; then
-      echo "No Saved job has an application kit yet. Tap 📝 Prepare on a job in Telegram (or run" >&2
-      echo "gh workflow run daily.yml -f mode=prepare -f job=<job URL>), or wait for the next" >&2
-      echo "scheduled run, which drafts kits for up to 5 top-scored new jobs." >&2
+      echo "No Saved job has an application kit yet. Draft kits for your best matches first:" >&2
+      echo "  tools/prepare-top.sh $n      (or tap 📝 Prepare on a job in Telegram)" >&2
       exit 0
     fi
     ;;
