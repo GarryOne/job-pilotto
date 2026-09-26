@@ -132,8 +132,9 @@ async function applied(env) {
     },
     body: JSON.stringify({
       page_size: 30,
-      filter: { and: [{ property: 'Stage', select: { does_not_equal: 'Saved' } },
-                      { property: 'Stage', select: { does_not_equal: 'Dismissed' } }] },
+      // Real applications only: not starred, auto-kitted, dismissed or closed-posting rows.
+      filter: { and: ['Saved', 'Kit ready', 'Dismissed', 'Closed'].map(stage => (
+        { property: 'Stage', select: { does_not_equal: stage } })) },
       sorts: [{ property: 'Applied on', direction: 'descending' }],
     }),
   });

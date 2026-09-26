@@ -105,7 +105,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
         import anthropic
         client = anthropic.Anthropic()
     drafted, usage = kit.draft(client, model, job, profile, answers, questions)
-    page, _ = tracker.mark(job, 'Saved')
+    page, _ = tracker.mark(job, 'Kit ready')
     tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
     return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
 

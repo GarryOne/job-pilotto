@@ -99,7 +99,7 @@ class KitTests(unittest.TestCase):
                      'description': 'Kubernetes.'}]})
                 tracker, client = FakeTracker(), FakeClient()
                 messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5', opener)
-        self.assertEqual(tracker.marked, [(URL, 'Saved')])
+        self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
         page_id, heading, block = tracker.sections[0]
         self.assertEqual((page_id, heading), ('page-1', kit.KIT_HEADING))
         self.assertTrue(block['heading_2']['is_toggleable'])
@@ -154,7 +154,7 @@ class AutoKitTests(unittest.TestCase):
                                                 client=client, opener=opener)
                 self.assertIn('Auto-drafted 1 of 1', summary)
                 self.assertEqual(len(drafted), 1)
-                self.assertEqual(tracker.marked, [(URL, 'Saved')])
+                self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
                 # A second run must skip the same job (already recorded).
                 summary2, drafted2 = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5', max_jobs=5, min_score=50,
                                                   client=client, opener=opener)

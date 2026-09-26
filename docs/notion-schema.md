@@ -15,7 +15,7 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Company | Text | |
 | Location | Text | |
 | Job URL | URL | Canonical posting URL — the match key everything uses |
-| Stage | Select | Options: `Saved`, `Applying`, `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Dismissed`, `Closed` (posting gone) |
+| Stage | Select | Options: `Kit ready` (a kit was drafted automatically), `Saved` (you tapped ⭐), `Applying`, `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Dismissed`, `Closed` (posting gone) |
 | Source | Select | Options: `Telegram`, `Manual` |
 | Applied on | Date | Set when Stage becomes Applied |
 | Posted | Date | Posting date from the source, or first-seen date if unknown |
@@ -54,7 +54,7 @@ delete and let it repopulate.
 | Confidence | Select | Options: `high`, `medium`, `low` |
 | Job URL | URL | |
 | Code | Text | 8-hex job code, e.g. for `/apply_<code>` |
-| Status | Select | Options: `Open`, `Applied`, `Dismissed`, `Closed` |
+| Status | Select | Options: `Open`, `Applied`, `Dismissed`, `Not seen` (the crawl no longer lists it; not proof it closed) |
 | Scored | Date | |
 | Seniority | Select | Options: `Junior`, `Mid`, `Senior`, `Staff/Principal`, `Lead/Manager` |
 | Work mode | Select | Options: `On-site`, `Hybrid`, `Remote` |

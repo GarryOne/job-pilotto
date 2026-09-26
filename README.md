@@ -166,7 +166,7 @@ job application automations" part of your question) — on your laptop:
 ```sh
 tools/apply-batch-chatgpt.sh --max 5
 ```
-This looks at everything sitting **Saved with a kit already on it** (built up by habit #1 and by
+This looks at everything sitting at **Kit ready** (or ⭐ Saved) **with a kit already on it** (built up by habit #1 and by
 auto-drafting) and queues each one into its own Codex chat, already filled in, stopped before
 Submit. You then spend that session reviewing each chat and clicking Submit — the actual "applying"
 still takes your attention, but the form-filling and drafting don't. Nothing forces this to happen
@@ -292,7 +292,7 @@ order:
      Application Answers page marks ❓ itself.
    - The kit is saved as a "📝 Application kit" section on the job's Notion Applications row (JSON
      included, for the next step to read), and sent to Telegram as copyable blocks. The row moves
-     to Stage **Saved** if it wasn't tracked yet. Cost is roughly USD 0.04-0.07 per kit.
+     to Stage **Kit ready** if it wasn't tracked yet (a job you starred stays ⭐ Saved). Cost is roughly USD 0.04-0.07 per kit.
 2. **The kit gets filled into a real form.** Four ways to trigger this, freely interchangeable —
    pick whichever's open, or run several at once for different jobs — all of them stop before
    Submit:
@@ -304,12 +304,12 @@ order:
      opens one new Terminal window per job, each running its own `claude` process pre-seeded with
      the apply-to-job prompt, so several applications run in parallel unattended until each needs
      your review. Pass job URLs directly, `-f jobs.txt`, or `--max N` / `-n N` to auto-pick the N
-     highest-scored Saved+kitted jobs via `python -m src.ai.apply_batch --next N` (score comes from
+     highest-scored jobs with a kit via `python -m src.ai.apply_batch --next N` (score comes from
      the Job Matches — AI Scored Notion database). The `jobpilot` shell alias (`cd ~/sre-watch &&
      claude`) is worth setting up alongside this so a plain `claude` session also always starts in
      the right directory.
    - **Queue the ChatGPT/Codex desktop app instead** (macOS only) — `tools/apply-batch-chatgpt.sh` reads
-     every Saved job with a kit, builds a plain-text prompt from it, and pastes-and-sends it into a
+     every Kit ready / Saved job with a kit, builds a plain-text prompt from it, and pastes-and-sends it into a
      new Codex chat per job via `tools/send-to-chatgpt.sh`. Codex fills the form in its own
      embedded browser and stops on its own approval gate.
    - **Queue observable Terminal Codex runs** (macOS only) — `tools/apply-batch-codex-terminal.sh`
@@ -370,7 +370,7 @@ src/
     score.py         AI stage 2: fit score against the Notion Profile
     kit.py           AI stage 3: application kit (cover letter + form answers), on demand or auto
     apply_batch.py   queues ready kits into the ChatGPT/Codex desktop app; also `--next N`
-                     (highest-scored Saved+kitted URLs) and `--mark-applying URL`, both used
+                     (highest-scored URLs with a kit) and `--mark-applying URL`, both used
                      by tools/apply-batch-claude.sh
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers

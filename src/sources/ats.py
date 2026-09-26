@@ -5,6 +5,7 @@ Every fetcher returns a list of dicts with: id, title, location, url, date_poste
 description (plain text, may be ''), remote (bool), salary (str, may be '').
 Only documented public endpoints are used; they need no login.
 """
+import functools
 import html
 import json
 import re
@@ -215,6 +216,12 @@ def fetch(ats, slug):
     return FETCHERS[ats](slug)
 
 
+@functools.lru_cache(maxsize=64)
+def _board(ats, slug):
+    """One board's jobs, fetched once per process (liveness checks for many jobs on one board)."""
+    return tuple(fetch(ats, slug))
+
+
 def posting(url):
     """One posting fetched live from its job board by URL, or None when the board isn't supported or
     the posting is gone. Lets kit drafting and apply marking work for tracked jobs the crawl no
@@ -224,7 +231,7 @@ def posting(url):
         return None
     wanted = (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
     try:
-        jobs = fetch(*found)
+        jobs = _board(*found)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
             json.JSONDecodeError, OSError):
         return None
@@ -240,7 +247,7 @@ def is_live(url):
         return None
     wanted = (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
     try:
-        jobs = fetch(*found)
+        jobs = _board(*found)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
             json.JSONDecodeError, OSError):
         return None

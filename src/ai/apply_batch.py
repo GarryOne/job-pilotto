@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Queue every ready application kit into the ChatGPT/Codex desktop app, one chat each.
 
-"Ready" = a job Saved in Notion Applications with a kit already drafted (by 📝 Prepare or the
+"Ready" = a job in Notion Applications at Stage Kit ready (or Saved, i.e. starred) with a kit already drafted (by 📝 Prepare or the
 auto-kit step) and not yet Applied/Dismissed. For each, pastes (and by default sends) a plain-text
 prompt built from the kit into a new Codex chat via tools/send-to-chatgpt.sh.
 
@@ -15,8 +15,8 @@ Usage:
   python -m src.ai.apply_batch -f jobs.txt [--paste-only] [--dry-run]
 
 Same input shape as tools/apply-batch-claude.sh and tools/apply-batch-codex-terminal.sh: with no
-URLs/-f given, auto-picks the --max highest-scored Saved+kitted jobs; with explicit URLs or -f,
-uses exactly those (each must already be Saved with a kit — Stage isn't used to select them, only
+URLs/-f given, auto-picks the --max highest-scored jobs with a kit; with explicit URLs or -f,
+uses exactly those (each must already have a kit — Stage isn't used to select them, only
 to fetch the kit) and --max is ignored.
 """
 import argparse
@@ -52,8 +52,10 @@ def _title(row):
 
 
 def ready_jobs(tracker, max_jobs):
-    """(row, kit) pairs for Saved jobs that have a kit, newest-updated first."""
-    rows = tracker.query_database(tracker.database_id, {'property': 'Stage', 'select': {'equals': 'Saved'}})
+    """(row, kit) pairs for Kit ready / Saved jobs that have a kit, newest-updated first."""
+    rows = tracker.query_database(tracker.database_id, {'or': [
+        {'property': 'Stage', 'select': {'equals': 'Kit ready'}},
+        {'property': 'Stage', 'select': {'equals': 'Saved'}}]})
     rows.sort(key=lambda r: r.get('last_edited_time', ''), reverse=True)
     pairs = []
     for row in rows:
@@ -83,7 +85,7 @@ def still_open(tracker, url):
 
 
 def unstarted_urls_by_score(tracker, max_jobs):
-    """Saved+kitted job URLs (not yet Applying/Applied/...), ranked by AI fit score descending.
+    """Job URLs with a kit (not yet Applying/Applied/...), ranked by AI fit score descending.
 
     Score comes straight from the Job Matches — AI Scored Notion database (synced there by
     src/notion/matches.py) rather than the local jobs.sqlite — this only needs to read
@@ -119,7 +121,8 @@ def top_unprepared_urls(tracker, max_jobs):
         url = (props.get('Job URL') or {}).get('url')
         score = (props.get('Score') or {}).get('number')
         status = ((props.get('Status') or {}).get('select') or {}).get('name')
-        if url and score is not None and status in (None, 'Open') and stages.get(url) in (None, 'Saved'):
+        if url and score is not None and status in (None, 'Open', 'Not seen') \
+                and stages.get(url) in (None, 'Saved', 'Kit ready'):
             ranked.append((score, url))
     urls = []
     for _, url in sorted(ranked, reverse=True):
@@ -172,7 +175,7 @@ def main():
     parser.add_argument('--gap', type=float, default=3.0, help='seconds between chats')
     parser.add_argument('--dry-run', action='store_true', help='print what would run; touch nothing')
     parser.add_argument('--next', type=int, metavar='N',
-                        help='print the N highest-scored not-yet-started (Saved+kitted) job URLs, '
+                        help='print the N highest-scored not-yet-started job URLs with a kit, '
                              'one per line, and exit — for apply-batch-claude.sh --max; touches nothing')
     parser.add_argument('--top-unprepared', type=int, metavar='N',
                         help='print the N highest-scored open jobs with no kit yet, one per line, and '
@@ -232,7 +235,7 @@ def main():
     else:
         pairs = ready_jobs(tracker, args.max)
         if not pairs:
-            print('No Saved jobs with a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
+            print('No job has a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
                   '`gh workflow run daily.yml -f mode=prepare -f job=<job URL>`.')
             return 0
 
@@ -253,9 +256,9 @@ def main():
             path = handle.name
         cmd = [str(SEND_SCRIPT)] + ([] if args.paste_only else ['--send']) + ['-f', path]
         subprocess.run(cmd, check=True)
-        # Mark it out of 'Saved' immediately so a second run (or the next auto-kit cycle) never
+        # Mark it out of 'Kit ready'/'Saved' immediately so a second run (or the next auto-kit cycle) never
         # queues the same job into a second chat. Re-queue a job by setting its Stage back to
-        # Saved in Notion if a paste-only chat was abandoned without sending.
+        # Kit ready in Notion if a paste-only chat was abandoned without sending.
         tracker.mark({'url': kit_data['url']}, 'Applying')
         if not args.paste_only:
             subprocess.run([str(NOTIFY_SCRIPT), kit_data['url'], 'Filling started (ChatGPT)'], check=False)

@@ -231,7 +231,7 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
     if not row:
         raise RuntimeError('Prepare and save an application kit before starting a browser run')
     stage = (row['properties'].get('Stage', {}).get('select') or {}).get('name')
-    if stage not in ('Saved', 'Applying'):
+    if stage not in ('Saved', 'Kit ready', 'Applying'):
         raise RuntimeError(f'Cannot start a browser run for Stage {stage}')
     kit = tracker.read_kit(row['id'], KIT_HEADING)
     if not kit:

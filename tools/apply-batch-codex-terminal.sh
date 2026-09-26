@@ -79,7 +79,7 @@ if [ "$source_chosen" = false ]; then
 fi
 
 if [ "${#urls[@]}" -eq 0 ]; then
-  echo "No Saved jobs with a drafted kit are ready."
+  echo "No job with a drafted kit is ready."
   exit 0
 fi
 

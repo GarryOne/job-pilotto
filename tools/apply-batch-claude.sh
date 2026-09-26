@@ -12,7 +12,7 @@
 #   tools/apply-batch-claude.sh <job_url> [job_url ...]
 #   tools/apply-batch-claude.sh -f jobs.txt          # one job URL per line
 #   tools/apply-batch-claude.sh --max 3   (or -n 3)  # auto-pick the N highest-scored jobs that
-#                                                     # are Saved+kitted but not yet started —
+#                                                     # have a kit (Kit ready, or Saved with a kit) but aren't started —
 #                                                     # via `python -m src.ai.apply_batch --next N`
 # No --dry-run here (a spawned Claude Code session has no such mode) — use it on
 # apply-batch-chatgpt.sh or apply-batch-codex-terminal.sh instead to preview a job list.
@@ -54,7 +54,7 @@ case "${1:-}" in
       [ -n "$line" ] && urls+=("$line")
     done < <(cd "$REPO_DIR" && python3 -m src.ai.apply_batch --next "$n")
     if [ "${#urls[@]}" -eq 0 ]; then
-      echo "No Saved job has an application kit yet. Draft kits for your best matches first:" >&2
+      echo "No job has an application kit yet. Draft kits for your best matches first:" >&2
       echo "  tools/prepare-top.sh $n      (or tap 📝 Prepare on a job in Telegram)" >&2
       exit 0
     fi

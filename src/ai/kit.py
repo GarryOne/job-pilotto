@@ -183,7 +183,7 @@ def prepare_one(client, model, job, tracker, profile, answers, opener=None):
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
     drafted, usage = draft(client, model, job, profile, answers, questions)
-    page, _ = tracker.mark(job, 'Saved')
+    page, _ = tracker.mark(job, 'Kit ready')
     tracker.replace_section(page['id'], KIT_HEADING, notion_blocks(job, drafted, questions, model))
     return drafted, questions, page, usage
 

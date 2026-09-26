@@ -82,6 +82,18 @@ class ButtonStageTests(unittest.TestCase):
         self.assertEqual(tracker.hidden_urls(), {'https://x.test/9'})
 
 
+class KitReadyStageTests(unittest.TestCase):
+    def test_kit_ready_never_overrides_a_star_or_a_later_stage(self):
+        job = {'title': 'SRE', 'company': 'Acme', 'location': '', 'url': 'https://x.test/k'}
+        tracker = FakeTracker()
+        self.assertEqual(tracker.mark(job, 'Kit ready')[1], 'created')
+        self.assertEqual(tracker.mark(job, 'Saved')[1], 'updated')       # owner stars it
+        self.assertEqual(tracker.mark(job, 'Kit ready')[1], 'unchanged')  # redraft keeps the star
+        self.assertEqual(tracker.mark(job, 'Applied')[1], 'updated')
+        self.assertEqual(tracker.mark(job, 'Kit ready')[1], 'unchanged')
+        self.assertIn('Kit ready', applications.VISIBLE_STAGES)
+
+
 class TrackedJobFallbackTests(unittest.TestCase):
     """A job tracked in Notion but missing from the crawl's SQLite must still be markable/preparable."""
     def test_apply_falls_back_to_the_notion_row(self):

@@ -3,7 +3,8 @@
 
 One row per scored job, keyed by URL. A local table remembers each row's page id
 and a hash of what was written, so unchanged rows cost no API calls. Rows are
-never deleted: applied jobs flip to Status "Applied", vanished ones to "Closed".
+never deleted: applied jobs flip to Status "Applied", ones the crawl no longer sees to "Not seen"
+(which is not proof the posting closed: a filter change or a reset cache can cause it).
 """
 from datetime import datetime, timezone
 import hashlib
@@ -94,7 +95,7 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dis
         if url in current:
             continue
         status = ('Dismissed' if url in dismissed_urls else 'Applied' if url in applied_urls
-                  else 'Closed' if open_urls is None or url not in open_urls else None)
+                  else 'Not seen' if open_urls is None or url not in open_urls else None)
         if not status:
             continue
         marker = f'status:{status}'

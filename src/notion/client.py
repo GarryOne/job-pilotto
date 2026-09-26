@@ -19,10 +19,11 @@ NOTION_VERSION = '2022-06-28'
 # variable names.
 DEFAULT_DATABASE_ID = os.getenv('NOTION_APPLICATIONS_DB', 'f56b68942d3b43cbb85a7b1ebfe2df1b')
 # Rows in these stages stay eligible for digests; any other stage hides the job.
-VISIBLE_STAGES = {'Saved'}
+VISIBLE_STAGES = {'Saved', 'Kit ready'}
 # Stages set from Telegram buttons. A later real application stage is never overwritten by them.
 BUTTON_STAGES = ('Applied', 'Saved', 'Dismissed')
-SOFT_STAGES = {'Saved', 'Dismissed'}
+SOFT_STAGES = {'Saved', 'Dismissed', 'Kit ready'}
+# 'Kit ready' = a kit was drafted automatically; 'Saved' = the owner tapped ⭐ (starred in digests).
 
 
 def job_code(url):
@@ -94,11 +95,13 @@ class Tracker:
         """Record a Telegram button action. Returns (page, 'created' | 'updated' | 'unchanged').
 
         Saved/Dismissed never replace a real application stage (Applied, Interviewing, ...);
-        Applied replaces Saved/Dismissed."""
+        Applied replaces Saved/Dismissed. Kit ready only lands on a new row or one with no stage:
+        drafting a kit never overrides the owner's ⭐ or any later stage."""
         existing = self.find(job['url'])
         if existing:
             current = (existing['properties']['Stage'].get('select') or {}).get('name')
-            if current == stage or (stage in SOFT_STAGES and current not in SOFT_STAGES and current is not None):
+            if current == stage or (stage in SOFT_STAGES and current not in SOFT_STAGES and current is not None) \
+                    or (stage == 'Kit ready' and current is not None):
                 return existing, 'unchanged'
             props = {'Stage': {'select': {'name': stage}}}
             if stage == 'Applied':

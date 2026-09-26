@@ -158,7 +158,7 @@ test('/applied queries Notion and formats rows', async () => {
   } };
   const calls = mockFetch({ 'api.notion.com': { json: { results: [page] } } });
   await send('/applied');
-  assert.deepEqual(calls[0].body.filter.and.map((f) => f.select.does_not_equal), ['Saved', 'Dismissed']);
+  assert.deepEqual(calls[0].body.filter.and.map((f) => f.select.does_not_equal), ['Saved', 'Kit ready', 'Dismissed', 'Closed']);
   const text = calls[1].body.text;
   assert.match(text, /Applications<\/b> \(1\)/);
   assert.match(text, /SRE &lt;Zurich&gt;/);
