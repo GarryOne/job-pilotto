@@ -125,6 +125,15 @@ def _essential_checks(kit):
             if any(word in item.casefold() for word in words)]
 
 
+def _notify(url, message):
+    """macOS notification about this job (no-op elsewhere); never fails the run."""
+    try:
+        subprocess.Popen([str(ROOT / 'tools' / 'notify.sh'), url, message],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
+
+
 def _tracker():
     tracker = Tracker.from_env()
     if tracker:
@@ -172,6 +181,8 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
         _write_json(state_path, state)
         _mark(tracker, url, reason)
         return state
+    # Closest observable point to "first field filled": Codex's field writes aren't visible here.
+    _notify(url, 'Filling started')
     trace_path = STATE_DIR / f'{job_code(url)}.jsonl'
     result_path = STATE_DIR / f'{job_code(url)}.result.json'
     result_path.unlink(missing_ok=True)
@@ -281,7 +292,7 @@ def main(argv=None):
     print(f"{state['status']}: {args.url} — {state.get('reason') or state.get('summary', '')}")
     message = {'ready': 'Form filled — review and Submit',
                'needs_user': 'Needs your input — see Terminal'}.get(state['status'], 'Run failed — see Terminal')
-    subprocess.run([str(ROOT / 'tools' / 'notify.sh'), args.url, message], check=False)
+    _notify(args.url, message)
     return 0 if state['status'] == 'ready' else 1
 
 

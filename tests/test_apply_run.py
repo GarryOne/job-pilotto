@@ -8,6 +8,13 @@ from unittest.mock import patch
 from src.ai import apply_run
 
 
+def setUpModule():
+    # No real macOS notifications while tests run.
+    notifier = patch.object(apply_run, '_notify')
+    notifier.start()
+    unittest.addModuleCleanup(notifier.stop)
+
+
 URL = 'https://example.test/jobs/123'
 
 

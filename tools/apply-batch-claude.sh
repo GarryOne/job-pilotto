@@ -75,7 +75,7 @@ for url in "${urls[@]}"; do
   i=$((i + 1))
   prompt_file="$TMP_DIR/prompt_$i.txt"
   cat > "$prompt_file" <<PROMPT
-Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the form in Chrome (claude-in-chrome), fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. At the moment you hand it over, run: tools/notify.sh $url "Form filled — review and Submit" (or "Needs your input — see Terminal" if you stopped on a blocker). A background watcher (tools/wait-and-mark-applied.sh) already marks the job applied in Notion when I submit, so you don't need to watch the tab. Start now.
+Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the form in Chrome (claude-in-chrome), fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. Right before you fill the first field, run: tools/notify.sh $url "Filling started". At the moment you hand it over, run: tools/notify.sh $url "Form filled — review and Submit" (or "Needs your input — see Terminal" if you stopped on a blocker). A background watcher (tools/wait-and-mark-applied.sh) already marks the job applied in Notion when I submit, so you don't need to watch the tab. Start now.
 PROMPT
 
   # Flip Stage to Applying right away, same dedup the ChatGPT/Codex path already does for its own

@@ -27,7 +27,8 @@ in that file next time — keep evolving it.
    4 of 5 stayed blank, which cost a retry round. City/location search: type the city + `Return`.
    Keep the `__jobPilottoOptionPositions()` click for School/Degree/Discipline, where the first
    match can be wrong.
-3. **Notify at hand-over:** `tools/notify.sh <job URL> "Form filled — review and Submit"` (or
+3. **Notify at start and hand-over:** `tools/notify.sh <job URL> "Filling started"` right before
+   the first field is written, then `tools/notify.sh <job URL> "Form filled — review and Submit"` (or
    `"Needs your input — see Terminal"` when stopping on a blocker), so the owner knows without
    watching the window. The Codex runner does this itself.
 4. **Admin after hand-over, not before.** Hand the form over first; then record Form fill time and
