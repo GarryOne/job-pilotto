@@ -29,15 +29,20 @@ def find_job(db, code):
 
 
 def tracked_job(code, tracker):
-    """A job tracked in Notion but absent from the crawl's SQLite (evicted cache, reset DB, or a
-    filter that no longer admits it): rebuilt from its Applications row, with the posting text
-    fetched live from its job board. Matches by URL or by 8-hex code. None if not tracked."""
+    """A job known to Notion but absent from the crawl's SQLite (evicted cache, reset DB, or a
+    filter that no longer admits it): rebuilt from its Applications row, or else its Job Matches
+    row, with the posting text fetched live from its job board. Matches by URL or by 8-hex code.
+    None if Notion has neither."""
     if not tracker:
         return None
     wanted = _url_key(code) if '/' in code else None
-    url = next((u for u in tracker.url_stages()
-                if (wanted and _url_key(u) == wanted) or notion.job_code(u) == code), None)
+    matches = lambda u: (wanted and _url_key(u) == wanted) or notion.job_code(u) == code
+    url = next((u for u in tracker.url_stages() if matches(u)), None)
     row = tracker.find(url) if url else None
+    if not row:
+        row = next((r for r in tracker.query_database(notion.MATCHES_DATABASE_ID)
+                    if matches((r['properties'].get('Job URL') or {}).get('url') or '')), None)
+        url = (row['properties'].get('Job URL') or {}).get('url') if row else None
     if not row:
         return None
     props = row['properties']

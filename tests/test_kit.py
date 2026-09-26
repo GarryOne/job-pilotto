@@ -57,6 +57,9 @@ class FakeTracker:
     def url_stages(self):
         return {}
 
+    def query_database(self, database_id, filter_=None):
+        return []
+
     def mark(self, job, stage):
         self.marked.append((job['url'], stage))
         return {'id': 'page-1', 'url': 'https://notion.test/page-1'}, 'created'

@@ -101,6 +101,18 @@ class TrackedJobFallbackTests(unittest.TestCase):
                 self.assertIn('✅ Marked applied', daily.apply_message(db, url, tracker))
                 self.assertIsNone(daily.tracked_job('https://x.test/untracked', tracker))
 
+    def test_falls_back_to_job_matches_when_the_applications_row_is_gone(self):
+        url = 'https://jobs.ashbyhq.com/acme/abc-123'
+        match = {'properties': {'Job URL': {'url': url}, 'Job': {'title': [{'plain_text': 'Platform SRE'}]},
+                                'Company': {'rich_text': [{'plain_text': 'Acme'}]}}}
+        tracker = FakeTracker()
+        from unittest import mock
+        with mock.patch.object(daily.ats, 'posting', return_value=None), \
+                mock.patch.object(FakeTracker, 'query_database', lambda self, db, f=None: [match]):
+            job = daily.tracked_job(url, tracker)
+            self.assertEqual((job['title'], job['company'], job['url']), ('Platform SRE', 'Acme', url))
+            self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
+
 
 class DigestIntegrationTests(unittest.TestCase):
     def test_applied_jobs_are_hidden_and_apply_command_works(self):
