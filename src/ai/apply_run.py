@@ -279,6 +279,9 @@ def main(argv=None):
         parser.error('NOTION_TOKEN is required')
     state = run(args.url, tracker)
     print(f"{state['status']}: {args.url} — {state.get('reason') or state.get('summary', '')}")
+    message = {'ready': 'Form filled — review and Submit',
+               'needs_user': 'Needs your input — see Terminal'}.get(state['status'], 'Run failed — see Terminal')
+    subprocess.run([str(ROOT / 'tools' / 'notify.sh'), args.url, message], check=False)
     return 0 if state['status'] == 'ready' else 1
 
 

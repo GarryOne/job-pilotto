@@ -18,10 +18,7 @@ mkdir -p "$log_dir"
 exec >>"$log_dir/wait-and-mark-applied.log" 2>&1
 say() { echo "$(date '+%F %T') [$id] $*"; }
 say "watching for submission of $url"
-# "grafanalabs job 6103687004": the board slug from the URL (Greenhouse/Lever/Ashby) plus the job id.
-board="$(printf '%s' "$url" | sed -E 's#https?://[^/]+/([^/?]+).*#\1#')"
-case "$url" in *amazon.jobs*) board=amazon ;; esac
-notify() { osascript -e "display notification \"$1\" with title \"Job Pilotto\" subtitle \"$board job $id\"" 2>/dev/null; }
+notify() { "$repo/tools/notify.sh" "$url" "$1"; }
 
 for _ in $(seq 540); do
   if [ "$(osascript -e 'application "Google Chrome" is running' 2>/dev/null)" = "true" ] &&
