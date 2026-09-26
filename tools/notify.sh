@@ -26,8 +26,8 @@ notifier="$(command -v terminal-notifier || true)"
 if [ -n "$notifier" ]; then
   args=(-title "Job Pilotto" -subtitle "$board job $id" -message "$message" -sound Glass -group "jobpilotto-$id")
   [ -n "$tty" ] && args+=(-execute "'$here/focus-terminal.sh' '$tty'")
-  "$notifier" "${args[@]}" >/dev/null 2>&1
-  exit 0
+  # Fails (exit 3) when macOS hasn't allowed terminal-notifier's notifications: fall back below.
+  "$notifier" "${args[@]}" >/dev/null 2>&1 && exit 0
 fi
 osascript - "$message" "$board job $id" <<'OSA' 2>/dev/null
 on run argv
