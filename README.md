@@ -101,9 +101,12 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   the full transcript), logged as an Interviewing event, and the insights start tracking topics that
   keep coming up or keep being answered weakly. About USD 0.05 per interview.
   To get a transcript when you're the guest (most interviews), use a bot-free recorder on your
-  Mac that works with any call app: [MacWhisper](https://goodsnooze.gumroad.com/l/macwhisper)
-  transcribes locally, so the audio never leaves your Mac. Always ask the interviewers first:
-  recording without everyone's consent is illegal in Switzerland and many other places.
+  Mac that captures your mic and the call's audio in any app. Free and local:
+  [MacParakeet](https://macparakeet.com/) or [Humla](https://humla.team/local) (with speaker
+  labels). Paid: [MacWhisper](https://goodsnooze.gumroad.com/l/macwhisper) (meeting recording needs
+  Pro, €59 once; local) or [Routines](https://getroutines.ai/) (subscription; cloud transcription).
+  Always ask the interviewers first: recording without everyone's consent is illegal in
+  Switzerland and many other places.
 - 🧾 **Existing applications included**: `python3 -m src.notion.ledger backfill` records every
   application tracked before the ledger existed.
 
