@@ -57,8 +57,13 @@ class EnrichTests(unittest.TestCase):
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 seed(db, [{'title': f'SRE {i}'} for i in range(12)])
                 client = FakeClient(facts())
-                summary = enrich.run(db, 'claude-haiku-4-5', 50, client=client, workers=4)
+                stats = {}
+                summary = enrich.run(db, 'claude-haiku-4-5', 50, client=client, workers=4, stats=stats)
                 self.assertIn('Enriched 12 of 12', summary)
+                self.assertEqual((stats['pending'], stats['done'], stats['failed']), (12, 12, 0))
+                self.assertEqual((stats['tokens_in'], stats['tokens_out']), (120, 60))
+                # Haiku 4.5: $1 in, $5 out per million tokens.
+                self.assertAlmostEqual(stats['usd'], (120 * 1 + 60 * 5) / 1e6)
                 self.assertEqual(len(client.requests), 12)
                 self.assertEqual(len(enrich.load(db)), 12)
                 self.assertEqual(enrich.pending_jobs(db, 50), [])

@@ -92,6 +92,35 @@ daily scout creates and updates these. Optional for a first run — the crawler 
 | Integration | Select | Option used by code: `Working` |
 | Added | Date | |
 
+## ⏰ Cronjob Runs (database)
+
+Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`, modes `scheduled`,
+`run`, `today`, only when sending), written by `src/notion/cron_runs.py` at the end of
+`daily.main()`. The page body holds the mini-report and per-stage token/cost lines. Costs come from
+`src/ai/cost.py` (Haiku 4.5 $1/$5, Sonnet 5 $2/$10 per million tokens; cache read 0.1x, write 1.25x).
+
+| Property | Type | Notes |
+|---|---|---|
+| Run | Title | "YYYY-MM-DD HH:MM · mode" (UTC) |
+| Started | Date | With time |
+| Duration (s) | Number | |
+| Mode | Select | `scheduled`, `run`, `today` |
+| Trigger | Select | `Schedule`, `Manual` (workflow_dispatch / Telegram), `Local` |
+| Status | Select | `OK`, `Warnings` (a stage skipped or a feed failed), `Quiet` (nothing new) |
+| Feeds / Feed errors | Number | Employer feeds scanned / failed |
+| New jobs / Changed jobs | Number | From this crawl |
+| Closed stale | Number | Jobs not seen for 7 days |
+| Enriched / Scored / Kits | Number | Done this run per AI stage |
+| Top new score | Number | Best fit score among jobs first seen this run |
+| Cost enrich / score / kits (USD) | Number | Per stage |
+| AI cost (USD) | Number | Total |
+| Tokens (total) | Number | In + out + cached, all stages |
+| Telegram | Text | Sent / not sent |
+| Summary | Text | Report headline |
+| Run URL | URL | GitHub Actions run |
+
+Views: **Latest runs** (newest first), **AI cost per day** (column chart).
+
 ## 🤖 Agent Runs (database)
 
 Env var: `NOTION_AGENT_RUNS_DB`. One row per form-filling session, written by

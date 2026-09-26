@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .. import store
 from ..paths import JOBS_DB
+from . import cost
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
 EXTRACTOR_VERSION = 2
@@ -172,7 +173,7 @@ def load(db):
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM enrichments')}
 
 
-def run(db, model, max_jobs, client=None, workers=5):
+def run(db, model, max_jobs, client=None, workers=5, stats=None):
     """Enrich up to max_jobs pending jobs; returns a one-line summary.
 
     API calls run in parallel threads; results are saved from this thread only,
@@ -211,6 +212,9 @@ def run(db, model, max_jobs, client=None, workers=5):
             enriched += 1
             tokens_in += usage.input_tokens
             tokens_out += usage.output_tokens
+            cost.add(stats, model, usage)
+    if stats is not None:
+        stats.update(pending=len(jobs), done=enriched, failed=failures)
     return (f'Enriched {enriched} of {len(jobs)} job(s) with {model}; {failures} failed; '
             f'tokens in {tokens_in}, out {tokens_out}')
 

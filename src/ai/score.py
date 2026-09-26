@@ -14,6 +14,7 @@ import os
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
+from . import cost
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
@@ -139,7 +140,7 @@ def load(db):
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM scores')}
 
 
-def run(db, candidates, profile, model, max_jobs, client=None, workers=5):
+def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None):
     """Score up to max_jobs pending candidates; returns a one-line summary."""
     jobs = pending_jobs(db, candidates, profile, max_jobs)
     if not jobs:
@@ -175,5 +176,8 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5):
             usage_totals['input'] += usage.input_tokens
             usage_totals['output'] += usage.output_tokens
             usage_totals['cache_read'] += getattr(usage, 'cache_read_input_tokens', 0) or 0
+            cost.add(stats, model, usage)
+    if stats is not None:
+        stats.update(pending=len(jobs), done=scored, failed=failures)
     return (f'Scored {scored} of {len(jobs)} job(s) with {model}; {failures} failed; tokens in '
             f"{usage_totals['input']} (+{usage_totals['cache_read']} cached), out {usage_totals['output']}")

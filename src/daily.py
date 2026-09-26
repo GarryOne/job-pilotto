@@ -1,18 +1,49 @@
 #!/usr/bin/env python3
 """Run the local scan, import canonical state and optionally send Telegram digest."""
 import argparse
+from collections import Counter
+from datetime import datetime, timezone
 from html import escape
 import json
+import os
 import random
 import re
 
 from . import digest, scout, store, telegram
 from .ai import enrich, kit, score
-from .notion import client as notion, matches
+from .notion import client as notion, cron_runs, matches
 from pathlib import Path
 
 from .paths import JOBS_DB, CONFIG, DATA, REPORTS
 from .sources import ats, feeds
+
+
+
+def new_cron_run(mode):
+    """The run dict main() fills for the ⏰ Cronjob Runs row; trigger and link come from GitHub Actions."""
+    event = os.getenv('GITHUB_EVENT_NAME', '')
+    run = {'mode': mode, 'started_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+           'trigger': {'schedule': 'Schedule', '': 'Local'}.get(event, 'Manual'), 'warnings': []}
+    if os.getenv('GITHUB_RUN_ID'):
+        run['run_url'] = (f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/"
+                          f"{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID')}")
+    return run
+
+
+def crawl_counts(report, statuses):
+    """Feed and import numbers for the run report."""
+    counted = Counter(statuses)
+    failing = [s['company'] for s in report.get('sources', []) if not s.get('ok')]
+    return {'feeds': len(report.get('sources', [])), 'feed_errors': len(failing), 'failing_feeds': failing,
+            'new': counted.get('new', 0), 'changed': counted.get('changed', 0)}
+
+
+def top_new(report, scored, limit=3):
+    """[(title, company, score)] for jobs first seen this run, best score first."""
+    new_urls = {j['url'] for j in report.get('jobs', []) if j.get('status') == 'new'}
+    hits = [(j['title'], j['company'], j['fit']['score']) for j in scored if j.get('url') in new_urls]
+    return sorted(hits, key=lambda h: h[2], reverse=True)[:limit]
+
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
 MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare')
@@ -159,6 +190,7 @@ def main():
             for message in messages:
                 telegram.send(message, *credentials)
         return 0
+    run = new_cron_run(args.mode)
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
     if tracker:
         try:
@@ -168,6 +200,7 @@ def main():
             dismissed = frozenset(u for u, st in stages.items() if st == 'Dismissed')
         except Exception as error:  # A Notion outage shouldn't block the digest.
             print(f'Warning: could not read Notion applications: {error}')
+            run['warnings'].append(f'Notion applications unreadable: {error}')
     sources = json.loads((CONFIG / 'sources.json').read_text())
     report, imported = {'jobs': [], 'sources': []}, []
     with store.connect(args.db) as db:
@@ -181,26 +214,32 @@ def main():
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
                 report = feeds.scan(feed_list, feed_db)
             imported = store.import_watch_report(db, report)
+            run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run'):
                 # Only full crawls can tell that a job disappeared.
-                print(f"Closed {store.close_stale(db, STALE_DAYS)} job(s) not seen for {STALE_DAYS} days")
+                run['closed_stale'] = store.close_stale(db, STALE_DAYS)
+                print(f"Closed {run['closed_stale']} job(s) not seen for {STALE_DAYS} days")
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += store.import_company_report(db, company_report)
         if args.enrich_max:
             # Runs after import so fresh descriptions are included. AI trouble never blocks the digest.
             try:
-                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max))
+                run['enrich'] = {}
+                print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, stats=run['enrich']))
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'enrichment skipped: {type(error).__name__}')
         if args.score_max and tracker:
             # Scores only jobs that survive the hard filters; the Profile is re-read every run.
             try:
                 profile = tracker.page_text()
                 candidates, _ = digest.eligible_jobs(db, hidden)
-                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max))
+                run['score'] = {}
+                print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score']))
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'scoring skipped: {type(error).__name__}')
         if tracker and args.mode in ('scheduled', 'run', 'today'):
             # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
             try:
@@ -209,11 +248,16 @@ def main():
                 scored = [dict(j, fit=fits[j['id']]) for j in candidates if j['id'] in fits]
                 open_urls = {j['url'].strip() for j in store.digest_jobs(db, limit=10_000) if j.get('url')}
                 applied_urls = hidden - dismissed
-                print(matches.sync(db, tracker, scored, applied_urls, open_urls, dismissed))
+                run['top_new'] = top_new(report, scored)
+                run['matches'] = matches.sync(db, tracker, scored, applied_urls, open_urls, dismissed)
+                print(run['matches'])
                 if args.auto_kit_max:
                     # Runs after scoring so it sees the same fits; a kit failure never blocks the digest.
+                    run['kits'] = {}
                     summary, drafted_jobs = kit.auto_run(db, scored, tracker, kit.DEFAULT_MODEL,
-                                                         args.auto_kit_max, args.auto_kit_min_score)
+                                                         args.auto_kit_max, args.auto_kit_min_score,
+                                                         stats=run['kits'])
+                    run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted_jobs]
                     print(summary)
                     if drafted_jobs and args.send:
                         lines = [f"📝 <b>{len(drafted_jobs)} application kit(s) ready</b> — drafted automatically, "
@@ -225,6 +269,7 @@ def main():
                         telegram.send('\n'.join(lines), *telegram.credentials())
             except Exception as error:
                 print(f'Warning: Notion Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = digest.build_digest(db, args.limit, hidden_urls=hidden, page=args.page,
@@ -240,14 +285,23 @@ def main():
     token, chat_id = telegram.credentials()
     if args.mode == 'scheduled' and not new_count:
         print('\nNo new jobs since the last run; nothing sent.')
-        return 0
-    for message, keyboard in zip(messages, keyboards):
-        telegram.send(message, token, chat_id, keyboard)
-    if args.mode != 'more':
-        # '➕ Next' runs don't save the database, so only first pages count for rotation.
-        with store.connect(args.db) as db:
-            digest.mark_shown(db, shown_ids, seed)
-    print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
+        run['telegram'] = 'nothing new; not sent'
+    else:
+        for message, keyboard in zip(messages, keyboards):
+            telegram.send(message, token, chat_id, keyboard)
+        if args.mode != 'more':
+            # '➕ Next' runs don't save the database, so only first pages count for rotation.
+            with store.connect(args.db) as db:
+                digest.mark_shown(db, shown_ids, seed)
+        print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
+        run['telegram'] = f'sent {len(messages)} message(s), {new_count} new'
+    if tracker and args.mode in ('scheduled', 'run', 'today'):
+        # Only sending runs are logged, so local previews don't fill the table.
+        run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
+        url = cron_runs.log_run(tracker, run)
+        if url:
+            print(f'Cronjob run logged: {url}')
+    return 0
 
 
 if __name__ == '__main__':

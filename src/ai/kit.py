@@ -17,6 +17,7 @@ import re
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
+from . import cost
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', 'claude-sonnet-5')
 KIT_VERSION = 1
@@ -31,8 +32,7 @@ CREATE TABLE IF NOT EXISTS auto_kits (
     created_at TEXT NOT NULL
 );
 """
-# USD per million tokens, for the cost line in the log (input, output, cache read).
-PRICES = {'claude-sonnet-5': (2.00, 10.00, 0.20)}
+PRICES = cost.PRICES  # USD per million tokens; see cost.py
 
 # Filled from the owner's contact details or the CV file, not drafted.
 PERSONAL_FIELDS = {'first_name', 'last_name', 'preferred_name', 'email', 'phone', 'resume', 'resume_text',
@@ -204,7 +204,7 @@ def mark_auto(db, job_id):
     db.commit()
 
 
-def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, opener=None):
+def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, opener=None, stats=None):
     """Draft kits for the best-scored jobs that don't have one yet.
 
     Returns (summary line, list of (job, page) for jobs drafted this run) for the digest to mention.
@@ -219,22 +219,20 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
     drafted_jobs, failures = [], 0
     for job in pending:
         try:
-            _, _, page, _ = prepare_one(client, model, job, tracker, profile, answers, opener)
+            _, _, page, usage = prepare_one(client, model, job, tracker, profile, answers, opener)
+            cost.add(stats, model, usage)
             mark_auto(db, job['id'])
             drafted_jobs.append((job, page))
         except Exception as error:
             failures += 1
             print(f"Warning: auto kit failed for job {job['id']}: {type(error).__name__}: {error}")
+    if stats is not None:
+        stats.update(pending=len(pending), done=len(drafted_jobs), failed=failures)
     return f'Auto-drafted {len(drafted_jobs)} of {len(pending)} kit(s); {failures} failed', drafted_jobs
 
 
 def usd(model, usage):
-    """API cost of one call in USD, from its usage and PRICES (0 for an unpriced model)."""
-    price_in, price_out, price_cache = PRICES.get(model, (0, 0, 0))
-    cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
-    written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
-    return (usage.input_tokens * price_in + written * price_in * 1.25 + cached * price_cache
-            + usage.output_tokens * price_out) / 1e6
+    return cost.usd(model, usage)
 
 
 def record_cost(tracker, page, model, usage):
@@ -248,9 +246,9 @@ def record_cost(tracker, page, model, usage):
 def cost_line(model, usage):
     cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
     written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
-    cost = usd(model, usage)
+    amount = usd(model, usage)
     return (f'Kit drafted with {model}; tokens in {usage.input_tokens} (+{cached} cached, {written} cache write), '
-            f'out {usage.output_tokens}; ~USD {cost:.3f}')
+            f'out {usage.output_tokens}; ~USD {amount:.3f}')
 
 
 def telegram_messages(job, kit, questions, notion_url=None, limit=3800):
