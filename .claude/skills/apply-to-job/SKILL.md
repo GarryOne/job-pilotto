@@ -530,6 +530,16 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-26 · Greenhouse · Grafana Labs Staff SWE Databases SRE (re-fill) · fiber keys were visible this
+  time and `selectViaOnSelect()` returned ok for all 5 dropdowns, but 4 of them (every `question_<n>`
+  Yes/No + bot-check) rendered empty afterwards — only the phone `country` kept its value. What worked:
+  JS `.focus()` on each `input#question_<n>` + `computer` type of the option text + `Return` (trusted
+  keys, reaches the real handler, no coordinates) — all four set in one `browser_batch`. Same for
+  `candidate-location`: a coordinate click on the option from `getBoundingClientRect()` did not stick;
+  type city + `Return` (first match) did. Also fixed `__jobPilottoAuditVisibleFields`: its combobox
+  check matched a nearer `[class*=container]` and reported filled dropdowns as empty; it now prefers
+  `select__container`. No education/EEOC/cover-letter file field on this form; cover letter went into
+  "Anything else". Resume uploaded last, held.
 - 2026-09-26 · Greenhouse · Anthropic Staff SWE Infrastructure · no React expandos (`__reactFiber*`)
   were visible on any element from the extension's `javascript_tool` context on this board, so
   `selectViaOnSelect()` found nothing (not blocked, just invisible — likely an isolated JS world).

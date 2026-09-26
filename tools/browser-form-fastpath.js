@@ -22,8 +22,8 @@
   // react-select (every Greenhouse dropdown) renders a text input that is only its search box:
   // setting its value selects nothing, and the chosen option lives in the container instead.
   const isCombo = element => element.getAttribute('role') === 'combobox';
-  const comboFilled = element => !!element.closest('[class*=select__container], [class*=container]')
-    ?.querySelector('[class*=single-value], [class*=multi-value]');
+  const comboFilled = element => !!(element.closest('[class*=select__container]') ||
+    element.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]');
   window.__jobPilottoFillKnownFields = entries => {
     if (!window.__jobPilottoGuardActive) return {error: 'submit guard is inactive'};
     const filled = [], skipped = [];
