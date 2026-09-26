@@ -74,9 +74,11 @@ Rules:
 experience, numbers, employers, certifications or links.
 - Cover letter: follow the style in the standard answers; by default 130-170 words, two short \
 paragraphs of uneven length (not three symmetric ones), English, plain and slightly terse, first \
-person, occasional short sentence or fragment. First paragraph: why this role/company, tied to one \
-concrete, idiosyncratic detail from the posting. Second paragraph: 1-2 real achievements (with their \
-numbers) tied to the posting's needs, then stop — no closing "I look forward to..." paragraph. No \
+person, occasional short sentence or fragment. It is personal, not a CV summary: the CV is attached \
+and already lists projects and numbers, so don't repeat them. First paragraph: who the candidate is \
+and how he works, in a sentence or two, at the level of the role. Second paragraph: why this \
+company/role (one concrete detail from the posting) and any honest gap, then stop — no closing \
+"I look forward to..." paragraph. No \
 clichés ("I am writing to express", "passionate", "team player", "wear many hats", "perfect fit"), \
 no greeting line; sign off with just the name, no "Best regards" formality. Avoid rigid, uniform \
 paragraph structure and generic phrasing — these are the biggest tells that a letter is AI-drafted.
