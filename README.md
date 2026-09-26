@@ -109,8 +109,10 @@ documents wrong-field fills on external ATS forms; BhairavJShah's
 [autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py)
 submits when no doubts remain; arthurpanhku's
 [Indeed automation](https://github.com/arthurpanhku/job-pilot/blob/main/backend/app/automation/indeed.py)
-still has form-fill and submit placeholders. Job Pilotto's own audit is ⚠️ because it is reported by
-the agent, not verified independently.
+still has form-fill and submit placeholders. Job Pilotto's audit is ⚠️: every Codex and Claude run is
+recorded with a page-derived verdict (guard on, required fields filled, no legal box ticked,
+résumé attached; `python3 -m src.ai.apply_run --status` / `--report <URL>`), but field *values*
+aren't yet compared to their sources.
 
 **In short:** 🏆 Job Pilotto covers the most of the pipeline — discovery → scoring → kits → filling
 → tracking — with you in control of every submission. 🥈 Hosted tools like JobCopilot.com win on
@@ -123,8 +125,8 @@ now [part of Orkes Conductor](https://orkes.io/blog/open-sourcing-agentspan-dura
 **⚠️ Current gap:** form filling is driven by browser agents and the kit, not a verified form engine.
 It has filled forms for real, submitted applications (all on Greenhouse so far), typically in
 2–6 minutes, with an accidental-Submit/consent guard and deterministic helpers for ordinary fields. The
-guard is not a security boundary, the field audit is agent-reported, and cross-ATS accuracy hasn't
-been measured. Always inspect the filled form before submitting.
+guard is not a security boundary, each run's audit checks that fields are filled (not that values
+are right), and cross-ATS accuracy hasn't been measured. Always inspect the filled form before submitting.
 
 ## Day-to-day use
 

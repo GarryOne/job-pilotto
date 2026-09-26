@@ -123,5 +123,46 @@ class RunnerTests(unittest.TestCase):
             codex.assert_not_called()
 
 
+class RecordFromPageTests(unittest.TestCase):
+    """Claude-filled forms are recorded from the page audit, in the Codex run format."""
+    STARTED = datetime(2026, 9, 26, 1, 0, tzinfo=timezone.utc)
+    ENDED = datetime(2026, 9, 26, 1, 3, tzinfo=timezone.utc)
+
+    def page(self, **overrides):
+        fields = [
+            {'field': 'first_name', 'label': 'First Name', 'type': 'text', 'required': True, 'legal': False, 'filled': True},
+            {'field': 'question_1', 'label': 'Why us?', 'type': 'textarea', 'required': True, 'legal': False, 'filled': True},
+            {'field': 'website', 'label': 'Website', 'type': 'text', 'required': False, 'legal': False, 'filled': False},
+            {'field': 'resume', 'label': 'Resume/CV', 'type': 'file', 'required': True, 'legal': False, 'filled': True},
+            {'field': 'privacy', 'label': 'I agree to the privacy policy', 'type': 'checkbox', 'required': True, 'legal': True, 'filled': False},
+        ]
+        page = {'page_url': URL, 'guard_active': True, 'fields': fields}
+        page.update(overrides)
+        return page
+
+    def test_complete_form_is_ready_with_measured_minutes(self):
+        state, result = apply_run.record_from_page(URL, self.page(), self.STARTED, self.ENDED)
+        self.assertEqual((state['status'], state['minutes'], state['field_count']), ('ready', 3.0, 3))
+        self.assertEqual(result['attachments'], [{'label': 'Resume/CV', 'present': True}])
+        self.assertTrue(result['checks']['legal_acknowledgments_untouched'])
+
+    def test_empty_required_field_and_missing_resume_need_the_owner(self):
+        page = self.page()
+        page['fields'][1]['filled'] = False
+        page['fields'][3]['filled'] = False
+        state, result = apply_run.record_from_page(URL, page, self.STARTED, self.ENDED)
+        self.assertEqual(state['status'], 'needs_user')
+        self.assertIn('resume not attached', state['reason'])
+        self.assertEqual(result['unanswered'], ['Why us?'])
+
+    def test_inactive_guard_or_ticked_legal_box_is_not_ready(self):
+        state, _ = apply_run.record_from_page(URL, self.page(guard_active=False), self.STARTED, self.ENDED)
+        self.assertIn('submit guard not active', state['reason'])
+        page = self.page()
+        page['fields'][4]['filled'] = True
+        state, _ = apply_run.record_from_page(URL, page, self.STARTED, self.ENDED)
+        self.assertIn('legal box ticked', state['reason'])
+
+
 if __name__ == '__main__':
     unittest.main()

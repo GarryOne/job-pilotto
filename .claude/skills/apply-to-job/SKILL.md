@@ -27,12 +27,19 @@ in that file next time — keep evolving it.
    4 of 5 stayed blank, which cost a retry round. City/location search: type the city + `Return`.
    Keep the `__jobPilottoOptionPositions()` click for School/Degree/Discipline, where the first
    match can be wrong.
-3. **Notify at start and hand-over:** `tools/notify.sh <job URL> "Filling started"` right before
-   the first field is written, then `tools/notify.sh <job URL> "Form filled — review and Submit"` (or
-   `"Needs your input — see Terminal"` when stopping on a blocker), so the owner knows without
-   watching the window. The Codex runner does this itself.
-4. **Admin after hand-over, not before.** Hand the form over first; then record Form fill time and
-   add a Log line only if there's a genuinely new finding (no log/commit for a routine run).
+3. **Record the run at hand-over (Claude / manual runs):** note `date -u +%FT%TZ` when filling
+   starts; at hand-over save `JSON.stringify({page_url: location.href, guard_active:
+   !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields()})` to a file and
+   run `python3 -m src.ai.apply_run --record <job URL> --audit <file> --started <time>` (needs
+   `NOTION_TOKEN`). It writes the same run record as a Codex run (so `--status`, `--report` and the
+   benchmark cover it), sets the Notion Next step and Form fill time, and sends the "Form filled" /
+   "Needs your input" notification. Its verdict comes from the page (guard on, required fields
+   filled, no legal box ticked, résumé attached), not from the agent's summary.
+   **Notify at start** with `tools/notify.sh <job URL> "Filling started"` right before
+   the first field is written; if you stop on a blocker before filling, `tools/notify.sh <job URL>
+   "Needs your input — see Terminal"`. The Codex runner records and notifies by itself.
+4. **Admin after hand-over, not before.** Hand the form over first; add a Log line only if there's
+   a genuinely new finding (no log/commit for a routine run). Fill time is recorded by `--record`.
 
 ## Hard rules
 - **Never click Submit / Apply / Send.** Stop, show the summary, let the owner click. (Decision Log:

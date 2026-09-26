@@ -86,6 +86,49 @@ def audit(result, url, started, ended):
     return 'ready', minutes, ''
 
 
+def record_from_page(url, page, started, ended, agent='claude'):
+    """Run record for a form filled by an interactive agent (Claude, or a person), in the same
+    format as a Codex run so --status/--report/the benchmark cover it too.
+
+    page = {"page_url", "guard_active", "fields": window.__jobPilottoAuditVisibleFields()} —
+    labels and filled flags only, never values. The verdict comes from that page state, not from
+    the agent's own summary: ready only if the guard is on, every required non-legal field is
+    filled, no legal box is ticked and a resume is attached. Field values are NOT compared to their
+    sources (matches_source mirrors "filled"); that still needs the owner's review."""
+    rows = [f for f in page.get('fields') or [] if isinstance(f, dict)]
+    fields = [{'label': f.get('label') or f.get('field') or '?', 'source': 'page audit',
+               'required': bool(f.get('required')), 'observed': bool(f.get('filled')),
+               'matches_source': bool(f.get('filled'))}
+              for f in rows if not f.get('legal') and f.get('type') != 'file']
+    attachments = [{'label': f.get('label') or f.get('field') or 'file', 'present': bool(f.get('filled'))}
+                   for f in rows if f.get('type') == 'file']
+    unanswered = [f['label'] for f in fields if f['required'] and not f['observed']]
+    legal_ticked = [f.get('label') for f in rows if f.get('legal') and f.get('filled')
+                    and f.get('type') in ('checkbox', 'radio')]
+    resume = any('resume' in a['label'].lower() or 'cv' in a['label'].lower() for a in attachments
+                 if a['present'])
+    guard = page.get('guard_active') is True
+    result = {'status': 'ready', 'page_url': page.get('page_url', ''), 'form_field_count': len(fields),
+              'fields': fields, 'attachments': attachments, 'unanswered': unanswered,
+              'checks': {'submit_untouched': guard, 'legal_acknowledgments_untouched': not legal_ticked,
+                         'browser_form_inspected': bool(rows), 'guard_active': guard},
+              'fill_intervals': [{'start': started.isoformat(), 'end': ended.isoformat()}],
+              'summary': f'{agent} run, recorded from the page audit'}
+    minutes = round((ended - started).total_seconds() / 60, 2)
+    reasons = ([] if guard else ['submit guard not active'])
+    reasons += [f'legal box ticked: {label}' for label in legal_ticked]
+    reasons += [] if resume else ['resume not attached']
+    reasons += [f'empty required: {label}' for label in unanswered]
+    if not rows:
+        reasons = ['no fields in the page audit']
+    status = 'needs_user' if reasons else 'ready'
+    result['status'] = status
+    state = {'url': url, 'status': status, 'agent': agent, 'started_at': started.isoformat(),
+             'updated_at': ended.isoformat(), 'minutes': minutes, 'reason': '; '.join(reasons)[:500],
+             'field_count': len(fields), 'unanswered': unanswered, 'summary': result['summary']}
+    return state, result
+
+
 def _prompt(url):
     return (f'Read AGENTS.md and .claude/skills/apply-to-job/SKILL.md. Fill the application at {url} '
             'using its Notion kit, saved Profile/Application Answers, and CV. Use the Playwright MCP '
@@ -230,9 +273,42 @@ def main(argv=None):
     parser.add_argument('--report', metavar='URL', help='show field and attachment audit for one job')
     parser.add_argument('--reconcile', metavar='URL',
                         help='re-audit a completed local result and update its Notion Next step')
+    parser.add_argument('--record', metavar='URL',
+                        help='record a form filled by an interactive agent (Claude) from its page '
+                             'audit: needs --audit; writes the run record, updates Notion, notifies')
+    parser.add_argument('--audit', metavar='FILE',
+                        help='for --record: JSON {"page_url", "guard_active", "fields": '
+                             '__jobPilottoAuditVisibleFields()}')
+    parser.add_argument('--started', metavar='ISO',
+                        help='for --record: when filling started (UTC ISO-8601); fill time = now - started')
+    parser.add_argument('--agent', default='claude', help='for --record: who filled it (default claude)')
     parser.add_argument('--expire-hours', type=float, default=2,
                         help='mark running records older than this as stale when listing status')
     args = parser.parse_args(argv)
+    if args.record:
+        if not args.audit:
+            parser.error('--record needs --audit FILE')
+        ended = datetime.now(timezone.utc)
+        started = (datetime.fromisoformat(args.started.replace('Z', '+00:00')) if args.started else ended)
+        state, result = record_from_page(args.record, json.loads(Path(args.audit).read_text()),
+                                         started, ended, args.agent)
+        _private_dir(STATE_DIR)
+        _write_json(STATE_DIR / f'{job_code(args.record)}.json', state)
+        _write_json(STATE_DIR / f'{job_code(args.record)}.result.json', result)
+        tracker = _tracker()
+        try:
+            if tracker and state['status'] == 'ready':
+                _mark(tracker, args.record, 'Ready for review — inspect the browser form and submit yourself',
+                      state['minutes'])
+            elif tracker:
+                _mark(tracker, args.record, f"Form needs review: {state['reason']}", state['minutes'])
+        except RuntimeError as error:  # not tracked in Notion: the local record still counts
+            print(f'Warning: Notion not updated: {error}')
+        _notify(args.record, 'Form filled — review and Submit' if state['status'] == 'ready'
+                else 'Needs your input — see Terminal')
+        print(f"{state['status']}: {args.record} ({state['minutes']} min, {state['field_count']} fields)"
+              + (f" — {state['reason']}" if state['reason'] else ''))
+        return 0
     if args.report:
         state = _read_json(STATE_DIR / f'{job_code(args.report)}.json')
         result = _read_json(STATE_DIR / f'{job_code(args.report)}.result.json')
