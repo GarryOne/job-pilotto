@@ -84,9 +84,17 @@ PROMPT
     echo "Warning: could not mark $url as Applying (queuing it anyway)" >&2
 
   osascript <<OSA
+set wasRunning to application "$TERMINAL_APP" is running
 tell application "$TERMINAL_APP"
+  set cmd to "cd '$REPO_DIR' && claude --permission-mode bypassPermissions \"\$(cat '$prompt_file')\""
+  -- A fresh launch opens its own empty window; run in it instead of opening a second one.
+  if wasRunning then
+    do script cmd
+  else
+    delay 0.5
+    do script cmd in window 1
+  end if
   activate
-  do script "cd '$REPO_DIR' && claude --permission-mode bypassPermissions \"\$(cat '$prompt_file')\""
 end tell
 OSA
 
