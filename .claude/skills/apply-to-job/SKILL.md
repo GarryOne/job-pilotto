@@ -17,7 +17,11 @@ text to `javascript_tool`. Anything you end up doing by hand that could be deter
 in that file next time — keep evolving it.
 
 **Speed defaults learned 26 Sep 2026 (a 3-minute Grafana run; aim for under 2):**
-1. **Eligibility before filling.** Read the posting's location/residency and pay lines in step 1.
+1. **Posting gone → close it, don't ask.** If the page says "Job not found"/404 or the board no
+   longer lists it, run `python3 -m src.ai.apply_batch --mark-closed <job URL>` (Stage → Closed,
+   notification) and finish. The launchers' `--max` and `tools/prepare-top.sh` already skip and
+   close postings their board confirms are gone (`ats.is_live`), so this should be rare.
+1b. **Eligibility before filling.** Read the posting's location/residency and pay lines in step 1.
    If the job requires residence the owner doesn't have (e.g. "must be based in UK/SE/ES/DE/IE"),
    say so and stop before opening the form — don't fill a whole form and flag it at the end.
 2. **Greenhouse dropdowns: go straight to type + Return, in one `browser_batch`.** For each

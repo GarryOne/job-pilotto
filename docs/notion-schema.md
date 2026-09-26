@@ -15,7 +15,7 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Company | Text | |
 | Location | Text | |
 | Job URL | URL | Canonical posting URL — the match key everything uses |
-| Stage | Select | Options: `Saved`, `Applying`, `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Dismissed` |
+| Stage | Select | Options: `Saved`, `Applying`, `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Dismissed`, `Closed` (posting gone) |
 | Source | Select | Options: `Telegram`, `Manual` |
 | Applied on | Date | Set when Stage becomes Applied |
 | Posted | Date | Posting date from the source, or first-seen date if unknown |

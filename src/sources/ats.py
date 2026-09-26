@@ -232,6 +232,24 @@ def posting(url):
                  j['url'].split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower() == wanted), None)
 
 
+def is_live(url):
+    """True if the posting is still on its job board, False if the board no longer lists it,
+    None when we can't tell (unsupported board, or the board didn't answer)."""
+    found = detect(url)
+    if not found:
+        return None
+    wanted = (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
+    try:
+        jobs = fetch(*found)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
+            json.JSONDecodeError, OSError):
+        return None
+    if not jobs:
+        return None  # an empty board is more likely an outage than every job closing at once
+    return any(j['id'].lower() == wanted or j['url'].split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower() == wanted
+               for j in jobs)
+
+
 def probe(ats, slug):
     """Jobs if this (ats, slug) is a live board with at least one posting, else None."""
     try:

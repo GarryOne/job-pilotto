@@ -29,6 +29,7 @@ from pathlib import Path
 
 from .kit import KIT_HEADING
 from ..notion import client as notion
+from ..sources import ats
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SEND_SCRIPT = REPO_ROOT / 'tools' / 'send-to-chatgpt.sh'
@@ -64,6 +65,23 @@ def ready_jobs(tracker, max_jobs):
     return pairs
 
 
+def mark_closed(tracker, url):
+    """Stage -> Closed (the posting is gone) and a notification; returns the tracker outcome."""
+    _, outcome = tracker.mark({'url': url}, 'Closed')
+    subprocess.run([str(NOTIFY_SCRIPT), url, 'Posting closed — marked Closed, skipped'], check=False)
+    return outcome
+
+
+def still_open(tracker, url):
+    """False (and the job is marked Closed) only when its board confirms the posting is gone;
+    unsupported boards and outages count as open, so nothing is closed on a guess."""
+    if ats.is_live(url) is False:
+        mark_closed(tracker, url)
+        print(f'Skipped, posting closed: {url}', file=sys.stderr)
+        return False
+    return True
+
+
 def unstarted_urls_by_score(tracker, max_jobs):
     """Saved+kitted job URLs (not yet Applying/Applied/...), ranked by AI fit score descending.
 
@@ -81,7 +99,13 @@ def unstarted_urls_by_score(tracker, max_jobs):
         if url is not None and score is not None:
             url_score[url] = score
     pairs.sort(key=lambda pair: url_score.get(pair[1]['url'], -1), reverse=True)
-    return [kit_data['url'] for _, kit_data in pairs[:max_jobs]]
+    urls = []
+    for _, kit_data in pairs:
+        if still_open(tracker, kit_data['url']):
+            urls.append(kit_data['url'])
+        if len(urls) >= max_jobs:
+            break
+    return urls
 
 
 def top_unprepared_urls(tracker, max_jobs):
@@ -101,6 +125,8 @@ def top_unprepared_urls(tracker, max_jobs):
     for _, url in sorted(ranked, reverse=True):
         row = tracker.find(url)
         if row and tracker.read_kit(row['id'], KIT_HEADING):
+            continue
+        if not still_open(tracker, url):
             continue
         urls.append(url)
         if len(urls) >= max_jobs:
@@ -155,6 +181,8 @@ def main():
                         help="flip one job's Stage to Applying and exit — for apply-batch-claude.sh, "
                              'so a Claude Code session queued for a job is deduped the same way the '
                              'ChatGPT/Codex path already dedupes its own queued chats')
+    parser.add_argument('--mark-closed', metavar='URL',
+                        help="flip one job's Stage to Closed (posting gone) and notify, then exit")
     parser.add_argument('--mark-applied', metavar='URL',
                         help="flip one job's Stage to Applied and exit. Reliable even when "
                              "`src.daily --mode apply` can't find the job (that path looks it up in "
@@ -175,6 +203,10 @@ def main():
     if args.mark_applying:
         _, outcome = tracker.mark({'url': args.mark_applying}, 'Applying')
         print(f'{args.mark_applying}: {outcome}')
+        return 0
+
+    if args.mark_closed:
+        print(f'{args.mark_closed}: {mark_closed(tracker, args.mark_closed)}')
         return 0
 
     if args.mark_applied:
