@@ -62,6 +62,9 @@ def properties(job, status):
         props['Languages'] = {'multi_select': [{'name': name} for name in languages]}
         props['Salary'] = _text(ai['salary']['text'] if ai['salary']['stated'] else '')
         props['Recruiter'] = {'checkbox': ai['employer_type']['value'] == 'recruiter'}
+        props['Technologies'] = _text('; '.join(ai.get('technologies') or []))
+        if ai.get('role_family'):
+            props['Role family'] = {'select': {'name': ai['role_family']}}
     return props
 
 

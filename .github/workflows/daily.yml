@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit'
+        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit; insight sends an insight now'
         type: choice
-        options: [scheduled, run, today, apply, more, prepare]
+        options: [scheduled, run, today, apply, more, prepare, insight]
         default: scheduled
       job:
         description: 'job code from /apply_<code> (apply and prepare modes)'
@@ -30,10 +30,10 @@ permissions:
   contents: read
   actions: write
 
-# Runs share one SQLite state file; never let two overlap. Apply, more and
-# prepare runs only read it, so they get their own group and a queued run can't displace them.
+# Runs share one SQLite state file; never let two overlap. Apply, more,
+# prepare and insight runs only read it, so they get their own group and a queued run can't displace them.
 concurrency:
-  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare') && format('read-{0}', github.run_id) || 'job-pilotto-state' }}
+  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare' || inputs.mode == 'insight') && format('read-{0}', github.run_id) || 'job-pilotto-state' }}
   cancel-in-progress: false
 
 env:
@@ -83,6 +83,8 @@ jobs:
           # Auto-draft kits for the best new matches each run; 0/unset = off (📝 Prepare still works manually).
           JOB_PILOTTO_AUTO_KIT_MAX: ${{ vars.JOB_PILOTTO_AUTO_KIT_MAX }}
           JOB_PILOTTO_AUTO_KIT_MIN_SCORE: ${{ vars.JOB_PILOTTO_AUTO_KIT_MIN_SCORE }}
+          # Daily insight (first scheduled run after 04:00 UTC); off until this names a model.
+          JOB_PILOTTO_INSIGHT_MODEL: ${{ vars.JOB_PILOTTO_INSIGHT_MODEL }}
           JOB: ${{ inputs.job }}
           ACTION: ${{ inputs.action || 'applied' }}
           PAGE: ${{ inputs.page }}
@@ -91,7 +93,7 @@ jobs:
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
           ai=""
-          if [ -n "$JOB_PILOTTO_ENRICH_MODEL$JOB_PILOTTO_SCORE_MODEL$JOB_PILOTTO_AUTO_KIT_MAX" ] || [ "$MODE" = prepare ]; then pip install --quiet -r requirements.txt; fi
+          if [ -n "$JOB_PILOTTO_ENRICH_MODEL$JOB_PILOTTO_SCORE_MODEL$JOB_PILOTTO_AUTO_KIT_MAX$JOB_PILOTTO_INSIGHT_MODEL" ] || [ "$MODE" = prepare ] || [ "$MODE" = insight ]; then pip install --quiet -r requirements.txt; fi
           # Stage 1 runs before stage 2 in every mode that scores, so scores always see the facts.
           if [ -n "$JOB_PILOTTO_ENRICH_MODEL" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --enrich-max 100"
@@ -102,6 +104,7 @@ jobs:
           if [ -n "$JOB_PILOTTO_AUTO_KIT_MAX" ] && { [ "$MODE" = scheduled ] || [ "$MODE" = run ] || [ "$MODE" = today ]; }; then
             ai="$ai --auto-kit-max $JOB_PILOTTO_AUTO_KIT_MAX ${JOB_PILOTTO_AUTO_KIT_MIN_SCORE:+--auto-kit-min-score $JOB_PILOTTO_AUTO_KIT_MIN_SCORE}"
           fi
+          if [ -n "$JOB_PILOTTO_INSIGHT_MODEL" ] && [ "$MODE" = scheduled ]; then ai="$ai --insight"; fi
           python -m src daily $send --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} $ai
       - name: Report failure to Telegram
         if: failure()
@@ -115,7 +118,7 @@ jobs:
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
             --data-urlencode "text=❌ Job Pilotto ${MODE} run failed: ${RUN_URL}" > /dev/null
       - name: Save job database
-        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare'
+        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare' && env.MODE != 'insight'
         uses: actions/cache/save@v4
         with:
           path: data/jobs.sqlite
@@ -127,7 +130,7 @@ jobs:
         # losing jobs.sqlite between scheduled runs, not a duplicate of the cache step. The file
         # is a disposable crawl/scoring cache either way (see README) — nothing here is the
         # durable record; that's Notion.
-        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare'
+        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare' && env.MODE != 'insight'
         uses: actions/upload-artifact@v4
         with:
           name: job-pilotto-jobs-db

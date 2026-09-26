@@ -11,6 +11,7 @@ const HELP = [
   '/today — send the current ranked list (~1 min)',
   '/applied — jobs you applied to, with stage; tap a number to record a reply (screening, interview, offer, rejection)',
   '/saved — jobs you saved with ⭐',
+  '/insight — one insight about your search now (~1 min)',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
   '/scout — look for new employer job feeds now (~1 min)',
@@ -119,6 +120,9 @@ const OUTCOME_LABELS = {
   c: '📬 Confirmed', s: '📞 Screening', i: '🗓 Interview booked', v: '🎤 Interviewing',
   o: '🎉 Offer', r: '❌ Rejected', n: '💤 No reply', w: '↩️ Withdrawn',
 };
+// Insight feedback buttons: ins:<u|n|a>:<page> -> Feedback on the 💡 Insights row.
+const INSIGHT_FEEDBACK = { u: ['Useful', '👍 Marked useful'], n: ['Not useful', '👎 Marked not useful'],
+                           a: ['Acting on it', "✅ You're acting on it"] };
 const isOutcomeRow = (row) => row.some((b) => /^(out:|oclose)/.test(b.callback_data || ''));
 
 export function appliedKeyboard(pages) {
@@ -238,6 +242,9 @@ export async function handleCommand(env, command) {
       if (!/^[0-9a-f]{8}$/.test(command.arg)) return 'Tap the /apply_… code shown under a job in the digest.';
       await dispatch(env, { mode: 'apply', job: command.arg });
       return '⏳ Marking it applied in Notion…';
+    case 'insight':
+      await dispatch(env, { mode: 'insight' });
+      return '💡 Looking at the market and your applications; the insight arrives in about a minute.';
     case 'scout':
       await dispatch(env, { batch: '15' }, 'scout.yml');
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';
@@ -298,6 +305,7 @@ async function handleButton(env, query) {
   const more = /^more:(\d{1,10}):(\d{1,3})$/.exec(data);
   const opick = /^opick:(\d{1,3}):([0-9a-f]{32})$/.exec(data);
   const out = /^out:([csivornw]):([0-9a-f]{32}):(\d{1,3})$/.exec(data);
+  const ins = /^ins:([una]):([0-9a-f]{32})$/.exec(data);
   const answer = (text, alert = false) => telegram(env, 'answerCallbackQuery',
     { callback_query_id: query.id, text: text.slice(0, 200), show_alert: alert });
   try {
@@ -323,6 +331,14 @@ async function handleButton(env, query) {
       const title = await recordOutcome(env, out[2], stage);
       await editButtons(env, query, afterOutcome(query.message.reply_markup, out[3], STAGE_EMOJI[stage] || '•'));
       await answer(`${title}: ${stage}. Saved in Notion.`);
+    } else if (ins) {
+      const [feedback, label] = INSIGHT_FEEDBACK[ins[1]];
+      const patched = await notion(env, `pages/${ins[2]}`, 'PATCH', { properties: { Feedback: { select: { name: feedback } } } });
+      if (!patched.ok) throw new Error(`Notion feedback not saved: ${patched.status}`);
+      await editButtons(env, query, { inline_keyboard: [[{ text: label, callback_data: 'noop' }]] });
+      await answer('Thanks — future insights take this into account.');
+    } else if (data === 'noop') {
+      await answer('Already recorded.');
     } else if (data === 'oclose') {
       await editButtons(env, query, afterOutcome(query.message.reply_markup, '-', ''));
       await answer('OK');

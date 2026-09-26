@@ -50,7 +50,10 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 - 📊 **Digest**: top 10 jobs per message, best matches first, rotating between digests, with score,
   company, place, seniority, work mode, language and salary signals.
 - 👆 **Buttons**: ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare application kit · ➕ Next 10.
-- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/scout`, `/status`, `/help`.
+- 📈 **Outcome buttons**: `/applied` lists your applications; tap a number when you hear back →
+  📬 Confirmed · 📞 Screening · 🗓 Interview · 🎤 Interviewing · 🎉 Offer · ❌ Rejected · 💤 No reply.
+- 💡 **One insight a day** (see below), with 👍 Useful · 👎 Not useful · ✅ I'll act on it.
+- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/insight`, `/scout`, `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
 - 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
@@ -72,6 +75,18 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   names the one next step, so a newcomer never hits an empty launcher without knowing why.
 - 🧠 **Self-improving**: agents read recent learnings for that job board before filling
   (`python3 -m src.ai.apply_run --learnings Greenhouse`), so each run makes the next one better.
+
+### 📈 Learning from your applications
+- 🧊 **Every application frozen when you apply**: the job description, AI facts and fit score,
+  every question with the answer you actually submitted (read from the form just before Submit),
+  the kit draft it came from (✏️ when you changed it), the cover letter, CV version and agent.
+- 📅 **Every outcome with its date** in a 📈 Application Events database: from the `/applied`
+  buttons, Stage edits in Notion, and an automatic "No response" after 30 days of silence.
+- 💡 **A daily insight** on Telegram, kept in a 💡 Insights database: code computes the numbers
+  (technologies your best-fit jobs ask for that your CV doesn't show, where the eligible jobs are,
+  what blocks you, and — once there are enough applications — which groups get replies), then
+  Claude Sonnet 5 picks the one finding worth acting on today. About USD 0.03 a day. Findings about
+  why applications fail wait until a group has at least 10 applications.
 
 ### 🗂️ Tracking in Notion
 - 📋 Job Matches (every scored job), Applications — Job Tracker, Employers & Sources.
@@ -248,7 +263,12 @@ same 15 form questions again) is already done.
    for `tools/apply-batch-claude.sh` — see `.claude/skills/apply-to-job/SKILL.md`.
    And/or the **Codex CLI** plus the [Playwright MCP Chrome extension](https://playwright.dev/mcp/configuration/browser-extension)
    for `tools/apply-batch-codex-terminal.sh`.
-10. Nothing extra for notifications: "Form filled" and "Needs your input" open a native dialog
+10. **Chrome → View → Developer → Allow JavaScript from Apple Events**, turned on. The submit watcher
+    uses it to read the questions and answers on the form you're about to submit (read only, only
+    that job's tab), so the application record holds what you actually sent. Without it, the
+    record falls back to the kit's drafted answers and is marked "Kit draft". Trade-off: any app
+    you've allowed to control Chrome through Apple Events can then run scripts in your tabs.
+11. Nothing extra for notifications: "Form filled" and "Needs your input" open a native dialog
     whose **Show window** button raises that session's Terminal window; the rest are banners.
 
 None of group two is required for the core pipeline; it only matters if you want the same
@@ -283,6 +303,8 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `JOB_PILOTTO_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5` if unset) |
 | `JOB_PILOTTO_AUTO_KIT_MAX` | auto-draft kits for up to N best new matches per crawl (0/unset = off) |
 | `JOB_PILOTTO_AUTO_KIT_MIN_SCORE` | minimum fit score to qualify (default 50) |
+| `JOB_PILOTTO_INSIGHT_MODEL` | model for the daily insight (repository variable; unset = no insights). Uses `claude-sonnet-5` |
+| `NOTION_INSIGHTS_DB` | your 💡 Insights database ID |
 | `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
 Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop all AI spending.
@@ -375,7 +397,9 @@ order:
    unlock the page only when you are ready to make the final legal choices and submit.
 4. **Marked applied automatically.** Every launcher starts `tools/wait-and-mark-applied.sh` for each
    job: it watches Chrome for that job's confirmation page (Greenhouse `/confirmation`, Lever
-   `/thanks`), marks the job **Applied** in Notion and notifies you (log:
+   `/thanks`), marks the job **Applied** in Notion and notifies you. Until then it snapshots the
+   form's questions and answers every 20 s (needs Chrome's *Allow JavaScript from Apple Events*),
+   and on Applied the job's row gets its frozen application record (log:
    `~/Library/Logs/JobPilotto/wait-and-mark-applied.log`). By hand: tap ✅ in Telegram, or
    `python3 -m src.ai.apply_batch --mark-applied <job URL>`. A posting that turns out to be gone:
    `python3 -m src.ai.apply_batch --mark-closed <job URL>` (launchers do this for you).
@@ -437,6 +461,8 @@ tools/
   notify.sh, focus-terminal.sh  notifications; "Show window" raises the session's Terminal
   browser-form-fastpath.js page helpers: field audit, known-field fill, exact option picks, step timer
   browser-submit-guard.js  blocks Submit and legal-consent clicks until you unlock the page
+  browser-form-snapshot.js read-only snapshot of a form's questions and answers
+  chrome-form-snapshot.js  (JXA) runs that snapshot in the job's Chrome tab, for the watcher
 .claude/skills/      apply-to-job (how to fill a form from a kit) and notion-map (page/DB index)
 docs/                Notion schema, paste-ready Notion page templates, benchmark procedure, screenshots
 AGENTS.md            instructions for any agent (Claude, Codex, or other) working in this repo
@@ -462,11 +488,16 @@ python3 -m src.ai.apply_run --status           # every recorded run (Codex and C
 python3 -m src.ai.apply_run --report <job_url> # field-by-field audit of one run
 python3 -m src.ai.apply_run --learnings Greenhouse   # what earlier runs learned on a job board
 python3 -m src.ai.apply_batch --mark-applied <job_url>
+python3 -m src.notion.ledger record <job_url> [--force]   # (re)freeze an application record
+python3 -m src.notion.ledger event <job_url> Screening    # log an outcome by hand
+python3 -m src.notion.ledger sync --dry-run               # what the scheduled sync would log
+python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
 ```
 
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),
 `today` (no board crawl), `more` (next page of a digest), `apply` (record ✅ / ⭐ / ❌ in Notion),
-`prepare` (draft an application kit for one job).
+`prepare` (draft an application kit for one job), `insight` (send an insight now). Scheduled runs add
+`--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set, which sends one insight a day.
 
 ## Tests
 

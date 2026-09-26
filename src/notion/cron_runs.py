@@ -8,7 +8,7 @@ import os
 
 CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '98543553a1024a61bd784ada69b2a45d')
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
-          ('kits', 'Cost kits (USD)', 'Kits'))
+          ('kits', 'Cost kits (USD)', 'Kits'), ('insight', 'Cost insight (USD)', 'Insights'))
 
 
 def _text(value):

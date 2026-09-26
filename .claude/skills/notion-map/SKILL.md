@@ -22,6 +22,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 │   ├── 🤖 Agent Runs [database] (6a89d3b5faf44b6290f0108afcbf8ce9)
 │   ├── ⏰ Cronjob Runs [database] (98543553a1024a61bd784ada69b2a45d)
 │   ├── 📈 Application Events [database] (95ae2d6b81804e838985d0de5cbd945b)
+│   ├── 💡 Insights [database] (4c79aec091df4dcc8a8827cd4d43a5ef)
 │   ├── Employers & Sources [database] (c7fe8570c2ff414086ae9bb1ee2dbf64)
 │   ├── Profile — CV and Preferences (3e562be8fd8681579078d09829921b8c)
 │   ├── Application Answers — Standard Form Fields (3e562be8fd868108ae38d1f47d52a811)
@@ -56,6 +57,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 | One applied/saved/dismissed job's record + its kit | Applications — Job Tracker database, query by Job URL |
 | A scored job's fit/tier/reason for browsing | Job Matches — AI Scored database |
 | What a scheduled crawl did, what it cost, per run | ⏰ Cronjob Runs database |
+| Daily insights and your 👍/👎 on them | 💡 Insights database |
 | What happened after applying (outcome history), what was submitted | 📈 Application Events database; "🗂 Application record" section on each Applications row |
 | What happened in a form-filling session, how long each step took, what was learned | 🤖 Agent Runs database (read learnings with `python3 -m src.ai.apply_run --learnings <ATS>`) |
 | Which employer feeds are crawled, ATS, quality | Employers & Sources database |
@@ -70,6 +72,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 | 🤖 Agent Runs | `6a89d3b5faf44b6290f0108afcbf8ce9` | `8babbce5-5c40-4c05-bdee-7f23a2b50e5b` |
 | ⏰ Cronjob Runs | `98543553a1024a61bd784ada69b2a45d` | `3a9c3f8d-394f-4a56-b422-ea2f580df999` |
 | 📈 Application Events | `95ae2d6b81804e838985d0de5cbd945b` | `526f71bf-4553-410c-be92-96be9d094296` |
+| 💡 Insights | `4c79aec091df4dcc8a8827cd4d43a5ef` | `68727b38-6bc9-4deb-9218-d20c46d5c3a4` |
 | Decision Log | `e4d099e66ee84f728d640d225f253210` | `6a43dcab-8e47-4d5c-99cc-a6c3ac59c4ee` |
 
 Other databases (Job Matches, Employers & Sources, Rollout) haven't had their data-source ID

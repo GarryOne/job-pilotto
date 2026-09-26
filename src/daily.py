@@ -10,7 +10,7 @@ import random
 import re
 
 from . import digest, scout, store, telegram
-from .ai import enrich, kit, score
+from .ai import enrich, insights, kit, score
 from .notion import client as notion, cron_runs, ledger, matches
 from pathlib import Path
 
@@ -46,7 +46,7 @@ def top_new(report, scored, limit=3):
 
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight')
 
 
 def find_job(db, code):
@@ -172,6 +172,8 @@ def main():
                         help='auto-draft application kits for up to N best-scored new jobs per run (0 = off)')
     parser.add_argument('--auto-kit-min-score', type=int, default=kit.DEFAULT_AUTO_MIN_SCORE,
                         help='minimum fit score to qualify for an automatic kit')
+    parser.add_argument('--insight', action='store_true',
+                        help="scheduled mode: send the day's insight if it's due (insight mode always sends one)")
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
@@ -197,6 +199,13 @@ def main():
             credentials = telegram.credentials()
             for message in messages:
                 telegram.send(message, *credentials)
+        return 0
+    if args.mode == 'insight':
+        if not tracker:
+            raise SystemExit('--mode insight requires NOTION_TOKEN')
+        sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else None
+        with store.connect(args.db) as db:
+            print(insights.run(db, tracker, send=sender, force=True))
         return 0
     run = new_cron_run(args.mode)
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
@@ -310,6 +319,16 @@ def main():
                 digest.mark_shown(db, shown_ids, seed)
         print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
         run['telegram'] = f'sent {len(messages)} message(s), {new_count} new'
+    if tracker and args.insight and args.mode == 'scheduled':
+        # One insight a day, with the first scheduled run after insights.SEND_HOUR_UTC.
+        try:
+            run['insight'] = {}
+            with store.connect(args.db) as db:
+                print(insights.run(db, tracker, send=lambda text, markup: telegram.send(text, token, chat_id, markup),
+                                   stats=run['insight']))
+        except Exception as error:
+            print(f'Warning: insight skipped: {type(error).__name__}: {error}')
+            run['warnings'].append(f'insight skipped: {type(error).__name__}')
     if tracker and args.mode in ('scheduled', 'run', 'today'):
         # Only sending runs are logged, so local previews don't fill the table.
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())

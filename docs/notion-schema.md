@@ -87,6 +87,8 @@ delete and let it repopulate.
 | Languages | Multi-select | e.g. `English`, `German +` (a "+" suffix means "a plus", not required) |
 | Salary | Text | |
 | Recruiter | Checkbox | |
+| Technologies | Text | Key technologies from the posting (stage 1), semicolon-separated |
+| Role family | Select | `sre`, `platform`, `devops`, `cloud_infrastructure`, `software`, `data`, `security`, `support_it`, `other` |
 
 ## Employers & Sources (database)
 
@@ -134,6 +136,25 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 | Note | Text | |
 | Job URL | URL | |
 
+## 💡 Insights (database)
+
+Env var: `NOTION_INSIGHTS_DB`. One row per daily insight (`src/ai/insights.py`), created before the
+Telegram message so its buttons can point at the row.
+
+| Property | Type | Notes |
+|---|---|---|
+| Insight | Title | The headline |
+| Date | Date | One insight per day; the scheduled run checks this before making another |
+| Category | Select | `Skills`, `CV`, `Location`, `Salary`, `Seniority`, `Role focus`, `Timing`, `Activity`, `Process` |
+| Basis | Select | `Market`, `Applications`, `Both` |
+| Confidence | Select | `high`, `medium`, `low` |
+| Sample size | Number | Jobs or applications behind the finding |
+| Evidence | Text | One line per figure |
+| Action | Text | |
+| Feedback | Select | `Useful`, `Not useful`, `Acting on it` — set by the Telegram buttons; the next insights read it |
+| Cost (USD) | Number (dollar) | |
+| Model | Text | |
+
 ## ⏰ Cronjob Runs (database)
 
 Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`, modes `scheduled`,
@@ -152,9 +173,9 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Feeds / Feed errors | Number | Employer feeds scanned / failed |
 | New jobs / Changed jobs | Number | From this crawl |
 | Closed stale | Number | Jobs not seen for 7 days |
-| Enriched / Scored / Kits | Number | Done this run per AI stage |
+| Enriched / Scored / Kits / Insights | Number | Done this run per AI stage |
 | Top new score | Number | Best fit score among jobs first seen this run |
-| Cost enrich / score / kits (USD) | Number | Per stage |
+| Cost enrich / score / kits / insight (USD) | Number | Per stage |
 | AI cost (USD) | Number | Total |
 | Tokens (total) | Number | In + out + cached, all stages |
 | Telegram | Text | Sent / not sent |

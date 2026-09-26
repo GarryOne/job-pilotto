@@ -221,3 +221,18 @@ test('/scout dispatches the scout workflow', async () => {
 test('empty applications list points to Notion', () => {
   assert.match(formatApplied([], 'https://notion.test/db'), /No applications yet/);
 });
+
+test('/insight dispatches an insight run', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await send('/insight');
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'insight' } });
+  assert.match(calls[1].body.text, /insight arrives/);
+});
+
+test('insight feedback is saved on the Insights row and replaces the buttons', async () => {
+  const calls = mockFetch();
+  await tap(`ins:a:${PAGE}`);
+  assert.match(calls[0].url, new RegExp(`pages/${PAGE}$`));
+  assert.deepEqual(calls[0].body, { properties: { Feedback: { select: { name: 'Acting on it' } } } });
+  assert.deepEqual(calls[1].body.reply_markup, { inline_keyboard: [[{ text: "✅ You're acting on it", callback_data: 'noop' }]] });
+});
