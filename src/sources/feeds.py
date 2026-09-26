@@ -55,7 +55,9 @@ def wanted_location(job):
 def database(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path)
-    db.execute("""CREATE TABLE IF NOT EXISTS jobs (
+    # Its own table name: this file is also the canonical store (src/store.py), whose `jobs` table has a
+    # different schema. Sharing the name made every feed insert fail after the 25 Sep 2026 file rename.
+    db.execute("""CREATE TABLE IF NOT EXISTS feed_jobs (
         board TEXT, id TEXT, fingerprint TEXT, first_seen TEXT, last_seen TEXT,
         PRIMARY KEY(board, id))""")
     return db
@@ -67,10 +69,10 @@ def record(db, board, job, now):
         "title": job["title"], "location": job["location"],
         "url": job["url"]
     }, sort_keys=True).encode()).hexdigest()
-    previous = db.execute("SELECT fingerprint FROM jobs WHERE board=? AND id=?",
+    previous = db.execute("SELECT fingerprint FROM feed_jobs WHERE board=? AND id=?",
                           (board, str(job["id"]))).fetchone()
     status = "new" if previous is None else "changed" if previous[0] != fingerprint else "seen"
-    db.execute("""INSERT INTO jobs VALUES (?, ?, ?, ?, ?)
+    db.execute("""INSERT INTO feed_jobs VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(board, id) DO UPDATE SET
         fingerprint=excluded.fingerprint, last_seen=excluded.last_seen""",
         (board, str(job["id"]), fingerprint, now, now))

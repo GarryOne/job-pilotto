@@ -22,7 +22,29 @@ def job(i, value=80):
             'url': f'https://x.test/{i}', 'fit': fit(value), 'ai': None}
 
 
+class NotionTracker(FakeTracker):
+    """Also answers the Job Matches query, with rows made before this SQLite existed."""
+    def __init__(self, existing):
+        super().__init__()
+        self.existing = existing
+
+    def query_database(self, database_id, filter_=None):
+        return [{'id': page_id, 'properties': {'Job URL': {'url': url}}} for url, page_id in self.existing.items()]
+
+
 class MatchesSyncTests(unittest.TestCase):
+    def test_reset_cache_adopts_existing_rows_instead_of_duplicating(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                tracker = NotionTracker({'https://x.test/1': 'old-1', 'https://x.test/9': 'old-9'})
+                summary = matches.sync(db, tracker, [job(1), job(2)], open_urls={'https://x.test/1', 'https://x.test/2'})
+                self.assertIn('1 created', summary)
+                self.assertEqual(tracker.calls[0][0], 'old-1')  # updated in place, not created again
+                # A row Notion still shows Open, for a job the crawl no longer lists, becomes Not seen.
+                self.assertIn(('old-9', {'Status': {'select': {'name': 'Not seen'}}}), tracker.calls)
+                self.assertIn('0 created, 0 updated', matches.sync(db, tracker, [job(1), job(2)],
+                                                                  open_urls={'https://x.test/1', 'https://x.test/2'}))
+
     def test_creates_once_skips_unchanged_and_updates_status(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

@@ -33,6 +33,19 @@ class WatchTests(unittest.TestCase):
             with database(Path(tmp) / "db") as db:
                 self.assertEqual(scan(sources, db, fetch)["jobs"][0]["status"], "seen")
 
+    def test_feeds_share_the_store_file_without_clashing(self):
+        # daily.py opens the canonical store and the feed watcher on the same data/jobs.sqlite.
+        from src import store
+        job = {"id": "1", "title": "Site Reliability Engineer", "location": "Zurich", "url": "https://example.com/1"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "jobs.sqlite"
+            with store.connect(path):
+                pass
+            with database(path) as db:
+                report = scan([{"company": "A", "board": "a"}], db, lambda source: [job])
+            self.assertTrue(report["sources"][0]["ok"], report["sources"][0])
+            self.assertEqual(len(report["jobs"]), 1)
+
     def test_remote_must_be_open_to_europe(self):
         from src.sources.feeds import wanted_location
         self.assertTrue(wanted_location({"location": "Remote (EMEA)"}))

@@ -73,10 +73,29 @@ def _hash(props):
     return hashlib.sha256(json.dumps(stable, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def adopt_existing(db, tracker, known):
+    """Rows already in Notion that this SQLite doesn't know (its cache was reset): remember their page
+    ids so they are updated instead of duplicated, and so stale ones can be marked Not seen. The
+    empty hash forces one rewrite. Returns {url: row} for the adopted rows."""
+    if not hasattr(tracker, 'query_database'):
+        return {}
+    adopted = {}
+    for page in tracker.query_database(notion.MATCHES_DATABASE_ID):
+        url = ((page['properties'].get('Job URL') or {}).get('url') or '').strip()
+        if url and url not in known and url not in adopted:
+            adopted[url] = {'url': url, 'page_id': page['id'], 'data_hash': ''}
+            db.execute('INSERT OR IGNORE INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?)',
+                       (url, page['id'], ''))
+    db.commit()
+    return adopted
+
+
 def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset()):
     """Write changed rows; returns a one-line summary. Stops quietly on the first API error."""
     db.executescript(SYNC_TABLE)
     known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
+    if any(job['url'].strip() not in known for job in scored_jobs):
+        known.update(adopt_existing(db, tracker, known))
     created = updated = 0
     for job in scored_jobs:
         url = job['url'].strip()
