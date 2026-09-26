@@ -59,7 +59,9 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   your notes, and get back what went well, the weak answers and what to practise.
 - 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… on or before 23 Sep`:
   title, company and location come from the posting page.
-- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/add`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
+- 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update
+  your applications by themselves; the evening before an interview you get a prep message.
+- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
 - 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
@@ -110,6 +112,16 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   Pro, €59 once; local) or [Routines](https://getroutines.ai/) (subscription; cloud transcription).
   Always ask the interviewers first: recording without everyone's consent is illegal in
   Switzerland and many other places.
+- 📧 **Gmail and Calendar, read-only** (`src/ai/mail.py`, workflow `mail.yml`): 3 times a day (07:00,
+  12:00, 18:00 Zurich; edit the cron to change it), 5 minutes after an application is marked Applied,
+  and on `/mail`. Recent mail from applicant-tracking systems, recruiter platforms and schedulers (or
+  naming a tracked company) is classified by Claude Haiku 4.5 (about USD 0.002 per email) and matched
+  to its application: confirmations, replies, interview invites, rejections and offers become dated
+  📈 Application Events (never twice: each keeps its Gmail message id), Stage moves forward and Next
+  interview is filled. Calendar events belonging to an application (company, platform, or a contact's
+  email among the attendees) do the same; the evening before and the morning of an interview you get a
+  prep message (time, link, who, topics you answered weakly before), and afterwards a nudge to send the
+  transcript. Nothing in Gmail or Calendar is ever changed. Setup below.
 - 🧭 **How you applied counts**: each application has a Channel (Direct, Recruiter platform, Agency,
   Referral) and Via (e.g. TechTree), detected from the job URL; Company always holds the real
   employer, even when a platform reveals it only later. Insights compare reply rates by channel and
@@ -336,6 +348,9 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `JOB_PILOTTO_INSIGHT_MODEL` | model for the daily insight (repository variable; unset = no insights). Uses `claude-sonnet-5` |
 | `NOTION_INSIGHTS_DB` | your 💡 Insights database ID |
 | `NOTION_INTERVIEWS_DB` | your 🎤 Interviews database ID |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | GitHub secrets for Gmail + Calendar (read-only), set by `python3 -m src.sources.google auth --github`; locally in the Keychain (`job-pilotto.google.*`) |
+| `JOB_PILOTTO_MAIL_MODEL` | model that classifies job emails (repository variable; default `claude-haiku-4-5`) |
+| `JOB_PILOTTO_TZ` | your time zone for reminders (default `Europe/Zurich`) |
 | `JOB_PILOTTO_INTERVIEW_MODEL` | model for interview reviews (default `claude-sonnet-5`) |
 | `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
@@ -443,6 +458,26 @@ without a human confirming first. See `.claude/skills/apply-to-job/SKILL.md`'s L
 learned running this against real forms, and `AGENTS.md` for the same rules aimed at any agent
 working in this repo.
 
+## Gmail and Calendar setup (optional, 10 minutes)
+
+Read-only access (`gmail.readonly`, `calendar.readonly`) through your own Google Cloud OAuth client:
+
+1. [Create a project](https://console.cloud.google.com/projectcreate) (e.g. "Job Pilotto").
+2. Enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and the
+   [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
+3. [Google Auth Platform](https://console.cloud.google.com/auth/overview) → Get started: app name, your
+   email, audience **External**. Under **Audience**, add yourself as a test user, then **Publish app**:
+   in "Testing" Google expires the sign-in after 7 days. It stays unverified (only you use it), so the
+   sign-in shows "Google hasn't verified this app" → Advanced → continue.
+4. **Clients** → Create client → type **Desktop app** → copy the client ID and secret.
+5. On your Mac, in the repo: `python3 -m src.sources.google auth --client-id … --client-secret … --github`.
+   A browser tab asks for read-only Gmail and Calendar; the token goes to the Keychain and, with
+   `--github`, to the three `GOOGLE_*` repository secrets. `python3 -m src.sources.google check` confirms.
+6. Optional first look back: `gh workflow run mail.yml -f days=14`.
+
+Email content that matches the search is sent to the Anthropic API for classification; the results
+(kind, a short summary, the subject) are stored in your Notion.
+
 ## Repository layout
 
 ```
@@ -459,6 +494,7 @@ src/
   scout.py           daily source scout
   paths.py           repository paths
   sources/
+    google.py        read-only Gmail + Calendar client and the one-time OAuth sign-in
     ats.py           Greenhouse, Lever, Ashby, Workable, Recruitee, Personio,
                      SmartRecruiters, Amazon and Netflix job feeds
     feeds.py         crawls the active employer feeds
@@ -473,6 +509,7 @@ src/
                      `--report`, `--context`, `--learnings`
     insights.py      daily insight and Monday weekly report: stats by code, written by Sonnet 5
     interviews.py    interview transcript or notes -> 🎤 Interviews analysis, event and summary
+    mail.py          Gmail + Calendar -> events, Stage, Next interview, prep and follow-up messages
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
     matches.py       mirror of scored jobs into Notion Job Matches
@@ -503,7 +540,7 @@ tools/
 docs/                Notion schema, paste-ready Notion page templates, benchmark procedure, screenshots
 AGENTS.md            instructions for any agent (Claude, Codex, or other) working in this repo
 tests/               Python tests; Worker tests live in worker/test/
-.github/workflows/   daily.yml (every 4 h + on demand), scout.yml (daily)
+.github/workflows/   daily.yml (every 4 h + on demand), scout.yml (daily), mail.yml (3x a day + after applying)
 ```
 
 ## Commands
@@ -532,6 +569,10 @@ python3 -m src.notion.ledger add <job_url> --applied "on or before 23 Sep"   # a
 python3 -m src.notion.ledger event <job_url> "Reply received" --note "invited to book a call"
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
 python3 -m src daily --send --mode weekly                 # the weekly report now (Sonnet 5, ~USD 0.04)
+python3 -m src.sources.google auth --client-id ID --client-secret SECRET --github   # connect Gmail + Calendar once
+python3 -m src.sources.google check                       # which account, what it can see
+python3 -m src.ai.mail --days 10 --dry-run                # classify recent job emails; write nothing
+python3 -m src.ai.mail --send                             # what the mail workflow runs
 python3 -m src daily --send --mode interview --note $'/interview Acme round 1\nmy notes...'  # notes, no file
 ```
 

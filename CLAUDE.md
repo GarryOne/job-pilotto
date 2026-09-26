@@ -15,10 +15,10 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 
 ## Layout
 - Python package `src/` (run with `python -m src <daily|scout|discover|feeds|enrich>`): `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite; `scout.py` source scout; `paths.py` repo paths.
-- `src/sources/` (`ats.py` feed adapters, `feeds.py` employer-feed crawl, `boards.py` jobs.ch/TechTree), `src/ai/` (`enrich.py` stage 1 Haiku 4.5, `score.py` stage 2 Sonnet 5, `kit.py` application kit Sonnet 5 on 📝 Prepare or auto-drafted, `apply_batch.py` queues kits into the ChatGPT/Codex desktop app, `insights.py` daily insight + Monday weekly report: code stats + Sonnet 5 → Telegram and 💡 Insights, `interviews.py` transcript/notes sent to the bot → 🎤 Interviews), `src/notion/` (`client.py` Notion API, `matches.py` Job Matches sync, `ledger.py` application record frozen at Applied + 📈 Application Events outcome history + scheduled sync/no-response rule).
+- `src/sources/` (`ats.py` feed adapters, `feeds.py` employer-feed crawl, `boards.py` jobs.ch/TechTree), `src/ai/` (`enrich.py` stage 1 Haiku 4.5, `score.py` stage 2 Sonnet 5, `kit.py` application kit Sonnet 5 on 📝 Prepare or auto-drafted, `apply_batch.py` queues kits into the ChatGPT/Codex desktop app, `insights.py` daily insight + Monday weekly report: code stats + Sonnet 5 → Telegram and 💡 Insights, `interviews.py` transcript/notes sent to the bot → 🎤 Interviews, `mail.py` Gmail + Calendar → events/Stage/Next interview/prep messages; client in `src/sources/google.py`), `src/notion/` (`client.py` Notion API, `matches.py` Job Matches sync, `ledger.py` application record frozen at Applied + 📈 Application Events outcome history + scheduled sync/no-response rule).
 - `config/` holds editable settings: `preferences.json`, `sources.json`, `scout_seeds.json`.
 - `worker/` is the Cloudflare Worker for Telegram commands and buttons (`npm test`, `npx wrangler@4 deploy`).
-- Workflows: `.github/workflows/daily.yml` (every 4 h), `scout.yml` (daily).
+- Workflows: `.github/workflows/daily.yml` (every 4 h), `scout.yml` (daily), `mail.yml` (Gmail + Calendar, 3x a day and 5 min after applying).
 
 ## Tests
 `python3 -m unittest discover -s tests` and `cd worker && npm test`.

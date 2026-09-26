@@ -91,6 +91,8 @@ jobs:
           JOB_PILOTTO_AUTO_KIT_MIN_SCORE: ${{ vars.JOB_PILOTTO_AUTO_KIT_MIN_SCORE }}
           # Daily insight (first scheduled run after 04:00 UTC); off until this names a model.
           JOB_PILOTTO_INSIGHT_MODEL: ${{ vars.JOB_PILOTTO_INSIGHT_MODEL }}
+          # Lets apply/add runs start the Gmail check 5 minutes later (mail.yml).
+          GITHUB_TOKEN: ${{ github.token }}
           JOB: ${{ inputs.job }}
           ACTION: ${{ inputs.action || 'applied' }}
           PAGE: ${{ inputs.page }}

@@ -280,3 +280,10 @@ test('/add dispatches the job URL and the date words', async () => {
   assert.equal(calls.length, 1);
   assert.match(calls[0].body.text, /followed by the job URL/);
 });
+
+test('/mail dispatches the Gmail and Calendar workflow', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await send('/mail');
+  assert.match(calls[0].url, /workflows\/mail\.yml\/dispatches$/);
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { delay: '0' } });
+});

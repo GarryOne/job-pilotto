@@ -1,0 +1,76 @@
+name: Gmail and Calendar
+run-name: mail${{ inputs.delay && inputs.delay != '0' && format(' (after {0} min)', inputs.delay) || '' }}
+
+# Read-only: Gmail and Calendar -> 📈 Application Events, Stage, Next interview, Telegram.
+# How often: edit the cron below. 05, 10, 16 UTC = 07:00, 12:00, 18:00 in Zurich (summer time);
+# the 16:00 UTC run sends the evening-before interview prep. Also started 5 minutes after an
+# application is marked Applied (watcher, ✅ button, /add), and by /mail in Telegram.
+on:
+  schedule:
+    - cron: '0 5,10,16 * * *'
+  workflow_dispatch:
+    inputs:
+      delay:
+        description: 'minutes to wait first (5 after an application, so its confirmation email has arrived)'
+        required: false
+        default: '0'
+      days:
+        description: 'how many days of Gmail to look at'
+        required: false
+        default: '2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: job-pilotto-mail
+  cancel-in-progress: false
+
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+    steps:
+      - name: Not connected yet
+        if: env.GOOGLE_REFRESH_TOKEN == ''
+        run: echo "Google is not connected; run python -m src.sources.google auth --github on the Mac (see README)."
+      - uses: actions/checkout@v4
+        if: env.GOOGLE_REFRESH_TOKEN != ''
+      - uses: actions/setup-python@v5
+        if: env.GOOGLE_REFRESH_TOKEN != ''
+        with:
+          python-version: '3.12'
+      # Which emails were already classified and which reminders were sent; losing it only
+      # costs one re-classification (events are deduplicated in Notion by Source ID).
+      - name: Restore mail state
+        if: env.GOOGLE_REFRESH_TOKEN != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: data/mail-state.json
+          key: job-pilotto-mail-${{ github.run_id }}
+          restore-keys: job-pilotto-mail-
+      - name: Wait
+        if: env.GOOGLE_REFRESH_TOKEN != '' && inputs.delay && inputs.delay != '0'
+        run: sleep $(( ${{ inputs.delay }} * 60 ))
+      - name: Check Gmail and Calendar
+        if: env.GOOGLE_REFRESH_TOKEN != ''
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_PILOTTO_MAIL_MODEL: ${{ vars.JOB_PILOTTO_MAIL_MODEL || 'claude-haiku-4-5' }}
+          NOTION_APPLICATIONS_DB: f56b68942d3b43cbb85a7b1ebfe2df1b
+        run: |
+          pip install --quiet -r requirements.txt
+          python -m src.ai.mail --send --days "${{ inputs.days || '2' }}"
+      - name: Save mail state
+        if: always() && env.GOOGLE_REFRESH_TOKEN != ''
+        uses: actions/cache/save@v4
+        with:
+          path: data/mail-state.json
+          key: job-pilotto-mail-${{ github.run_id }}

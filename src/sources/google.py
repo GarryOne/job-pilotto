@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).
+
+Scopes are gmail.readonly and calendar.readonly: nothing is ever sent, changed or deleted. OAuth uses
+the owner's own Google Cloud "Desktop app" client. `auth` runs the one-time browser sign-in on this
+Mac (loopback redirect + PKCE), stores the refresh token in the Keychain, and with --github also sets
+the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN repository secrets for CI.
+
+Usage:
+  python -m src.sources.google auth --client-id ID --client-secret SECRET [--github]
+  python -m src.sources.google check
+"""
+import argparse
+import base64
+import hashlib
+import html
+import http.server
+import json
+import os
+import re
+import secrets
+import subprocess
+import sys
+import threading
+import urllib.parse
+import urllib.request
+import webbrowser
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+
+SCOPES = ('https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly')
+TOKEN_URL = 'https://oauth2.googleapis.com/token'
+KEYCHAIN = {'GOOGLE_CLIENT_ID': 'job-pilotto.google.client-id', 'GOOGLE_CLIENT_SECRET': 'job-pilotto.google.client-secret',
+            'GOOGLE_REFRESH_TOKEN': 'job-pilotto.google.refresh-token'}
+
+
+def _keychain(service):
+    if sys.platform != 'darwin':
+        return None
+    result = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''), '-s', service, '-w'],
+                            capture_output=True, text=True)
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+def credentials():
+    """(client id, client secret, refresh token) from the environment (CI) or the Keychain, or None."""
+    values = [os.getenv(name) or _keychain(service) for name, service in KEYCHAIN.items()]
+    return tuple(values) if all(values) else None
+
+
+class Google:
+    def __init__(self, client_id, client_secret, refresh_token, opener=urllib.request.urlopen):
+        self.client_id, self.client_secret, self.refresh_token = client_id, client_secret, refresh_token
+        self.opener, self._token = opener, None
+
+    @classmethod
+    def from_env(cls):
+        found = credentials()
+        return cls(*found) if found else None
+
+    def _access_token(self):
+        if not self._token:
+            body = urllib.parse.urlencode({'client_id': self.client_id, 'client_secret': self.client_secret,
+                                           'refresh_token': self.refresh_token, 'grant_type': 'refresh_token'}).encode()
+            with self.opener(urllib.request.Request(TOKEN_URL, data=body), timeout=20) as response:
+                self._token = json.load(response)['access_token']
+        return self._token
+
+    def get(self, url, params=None):
+        if params:
+            url += '?' + urllib.parse.urlencode(params, doseq=True)
+        request = urllib.request.Request(url, headers={'Authorization': f'Bearer {self._access_token()}'})
+        with self.opener(request, timeout=30) as response:
+            return json.load(response)
+
+    # ---------- Gmail ----------
+
+    def search(self, query, limit=50):
+        """Message ids matching a Gmail search, newest first."""
+        ids, token = [], None
+        while len(ids) < limit:
+            params = {'q': query, 'maxResults': min(100, limit - len(ids))}
+            if token:
+                params['pageToken'] = token
+            page = self.get('https://gmail.googleapis.com/gmail/v1/users/me/messages', params)
+            ids += [m['id'] for m in page.get('messages', [])]
+            token = page.get('nextPageToken')
+            if not token:
+                break
+        return ids
+
+    def message(self, message_id):
+        """{id, from, to, subject, date (ISO), body} of one email; the body is plain text, capped."""
+        data = self.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}', {'format': 'full'})
+        headers = {h['name'].lower(): h['value'] for h in data['payload'].get('headers', [])}
+        try:
+            sent = parsedate_to_datetime(headers.get('date', '')).isoformat()
+        except (TypeError, ValueError):
+            sent = datetime.fromtimestamp(int(data.get('internalDate', 0)) / 1000, timezone.utc).isoformat()
+        return {'id': data['id'], 'from': headers.get('from', ''), 'to': headers.get('to', ''),
+                'subject': headers.get('subject', ''), 'date': sent, 'body': body_text(data['payload'])[:4000]}
+
+    def profile(self):
+        return self.get('https://gmail.googleapis.com/gmail/v1/users/me/profile')
+
+    # ---------- Calendar ----------
+
+    def events(self, start, end, calendar='primary'):
+        """Single events (recurring ones expanded) between two datetimes, by start time."""
+        page = self.get(f'https://www.googleapis.com/calendar/v3/calendars/{urllib.parse.quote(calendar)}/events', {
+            'timeMin': start.isoformat(), 'timeMax': end.isoformat(), 'singleEvents': 'true',
+            'orderBy': 'startTime', 'maxResults': 250})
+        return page.get('items', [])
+
+
+def _decode(data):
+    return base64.urlsafe_b64decode(data + '=' * (-len(data) % 4)).decode('utf-8', errors='replace')
+
+
+def body_text(payload):
+    """The text/plain part, else the text/html part with tags removed."""
+    plain_parts, html_parts = [], []
+
+    def walk(part):
+        mime, data = part.get('mimeType', ''), (part.get('body') or {}).get('data')
+        if data and mime == 'text/plain':
+            plain_parts.append(_decode(data))
+        elif data and mime == 'text/html':
+            html_parts.append(_decode(data))
+        for child in part.get('parts', []) or []:
+            walk(child)
+    walk(payload)
+    if plain_parts:
+        return '\n'.join(plain_parts).strip()
+    text = re.sub(r'(?is)<(script|style).*?</\1>', ' ', '\n'.join(html_parts))
+    text = re.sub(r'(?i)<br\s*/?>|</p>|</div>|</li>', '\n', text)
+    return re.sub(r'[ \t\xa0]+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
+
+
+# ---------- one-time sign-in ----------
+
+def authorize(client_id, client_secret, open_browser=webbrowser.open):
+    """Browser consent on this Mac; returns the refresh token."""
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
+    state, result = secrets.token_urlsafe(16), {}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            result.update({k: v[0] for k, v in query.items()})
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write('<h2>Job Pilotto is connected. You can close this tab.</h2>'.encode())
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+    redirect = f'http://127.0.0.1:{server.server_port}'
+    url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode({
+        'client_id': client_id, 'redirect_uri': redirect, 'response_type': 'code', 'scope': ' '.join(SCOPES),
+        'access_type': 'offline', 'prompt': 'consent', 'state': state,
+        'code_challenge': challenge, 'code_challenge_method': 'S256'})
+    print(f'Opening Google sign-in. If no browser opens, visit:\n{url}\n')
+    thread = threading.Thread(target=server.handle_request)
+    thread.start()
+    open_browser(url)
+    thread.join(timeout=300)
+    server.server_close()
+    if result.get('state') != state or 'code' not in result:
+        raise SystemExit(f"Sign-in did not complete: {result.get('error', 'no answer within 5 minutes')}")
+    body = urllib.parse.urlencode({'code': result['code'], 'client_id': client_id, 'client_secret': client_secret,
+                                   'redirect_uri': redirect, 'grant_type': 'authorization_code',
+                                   'code_verifier': verifier}).encode()
+    with urllib.request.urlopen(urllib.request.Request(TOKEN_URL, data=body), timeout=20) as response:
+        tokens = json.load(response)
+    if 'refresh_token' not in tokens:
+        raise SystemExit('Google returned no refresh token; remove Job Pilotto at myaccount.google.com/permissions and retry.')
+    return tokens['refresh_token']
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest='command', required=True)
+    auth = sub.add_parser('auth', help='one-time browser sign-in; stores the token in the Keychain')
+    auth.add_argument('--client-id', required=True)
+    auth.add_argument('--client-secret', required=True)
+    auth.add_argument('--github', action='store_true', help='also set the three GOOGLE_* repository secrets with gh')
+    sub.add_parser('check', help='show which account is connected and what it can see')
+    args = parser.parse_args(argv)
+    if args.command == 'auth':
+        token = authorize(args.client_id, args.client_secret)
+        values = {'GOOGLE_CLIENT_ID': args.client_id, 'GOOGLE_CLIENT_SECRET': args.client_secret, 'GOOGLE_REFRESH_TOKEN': token}
+        for name, service in KEYCHAIN.items():
+            subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''), '-s', service,
+                            '-w', values[name]], check=True)
+        print('Stored in the Keychain:', ', '.join(KEYCHAIN.values()))
+        if args.github:
+            for name, value in values.items():
+                subprocess.run(['gh', 'secret', 'set', name], input=value, text=True, check=True)
+            print('Set GitHub secrets:', ', '.join(values))
+    google = Google.from_env()
+    if not google:
+        raise SystemExit('Not connected: run `python -m src.sources.google auth --client-id ... --client-secret ...`')
+    now = datetime.now(timezone.utc)
+    print(f"Connected Gmail: {google.profile()['emailAddress']}")
+    print(f"Job-related emails in the last 7 days: {len(google.search('newer_than:7d subject:(application OR applying OR interview)', 100))}")
+    from datetime import timedelta
+    print(f"Calendar events in the next 14 days: {len(google.events(now, now + timedelta(days=14)))}")
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

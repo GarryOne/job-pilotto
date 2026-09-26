@@ -14,6 +14,7 @@ const HELP = [
   '/insight — one insight about your search now (~1 min)',
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
   '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… on or before 23 Sep',
+  '/mail — check Gmail and Calendar for application news now (also runs 3 times a day)',
   '🎤 After an interview: send the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
@@ -251,6 +252,9 @@ export async function handleCommand(env, command) {
     case 'weekly':
       await dispatch(env, { mode: 'weekly' });
       return '📊 Writing the weekly report; it arrives in about a minute.';
+    case 'mail':
+      await dispatch(env, { delay: '0' }, 'mail.yml');
+      return '📧 Checking Gmail and Calendar; news arrives in about a minute (nothing if there is none).';
     case 'scout':
       await dispatch(env, { batch: '15' }, 'scout.yml');
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';

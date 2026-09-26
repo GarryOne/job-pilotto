@@ -114,6 +114,7 @@ def apply_message(db, code, tracker, action='applied'):
             ledger.record(tracker, job['url'])
         except Exception as error:
             print(f'Warning: application record skipped: {type(error).__name__}: {error}')
+        queue_mail_check()
     link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>'
     title = f"<b>{escape(job['title'])}</b> — {escape(job['company'])}"
     if outcome == 'unchanged':
@@ -123,6 +124,26 @@ def apply_message(db, code, tracker, action='applied'):
         'Saved': f"⭐ Saved: {title}\nIt stays in digests with a star; /saved lists your saved jobs.",
         'Dismissed': f"❌ Dismissed: {title}\nIt won't appear again, and helps tune the scores.",
     }[stage]
+
+
+def queue_mail_check(delay=5):
+    """Start the Gmail + Calendar workflow in `delay` minutes, so an application's confirmation email is
+    picked up soon after it's marked Applied. Needs GITHUB_TOKEN/GITHUB_REPOSITORY (set in Actions);
+    a no-op elsewhere, and a failure never blocks the reply."""
+    token, repo = os.getenv('GITHUB_TOKEN'), os.getenv('GITHUB_REPOSITORY')
+    if not token or not repo:
+        return False
+    import urllib.request
+    request = urllib.request.Request(
+        f'https://api.github.com/repos/{repo}/actions/workflows/mail.yml/dispatches', method='POST',
+        data=json.dumps({'ref': 'main', 'inputs': {'delay': str(delay)}}).encode(),
+        headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'})
+    try:
+        with urllib.request.urlopen(request, timeout=20):
+            return True
+    except Exception as error:
+        print(f'Warning: mail check not queued: {type(error).__name__}: {error}')
+        return False
 
 
 def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None):
@@ -210,6 +231,7 @@ def main():
             applied, approx = ledger.parse_applied(args.note)
             reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
                                                           source='Telegram'))
+            queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
         print(reply)

@@ -55,6 +55,8 @@ for _ in $(seq 540); do
     if (cd "$repo" && NOTION_TOKEN="$token" python3 -m src.ai.apply_batch --mark-applied "$url" --source Watcher); then
       notify "Submitted — marked Applied in Notion"
       say "marked applied"
+      # Look for the confirmation email in 5 minutes (Gmail + Calendar workflow; no-op if Google isn't connected).
+      (cd "$repo" && gh workflow run mail.yml -f delay=5 >/dev/null 2>&1) && say "mail check queued" || true
       exit 0
     fi
     say "FAILED to mark applied — run: python3 -m src.ai.apply_batch --mark-applied $url"

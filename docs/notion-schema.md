@@ -135,7 +135,8 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 | Application | Relation | To Applications — Job Tracker (two-way, shows there as "Events") |
 | Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response` |
 | At | Date | With time |
-| Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill` |
+| Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill`, `Gmail`, `Calendar` |
+| Source ID | Text | Gmail message id, or `cal:<event id>`; an email or calendar event is never logged twice |
 | Note | Text | |
 | Job URL | URL | |
 
