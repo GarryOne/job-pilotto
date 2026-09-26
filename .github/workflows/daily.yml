@@ -5,12 +5,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit; insight sends an insight now; weekly sends the weekly report now; interview analyses a transcript sent to the bot'
+        description: 'scheduled sends only when new jobs exist; run and today always send; apply marks a job applied; prepare drafts its application kit; insight sends an insight now; weekly sends the weekly report now; interview analyses a transcript sent to the bot; add tracks an application made elsewhere'
         type: choice
-        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview]
+        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview, add]
         default: scheduled
       job:
-        description: 'job code from /apply_<code> (apply and prepare modes)'
+        description: 'job code from /apply_<code> (apply and prepare modes), or a job URL (add mode)'
         required: false
       action:
         description: 'apply mode: applied, saved or dismissed'
@@ -26,7 +26,7 @@ on:
         description: 'interview mode: Telegram file id of the transcript'
         required: false
       note:
-        description: 'interview mode: caption, or /interview <label> plus notes'
+        description: 'interview mode: caption, or /interview <label> plus notes; add mode: application date'
         required: false
   schedule:
     # GitHub Actions schedules use UTC.
@@ -39,7 +39,7 @@ permissions:
 # Runs share one SQLite state file; never let two overlap. Apply, more,
 # prepare and insight runs only read it, so they get their own group and a queued run can't displace them.
 concurrency:
-  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare' || inputs.mode == 'insight' || inputs.mode == 'weekly' || inputs.mode == 'interview') && format('read-{0}', github.run_id) || 'job-pilotto-state' }}
+  group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare' || inputs.mode == 'insight' || inputs.mode == 'weekly' || inputs.mode == 'interview' || inputs.mode == 'add') && format('read-{0}', github.run_id) || 'job-pilotto-state' }}
   cancel-in-progress: false
 
 env:
@@ -126,7 +126,7 @@ jobs:
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
             --data-urlencode "text=❌ Job Pilotto ${MODE} run failed: ${RUN_URL}" > /dev/null
       - name: Save job database
-        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare' && env.MODE != 'insight' && env.MODE != 'weekly' && env.MODE != 'interview'
+        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare' && env.MODE != 'insight' && env.MODE != 'weekly' && env.MODE != 'interview' && env.MODE != 'add'
         uses: actions/cache/save@v4
         with:
           path: data/jobs.sqlite
@@ -138,7 +138,7 @@ jobs:
         # losing jobs.sqlite between scheduled runs, not a duplicate of the cache step. The file
         # is a disposable crawl/scoring cache either way (see README) — nothing here is the
         # durable record; that's Notion.
-        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare' && env.MODE != 'insight' && env.MODE != 'weekly' && env.MODE != 'interview'
+        if: always() && env.MODE != 'apply' && env.MODE != 'more' && env.MODE != 'prepare' && env.MODE != 'insight' && env.MODE != 'weekly' && env.MODE != 'interview' && env.MODE != 'add'
         uses: actions/upload-artifact@v4
         with:
           name: job-pilotto-jobs-db

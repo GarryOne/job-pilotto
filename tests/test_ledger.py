@@ -1,8 +1,10 @@
+import io
 import json
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -193,6 +195,79 @@ class BackfillTests(unittest.TestCase):
         self.assertEqual([page for page, _ in tracker.updates], ['page-1'])
 
 
+class AddApplicationTests(unittest.TestCase):
+    def test_parse_applied(self):
+        today = date(2026, 9, 26)
+        self.assertEqual(ledger.parse_applied('on or before 23 Sep', today), (date(2026, 9, 23), True))
+        self.assertEqual(ledger.parse_applied('2026-09-23', today), (date(2026, 9, 23), False))
+        self.assertEqual(ledger.parse_applied('Sep 2', today), (date(2026, 9, 2), False))
+        self.assertEqual(ledger.parse_applied('30 Dec', today), (date(2025, 12, 30), False))  # never in the future
+        self.assertEqual(ledger.parse_applied('', today), (None, False))
+        with self.assertRaises(ValueError):
+            ledger.parse_applied('last week', today)
+
+    def test_channel_for(self):
+        self.assertEqual(ledger.channel_for('https://jobs.techtree.dev/job/1'), ('Recruiter platform', 'TechTree'))
+        self.assertEqual(ledger.channel_for(URL, {'Recruiter': True}), ('Agency', ''))
+        self.assertEqual(ledger.channel_for(URL, {}), ('Direct', ''))
+
+    def test_page_meta_reads_schema_org_job_posting(self):
+        page = """<html><title>x</title><script type="application/ld+json">{"@type": "JobPosting",
+            "title": "Infrastructure Engineer", "datePosted": "2026-07-20T09:24:45",
+            "hiringOrganization": {"@type": "Organization", "name": "Robotics Co"},
+            "jobLocation": {"@type": "Place", "address": "Zürich, Switzerland"},
+            "description": "<p>Build &amp; run the edge platform</p>"}</script></html>"""
+        with mock.patch.object(ledger.ats, 'posting', lambda url: None):
+            meta = ledger.page_meta('https://jobs.techtree.dev/job/1', opener=lambda req, timeout: io.BytesIO(page.encode()))
+        self.assertEqual((meta['title'], meta['company'], meta['location']),
+                         ('Infrastructure Engineer', 'Robotics Co', 'Zürich, Switzerland'))
+        self.assertIn('Build & run', meta['description'])
+
+    def test_new_application_row_event_on_its_date_and_record(self):
+        tracker = FakeTracker([])
+        meta = {'title': 'Infrastructure Engineer', 'company': 'Robotics Co', 'location': 'Zürich', 'date_posted': '2026-07-20'}
+        def create(database_id, properties):
+            tracker.created.append((database_id, properties))
+            if database_id == 'apps':
+                tracker.rows.append({'id': 'new', 'properties': {
+                    'Job': {'type': 'title', 'title': [{'plain_text': 'Infrastructure Engineer'}]},
+                    'Company': text('Robotics Co'), 'Job URL': {'type': 'url', 'url': 'https://jobs.techtree.dev/job/1'},
+                    'Stage': {'type': 'select', 'select': {'name': 'Applied'}},
+                    'Applied on': {'type': 'date', 'date': {'start': '2026-09-23'}}}})
+            return {'id': 'x'}
+        tracker.create_page = create
+        with tempfile.TemporaryDirectory() as empty, mock.patch.multiple(ledger, SNAPSHOT_DIR=Path(empty), RUN_DIR=Path(empty)):
+            line = ledger.add_application(tracker, 'https://jobs.techtree.dev/job/1', applied=date(2026, 9, 23),
+                                          approx=True, meta=meta, source='Telegram')
+        row_props = tracker.created[0][1]
+        self.assertEqual(row_props['Channel'], {'select': {'name': 'Recruiter platform'}})
+        self.assertEqual(row_props['Via']['rich_text'][0]['text']['content'], 'TechTree')
+        self.assertTrue(row_props['Date approximate']['checkbox'])
+        self.assertEqual(row_props['Posted'], {'date': {'start': '2026-07-20'}})
+        event = tracker.created[1][1]
+        self.assertEqual((event['Kind']['select']['name'], event['At']['date']['start']), ('Applied', '2026-09-23'))
+        self.assertIn('on or before 2026-09-23', line)
+        self.assertIn('via TechTree', line)
+
+    def test_later_stage_is_left_alone(self):
+        tracker = FakeTracker([row(stage='Screening')])
+        self.assertIn('Already tracked at Screening', ledger.add_application(tracker, URL, meta={}))
+        self.assertEqual(tracker.updates, [])
+
+    def test_applied_event_defaults_to_the_applied_on_date(self):
+        tracker = FakeTracker([row()])
+        ledger.add_event(tracker, row(applied='2026-09-20'), 'Applied', 'CLI')
+        self.assertEqual(tracker.created[0][1]['At'], {'date': {'start': '2026-09-20'}})
+
+    def test_record_sets_channel_only_when_empty(self):
+        props, _ = ledger.build('https://jobs.techtree.dev/job/1', row(), None, {}, None, None, None, '', NOW)
+        self.assertEqual(props['Channel'], {'select': {'name': 'Recruiter platform'}})
+        owned = row()
+        owned['properties']['Channel'] = {'type': 'select', 'select': {'name': 'Referral'}}
+        props, _ = ledger.build('https://jobs.techtree.dev/job/1', owned, None, {}, None, None, None, '', NOW)
+        self.assertNotIn('Channel', props)
+
+
 class SyncTests(unittest.TestCase):
     def kinds(self, tracker):
         return [(p['Kind']['select']['name'], p['Source']['select']['name']) for _, p in tracker.created]
@@ -228,6 +303,12 @@ class SyncTests(unittest.TestCase):
         tracker = FakeTracker([row(applied='2026-08-01')])
         ledger.sync(tracker, now=NOW)
         self.assertEqual(self.kinds(tracker), [('Applied', 'Backfill'), ('No response', 'Auto rule')])
+
+    def test_reply_is_not_a_stage_change_and_stops_the_no_response_rule(self):
+        tracker = FakeTracker([row(applied='2026-08-01')], [event('page-1', 'Applied', '2026-08-01'),
+                                                            event('page-1', 'Reply received', '2026-08-03')])
+        self.assertIn('0 stage change(s) logged, 0 moved', ledger.sync(tracker, now=NOW))
+        self.assertEqual((tracker.created, tracker.updates), ([], []))
 
     def test_dry_run_writes_nothing(self):
         tracker = FakeTracker([row(applied='2026-08-01')])

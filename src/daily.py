@@ -46,7 +46,7 @@ def top_new(report, scored, limit=3):
 
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview', 'add')
 
 
 def find_job(db, code):
@@ -201,6 +201,20 @@ def main():
             credentials = telegram.credentials()
             for message in messages:
                 telegram.send(message, *credentials)
+        return 0
+    if args.mode == 'add':
+        # /add <job URL> [date]: track an application made outside Job Pilotto.
+        if not args.job or not tracker:
+            raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
+        try:
+            applied, approx = ledger.parse_applied(args.note)
+            reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
+                                                          source='Telegram'))
+        except ValueError as error:
+            reply = f'⚠️ {escape(str(error))}'
+        print(reply)
+        if args.send:
+            telegram.send(reply, *telegram.credentials())
         return 0
     if args.mode == 'interview':
         if not tracker:

@@ -19,13 +19,17 @@ Usage:
   python -m src.notion.ledger event <job URL> <stage> [--note TEXT]
   python -m src.notion.ledger sync [--dry-run]
   python -m src.notion.ledger backfill        # record every application tracked before the ledger
+  python -m src.notion.ledger add <job URL> [--applied "on or before 23 Sep"] [--channel ...] [--via ...]
 """
 import argparse
 import hashlib
 import json
 import os
+import html
+import json as _json
 import re
 import sys
+import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -45,8 +49,14 @@ DEFAULT_CV = os.getenv('JOB_PILOTTO_CV_PATH',
 # Stages that are real application outcomes, in funnel order; each one is also an event Kind.
 OUTCOME_STAGES = ('Applied', 'Confirmation received', 'Screening', 'Interview scheduled',
                   'Interviewing', 'Offer', 'Rejected', 'Withdrawn', 'No response')
+# An event without a Stage of its own: a human replied (invitation to book a call, a recruiter's email).
+REPLY = 'Reply received'
+EVENT_KINDS = OUTCOME_STAGES + (REPLY,)
 # Still waiting for a human reply: the no-response rule applies only to these.
 WAITING_STAGES = ('Applied', 'Confirmation received')
+CHANNELS = ('Direct', 'Recruiter platform', 'Agency', 'Referral')
+# Job sites where a recruiter platform, not the employer, runs the process (Company = real employer, Via = platform).
+RECRUITER_PLATFORMS = {'techtree.dev': 'TechTree'}
 ATS_NAMES = {'greenhouse': 'Greenhouse', 'ashby': 'Ashby', 'lever': 'Lever', 'workable': 'Workable'}
 AGENTS = {'claude': 'Claude', 'codex': 'Codex', 'chatgpt': 'ChatGPT', 'manual': 'Manual'}
 SELECTS = {'Seniority': {'Junior', 'Mid', 'Senior', 'Staff/Principal', 'Lead/Manager'},
@@ -148,6 +158,17 @@ def answers_for(kit, form):
     return [], 'None'
 
 
+def channel_for(url, match=None):
+    """(Channel, Via) guessed from the job URL and the Job Matches recruiter flag."""
+    host = re.sub(r'^www\.', '', (re.match(r'https?://([^/]+)', url or '') or [None, ''])[1].lower())
+    for domain, name in RECRUITER_PLATFORMS.items():
+        if host == domain or host.endswith('.' + domain):
+            return 'Recruiter platform', name
+    if (match or {}).get('Recruiter'):
+        return 'Agency', ''
+    return 'Direct', ''
+
+
 def build(url, row, kit, match, posting, form, run, cv, now):
     """(Applications properties, record dict) for one application. Pure: no I/O."""
     props = row['properties']
@@ -180,6 +201,11 @@ def build(url, row, kit, match, posting, form, run, cv, now):
         properties['Days to apply'] = {'number': max((applied - posted).days, 0)}
     if agent:
         properties['Agent'] = {'select': {'name': agent}}
+    if not plain(props.get('Channel')):  # never overwrite what the owner set
+        channel, via = channel_for(url, match)
+        properties['Channel'] = {'select': {'name': channel}}
+        if via and not plain(props.get('Via')):
+            properties['Via'] = _text(via)
     record = {
         'version': RECORD_VERSION, 'recorded_at': now.isoformat(timespec='seconds'), 'url': url,
         'job': {'title': plain(props.get('Job')), 'company': plain(props.get('Company')),
@@ -263,6 +289,8 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
 def add_event(tracker, page, kind, source, *, at=None, note=''):
     """One 📈 Application Events row linked to the Applications page."""
     props = page['properties']
+    if not at and kind == 'Applied':
+        at = plain(props.get('Applied on'))  # the application's own date, never "now" for an old one
     at = at or datetime.now(timezone.utc).isoformat(timespec='seconds')
     company = plain(props.get('Company')) or plain(props.get('Job')) or 'application'
     properties = {
@@ -296,28 +324,32 @@ def mark_applied(tracker, url, source='CLI', **record_options):
 
 def set_stage(tracker, url, stage, source='CLI', note=''):
     """Move an application to an outcome stage and log the event."""
-    if stage not in OUTCOME_STAGES:
-        raise ValueError(f'Stage must be one of: {", ".join(OUTCOME_STAGES)}')
+    if stage not in EVENT_KINDS:
+        raise ValueError(f'Stage must be one of: {", ".join(EVENT_KINDS)}')
     if stage == 'Applied':
         return mark_applied(tracker, url, source)
     row = tracker.find(url)
     if not row:
         raise LookupError(f'No Applications row for {url}')
-    tracker.update_page(row['id'], {'Stage': {'select': {'name': stage}}})
+    if stage != REPLY:  # a reply is an event only; Stage stays where it is
+        tracker.update_page(row['id'], {'Stage': {'select': {'name': stage}}})
     add_event(tracker, row, stage, source, note=note)
     return f'{url}: {stage}'
 
 
 def latest_events(tracker):
-    """Applications page id -> (kind, at) of its most recent event."""
+    """Applications page id -> {'kind', 'at'} of its latest Stage-type event, plus 'last' (time of its
+    latest event of any kind) and 'replied' (whether a Reply received event exists)."""
     latest = {}
     for event in tracker.query_database(EVENTS_DATABASE_ID):
         props = event['properties']
         at, kind = plain(props.get('At')) or '', plain(props.get('Kind'))
         for link in (props.get('Application') or {}).get('relation', []):
-            key = link['id'].replace('-', '')
-            if at >= latest.get(key, ('', ''))[1]:
-                latest[key] = (kind, at)
+            item = latest.setdefault(link['id'].replace('-', ''), {'kind': None, 'at': '', 'last': '', 'replied': False})
+            item['last'] = max(item['last'], at)
+            item['replied'] |= kind == REPLY
+            if kind in OUTCOME_STAGES and at >= item['at']:
+                item.update(kind=kind, at=at)
     return latest
 
 
@@ -332,24 +364,135 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
     for row in rows:
         props = row['properties']
         stage = plain(props.get('Stage'))
-        kind, at = latest.get(row['id'].replace('-', ''), (None, ''))
-        if kind != stage:
+        info = latest.get(row['id'].replace('-', ''), {'kind': None, 'at': '', 'last': '', 'replied': False})
+        last_at = info['last']
+        if info['kind'] != stage:
             when = plain(props.get('Applied on')) if stage == 'Applied' else row.get('last_edited_time')
             if not dry_run:
                 source, note = (('Backfill', 'First event for an application tracked before the ledger')
-                                if kind is None else
+                                if info['kind'] is None else
                                 ('Notion edit', 'Stage changed in Notion; time is when the row was last edited'))
                 add_event(tracker, row, stage, source, at=when or now.isoformat(timespec='seconds'), note=note)
-            logged, at = logged + 1, when or at
+            logged, last_at = logged + 1, max(last_at, when or '')
         applied = _day(plain(props.get('Applied on')))
-        last = _day(at) or applied
-        if stage in WAITING_STAGES and applied and last and (now.date() - last).days >= no_response_days:
+        last = _day(last_at) or applied
+        if (stage in WAITING_STAGES and not info['replied'] and applied and last
+                and (now.date() - last).days >= no_response_days):
             if not dry_run:
                 tracker.update_page(row['id'], {'Stage': {'select': {'name': 'No response'}}})
                 add_event(tracker, row, 'No response', 'Auto rule',
                           note=f'No reply {(now.date() - applied).days} days after applying')
             silent += 1
     return f'Ledger sync: {len(rows)} applications, {logged} stage change(s) logged, {silent} moved to No response.'
+
+
+MONTHS = {m: i for i, m in enumerate(
+    ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'), 1)}
+
+
+def parse_applied(text, today=None):
+    """(date or None, approximate) from "2026-09-23", "23 Sep", "23.09", "on or before 23 Sep", "~23/9".
+    A year-less date in the future is taken as last year's."""
+    today = today or date.today()
+    text = (text or '').strip().lower()
+    if not text:
+        return None, False
+    approx = bool(re.search(r'before|approx|around|about|~|<=|≤|ca\.?\b', text))
+    found = None
+    if m := re.search(r'(\d{4})-(\d{1,2})-(\d{1,2})', text):
+        found = (int(m[1]), int(m[2]), int(m[3]))
+    elif m := re.search(r'(\d{1,2})\s*(?:\.|/|\s)\s*([a-z]{3})[a-z]*\.?(?:\s+(\d{4}))?', text):
+        if m[2] in MONTHS:
+            found = (int(m[3]) if m[3] else None, MONTHS[m[2]], int(m[1]))
+    elif m := re.search(r'([a-z]{3})[a-z]*\s+(\d{1,2})(?:,?\s+(\d{4}))?', text):
+        if m[1] in MONTHS:
+            found = (int(m[3]) if m[3] else None, MONTHS[m[1]], int(m[2]))
+    elif m := re.search(r'(\d{1,2})[./](\d{1,2})(?:[./](\d{4}))?', text):
+        found = (int(m[3]) if m[3] else None, int(m[2]), int(m[1]))
+    if not found:
+        raise ValueError(f'Could not read a date from "{text}". Try 2026-09-23, 23 Sep or "on or before 23 Sep".')
+    year, month, day = found
+    value = date(year or today.year, month, day)
+    if year is None and value > today:
+        value = date(today.year - 1, month, day)
+    return value, approx
+
+
+def page_meta(url, opener=urllib.request.urlopen):
+    """Title, company, location, posting date and description of a job page: the job board's API when
+    supported (ats.posting), else the page's schema.org JobPosting (most job sites publish one)."""
+    meta = dict(ats.posting(url) or {})
+    try:
+        request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Job Pilotto)'})
+        with opener(request, timeout=20) as response:
+            page = response.read().decode('utf-8', errors='replace')
+    except Exception:  # noqa: BLE001 — a page we can't read still gets tracked with what we have
+        return meta
+    for block in re.findall(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', page, re.S):
+        try:
+            data = _json.loads(block)
+        except ValueError:
+            continue
+        for item in data if isinstance(data, list) else data.get('@graph', [data]):
+            if isinstance(item, dict) and item.get('@type') == 'JobPosting':
+                place = item.get('jobLocation') or {}
+                place = place[0] if isinstance(place, list) and place else place
+                address = place.get('address') if isinstance(place, dict) else None
+                if isinstance(address, dict):
+                    address = ', '.join(v for v in (address.get('addressLocality'), address.get('addressCountry'))
+                                        if isinstance(v, str) and v)
+                meta.setdefault('title', item.get('title'))
+                meta.setdefault('company', (item.get('hiringOrganization') or {}).get('name'))
+                meta.setdefault('location', address)
+                meta.setdefault('date_posted', item.get('datePosted'))
+                meta.setdefault('description', re.sub(r'<[^>]+>', ' ', html.unescape(item.get('description') or '')))
+                return {k: v for k, v in meta.items() if v}
+    if not meta.get('title') and (m := re.search(r'<title>(.*?)</title>', page, re.S)):
+        meta['title'] = html.unescape(m[1]).strip()
+    return meta
+
+
+def add_application(tracker, url, *, applied=None, approx=False, channel=None, via=None, source='CLI',
+                    meta=None, today=None):
+    """Track an application made outside Job Pilotto (or before it): the Applications row, an Applied
+    event on the application's date, and the frozen record. Returns a one-line summary."""
+    today = today or date.today()
+    applied = applied or today
+    meta = meta if meta is not None else page_meta(url)
+    guess_channel, guess_via = channel_for(url)
+    channel, via = channel or guess_channel, via if via is not None else guess_via
+    text = lambda value: _text(value or '')
+    props = {'Stage': {'select': {'name': 'Applied'}}, 'Applied on': {'date': {'start': applied.isoformat()}},
+             'Date approximate': {'checkbox': bool(approx)}, 'Channel': {'select': {'name': channel}}}
+    if via:
+        props['Via'] = text(via)
+    row = tracker.find(url)
+    if row:
+        stage = plain(row['properties'].get('Stage'))
+        if stage in OUTCOME_STAGES and stage != 'Applied':
+            return f'Already tracked at {stage}: {plain(row["properties"].get("Job"))}'
+        tracker.update_page(row['id'], props)
+    else:
+        posted = (meta.get('date_posted') or '')[:10]
+        props.update({
+            'Job': {'title': [{'text': {'content': (meta.get('title') or url)[:200]}}]},
+            'Company': text(meta.get('company')), 'Location': text(meta.get('location')),
+            'Job URL': {'url': url}, 'Source': {'select': {'name': 'Manual' if source == 'CLI' else source}},
+        })
+        if _day(posted):
+            props['Posted'] = {'date': {'start': posted}}
+        row = tracker.create_page(tracker.database_id, props)
+    row = tracker.find(url) or row
+    add_event(tracker, row, 'Applied', source, at=applied.isoformat(),
+              note='Applied outside Job Pilotto' + ('; date is an upper bound (on or before)' if approx else ''))
+    try:
+        _, recorded = record(tracker, url, posting=lambda _url: meta)
+    except Exception as error:  # noqa: BLE001
+        recorded = f'record skipped: {type(error).__name__}'
+    title = plain(row['properties'].get('Job')) or meta.get('title') or url
+    company = plain(row['properties'].get('Company')) or meta.get('company') or '?'
+    when = ('on or before ' if approx else '') + applied.isoformat()
+    return f'Tracked: {title} — {company}, applied {when} ({channel}{f" via {via}" if via else ""}); {recorded}'
 
 
 def backfill(tracker, **record_options):
@@ -378,12 +521,17 @@ def main(argv=None):
     rec.add_argument('--force', action='store_true', help='rewrite an existing record')
     ev = sub.add_parser('event', help='move an application to an outcome stage and log the event')
     ev.add_argument('url')
-    ev.add_argument('stage', choices=OUTCOME_STAGES)
+    ev.add_argument('stage', choices=EVENT_KINDS)
     ev.add_argument('--note', default='')
     ev.add_argument('--source', default='CLI', choices=('CLI', 'Watcher', 'Telegram', 'Backfill'))
     sy = sub.add_parser('sync', help='log hand-edited stages and apply the no-response rule')
     sy.add_argument('--dry-run', action='store_true')
     sub.add_parser('backfill', help='record every tracked application that has no record yet')
+    ad = sub.add_parser('add', help='track an application made outside Job Pilotto')
+    ad.add_argument('url')
+    ad.add_argument('--applied', default='', help='"2026-09-23", "23 Sep", "on or before 23 Sep" (default today)')
+    ad.add_argument('--channel', choices=CHANNELS)
+    ad.add_argument('--via', help='recruiter platform or agency, e.g. TechTree')
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
@@ -393,6 +541,9 @@ def main(argv=None):
         print(f'{args.url}: {outcome}')
     elif args.command == 'event':
         print(set_stage(tracker, args.url, args.stage, args.source, args.note))
+    elif args.command == 'add':
+        applied, approx = parse_applied(args.applied)
+        print(add_application(tracker, args.url, applied=applied, approx=approx, channel=args.channel, via=args.via))
     elif args.command == 'backfill':
         print('\n'.join(backfill(tracker)))
     else:

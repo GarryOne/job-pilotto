@@ -13,6 +13,7 @@ const HELP = [
   '/saved — jobs you saved with ⭐',
   '/insight — one insight about your search now (~1 min)',
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
+  '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… on or before 23 Sep',
   '🎤 After an interview: send the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
@@ -380,12 +381,24 @@ export async function handleInterview(env, message) {
   return '🎤 Analysing your notes; the summary arrives in about a minute.';
 }
 
+// /add <job URL> [date]: track an application made outside Job Pilotto; the rest of the line is its date.
+export async function handleAdd(env, text) {
+  const match = /(https?:\/\/\S+)\s*(.*)$/s.exec(text || '');
+  if (!match) return '📥 Send /add followed by the job URL, and optionally when you applied: /add https://… on or before 23 Sep';
+  await dispatch(env, { mode: 'add', job: match[1], note: match[2].trim().slice(0, 100) });
+  return '📥 Adding it to your applications; the confirmation arrives in about a minute.';
+}
+
 async function handleUpdate(env, update) {
   if (update.callback_query) return handleButton(env, update.callback_query);
   const message = update.message;
   // Only the owner's private chat may control the bot; ignore everyone else silently.
   if (!message || String(message.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
   try {
+    if (parseCommand(message.text)?.name === 'add') {
+      await reply(env, await handleAdd(env, message.text));
+      return;
+    }
     if (message.document || parseCommand(message.text)?.name === 'interview') {
       await reply(env, await handleInterview(env, message));
       return;

@@ -139,6 +139,21 @@ class ApplicationTests(unittest.TestCase):
         self.assertTrue(stats['by_group']['Region']['Zurich area']['too_small'])
         self.assertEqual(stats['by_group']['Days to apply']['<=3']['waiting'], 1)
 
+    def test_replies_channels_and_time_to_first_reply(self):
+        a = app_row('p1', 'Applied', '2026-09-20')
+        a['properties']['Channel'] = {'type': 'select', 'select': {'name': 'Recruiter platform'}}
+        b = app_row('p2', 'Applied', '2026-09-10')
+        b['properties']['Channel'] = {'type': 'select', 'select': {'name': 'Direct'}}
+        ev = lambda page, kind, at: {'properties': {'Kind': {'type': 'select', 'select': {'name': kind}},
+                                                    'At': {'type': 'date', 'date': {'start': at}},
+                                                    'Application': {'type': 'relation', 'relation': [{'id': page}]}}}
+        stats = insights.application_stats(FakeTracker([a, b], [ev('p1', 'Reply received', '2026-09-23'),
+                                                                 ev('p1', 'Screening', '2026-09-25')]), NOW)
+        self.assertEqual(stats['reply_rate_of_all'], '1/2 (50%)')
+        self.assertEqual(stats['days_to_first_reply'], [3])
+        self.assertEqual(stats['by_group']['Channel']['Recruiter platform']['interview'], 1)
+        self.assertEqual(stats['by_group']['Channel']['Direct']['waiting'], 1)
+
     def test_no_applications(self):
         stats = insights.application_stats(FakeTracker(), NOW)
         self.assertEqual((stats['applications'], stats['days_since_last_application']), (0, None))

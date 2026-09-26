@@ -47,6 +47,9 @@ replies:
 | Answers captured | Select | `Form` (read from the page just before Submit), `Kit draft`, `None` |
 | CV version | Text | File name and a short content hash |
 | Kit variant | Text | Kit prompt variant, for experiments |
+| Channel | Select | `Direct`, `Recruiter platform`, `Agency`, `Referral` — how you applied; set from the URL when empty |
+| Via | Text | Recruiter platform or agency, e.g. TechTree; Company holds the real employer |
+| Date approximate | Checkbox | Applied on is an upper bound ("on or before") |
 | Events | Relation | Two-way with 📈 Application Events |
 
 The page body gets a "🗂 Application record" toggle section: every question with the answer sent
@@ -130,7 +133,7 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 |---|---|---|
 | Event | Title | "Kind · Company" |
 | Application | Relation | To Applications — Job Tracker (two-way, shows there as "Events") |
-| Kind | Select | `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response` |
+| Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response` |
 | At | Date | With time |
 | Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill` |
 | Note | Text | |

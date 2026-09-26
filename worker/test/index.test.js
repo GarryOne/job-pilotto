@@ -270,3 +270,13 @@ test('/interview with notes dispatches them; without notes it explains', async (
   assert.equal(calls.length, 1);
   assert.match(calls[0].body.text, /transcript file/);
 });
+
+test('/add dispatches the job URL and the date words', async () => {
+  let calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ text: '/add https://jobs.techtree.dev/job/86d0 on or before 23 Sep' });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'add', job: 'https://jobs.techtree.dev/job/86d0', note: 'on or before 23 Sep' });
+  calls = mockFetch();
+  await sendMessage({ text: '/add' });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].body.text, /followed by the job URL/);
+});

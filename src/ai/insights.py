@@ -28,7 +28,7 @@ from statistics import mean
 
 from .. import digest, store
 from ..notion import client as notion
-from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, plain
+from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
 from . import cost, enrich, interviews, score
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5')
@@ -42,6 +42,8 @@ CATEGORIES = ['Skills', 'CV', 'Location', 'Salary', 'Seniority', 'Role focus', '
 WEEKLY = 'Weekly report'
 WEEKLY_DAY = 0  # Monday
 INTERVIEW_STAGES = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
+# Any of these means a human answered: the basis for reply rate and time to first reply.
+RESPONSE_KINDS = INTERVIEW_STAGES | {REPLY, 'Rejected'}
 TECH_ALIASES = {'k8s': 'kubernetes', 'amazon web services': 'aws', 'gcp': 'google cloud',
                 'google cloud platform': 'google cloud', 'golang': 'go', 'postgres': 'postgresql',
                 'microsoft azure': 'azure', 'ci/cd': 'ci/cd pipelines', 'grafana labs': 'grafana'}
@@ -170,10 +172,12 @@ def _outcome(stage, kinds):
         return 'interview'
     if stage == 'Rejected':
         return 'rejected'
-    if stage == 'No response':
-        return 'no_response'
     if stage == 'Withdrawn':
         return 'withdrawn'
+    if REPLY in kinds:
+        return 'replied'
+    if stage == 'No response':
+        return 'no_response'
     return 'waiting'
 
 
@@ -181,15 +185,23 @@ def application_stats(tracker, now):
     """The owner's applications with outcomes, and reply rates per group (flagged when small)."""
     rows = tracker.query_database(tracker.database_id, {'or': [
         {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES]})
-    kinds = defaultdict(set)
+    kinds, first_reply = defaultdict(set), {}
     for event in tracker.query_database(EVENTS_DATABASE_ID):
+        kind, at = plain(event['properties'].get('Kind')), (plain(event['properties'].get('At')) or '')[:10]
         for link in (event['properties'].get('Application') or {}).get('relation', []):
-            kinds[link['id'].replace('-', '')].add(plain(event['properties'].get('Kind')))
+            key = link['id'].replace('-', '')
+            kinds[key].add(kind)
+            if kind in RESPONSE_KINDS and at and (key not in first_reply or at < first_reply[key]):
+                first_reply[key] = at
     apps = []
     for row in rows:
         p = {name: plain(prop) for name, prop in row['properties'].items()}
         applied = (p.get('Applied on') or '')[:10]
-        apps.append({'outcome': _outcome(p.get('Stage'), kinds[row['id'].replace('-', '')]), 'applied': applied,
+        key = row['id'].replace('-', '')
+        replied_after = ((date.fromisoformat(first_reply[key]) - date.fromisoformat(applied)).days
+                         if key in first_reply and applied else None)
+        apps.append({'outcome': _outcome(p.get('Stage'), kinds[key]), 'applied': applied, 'days_to_reply': replied_after,
+                     'Channel': p.get('Channel') or 'unknown',
                      'Seniority': p.get('Seniority') or 'unknown', 'Work mode': p.get('Work mode') or 'unknown',
                      'ATS': p.get('ATS') or 'unknown', 'Tier': p.get('Tier') or 'unknown',
                      'Region': region({'location': p.get('Location') or ''}),
@@ -199,7 +211,8 @@ def application_stats(tracker, now):
                      'Recruiter': 'yes' if p.get('Recruiter') else 'no'})
     decided = [a for a in apps if a['outcome'] != 'waiting']
     groups = {}
-    for key in ('Region', 'Seniority', 'Work mode', 'ATS', 'Tier', 'Fit score', 'Days to apply', 'Cover letter', 'Recruiter'):
+    for key in ('Channel', 'Region', 'Seniority', 'Work mode', 'ATS', 'Tier', 'Fit score', 'Days to apply',
+                'Cover letter', 'Recruiter'):
         table = defaultdict(Counter)
         for app in apps:
             table[app[key]][app['outcome']] += 1
@@ -210,6 +223,8 @@ def application_stats(tracker, now):
     return {
         'applications': len(apps), 'outcomes': dict(Counter(a['outcome'] for a in apps)),
         'interview_rate_of_decided': _share(sum(a['outcome'] == 'interview' for a in decided), len(decided)),
+        'reply_rate_of_all': _share(sum(a['outcome'] in ('interview', 'rejected', 'replied') for a in apps), len(apps)),
+        'days_to_first_reply': sorted(a['days_to_reply'] for a in apps if a['days_to_reply'] is not None),
         'applied_last_7_days': sum(d >= week for d in dates), 'applied_last_30_days': sum(d >= month for d in dates),
         'days_since_last_application': (now.date() - date.fromisoformat(dates[-1])).days if dates else None,
         'by_group': groups, 'min_group_for_conclusions': MIN_GROUP,

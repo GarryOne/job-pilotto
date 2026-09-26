@@ -52,11 +52,14 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 - 👆 **Buttons**: ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare application kit · ➕ Next 10.
 - 📈 **Outcome buttons**: `/applied` lists your applications; tap a number when you hear back →
   📬 Confirmed · 📞 Screening · 🗓 Interview · 🎤 Interviewing · 🎉 Offer · ❌ Rejected · 💤 No reply.
+  A reply that isn't a stage yet (a recruiter inviting you to book a call) is logged as "Reply received".
 - 💡 **One insight a day** and a 📊 **weekly report** on Mondays (see below), with 👍 Useful · 👎 Not
   useful · ✅ I'll act on it.
 - 🎤 **Interviews**: send the transcript file with a caption ("Grafana, round 1"), or `/interview` with
   your notes, and get back what went well, the weak answers and what to practise.
-- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
+- 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… on or before 23 Sep`:
+  title, company and location come from the posting page.
+- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/add`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
 - 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
@@ -107,6 +110,10 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   Pro, €59 once; local) or [Routines](https://getroutines.ai/) (subscription; cloud transcription).
   Always ask the interviewers first: recording without everyone's consent is illegal in
   Switzerland and many other places.
+- 🧭 **How you applied counts**: each application has a Channel (Direct, Recruiter platform, Agency,
+  Referral) and Via (e.g. TechTree), detected from the job URL; Company always holds the real
+  employer, even when a platform reveals it only later. Insights compare reply rates by channel and
+  track days to first reply.
 - 🧾 **Existing applications included**: `python3 -m src.notion.ledger backfill` records every
   application tracked before the ledger existed.
 
@@ -472,7 +479,7 @@ src/
     runs.py          🤖 Agent Runs: one row per form-filling session, learnings read back
     cron_runs.py     ⏰ Cronjob Runs: one row per scheduled crawl, with AI cost and a mini-report
     ledger.py        application record frozen at Applied, 📈 Application Events, the scheduled
-                     sync (hand edits, No response after 30 days) and `backfill`
+                     sync (hand edits, No response after 30 days), `backfill` and `add`
 config/
   search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages, excluded companies)
@@ -521,6 +528,8 @@ python3 -m src.notion.ledger record <job_url> [--force]   # (re)freeze an applic
 python3 -m src.notion.ledger event <job_url> Screening    # log an outcome by hand
 python3 -m src.notion.ledger sync --dry-run               # what the scheduled sync would log
 python3 -m src.notion.ledger backfill                     # records for applications made before the ledger
+python3 -m src.notion.ledger add <job_url> --applied "on or before 23 Sep"   # an application made elsewhere
+python3 -m src.notion.ledger event <job_url> "Reply received" --note "invited to book a call"
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
 python3 -m src daily --send --mode weekly                 # the weekly report now (Sonnet 5, ~USD 0.04)
 python3 -m src daily --send --mode interview --note $'/interview Acme round 1\nmy notes...'  # notes, no file
@@ -529,7 +538,8 @@ python3 -m src daily --send --mode interview --note $'/interview Acme round 1\nm
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),
 `today` (no board crawl), `more` (next page of a digest), `apply` (record ✅ / ⭐ / ❌ in Notion),
 `prepare` (draft an application kit for one job), `insight` (send an insight now), `weekly` (send the
-weekly report now), `interview` (analyse a transcript `--file <Telegram file id>` or `--note` text). Scheduled runs add `--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set: the first
+weekly report now), `interview` (analyse a transcript `--file <Telegram file id>` or `--note` text), `add`
+(track an application made elsewhere: `--job <URL> --note <date>`). Scheduled runs add `--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set: the first
 run after 04:00 UTC sends the day's insight, or the weekly report on Mondays.
 
 ## Tests
