@@ -17,6 +17,11 @@ log_dir="$HOME/Library/Logs/JobPilotto"
 mkdir -p "$log_dir"
 exec >>"$log_dir/wait-and-mark-applied.log" 2>&1
 say() { echo "$(date '+%F %T') [$id] $*"; }
+# One watcher per job: a relaunch of the same job doesn't start a second one.
+if pgrep -f "wait-and-mark-applied.sh $url\$" | grep -vqx "$$"; then
+  say "already watched by another process; exiting"
+  exit 0
+fi
 say "watching for submission of $url"
 notify() { "$repo/tools/notify.sh" "$url" "$1"; }
 
