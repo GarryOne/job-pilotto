@@ -309,11 +309,31 @@ def main(argv=None):
     parser.add_argument('--agent', default='claude', help='for --record: who filled it (default claude)')
     parser.add_argument('--learning', default='',
                         help='for --record: one-line finding for the next run (site behaviour, what worked)')
+    parser.add_argument('--context', metavar='URL',
+                        help='print everything a form-filling session needs in one go: the kit (JSON), '
+                             'Profile, Application Answers, and recent learnings for this job board')
     parser.add_argument('--learnings', nargs='?', const='', metavar='ATS',
                         help='print recent learnings from Agent Runs (optionally one job board, e.g. Greenhouse)')
     parser.add_argument('--expire-hours', type=float, default=2,
                         help='mark running records older than this as stale when listing status')
     args = parser.parse_args(argv)
+    if args.context:
+        tracker = _tracker()
+        if not tracker:
+            parser.error('NOTION_TOKEN is required')
+        from .kit import ANSWERS_PAGE_ID
+        row = tracker.find(args.context)
+        kit = tracker.read_kit(row['id'], KIT_HEADING) if row else None
+        board = runs.ats_name(args.context)
+        print(f'# Job: {args.context} (board: {board})')
+        print('\n## Kit (JSON)\n' + (json.dumps(kit, ensure_ascii=False, indent=1) if kit else
+              'No kit on this job yet: draft one first (tools/prepare-top.sh or 📝 Prepare).'))
+        print('\n## Profile — CV and Preferences\n' + tracker.page_text())
+        print('\n## Application Answers\n' + tracker.page_text(ANSWERS_PAGE_ID))
+        items = runs.recent_learnings(tracker, board)
+        print(f'\n## Learnings from earlier runs on {board}')
+        print('\n'.join(f'- {day} {company}: {text}' for day, _, company, _, text in items) or '- none yet')
+        return 0
     if args.learnings is not None:
         tracker = _tracker()
         if not tracker:

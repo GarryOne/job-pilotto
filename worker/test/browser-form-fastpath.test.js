@@ -45,3 +45,20 @@ test('fast path fills only safe known fields and reports gaps without values', (
   assert.equal(audited[1].legal, true);
   assert.equal(JSON.stringify(outcome).includes('sample@example.test'), false);
 });
+
+test('option picker needs an exact match, so "Male" never picks "Female"', () => {
+  const clicked = [];
+  const option = text => ({textContent: text, offsetParent: {}, children: [],
+    getBoundingClientRect: () => ({x: 0, y: 0, width: 10, height: 10}), click() { clicked.push(text); }});
+  const options = [option('Female'), option('Male'), option('Decline To Self Identify')];
+  const document = {querySelectorAll: selector => (selector.includes('option') ? options : [])};
+  const window = {__jobPilottoGuardActive: true};
+  const code = fs.readFileSync(new URL('../../tools/browser-form-fastpath.js', import.meta.url), 'utf8');
+  vm.runInNewContext(code, {window, document, HTMLInputElement: class {}, HTMLTextAreaElement: class {},
+    getComputedStyle: () => ({visibility: 'visible'}), Event: class {}, innerHeight: 800});
+  assert.equal(window.__jobPilottoClickOption('male').ok, true);
+  assert.deepEqual(clicked, ['Male']);
+  const missing = window.__jobPilottoClickOption('Other');
+  assert.equal(missing.ok, false);
+  assert.equal(missing.why, 'no exact match');
+});

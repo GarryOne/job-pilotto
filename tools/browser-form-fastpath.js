@@ -60,15 +60,35 @@
     }
     return {filled, skipped};
   };
-  window.__jobPilottoAuditVisibleFields = () => (window.__jobPilottoStep('audit'), Array.from(
-    document.querySelectorAll('input, textarea, select'))
-    .filter(el => visible(el) && !el.disabled && !['hidden', 'submit', 'button', 'reset', 'search'].includes(el.type))
-    .map(el => ({field: el.id || el.name || label(el), label: label(el),
-      type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),
-      required: !!(el.required || el.getAttribute('aria-required') === 'true'),
-      legal: forbidden.test(label(el)), filled: el.type === 'file' ? !!el.files?.length :
-        isCombo(el) ? comboFilled(el) :
-        ['checkbox', 'radio'].includes(el.type) ? !!el.checked : !!String(el.value || '').trim()})));
+  // Greenhouse removes the file input once a file is attached and shows its name instead, so the
+  // resume counts as attached when its section shows a document filename.
+  const resumeRow = () => {
+    const heading = Array.from(document.querySelectorAll('label, legend, h2, h3, h4, span, div'))
+      .find(el => !el.children?.length && /^\s*(resume|cv|resume\s*\/\s*cv)\b/i.test(el.textContent || ''));
+    if (!heading) return null;
+    let box = heading;
+    for (let i = 0; i < 4 && box.parentElement; i++) box = box.parentElement;
+    const fileInput = box.querySelector('input[type=file]');
+    const named = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i.test(box.textContent || '');
+    return {field: 'resume', label: 'Resume/CV', type: 'file', required: /\*/.test(heading.textContent || ''),
+      legal: false, filled: named || !!fileInput?.files?.length};
+  };
+  window.__jobPilottoAuditVisibleFields = () => {
+    window.__jobPilottoStep('audit');
+    const rows = Array.from(document.querySelectorAll('input, textarea, select'))
+      // aria-hidden inputs are react-select's hidden "required" helpers, not fields.
+      .filter(el => visible(el) && !el.disabled && el.getAttribute('aria-hidden') !== 'true'
+        && !['hidden', 'submit', 'button', 'reset', 'search'].includes(el.type))
+      .map(el => ({field: el.id || el.name || label(el), label: label(el),
+        type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),
+        required: !!(el.required || el.getAttribute('aria-required') === 'true'),
+        legal: forbidden.test(label(el)), filled: el.type === 'file' ? !!el.files?.length :
+          isCombo(el) ? comboFilled(el) :
+          ['checkbox', 'radio'].includes(el.type) ? !!el.checked : !!String(el.value || '').trim()}));
+    const resume = resumeRow();
+    if (!resume) return rows;
+    return [...rows.filter(r => !(r.type === 'file' && /resume|cv/i.test(`${r.field} ${r.label}`))), resume];
+  };
   // Read-only: text and viewport centre of every option in the currently open dropdown menu, so a
   // click lands on live coordinates instead of a position eyeballed from an older screenshot.
   window.__jobPilottoOptionPositions = () => Array.from(document.querySelectorAll('[class*="option"]'))
@@ -78,4 +98,21 @@
       return {text: el.textContent.trim().slice(0, 80), x: Math.round(box.x + box.width / 2),
         y: Math.round(box.y + box.height / 2), onScreen: box.top >= 0 && box.bottom <= innerHeight};
     });
+  // Pick the option whose text EXACTLY equals `wanted` in the open dropdown menu (case/space
+  // insensitive). Typing + Return picks the first partial match ("Male" -> "Female", "4" -> "0"),
+  // so use this instead. Returns the live coordinates too, for a trusted click if a site ignores
+  // a JS click; verify with the audit afterwards.
+  window.__jobPilottoClickOption = wanted => {
+    const norm = t => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const options = Array.from(document.querySelectorAll('[class*="option"]'))
+      .filter(el => el.offsetParent !== null && !el.children?.length);
+    const exact = options.filter(el => norm(el.textContent) === norm(wanted));
+    if (exact.length !== 1) {
+      return {ok: false, why: exact.length ? 'ambiguous' : 'no exact match',
+        options: options.map(el => el.textContent.trim().slice(0, 60)).slice(0, 40)};
+    }
+    const box = exact[0].getBoundingClientRect();
+    exact[0].click();
+    return {ok: true, x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2)};
+  };
 })();

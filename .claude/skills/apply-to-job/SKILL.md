@@ -24,17 +24,14 @@ in that file next time — keep evolving it.
 1b. **Eligibility before filling.** Read the posting's location/residency and pay lines in step 1.
    If the job requires residence the owner doesn't have (e.g. "must be based in UK/SE/ES/DE/IE"),
    say so and stop before opening the form — don't fill a whole form and flag it at the end.
-2. **Greenhouse dropdowns: go straight to type + Return, in one `browser_batch`.** For each
-   react-select: JS `.focus()` on `input#<id>`, `computer` type the option text, key `Return`.
-   Trusted keystrokes reach Greenhouse's real handler and need no coordinates or screenshots. Skip
-   the `selectViaOnSelect()` attempt on Greenhouse: on the Grafana form it reported success but
-   4 of 5 stayed blank, which cost a retry round. City/location search: type the city + `Return`.
-   Keep the `__jobPilottoOptionPositions()` click for School/Degree/Discipline, where the first
-   match can be wrong.
-0. **Read earlier learnings first:** `python3 -m src.ai.apply_run --learnings <Greenhouse|Ashby|Lever|Workable>`
-   prints recent one-line findings from the 🤖 Agent Runs database for that job board. Apply them.
-   While filling, stamp phases with `window.__jobPilottoStep('<name>')` inside JS calls you already
-   make (the fast-path helpers stamp their own); the timings land in the run's Notion page.
+2. **Greenhouse dropdowns: open, then `__jobPilottoClickOption('<exact text>')`.** Open the
+   react-select (JS `.focus()` + a trusted click on its control, or click by ref), then call
+   the helper: it clicks the option whose text *exactly* equals the answer and returns
+   `{ok:false, options}` when there's no exact match. **Don't use type + Return** for fixed
+   lists: it picks the first partial match — on a 26 Sep 2026 Canonical run "Male" became
+   "Female" and "4" became "0". If a site ignores the JS click, click the returned `x, y`.
+   Type + Return stays only for city/location search (first match is the intended one).
+   School/Degree/Discipline: type the query, wait, then `__jobPilottoClickOption`.
 3. **Record the run at hand-over (Claude / manual runs):** note `date -u +%FT%TZ` when filling
    starts; at hand-over save `JSON.stringify({page_url: location.href, guard_active:
    !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields(), steps: window.__jobPilottoSteps || []})` to a
