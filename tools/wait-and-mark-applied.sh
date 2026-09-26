@@ -18,6 +18,10 @@ mkdir -p "$log_dir"
 exec >>"$log_dir/wait-and-mark-applied.log" 2>&1
 say() { echo "$(date '+%F %T') [$id] $*"; }
 say "watching for submission of $url"
+# "grafanalabs job 6103687004": the board slug from the URL (Greenhouse/Lever/Ashby) plus the job id.
+board="$(printf '%s' "$url" | sed -E 's#https?://[^/]+/([^/?]+).*#\1#')"
+case "$url" in *amazon.jobs*) board=amazon ;; esac
+notify() { osascript -e "display notification \"$1\" with title \"Job Pilotto\" subtitle \"$board job $id\"" 2>/dev/null; }
 
 for _ in $(seq 540); do
   if [ "$(osascript -e 'application "Google Chrome" is running' 2>/dev/null)" = "true" ] &&
@@ -26,12 +30,12 @@ for _ in $(seq 540); do
     token="${NOTION_TOKEN:-$(security find-generic-password -a "$USER" -s job-pilotto.notion.token -w 2>/dev/null)}"
     say "confirmation page seen"
     if (cd "$repo" && NOTION_TOKEN="$token" python3 -m src.ai.apply_batch --mark-applied "$url"); then
-      osascript -e 'display notification "Marked applied in Notion" with title "Job Pilotto"' 2>/dev/null
+      notify "Submitted — marked Applied in Notion"
       say "marked applied"
       exit 0
     fi
     say "FAILED to mark applied — run: python3 -m src.ai.apply_batch --mark-applied $url"
-    osascript -e 'display notification "Could not mark applied — see log" with title "Job Pilotto"' 2>/dev/null
+    notify "Could not mark applied — see ~/Library/Logs/JobPilotto"
     exit 1
   fi
   sleep 20
