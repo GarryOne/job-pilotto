@@ -1,0 +1,292 @@
+"""Readiness check: is everything set up, and what is the one thing to do next?
+
+    python -m src doctor            checklist grouped by area, then "Next step"
+    python -m src doctor --next     only the next step (the launchers print this when nothing is ready)
+    python -m src doctor --json     machine-readable, for a menu bar or Telegram /status
+
+Checks run in order of dependency: setup → the scheduled pipeline on GitHub → data it produced →
+kits → this Mac's form-filling tools. The next step is the first failing check, else the first
+warning, else "apply to the next job". Nothing here spends money or changes anything.
+"""
+import argparse
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+from .ai import apply_batch
+from .ai.kit import ANSWERS_PAGE_ID
+from .notion import client as notion, cron_runs
+from .paths import CONFIG
+from .scout import EMPLOYERS_DB
+
+OK, WARN, FAIL, INFO = 'ok', 'warn', 'fail', 'info'
+ICONS = {OK: '✅', WARN: '⚠️ ', FAIL: '❌', INFO: 'ℹ️ '}
+SECRETS = ('NOTION_TOKEN', 'ANTHROPIC_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')
+AI_VARIABLES = ('JOB_PILOTTO_ENRICH_MODEL', 'JOB_PILOTTO_SCORE_MODEL', 'JOB_PILOTTO_AUTO_KIT_MAX')
+STALE_CRAWL_HOURS = 9  # the schedule is every 4 h; two missed runs is worth a warning
+CHROME = Path('/Applications/Google Chrome.app')
+
+
+@dataclass
+class Check:
+    area: str
+    name: str
+    state: str
+    detail: str
+    fix: str = ''
+
+
+def notion_token():
+    token = os.getenv('NOTION_TOKEN')
+    if token:
+        return token
+    try:
+        found = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
+                                '-s', 'job-pilotto.notion.token', '-w'], capture_output=True, text=True, timeout=5)
+        return found.stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def gh(*args):
+    """JSON output of a gh command, or None when gh is missing, logged out or offline."""
+    if not shutil.which('gh'):
+        return None
+    try:
+        done = subprocess.run(['gh', *args], capture_output=True, text=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        return None
+    if done.returncode:
+        return None
+    try:
+        return json.loads(done.stdout or 'null')
+    except json.JSONDecodeError:
+        return None
+
+
+def _hours_ago(iso, now):
+    return (now - datetime.fromisoformat(iso.replace('Z', '+00:00'))).total_seconds() / 3600
+
+
+# ---------- Setup ----------
+
+def check_notion(tracker):
+    if tracker is None:
+        return Check('Setup', 'Notion', FAIL, 'no Notion token found',
+                     'Store it: security add-generic-password -a "$USER" -s job-pilotto.notion.token -w')
+    try:
+        tracker._request('GET', 'users/me')
+    except Exception as error:
+        return Check('Setup', 'Notion', FAIL, f'token rejected or Notion unreachable ({type(error).__name__})',
+                     'Check the token and that the integration is connected to the Project Hub page')
+    return Check('Setup', 'Notion', OK, 'connected')
+
+
+def check_profile(tracker):
+    text = tracker.page_text()
+    if len(text) < 300:
+        return Check('Setup', 'Profile', FAIL, 'Profile page is empty or very short',
+                     'Fill "Profile — CV and Preferences" in Notion (template: docs/notion-profile-template.md)')
+    return Check('Setup', 'Profile', OK, f'{len(text):,} characters')
+
+
+def check_answers(tracker):
+    text = tracker.page_text(ANSWERS_PAGE_ID)
+    if len(text) < 200:
+        return Check('Setup', 'Application Answers', WARN, 'page is empty; forms will stop to ask you more often',
+                     'Fill "Application Answers — Standard Form Fields" in Notion')
+    return Check('Setup', 'Application Answers', OK, f'{len(text):,} characters')
+
+
+def check_cv():
+    path = Path(apply_batch.DEFAULT_CV).expanduser()
+    if not path.is_file():
+        return Check('Setup', 'CV file', FAIL, f'not found: {path}',
+                     'Set JOB_PILOTTO_CV_PATH in .env to your CV PDF')
+    return Check('Setup', 'CV file', OK, path.name)
+
+
+# ---------- Scheduled pipeline (GitHub Actions) ----------
+
+def check_workflow():
+    flows = gh('workflow', 'list', '--json', 'path,state')
+    if flows is None:
+        return Check('Pipeline', 'GitHub', WARN, 'gh CLI missing or not logged in; cloud checks skipped',
+                     'brew install gh && gh auth login')
+    daily = next((f for f in flows if f['path'].endswith('daily.yml')), None)
+    if not daily or daily['state'] != 'active':
+        return Check('Pipeline', 'Scheduled crawl', FAIL, 'daily.yml is disabled or missing',
+                     'gh workflow enable daily.yml')
+    return Check('Pipeline', 'Scheduled crawl', OK, 'daily.yml enabled (every 4 h)')
+
+
+def check_secrets():
+    names = gh('secret', 'list', '--json', 'name')
+    if names is None:
+        return Check('Pipeline', 'Secrets', INFO, 'not checked (gh unavailable)')
+    missing = [s for s in SECRETS if s not in {n['name'] for n in names}]
+    if missing:
+        return Check('Pipeline', 'Secrets', FAIL, f"missing: {', '.join(missing)}",
+                     f'gh secret set {missing[0]}  (README → Configuration)')
+    return Check('Pipeline', 'Secrets', OK, 'Notion, Anthropic and Telegram set')
+
+
+def check_ai_variables():
+    variables = gh('variable', 'list', '--json', 'name')
+    if variables is None:
+        return Check('Pipeline', 'AI stages', INFO, 'not checked (gh unavailable)')
+    missing = [v for v in AI_VARIABLES if v not in {n['name'] for n in variables}]
+    if missing:
+        return Check('Pipeline', 'AI stages', WARN, f"off: {', '.join(missing)} not set",
+                     f'gh variable set {missing[0]} --body <value>  (README → Configuration)')
+    return Check('Pipeline', 'AI stages', OK, 'enrich, score and auto-kits on')
+
+
+def check_last_crawl(tracker, now):
+    # Filter by event on GitHub's side: manual prepare/apply runs would crowd a plain "last 10".
+    runs = gh('run', 'list', '--workflow', 'daily.yml', '--event', 'schedule', '--limit', '5',
+              '--json', 'conclusion,createdAt,status')
+    crawls = [r for r in runs or [] if r['status'] == 'completed']
+    if runs is None:
+        return Check('Data', 'Last crawl', INFO, 'not checked (gh unavailable)')
+    if not crawls:
+        return Check('Data', 'Last crawl', FAIL, 'no scheduled crawl has finished yet',
+                     'Run one now: gh workflow run daily.yml -f mode=run  (a few cents of AI)')
+    last, hours = crawls[0], _hours_ago(crawls[0]['createdAt'], now)
+    if last['conclusion'] != 'success':
+        return Check('Data', 'Last crawl', FAIL, f"last scheduled crawl {last['conclusion']} ({hours:.0f} h ago)",
+                     'Open it: gh run list --workflow daily.yml, then gh run view <id> --log-failed')
+    summary = ''
+    rows = [r for r in (tracker.query_database(cron_runs.CRON_RUNS_DATABASE_ID) if tracker else [])
+            if not (r.get('in_trash') or r.get('archived'))]
+    if rows:
+        latest = max(rows, key=lambda r: ((r['properties'].get('Started') or {}).get('date') or {}).get('start', ''))
+        text = ''.join(t.get('plain_text', '') for t in latest['properties']['Summary']['rich_text'])
+        summary = f' — {text}' if text else ''
+    if hours > STALE_CRAWL_HOURS:
+        return Check('Data', 'Last crawl', WARN, f'{hours:.0f} h ago; the schedule may be paused{summary}',
+                     'gh workflow run daily.yml -f mode=run')
+    return Check('Data', 'Last crawl', OK, f'{hours:.1f} h ago{summary}')
+
+
+def check_sources(tracker):
+    static = json.loads((CONFIG / 'sources.json').read_text())
+    active = tracker.query_database(EMPLOYERS_DB, {'property': 'Active', 'checkbox': {'equals': True}})
+    count = len(static) + len(active)
+    if not count:
+        return Check('Data', 'Sources', FAIL, 'no employer feeds to crawl',
+                     'Run the source scout: gh workflow run scout.yml, or add feeds to config/sources.json')
+    return Check('Data', 'Sources', OK, f'{count} feeds ({len(active)} from Employers & Sources)')
+
+
+def check_matches(tracker):
+    rows = tracker.query_database(notion.MATCHES_DATABASE_ID, {'property': 'Status', 'select': {'equals': 'Open'}})
+    if not rows:
+        return Check('Data', 'Scored jobs', FAIL, 'no open scored jobs in Job Matches',
+                     'Run a crawl with scoring: gh workflow run daily.yml -f mode=run')
+    good = sum(((r['properties'].get('Score') or {}).get('number') or 0) >= 70 for r in rows)
+    return Check('Data', 'Scored jobs', OK, f'{len(rows)} open, {good} scoring 70+')
+
+
+# ---------- Kits and applications ----------
+
+def check_kits(tracker):
+    ready = apply_batch.ready_jobs(tracker, 10)
+    if not ready:
+        return Check('Apply', 'Kits ready', WARN, 'no job has a drafted kit, so there is nothing to apply to yet',
+                     'Draft kits for your best matches: tools/prepare-top.sh 5  (~$0.04 each)')
+    return Check('Apply', 'Kits ready', OK, f"{len(ready)}{'+' if len(ready) >= 10 else ''} job(s) ready to apply")
+
+
+def check_in_progress(tracker):
+    rows = tracker.query_database(tracker.database_id, {'property': 'Stage', 'select': {'equals': 'Applying'}})
+    if rows:
+        return Check('Apply', 'In progress', INFO, f'{len(rows)} form(s) filled and waiting for your Submit')
+    return Check('Apply', 'In progress', OK, 'nothing waiting for you')
+
+
+# ---------- This Mac ----------
+
+def check_mac_tools():
+    missing = [name for name, found in (('Claude Code', shutil.which('claude')),
+                                        ('Google Chrome', CHROME.exists()),
+                                        ('osascript', shutil.which('osascript'))) if not found]
+    if missing:
+        return Check('This Mac', 'Form-filling tools', FAIL, f"missing: {', '.join(missing)}",
+                     'Install Claude Code (claude.ai/code) and Google Chrome')
+    return Check('This Mac', 'Form-filling tools', OK,
+                 'Claude Code and Chrome installed (the Claude in Chrome extension is checked when a run starts)')
+
+
+# ---------- Running and reporting ----------
+
+def run_checks(tracker=None, now=None):
+    now = now or datetime.now(timezone.utc)
+    local = [check_cv, check_workflow, check_secrets, check_ai_variables, check_mac_tools]
+    remote = [check_profile, check_answers, check_sources, lambda t: check_last_crawl(t, now),
+              check_matches, check_kits, check_in_progress]
+    first = check_notion(tracker)
+    jobs = [(fn, ()) for fn in local]
+    if first.state == OK:
+        jobs += [(fn, (tracker,)) for fn in remote]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(_safe, fn, *args) for fn, args in jobs]
+        results = [first] + [f.result() for f in futures]
+    order = ['Setup', 'Pipeline', 'Data', 'Apply', 'This Mac']
+    return sorted(results, key=lambda c: order.index(c.area))
+
+
+def _safe(fn, *args):
+    try:
+        return fn(*args)
+    except Exception as error:
+        name = getattr(fn, '__name__', 'check').replace('check_', '').replace('_', ' ')
+        return Check('Setup', name, WARN, f'could not check: {type(error).__name__}: {error}')
+
+
+def next_step(checks):
+    for state in (FAIL, WARN):
+        for check in checks:
+            if check.state == state and check.fix:
+                return f'{check.name}: {check.fix}'
+    return 'All set. Apply to your next job: tools/apply-batch-claude.sh --max 1'
+
+
+def render(checks):
+    lines, area = [], None
+    for check in checks:
+        if check.area != area:
+            area = check.area
+            lines.append(f'\n{area}')
+        lines.append(f'  {ICONS[check.state]} {check.name}: {check.detail}')
+    lines.append(f'\n👉 Next step — {next_step(checks)}')
+    return '\n'.join(lines).lstrip('\n')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--json', action='store_true', help='print checks and next step as JSON')
+    parser.add_argument('--next', action='store_true', help='print only the next step')
+    args = parser.parse_args()
+    token = notion_token()
+    tracker = notion.Tracker(token, os.getenv('NOTION_APPLICATIONS_DB') or notion.DEFAULT_DATABASE_ID) \
+        if token else None
+    checks = run_checks(tracker)
+    if args.json:
+        print(json.dumps({'checks': [asdict(c) for c in checks], 'next_step': next_step(checks)}, indent=2,
+                         ensure_ascii=False))
+    elif args.next:
+        print(f'👉 Next step — {next_step(checks)}')
+    else:
+        print(render(checks))
+    return 1 if any(c.state == FAIL for c in checks) else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

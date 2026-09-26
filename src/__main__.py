@@ -6,6 +6,7 @@ Commands:
   discover  crawl jobs.ch and TechTree for Swiss employers
   feeds     crawl employer feeds only and write a local HTML report
   enrich    run AI stage 1 on pending jobs
+  doctor    readiness checklist and the one next step (--next, --json)
 """
 import sys
 
@@ -13,7 +14,7 @@ import sys
 def main():
     commands = {
         'daily': 'src.daily', 'scout': 'src.scout', 'discover': 'src.sources.boards',
-        'feeds': 'src.sources.feeds', 'enrich': 'src.ai.enrich',
+        'feeds': 'src.sources.feeds', 'enrich': 'src.ai.enrich', 'doctor': 'src.doctor',
     }
     if len(sys.argv) < 2 or sys.argv[1] not in commands:
         print(__doc__)

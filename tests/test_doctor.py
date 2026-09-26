@@ -1,0 +1,103 @@
+from datetime import datetime, timezone
+import unittest
+from unittest import mock
+
+from src import doctor
+from src.doctor import FAIL, INFO, OK, WARN, Check
+
+NOW = datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc)
+
+
+class FakeTracker:
+    database_id = 'apps'
+
+    def __init__(self, rows=None, fail=False):
+        self.rows, self.fail = rows or {}, fail
+
+    def _request(self, method, path, body=None):
+        if self.fail:
+            raise RuntimeError('401')
+        return {}
+
+    def query_database(self, database_id, filter_=None):
+        return self.rows.get(database_id, [])
+
+
+class NextStepTest(unittest.TestCase):
+    def test_first_failure_wins_over_earlier_warning(self):
+        checks = [Check('Setup', 'Answers', WARN, 'empty', 'fill answers'),
+                  Check('Data', 'Last crawl', FAIL, 'none', 'run a crawl')]
+        self.assertEqual(doctor.next_step(checks), 'Last crawl: run a crawl')
+
+    def test_warning_when_nothing_fails(self):
+        checks = [Check('Setup', 'Notion', OK, 'ok'), Check('Apply', 'Kits ready', WARN, 'none', 'prepare-top')]
+        self.assertEqual(doctor.next_step(checks), 'Kits ready: prepare-top')
+
+    def test_all_set_suggests_applying(self):
+        self.assertIn('apply-batch-claude.sh', doctor.next_step([Check('Setup', 'Notion', OK, 'ok')]))
+
+    def test_render_groups_by_area(self):
+        text = doctor.render([Check('Setup', 'Notion', OK, 'connected'), Check('Data', 'Sources', INFO, '3')])
+        self.assertTrue(text.startswith('Setup\n  ✅ Notion: connected'))
+        self.assertIn('\nData\n', text)
+        self.assertIn('👉 Next step', text)
+
+
+class ChecksTest(unittest.TestCase):
+    def test_no_token_fails_and_skips_notion_checks(self):
+        with mock.patch.object(doctor, 'gh', return_value=None):
+            checks = doctor.run_checks(None, NOW)
+        names = {c.name: c.state for c in checks}
+        self.assertEqual(names['Notion'], FAIL)
+        self.assertNotIn('Profile', names)
+        self.assertTrue(doctor.next_step(checks).startswith('Notion:'))
+
+    def test_rejected_token(self):
+        self.assertEqual(doctor.check_notion(FakeTracker(fail=True)).state, FAIL)
+
+    def test_last_crawl_states(self):
+        tracker = FakeTracker()
+        cases = [([], FAIL), ([{'status': 'completed', 'conclusion': 'failure', 'createdAt': '2026-09-26T10:00:00Z'}], FAIL),
+                 ([{'status': 'completed', 'conclusion': 'success', 'createdAt': '2026-09-25T20:00:00Z'}], WARN),
+                 ([{'status': 'completed', 'conclusion': 'success', 'createdAt': '2026-09-26T10:00:00Z'}], OK)]
+        for runs, state in cases:
+            with mock.patch.object(doctor, 'gh', return_value=runs):
+                self.assertEqual(doctor.check_last_crawl(tracker, NOW).state, state, runs)
+        with mock.patch.object(doctor, 'gh', return_value=None):
+            self.assertEqual(doctor.check_last_crawl(tracker, NOW).state, INFO)
+
+    def test_last_crawl_shows_latest_cronjob_summary(self):
+        row = lambda start, text, **extra: dict(properties={'Started': {'date': {'start': start}},
+                                                            'Summary': {'rich_text': [{'plain_text': text}]}}, **extra)
+        tracker = FakeTracker({doctor.cron_runs.CRON_RUNS_DATABASE_ID: [
+            row('2026-09-26T08:00:00Z', 'older'), row('2026-09-26T10:00:00Z', '3 new jobs'),
+            row('2026-09-26T11:00:00Z', 'trashed', in_trash=True)]})
+        with mock.patch.object(doctor, 'gh', return_value=[
+                {'status': 'completed', 'conclusion': 'success', 'createdAt': '2026-09-26T10:00:00Z'}]):
+            self.assertEqual(doctor.check_last_crawl(tracker, NOW).detail, '2.0 h ago — 3 new jobs')
+
+    def test_missing_secret_names_the_fix(self):
+        with mock.patch.object(doctor, 'gh', return_value=[{'name': 'NOTION_TOKEN'}]):
+            check = doctor.check_secrets()
+        self.assertEqual(check.state, FAIL)
+        self.assertIn('gh secret set ANTHROPIC_API_KEY', check.fix)
+
+    def test_no_kits_points_to_prepare_top(self):
+        with mock.patch.object(doctor.apply_batch, 'ready_jobs', return_value=[]):
+            check = doctor.check_kits(FakeTracker())
+        self.assertEqual(check.state, WARN)
+        self.assertIn('prepare-top.sh', check.fix)
+
+    def test_no_open_matches_fails(self):
+        self.assertEqual(doctor.check_matches(FakeTracker()).state, FAIL)
+
+    def test_a_crashing_check_becomes_a_warning(self):
+        def boom():
+            raise ValueError('bad json')
+        check = doctor._safe(boom)
+        self.assertEqual(check.state, WARN)
+        self.assertIn('bad json', check.detail)
+
+
+if __name__ == '__main__':
+    unittest.main()

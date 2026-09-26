@@ -56,6 +56,8 @@ case "${1:-}" in
     if [ "${#urls[@]}" -eq 0 ]; then
       echo "No job has an application kit yet. Draft kits for your best matches first:" >&2
       echo "  tools/prepare-top.sh $n      (or tap 📝 Prepare on a job in Telegram)" >&2
+      # If something earlier in the chain is missing (no crawl, no scored jobs), say that instead.
+      (cd "$REPO_DIR" && python3 -m src doctor --next) >&2 || true
       exit 0
     fi
     ;;

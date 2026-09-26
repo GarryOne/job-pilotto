@@ -68,6 +68,8 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   crawl: feeds, new/changed jobs, AI work per stage, its exact cost (Haiku enrich, Sonnet score,
   auto kits), Telegram outcome, a link to the GitHub run and a short written report. Written by
   code from the run's numbers, so the report itself costs nothing.
+- 🩺 **Readiness check** (`python3 -m src doctor`): a checklist from setup to "kit ready" that
+  names the one next step, so a newcomer never hits an empty launcher without knowing why.
 - 🧠 **Self-improving**: agents read recent learnings for that job board before filling
   (`python3 -m src.ai.apply_run --learnings Greenhouse`), so each run makes the next one better.
 
@@ -157,6 +159,22 @@ are right), and cross-ATS accuracy hasn't been measured. Always inspect the fill
 scores, and (if you've turned it on) drafts kits for your best new matches, and Telegram messages
 you the result. If nothing new and good enough showed up, `scheduled` mode stays quiet rather than
 spamming you. This part needs zero daily action from you.
+
+**Not sure where you are? Run `python3 -m src doctor`.** It checks, in order, that Notion, your
+Profile, Answers and CV are set up, that the GitHub schedule, secrets and AI stages are on, that
+feeds exist and the last crawl succeeded, that jobs are scored and kits are ready, and that Claude
+Code and Chrome are installed — then prints the one next step. It spends nothing and changes
+nothing. The launchers print the same next step when there's nothing to apply to.
+
+```
+Data
+  ✅ Sources: 32 feeds (29 from Employers & Sources)
+  ✅ Last crawl: 2.5 h ago
+  ✅ Scored jobs: 258 open, 5 scoring 70+
+Apply
+  ⚠️  Kits ready: no job has a drafted kit, so there is nothing to apply to yet
+👉 Next step — Kits ready: Draft kits for your best matches: tools/prepare-top.sh 5  (~$0.04 each)
+```
 
 What you actually *do*, day to day, is a mix of two habits:
 
@@ -374,6 +392,7 @@ working in this repo.
 src/
   __main__.py        python -m src <command>
   daily.py           one digest run: crawl, AI, sync, send (modes below)
+  doctor.py          readiness checklist and the one next step (python3 -m src doctor)
   digest.py          filtering, ranking, rotation, paging, message layout, buttons
   telegram.py        sending messages
   store.py           SQLite store (jobs, companies, AI results, shown history) —
@@ -433,6 +452,7 @@ python3 -m src scout --batch 15       # probe candidate employers
 python3 -m src discover --pages 2 --max-companies 80
 python3 -m src feeds                  # employer feeds only, HTML report in reports/
 .venv/bin/python -m src enrich --dry-run
+python3 -m src doctor                          # readiness checklist + the one next step (--next, --json)
 tools/apply-batch-chatgpt.sh --dry-run        # preview what would be queued into Codex
 tools/apply-batch-claude.sh --max 3            # auto-pick top-3 by score, one Claude session each
 tools/apply-batch-claude.sh <job_url> [more...] # or queue specific jobs by URL

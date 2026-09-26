@@ -80,6 +80,7 @@ fi
 
 if [ "${#urls[@]}" -eq 0 ]; then
   echo "No job with a drafted kit is ready."
+  (cd "$REPO_DIR" && python3 -m src doctor --next) >&2 || true
   exit 0
 fi
 

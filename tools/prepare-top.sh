@@ -21,7 +21,11 @@ fi
 urls=()
 while IFS= read -r line; do [ -n "$line" ] && urls+=("$line"); done \
   < <(python3 -m src.ai.apply_batch --top-unprepared "$n")
-[ "${#urls[@]}" -gt 0 ] || { echo "No open, scored job is missing a kit."; exit 0; }
+if [ "${#urls[@]}" -eq 0 ]; then
+  echo "No open, scored job is missing a kit."
+  python3 -m src doctor --next || true
+  exit 0
+fi
 
 cents=$(( ${#urls[@]} * 4 ))
 printf 'Preparing %d kit(s), ~USD %d.%02d:\n' "${#urls[@]}" $((cents / 100)) $((cents % 100))
