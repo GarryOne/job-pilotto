@@ -219,8 +219,8 @@ same 15 form questions again) is already done.
    permission (System Settings → Privacy & Security → Accessibility).
 9. **[Claude in Chrome](https://claude.ai/chrome)**, if you'd rather fill forms live with Claude
    instead of (or alongside) Codex — see `.claude/skills/apply-to-job/SKILL.md`.
-10. **`brew install terminal-notifier`** (optional) so clicking a Job Pilotto notification brings
-    the right Terminal window to the front; without it you still get plain notifications.
+10. Nothing extra for notifications: "Form filled" and "Needs your input" open a native dialog
+    whose **Show window** button raises that session's Terminal window; the rest are banners.
 
 None of group two is required for the core pipeline; it only matters if you want the same
 "queue kits into an AI browser agent" workflow described above.

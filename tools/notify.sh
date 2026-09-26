@@ -22,6 +22,24 @@ for _ in $(seq 20); do
   { [ -z "$pid" ] || [ "$pid" -le 1 ]; } && break
 done
 
+# Moments that need the owner get a native dialog whose "Show window" button raises the session's
+# Terminal tab (terminal-notifier's click action isn't permitted on recent macOS). It runs in the
+# background, so the caller never waits, and gives up after 15 minutes.
+case "$message" in
+  "Form filled"*|"Needs your input"*)
+    if [ -n "$tty" ]; then
+      nohup osascript - "$message" "$board job $id" "$here/focus-terminal.sh" "$tty" >/dev/null 2>&1 <<'OSA' &
+on run argv
+  set answer to display dialog ((item 2 of argv) & return & (item 1 of argv)) with title "Job Pilotto" buttons {"Later", "Show window"} default button "Show window" with icon note giving up after 900
+  if button returned of answer is "Show window" then do shell script quoted form of (item 3 of argv) & " " & quoted form of (item 4 of argv)
+end run
+OSA
+      afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 &
+      exit 0
+    fi
+    ;;
+esac
+
 notifier="$(command -v terminal-notifier || true)"
 if [ -n "$notifier" ]; then
   args=(-title "Job Pilotto" -subtitle "$board job $id" -message "$message" -sound Glass -group "jobpilotto-$id")
