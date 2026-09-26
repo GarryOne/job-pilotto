@@ -10,9 +10,10 @@ from src.ai import apply_run
 
 def setUpModule():
     # No real macOS notifications while tests run.
-    notifier = patch.object(apply_run, '_notify')
-    notifier.start()
-    unittest.addModuleCleanup(notifier.stop)
+    for name in ('_notify', '_log_run'):
+        stub = patch.object(apply_run, name)
+        stub.start()
+        unittest.addModuleCleanup(stub.stop)
 
 
 URL = 'https://example.test/jobs/123'

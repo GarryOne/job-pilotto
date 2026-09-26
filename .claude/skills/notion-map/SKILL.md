@@ -19,6 +19,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 ├── 1 · Job Search (3e562be8fd8681439762d07ec7042f7b)
 │   ├── Applications — Job Tracker [database] (f56b68942d3b43cbb85a7b1ebfe2df1b)
 │   ├── Job Matches — AI Scored [database] (2d8077c592fd45db8d6d5c8e2eea75cb)
+│   ├── 🤖 Agent Runs [database] (6a89d3b5faf44b6290f0108afcbf8ce9)
 │   ├── Employers & Sources [database] (c7fe8570c2ff414086ae9bb1ee2dbf64)
 │   ├── Profile — CV and Preferences (3e562be8fd8681579078d09829921b8c)
 │   ├── Application Answers — Standard Form Fields (3e562be8fd868108ae38d1f47d52a811)
@@ -52,6 +53,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 | Why/how much to automate applying, what's built vs planned | Application Strategy — Decision and Automation Map (`...a0a200e1`) |
 | One applied/saved/dismissed job's record + its kit | Applications — Job Tracker database, query by Job URL |
 | A scored job's fit/tier/reason for browsing | Job Matches — AI Scored database |
+| What happened in a form-filling session, how long each step took, what was learned | 🤖 Agent Runs database (read learnings with `python3 -m src.ai.apply_run --learnings <ATS>`) |
 | Which employer feeds are crawled, ATS, quality | Employers & Sources database |
 | AI Roadmap (stage 3/4/5 plans: drafts, follow-ups, chat) | AI Roadmap (`...4bef9b`) |
 | Spend so far, free-tier headroom | Costs (`...23fce`) |
@@ -61,6 +63,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 | Database | Page/database ID | Data source (`collection://...`) |
 |---|---|---|
 | Applications — Job Tracker | `f56b68942d3b43cbb85a7b1ebfe2df1b` | `346d7756-bafc-4dff-881f-2710819d90da` |
+| 🤖 Agent Runs | `6a89d3b5faf44b6290f0108afcbf8ce9` | `8babbce5-5c40-4c05-bdee-7f23a2b50e5b` |
 | Decision Log | `e4d099e66ee84f728d640d225f253210` | `6a43dcab-8e47-4d5c-99cc-a6c3ac59c4ee` |
 
 Other databases (Job Matches, Employers & Sources, Rollout) haven't had their data-source ID

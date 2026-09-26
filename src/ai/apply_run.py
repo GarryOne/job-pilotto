@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 from .kit import KIT_HEADING
 from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
+from ..notion import runs
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / 'tools' / 'apply-run-result.schema.json'
@@ -125,12 +126,13 @@ def record_from_page(url, page, started, ended, agent='claude'):
     result['status'] = status
     state = {'url': url, 'status': status, 'agent': agent, 'started_at': started.isoformat(),
              'updated_at': ended.isoformat(), 'minutes': minutes, 'reason': '; '.join(reasons)[:500],
-             'field_count': len(fields), 'unanswered': unanswered, 'summary': result['summary']}
+             'field_count': len(fields), 'unanswered': unanswered, 'summary': result['summary'],
+             'steps': [s for s in page.get('steps') or [] if isinstance(s, dict)]}
     return state, result
 
 
-def _prompt(url):
-    return (f'Read AGENTS.md and .claude/skills/apply-to-job/SKILL.md. Fill the application at {url} '
+def _prompt(url, learnings=''):
+    return (learnings + f'Read AGENTS.md and .claude/skills/apply-to-job/SKILL.md. Fill the application at {url} '
             'using its Notion kit, saved Profile/Application Answers, and CV. Use the Playwright MCP '
             'Chrome extension. Open a NEW browser tab for the job so the init-script guard loads. '
             'Before filling, verify window.__jobPilottoGuardActive is true; if not, stop and report '
@@ -175,6 +177,27 @@ def _notify(url, message):
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:
         pass
+
+
+def _log_run(tracker, state, result, learning=''):
+    """Agent Runs row in Notion; never fails the run (the local record still counts)."""
+    try:
+        return runs.log_run(tracker, state, result, learning) if tracker else None
+    except Exception as error:  # Notion down, or the Agent Runs database not shared
+        print(f'Warning: Agent Runs not updated: {type(error).__name__}: {error}')
+        return None
+
+
+def _learnings_text(tracker, url):
+    """Recent Agent Runs learnings for this job board, as a prompt preface ('' if none)."""
+    try:
+        items = runs.recent_learnings(tracker, runs.ats_name(url), limit=8)
+    except Exception:  # Notion unavailable: fill without them
+        return ''
+    if not items:
+        return ''
+    lines = '\n'.join(f'- {day} {company}: {text}' for day, _, company, _, text in items)
+    return f'Learnings from earlier runs on this job board (apply them):\n{lines}\n\n'
 
 
 def _tracker():
@@ -235,7 +258,7 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
                '--output-last-message', str(result_path), '-C', str(ROOT),
                '-c', f'mcp_servers.playwright.command={json.dumps(npx)}',
                '-c', f'mcp_servers.playwright.args={json.dumps(["-y", "@playwright/mcp@0.0.82", "--extension", "--init-script", str(GUARD), "--init-script", str(FASTPATH)])}',
-               _prompt(url)]
+               _prompt(url, _learnings_text(tracker, url))]
     try:
         agent_env = os.environ.copy()
         agent_env.pop('NOTION_TOKEN', None)
@@ -257,12 +280,14 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
             _mark(tracker, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
         else:
             _mark(tracker, url, f'Form needs review: {reason or status}')
+        _log_run(tracker, dict(state, agent='codex'), result)
         return state
     except Exception as error:
         state.update(status='failed', updated_at=datetime.now(timezone.utc).isoformat(),
                      reason=str(error)[:500])
         _write_json(state_path, state)
         _mark(tracker, url, 'Browser run failed — inspect local run log before retrying')
+        _log_run(tracker, dict(state, agent='codex'), None)
         raise
 
 
@@ -282,9 +307,23 @@ def main(argv=None):
     parser.add_argument('--started', metavar='ISO',
                         help='for --record: when filling started (UTC ISO-8601); fill time = now - started')
     parser.add_argument('--agent', default='claude', help='for --record: who filled it (default claude)')
+    parser.add_argument('--learning', default='',
+                        help='for --record: one-line finding for the next run (site behaviour, what worked)')
+    parser.add_argument('--learnings', nargs='?', const='', metavar='ATS',
+                        help='print recent learnings from Agent Runs (optionally one job board, e.g. Greenhouse)')
     parser.add_argument('--expire-hours', type=float, default=2,
                         help='mark running records older than this as stale when listing status')
     args = parser.parse_args(argv)
+    if args.learnings is not None:
+        tracker = _tracker()
+        if not tracker:
+            parser.error('NOTION_TOKEN is required')
+        items = runs.recent_learnings(tracker, args.learnings or None)
+        for day, board, company, agent, text in items:
+            print(f'- {day} · {board} · {company or "?"} · {agent}: {text}')
+        if not items:
+            print('No learnings recorded yet.')
+        return 0
     if args.record:
         if not args.audit:
             parser.error('--record needs --audit FILE')
@@ -304,6 +343,9 @@ def main(argv=None):
                 _mark(tracker, args.record, f"Form needs review: {state['reason']}", state['minutes'])
         except RuntimeError as error:  # not tracked in Notion: the local record still counts
             print(f'Warning: Notion not updated: {error}')
+        page_url = _log_run(tracker, state, result, args.learning)
+        if page_url:
+            print(f'Agent Runs: {page_url}')
         _notify(args.record, 'Form filled — review and Submit' if state['status'] == 'ready'
                 else 'Needs your input — see Terminal')
         print(f"{state['status']}: {args.record} ({state['minutes']} min, {state['field_count']} fields)"

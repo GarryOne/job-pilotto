@@ -27,10 +27,15 @@ in that file next time — keep evolving it.
    4 of 5 stayed blank, which cost a retry round. City/location search: type the city + `Return`.
    Keep the `__jobPilottoOptionPositions()` click for School/Degree/Discipline, where the first
    match can be wrong.
+0. **Read earlier learnings first:** `python3 -m src.ai.apply_run --learnings <Greenhouse|Ashby|Lever|Workable>`
+   prints recent one-line findings from the 🤖 Agent Runs database for that job board. Apply them.
+   While filling, stamp phases with `window.__jobPilottoStep('<name>')` inside JS calls you already
+   make (the fast-path helpers stamp their own); the timings land in the run's Notion page.
 3. **Record the run at hand-over (Claude / manual runs):** note `date -u +%FT%TZ` when filling
    starts; at hand-over save `JSON.stringify({page_url: location.href, guard_active:
-   !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields()})` to a file and
-   run `python3 -m src.ai.apply_run --record <job URL> --audit <file> --started <time>` (needs
+   !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields(), steps: window.__jobPilottoSteps || []})` to a
+   file and run `python3 -m src.ai.apply_run --record <job URL> --audit <file> --started <time>
+   --learning "<one new finding, or empty>"` (needs
    `NOTION_TOKEN`). It writes the same run record as a Codex run (so `--status`, `--report` and the
    benchmark cover it), sets the Notion Next step and Form fill time, and sends the "Form filled" /
    "Needs your input" notification. Its verdict comes from the page (guard on, required fields

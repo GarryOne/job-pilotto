@@ -61,7 +61,10 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   you review and click Submit yourself, every time.
 - ✅ **Auto-marked applied**: when the confirmation page appears in Chrome, the job moves to Applied
   in Notion by itself, whichever launcher filled it.
-- 🔍 **Observable Codex runs**: per-job status, field report and form-fill time.
+- 🔍 **Every run recorded** in a Notion 🤖 Agent Runs database — Claude and Codex, one row per
+  session, linked to its job: status, minutes, per-step timing, field-by-field ✓/CHECK, and a learning.
+- 🧠 **Self-improving**: agents read recent learnings for that job board before filling
+  (`python3 -m src.ai.apply_run --learnings Greenhouse`), so each run makes the next one better.
 
 ### 🗂️ Tracking in Notion
 - 📋 Job Matches (every scored job), Applications — Job Tracker, Employers & Sources.
@@ -226,6 +229,7 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `NOTION_MATCHES_DB` | your Job Matches database ID |
 | `NOTION_ANSWERS_PAGE_ID` | your Application Answers page ID |
 | `NOTION_EMPLOYERS_DB` | your Employers & Sources database ID (optional — the crawler falls back to `config/sources.json` without it) |
+| `NOTION_AGENT_RUNS_DB` | your 🤖 Agent Runs database ID (optional — form-filling runs are still recorded locally without it) |
 | `JOB_PILOTTO_ENRICH_MODEL` | e.g. `claude-haiku-4-5` — turns on AI stage 1 |
 | `JOB_PILOTTO_SCORE_MODEL` | e.g. `claude-sonnet-5` — turns on AI stage 2 |
 | `JOB_PILOTTO_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5` if unset) |

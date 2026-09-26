@@ -24,8 +24,16 @@
   const isCombo = element => element.getAttribute('role') === 'combobox';
   const comboFilled = element => !!(element.closest('[class*=select__container]') ||
     element.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]');
+  // Step timer for the Agent Runs record: helpers stamp themselves; agents add named steps
+  // ("dropdowns", "resume") inside a JS call they already make. Times only, never values.
+  window.__jobPilottoSteps = window.__jobPilottoSteps || [];
+  window.__jobPilottoStep = name => {
+    window.__jobPilottoSteps.push({name: String(name).slice(0, 40), at: new Date().toISOString()});
+    return window.__jobPilottoSteps.length;
+  };
   window.__jobPilottoFillKnownFields = entries => {
     if (!window.__jobPilottoGuardActive) return {error: 'submit guard is inactive'};
+    window.__jobPilottoStep('fill known fields');
     const filled = [], skipped = [];
     for (const item of entries) {
       const key = String(item.field || '');
@@ -52,7 +60,7 @@
     }
     return {filled, skipped};
   };
-  window.__jobPilottoAuditVisibleFields = () => Array.from(
+  window.__jobPilottoAuditVisibleFields = () => (window.__jobPilottoStep('audit'), Array.from(
     document.querySelectorAll('input, textarea, select'))
     .filter(el => visible(el) && !el.disabled && !['hidden', 'submit', 'button', 'reset', 'search'].includes(el.type))
     .map(el => ({field: el.id || el.name || label(el), label: label(el),
@@ -60,7 +68,7 @@
       required: !!(el.required || el.getAttribute('aria-required') === 'true'),
       legal: forbidden.test(label(el)), filled: el.type === 'file' ? !!el.files?.length :
         isCombo(el) ? comboFilled(el) :
-        ['checkbox', 'radio'].includes(el.type) ? !!el.checked : !!String(el.value || '').trim()}));
+        ['checkbox', 'radio'].includes(el.type) ? !!el.checked : !!String(el.value || '').trim()})));
   // Read-only: text and viewport centre of every option in the currently open dropdown menu, so a
   // click lands on live coordinates instead of a position eyeballed from an older screenshot.
   window.__jobPilottoOptionPositions = () => Array.from(document.querySelectorAll('[class*="option"]'))

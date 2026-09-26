@@ -91,6 +91,32 @@ daily scout creates and updates these. Optional for a first run — the crawler 
 | Integration | Select | Option used by code: `Working` |
 | Added | Date | |
 
+## 🤖 Agent Runs (database)
+
+Env var: `NOTION_AGENT_RUNS_DB`. One row per form-filling session, written by
+`python3 -m src.ai.apply_run` (Codex runs and `--record` for Claude runs). Optional: runs are still
+recorded locally without it. Rows never contain applicant values, only field labels and ✓/CHECK.
+
+| Property | Type | Notes |
+|---|---|---|
+| Run | Title | "Company · Job · Agent" |
+| Job | Relation | To Applications — Job Tracker (two-way, shows there as "Agent runs") |
+| Job URL | URL | |
+| Company | Text | |
+| Agent | Select | Options: `Claude`, `Codex`, `ChatGPT`, `Manual` |
+| ATS | Select | Options: `Greenhouse`, `Ashby`, `Lever`, `Workable`, `Other` |
+| Status | Select | Options: `Ready`, `Needs input`, `Failed` |
+| Started | Date | With time |
+| Ended | Date | With time |
+| Minutes | Number | Active fill time |
+| Fields | Number | Visible non-legal fields audited |
+| Unfilled required | Number | |
+| Reason | Text | Why it isn't Ready |
+| Learnings | Text | One-line finding; agents read these before filling (`--learnings`) |
+| Run ID | ID | Prefix `RUN` |
+
+The page body lists per-step timings, each field ✓/CHECK, attachments and the learning.
+
 ## Profile — CV and Preferences (page, not a database)
 
 Env var: `NOTION_PROFILE_PAGE_ID`. A single Notion page, read as plain text every scoring run — no
