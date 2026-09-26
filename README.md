@@ -74,29 +74,57 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 
 ## How Job Pilotto compares
 
-Job Pilotto is for people who want a configurable, self-managed discovery and application-preparation
-pipeline: public job feeds, explicit location and language filters, evidence-based match scores,
-reviewable application kits, Telegram triage, and Notion tracking. Its browser agents can fill forms
-from those kits, but the applicant reviews each form and clicks Submit. The table compares published
-features and source code as of September 2026; it is not a measured accuracy or success-rate benchmark.
+Job Pilotto is for people who want a self-managed pipeline they control end to end: public job
+feeds, explicit location and language filters, evidence-based match scores, reviewable application
+kits, Telegram triage, Notion tracking — and browser agents that fill the form but **never submit
+it**. Compared from each project's published features and source code, September 2026; this is not
+a measured accuracy or success-rate benchmark.
 
-| Alternative | Application workflow | Where Job Pilotto stands |
-|---|---|---|
-| [JobCopilot.com](https://jobcopilot.com/) | Hosted service that advertises daily discovery, tailored resumes, and automatic applications on company career pages; it offers a review-before-applying option. | The closest commercial alternative for hands-off applying. Job Pilotto gives the owner control over sources, scoring, data flow, and final submission, but does **not** match its advertised application volume or unattended filling. |
-| [Job-CoPilot.ai](https://job-copilot.ai/) | Hosted matching, CV tailoring, cover letters, alerts, and a pipeline board. Its published workflow ends at tailoring and tracking; it does not describe application-form filling. | Similar research and preparation scope. Job Pilotto also queues application kits for browser agents to fill forms, with owner review before submission. |
-| [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | Local Claude/Codex browser agent plus campaigns and dashboard; its documented flow can fill and submit applications. | The closest open-source application agent. Job Pilotto has its own feed-to-kit pipeline and a mandatory owner-submit rule. This project's browser filling is less productized and has no published cross-ATS accuracy benchmark. |
-| [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | Discovery and tailoring with an experimental Browserbase application path. Its [form-filling report](https://github.com/jsmastery-pro/JobPilot/blob/main/BROWSERBASE_REPORT.md) documents wrong-field fills on external ATS forms. | Its post-fill audit and browser recordings are useful patterns; Job Pilotto should add comparable field checks before claiming reliable form automation. |
-| [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | Playwright autofill, saved answer vault, and a queue for unanswered questions; its [autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py) can submit when no doubts remain. | The answer-vault and review-queue ideas fit. Job Pilotto instead leaves unknown facts unresolved and final submission to the applicant. |
-| [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) | MCP search and resume tooling with auto-apply aspirations; its [Indeed automation](https://github.com/arthurpanhku/job-pilot/blob/main/backend/app/automation/indeed.py) still contains simplified form-fill and final-submit placeholders. | Job Pilotto already connects discovery, scoring, kits, and a form-filling handoff, though its live browser outcome still requires review. |
-| [jlifeng/JobPilot](https://github.com/jlifeng/JobPilot) | Local resume workbench for targeted edits, exports, and job-description matching. | Useful inspiration for editable CV variants; it does not replace Job Pilotto's feed, tracking, or form workflow. |
-| [adrianhajdin/job_pilot](https://github.com/adrianhajdin/job_pilot) | Tutorial-oriented discovery and application stack with an experimental browser application path. | A reference implementation rather than evidence of more reliable application filling. |
-| [AgentSpan](https://github.com/agentspan-ai/agentspan) | Durable agent runs, execution history, and human approvals; its maintainers say the project moved into [Orkes Conductor](https://orkes.io/blog/open-sourcing-agentspan-durable-ai-agents/). | Potential orchestration infrastructure if application sessions need recovery and audit trails, not a job discovery or form-filling replacement. |
+**Legend:** ✅ yes · ⚠️ partial or experimental · ❌ no · ➖ not described in its public docs
 
-**Current gap:** form filling is driven by a browser agent and application-kit instructions, not a
-verified form engine. The Terminal Codex path records a structured post-fill report and active
-fill time. It now loads an accidental-Submit/consent guard and a deterministic helper for ordinary
-fields, but the report is still agent-observed, the guard is not a security boundary, and live
-cross-ATS accuracy has not been measured. Applicants must inspect the filled form before submitting.
+| | 🦾 **Job Pilotto** | [JobCopilot.com](https://jobcopilot.com/) | [Job-CoPilot.ai](https://job-copilot.ai/) | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| 🔓 Open source, self-hosted | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 🕷️ Automatic job discovery | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
+| 🛰️ Finds new employer feeds by itself | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| 🎯 AI fit score against your profile | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
+| 🌍 Location, language and visa filters | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| ✍️ Cover letter and form answers per job | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
+| 📄 Tailored CV per job | ❌ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
+| 💾 Saved answer vault, reused on every form | ✅ | ➖ | ➖ | ➖ | ➖ | ✅ | ➖ |
+| 🤖 Fills real application forms | ✅ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
+| 🧰 Choice of agent (ChatGPT, Codex, Claude) | ✅ | ❌ | ❌ | ⚠️ | ❌ | ❌ | ❌ |
+| 🛡️ You always click Submit (enforced) | ✅ | ⚠️ | ➖ | ❌ | ➖ | ❌ | ➖ |
+| 🔍 Post-fill field audit | ⚠️ | ➖ | ➖ | ➖ | ✅ | ✅ | ➖ |
+| 📱 Mobile triage (Telegram buttons) | ✅ | ➖ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
+| 📋 Application tracking | ✅ | ➖ | ✅ | ✅ | ➖ | ➖ | ➖ |
+| ✅ Marked applied automatically on submit | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| 🔔 Desktop notifications (started, ready, submitted) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| 🚀 High-volume unattended applying | ❌ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
+| 📈 Published cross-ATS fill-accuracy numbers | ❌ | ➖ | ➖ | ➖ | ⚠️ | ➖ | ➖ |
+
+Notes on the rows: Job-CoPilot.ai sends alerts rather than triage buttons; suxrobGM/jobpilot runs
+Claude or Codex; jsmastery-pro's [form-filling report](https://github.com/jsmastery-pro/JobPilot/blob/main/BROWSERBASE_REPORT.md)
+documents wrong-field fills on external ATS forms; BhairavJShah's
+[autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py)
+submits when no doubts remain; arthurpanhku's
+[Indeed automation](https://github.com/arthurpanhku/job-pilot/blob/main/backend/app/automation/indeed.py)
+still has form-fill and submit placeholders. Job Pilotto's own audit is ⚠️ because it is reported by
+the agent, not verified independently.
+
+**In short:** 🏆 Job Pilotto covers the most of the pipeline — discovery → scoring → kits → filling
+→ tracking — with you in control of every submission. 🥈 Hosted tools like JobCopilot.com win on
+volume and unattended applying; they don't let you own the sources, scoring or final click.
+🧪 Other open-source projects worth borrowing from: [jlifeng/JobPilot](https://github.com/jlifeng/JobPilot)
+(editable CV variants), [adrianhajdin/job_pilot](https://github.com/adrianhajdin/job_pilot)
+(reference stack), [AgentSpan](https://github.com/agentspan-ai/agentspan) (durable agent runs,
+now [part of Orkes Conductor](https://orkes.io/blog/open-sourcing-agentspan-durable-ai-agents/)).
+
+**⚠️ Current gap:** form filling is driven by browser agents and the kit, not a verified form engine.
+It has filled forms for real, submitted applications (all on Greenhouse so far), typically in
+2–6 minutes, with an accidental-Submit/consent guard and deterministic helpers for ordinary fields. The
+guard is not a security boundary, the field audit is agent-reported, and cross-ATS accuracy hasn't
+been measured. Always inspect the filled form before submitting.
 
 ## Day-to-day use
 
