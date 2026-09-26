@@ -170,6 +170,51 @@ def _essential_checks(kit):
             if any(word in item.casefold() for word in words)]
 
 
+def claude_usage(url, started, projects=None):
+    """(total tokens, output tokens) the Claude Code session filling `url` has used since `started`,
+    read from its own transcript; None if no transcript mentions the job."""
+    folder = Path(projects or Path.home() / '.claude' / 'projects') / str(ROOT).replace('/', '-')
+    files = sorted(folder.glob('*.jsonl'), key=lambda f: f.stat().st_mtime, reverse=True)[:15]
+    for path in files:
+        if path.stat().st_mtime < started.timestamp():
+            break
+        text = path.read_text(errors='ignore')
+        if url not in text:
+            continue
+        total = output = 0
+        for line in text.splitlines():
+            try:
+                entry = json.loads(line)
+                at = datetime.fromisoformat(str(entry.get('timestamp', '')).replace('Z', '+00:00'))
+            except (ValueError, TypeError):
+                continue
+            usage = (entry.get('message') or {}).get('usage') if isinstance(entry, dict) else None
+            if not isinstance(usage, dict) or at < started:
+                continue
+            output += usage.get('output_tokens', 0) or 0
+            total += sum(usage.get(k, 0) or 0 for k in ('input_tokens', 'cache_creation_input_tokens',
+                                                         'cache_read_input_tokens', 'output_tokens'))
+        return total, output
+    return None
+
+
+def codex_usage(trace_path):
+    """(total tokens, output tokens) from a Codex --json trace (turn.completed events)."""
+    total = output = 0
+    try:
+        lines = Path(trace_path).read_text(errors='ignore').splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        try:
+            usage = (json.loads(line).get('usage') or {})
+        except (ValueError, AttributeError):
+            continue
+        output += usage.get('output_tokens', 0) or 0
+        total += (usage.get('input_tokens', 0) or 0) + (usage.get('output_tokens', 0) or 0)
+    return (total, output) if total else None
+
+
 def _notify(url, message):
     """macOS notification about this job (no-op elsewhere); never fails the run."""
     try:
@@ -280,14 +325,16 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
             _mark(tracker, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
         else:
             _mark(tracker, url, f'Form needs review: {reason or status}')
-        _log_run(tracker, dict(state, agent='codex'), result)
+        used = codex_usage(trace_path)
+        _log_run(tracker, dict(state, agent='codex', billed_to='ChatGPT plan',
+                               tokens_total=used[0] if used else None, tokens_output=used[1] if used else None), result)
         return state
     except Exception as error:
         state.update(status='failed', updated_at=datetime.now(timezone.utc).isoformat(),
                      reason=str(error)[:500])
         _write_json(state_path, state)
         _mark(tracker, url, 'Browser run failed — inspect local run log before retrying')
-        _log_run(tracker, dict(state, agent='codex'), None)
+        _log_run(tracker, dict(state, agent='codex', billed_to='ChatGPT plan'), None)
         raise
 
 
@@ -351,6 +398,9 @@ def main(argv=None):
         started = (datetime.fromisoformat(args.started.replace('Z', '+00:00')) if args.started else ended)
         state, result = record_from_page(args.record, json.loads(Path(args.audit).read_text()),
                                          started, ended, args.agent)
+        used = claude_usage(args.record, started) if args.agent == 'claude' else None
+        state.update(billed_to={'claude': 'Claude subscription', 'codex': 'ChatGPT plan'}.get(args.agent, 'Unknown'),
+                     tokens_total=used[0] if used else None, tokens_output=used[1] if used else None)
         _private_dir(STATE_DIR)
         _write_json(STATE_DIR / f'{job_code(args.record)}.json', state)
         _write_json(STATE_DIR / f'{job_code(args.record)}.result.json', result)

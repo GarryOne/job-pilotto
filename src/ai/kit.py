@@ -185,6 +185,7 @@ def prepare_one(client, model, job, tracker, profile, answers, opener=None):
     drafted, usage = draft(client, model, job, profile, answers, questions)
     page, _ = tracker.mark(job, 'Kit ready')
     tracker.replace_section(page['id'], KIT_HEADING, notion_blocks(job, drafted, questions, model))
+    record_cost(tracker, page, model, usage)
     return drafted, questions, page, usage
 
 
@@ -227,14 +228,29 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
     return f'Auto-drafted {len(drafted_jobs)} of {len(pending)} kit(s); {failures} failed', drafted_jobs
 
 
-def cost_line(model, usage):
+def usd(model, usage):
+    """API cost of one call in USD, from its usage and PRICES (0 for an unpriced model)."""
     price_in, price_out, price_cache = PRICES.get(model, (0, 0, 0))
     cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
     written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
-    usd = (usage.input_tokens * price_in + written * price_in * 1.25 + cached * price_cache
-           + usage.output_tokens * price_out) / 1e6
+    return (usage.input_tokens * price_in + written * price_in * 1.25 + cached * price_cache
+            + usage.output_tokens * price_out) / 1e6
+
+
+def record_cost(tracker, page, model, usage):
+    """Write the kit's API cost to the Applications row's "Kit cost (USD)"; never fails a kit."""
+    try:
+        tracker.update_page(page['id'], {'Kit cost (USD)': {'number': round(usd(model, usage), 4)}})
+    except Exception as error:  # older database without the column, or a fake tracker in tests
+        print(f'Warning: kit cost not recorded: {type(error).__name__}: {error}')
+
+
+def cost_line(model, usage):
+    cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
+    written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
+    cost = usd(model, usage)
     return (f'Kit drafted with {model}; tokens in {usage.input_tokens} (+{cached} cached, {written} cache write), '
-            f'out {usage.output_tokens}; ~USD {usd:.3f}')
+            f'out {usage.output_tokens}; ~USD {cost:.3f}')
 
 
 def telegram_messages(job, kit, questions, notion_url=None, limit=3800):

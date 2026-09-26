@@ -65,7 +65,11 @@ def run_page(state, result, job_row=None, learning=''):
         'Unfilled required': {'number': len(state.get('unanswered') or [])},
         'Reason': _text(state.get('reason')),
         'Learnings': _text(learning),
+        'Billed to': {'select': {'name': state.get('billed_to') or 'Unknown'}},
     }
+    for key, name in (('tokens_total', 'Tokens (total)'), ('tokens_output', 'Output tokens')):
+        if state.get(key) is not None:
+            properties[name] = {'number': state[key]}
     if job_row:
         properties['Job'] = {'relation': [{'id': job_row['id']}]}
     children = [_para('Steps', 'heading_3')]

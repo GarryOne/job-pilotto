@@ -22,6 +22,7 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Next interview | Date | You fill this in manually |
 | Next step | Text | You fill this in manually |
 | Form fill time (min) | Number | Active AI form-filling minutes, written at the ready-for-review handoff |
+| Kit cost (USD) | Number (dollar) | Anthropic API cost of drafting this job's kit, written when it's drafted |
 | Notes | Text | You fill this in manually |
 | Salary | Text | You fill this in manually |
 | Contact | Text | You fill this in manually |
@@ -113,6 +114,9 @@ recorded locally without it. Rows never contain applicant values, only field lab
 | Unfilled required | Number | |
 | Reason | Text | Why it isn't Ready |
 | Learnings | Text | One-line finding; agents read these before filling (`--learnings`) |
+| Billed to | Select | Options: `Claude subscription`, `ChatGPT plan`, `Anthropic API credits`, `Unknown` — form filling doesn't use API credits |
+| Tokens (total) | Number | All tokens the session used from start to hand-over (incl. cached context), from its transcript/trace |
+| Output tokens | Number | |
 | Run ID | ID | Prefix `RUN` |
 
 The page body lists per-step timings, each field ✓/CHECK, attachments and the learning.

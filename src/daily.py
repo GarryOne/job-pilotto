@@ -107,6 +107,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     drafted, usage = kit.draft(client, model, job, profile, answers, questions)
     page, _ = tracker.mark(job, 'Kit ready')
     tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
+    kit.record_cost(tracker, page, model, usage)
     return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
 
 

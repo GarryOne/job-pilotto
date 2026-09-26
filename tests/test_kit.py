@@ -57,6 +57,9 @@ class FakeTracker:
     def url_stages(self):
         return {}
 
+    def update_page(self, page_id, properties):
+        self.updates = getattr(self, 'updates', []) + [(page_id, properties)]
+
     def query_database(self, database_id, filter_=None):
         return []
 
@@ -100,6 +103,7 @@ class KitTests(unittest.TestCase):
                 tracker, client = FakeTracker(), FakeClient()
                 messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5', opener)
         self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
+        self.assertIn('Kit cost (USD)', tracker.updates[0][1])
         page_id, heading, block = tracker.sections[0]
         self.assertEqual((page_id, heading), ('page-1', kit.KIT_HEADING))
         self.assertTrue(block['heading_2']['is_toggleable'])

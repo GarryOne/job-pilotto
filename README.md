@@ -62,7 +62,8 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 - ✅ **Auto-marked applied**: when the confirmation page appears in Chrome, the job moves to Applied
   in Notion by itself, whichever launcher filled it.
 - 🔍 **Every run recorded** in a Notion 🤖 Agent Runs database — Claude and Codex, one row per
-  session, linked to its job: status, minutes, per-step timing, field-by-field ✓/CHECK, and a learning.
+  session, linked to its job: status, minutes, per-step timing, field-by-field ✓/CHECK, tokens,
+  what it was billed to, and a learning. Each kit's exact API cost is on its job's row.
 - 🧠 **Self-improving**: agents read recent learnings for that job board before filling
   (`python3 -m src.ai.apply_run --learnings Greenhouse`), so each run makes the next one better.
 
