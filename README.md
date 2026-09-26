@@ -492,6 +492,8 @@ cd worker && npm test
 8. Fill in your Profile and Application Answers pages in Notion; edit `config/search.json` to your
    own role/location/tech keywords, and `config/preferences.json`, `config/sources.json` and
    `config/scout_seeds.json` to your own languages and target employers.
+9. Run `python3 -m src doctor` and follow its next step until it says "All set". It is the
+   definition of done for setup.
 
 ## Set it up with an AI coding agent
 
@@ -521,9 +523,13 @@ Then help me set this up for myself, step by step:
 4. Deploy the Cloudflare Worker (`worker/setup.sh`) once I've logged in via `wrangler`.
 5. Ask me for my CV, and these questions (skip any I've already answered): target job titles;
    seniority; locations, ranked in priority order, and whether I'll do remote/relocate; languages I
-   speak and their level; work authorisation for each place I'm targeting; salary target; notice
-   period; a few technologies or practices that signal a good employer for my kind of role; any
-   companies to exclude (e.g. my current employer); LinkedIn/GitHub/portfolio links.
+   speak and their level; work authorisation for each place I'm targeting (and whether I still want
+   to apply where I'd need visa sponsorship); minimum salary per country or city, in local currency;
+   notice period and how it translates into a start date; permanent vs contract; recruiters allowed;
+   a few technologies or practices that signal a good employer for my kind of role; any companies to
+   exclude (e.g. my current employer); LinkedIn/GitHub/portfolio links; and one or two answers or a
+   short cover letter I wrote myself, so drafted kits sound like me rather than like an AI. Put that
+   sample and my style rules under "Cover letter style" on Application Answers.
    From my answers and CV: draft the Profile and Application Answers Notion pages in the structure
    docs/notion-schema.md describes; edit config/preferences.json (disqualifying languages) and
    config/scout_seeds.json (target employers/regions) to match. For config/search.json specifically
@@ -538,6 +544,14 @@ Then help me set this up for myself, step by step:
 6. Run the test suites (python3 -m unittest discover -s tests, and cd worker && npm test) and fix
    anything that fails before calling this done.
 7. Trigger one real run (mode `run`) and show me what came back in Telegram.
+8. If I want the local form filling (macOS): copy .env.example to .env with JOB_PILOTTO_CV_PATH set
+   to my CV, store my Notion token in the Keychain (security add-generic-password -a "$USER"
+   -s job-pilotto.notion.token -w), and tell me to install Claude Code and the Claude in Chrome
+   extension myself. Show me the cost first, then offer to draft kits for my top matches
+   (tools/prepare-top.sh 3 --dry-run, then without --dry-run once I agree).
+9. Run python3 -m src doctor and work through its "Next step" line until it says "All set" (or
+   only lists things I've chosen to skip). Show me the final checklist; that's how we both know
+   setup is finished.
 
 Follow every rule in AGENTS.md, especially: never submit a job application on my behalf, ask before
 any step that spends money on AI model calls, and never write my personal data (email, phone,
