@@ -46,7 +46,7 @@ def top_new(report, scored, limit=3):
 
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly')
 
 
 def find_job(db, code):
@@ -200,12 +200,13 @@ def main():
             for message in messages:
                 telegram.send(message, *credentials)
         return 0
-    if args.mode == 'insight':
+    if args.mode in ('insight', 'weekly'):
         if not tracker:
-            raise SystemExit('--mode insight requires NOTION_TOKEN')
+            raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')
         sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else None
         with store.connect(args.db) as db:
-            print(insights.run(db, tracker, send=sender, force=True))
+            make = insights.run if args.mode == 'insight' else insights.weekly
+            print(make(db, tracker, send=sender, **({'force': True} if args.mode == 'insight' else {})))
         return 0
     run = new_cron_run(args.mode)
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()

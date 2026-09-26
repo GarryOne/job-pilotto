@@ -18,6 +18,7 @@ Usage:
   python -m src.notion.ledger record <job URL> [--agent claude] [--force]
   python -m src.notion.ledger event <job URL> <stage> [--note TEXT]
   python -m src.notion.ledger sync [--dry-run]
+  python -m src.notion.ledger backfill        # record every application tracked before the ledger
 """
 import argparse
 import hashlib
@@ -351,6 +352,24 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
     return f'Ledger sync: {len(rows)} applications, {logged} stage change(s) logged, {silent} moved to No response.'
 
 
+def backfill(tracker, **record_options):
+    """Freeze a record for every application in an outcome stage that has none yet (applications
+    tracked before the ledger existed). Returns one line per application."""
+    rows = tracker.query_database(tracker.database_id, {'or': [
+        {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES]})
+    lines = []
+    for row in rows:
+        url = plain(row['properties'].get('Job URL'))
+        if not url or plain(row['properties'].get('Recorded')):
+            continue
+        try:
+            _, outcome = record(tracker, url, **record_options)
+        except Exception as error:  # noqa: BLE001 — one bad row shouldn't stop the others
+            outcome = f'skipped: {type(error).__name__}: {error}'
+        lines.append(f'{plain(row["properties"].get("Company")) or "?"} — {plain(row["properties"].get("Job"))}: {outcome}')
+    return lines or ['Nothing to backfill.']
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -364,6 +383,7 @@ def main(argv=None):
     ev.add_argument('--source', default='CLI', choices=('CLI', 'Watcher', 'Telegram', 'Backfill'))
     sy = sub.add_parser('sync', help='log hand-edited stages and apply the no-response rule')
     sy.add_argument('--dry-run', action='store_true')
+    sub.add_parser('backfill', help='record every tracked application that has no record yet')
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
@@ -373,6 +393,8 @@ def main(argv=None):
         print(f'{args.url}: {outcome}')
     elif args.command == 'event':
         print(set_stage(tracker, args.url, args.stage, args.source, args.note))
+    elif args.command == 'backfill':
+        print('\n'.join(backfill(tracker)))
     else:
         print(sync(tracker, dry_run=args.dry_run))
     return 0

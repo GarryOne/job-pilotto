@@ -12,6 +12,7 @@ const HELP = [
   '/applied — jobs you applied to, with stage; tap a number to record a reply (screening, interview, offer, rejection)',
   '/saved — jobs you saved with ⭐',
   '/insight — one insight about your search now (~1 min)',
+  '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
   '/scout — look for new employer job feeds now (~1 min)',
@@ -245,6 +246,9 @@ export async function handleCommand(env, command) {
     case 'insight':
       await dispatch(env, { mode: 'insight' });
       return '💡 Looking at the market and your applications; the insight arrives in about a minute.';
+    case 'weekly':
+      await dispatch(env, { mode: 'weekly' });
+      return '📊 Writing the weekly report; it arrives in about a minute.';
     case 'scout':
       await dispatch(env, { batch: '15' }, 'scout.yml');
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';

@@ -10,8 +10,13 @@ Market findings are facts about postings ("Prometheus is in 45% of your best-fit
 about why applications fail need enough applications in the group (MIN_GROUP); until then the
 model is told to say what the market shows, not what caused a rejection.
 
+On Mondays the weekly report replaces the daily insight: the week's applications and replies, how
+the market moved, how the week's insights were rated, and up to three changes for the coming week.
+It is kept as a 💡 Insights row (Category "Weekly report") whose page body holds the full report.
+
 Runs with the first scheduled crawl of the day (at or after SEND_HOUR_UTC), or on demand with
-`--mode insight` (Telegram /insight). Off unless JOB_PILOTTO_INSIGHT_MODEL names a model.
+`--mode insight` / `--mode weekly` (Telegram /insight, /weekly). Off unless JOB_PILOTTO_INSIGHT_MODEL
+names a model.
 """
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -34,6 +39,8 @@ NEAR_MISS = 45
 # Groups smaller than this are shown to the model but flagged as too small to explain outcomes.
 MIN_GROUP = 10
 CATEGORIES = ['Skills', 'CV', 'Location', 'Salary', 'Seniority', 'Role focus', 'Timing', 'Activity', 'Process']
+WEEKLY = 'Weekly report'
+WEEKLY_DAY = 0  # Monday
 INTERVIEW_STAGES = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
 TECH_ALIASES = {'k8s': 'kubernetes', 'amazon web services': 'aws', 'gcp': 'google cloud',
                 'google cloud platform': 'google cloud', 'golang': 'go', 'postgres': 'postgresql',
@@ -232,6 +239,122 @@ def generate(client, model, profile, stats):
     return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage
 
 
+WEEKLY_SCHEMA = {
+    'type': 'object', 'additionalProperties': False,
+    'required': ['headline', 'summary', 'worked', 'change', 'focus', 'confidence'],
+    'properties': {
+        'headline': {'type': 'string', 'description': 'The week in one sentence, max 110 characters'},
+        'summary': {'type': 'string', 'description': '2-3 sentences: what happened this week, with numbers'},
+        'worked': {'type': 'array', 'items': {'type': 'string'}, 'description': '0-3 things that worked, with evidence'},
+        'change': {'type': 'array', 'items': {'type': 'string'},
+                   'description': '1-3 concrete changes for next week (strategy, CV, skills, targets), with the reason'},
+        'focus': {'type': 'string', 'description': 'The single most important focus for next week'},
+        'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
+    },
+}
+
+WEEKLY_SYSTEM = """You write the owner's weekly job-search report inside Job Pilotto. Look back at the \
+last 7 days (applications sent, replies, the market, the daily insights and how the owner rated them) \
+and forward to next week. Same rules as the daily insight: only numbers from the statistics; no claims \
+about why applications fail below {min_group} applications in a group; direct and specific, no filler, \
+no emojis. "worked" may be empty in a quiet week; never pad it.
+
+The owner's profile (their CV and preferences) follows.
+
+"""
+
+
+def week_stats(tracker, now):
+    """The last 7 days: outcome events and the daily insights with their feedback."""
+    since = (now - timedelta(days=7)).isoformat()
+    events = []
+    for event in tracker.query_database(EVENTS_DATABASE_ID):
+        props = {name: plain(prop) for name, prop in event['properties'].items()}
+        if (props.get('At') or '') >= since[:10] and props.get('Source') != 'Backfill':
+            events.append({'kind': props.get('Kind'), 'at': (props.get('At') or '')[:10], 'event': props.get('Event'),
+                           'source': props.get('Source')})
+    return {'events_last_7_days': sorted(events, key=lambda e: e['at']),
+            'event_counts': dict(Counter(e['kind'] for e in events)),
+            'insights_last_7_days': [i for i in recent_insights(tracker, days=7) if i['category'] != WEEKLY]}
+
+
+def weekly_message(report, page_url=''):
+    lines = [f"📊 <b>Weekly report</b>", '', f"<b>{escape(report['headline'])}</b>", escape(report['summary'])]
+    if report['worked']:
+        lines += ['', '✅ <b>Worked</b>'] + [f'• {escape(item)}' for item in report['worked']]
+    lines += ['', '🔧 <b>Change next week</b>'] + [f'• {escape(item)}' for item in report['change']]
+    lines += ['', f"🎯 {escape(report['focus'])}"]
+    if page_url:
+        lines += ['', f'<a href="{escape(page_url, quote=True)}">Full report in Notion</a>']
+    return '\n'.join(lines)
+
+
+def weekly_blocks(report, stats):
+    """Page body: the written report, then the numbers behind it."""
+    para = lambda kind, content: {'object': 'block', 'type': kind,
+                                  kind: {'rich_text': [{'text': {'content': content[:1900]}}]}}
+    blocks = [para('paragraph', report['summary'])]
+    if report['worked']:
+        blocks += [para('heading_3', 'What worked')] + [para('bulleted_list_item', w) for w in report['worked']]
+    blocks += [para('heading_3', 'Change next week')] + [para('bulleted_list_item', c) for c in report['change']]
+    blocks += [para('heading_3', 'Focus'), para('paragraph', report['focus'])]
+    apps, market, week = stats['applications'], stats['market'], stats['week']
+    blocks += [para('heading_3', 'Numbers'),
+               para('bulleted_list_item', f"Applications: {apps['applications']} total, {apps['applied_last_7_days']} this week; "
+                                          f"outcomes {apps['outcomes']}; interview rate of decided {apps['interview_rate_of_decided']}"),
+               para('bulleted_list_item', f"Replies this week: {week['event_counts'] or 'none'}"),
+               para('bulleted_list_item', f"Market: {market['open_jobs']} open jobs, {market['eligible']} eligible, "
+                                          f"{market['language_blocked']} need a language you don't have, "
+                                          f"{market['new_last_7_days']} new this week"),
+               para('bulleted_list_item', 'Top technologies in best-fit jobs: ' + ', '.join(
+                   f"{t['tech']} {t['jobs']}{'' if t['in_profile'] else ' (not in profile)'}"
+                   for t in market['technologies_in_good_fit_jobs'][:8]))]
+    daily = [para('bulleted_list_item', f"{i['date']} · {i['category']}: {i['headline']} — {i['feedback'] or 'no feedback'}")
+             for i in week['insights_last_7_days']]
+    blocks += [para('heading_3', 'Daily insights this week')] + (daily or [para('paragraph', 'None.')])
+    return blocks[:95]
+
+
+def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None, stats=None):
+    """Make, save and send the weekly report; returns a one-line summary."""
+    now = now or datetime.now(timezone.utc)
+    profile = tracker.page_text()
+    data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
+            'week': week_stats(tracker, now)}
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    response = client.messages.create(
+        model=model, max_tokens=3000,
+        system=[{'type': 'text', 'text': WEEKLY_SYSTEM.format(min_group=MIN_GROUP) + profile}],
+        messages=[{'role': 'user', 'content': 'Statistics as of today (JSON):\n' + json.dumps(data, ensure_ascii=False)}],
+        output_config={'format': {'type': 'json_schema', 'schema': WEEKLY_SCHEMA}, 'effort': 'medium'},
+    )
+    if response.stop_reason != 'end_turn':
+        raise RuntimeError(f'stopped with {response.stop_reason}')
+    report = json.loads(next(block.text for block in response.content if block.type == 'text'))
+    cost.add(stats, model, response.usage)
+    usd = cost.usd(model, response.usage)
+    if stats is not None:
+        stats.update(pending=1, done=1)
+    text = lambda value: {'rich_text': [{'text': {'content': value[:2000]}}]}
+    page = tracker._request('POST', 'pages', {'parent': {'database_id': INSIGHTS_DATABASE_ID}, 'properties': {
+        'Insight': {'title': [{'text': {'content': report['headline'][:200]}}]},
+        'Date': {'date': {'start': now.date().isoformat()}},
+        'Category': {'select': {'name': WEEKLY}},
+        'Basis': {'select': {'name': 'Both'}},
+        'Confidence': {'select': {'name': report['confidence']}},
+        'Sample size': {'number': data['applications']['applications']},
+        'Evidence': text(report['summary']),
+        'Action': text(report['focus']),
+        'Cost (USD)': {'number': round(usd, 4)},
+        'Model': text(model),
+    }, 'children': weekly_blocks(report, data)})
+    if send:
+        send(weekly_message(report, page.get('url', '')), keyboard(page['id']))
+    return f"Weekly report sent: {report['headline']} ({usd:.3f} USD)"
+
+
 def message(insight):
     lines = [f"💡 <b>Insight · {escape(insight['category'])}</b>", '', f"<b>{escape(insight['headline'])}</b>"]
     lines += [f'• {escape(line)}' for line in insight['evidence']]
@@ -270,6 +393,8 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
     now = now or datetime.now(timezone.utc)
     if not force and (now.hour < SEND_HOUR_UTC or sent_today(tracker, now.date())):
         return 'Insight: not due'
+    if not force and now.weekday() == WEEKLY_DAY:
+        return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats)
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
             'recent_insights': recent_insights(tracker)}

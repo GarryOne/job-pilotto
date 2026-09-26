@@ -73,6 +73,10 @@ class FakeTracker:
         self.created.append((database_id, properties))
         return {'id': '4c79aec0-91df-4dcc-8a88-27cd4d43a5ef'}
 
+    def _request(self, method, path, body):
+        self.created.append((body['parent']['database_id'], body['properties'], body.get('children')))
+        return {'id': '4c79aec0-91df-4dcc-8a88-27cd4d43a5ef', 'url': 'https://notion.test/weekly'}
+
 
 INSIGHT = {'skip': False, 'category': 'Skills', 'headline': 'Prometheus is in 3/3 of your eligible jobs & not on your CV',
            'evidence': ['Prometheus: 3/3 eligible jobs (100%)', 'Kubernetes: 2/3 (67%)'],
@@ -175,6 +179,39 @@ class RunTests(unittest.TestCase):
                                    client=FakeClient(dict(INSIGHT, skip=True)), send=lambda t, k: sent.append(t))
         self.assertIn('nothing new today', summary)
         self.assertEqual((tracker.created, sent), ([], []))
+
+
+WEEKLY = {'headline': 'Quiet week: 2 applications, no replies yet', 'summary': 'You sent 2 applications.',
+          'worked': [], 'change': ['Apply within 3 days of posting'], 'focus': 'Five applications in Zurich',
+          'confidence': 'low'}
+
+
+class WeeklyTests(unittest.TestCase):
+    def test_monday_sends_the_weekly_report_instead_of_the_daily_insight(self):
+        monday = datetime(2026, 9, 28, 5, 0, tzinfo=timezone.utc)
+        events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
+                                  'At': {'type': 'date', 'date': {'start': '2026-09-25T10:00:00+00:00'}},
+                                  'Source': {'type': 'select', 'select': {'name': 'Telegram'}},
+                                  'Event': {'type': 'title', 'title': [{'plain_text': 'Screening · Acme'}]},
+                                  'Application': {'type': 'relation', 'relation': []}}},
+                  {'properties': {'Kind': {'type': 'select', 'select': {'name': 'Applied'}},
+                                  'At': {'type': 'date', 'date': {'start': '2026-09-26'}},
+                                  'Source': {'type': 'select', 'select': {'name': 'Backfill'}},
+                                  'Application': {'type': 'relation', 'relation': []}}}]
+        tracker, client, sent, stats = FakeTracker(events=events), FakeClient(WEEKLY), [], {}
+        with patched():
+            summary = insights.run(None, tracker, 'claude-sonnet-5', send=lambda t, k: sent.append((t, k)),
+                                   now=monday, client=client, stats=stats)
+        self.assertIn('Weekly report sent', summary)
+        database_id, props, children = tracker.created[0]
+        self.assertEqual(props['Category'], {'select': {'name': 'Weekly report'}})
+        self.assertLessEqual(len(children), 100)
+        payload = json.loads(client.calls[0]['messages'][0]['content'].split('\n', 1)[1])
+        self.assertEqual(payload['week']['event_counts'], {'Screening': 1})  # backfill events don't count
+        self.assertIn('Full report in Notion', sent[0][0])
+        self.assertIn('🔧 <b>Change next week</b>', sent[0][0])
+        self.assertNotIn('✅ <b>Worked</b>', sent[0][0])  # empty list, no padding
+        self.assertEqual(stats['done'], 1)
 
 
 if __name__ == '__main__':

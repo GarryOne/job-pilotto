@@ -182,6 +182,17 @@ class RecordTests(unittest.TestCase):
             ledger.set_stage(FakeTracker([row()]), URL, 'Saved')
 
 
+class BackfillTests(unittest.TestCase):
+    def test_records_only_rows_without_a_record(self):
+        other = row(page_id='page-2', recorded='2026-09-20T10:00:00+00:00')
+        other['properties']['Job URL'] = {'type': 'url', 'url': 'https://example.test/other'}
+        tracker = FakeTracker([row(), other])
+        with tempfile.TemporaryDirectory() as empty:
+            lines = ledger.backfill(tracker, posting=lambda url: None, snapshot_dir=empty, run_dir=empty)
+        self.assertEqual(lines, ['Acme — Staff SRE: recorded'])
+        self.assertEqual([page for page, _ in tracker.updates], ['page-1'])
+
+
 class SyncTests(unittest.TestCase):
     def kinds(self, tracker):
         return [(p['Kind']['select']['name'], p['Source']['select']['name']) for _, p in tracker.created]
