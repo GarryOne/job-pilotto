@@ -458,7 +458,11 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
     event on the application's date, and the frozen record. Returns a one-line summary."""
     today = today or date.today()
     applied = applied or today
-    meta = meta if meta is not None else page_meta(url)
+    meta = dict(meta if meta is not None else page_meta(url))
+    if not meta.get('company'):  # job board APIs often omit it: the scored job, else the board's slug
+        found = ats.detect(url)
+        meta['company'] = (match_for(tracker, url).get('Company')
+                           or (found[1].replace('-', ' ').title() if found else ''))
     guess_channel, guess_via = channel_for(url)
     channel, via = channel or guess_channel, via if via is not None else guess_via
     text = lambda value: _text(value or '')

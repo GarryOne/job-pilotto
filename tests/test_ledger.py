@@ -249,6 +249,13 @@ class AddApplicationTests(unittest.TestCase):
         self.assertIn('on or before 2026-09-23', line)
         self.assertIn('via TechTree', line)
 
+    def test_company_falls_back_to_the_board_slug(self):
+        tracker2 = FakeTracker([])  # its Job Matches row (MATCH) has no Company either
+        tracker2.find = lambda url: None
+        tracker2.create_page = lambda db, props: tracker2.created.append(props) or {'id': 'n', 'properties': props}
+        ledger.add_application(tracker2, URL, meta={'title': 'SRE'})
+        self.assertEqual(tracker2.created[0]['Company']['rich_text'][0]['text']['content'], 'Acme')
+
     def test_later_stage_is_left_alone(self):
         tracker = FakeTracker([row(stage='Screening')])
         self.assertIn('Already tracked at Screening', ledger.add_application(tracker, URL, meta={}))
