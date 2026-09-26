@@ -75,6 +75,21 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 - 🔑 Secrets in the macOS Keychain, GitHub secrets and Cloudflare Worker secrets — never in the repo.
 - 🧾 CV, `.env` and run traces stay on your machine (git-ignored).
 
+## Screenshots
+
+**Job Matches — AI Scored** (Notion): every open job that passes your filters, scored against
+your Profile, with tier and a one-line reason.
+
+![Job Matches in Notion](docs/images/notion-job-matches.png)
+
+**🤖 Agent Runs** (Notion): one row per form-filling session, linked to its job.
+
+![Agent Runs in Notion](docs/images/notion-agent-runs.png)
+
+**One run**: timing, fields audited, status, and the learning the next run reads before filling.
+
+<img src="docs/images/notion-agent-run-detail.png" alt="One Agent Run in Notion" width="560">
+
 ## How Job Pilotto compares
 
 Job Pilotto is for people who want a self-managed pipeline they control end to end: public job
