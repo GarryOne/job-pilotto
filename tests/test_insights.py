@@ -161,7 +161,7 @@ class RunTests(unittest.TestCase):
         self.assertAlmostEqual(props['Cost (USD)']['number'], 0.016)  # 6000 in x $2 + 400 out x $10
         self.assertEqual((stats['done'], round(stats['usd'], 3)), (1, 0.016))
         payload = json.loads(client.calls[0]['messages'][0]['content'].split('\n', 1)[1])
-        self.assertEqual(set(payload), {'market', 'applications', 'recent_insights'})
+        self.assertEqual(set(payload), {'market', 'applications', 'interviews', 'recent_insights'})
         self.assertIn(PROFILE, client.calls[0]['system'][0]['text'])
 
     def test_not_due_before_the_hour_or_twice_a_day(self):

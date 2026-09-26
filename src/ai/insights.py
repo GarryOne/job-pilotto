@@ -29,7 +29,7 @@ from statistics import mean
 from .. import digest, store
 from ..notion import client as notion
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, plain
-from . import cost, enrich, score
+from . import cost, enrich, interviews, score
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5')
 INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '4c79aec091df4dcc8a8827cd4d43a5ef')
@@ -71,6 +71,9 @@ Rules:
 - Market statistics describe postings. Application statistics describe the owner's results.
 - Do not claim why applications were rejected unless the application group has at least \
 {min_group} applications; below that, state what the market shows and say the sample is small.
+- Interview statistics (topics asked, topics answered weakly) come from the owner's own interview \
+transcripts. A topic that keeps coming up, or keeps being answered weakly, is worth an insight: \
+what to practise, or what to add to the CV so it is expected.
 - A technology often required but absent from the profile is either a CV gap (the owner may have \
 it and not show it) or a skill gap. Say which the profile suggests; if unclear, ask them to check.
 - Do not repeat a finding from the recent insights unless the numbers moved clearly; prefer a \
@@ -320,7 +323,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     now = now or datetime.now(timezone.utc)
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
-            'week': week_stats(tracker, now)}
+            'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now)}
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
@@ -397,7 +400,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
         return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats)
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
-            'recent_insights': recent_insights(tracker)}
+            'interviews': interviews.stats_for_insights(tracker), 'recent_insights': recent_insights(tracker)}
     if client is None:
         import anthropic
         client = anthropic.Anthropic()

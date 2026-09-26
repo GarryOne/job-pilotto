@@ -236,3 +236,37 @@ test('insight feedback is saved on the Insights row and replaces the buttons', a
   assert.deepEqual(calls[0].body, { properties: { Feedback: { select: { name: 'Acting on it' } } } });
   assert.deepEqual(calls[1].body.reply_markup, { inline_keyboard: [[{ text: "✅ You're acting on it", callback_data: 'noop' }]] });
 });
+
+async function sendMessage(message) {
+  const pending = [];
+  const request = new Request('https://bot.test/telegram', {
+    method: 'POST', headers: { 'X-Telegram-Bot-Api-Secret-Token': 's3cret' },
+    body: JSON.stringify({ message: { chat: { id: 42 }, ...message } }),
+  });
+  await worker.fetch(request, env, { waitUntil: (p) => pending.push(p) });
+  await Promise.all(pending);
+}
+
+test('a transcript file starts an interview run with its caption', async () => {
+  const calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ document: { file_id: 'F1', file_name: 'grafana.srt', file_size: 9000 }, caption: 'Grafana, round 1' });
+  assert.deepEqual(calls[0].body, { ref: 'main', inputs: { mode: 'interview', file: 'F1', note: 'Grafana, round 1' } });
+  assert.match(calls[1].body.text, /Got <b>grafana.srt<\/b>/);
+});
+
+test('non-text files are refused without a run', async () => {
+  const calls = mockFetch();
+  await sendMessage({ document: { file_id: 'F2', file_name: 'call.m4a', file_size: 9000 } });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].body.text, /isn't a text transcript/);
+});
+
+test('/interview with notes dispatches them; without notes it explains', async () => {
+  let calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ text: '/interview Grafana round 1\nThey asked about Kubernetes upgrades.' });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'interview', note: '/interview Grafana round 1\nThey asked about Kubernetes upgrades.' });
+  calls = mockFetch();
+  await sendMessage({ text: '/interview' });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].body.text, /transcript file/);
+});

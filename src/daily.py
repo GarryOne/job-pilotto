@@ -10,7 +10,7 @@ import random
 import re
 
 from . import digest, scout, store, telegram
-from .ai import enrich, insights, kit, score
+from .ai import enrich, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, ledger, matches
 from pathlib import Path
 
@@ -46,7 +46,7 @@ def top_new(report, scored, limit=3):
 
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview')
 
 
 def find_job(db, code):
@@ -172,6 +172,8 @@ def main():
                         help='auto-draft application kits for up to N best-scored new jobs per run (0 = off)')
     parser.add_argument('--auto-kit-min-score', type=int, default=kit.DEFAULT_AUTO_MIN_SCORE,
                         help='minimum fit score to qualify for an automatic kit')
+    parser.add_argument('--file', help='interview mode: Telegram file id of the transcript')
+    parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes')
     parser.add_argument('--insight', action='store_true',
                         help="scheduled mode: send the day's insight if it's due (insight mode always sends one)")
     args = parser.parse_args()
@@ -199,6 +201,18 @@ def main():
             credentials = telegram.credentials()
             for message in messages:
                 telegram.send(message, *credentials)
+        return 0
+    if args.mode == 'interview':
+        if not tracker:
+            raise SystemExit('--mode interview requires NOTION_TOKEN')
+        token, chat_id = telegram.credentials()
+        sender = (lambda text: telegram.send(text, token, chat_id)) if args.send else None
+        try:
+            print(interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender))
+        except ValueError as error:  # the owner sent something that can't be analysed: say why
+            print(error)
+            if sender:
+                sender(f'⚠️ {escape(str(error))}')
         return 0
     if args.mode in ('insight', 'weekly'):
         if not tracker:

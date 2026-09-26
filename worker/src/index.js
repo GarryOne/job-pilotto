@@ -13,6 +13,7 @@ const HELP = [
   '/saved — jobs you saved with ⭐',
   '/insight — one insight about your search now (~1 min)',
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
+  '🎤 After an interview: send the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
   '/scout — look for new employer job feeds now (~1 min)',
@@ -357,12 +358,38 @@ async function handleButton(env, query) {
   }
 }
 
+// Interview input: a transcript file (with a caption naming the interview), or /interview + notes.
+// Both start an interview run; Telegram files up to 20 MB can be fetched by the run (getFile).
+const TRANSCRIPT_TYPES = /\.(txt|md|srt|vtt|text)$/i;
+
+export async function handleInterview(env, message) {
+  const doc = message.document;
+  if (doc) {
+    if (!TRANSCRIPT_TYPES.test(doc.file_name || '')) {
+      return `⚠️ ${escapeHtml(doc.file_name || 'That file')} isn't a text transcript. Export it as .txt, .md, .srt or .vtt.`;
+    }
+    if ((doc.file_size || 0) > 20 * 1024 * 1024) return '⚠️ That file is over 20 MB; export the transcript as text.';
+    await dispatch(env, { mode: 'interview', file: doc.file_id, note: (message.caption || '').slice(0, 500) });
+    return `🎤 Got <b>${escapeHtml(doc.file_name)}</b>. Analysing the interview; the summary arrives in 1–2 minutes.`;
+  }
+  const text = message.text || '';
+  if (!text.includes('\n')) {
+    return '🎤 Send the transcript file with a caption like "Grafana, round 1", or write /interview Grafana round 1 and your notes on the next lines (one message).';
+  }
+  await dispatch(env, { mode: 'interview', note: text.slice(0, 4096) });
+  return '🎤 Analysing your notes; the summary arrives in about a minute.';
+}
+
 async function handleUpdate(env, update) {
   if (update.callback_query) return handleButton(env, update.callback_query);
   const message = update.message;
   // Only the owner's private chat may control the bot; ignore everyone else silently.
   if (!message || String(message.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
   try {
+    if (message.document || parseCommand(message.text)?.name === 'interview') {
+      await reply(env, await handleInterview(env, message));
+      return;
+    }
     await reply(env, await handleCommand(env, parseCommand(message.text)));
   } catch (error) {
     await reply(env, `⚠️ ${escapeHtml(error.message)}`);

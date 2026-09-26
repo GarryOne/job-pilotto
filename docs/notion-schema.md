@@ -136,6 +136,26 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 | Note | Text | |
 | Job URL | URL | |
 
+## 🎤 Interviews (database)
+
+Env var: `NOTION_INTERVIEWS_DB`. One row per interview sent to the bot (`src/ai/interviews.py`). The
+page body holds the analysis (strengths, weak spots, signals, practice, every question with ✅/➖/⚠️/❌)
+and the full transcript in a toggle.
+
+| Property | Type | Notes |
+|---|---|---|
+| Interview | Title | "Company · Round" |
+| Application | Relation | To Applications — Job Tracker (two-way, shows there as "Interviews"); empty when unclear |
+| Date | Date | |
+| Round | Text | e.g. Recruiter screen, Technical 1 |
+| Overall | Select | `positive`, `neutral`, `negative` |
+| Questions / Weak answers | Number | |
+| Topics / Weak topics | Text | Semicolon-separated; the insights count these across interviews |
+| Next step | Text | |
+| Input | Select | `Transcript`, `Notes` |
+| Cost (USD) | Number (dollar) | |
+| Model | Text | |
+
 ## 💡 Insights (database)
 
 Env var: `NOTION_INSIGHTS_DB`. One row per daily insight (`src/ai/insights.py`), created before the

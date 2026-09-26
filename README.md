@@ -54,7 +54,9 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   📬 Confirmed · 📞 Screening · 🗓 Interview · 🎤 Interviewing · 🎉 Offer · ❌ Rejected · 💤 No reply.
 - 💡 **One insight a day** and a 📊 **weekly report** on Mondays (see below), with 👍 Useful · 👎 Not
   useful · ✅ I'll act on it.
-- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/insight`, `/weekly`, `/scout`, `/status`, `/help`.
+- 🎤 **Interviews**: send the transcript file with a caption ("Grafana, round 1"), or `/interview` with
+  your notes, and get back what went well, the weak answers and what to practise.
+- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
 - 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
@@ -92,12 +94,22 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   replies, how the market moved, how you rated the week's insights, what worked and up to three
   changes for next week. The full report (with the numbers) is a page in 💡 Insights; Telegram
   gets the summary and a link. About USD 0.04 a week.
+- 🎤 **Interview reviews**: send a transcript (`.txt`, `.md`, `.srt`, `.vtt`) or your notes to the bot.
+  Claude Sonnet 5 links it to the right application, lists every question by topic with how you
+  answered (strong / ok / weak, and what a stronger answer would add), strengths, weak spots, what
+  they revealed, the next step and what to practise. It's saved in a 🎤 Interviews database (with
+  the full transcript), logged as an Interviewing event, and the insights start tracking topics that
+  keep coming up or keep being answered weakly. About USD 0.05 per interview.
+  To get a transcript when you're the guest (most interviews), use a bot-free recorder on your
+  Mac that works with any call app: [MacWhisper](https://goodsnooze.gumroad.com/l/macwhisper)
+  transcribes locally, so the audio never leaves your Mac. Always ask the interviewers first:
+  recording without everyone's consent is illegal in Switzerland and many other places.
 - 🧾 **Existing applications included**: `python3 -m src.notion.ledger backfill` records every
   application tracked before the ledger existed.
 
 ### 🗂️ Tracking in Notion
 - 📋 Job Matches (every scored job, with its technologies and role family), Applications — Job
-  Tracker (with the frozen application record), 📈 Application Events, 💡 Insights, Employers & Sources.
+  Tracker (with the frozen application record), 📈 Application Events, 🎤 Interviews, 💡 Insights, Employers & Sources.
 - 👤 Profile and Application Answers pages — the single source for the scorer, the kit drafter and
   every form filler. Answer a question once and it's reused on every form.
 
@@ -313,6 +325,8 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `JOB_PILOTTO_AUTO_KIT_MIN_SCORE` | minimum fit score to qualify (default 50) |
 | `JOB_PILOTTO_INSIGHT_MODEL` | model for the daily insight (repository variable; unset = no insights). Uses `claude-sonnet-5` |
 | `NOTION_INSIGHTS_DB` | your 💡 Insights database ID |
+| `NOTION_INTERVIEWS_DB` | your 🎤 Interviews database ID |
+| `JOB_PILOTTO_INTERVIEW_MODEL` | model for interview reviews (default `claude-sonnet-5`) |
 | `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
 Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop all AI spending.
@@ -448,6 +462,7 @@ src/
     apply_run.py     observable runs: Codex runner, `--record` (Claude runs), `--status`,
                      `--report`, `--context`, `--learnings`
     insights.py      daily insight and Monday weekly report: stats by code, written by Sonnet 5
+    interviews.py    interview transcript or notes -> 🎤 Interviews analysis, event and summary
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
     matches.py       mirror of scored jobs into Notion Job Matches
@@ -505,12 +520,13 @@ python3 -m src.notion.ledger sync --dry-run               # what the scheduled s
 python3 -m src.notion.ledger backfill                     # records for applications made before the ledger
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
 python3 -m src daily --send --mode weekly                 # the weekly report now (Sonnet 5, ~USD 0.04)
+python3 -m src daily --send --mode interview --note $'/interview Acme round 1\nmy notes...'  # notes, no file
 ```
 
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),
 `today` (no board crawl), `more` (next page of a digest), `apply` (record ✅ / ⭐ / ❌ in Notion),
 `prepare` (draft an application kit for one job), `insight` (send an insight now), `weekly` (send the
-weekly report now). Scheduled runs add `--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set: the first
+weekly report now), `interview` (analyse a transcript `--file <Telegram file id>` or `--note` text). Scheduled runs add `--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set: the first
 run after 04:00 UTC sends the day's insight, or the weekly report on Mondays.
 
 ## Tests
