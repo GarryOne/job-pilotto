@@ -17,10 +17,10 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
                                   │
              ┌────────────────────┼────────────────────┐
              ▼                    ▼                     ▼
-   Telegram digest (top 10)   Notion: Job Matches,   tools/apply-batch-chatgpt.sh
-   with buttons               Applications, Profile   queues kits into an
-             │                                         AI browser agent
-             ▼
+   Telegram digest (top 10)   Notion: Job Matches,   tools/apply-batch-*.sh: ChatGPT,
+   with buttons               Applications, Profile,  Codex or Claude fills the form
+             │                🤖 Agent Runs           in Chrome — you click Submit,
+             ▼                                        it's marked Applied by itself
    Cloudflare Worker ── commands and buttons ──▶ GitHub Actions runs
 ```
 
@@ -164,13 +164,16 @@ most people — no commands, just reacting to what arrives.
 **2. A batch session every few days, when you're ready to actually apply** (this is the "I'd spawn
 job application automations" part of your question) — on your laptop:
 ```sh
-tools/apply-batch-chatgpt.sh --max 5
+tools/prepare-top.sh 3            # draft kits for your 3 best matches that don't have one (~$0.04 each)
+tools/apply-batch-claude.sh --max 3   # one filling session per job (or apply-batch-codex-terminal.sh / -chatgpt.sh)
 ```
-This looks at everything sitting at **Kit ready** (or ⭐ Saved) **with a kit already on it** (built up by habit #1 and by
-auto-drafting) and queues each one into its own Codex chat, already filled in, stopped before
-Submit. You then spend that session reviewing each chat and clicking Submit — the actual "applying"
-still takes your attention, but the form-filling and drafting don't. Nothing forces this to happen
-on a schedule; you run it whenever you have kits piled up and time to review them.
+The launcher picks jobs at **Kit ready** (or ⭐ Saved) **with a kit on it**, skips any posting that
+has closed (marking it Closed in Notion), and fills each form in Chrome, stopped before Submit.
+🔔 You get a notification when filling starts and a dialog when a form is ready (its **Show window**
+button jumps to that session's Terminal). You review and click Submit; a background watcher sees the
+confirmation page and marks the job **Applied** in Notion by itself. Each session is recorded in
+🤖 Agent Runs, and its learnings are read by the next run. Nothing forces this onto a schedule; run it
+whenever you have time to review.
 
 You can also reach for specific Telegram commands on demand, not as a daily ritual:
 
@@ -186,7 +189,7 @@ You can also reach for specific Telegram commands on demand, not as a daily ritu
 **Putting it together, a realistic week looks like:** Telegram pings you a few times a day; you
 tap ⭐/❌ on maybe a dozen jobs without leaving the app; a couple of times that week you open your
 laptop, run `apply-batch-chatgpt.sh` or `apply-batch-claude.sh`, review 3-5 filled forms over
-coffee, submit the good ones, and mark them applied. The system never applies on its own initiative — it just makes sure that by the time
+coffee, and submit the good ones — marking them applied happens by itself. The system never applies on its own initiative — it just makes sure that by the time
 you sit down to apply, the tedious part (finding the posting, writing the letter, answering the
 same 15 form questions again) is already done.
 
@@ -204,7 +207,8 @@ same 15 form questions again) is already done.
    pages in **[docs/notion-schema.md](docs/notion-schema.md)** — the exact property names and
    types to create, so you don't have to reverse-engineer them from the source code. In short:
    an Applications database, a Job Matches database, a Profile page, an Application Answers page,
-   and (optional) an Employers & Sources database.
+   and (optional) Employers & Sources and 🤖 Agent Runs databases. For the two pages,
+   **[docs/notion-profile-template.md](docs/notion-profile-template.md)** has paste-ready copies.
 5. An **Anthropic account and API key** (`ANTHROPIC_API_KEY`) — pay-as-you-go; powers fact
    extraction, fit scoring and kit drafting. Skip it and you still get a plain crawler + digest,
    with no scoring or drafting.
@@ -213,12 +217,14 @@ same 15 form questions again) is already done.
 
 **Optional — local "apply" tooling, macOS only:**
 
-7. A **Mac**, since `tools/send-to-chatgpt.sh` and `tools/apply-batch-chatgpt.sh` use `osascript`/System
-   Events.
+7. A **Mac**, since the launchers (`tools/apply-batch-*.sh`), notifications and the submit watcher
+   use `osascript` (Terminal, Chrome, System Events). The core pipeline doesn't need one.
 8. The **ChatGPT/Codex desktop app**, signed in, with your terminal app granted **Accessibility**
    permission (System Settings → Privacy & Security → Accessibility).
-9. **[Claude in Chrome](https://claude.ai/chrome)**, if you'd rather fill forms live with Claude
-   instead of (or alongside) Codex — see `.claude/skills/apply-to-job/SKILL.md`.
+9. **[Claude in Chrome](https://claude.ai/chrome)** and [Claude Code](https://claude.com/claude-code)
+   for `tools/apply-batch-claude.sh` — see `.claude/skills/apply-to-job/SKILL.md`.
+   And/or the **Codex CLI** plus the [Playwright MCP Chrome extension](https://playwright.dev/mcp/configuration/browser-extension)
+   for `tools/apply-batch-codex-terminal.sh`.
 10. Nothing extra for notifications: "Form filled" and "Needs your input" open a native dialog
     whose **Show window** button raises that session's Terminal window; the rest are banners.
 
@@ -271,7 +277,7 @@ matches both spellings, `"\\bsre\\b"` avoids matching inside another word) — c
 adding your own. A frontend developer targeting Berlin, for example, would set `role_keywords` to
 `["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
 
-For the optional local tooling: `JOB_PILOTTO_CV_PATH` points `tools/apply-batch-chatgpt.sh` at your CV
+For the optional local tooling: `JOB_PILOTTO_CV_PATH` (in your local `.env`) points the launchers at your CV
 (defaults to `~/Documents/CV.pdf` — the maintainer's own file; set this
 to yours).
 
@@ -282,8 +288,10 @@ order:
 
 1. **A kit gets drafted.** For your best-scored new matches (score ≥ `JOB_PILOTTO_AUTO_KIT_MIN_SCORE`,
    up to `JOB_PILOTTO_AUTO_KIT_MAX` per crawl) this happens automatically after AI stage 2, with no
-   action from you. For any other job, tap **📝 Prepare application kit** under it in Telegram, or
-   run `python -m src daily --mode prepare --job <job URL>`.
+   action from you. For any other job, tap **📝 Prepare application kit** under it in Telegram, run
+   `tools/prepare-top.sh N` for your N best-scored jobs without a kit (it skips closed postings), or
+   `python -m src daily --mode prepare --job <job URL>` for one job. A job that has dropped out of
+   the crawl still works: it's found through its Notion row and the posting is fetched live.
    - Claude reads the employer's real application form where it can (currently Greenhouse's public
      API — other ATS platforms get a best-guess set of likely questions instead), plus your Profile
      and Application Answers pages, and drafts a cover letter and one answer per question.
@@ -307,7 +315,11 @@ order:
      highest-scored jobs with a kit via `python -m src.ai.apply_batch --next N` (score comes from
      the Job Matches — AI Scored Notion database). The `jobpilot` shell alias (`cd ~/sre-watch &&
      claude`) is worth setting up alongside this so a plain `claude` session also always starts in
-     the right directory.
+     the right directory. Each session gets everything in one call
+     (`python3 -m src.ai.apply_run --context <URL>`: kit, Profile, Application Answers, learnings),
+     picks dropdown options by exact match, and at hand-over records the run
+     (`apply_run --record`) in 🤖 Agent Runs with timings, a field-by-field audit taken from the page,
+     and a one-line learning for the next run.
    - **Queue the ChatGPT/Codex desktop app instead** (macOS only) — `tools/apply-batch-chatgpt.sh` reads
      every Kit ready / Saved job with a kit, builds a plain-text prompt from it, and pastes-and-sends it into a
      new Codex chat per job via `tools/send-to-chatgpt.sh`. Codex fills the form in its own
@@ -336,8 +348,12 @@ order:
 3. **You review and click Submit yourself**, in every case, in every tool. The agents are instructed
    to stop before Submit; the Terminal Codex path also has an accident guard. Review their work and
    unlock the page only when you are ready to make the final legal choices and submit.
-4. **You mark it applied**: tap ✅ under the job in Telegram, or
-   `gh workflow run daily.yml -f mode=apply -f job=<job URL> -f action=applied`.
+4. **Marked applied automatically.** Every launcher starts `tools/wait-and-mark-applied.sh` for each
+   job: it watches Chrome for that job's confirmation page (Greenhouse `/confirmation`, Lever
+   `/thanks`), marks the job **Applied** in Notion and notifies you (log:
+   `~/Library/Logs/JobPilotto/wait-and-mark-applied.log`). By hand: tap ✅ in Telegram, or
+   `python3 -m src.ai.apply_batch --mark-applied <job URL>`. A posting that turns out to be gone:
+   `python3 -m src.ai.apply_batch --mark-closed <job URL>` (launchers do this for you).
 
 Two safety rules worth knowing if you extend this: legal-acknowledgment checkboxes ("I agree
 to...", privacy notices) are always left for you to check yourself, even when the kit has an
@@ -369,12 +385,14 @@ src/
     enrich.py        AI stage 1: facts from each posting, with evidence
     score.py         AI stage 2: fit score against the Notion Profile
     kit.py           AI stage 3: application kit (cover letter + form answers), on demand or auto
-    apply_batch.py   queues ready kits into the ChatGPT/Codex desktop app; also `--next N`
-                     (highest-scored URLs with a kit) and `--mark-applying URL`, both used
-                     by tools/apply-batch-claude.sh
+    apply_batch.py   queues ready kits into the ChatGPT/Codex desktop app; also `--next N`,
+                     `--top-unprepared N`, `--mark-applying/--mark-applied/--mark-closed URL`
+    apply_run.py     observable runs: Codex runner, `--record` (Claude runs), `--status`,
+                     `--report`, `--context`, `--learnings`
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
     matches.py       mirror of scored jobs into Notion Job Matches
+    runs.py          🤖 Agent Runs: one row per form-filling session, learnings read back
 config/
   search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages, excluded companies)
@@ -386,7 +404,14 @@ tools/
   apply-batch-chatgpt.sh   queues every ready application kit into a new Codex chat, one per job
   apply-batch-claude.sh    opens one Terminal window per job, each its own `claude` session
                            pre-seeded with the apply-to-job prompt; `--max N` auto-picks by score
+  apply-batch-codex-terminal.sh  one observable `codex exec` run per job (Playwright extension)
+  prepare-top.sh           drafts kits for the N best-matching jobs without one
+  wait-and-mark-applied.sh marks a job Applied when its confirmation page shows up in Chrome
+  notify.sh, focus-terminal.sh  notifications; "Show window" raises the session's Terminal
+  browser-form-fastpath.js page helpers: field audit, known-field fill, exact option picks, step timer
+  browser-submit-guard.js  blocks Submit and legal-consent clicks until you unlock the page
 .claude/skills/      apply-to-job (how to fill a form from a kit) and notion-map (page/DB index)
+docs/                Notion schema, paste-ready Notion page templates, benchmark procedure, screenshots
 AGENTS.md            instructions for any agent (Claude, Codex, or other) working in this repo
 tests/               Python tests; Worker tests live in worker/test/
 .github/workflows/   daily.yml (every 4 h + on demand), scout.yml (daily)
@@ -404,6 +429,11 @@ python3 -m src feeds                  # employer feeds only, HTML report in repo
 tools/apply-batch-chatgpt.sh --dry-run        # preview what would be queued into Codex
 tools/apply-batch-claude.sh --max 3            # auto-pick top-3 by score, one Claude session each
 tools/apply-batch-claude.sh <job_url> [more...] # or queue specific jobs by URL
+tools/prepare-top.sh 3 --dry-run               # which jobs would get a kit, and the cost
+python3 -m src.ai.apply_run --status           # every recorded run (Codex and Claude)
+python3 -m src.ai.apply_run --report <job_url> # field-by-field audit of one run
+python3 -m src.ai.apply_run --learnings Greenhouse   # what earlier runs learned on a job board
+python3 -m src.ai.apply_batch --mark-applied <job_url>
 ```
 
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),
@@ -421,14 +451,18 @@ cd worker && npm test
 
 1. Fork the repo, clone it.
 2. Create your Notion integration and the databases/pages in
-   [docs/notion-schema.md](docs/notion-schema.md); share each with the integration; note their IDs.
+   [docs/notion-schema.md](docs/notion-schema.md) (paste-ready page templates:
+   [docs/notion-profile-template.md](docs/notion-profile-template.md)); share each with the
+   integration; note their IDs.
 3. Create your Telegram bot; message it once to get your chat ID.
 4. Set the GitHub secrets and variables listed above.
 5. Deploy the Worker: `cd worker && ./setup.sh` (creates Worker secrets, sets the Telegram webhook
    and command menu — needs a Cloudflare account logged in via `wrangler`).
 6. Trigger a first run by hand: Actions tab → `Daily job discovery` → Run workflow → mode `run`, or
    send `/run` to your bot once the webhook is live.
-7. Fill in your Profile and Application Answers pages in Notion; edit `config/search.json` to your
+7. For the local apply tooling (macOS): copy `.env.example` to `.env` and set `JOB_PILOTTO_CV_PATH`
+   (and `NOTION_TOKEN` if you don't use the Keychain).
+8. Fill in your Profile and Application Answers pages in Notion; edit `config/search.json` to your
    own role/location/tech keywords, and `config/preferences.json`, `config/sources.json` and
    `config/scout_seeds.json` to your own languages and target employers.
 
@@ -452,7 +486,8 @@ Then help me set this up for myself, step by step:
    pause and wait for me to paste each one back to you rather than guessing or inventing a value.
 2. Once I've shared my Notion integration's access, create the databases and pages listed in
    docs/notion-schema.md for me via the Notion API, with the exact property names and types it
-   specifies. Tell me the resulting page/database IDs.
+   specifies (for the Profile and Application Answers pages, start from
+   docs/notion-profile-template.md). Tell me the resulting page/database IDs.
 3. Set the GitHub secrets and variables README.md's Configuration section lists, using the `gh`
    CLI against my fork, from the values I've given you. Never print a secret back to me or commit
    one to a file.
