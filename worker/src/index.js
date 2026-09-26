@@ -9,7 +9,7 @@ const HELP = [
   '',
   '/run — crawl now and send the digest (~3 min)',
   '/today — send the current ranked list (~1 min)',
-  '/applied — jobs you applied to, with stage',
+  '/applied — jobs you applied to, with stage; tap a number to record a reply (screening, interview, offer, rejection)',
   '/saved — jobs you saved with ⭐',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
@@ -42,9 +42,12 @@ async function telegram(env, method, body) {
   return response.json();
 }
 
-function reply(env, text) {
+// A command answers with text, or with {text, keyboard} when it carries buttons.
+function reply(env, answer) {
+  const { text, keyboard } = typeof answer === 'string' ? { text: answer } : answer;
   return telegram(env, 'sendMessage', {
     chat_id: env.OWNER_CHAT_ID, text, parse_mode: 'HTML', disable_web_page_preview: true,
+    ...(keyboard ? { reply_markup: keyboard } : {}),
   });
 }
 
@@ -94,6 +97,77 @@ export function formatApplied(pages, databaseUrl) {
   return [`📋 <b>Applications</b> (${pages.length}) · <a href="${databaseUrl}">open in Notion</a>`, '', lines.join('\n\n')].join('\n');
 }
 
+function notion(env, path, method = 'GET', body) {
+  return fetch(`https://api.notion.com/v1/${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json',
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
+// Outcome buttons under /applied (callback_data, page id without dashes):
+//   opick:<n>:<page>       number n tapped -> outcome rows for that application
+//   out:<k>:<page>:<n>     outcome k -> Stage on the Applications row + a 📈 Application Events row
+//   oclose                 hide the outcome rows
+export const OUTCOMES = {
+  c: 'Confirmation received', s: 'Screening', i: 'Interview scheduled', v: 'Interviewing',
+  o: 'Offer', r: 'Rejected', n: 'No response', w: 'Withdrawn',
+};
+const OUTCOME_LABELS = {
+  c: '📬 Confirmed', s: '📞 Screening', i: '🗓 Interview booked', v: '🎤 Interviewing',
+  o: '🎉 Offer', r: '❌ Rejected', n: '💤 No reply', w: '↩️ Withdrawn',
+};
+const isOutcomeRow = (row) => row.some((b) => /^(out:|oclose)/.test(b.callback_data || ''));
+
+export function appliedKeyboard(pages) {
+  const buttons = pages.map((page, i) => ({ text: String(i + 1), callback_data: `opick:${i + 1}:${page.id.replace(/-/g, '')}` }));
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 6) rows.push(buttons.slice(i, i + 6));
+  return rows.length ? { inline_keyboard: rows } : null;
+}
+
+export function withOutcomeRows(markup, n, page) {
+  const rows = (markup?.inline_keyboard || []).filter((row) => !isOutcomeRow(row));
+  const button = (k) => ({ text: OUTCOME_LABELS[k], callback_data: `out:${k}:${page}:${n}` });
+  return { inline_keyboard: [
+    [{ text: `${n}:`, callback_data: 'oclose' }, button('c'), button('s'), button('i')],
+    [button('v'), button('o'), button('r'), button('n')],
+    [button('w'), { text: '✖', callback_data: 'oclose' }],
+    ...rows,
+  ] };
+}
+
+export function afterOutcome(markup, n, emoji) {
+  const rows = (markup?.inline_keyboard || []).filter((row) => !isOutcomeRow(row));
+  return { inline_keyboard: rows.map((row) => row.map((b) => (
+    new RegExp(`^opick:${n}:`).test(b.callback_data || '') ? { ...b, text: `${emoji} ${n}` } : b))) };
+}
+
+// Stage on the Applications row plus one event row: the history the learning reports read.
+export async function recordOutcome(env, page, stage) {
+  const got = await notion(env, `pages/${page}`);
+  if (!got.ok) throw new Error(`Notion page read failed: ${got.status}`);
+  const props = (await got.json()).properties || {};
+  const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
+  const patched = await notion(env, `pages/${page}`, 'PATCH', { properties: { Stage: { select: { name: stage } } } });
+  if (!patched.ok) throw new Error(`Notion stage update failed: ${patched.status}`);
+  const created = await notion(env, 'pages', 'POST', {
+    parent: { database_id: env.NOTION_EVENTS_DB },
+    properties: {
+      Event: { title: [{ text: { content: `${stage} · ${text(props.Company) || text(props.Job) || 'application'}`.slice(0, 200) } }] },
+      Application: { relation: [{ id: page }] },
+      Kind: { select: { name: stage } },
+      At: { date: { start: new Date().toISOString() } },
+      Source: { select: { name: 'Telegram' } },
+      ...(props['Job URL']?.url ? { 'Job URL': { url: props['Job URL'].url } } : {}),
+    },
+  });
+  if (!created.ok) throw new Error(`Notion event not saved: ${created.status}`);
+  return text(props.Job) || 'Application';
+}
+
 async function queryApplications(env, filter, sorts) {
   const response = await fetch(`https://api.notion.com/v1/databases/${env.NOTION_APPLICATIONS_DB}/query`, {
     method: 'POST',
@@ -140,7 +214,9 @@ async function applied(env) {
   });
   if (!response.ok) throw new Error(`Notion query failed: ${response.status}`);
   const { results } = await response.json();
-  return formatApplied(results, `https://www.notion.so/${env.NOTION_APPLICATIONS_DB}`);
+  const text = formatApplied(results, `https://www.notion.so/${env.NOTION_APPLICATIONS_DB}`);
+  const keyboard = appliedKeyboard(results);
+  return keyboard ? { text: `${text}\n\nTap a number when you hear back.`, keyboard } : text;
 }
 
 export async function handleCommand(env, command) {
@@ -220,6 +296,8 @@ async function handleButton(env, query) {
   const act = /^act:([asdp]):([0-9a-f]{8}):(\d{1,3})$/.exec(data);
   const apply = /^apply:([0-9a-f]{8})$/.exec(data);
   const more = /^more:(\d{1,10}):(\d{1,3})$/.exec(data);
+  const opick = /^opick:(\d{1,3}):([0-9a-f]{32})$/.exec(data);
+  const out = /^out:([csivornw]):([0-9a-f]{32}):(\d{1,3})$/.exec(data);
   const answer = (text, alert = false) => telegram(env, 'answerCallbackQuery',
     { callback_query_id: query.id, text: text.slice(0, 200), show_alert: alert });
   try {
@@ -237,6 +315,17 @@ async function handleButton(env, query) {
     } else if (apply) {
       await dispatch(env, { mode: 'apply', job: apply[1], action: 'applied' });
       await answer('Marking it applied in Notion…');
+    } else if (opick) {
+      await editButtons(env, query, withOutcomeRows(query.message.reply_markup, opick[1], opick[2]));
+      await answer(`Application ${opick[1]}: what happened?`);
+    } else if (out) {
+      const stage = OUTCOMES[out[1]];
+      const title = await recordOutcome(env, out[2], stage);
+      await editButtons(env, query, afterOutcome(query.message.reply_markup, out[3], STAGE_EMOJI[stage] || '•'));
+      await answer(`${title}: ${stage}. Saved in Notion.`);
+    } else if (data === 'oclose') {
+      await editButtons(env, query, afterOutcome(query.message.reply_markup, '-', ''));
+      await answer('OK');
     } else if (more) {
       await dispatch(env, { mode: 'more', seed: more[1], page: more[2] });
       await answer('Loading the next jobs (about a minute)…');

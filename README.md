@@ -276,6 +276,7 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `NOTION_ANSWERS_PAGE_ID` | your Application Answers page ID |
 | `NOTION_EMPLOYERS_DB` | your Employers & Sources database ID (optional — the crawler falls back to `config/sources.json` without it) |
 | `NOTION_CRON_RUNS_DB` | your ⏰ Cronjob Runs database ID (optional — without access the run just logs a warning) |
+| `NOTION_EVENTS_DB` | your 📈 Application Events database ID (outcome history: Applied, Screening, Rejected, ...; written by the ✅/`/applied` buttons, `mark-applied` and the scheduled sync) |
 | `NOTION_AGENT_RUNS_DB` | your 🤖 Agent Runs database ID (optional — form-filling runs are still recorded locally without it) |
 | `JOB_PILOTTO_ENRICH_MODEL` | e.g. `claude-haiku-4-5` — turns on AI stage 1 |
 | `JOB_PILOTTO_SCORE_MODEL` | e.g. `claude-sonnet-5` — turns on AI stage 2 |

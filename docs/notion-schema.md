@@ -28,6 +28,31 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Contact | Text | You fill this in manually |
 | Confirmation email | Checkbox | You fill this in manually |
 
+Frozen when the job is marked Applied (`src/notion/ledger.py`), for learning which applications get
+replies:
+
+| Property | Type | Notes |
+|---|---|---|
+| Recorded | Date | When the application record was frozen |
+| Fit score | Number | AI stage 2 score at the time |
+| Tier | Select | `A`, `B`, `C` |
+| Seniority | Select | Same options as Job Matches |
+| Work mode | Select | `On-site`, `Hybrid`, `Remote` |
+| Recruiter | Checkbox | |
+| ATS | Select | `Greenhouse`, `Ashby`, `Lever`, `Workable`, `Other` |
+| Agent | Select | `Claude`, `Codex`, `ChatGPT`, `Manual` (from the local form-filling run record) |
+| Days to apply | Number | Days from Posted to Applied on |
+| Cover letter | Checkbox | |
+| Questions | Number | Questions answered |
+| Answers captured | Select | `Form` (read from the page just before Submit), `Kit draft`, `None` |
+| CV version | Text | File name and a short content hash |
+| Kit variant | Text | Kit prompt variant, for experiments |
+| Events | Relation | Two-way with 📈 Application Events |
+
+The page body gets a "🗂 Application record" toggle section: every question with the answer sent
+(and the kit's draft, marked ✏️ when edited), the cover letter, and a JSON block with the job
+description, AI facts and scores.
+
 The application kit (📝 Prepare, or auto-drafted) is written as a toggle heading block named
 "📝 Application kit" inside each row's page content — that's page content, not a database property,
 so it doesn't need a schema entry.
@@ -91,6 +116,23 @@ daily scout creates and updates these. Optional for a first run — the crawler 
 | Notes | Text | |
 | Integration | Select | Option used by code: `Working` |
 | Added | Date | |
+
+## 📈 Application Events (database)
+
+Env var: `NOTION_EVENTS_DB`. One row per outcome change of an application; the Applications Stage
+holds only the latest. Written by `ledger.mark_applied` (watcher / `--mark-applied`), the Telegram
+✅ Applied button, the `/applied` outcome buttons (Worker), and `ledger.sync` on scheduled runs (a
+Stage edited by hand in Notion, and the 30-day no-response rule).
+
+| Property | Type | Notes |
+|---|---|---|
+| Event | Title | "Kind · Company" |
+| Application | Relation | To Applications — Job Tracker (two-way, shows there as "Events") |
+| Kind | Select | `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response` |
+| At | Date | With time |
+| Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill` |
+| Note | Text | |
+| Job URL | URL | |
 
 ## ⏰ Cronjob Runs (database)
 

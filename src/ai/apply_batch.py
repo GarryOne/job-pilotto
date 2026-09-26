@@ -29,6 +29,7 @@ from pathlib import Path
 
 from .kit import KIT_HEADING
 from ..notion import client as notion
+from ..notion import ledger
 from ..sources import ats
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -192,6 +193,8 @@ def main():
                              'the local jobs.sqlite crawl cache, which can be stale, evicted in CI, or '
                              "never populated for a job you only ever saw in Notion) — this looks the "
                              'row up by URL directly in Notion instead, the same way --mark-applying does.')
+    parser.add_argument('--source', default='CLI', choices=('CLI', 'Watcher'),
+                        help='with --mark-applied: who noticed the submission, for the Applied event')
     args = parser.parse_args()
 
     if args.file and args.urls:
@@ -213,8 +216,8 @@ def main():
         return 0
 
     if args.mark_applied:
-        _, outcome = tracker.mark({'url': args.mark_applied}, 'Applied')
-        print(f'{args.mark_applied}: {outcome}')
+        # Also logs an Applied event and freezes the application record (questions, answers sent).
+        print(ledger.mark_applied(tracker, args.mark_applied, args.source))
         return 0
 
     if args.top_unprepared is not None:

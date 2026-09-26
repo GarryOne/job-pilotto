@@ -11,7 +11,7 @@ import re
 
 from . import digest, scout, store, telegram
 from .ai import enrich, kit, score
-from .notion import client as notion, cron_runs, matches
+from .notion import client as notion, cron_runs, ledger, matches
 from pathlib import Path
 
 from .paths import JOBS_DB, CONFIG, DATA, REPORTS
@@ -106,6 +106,14 @@ def apply_message(db, code, tracker, action='applied'):
         return f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
     stage = ACTIONS[action]
     page, outcome = tracker.mark(job, stage)
+    if stage == 'Applied' and outcome != 'unchanged':
+        # The application ledger: an Applied event and the frozen record (no form capture from CI,
+        # so answers are the kit drafts). Never blocks the reply.
+        try:
+            ledger.add_event(tracker, page, 'Applied', 'Telegram')
+            ledger.record(tracker, job['url'])
+        except Exception as error:
+            print(f'Warning: application record skipped: {type(error).__name__}: {error}')
     link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>'
     title = f"<b>{escape(job['title'])}</b> — {escape(job['company'])}"
     if outcome == 'unchanged':
@@ -270,6 +278,13 @@ def main():
             except Exception as error:
                 print(f'Warning: Notion Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')
+        if tracker and args.mode == 'scheduled':
+            # Application ledger: log Stage edits made in Notion, and mark silent applications No response.
+            try:
+                print(ledger.sync(tracker))
+            except Exception as error:
+                print(f'Warning: ledger sync skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'ledger sync skipped: {type(error).__name__}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = digest.build_digest(db, args.limit, hidden_urls=hidden, page=args.page,

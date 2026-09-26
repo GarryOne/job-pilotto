@@ -7,6 +7,7 @@ compatibility_date = "2026-09-01"
 GITHUB_REPO = "GarryOne/job-pilotto"
 WORKFLOW_FILE = "daily.yml"
 NOTION_APPLICATIONS_DB = "f56b68942d3b43cbb85a7b1ebfe2df1b"
+NOTION_EVENTS_DB = "95ae2d6b81804e838985d0de5cbd945b"
 
 # Secrets, set with `npx wrangler@4 secret put <NAME>`:
 # TELEGRAM_BOT_TOKEN, OWNER_CHAT_ID, WEBHOOK_SECRET, GITHUB_TOKEN, NOTION_TOKEN

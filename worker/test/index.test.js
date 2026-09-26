@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import worker, { afterAction, formatApplied, formatSaved, parseCommand, withActionRow } from '../src/index.js';
+import worker, { afterAction, appliedKeyboard, formatApplied, formatSaved, parseCommand, withActionRow, withOutcomeRows } from '../src/index.js';
 
 const env = {
   TELEGRAM_BOT_TOKEN: 'tg', OWNER_CHAT_ID: '42', WEBHOOK_SECRET: 's3cret', GITHUB_TOKEN: 'gh',
   NOTION_TOKEN: 'nt', GITHUB_REPO: 'owner/repo', WORKFLOW_FILE: 'daily.yml', NOTION_APPLICATIONS_DB: 'db1',
+  NOTION_EVENTS_DB: 'ev1',
 };
 
 // Replace fetch with a recorder; respond by URL.
@@ -151,7 +152,7 @@ test('dispatch failure is reported to the owner', async () => {
 });
 
 test('/applied queries Notion and formats rows', async () => {
-  const page = { properties: {
+  const page = { id: '3e562be8-fd86-81af-9a4d-d8732964fd94', properties: {
     Job: { title: [{ plain_text: 'SRE <Zurich>' }] }, Company: { rich_text: [{ plain_text: 'Acme' }] },
     Stage: { select: { name: 'Interview scheduled' } }, 'Applied on': { date: { start: '2026-09-24' } },
     'Next interview': { date: { start: '2026-10-01T10:00:00.000+02:00' } }, 'Job URL': { url: 'https://x.test/1' },
@@ -163,6 +164,51 @@ test('/applied queries Notion and formats rows', async () => {
   assert.match(text, /Applications<\/b> \(1\)/);
   assert.match(text, /SRE &lt;Zurich&gt;/);
   assert.match(text, /🗓 Interview scheduled · 📅 applied 2026-09-24 · 🗓 2026-10-01T10:00/);
+  assert.deepEqual(calls[1].body.reply_markup.inline_keyboard,
+    [[{ text: '1', callback_data: 'opick:1:3e562be8fd8681af9a4dd8732964fd94' }]]);
+});
+
+const PAGE = '3e562be8fd8681af9a4dd8732964fd94';
+
+test('outcome buttons: numbers in rows of six, callback data within Telegram\'s 64 bytes', () => {
+  const pages = Array.from({ length: 13 }, (_, i) => ({ id: `${PAGE.slice(0, -2)}${String(i).padStart(2, '0')}` }));
+  const rows = appliedKeyboard(pages).inline_keyboard;
+  assert.deepEqual(rows.map((r) => r.length), [6, 6, 1]);
+  const outcome = withOutcomeRows({ inline_keyboard: rows }, 13, PAGE).inline_keyboard;
+  for (const button of outcome.flat()) assert.ok(Buffer.byteLength(button.callback_data) <= 64, button.callback_data);
+  assert.equal(appliedKeyboard([]), null);
+});
+
+test('tapping an application number shows the outcome choices', async () => {
+  const calls = mockFetch();
+  await tap(`opick:1:${PAGE}`, { markup: appliedKeyboard([{ id: PAGE }]) });
+  const rows = calls[0].body.reply_markup.inline_keyboard;
+  assert.equal(rows.length, 4);
+  assert.ok(rows.flat().some((b) => b.callback_data === `out:s:${PAGE}:1`));
+});
+
+test('an outcome updates Stage and logs an Application Events row', async () => {
+  const props = { Job: { title: [{ plain_text: 'Staff SRE' }] }, Company: { rich_text: [{ plain_text: 'Acme' }] },
+                  'Job URL': { url: 'https://x.test/1' } };
+  const calls = mockFetch({ [`pages/${PAGE}`]: { json: { properties: props } }, 'v1/pages': { json: { id: 'e1' } } });
+  await tap(`out:s:${PAGE}:1`, { markup: withOutcomeRows(appliedKeyboard([{ id: PAGE }]), 1, PAGE) });
+  const patch = calls.find((c) => c.body?.properties?.Stage);
+  assert.deepEqual(patch.body.properties.Stage, { select: { name: 'Screening' } });
+  const event = calls.find((c) => c.body?.parent?.database_id === 'ev1');
+  assert.equal(event.body.properties.Kind.select.name, 'Screening');
+  assert.equal(event.body.properties.Source.select.name, 'Telegram');
+  assert.deepEqual(event.body.properties.Application.relation, [{ id: PAGE }]);
+  assert.equal(event.body.properties['Job URL'].url, 'https://x.test/1');
+  const edit = calls.find((c) => /editMessageReplyMarkup$/.test(c.url));
+  assert.deepEqual(edit.body.reply_markup.inline_keyboard, [[{ text: '📞 1', callback_data: `opick:1:${PAGE}` }]]);
+  assert.match(calls.at(-1).body.text, /Staff SRE: Screening/);
+});
+
+test('a Notion failure on an outcome is shown to the owner', async () => {
+  const calls = mockFetch({ [`pages/${PAGE}`]: { status: 404, json: {} } });
+  await tap(`out:r:${PAGE}:1`, { markup: appliedKeyboard([{ id: PAGE }]) });
+  assert.ok(!calls.some((c) => c.body?.parent?.database_id));
+  assert.match(calls.at(-1).body.text, /⚠️ Notion page read failed: 404/);
 });
 
 test('/scout dispatches the scout workflow', async () => {
