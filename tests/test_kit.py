@@ -54,6 +54,9 @@ class FakeTracker:
     def page_text(self, page_id=notion.PROFILE_PAGE_ID):
         return 'Profile text' if page_id == notion.PROFILE_PAGE_ID else 'Answers text'
 
+    def url_stages(self):
+        return {}
+
     def mark(self, job, stage):
         self.marked.append((job['url'], stage))
         return {'id': 'page-1', 'url': 'https://notion.test/page-1'}, 'created'

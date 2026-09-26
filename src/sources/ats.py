@@ -215,6 +215,23 @@ def fetch(ats, slug):
     return FETCHERS[ats](slug)
 
 
+def posting(url):
+    """One posting fetched live from its job board by URL, or None when the board isn't supported or
+    the posting is gone. Lets kit drafting and apply marking work for tracked jobs the crawl no
+    longer holds (its SQLite is a cache; Notion keeps every tracked job)."""
+    found = detect(url)
+    if not found:
+        return None
+    wanted = (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
+    try:
+        jobs = fetch(*found)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
+            json.JSONDecodeError, OSError):
+        return None
+    return next((j for j in jobs if j['id'].lower() == wanted or
+                 j['url'].split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower() == wanted), None)
+
+
 def probe(ats, slug):
     """Jobs if this (ats, slug) is a live board with at least one posting, else None."""
     try:

@@ -82,6 +82,26 @@ class ButtonStageTests(unittest.TestCase):
         self.assertEqual(tracker.hidden_urls(), {'https://x.test/9'})
 
 
+class TrackedJobFallbackTests(unittest.TestCase):
+    """A job tracked in Notion but missing from the crawl's SQLite must still be markable/preparable."""
+    def test_apply_falls_back_to_the_notion_row(self):
+        url = 'https://job-boards.greenhouse.io/acme/jobs/42'
+        page = row(url, 'Saved')
+        page['id'] = 'row-42'
+        page['properties']['Job'] = {'title': [{'plain_text': 'Staff SRE'}]}
+        page['properties']['Company'] = {'rich_text': [{'plain_text': 'Acme'}]}
+        tracker = FakeTracker([page])
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.ats, 'posting', return_value=None):
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                self.assertIsNone(daily.find_job(db, url))
+                job = daily.tracked_job(url, tracker)
+                self.assertEqual((job['title'], job['company'], job['id']), ('Staff SRE', 'Acme', None))
+                self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
+                self.assertIn('✅ Marked applied', daily.apply_message(db, url, tracker))
+                self.assertIsNone(daily.tracked_job('https://x.test/untracked', tracker))
+
+
 class DigestIntegrationTests(unittest.TestCase):
     def test_applied_jobs_are_hidden_and_apply_command_works(self):
         report = {'jobs': [{'company': 'Example', 'id': str(i), 'title': f'SRE {i}', 'location': 'Zurich',

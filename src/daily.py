@@ -12,7 +12,7 @@ from .notion import client as notion, matches
 from pathlib import Path
 
 from .paths import JOBS_DB, CONFIG, DATA, REPORTS
-from .sources import feeds
+from .sources import ats, feeds
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
 MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare')
@@ -26,6 +26,27 @@ def find_job(db, code):
         if url and (notion.job_code(url) == code or (wanted and _url_key(url) == wanted)):
             return job
     return None
+
+
+def tracked_job(code, tracker):
+    """A job tracked in Notion but absent from the crawl's SQLite (evicted cache, reset DB, or a
+    filter that no longer admits it): rebuilt from its Applications row, with the posting text
+    fetched live from its job board. Matches by URL or by 8-hex code. None if not tracked."""
+    if not tracker:
+        return None
+    wanted = _url_key(code) if '/' in code else None
+    url = next((u for u in tracker.url_stages()
+                if (wanted and _url_key(u) == wanted) or notion.job_code(u) == code), None)
+    row = tracker.find(url) if url else None
+    if not row:
+        return None
+    props = row['properties']
+    text = lambda name: ''.join(t.get('plain_text', '') for t in
+                                (props.get(name) or {}).get('title' if name == 'Job' else 'rich_text', []))
+    live = ats.posting(url) or {}
+    return {'id': None, 'url': url, 'title': live.get('title') or text('Job'),
+            'company': text('Company'), 'location': live.get('location') or text('Location'),
+            'description': live.get('description', ''), 'work_mode': '', 'city': ''}
 
 
 def _job_arg(value):
@@ -44,7 +65,7 @@ ACTIONS = {'applied': 'Applied', 'saved': 'Saved', 'dismissed': 'Dismissed'}
 
 def apply_message(db, code, tracker, action='applied'):
     """Record a Telegram button action for the job with this code in Notion; return the reply text."""
-    job = find_job(db, code)
+    job = find_job(db, code) or tracked_job(code, tracker)
     if not job:
         return f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
     stage = ACTIONS[action]
@@ -64,10 +85,11 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     """Draft the application kit for one job; save it on its Notion Applications row.
 
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
-    job = find_job(db, code)
+    job = find_job(db, code) or tracked_job(code, tracker)
     if not job:
         return [f"⚠️ No job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
-    job = dict(job, ai=enrich.load(db).get(job['id']), fit=score.load(db).get(job['id']))
+    if job['id'] is not None:
+        job = dict(job, ai=enrich.load(db).get(job['id']), fit=score.load(db).get(job['id']))
     try:
         questions = kit.form_questions(job['url'], opener)
     except Exception as error:  # An unreadable form still gets a kit, with likely questions.

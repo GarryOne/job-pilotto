@@ -50,7 +50,10 @@ jobs:
         with:
           python-version: '3.12'
       # Cache entries are immutable, so each run saves a new key and the next
-      # run restores the most recent one by prefix.
+      # run restores the most recent one by prefix. Changing the prefix starts from
+      # an empty database (happened in the SRE Watch -> Job Pilotto rename); tracked
+      # jobs still resolve through Notion (daily.tracked_job), but seen/new history
+      # and scores restart.
       - name: Restore job database
         uses: actions/cache/restore@v4
         with:
