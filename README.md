@@ -26,27 +26,51 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 
 ## What you get
 
-- **Telegram digest**: top 10 jobs per message, best matches first and rotating between digests.
-  Each job shows its fit score, company, place, seniority, work mode, language and salary signals,
-  and a one-line reason. Tap a job number for **✅ Applied**, **⭐ Save**, **❌ Dismiss** or
-  **📝 Prepare application kit**; **➕ Next 10** pages through the list.
-- **Commands**: `/run` (crawl now), `/today` (current list), `/applied`, `/saved`, `/scout` (find
-  new employer feeds), `/status`, `/help`.
-- **Filters**: jobs requiring a language you don't speak are hidden; only roles in your preferred
-  places (or remote) are kept; applied and dismissed jobs never return; jobs not seen for 7 days
-  are closed.
-- **Source scout**: once a day it checks candidate employers (seed companies first, then Hacker
-  News "Who is hiring?", open company lists and jobs.ch employers) for a public job feed, scores
-  each feed's quality and adds the useful ones to the crawl.
-- **Application kits**: for your best-scored new matches (configurable threshold), Claude drafts a
-  tailored cover letter and one answer per real form question (read from the employer's own
-  application form where supported), flags anything it isn't sure about instead of guessing, and
-  saves it to the job's Notion row. Available on demand too, via the 📝 Prepare button.
-- **Queueing kits into an AI browser agent**: `tools/apply-batch-chatgpt.sh` (macOS only) pastes each ready
-  kit into a new ChatGPT/Codex desktop chat, which fills the real form and stops before Submit.
-  You review and submit every application yourself, in every case.
-- **Notion**: Job Matches (every scored job), Applications — Job Tracker, Employers & Sources, and
-  the Profile and Application Answers pages the scorer and kit drafter read.
+### 🔎 Finding jobs
+- 🕷️ **Crawls every 4 hours** on GitHub Actions: jobs.ch, TechTree and employer feeds (Greenhouse,
+  Lever, Ashby, Workable, Recruitee, Personio, SmartRecruiters, Amazon, Netflix).
+- 🛰️ **Source scout**: once a day it checks new candidate employers (seed companies, Hacker News
+  "Who is hiring?", open company lists, jobs.ch employers) for a public job feed, scores its quality
+  and adds the useful ones to the crawl.
+- 🌍 **Filters**: only your preferred places (or remote); jobs requiring a language you don't speak
+  are hidden; applied and dismissed jobs never come back; jobs gone for 7 days are closed.
+
+### 🧠 AI that reads every posting
+- 🔬 **Stage 1 — facts** (Claude Haiku 4.5): languages, seniority, work mode, salary, recruiter vs
+  employer, visa sponsorship — each with a quote from the posting as evidence.
+- 🎯 **Stage 2 — fit score** (Claude Sonnet 5): 0–100 against your Notion Profile, a tier (A/B/C)
+  and a one-line reason. Edit your Profile and every open job is re-scored.
+- 🛂 **Visa badges**: 🔴 when you'd need sponsorship (or the posting rules it out), 🛂 when the
+  posting offers it — without lowering the score.
+- 📝 **Application kits**: for your best new matches, Claude drafts a short cover letter in your own
+  voice and one answer per real form question (read from the employer's form), flags anything it
+  isn't sure about instead of guessing, and saves it to the job's Notion row.
+
+### 📬 Telegram
+- 📊 **Digest**: top 10 jobs per message, best matches first, rotating between digests, with score,
+  company, place, seniority, work mode, language and salary signals.
+- 👆 **Buttons**: ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare application kit · ➕ Next 10.
+- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/scout`, `/status`, `/help`.
+
+### 🤖 Filling applications (macOS)
+- 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
+  in Chrome — each takes job URLs, `-f jobs.txt` or `--max N` and fills the real form from the kit.
+- ⚡ **Fast-path form helpers** (`tools/browser-form-fastpath.js`): map the form once, fill every
+  plain field in one call, audit what's missing, click dropdown options by live coordinates.
+- 🛡️ **Never submits**: an in-page guard blocks Submit and legal-consent clicks while an agent works;
+  you review and click Submit yourself, every time.
+- ✅ **Auto-marked applied**: when the confirmation page appears in Chrome, the job moves to Applied
+  in Notion by itself, whichever launcher filled it.
+- 🔍 **Observable Codex runs**: per-job status, field report and form-fill time.
+
+### 🗂️ Tracking in Notion
+- 📋 Job Matches (every scored job), Applications — Job Tracker, Employers & Sources.
+- 👤 Profile and Application Answers pages — the single source for the scorer, the kit drafter and
+  every form filler. Answer a question once and it's reused on every form.
+
+### 🔐 Private by default
+- 🔑 Secrets in the macOS Keychain, GitHub secrets and Cloudflare Worker secrets — never in the repo.
+- 🧾 CV, `.env` and run traces stay on your machine (git-ignored).
 
 ## How Job Pilotto compares
 
