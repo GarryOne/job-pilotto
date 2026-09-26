@@ -116,6 +116,8 @@ on run argv
 end run
 APPLESCRIPT
 
+  # Marks the job Applied in Notion once its confirmation page shows up in Chrome (3 h cap).
+  nohup "$REPO_DIR/tools/wait-and-mark-applied.sh" "$url" >/dev/null 2>&1 &
   echo "Queued observable Codex session: $url"
   sleep "$GAP"
 done

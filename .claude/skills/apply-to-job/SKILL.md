@@ -230,14 +230,15 @@ in that file next time — keep evolving it.
      coverage gap, they're correct per-job judgment calls.
 9. **Auto-detect submission and mark applied — no owner action needed, if the tab is still open in
    this session.** Adopted 25 Sep 2026 after the owner asked to automate this step.
-   **Current method (26 Sep 2026): a background wait loop, not `ScheduleWakeup`** (which the
-   permission check blocked, see Log). Right after hand-over, run one `Bash` call with
-   `run_in_background: true` that polls Chrome's tab URLs until this job's confirmation page
-   appears, capped at ~3 hours: `for i in $(seq 540); do osascript -e 'tell application "Google
-   Chrome" to get URL of tabs of windows' | grep -q "<job id>/confirmation" && exit 0; sleep 20;
-   done; exit 1`. It costs no model time while waiting, and the harness wakes the session when it
-   exits — exit 0 means submitted, exit 1 means give up quietly. If the owner replies "submitted"
-   first, mark it right away. Details below still apply to what counts as submitted:
+   **Current method (26 Sep 2026): the launchers do it, not the agent.** Every launcher
+   (`apply-batch-chatgpt.sh` via `apply_batch.py`, `apply-batch-codex-terminal.sh`,
+   `apply-batch-claude.sh`) starts `tools/wait-and-mark-applied.sh <job URL>` detached for each
+   job it queues. It polls Chrome's tab URLs every 20 s for that job's `<id>/confirmation`
+   (Greenhouse) or `<id>/thanks` (Lever), runs `apply_batch --mark-applied`, shows a macOS
+   notification, and gives up after 3 hours. No agent session has to stay awake, and nothing
+   blocked `ScheduleWakeup` this way. Filling a form by hand without a launcher: run
+   `tools/wait-and-mark-applied.sh <job URL> &` yourself, or `apply_batch --mark-applied` after
+   submitting. Details below still apply to what counts as submitted:
    - (Older method, kept for reference) On each wake, call `tabs_context_mcp` for that tab and
      compare its URL/title to the noted one.
    - Greenhouse navigates to a `.../confirmation` URL (or the page title/body changes to a

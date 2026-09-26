@@ -32,6 +32,7 @@ from ..notion import client as notion
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SEND_SCRIPT = REPO_ROOT / 'tools' / 'send-to-chatgpt.sh'
+WAIT_SCRIPT = REPO_ROOT / 'tools' / 'wait-and-mark-applied.sh'
 DEFAULT_CV = os.getenv('JOB_PILOTTO_CV_PATH', str(Path.home() / 'Documents' / 'CV.pdf'))
 
 PROMPT = """Open a browser, navigate to {url}, and fill out the job application form. Do not \
@@ -191,6 +192,9 @@ def main():
         # queues the same job into a second chat. Re-queue a job by setting its Stage back to
         # Saved in Notion if a paste-only chat was abandoned without sending.
         tracker.mark({'url': kit_data['url']}, 'Applying')
+        # Marks it Applied once its confirmation page shows up in Chrome (3 h cap), detached.
+        subprocess.Popen([str(WAIT_SCRIPT), kit_data['url']], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
         time.sleep(args.gap)
 
     print(f"\nQueued {len(pairs)} chat(s) in the ChatGPT/Codex app. For each: review, attach the "
