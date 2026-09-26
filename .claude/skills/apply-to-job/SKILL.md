@@ -17,6 +17,11 @@ text to `javascript_tool`. Anything you end up doing by hand that could be deter
 in that file next time — keep evolving it.
 
 **Speed defaults learned 26 Sep 2026 (a 3-minute Grafana run; aim for under 2):**
+0. **One context call first:** `python3 -m src.ai.apply_run --context <job URL>` prints the kit
+   (JSON), Profile, Application Answers and recent learnings for that job board in one go (~8 s);
+   don't fetch those pages separately. Apply the learnings.
+   While filling, stamp phases with `window.__jobPilottoStep('<name>')` inside JS calls you already
+   make (the fast-path helpers stamp their own); the timings land in the run's Notion page.
 1. **Posting gone → close it, don't ask.** If the page says "Job not found"/404 or the board no
    longer lists it, run `python3 -m src.ai.apply_batch --mark-closed <job URL>` (Stage → Closed,
    notification) and finish. The launchers' `--max` and `tools/prepare-top.sh` already skip and
