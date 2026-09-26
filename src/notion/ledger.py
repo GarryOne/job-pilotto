@@ -125,6 +125,19 @@ def run_state(url, directory=None):
         return None
 
 
+def run_from_notion(tracker, row):
+    """The latest 🤖 Agent Runs row linked to this application, as a run state ({'agent', 'minutes'}),
+    for applications filled by an agent whose local run file isn't on this machine (or CI)."""
+    latest = None
+    for link in (row['properties'].get('Agent runs') or {}).get('relation', []):
+        props = {name: plain(prop) for name, prop in tracker._request('GET', f"pages/{link['id']}")['properties'].items()}
+        if latest is None or (props.get('Started') or '') > (latest.get('Started') or ''):
+            latest = props
+    if not latest or not latest.get('Agent'):
+        return None
+    return {'agent': latest['Agent'].lower(), 'minutes': latest.get('Minutes'), 'status': latest.get('Status')}
+
+
 def cv_version(path):
     """File name plus a short content hash, so a changed CV shows up as a new version."""
     try:
@@ -279,8 +292,11 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
     if plain(row['properties'].get('Recorded')) and not (force or upgrade):
         return row, 'exists'
     kit = tracker.read_kit(row['id'], kit_module.KIT_HEADING)
+    run = run_state(url, run_dir)
+    if run is None and hasattr(tracker, '_request'):
+        run = run_from_notion(tracker, row)
     properties, data = build(url, row, kit, match_for(tracker, url), posting(url),
-                             form, run_state(url, run_dir), cv_version(cv_path), now)
+                             form, run, cv_version(cv_path), now)
     tracker.update_page(row['id'], properties)
     tracker.replace_section(row['id'], RECORD_HEADING, record_blocks(data))
     return row, 'recorded'

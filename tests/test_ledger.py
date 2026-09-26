@@ -152,6 +152,19 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(props['Answers captured'], {'select': {'name': 'Form'}})
         self.assertEqual(tracker.sections[0][1], ledger.RECORD_HEADING)
 
+    def test_agent_comes_from_agent_runs_when_no_local_run_file(self):
+        linked = row()
+        linked['properties']['Agent runs'] = {'type': 'relation', 'relation': [{'id': 'run-1'}, {'id': 'run-2'}]}
+        tracker = FakeTracker([linked])
+        runs = {'run-1': ('Codex', '2026-09-20T10:00:00'), 'run-2': ('Claude', '2026-09-21T10:00:00')}
+        tracker._request = lambda method, path: {'properties': {
+            'Agent': {'type': 'select', 'select': {'name': runs[path.split('/')[1]][0]}},
+            'Started': {'type': 'date', 'date': {'start': runs[path.split('/')[1]][1]}},
+            'Minutes': {'type': 'number', 'number': 3}}}
+        with tempfile.TemporaryDirectory() as empty:
+            ledger.record(tracker, URL, now=NOW, posting=lambda url: None, snapshot_dir=empty, run_dir=empty)
+        self.assertEqual(tracker.updates[0][1]['Agent'], {'select': {'name': 'Claude'}})  # the latest run
+
     def test_existing_record_is_not_overwritten(self):
         tracker = FakeTracker([row(recorded='2026-09-20T10:00:00+00:00')])
         with tempfile.TemporaryDirectory() as empty:
