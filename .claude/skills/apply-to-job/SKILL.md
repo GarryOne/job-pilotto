@@ -229,11 +229,17 @@ in that file next time — keep evolving it.
      (this company's travel requirement, this role's on-call expectation) per-job — those aren't a
      coverage gap, they're correct per-job judgment calls.
 9. **Auto-detect submission and mark applied — no owner action needed, if the tab is still open in
-   this session.** Adopted 25 Sep 2026 after the owner asked to automate this step. Right after
-   hand-over, note the tab's current URL (the job/application page) and use `ScheduleWakeup` to
-   check back every 120–300s (long enough to not spam wakeups, short enough that "applied" lands in
-   Notion soon after the owner actually submits):
-   - On each wake, call `tabs_context_mcp` for that tab and compare its URL/title to the noted one.
+   this session.** Adopted 25 Sep 2026 after the owner asked to automate this step.
+   **Current method (26 Sep 2026): a background wait loop, not `ScheduleWakeup`** (which the
+   permission check blocked, see Log). Right after hand-over, run one `Bash` call with
+   `run_in_background: true` that polls Chrome's tab URLs until this job's confirmation page
+   appears, capped at ~3 hours: `for i in $(seq 540); do osascript -e 'tell application "Google
+   Chrome" to get URL of tabs of windows' | grep -q "<job id>/confirmation" && exit 0; sleep 20;
+   done; exit 1`. It costs no model time while waiting, and the harness wakes the session when it
+   exits — exit 0 means submitted, exit 1 means give up quietly. If the owner replies "submitted"
+   first, mark it right away. Details below still apply to what counts as submitted:
+   - (Older method, kept for reference) On each wake, call `tabs_context_mcp` for that tab and
+     compare its URL/title to the noted one.
    - Greenhouse navigates to a `.../confirmation` URL (or the page title/body changes to a
      "Thank you for applying" / "Your application has been submitted" state) once Submit succeeds —
      treat either signal as submitted. A `computer` screenshot is a fine confirmation before acting

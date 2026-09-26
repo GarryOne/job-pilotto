@@ -75,7 +75,7 @@ for url in "${urls[@]}"; do
   i=$((i + 1))
   prompt_file="$TMP_DIR/prompt_$i.txt"
   cat > "$prompt_file" <<PROMPT
-Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the form in Chrome (claude-in-chrome), fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. Start now.
+Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the form in Chrome (claude-in-chrome), fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. Right after the hand-over, start a background wait loop (Bash with run_in_background, not a scheduled wakeup) that checks Chrome's tab URLs every 20 s and exits as soon as one is this job's submission confirmation page (Greenhouse ".../confirmation", Lever ".../thanks"), giving up after 3 hours — e.g. until osascript -e 'tell application "Google Chrome" to get URL of tabs of windows' | grep -q "JOBID/confirmation"; do sleep 20; done, with JOBID being this job's id. When it fires, mark the job applied with: NOTION_TOKEN="\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)" python3 -m src.ai.apply_batch --mark-applied $url and tell me. If I reply "submitted" first, mark it right away and stop the loop. Start now.
 PROMPT
 
   # Flip Stage to Applying right away, same dedup the ChatGPT/Codex path already does for its own
