@@ -133,8 +133,13 @@ class Tracker:
             'Location': text(job.get('location')),
             'Job URL': {'url': job['url']},
             'Stage': {'select': {'name': stage}},
-            'Source': {'select': {'name': 'Telegram'}},
+            # Where the row came from: the desktop app sets JOB_PILOTTO_SOURCE; the bot and CI keep Telegram.
+            'Source': {'select': {'name': os.getenv('JOB_PILOTTO_SOURCE') or 'Telegram'}},
         }
+        ats = next((name for key, name in (('greenhouse', 'Greenhouse'), ('ashbyhq', 'Ashby'), ('lever.co', 'Lever'),
+                                           ('workable', 'Workable')) if key in job['url']), None)
+        if ats:
+            properties['ATS'] = {'select': {'name': ats}}
         if stage == 'Applied':
             properties['Applied on'] = {'date': {'start': (today or date.today()).isoformat()}}
         if posted:

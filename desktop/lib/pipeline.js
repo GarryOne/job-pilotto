@@ -39,6 +39,7 @@ export function pipelineEnv(storage, parent = process.env) {
     ...Object.fromEntries(SYSTEM.filter(name => parent[name]).map(name => [name, parent[name]])),
     PYTHONUNBUFFERED: '1',
     JOB_PILOTTO_NO_DOTENV: '1',
+    JOB_PILOTTO_SOURCE: 'Job Pilotto app',  // the Source of Applications rows the app creates
     JOB_PILOTTO_CONFIG_DIR: storage.path('config'),
     JOB_PILOTTO_DATA_DIR: storage.path('data'),
     JOB_PILOTTO_CV_PATH: storage.path('cv.pdf'),

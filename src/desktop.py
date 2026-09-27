@@ -42,7 +42,8 @@ def jobs(db, limit=200, stages=None):
             'fit': fit.get('score') if fit else None,
             'reason': (fit.get('summary') or fit.get('reason') or '') if fit else '',
             'rank': digest.rank_score(job),
-            'kit': notion(job)[0] == 'Kit ready',
+            # A kit writes Next step (Kit ready / Not eligible); the stage can stay Saved if the job was starred first.
+            'kit': notion(job)[0] == 'Kit ready' or notion(job)[1].startswith(('📝 Kit ready', NOT_ELIGIBLE)),
             # The kit's eligibility verdict, written to Next step when it was drafted.
             'ineligible': notion(job)[1][len(NOT_ELIGIBLE):] if notion(job)[1].startswith(NOT_ELIGIBLE) else '',
         })

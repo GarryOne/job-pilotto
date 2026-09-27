@@ -41,6 +41,8 @@ class DesktopTests(unittest.TestCase):
         self.assertFalse(desktop.jobs(self.db, stages={'https://x.test/1': 'Saved'})['jobs'][0]['kit'])
         row = desktop.jobs(self.db, stages={'https://x.test/1': ('Kit ready', '⛔ Not eligible: UK residents only')})['jobs'][0]
         self.assertEqual((row['kit'], row['ineligible']), (True, 'UK residents only'))
+        # starred first, kit drafted later: the stage stays Saved, Next step shows the kit
+        self.assertTrue(desktop.jobs(self.db, stages={'https://x.test/1': ('Saved', '📝 Kit ready: review it, then Apply')})['jobs'][0]['kit'])
 
     def test_status_is_local_and_reaches_notion_applications(self):
         tracker = FakeTracker()
