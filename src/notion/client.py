@@ -81,6 +81,17 @@ class Tracker:
                 stages[url.strip()] = (props['Stage'].get('select') or {}).get('name')
         return stages
 
+    def url_rows(self):
+        """Job URL -> (Stage, Next step) for every Applications row (the desktop app's Jobs list)."""
+        rows = {}
+        for page in self._query():
+            props = page['properties']
+            url = props['Job URL'].get('url')
+            if url:
+                step = ''.join(t.get('plain_text', '') for t in (props.get('Next step') or {}).get('rich_text', []))
+                rows[url.strip()] = ((props['Stage'].get('select') or {}).get('name'), step)
+        return rows
+
     def hidden_urls(self):
         """URLs of jobs that should no longer appear in digests (applied, dismissed, rejected, ...)."""
         return {url for url, stage in self.url_stages().items() if stage not in VISIBLE_STAGES}

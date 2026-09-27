@@ -177,3 +177,15 @@ class AutoKitTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EligibilityTests(unittest.TestCase):
+    def test_the_kit_carries_the_eligibility_verdict_into_next_step_telegram_and_notion(self):
+        from src.ai import kit as kit_module
+        kit = {'eligible': False, 'eligibility_note': 'UK residents only', 'cover_letter': 'Hi', 'answers': [],
+               'highlights': [], 'check_before_sending': []}
+        self.assertEqual(kit_module.next_step(kit), '⛔ Not eligible: UK residents only')
+        self.assertEqual(kit_module.next_step({**kit, 'eligible': True}), '📝 Kit ready: review it, then Apply')
+        job = {'title': 'SRE', 'company': 'Acme', 'url': 'https://x.test/1'}
+        self.assertIn('Not eligible', kit_module.telegram_messages(job, kit, [])[0])
+        self.assertIn('eligible', kit_module.SCHEMA['required'])

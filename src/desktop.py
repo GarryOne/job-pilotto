@@ -23,6 +23,11 @@ def jobs(db, limit=200, stages=None):
 
     stages: job URL -> Notion Applications Stage. Kits live in Notion; a job has one when its Stage is Kit ready."""
     stages = stages or {}
+    NOT_ELIGIBLE = '⛔ Not eligible: '
+
+    def notion(job):  # (Stage, Next step); tests may pass plain stages
+        value = stages.get((job.get('url') or '').strip(), (None, ''))
+        return value if isinstance(value, tuple) else (value, '')
     candidates, blocked = digest.eligible_jobs(db)
     fits = score.load(db)
     rows = []
@@ -37,7 +42,9 @@ def jobs(db, limit=200, stages=None):
             'fit': fit.get('score') if fit else None,
             'reason': (fit.get('summary') or fit.get('reason') or '') if fit else '',
             'rank': digest.rank_score(job),
-            'kit': stages.get((job.get('url') or '').strip()) == 'Kit ready',
+            'kit': notion(job)[0] == 'Kit ready',
+            # The kit's eligibility verdict, written to Next step when it was drafted.
+            'ineligible': notion(job)[1][len(NOT_ELIGIBLE):] if notion(job)[1].startswith(NOT_ELIGIBLE) else '',
         })
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
     return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
@@ -78,7 +85,7 @@ def main(argv=None):
             stages = {}
             if tracker:
                 try:
-                    stages = tracker.url_stages()
+                    stages = tracker.url_rows()
                 except Exception as error:  # the list still shows without Notion; Apply then waits for a kit
                     print(f'Warning: Notion stages unavailable: {type(error).__name__}: {error}', file=__import__('sys').stderr)
             result = jobs(db, args.limit, stages)

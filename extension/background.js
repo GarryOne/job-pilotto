@@ -95,6 +95,8 @@ async function fillOpenedTab(tab, url, force = false) {
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
       {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
     const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], force, onStep: text => progress(tab.id, text)});
+    // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
+    if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
     await progress(tab.id, '');
     if (result.ineligible) await ineligibleNote(tab.id, result.note);
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'});

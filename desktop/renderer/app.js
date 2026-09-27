@@ -320,6 +320,8 @@ function renderJobs() {
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
     role.append(link);
     if (job.reason) role.append(Object.assign(document.createElement('div'), {className: 'reason', textContent: job.reason}));
+    // The kit's eligibility verdict (decided once, when the kit was drafted).
+    if (job.ineligible) role.append(Object.assign(document.createElement('div'), {className: 'ineligible', textContent: `⛔ Not eligible: ${job.ineligible}`}));
     const company = Object.assign(document.createElement('td'), {textContent: job.company});
     const place = Object.assign(document.createElement('td'), {textContent: job.location});
     const status = document.createElement('td');

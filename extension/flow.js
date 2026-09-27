@@ -40,6 +40,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question,
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null;
+  // A job with a kit fills from it at once: the form was read and answered (and eligibility decided) when
+  // the kit was drafted, so no Claude call here; anything the kit missed is listed for the user.
+  if (kitAnswers.length) useAI = false;
   if (useAI) {
     const form = await inPage(tab.id, () => window.__jobPilottoDescribeForm());
     // Fields the kit already answered (drafted ahead from the form's questions) don't go to Claude.

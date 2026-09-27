@@ -42,8 +42,10 @@ GREENHOUSE_JOB = re.compile(r'greenhouse\.io/([\w-]+)/jobs/(\d+)')
 SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
-    'required': ['cover_letter', 'answers', 'highlights', 'check_before_sending'],
+    'required': ['eligible', 'eligibility_note', 'cover_letter', 'answers', 'highlights', 'check_before_sending'],
     'properties': {
+        'eligible': {'type': 'boolean', 'description': 'False only when the posting clearly rules the candidate out'},
+        'eligibility_note': {'type': 'string', 'description': 'Why not eligible, one sentence; "" when eligible'},
         'cover_letter': {'type': 'string', 'description': 'Plain text, paragraphs separated by blank lines'},
         'answers': {
             'type': 'array',
@@ -100,6 +102,9 @@ option and set needs_review.
 needs_review; never state a guess as fact. Salary: only a figure from the standard answers.
 - check_before_sending: short items the candidate must verify, e.g. a required language, a \
 sponsorship answer, a ❓ field you relied on.
+- eligible: false only when the posting clearly rules the candidate out (a work location, residence or \
+authorization the profile says they can't meet, or a required language they don't speak); say why in \
+eligibility_note, one sentence. Otherwise eligible is true and eligibility_note is "". Still draft every answer.
 
 Candidate profile:
 """
@@ -185,6 +190,7 @@ def prepare_one(client, model, job, tracker, profile, answers, opener=None):
     drafted, usage = draft(client, model, job, profile, answers, questions)
     page, _ = tracker.mark(job, 'Kit ready')
     tracker.replace_section(page['id'], KIT_HEADING, notion_blocks(job, drafted, questions, model))
+    record_next_step(tracker, page, drafted)
     record_cost(tracker, page, model, usage)
     return drafted, questions, page, usage
 
@@ -231,6 +237,21 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
     return f'Auto-drafted {len(drafted_jobs)} of {len(pending)} kit(s); {failures} failed', drafted_jobs
 
 
+def next_step(kit):
+    """The Applications row's Next step after a kit: the eligibility verdict first (the desktop app shows it)."""
+    if kit.get('eligible') is False:
+        return f"⛔ Not eligible: {kit.get('eligibility_note') or 'see the kit'}"
+    return '📝 Kit ready: review it, then Apply'
+
+
+def record_next_step(tracker, page, kit):
+    try:
+        tracker._request('PATCH', f"pages/{page['id']}",
+                         {'properties': {'Next step': {'rich_text': [{'text': {'content': next_step(kit)[:2000]}}]}}})
+    except Exception as error:  # a template without the column still gets the kit
+        print(f'Warning: Next step not set: {type(error).__name__}: {error}')
+
+
 def usd(model, usage):
     return cost.usd(model, usage)
 
@@ -258,6 +279,8 @@ def telegram_messages(job, kit, questions, notion_url=None, limit=3800):
     header = [f'📝 <b>Application kit</b>\n{title}', f'<i>{source}. Tap a block to copy it. Nothing was sent.</i>']
     if notion_url:
         header.append(f'<a href="{escape(notion_url, quote=True)}">Open in Notion</a>')
+    if kit.get('eligible') is False:
+        header.append(f"⛔ <b>Not eligible:</b> {escape(kit.get('eligibility_note') or '')}")
     if kit['check_before_sending']:
         header.append('⚠️ <b>Check before sending</b>\n' + '\n'.join(f'• {escape(c)}' for c in kit['check_before_sending']))
     if kit['highlights']:
@@ -291,6 +314,8 @@ def notion_blocks(job, kit, questions, model):
     blocks = [block('paragraph', f"Drafted by {model} for {job['title']} — {job['company']}. "
                                  f"{'Form questions read from Greenhouse.' if questions else 'No form read.'} "
                                  'Review before sending; nothing was submitted.')]
+    if kit.get('eligible') is False:
+        blocks.append(block('paragraph', f"⛔ Not eligible: {kit.get('eligibility_note') or ''}", bold=True))
     if kit['check_before_sending']:
         blocks.append(block('heading_3', '⚠️ Check before sending'))
         blocks += [block('bulleted_list_item', c) for c in kit['check_before_sending']]
