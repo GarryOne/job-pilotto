@@ -101,5 +101,44 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual([(c['name'], c['ats'], c['slug']) for c in found], [('Acme', 'lever', 'acme')])
 
 
+
+def employer_row(name, system, slug, **props):
+    return {'properties': {'Company': {'title': [{'plain_text': name}]}, 'ATS': {'select': {'name': system}},
+                           'Slug': {'rich_text': [{'plain_text': slug}]}, **props}}
+
+
+class ExportSourcesTests(unittest.TestCase):
+    def test_merges_verifies_and_keeps_only_public_facts(self):
+        tracker = FakeTracker()
+        tracker.query_database = lambda db, filter_=None: [
+            employer_row('Anthropic', 'greenhouse', 'anthropic', Notes={'rich_text': [{'plain_text': 'applied twice'}]}),
+            employer_row('Deadco', 'lever', 'deadco'),
+            employer_row('Cloudflare again', 'greenhouse', 'cloudflare'),   # already in the file: file name wins
+            employer_row('Custom site', 'workday', 'x')]                    # not a crawlable feed type: skipped
+
+        def fetch(system, slug):
+            if slug == 'deadco':
+                raise TimeoutError('no answer')
+            return [{}] * {'anthropic': 72, 'cloudflare': 380}[slug]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'sources.json'
+            path.write_text(json.dumps([{'company': 'Cloudflare', 'board': 'cloudflare'}]))
+            kept, failed = scout.export_sources(tracker, path, fetch, today='2026-09-27')
+            written = json.loads(path.read_text())
+        self.assertEqual(written, kept)
+        self.assertEqual(written, [
+            {'company': 'Anthropic', 'ats': 'greenhouse', 'slug': 'anthropic', 'jobs': 72, 'checked': '2026-09-27'},
+            {'company': 'Cloudflare', 'ats': 'greenhouse', 'slug': 'cloudflare', 'jobs': 380, 'checked': '2026-09-27'}])
+        self.assertEqual([(f['company'], f['error']) for f in failed], [('Deadco', 'TimeoutError: no answer')])
+        self.assertNotIn('applied', json.dumps(written))
+
+    def test_exported_file_feeds_the_crawl(self):
+        # The written entries are what feeds.scan and active_sources read.
+        entry = {'company': 'Anthropic', 'ats': 'greenhouse', 'slug': 'anthropic', 'jobs': 72, 'checked': '2026-09-27'}
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'db') as db:
+            sources = scout.active_sources(db, None, [entry])
+        self.assertEqual([(s['company'], s['ats'], s['slug']) for s in sources], [('Anthropic', 'greenhouse', 'anthropic')])
+
+
 if __name__ == '__main__':
     unittest.main()

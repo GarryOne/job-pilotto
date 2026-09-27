@@ -249,16 +249,53 @@ def active_sources(db, tracker=None, static=()):
         sources.setdefault((row['ats'], row['slug']), {'company': row['company'], 'ats': row['ats'], 'slug': row['slug']})
     if tracker:
         try:
-            for page in tracker.query_database(EMPLOYERS_DB, {'property': 'Active', 'checkbox': {'equals': True}}):
-                props = page['properties']
-                system = (props.get('ATS', {}).get('select') or {}).get('name')
-                slug = ''.join(t['plain_text'] for t in props.get('Slug', {}).get('rich_text', []))
-                name = ''.join(t['plain_text'] for t in props['Company']['title'])
-                if system in ats.FETCHERS and slug:
-                    sources.setdefault((system, slug), {'company': name, 'ats': system, 'slug': slug})
+            for name, system, slug in notion_feeds(tracker):
+                sources.setdefault((system, slug), {'company': name, 'ats': system, 'slug': slug})
         except Exception as error:  # Notion down: crawl what we know locally.
             print(f'Warning: Employers & Sources not read: {type(error).__name__}: {error}')
     return list(sources.values())
+
+
+def notion_feeds(tracker):
+    """[(company, ats, slug)] for every Active Employers & Sources row with a crawlable feed."""
+    found = []
+    for page in tracker.query_database(EMPLOYERS_DB, {'property': 'Active', 'checkbox': {'equals': True}}):
+        props = page['properties']
+        system = (props.get('ATS', {}).get('select') or {}).get('name')
+        slug = ''.join(t['plain_text'] for t in props.get('Slug', {}).get('rich_text', []))
+        name = ''.join(t['plain_text'] for t in props['Company']['title'])
+        if system in ats.FETCHERS and slug:
+            found.append((name, system, slug))
+    return found
+
+
+def export_sources(tracker, path=CONFIG / 'sources.json', fetch=ats.fetch, today=None):
+    """Write the shared starter list: config/sources.json plus every Active Employers & Sources feed.
+
+    Only public facts go into git (company, ATS, board slug, open jobs, date checked); tiers, ratings,
+    research notes and anything about your applications stay in your own Notion. Each feed is fetched
+    once to confirm it answers; one that doesn't is left out and named in the result."""
+    today = today or now().date().isoformat()
+    existing = json.loads(path.read_text()) if path.exists() else []
+    feeds_by_key = {}
+    for entry in existing:
+        system, slug = entry.get('ats', 'greenhouse'), entry.get('slug') or entry['board']
+        feeds_by_key[(system, slug)] = entry['company']
+    for name, system, slug in notion_feeds(tracker):
+        feeds_by_key.setdefault((system, slug), name)
+
+    def check(item):
+        (system, slug), company = item
+        try:
+            return {'company': company, 'ats': system, 'slug': slug, 'jobs': len(fetch(system, slug)), 'checked': today}
+        except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
+            return {'company': company, 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(check, feeds_by_key.items()))
+    kept = sorted((r for r in results if 'error' not in r), key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
+    path.write_text(json.dumps(kept, indent=2, ensure_ascii=False) + '\n')
+    return kept, [r for r in results if 'error' in r]
 
 
 # ---------- Notion ----------
@@ -391,7 +428,19 @@ def main():
     parser.add_argument('--db', type=Path, default=JOBS_DB)
     parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
+    parser.add_argument('--export-sources', action='store_true',
+                        help='write config/sources.json: the shared starter list of verified public feeds '
+                             '(sources.json + Active Employers & Sources rows); needs NOTION_TOKEN')
     args = parser.parse_args()
+    if args.export_sources:
+        tracker = notion.Tracker.from_env()
+        if not tracker:
+            raise SystemExit('--export-sources reads Employers & Sources: set NOTION_TOKEN')
+        kept, failed = export_sources(tracker)
+        print(f'Wrote {len(kept)} feeds ({sum(k["jobs"] for k in kept):,} open jobs) to config/sources.json')
+        for item in failed:
+            print(f"  left out {item['company']} ({item['ats']}:{item['slug']}): {item['error']}")
+        return 0
     from .features import disabled
     if disabled('scout'):
         print('Source scout is off (JOB_PILOTTO_DISABLE includes scout).')

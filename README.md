@@ -34,12 +34,16 @@ Needs Python 3.10+ and nothing else: the core uses only the standard library.
 ```bash
 git clone https://github.com/<you>/job-pilotto && cd job-pilotto
 python3 -m src discover     # job boards (jobs.ch, TechTree): their jobs, and new employers to watch
+                            # (SwissDevJobs is tried too, but it blocks automated access)
 python3 -m src daily        # crawl every employer feed, add the board jobs, rank, print the digest
 python3 -m src feeds        # the employer-feed crawl as a filterable page: reports/latest.html
 python3 -m src doctor       # what's on, what's optional, and the one next step
 ```
 
-Without Notion, `daily` crawls the employer feeds in `config/sources.json`. With Notion, it also
+Without Notion, `daily` crawls the employer feeds in `config/sources.json`: a shared starter list
+of 29 verified public feeds (Anthropic, OpenAI, Stripe, Datadog, Grafana Labs, Cloudflare, GitLab,
+Databricks and more, about 9,000 open jobs), so the first run already has plenty to rank. Your
+`config/search.json` then keeps only the titles and places you want. With Notion, `daily` also
 crawls every Active row of your Employers & Sources database, which the source scout keeps
 growing. Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
 [Configuration](#configuration)) and `config/sources.json` (employer feeds to crawl). That's a
@@ -457,6 +461,14 @@ Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop 
 filters, always-crawled employer feeds and scout candidate companies — edit these to your own
 target places, languages and employers.
 
+`config/sources.json` is the **shared starter list**: public facts only (company, ATS, board slug,
+open jobs, date checked). Tiers, ratings, research notes and anything about your applications
+stay in your own Notion. Add or delete entries freely; a feed that stops answering is only logged
+as a failing feed, never breaks the crawl. To refresh the list from your Employers & Sources
+database (the maintainer does this, and a fork can too), run
+`python3 -m src scout --export-sources`. It fetches each Active feed once, leaves out any that
+don't answer, and rewrites the file.
+
 **`config/search.json` is what makes this a general-purpose job search, not an SRE-in-Switzerland
 one.** It holds every role, location and tech-stack keyword the code uses to decide what counts as
 a relevant job and where: `role_keywords` (job titles you want), `board_discovery_keywords`
@@ -661,7 +673,8 @@ src/
 config/
   search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages, excluded companies)
-  sources.json       employer feeds always crawled
+  sources.json       shared starter list of verified employer feeds, always crawled
+                     (refresh: python3 -m src scout --export-sources)
   scout_seeds.json   candidate employers for the scout (Tier 1, regions)
 worker/              Cloudflare Worker for the Telegram bot (commands, buttons, outcome and insight feedback)
 tools/
