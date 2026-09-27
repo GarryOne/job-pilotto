@@ -64,5 +64,31 @@ class DryRunOutputTests(unittest.TestCase):
         self.assertEqual(tracker.marked, [])  # dry-run style path never marks Applying
 
 
+class HasKitTests(unittest.TestCase):
+    """--has-kit gates Apply with Claude: no session starts for a job without a drafted kit."""
+
+    def run_main(self, tracker, url):
+        from unittest import mock
+        out = io.StringIO()
+        with mock.patch.object(apply_batch.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(sys, 'argv', ['apply_batch', '--has-kit', url]), redirect_stdout(out):
+            return apply_batch.main(), out.getvalue()
+
+    def test_kit_drafted(self):
+        tracker = FakeTracker([(ROW, KIT)])
+        tracker.find = lambda url: ROW
+        self.assertEqual(self.run_main(tracker, KIT['url'])[0], 0)
+        self.assertEqual(tracker.marked, [])
+
+    def test_no_row_or_no_kit(self):
+        tracker = FakeTracker([])
+        tracker.find = lambda url: None
+        code, text = self.run_main(tracker, 'https://www.jobs.ch/en/vacancies/detail/x/')
+        self.assertEqual(code, 1)
+        self.assertIn('prepare a kit first', text)
+        tracker.find = lambda url: {'id': 'page-2'}
+        self.assertEqual(self.run_main(tracker, 'https://www.jobs.ch/en/vacancies/detail/x/')[0], 1)
+
+
 if __name__ == '__main__':
     unittest.main()

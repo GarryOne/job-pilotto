@@ -258,18 +258,32 @@ test('fill reports: mechanical failures only, form structure only, each site + f
   assert.equal(await reports.send(storage, run, fetcher), null);  // already reported for this site
 });
 
-test('Apply with Claude needs Claude Code and Notion, then starts one Terminal session for the job', () => {
+test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then starts one Terminal session for the job', async () => {
   const storage = tempStorage();
   const calls = [];
   const open = (...args) => { calls.push(args); return {unref() {}}; };
-  assert.match(apply.claudeOne(storage, 'https://www.jobs.ch/en/vacancies/detail/1/', open, () => '').error, /Claude Code/);
-  assert.match(apply.claudeOne(storage, 'https://www.jobs.ch/en/vacancies/detail/1/', open, () => '/usr/local/bin/claude').error, /Notion/);
+  const found = () => '/usr/local/bin/claude';
+  const kit = async () => ({ok: true});
+  const url = 'https://www.jobs.ch/en/vacancies/detail/1/';
+  assert.match((await apply.claudeOne(storage, url, open, () => '', kit)).error, /Claude Code/);
+  assert.match((await apply.claudeOne(storage, url, open, found, kit)).error, /Notion/);
   storage.setSecret('NOTION_TOKEN', 'ntn_test');
-  assert.equal(apply.claudeOne(storage, '', open, () => '/usr/local/bin/claude').ok, false);
+  assert.equal((await apply.claudeOne(storage, '', open, found, kit)).ok, false);
+  assert.match((await apply.claudeOne(storage, url, open, found, async () => ({ok: false, error: 'No application kit'}))).error, /kit/);
   assert.equal(calls.length, 0);
-  assert.deepEqual(apply.claudeOne(storage, 'https://www.jobs.ch/en/vacancies/detail/1/#top', open, () => '/usr/local/bin/claude'), {ok: true});
+  assert.deepEqual(await apply.claudeOne(storage, `${url}#top`, open, found, kit), {ok: true});
   assert.match(calls[0][0], /tools\/apply-batch-claude\.sh$/);
-  assert.deepEqual(calls[0][1], ['https://www.jobs.ch/en/vacancies/detail/1/']);
+  assert.deepEqual(calls[0][1], [url]);
+});
+
+test('the kit check asks Notion through apply_batch --has-kit and says to Prepare when there is none', async () => {
+  const seen = [];
+  const run = async (_, args, onLine) => { seen.push(args); onLine('No Applications row for x — prepare a kit first (📝 Prepare).'); return {code: 1}; };
+  const result = await apply.hasKit({}, 'https://x', run);
+  assert.deepEqual(seen[0], ['src.ai.apply_batch', '--has-kit', 'https://x']);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /press Prepare first/);
+  assert.deepEqual(await apply.hasKit({}, 'https://x', async () => ({code: 0})), {ok: true});
 });
 
 test('claude is found outside the shell PATH, where the installer puts it', () => {

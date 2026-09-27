@@ -39,11 +39,20 @@ export function claudeReady(storage, binary = claudeBinary) {
   return {ok: true};
 }
 
+// The job's kit in Notion (answers and cover letter): a Claude session has nothing to fill from without it.
+export async function hasKit(storage, url, run = pipeline.run) {
+  const lines = [];
+  const {code} = await run(storage, ['src.ai.apply_batch', '--has-kit', url], line => lines.push(line));
+  return code === 0 ? {ok: true} : {ok: false, error: `No application kit for this job yet: press Prepare first. ${lines.slice(-1)[0] || ''}`.trim()};
+}
+
 // One job, from its row: a Claude session in Terminal takes it from the posting to a filled form.
-export function claudeOne(storage, url, open = spawn, binary = claudeBinary) {
+export async function claudeOne(storage, url, open = spawn, binary = claudeBinary, kit = hasKit) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   const ready = claudeReady(storage, binary);
   if (!ready.ok) return ready;
+  const drafted = await kit(storage, url);
+  if (!drafted.ok) return drafted;
   open(path.join(pipeline.REPO, 'tools', 'apply-batch-claude.sh'), [url.split('#')[0]],
     {cwd: pipeline.REPO, env: pipeline.pipelineEnv(storage), detached: true, stdio: 'ignore'}).unref();
   return {ok: true};

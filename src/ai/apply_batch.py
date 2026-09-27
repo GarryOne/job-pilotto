@@ -185,6 +185,9 @@ def main():
                         help="flip one job's Stage to Applying and exit — for apply-batch-claude.sh, "
                              'so a Claude Code session queued for a job is deduped the same way the '
                              'ChatGPT/Codex path already dedupes its own queued chats')
+    parser.add_argument('--has-kit', metavar='URL',
+                        help='exit 0 if this job has a drafted kit in Notion, else print why and exit 1 — '
+                             'Apply with Claude (Mac app and apply-batch-claude.sh) only starts on a kit; touches nothing')
     parser.add_argument('--mark-closed', metavar='URL',
                         help="flip one job's Stage to Closed (posting gone) and notify, then exit")
     parser.add_argument('--mark-applied', metavar='URL',
@@ -205,6 +208,17 @@ def main():
     tracker = notion.Tracker.from_env()
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+
+    if args.has_kit:
+        try:
+            pairs_for_urls(tracker, [args.has_kit])
+        except SystemExit as missing:
+            print(missing)
+            return 1
+        except Exception as error:  # can't tell: don't start a session that may have nothing to fill from
+            print(f"Couldn't check the kit in Notion ({type(error).__name__}: {str(error)[:120]}); not starting.")
+            return 1
+        return 0
 
     if args.mark_applying:
         _, outcome = tracker.mark({'url': args.mark_applying}, 'Applying')

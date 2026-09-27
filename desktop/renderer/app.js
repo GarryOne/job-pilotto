@@ -378,7 +378,11 @@ function renderJobs() {
         claude.addEventListener('click', async () => {
           claude.disabled = true;
           const result = await window.pilot.applyWithClaude(job.url);
-          if (result.ok) { claudeStarted.add(pageKey(job.url)); renderJobs(); } else { claude.disabled = false; claude.textContent = 'Not ready'; claude.title = result.error; }
+          if (result.ok) { claudeStarted.add(pageKey(job.url)); renderJobs(); return; }
+          claude.disabled = false;
+          claude.title = result.error;
+          // The list said there was a kit but Notion has none (removed or redrafting): show Prepare again.
+          if (/kit/i.test(result.error || '')) { claude.textContent = 'Prepare first'; loadJobs(); } else claude.textContent = 'Not ready';
         });
         box.append(claude);
       }
