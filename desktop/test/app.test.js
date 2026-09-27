@@ -164,3 +164,12 @@ test('draft progress: part from the latest field, percent against the expected l
   assert.equal(strategy.progress('{"summary":"x","profile_markdown":"y","answers_markdown":"z', 1000).part, 'Writing your standard answers');
   assert.equal(strategy.progress('x'.repeat(5000), 1000).percent, 97);
 });
+
+test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', () => {
+  const calls = [];
+  const open = (...args) => { calls.push(args); return {unref() {}}; };
+  assert.deepEqual(apply.openOne('https://jobs.lever.co/acme/1#top', open), {ok: true});
+  assert.deepEqual(calls[0].slice(0, 2), ['open', ['-a', 'Google Chrome', 'https://jobs.lever.co/acme/1#jobpilotto-fill']]);
+  assert.equal(apply.openOne('', open).ok, false);
+  assert.equal(calls.length, 1);
+});

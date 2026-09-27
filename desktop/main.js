@@ -245,6 +245,7 @@ function handlers() {
   });
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
+  ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   ipcMain.handle('openNotion', (_, url, inBrowser) => (inBrowser ? shell.openExternal(url) : openNotion(url)));
   ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? path.join(pipeline.REPO, 'extension') : storage.dir));

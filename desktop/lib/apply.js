@@ -13,6 +13,13 @@ export function pick(jobs, n) {
     .slice(0, n);
 }
 
+// One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
+export function openOne(url, open = spawn) {
+  if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
+  open('open', ['-a', 'Google Chrome', `${url.split('#')[0]}#${FILL_MARK}`], {detached: true, stdio: 'ignore'}).unref();
+  return {ok: true};
+}
+
 export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs) {
   n = Math.max(1, Math.min(10, Number(n) || 1));
   if (mode === 'agents') {

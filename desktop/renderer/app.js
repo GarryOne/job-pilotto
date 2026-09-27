@@ -333,6 +333,17 @@ function renderJobs() {
       button.addEventListener('click', async () => { await window.pilot.setStatus(job.url, next); job.status = next; renderJobs(); });
       box.append(button);
     };
+    if (job.status !== 'applied' && job.url) {
+      // Opens the posting in Chrome; the Job Pilotto extension fills the form, you review and submit.
+      const apply = Object.assign(document.createElement('button'), {className: 'primary', textContent: 'Apply',
+        title: 'Open in Chrome: the extension fills the form, you review and submit'});
+      apply.addEventListener('click', async () => {
+        const result = await window.pilot.applyOne(job.url);
+        apply.textContent = result.ok ? 'Opened in Chrome' : 'No link';
+        setTimeout(() => { apply.textContent = 'Apply'; }, 4000);
+      });
+      box.append(apply);
+    }
     if (job.status !== 'saved') action('Save', 'saved', 'Keep this job on your list');
     if (job.status !== 'applied') action('Mark applied', 'applied', 'You applied to this job: track it in Applications');
     if (job.status !== 'dismissed') action('Dismiss', 'dismissed', 'Not interested: hide this job');
