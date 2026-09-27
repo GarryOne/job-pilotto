@@ -11,11 +11,15 @@ test('extension page helpers are the same as the tools/ originals (run extension
   }
 });
 
-test('manifest asks only for activeTab, scripting and storage', () => {
+test('manifest asks for activeTab, scripting and storage, and runs by itself only on the job-application sites', () => {
   const manifest = JSON.parse(read('extension/manifest.json'));
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'scripting', 'storage']);
-  assert.equal(manifest.host_permissions, undefined);
+  // Granted at install, so tabs opened by the app or "Open & fill" fill themselves (as optional
+  // permissions they needed a prompt that closed the popup, and nothing filled).
+  assert.deepEqual(manifest.host_permissions, ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
+    'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*']);
+  assert.equal(manifest.optional_host_permissions, undefined);
 });
 
 test('contact details go into matching empty text fields, never over kit answers or filled fields', () => {

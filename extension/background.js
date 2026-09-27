@@ -33,7 +33,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== 'complete' || !tab.url?.includes(`#${FILL_MARK}`) || started.has(tabId)) return;
   const origin = new URL(tab.url).origin + '/*';
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
-    await note(tabId, '✈️ Job Pilotto can fill this form once it may run on job sites: open the extension on any job page, click Open & fill once, and allow it. For now, click ✈️ → Fill with AI here.');
+    // Not one of the supported job sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable):
+    // the extension may not touch this page by itself; the user can still click its button here.
+    chrome.action.setBadgeText({tabId, text: '?'});
+    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill with AI (this site needs your click)'});
     return;
   }
   started.add(tabId);

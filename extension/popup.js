@@ -1,6 +1,6 @@
 // Popup: fill the job page you're on (with AI, or from the drafted kit only), mark it Applied,
 // and open the next job from the Ready to apply list. Nothing runs on a page until you click here.
-import {JOB_SITES, api, fillTab, settings} from './flow.js';
+import {api, fillTab, settings} from './flow.js';
 
 const $ = id => document.getElementById(id);
 const config = await settings();
@@ -123,10 +123,9 @@ async function loadQueue() {
       open.className = 'secondary small';
       open.textContent = 'Open & fill';
       open.addEventListener('click', async () => {
-        // One-time permission, so the extension can fill a tab it opened itself.
-        const allowed = await chrome.permissions.request({origins: JOB_SITES});
-        if (!allowed) { status('Allow Job Pilotto on job sites to open and fill jobs from this list.', 'warn'); return; }
-        chrome.runtime.sendMessage({type: 'openAndFill', url: job.url});
+        // The job sites are granted at install (manifest host_permissions); asking here closed the popup
+        // before the answer came back, so the button did nothing.
+        await chrome.runtime.sendMessage({type: 'openAndFill', url: job.url});
         window.close();
       });
       row.append(text, open);
