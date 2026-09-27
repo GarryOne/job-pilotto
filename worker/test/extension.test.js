@@ -158,3 +158,17 @@ test('ready-to-apply queue lists Kit ready jobs', async () => {
   assert.deepEqual(data.jobs.map((j) => j.company), ['Anthropic']);
   assert.deepEqual(calls[0].body.filter, { property: 'Stage', select: { equals: 'Kit ready' } });
 });
+
+test('test mode tells Claude to answer every field with dummy values where unsure', async () => {
+  const { answerForm, TEST_MODE } = await import('../src/extension.js');
+  const seen = [];
+  const client = { messages: { create: async (request) => {
+    seen.push(request);
+    return { stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [] }) }] };
+  } } };
+  const env = { PROFILE_TEXT: 'SRE', ANSWERS_TEXT: '', ANTHROPIC_API_KEY: 'x', findRow: null };
+  await answerForm(env, { url: 'https://jobs.lever.co/acme/1', fields: [{ field: 'q', label: 'Q', type: 'text' }], page_text: '', test: true }, client).catch(() => {});
+  await answerForm(env, { url: 'https://jobs.lever.co/acme/1', fields: [{ field: 'q', label: 'Q', type: 'text' }], page_text: '' }, client).catch(() => {});
+  assert.ok(seen[0].system[0].text.includes(TEST_MODE));
+  assert.ok(!seen[1].system[0].text.includes(TEST_MODE));
+});

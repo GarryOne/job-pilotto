@@ -80,8 +80,12 @@ export function start(storage, onError = () => {}) {
         return;
       }
       if (req.url === '/extension/me') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        // The browser's preflight (OPTIONS, sent because of the Authorization header) carries no token: answer it.
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
-        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'});
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(ok ? me(storage) : {error: 'Wrong token: open the extension settings and Connect again'}));
         return;
       }

@@ -149,7 +149,10 @@ confidence: high when the answer is stated in the profile or standard answers, m
 
 Eligibility: set eligible to false only when the posting clearly rules the applicant out (a work location, residence or authorization the profile says they can't meet, or a required language they don't speak), and say why in eligibility_note. Otherwise eligible is true and eligibility_note is empty.`;
 
-export async function answerForm(env, { url, fields, page_text }, client = null) {
+// test: the user is testing the filling (Settings → Test mode): invent plausible values for anything unknown.
+export const TEST_MODE = 'TEST MODE: this is a test of the form filling, not a real application. Answer EVERY field; where the profile or standard answers do not say, invent a plausible dummy value (for select fields pick the most plausible listed option). Never leave a field empty, set confidence to low for invented values, and set eligible to true.';
+
+export async function answerForm(env, { url, fields, page_text, test = false }, client = null) {
   const row = await findRow(env, url).catch(() => null);
   const kit = row ? await readKit(env, row.id).catch(() => null) : null;
   // The desktop app passes the local Profile and standard answers; the Worker reads them from Notion.
@@ -165,7 +168,7 @@ export async function answerForm(env, { url, fields, page_text }, client = null)
     // The profile and standard answers are the same for every form: cached, so a multi-page form
     // or the next application within five minutes pays a tenth for them.
     system: [
-      { type: 'text', text: INSTRUCTIONS },
+      { type: 'text', text: test ? `${INSTRUCTIONS}\n\n${TEST_MODE}` : INSTRUCTIONS },
       { type: 'text', text: `<profile>\n${profile}\n</profile>\n<standard_answers>\n${standard}\n</standard_answers>`,
         cache_control: { type: 'ephemeral' } },
     ],
@@ -249,7 +252,7 @@ export async function handleExtension(request, env) {
         ...(Array.isArray(f.options) && f.options.length ? { options: f.options.slice(0, 60).map((o) => String(o).slice(0, 150)) } : {}),
       }));
       try {
-        return json(await answerForm(env, { url: body.url, fields, page_text: body.page_text }));
+        return json(await answerForm(env, { url: body.url, fields, page_text: body.page_text, test: !!body.test }));
       } catch (error) {
         const limit = /credit|spend|limit|billing/i.test(error.message);
         return json({ error: limit ? 'The Anthropic spend limit is reached; fill without AI for now.' : `AI answer failed: ${error.message}` }, limit ? 402 : 502);

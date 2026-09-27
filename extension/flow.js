@@ -6,7 +6,7 @@ export const JOB_SITES = [
 ];
 
 export async function settings() {
-  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility']);
+  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode']);
 }
 
 export async function api(config, path, init = {}) {
@@ -28,7 +28,8 @@ const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({targe
 const cacheKey = tab => `fill:${tab.id}`;
 export async function cachedAI(tab) {
   const entry = (await chrome.storage.session.get(cacheKey(tab)))[cacheKey(tab)];
-  return entry && entry.url === tab.url.split('#')[0] ? entry.ai : null;
+  const {testMode = false} = await chrome.storage.local.get('testMode');
+  return entry && entry.url === tab.url.split('#')[0] && !!entry.test === testMode ? entry.ai : null;
 }
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
@@ -54,8 +55,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       try {
         const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
         ai = await api(config, '/extension/answer', {method: 'POST',
-          body: JSON.stringify({url: tab.url, fields: open, page_text: pageText})});
-        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai}});
+          body: JSON.stringify({url: tab.url, fields: open, page_text: pageText, test: !!config.testMode})});
+        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
         // Settings → "Check eligibility before filling" off (for testing): fill regardless.
         if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: ai.usd};
         // The AI saw the live form, so its answer wins; kit answers fill whatever it left out.

@@ -150,6 +150,7 @@ async function load() {
     return;
   }
   const onPage = /^https?:/.test(tab?.url || '');
+  if (config.testMode) status('Test mode is on: every field gets filled, with dummy values where unsure. Turn it off in Settings for real applications.', 'warn');
   if (onPage) {
     $('actions').hidden = false;
     try {

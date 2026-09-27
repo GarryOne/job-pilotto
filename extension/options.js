@@ -1,7 +1,9 @@
 // Settings: only the connection to the Job Pilotto app (filled in by Connect). The user's contact details
 // and CV live in the app, which the extension asks for each time it fills a form (flow.js).
 const $ = id => document.getElementById(id);
-const stored = await chrome.storage.local.get(['workerUrl', 'token', 'checkEligibility']);
+const stored = await chrome.storage.local.get(['workerUrl', 'token', 'checkEligibility', 'testMode']);
+$('testMode').checked = stored.testMode === true;
+$('testMode').addEventListener('change', () => chrome.storage.local.set({testMode: $('testMode').checked}));
 $('checkEligibility').checked = stored.checkEligibility !== false;
 $('checkEligibility').addEventListener('change', () => chrome.storage.local.set({checkEligibility: $('checkEligibility').checked}));
 $('workerUrl').value = stored.workerUrl || '';
