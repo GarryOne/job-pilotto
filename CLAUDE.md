@@ -8,6 +8,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 3. For any other Notion page/database ID, or to find where something lives, use the skill **notion-map** (`.claude/skills/notion-map/SKILL.md`) instead of searching from scratch.
 
 ## Working rules
+- Code changes happen in a git worktree on their own branch (see AGENTS.md → Working with git); other agents work on this repo at the same time.
 - After each change: tests pass → commit → push to `main` → update Notion (hub current state, Run Log, Technical Reference; Decision Log when a decision changes; Handoff "Current state" / "Open threads" at the end of a session).
 - Ask before spending money on AI (new model or large re-runs); show measured cost.
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.

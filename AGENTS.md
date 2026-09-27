@@ -63,3 +63,18 @@ decides that through their own permission settings.
 - Ask before spending money on AI models or large re-runs; this project already has three tiers
   running (Haiku extraction, Sonnet scoring, Sonnet kit drafting) — a fourth or a big re-run needs
   the owner's sign-off first.
+
+## Working with git: one worktree per task
+
+Several agents (Claude, Codex, …) work on this repo at the same time, all pushing to `main`. To keep
+them from colliding in one checkout:
+
+- Make every code change in its own git worktree on its own branch, never directly in the main
+  checkout: `git worktree add ../sre-watch-<topic> -b <topic> origin/main`.
+- Commit there. Before landing: `git fetch && git rebase origin/main`, run both test suites
+  (`python3 -m unittest discover -s tests`, `cd worker && npm test`), then
+  `git push origin <topic>:main` (fast-forward only; if it's rejected, fetch, rebase and test again).
+- Remove the worktree afterwards: `git worktree remove ../sre-watch-<topic> && git branch -d <topic>`.
+- Never force-push `main`, and never use a bare `git stash`/`stash pop`: the stash stack is shared
+  across worktrees and sessions.
+- Read-only work and Notion-only updates don't need a worktree.
