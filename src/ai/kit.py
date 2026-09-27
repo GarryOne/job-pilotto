@@ -22,7 +22,7 @@ from . import cost
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', 'claude-sonnet-5')
 KIT_VERSION = 1
 KIT_HEADING = '📝 Application kit'
-ANSWERS_PAGE_ID = os.getenv('NOTION_ANSWERS_PAGE_ID', '3e562be8fd868108ae38d1f47d52a811')
+ANSWERS_PAGE_ID = os.getenv('NOTION_ANSWERS_PAGE_ID', '')
 DEFAULT_AUTO_MIN_SCORE = 50
 DEFAULT_AUTO_MAX = 5
 

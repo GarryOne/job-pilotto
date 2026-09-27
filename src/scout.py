@@ -33,7 +33,7 @@ from .sources import ats, feeds
 
 SEEDS = CONFIG / 'scout_seeds.json'
 # Notion "Employers & Sources": one row per employer or job board (formerly Source Registry + Company Research).
-EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', 'c7fe8570c2ff414086ae9bb1ee2dbf64')
+EMPLOYERS_DB = os.getenv('NOTION_EMPLOYERS_DB', '')
 HN_THREADS = 2          # Latest monthly "Who is hiring?" threads to read.
 RECHECK_DAYS = {'low': 21, 'none': 90}
 # Tier 1 feeds are crawled with this many SRE-type roles anywhere: their Zurich/London roles come and go.

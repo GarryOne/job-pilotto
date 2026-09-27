@@ -1,0 +1,41 @@
+# Job Pilotto — your scheduled job search, in YOUR private repo (the Desktop App puts it there).
+# It runs the public engine (GarryOne/job-pilotto) with this repo's secrets and variables, so your
+# logs, job database and results stay private. Schedules are in UTC.
+name: Daily job discovery
+run-name: ${{ inputs.mode || 'scheduled' }}${{ inputs.job && format(' {0}', inputs.job) || '' }}
+
+on:
+  schedule:
+    - cron: '30 */4 * * *'
+  # Started by the Telegram bot and the Desktop App; same inputs as the engine.
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'scheduled, run, today, apply, more, prepare, insight, weekly, interview or add'
+        type: choice
+        options: [scheduled, run, today, apply, more, prepare, insight, weekly, interview, add]
+        default: scheduled
+      job: {description: 'job code (apply, prepare) or job URL (add)', required: false}
+      action: {description: 'apply mode: applied, saved or dismissed', required: false, default: applied}
+      page: {description: 'page number (more mode)', required: false}
+      seed: {description: 'ranking seed (more mode)', required: false}
+      file: {description: 'interview mode: Telegram file id of the transcript', required: false}
+      note: {description: 'interview caption or notes; add mode: application date', required: false}
+
+permissions:
+  contents: read
+  actions: write   # an applied job starts the mail check 5 minutes later
+
+jobs:
+  daily:
+    uses: GarryOne/job-pilotto/.github/workflows/daily.yml@main
+    with:
+      mode: ${{ inputs.mode || 'scheduled' }}
+      job: ${{ inputs.job }}
+      action: ${{ inputs.action || 'applied' }}
+      page: ${{ inputs.page }}
+      seed: ${{ inputs.seed }}
+      file: ${{ inputs.file }}
+      note: ${{ inputs.note }}
+      code_repository: GarryOne/job-pilotto
+    secrets: inherit

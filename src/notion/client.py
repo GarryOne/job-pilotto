@@ -17,7 +17,7 @@ NOTION_VERSION = '2022-06-28'
 # Fork this project and set the matching environment variable to point at your own instead —
 # see docs/notion-schema.md for what to create and README.md's Configuration section for the
 # variable names.
-DEFAULT_DATABASE_ID = os.getenv('NOTION_APPLICATIONS_DB', 'f56b68942d3b43cbb85a7b1ebfe2df1b')
+DEFAULT_DATABASE_ID = os.getenv('NOTION_APPLICATIONS_DB', '')
 # Rows in these stages stay eligible for digests; any other stage hides the job.
 VISIBLE_STAGES = {'Saved', 'Kit ready'}
 # Stages set from Telegram buttons. A later real application stage is never overwritten by them.
@@ -31,8 +31,8 @@ def job_code(url):
     return hashlib.sha1(url.strip().encode()).hexdigest()[:8]
 
 
-PROFILE_PAGE_ID = os.getenv('NOTION_PROFILE_PAGE_ID', '3e562be8fd8681579078d09829921b8c')
-MATCHES_DATABASE_ID = os.getenv('NOTION_MATCHES_DB', '2d8077c592fd45db8d6d5c8e2eea75cb')
+PROFILE_PAGE_ID = os.getenv('NOTION_PROFILE_PAGE_ID', '')
+MATCHES_DATABASE_ID = os.getenv('NOTION_MATCHES_DB', '')
 
 
 def _rich(items):

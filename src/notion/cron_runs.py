@@ -7,7 +7,7 @@ written by code from those numbers, so it costs nothing; a Notion failure never 
 from datetime import datetime, timezone
 import os
 
-CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '98543553a1024a61bd784ada69b2a45d')
+CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '')
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
           ('kits', 'Cost kits (USD)', 'Kits'), ('insight', 'Cost insight (USD)', 'Insights'),
           ('interview', 'Cost interview (USD)', 'Interviews'), ('mail', 'Cost mail (USD)', 'Emails'))

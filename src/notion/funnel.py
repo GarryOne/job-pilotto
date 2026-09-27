@@ -16,7 +16,7 @@ import sys
 from . import client as notion
 from .ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
 
-PIPELINE_PAGE_ID = os.getenv('NOTION_PIPELINE_PAGE', '3e862be8fd868144879eeacae522f39e')
+PIPELINE_PAGE_ID = os.getenv('NOTION_PIPELINE_PAGE', '')
 HEADING = '📈 Conversion'
 PREPARED_STAGES = ('Kit ready', 'Applying')
 CLOSED_STAGES = {'Rejected', 'Withdrawn', 'No response'}

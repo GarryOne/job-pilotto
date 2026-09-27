@@ -37,7 +37,7 @@ from . import client as notion
 from ..ai import kit as kit_module
 from ..sources import ats
 
-EVENTS_DATABASE_ID = os.getenv('NOTION_EVENTS_DB', '95ae2d6b81804e838985d0de5cbd945b')
+EVENTS_DATABASE_ID = os.getenv('NOTION_EVENTS_DB', '')
 RECORD_HEADING = '🗂 Application record'
 RECORD_VERSION = 1
 NO_RESPONSE_DAYS = 30

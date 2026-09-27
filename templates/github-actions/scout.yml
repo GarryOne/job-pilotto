@@ -1,0 +1,23 @@
+# Job Pilotto — finds new employer job feeds, a small batch a day. Runs the public engine with this
+# private repo's settings. Schedules are in UTC.
+name: Source scout
+run-name: scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
+
+on:
+  schedule:
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+    inputs:
+      batch: {description: 'candidates to probe this run', required: false, default: '15'}
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  scout:
+    uses: GarryOne/job-pilotto/.github/workflows/scout.yml@main
+    with:
+      batch: ${{ inputs.batch || '15' }}
+      code_repository: GarryOne/job-pilotto
+    secrets: inherit

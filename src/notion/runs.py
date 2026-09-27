@@ -10,7 +10,7 @@ import os
 
 from ..sources import ats
 
-RUNS_DATABASE_ID = os.getenv('NOTION_AGENT_RUNS_DB', '6a89d3b5faf44b6290f0108afcbf8ce9')
+RUNS_DATABASE_ID = os.getenv('NOTION_AGENT_RUNS_DB', '')
 ATS_NAMES = {'greenhouse': 'Greenhouse', 'ashby': 'Ashby', 'lever': 'Lever', 'workable': 'Workable'}
 STATUS_NAMES = {'ready': 'Ready', 'needs_user': 'Needs input', 'failed': 'Failed'}
 AGENT_NAMES = {'claude': 'Claude', 'codex': 'Codex', 'chatgpt': 'ChatGPT', 'manual': 'Manual'}

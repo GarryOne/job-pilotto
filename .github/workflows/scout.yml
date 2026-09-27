@@ -4,38 +4,56 @@ run-name: scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
 # Grows the list of employer job feeds a small batch at a time. Probes public
 # job-feed APIs only; no AI and no applying.
 on:
+  # Called by the scheduled workflow in your private repo (templates/github-actions/scout.yml).
+  workflow_call:
+    inputs:
+      batch: {type: string, default: '15'}
+      code_repository: {type: string, default: ''}
   workflow_dispatch:
     inputs:
       batch:
         description: 'candidates to probe this run'
         required: false
         default: '15'
-  schedule:
-    # Once a day, between digest runs (UTC).
-    - cron: '15 6 * * *'
+  # No schedule here: the timer lives in your private repo.
 
 permissions:
   contents: read
   actions: write
 
-# Shares the SQLite state with the digest workflow, so the two never overlap.
-concurrency:
-  group: job-pilotto-state
-  cancel-in-progress: false
 
 # Optional features can be switched off without deleting their secrets (src/features.py),
 # e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
+  # Your Notion workspace: database and page IDs, as repository variables (the Desktop App sets them).
+  NOTION_APPLICATIONS_DB: ${{ vars.NOTION_APPLICATIONS_DB }}
+  NOTION_MATCHES_DB: ${{ vars.NOTION_MATCHES_DB }}
+  NOTION_EVENTS_DB: ${{ vars.NOTION_EVENTS_DB }}
+  NOTION_INSIGHTS_DB: ${{ vars.NOTION_INSIGHTS_DB }}
+  NOTION_INTERVIEWS_DB: ${{ vars.NOTION_INTERVIEWS_DB }}
+  NOTION_EMPLOYERS_DB: ${{ vars.NOTION_EMPLOYERS_DB }}
+  NOTION_AGENT_RUNS_DB: ${{ vars.NOTION_AGENT_RUNS_DB }}
+  NOTION_CRON_RUNS_DB: ${{ vars.NOTION_CRON_RUNS_DB }}
+  NOTION_PROFILE_PAGE_ID: ${{ vars.NOTION_PROFILE_PAGE_ID }}
+  NOTION_ANSWERS_PAGE_ID: ${{ vars.NOTION_ANSWERS_PAGE_ID }}
+  NOTION_PIPELINE_PAGE: ${{ vars.NOTION_PIPELINE_PAGE }}
   # Companies scout never suggests (e.g. your current employer), comma-separated.
   JOB_PILOTTO_EXCLUDED_COMPANIES: ${{ vars.JOB_PILOTTO_EXCLUDED_COMPANIES }}
 
 jobs:
   scout:
     runs-on: ubuntu-latest
+    # Shares the SQLite state with the digest workflow, so the two never overlap.
+    concurrency:
+      group: job-pilotto-state
+      cancel-in-progress: false
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        # Called from a private repo (templates/github-actions): run this repo's code there.
+        with:
+          repository: ${{ inputs.code_repository || github.repository }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

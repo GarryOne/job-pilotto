@@ -2,12 +2,17 @@ name: Gmail and Calendar
 run-name: mail${{ inputs.delay && inputs.delay != '0' && format(' (after {0} min)', inputs.delay) || '' }}
 
 # Read-only: Gmail and Calendar -> 📈 Application Events, Stage, Next interview, Telegram.
-# How often: edit the cron below. 05, 10, 16 UTC = 07:00, 12:00, 18:00 in Zurich (summer time);
+# How often: the cron in templates/github-actions/mail.yml (your private repo). 05, 10, 16 UTC = 07:00, 12:00, 18:00 in Zurich (summer time);
 # the 16:00 UTC run sends the evening-before interview prep. Also started 5 minutes after an
 # application is marked Applied (watcher, ✅ button, /add), and by /mail in Telegram.
 on:
-  schedule:
-    - cron: '0 5,10,16 * * *'
+  # Called by the scheduled workflow in your private repo (templates/github-actions/mail.yml);
+  # no schedule here, so this public repo never reads your mail.
+  workflow_call:
+    inputs:
+      delay: {type: string, default: '0'}
+      days: {type: string, default: '2'}
+      code_repository: {type: string, default: ''}
   workflow_dispatch:
     inputs:
       delay:
@@ -22,18 +27,30 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: job-pilotto-mail
-  cancel-in-progress: false
 
 # Optional features can be switched off without deleting their secrets (src/features.py),
 # e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
+  # Your Notion workspace: database and page IDs, as repository variables (the Desktop App sets them).
+  NOTION_APPLICATIONS_DB: ${{ vars.NOTION_APPLICATIONS_DB }}
+  NOTION_MATCHES_DB: ${{ vars.NOTION_MATCHES_DB }}
+  NOTION_EVENTS_DB: ${{ vars.NOTION_EVENTS_DB }}
+  NOTION_INSIGHTS_DB: ${{ vars.NOTION_INSIGHTS_DB }}
+  NOTION_INTERVIEWS_DB: ${{ vars.NOTION_INTERVIEWS_DB }}
+  NOTION_EMPLOYERS_DB: ${{ vars.NOTION_EMPLOYERS_DB }}
+  NOTION_AGENT_RUNS_DB: ${{ vars.NOTION_AGENT_RUNS_DB }}
+  NOTION_CRON_RUNS_DB: ${{ vars.NOTION_CRON_RUNS_DB }}
+  NOTION_PROFILE_PAGE_ID: ${{ vars.NOTION_PROFILE_PAGE_ID }}
+  NOTION_ANSWERS_PAGE_ID: ${{ vars.NOTION_ANSWERS_PAGE_ID }}
+  NOTION_PIPELINE_PAGE: ${{ vars.NOTION_PIPELINE_PAGE }}
 
 jobs:
   mail:
     runs-on: ubuntu-latest
+    concurrency:
+      group: job-pilotto-mail
+      cancel-in-progress: false
     timeout-minutes: 20
     env:
       GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
@@ -43,6 +60,9 @@ jobs:
         run: echo "Google is not connected; run python -m src.sources.google auth --github on the Mac (see README)."
       - uses: actions/checkout@v4
         if: env.GOOGLE_REFRESH_TOKEN != ''
+        # Called from a private repo (templates/github-actions): run this repo's code there.
+        with:
+          repository: ${{ inputs.code_repository || github.repository }}
       - uses: actions/setup-python@v5
         if: env.GOOGLE_REFRESH_TOKEN != ''
         with:
@@ -69,7 +89,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           JOB_PILOTTO_MAIL_MODEL: ${{ vars.JOB_PILOTTO_MAIL_MODEL || 'claude-haiku-4-5' }}
-          NOTION_APPLICATIONS_DB: f56b68942d3b43cbb85a7b1ebfe2df1b
         run: |
           pip install --quiet -r requirements.txt
           python -m src.ai.mail --send --days "${{ inputs.days || '2' }}"

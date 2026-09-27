@@ -25,7 +25,7 @@ from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
 from . import cost
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-sonnet-5')
-INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '78fb76fd0f2c4b9ea0a9e040c48642ba')
+INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 TEXT_TYPES = ('.txt', '.md', '.srt', '.vtt', '.text')
 MAX_CHARS = 180_000  # about 3 hours of speech, within Notion's request size; longer files are cut, with a note
 # Stages an interview can move an application forward from; later stages are never overwritten.

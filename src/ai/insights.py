@@ -33,7 +33,7 @@ from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
 from . import cost, enrich, interviews, score
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5')
-INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '4c79aec091df4dcc8a8827cd4d43a5ef')
+INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
 SEND_HOUR_UTC = 4
 GOOD_FIT = 60
 NEAR_MISS = 45
