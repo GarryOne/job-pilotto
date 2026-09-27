@@ -198,6 +198,34 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   };
 }
 
+const ATS = [['greenhouse', 'Greenhouse'], ['ashbyhq', 'Ashby'], ['lever.co', 'Lever'], ['workable', 'Workable']];
+
+// A form fill by the extension, as a row in 🎏 Job Apply — Agent Runs (same columns as the agent runs).
+export async function logRun(env, run) {
+  const row = await findRow(env, run.url).catch(() => null);
+  const job = row ? summary(row) : { title: '', company: '' };
+  const host = (() => { try { return new URL(run.url).hostname; } catch { return ''; } })();
+  const minutes = Math.round((Date.parse(run.ended) - Date.parse(run.started)) / 600) / 100;
+  const text = (value) => ({ rich_text: [{ text: { content: String(value).slice(0, 1900) } }] });
+  const properties = {
+    Run: { title: [{ text: { content: `${job.company || host} · ${job.title || 'form'} · Extension` } }] },
+    Agent: { select: { name: 'Extension' } },
+    ATS: { select: { name: (ATS.find(([key]) => host.includes(key)) || [null, 'Other'])[1] } },
+    Status: { select: { name: run.unfilled ? 'Needs input' : 'Ready' } },
+    Started: { date: { start: run.started } }, Ended: { date: { start: run.ended } },
+    Minutes: { number: minutes }, Fields: { number: Number(run.fields) || 0 },
+    'Unfilled required': { number: Number(run.unfilled) || 0 },
+    'Tokens (total)': { number: 0 },
+    'Job URL': { url: run.url },
+    'Billed to': { select: { name: run.usd ? 'Anthropic API credits' : 'Unknown' } },
+    Reason: text(`${run.kit ? 'Filled from the kit' : 'Claude answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`),
+    Learnings: text((run.todo || []).join(' · ')),
+    ...(row ? { Job: { relation: [{ id: row.id }] } } : {}),
+  };
+  const page = await notion(env, 'pages', 'POST', { parent: { database_id: env.NOTION_AGENT_RUNS_DB }, properties });
+  return { ok: true, url: page.url };
+}
+
 function summary(row) {
   const props = row.properties;
   return {
@@ -257,6 +285,11 @@ export async function handleExtension(request, env) {
         const limit = /credit|spend|limit|billing/i.test(error.message);
         return json({ error: limit ? 'The Anthropic spend limit is reached; fill without AI for now.' : `AI answer failed: ${error.message}` }, limit ? 402 : 502);
       }
+    }
+    if (request.method === 'POST' && url.pathname === '/extension/run') {
+      const run = await request.json().catch(() => ({}));
+      if (!run.url || !env.NOTION_TOKEN || !env.NOTION_AGENT_RUNS_DB) return json({ ok: false, skipped: true });
+      return json(await logRun(env, run).catch((error) => ({ ok: false, error: error.message })));
     }
     if (request.method === 'POST' && url.pathname === '/extension/applied') {
       const { url: job } = await request.json().catch(() => ({}));

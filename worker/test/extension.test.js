@@ -172,3 +172,24 @@ test('test mode tells Claude to answer every field with dummy values where unsur
   assert.ok(seen[0].system[0].text.includes(TEST_MODE));
   assert.ok(!seen[1].system[0].text.includes(TEST_MODE));
 });
+
+test('an extension fill is logged as an Agent Runs row comparable with the agent runs', async () => {
+  const { logRun } = await import('../src/extension.js');
+  const base = globalThis.fetch;
+  const sent = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/databases/')) return new Response(JSON.stringify({ results: [] }));
+    sent.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ url: 'https://notion.so/run' }));
+  };
+  try {
+    const result = await logRun({ NOTION_TOKEN: 't', NOTION_APPLICATIONS_DB: 'apps', NOTION_AGENT_RUNS_DB: 'runs' },
+      { url: 'https://job-boards.greenhouse.io/acme/jobs/1', started: '2026-09-27T20:00:00Z', ended: '2026-09-27T20:00:12Z',
+        fields: 14, unfilled: 1, usd: 0, kit: true, todo: ['Answer: Location'] });
+    assert.equal(result.ok, true);
+    const p = sent[0].properties;
+    assert.equal(sent[0].parent.database_id, 'runs');
+    assert.deepEqual([p.Agent.select.name, p.ATS.select.name, p.Status.select.name, p.Minutes.number, p.Fields.number, p['Unfilled required'].number],
+      ['Extension', 'Greenhouse', 'Needs input', 0.2, 14, 1]);
+  } finally { globalThis.fetch = base; }
+});

@@ -68,6 +68,8 @@ export async function cachedAI(tab) {
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true} = {}) {
+  const startedAt = new Date();
+  const withKit = kitAnswers.length > 0;
   onStep('Reading the form…');
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
@@ -128,5 +130,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
     }
   }
+  // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
+  api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], started: startedAt.toISOString(),
+    ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,
+    kit: withKit, todo: (summary.todo || []).slice(0, 8)})}).catch(() => {});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
 }

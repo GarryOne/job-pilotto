@@ -37,6 +37,7 @@ export function localEnv(storage) {
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
     NOTION_TOKEN: notionToken,
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
+    NOTION_AGENT_RUNS_DB: ids.NOTION_AGENT_RUNS_DB || '',
     NOTION_PROFILE_PAGE_ID: ids.NOTION_PROFILE_PAGE_ID || '',
     NOTION_ANSWERS_PAGE_ID: ids.NOTION_ANSWERS_PAGE_ID || '',
     // Without Notion, the local copies; with it, extension.js reads the Notion pages.

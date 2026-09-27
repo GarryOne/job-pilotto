@@ -257,7 +257,8 @@
       todo.push(`Answer: ${rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field}`);
     }
     const legal = after.filter(row => row.legal && !row.filled).map(row => `Your choice (legal): ${row.label}`);
-    const summary = {filled, contact: contact.length, resumeAttached, todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
+    const unfilledRequired = open.filter(row => !(row.field === 'resume' && resumeAttached) && !row.legal).length;
+    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
     panel(summary);
     return summary;
   };

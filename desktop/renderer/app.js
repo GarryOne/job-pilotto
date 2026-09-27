@@ -300,6 +300,8 @@ function openView(name) {
 }
 document.querySelectorAll('.nav').forEach(nav => nav.addEventListener('click', () => openView(nav.dataset.view)));
 
+const openedInChrome = new Set();  // jobs opened with Apply this session
+
 function renderJobs() {
   const filter = $('filter-status').value;
   const text = $('filter-text').value.trim().toLowerCase();
@@ -337,12 +339,14 @@ function renderJobs() {
     };
     if (job.status !== 'applied' && job.url && job.kit) {
       // The kit already answered this form: Chrome opens it and the extension fills it at once.
-      const apply = Object.assign(document.createElement('button'), {className: 'primary', textContent: 'Apply',
-        title: 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
+      // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
+      const opened = openedInChrome.has(job.url);
+      const apply = Object.assign(document.createElement('button'), {className: opened ? 'secondary' : 'primary',
+        textContent: opened ? 'Opened in Chrome ↻' : 'Apply',
+        title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
       apply.addEventListener('click', async () => {
         const result = await window.pilot.applyOne(job.url);
-        apply.textContent = result.ok ? 'Opened in Chrome' : 'No link';
-        setTimeout(() => { apply.textContent = 'Apply'; }, 4000);
+        if (result.ok) { openedInChrome.add(job.url); renderJobs(); } else apply.textContent = 'No link';
       });
       box.append(apply);
     } else if (job.status !== 'applied' && job.url && job.code) {
