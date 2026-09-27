@@ -15,7 +15,8 @@ def _load_dotenv():
     .env.example into and just run, instead of needing Keychain or manual `export` every session.
     Runs once at import time so every entry point picks it up without calling anything extra."""
     env_file = ROOT / '.env'
-    if not env_file.exists():
+    # The desktop app passes every setting itself; the repo's .env belongs to the developer.
+    if not env_file.exists() or os.getenv('JOB_PILOTTO_NO_DOTENV'):
         return
     for line in env_file.read_text().splitlines():
         line = line.strip()

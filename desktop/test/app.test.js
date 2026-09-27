@@ -88,3 +88,14 @@ test('strategy draft: CV as a PDF document, structured output, then saved into t
   assert.deepEqual(preferences.excluded_companies, ['Sonar']);
   assert.equal(preferences.digest_min_score, 50);
 });
+
+test('the pipeline never inherits the developer\'s tokens or .env', () => {
+  const storage = tempStorage();
+  const env = pipeline.pipelineEnv(storage, {PATH: '/usr/bin', HOME: '/Users/x', NOTION_TOKEN: 'owner', SERPAPI_API_KEY: 'owner',
+    GITHUB_TOKEN: 'owner', JOB_PILOTTO_ENRICH_MODEL: 'x', TELEGRAM_CHAT_ID: '1'});
+  assert.equal(env.PATH, '/usr/bin');
+  for (const leaked of ['NOTION_TOKEN', 'SERPAPI_API_KEY', 'GITHUB_TOKEN', 'JOB_PILOTTO_ENRICH_MODEL', 'TELEGRAM_CHAT_ID']) {
+    assert.equal(env[leaked], undefined, leaked);
+  }
+  assert.equal(env.JOB_PILOTTO_NO_DOTENV, '1');
+});

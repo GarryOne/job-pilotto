@@ -24,11 +24,16 @@ export function ensureConfig(storage) {
   }
 }
 
-export function pipelineEnv(storage) {
+// Only what a program needs to run, from the parent environment: never the developer's tokens or
+// Job Pilotto settings exported in the shell the app was started from.
+const SYSTEM = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'SSL_CERT_FILE'];
+
+export function pipelineEnv(storage, parent = process.env) {
   const settings = storage.settings();
   const env = {
-    ...process.env,
+    ...Object.fromEntries(SYSTEM.filter(name => parent[name]).map(name => [name, parent[name]])),
     PYTHONUNBUFFERED: '1',
+    JOB_PILOTTO_NO_DOTENV: '1',
     JOB_PILOTTO_CONFIG_DIR: storage.path('config'),
     JOB_PILOTTO_DATA_DIR: storage.path('data'),
     JOB_PILOTTO_PROFILE_FILE: storage.path('profile.md'),
@@ -37,7 +42,7 @@ export function pipelineEnv(storage) {
   };
   for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']) {
     const value = storage.secret(name);
-    if (value) env[name] = value; else delete env[name];
+    if (value) env[name] = value;
   }
   if (env.ANTHROPIC_API_KEY) {
     env.JOB_PILOTTO_ENRICH_MODEL = MODELS.enrich;
