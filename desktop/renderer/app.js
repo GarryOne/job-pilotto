@@ -425,7 +425,7 @@ function renderNotionLinks() {
   show(box, links.length > 0);
   for (const [env, label] of links) {
     const link = Object.assign(document.createElement('button'), {className: 'notion-link', textContent: label,
-      title: `${state.notionTitles?.[env] || label} (⌘-click: open in your browser)`});
+      title: `${state.notionTitles?.[env] || label}: opens in Notion (⌘-click: in a Job Pilotto window)`});
     link.addEventListener('click', event => window.pilot.openNotion(state.notion[env], event.metaKey));
     box.append(link);
   }

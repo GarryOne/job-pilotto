@@ -247,7 +247,13 @@ function handlers() {
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
-  ipcMain.handle('openNotion', (_, url, inBrowser) => (inBrowser ? shell.openExternal(url) : openNotion(url)));
+  // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
+  // browser. ⌘-click opens the app's own Notion window instead (its own sign-in, kept between restarts).
+  ipcMain.handle('openNotion', (_, url, inWindow) => {
+    if (inWindow) return openNotion(url);
+    if (app.getApplicationNameForProtocol('notion://')) return shell.openExternal(url.replace(/^https:\/\//, 'notion://'));
+    return shell.openExternal(url);
+  });
   ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? path.join(pipeline.REPO, 'extension') : storage.dir));
   ipcMain.handle('extensionInfo', () => ({url: `http://127.0.0.1:${server.PORT}`, token: server.extensionToken(storage)}));
 }
