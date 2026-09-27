@@ -1,7 +1,7 @@
 {
   "name": "job-pilotto-desktop",
   "productName": "Job Pilotto",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha",
   "private": true,
   "type": "module",
   "main": "main.js",

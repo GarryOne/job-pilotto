@@ -58,6 +58,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/stage.mjs --app && scripts/python.sh
+      - name: Version
+        working-directory: desktop
+        # package.json holds the target and phase (e.g. 0.2.0-alpha); each release gets the next number.
+        run: |
+          version=$(scripts/next-version.sh)
+          npm version "$version" --no-git-tag-version --allow-same-version >/dev/null
+          echo "Releasing $version"
       - name: Build
         working-directory: desktop
         run: npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
@@ -67,12 +74,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(node -p "require('./package.json').version")
-          tag="desktop-v${version}-${{ github.run_number }}"
+          tag="desktop-v${version}"
           # Stable names too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${version}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
           cp "dist/Job-Pilotto-${version}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
           scripts/release-notes.sh "$GITHUB_SHA" > release-notes.md
           gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
-            --title "Job Pilotto ${version} (build ${{ github.run_number }})" \
+            --title "Job Pilotto ${version}" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA"
