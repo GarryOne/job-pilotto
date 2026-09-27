@@ -45,6 +45,12 @@ jobs:
       - name: App tests
         working-directory: desktop
         run: npm test
+      - name: Add the shared Google app client
+        env:
+          CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}
+        run: |
+          if [ -n "$CLIENT" ]; then printf '%s' "$CLIENT" > config/google_oauth_client.json
+          else echo "::notice::GOOGLE_SHARED_CLIENT_JSON is not set; the app will ask users for their own Google app."; fi
       - name: Bundle Python
         working-directory: desktop
         env:

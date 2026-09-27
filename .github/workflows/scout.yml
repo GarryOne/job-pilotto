@@ -27,6 +27,8 @@ concurrency:
 # e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
+  # Companies scout never suggests (e.g. your current employer), comma-separated.
+  JOB_PILOTTO_EXCLUDED_COMPANIES: ${{ vars.JOB_PILOTTO_EXCLUDED_COMPANIES }}
 
 jobs:
   scout:

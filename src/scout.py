@@ -158,7 +158,8 @@ def local_company_candidates(db):
 def harvest(db, seeds, sources=None):
     """Add unseen candidates; returns how many were new. Failing sources are skipped."""
     db.executescript(TABLES)
-    excluded = {key_for(name) for name in seeds.get('excluded', [])}
+    extra = [name for name in os.getenv('JOB_PILOTTO_EXCLUDED_COMPANIES', '').split(',') if name.strip()]
+    excluded = {key_for(name.strip()) for name in seeds.get('excluded', []) + extra}
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
     sources = sources if sources is not None else [
         lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates,

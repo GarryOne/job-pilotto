@@ -7,3 +7,5 @@ reports/
 *.pdf
 .DS_Store
 .wrangler/
+# The shared Google app client: added at build time from the GOOGLE_SHARED_CLIENT_JSON secret.
+config/google_oauth_client.json

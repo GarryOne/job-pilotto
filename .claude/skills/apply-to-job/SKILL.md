@@ -175,7 +175,7 @@ in that file next time — keep evolving it.
 | No kit yet | `gh workflow run daily.yml -R GarryOne/job-pilotto -f mode=prepare -f job=<job URL or 8-hex code>`; wait ~1 min (`gh run watch`). Or the 📝 Prepare button in Telegram. |
 | Standard answers | Notion page Application Answers `3e562be8fd868108ae38d1f47d52a811` |
 | Profile | Notion page `3e562be8fd8681579078d09829921b8c` |
-| CV (upload + contact details) | `/Users/mac/Documents/CV.pdf` |
+| CV (upload + contact details) | `$JOB_PILOTTO_CV_PATH` (see `.env`) |
 
 ## Steps
 1. **Kit + both Notion pages.** Get the kit JSON, and read **both** the Profile page and the

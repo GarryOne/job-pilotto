@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import sys
 import tempfile
@@ -240,12 +241,22 @@ class GoogleApiTests(unittest.TestCase):
         self.assertIn('invalid_grant', str(caught.exception))
 
     def test_auth_without_a_client_uses_the_shared_published_app(self):
-        shared = json.loads(google_api.SHARED_CLIENT.read_text())['installed']
-        with mock.patch.object(google_api, 'authorize', return_value='refresh') as authorize, \
-                mock.patch.object(google_api, 'store') as store, mock.patch.object(google_api, 'report'):
-            google_api.main(['auth', '--github'])
+        shared = {'client_id': 'shared-id.apps.googleusercontent.com', 'client_secret': 'shared-secret'}
+        with tempfile.TemporaryDirectory() as tmp:
+            client_file = Path(tmp) / 'google_oauth_client.json'
+            client_file.write_text(json.dumps({'installed': shared}))
+            with mock.patch.object(google_api, 'SHARED_CLIENT', client_file), \
+                    mock.patch.object(google_api, 'authorize', return_value='refresh') as authorize, \
+                    mock.patch.object(google_api, 'store') as store, mock.patch.object(google_api, 'report'):
+                google_api.main(['auth', '--github'])
         authorize.assert_called_once_with(shared['client_id'], shared['client_secret'])
         store.assert_called_once_with(shared['client_id'], shared['client_secret'], 'refresh', True, True)  # published
+
+    def test_auth_without_the_bundled_shared_client_points_to_setup(self):
+        with mock.patch.object(google_api, 'SHARED_CLIENT', Path('/nonexistent/google_oauth_client.json')), \
+                mock.patch('sys.stderr', io.StringIO()) as stderr, self.assertRaises(SystemExit):
+            google_api.main(['auth'])
+        self.assertIn('setup', stderr.getvalue())
 
     def test_guided_setup_finds_the_newly_downloaded_client_file(self):
         from src.sources import google_setup

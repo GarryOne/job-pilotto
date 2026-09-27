@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -48,6 +49,16 @@ class FakeTracker:
 class ScoutTests(unittest.TestCase):
     def run_scout(self, db, tracker=None, batch=10):
         return scout.run(db, batch, tracker, SEEDS, fake_probe, harvest_sources=[lambda: scout.seed_candidates(SEEDS)])
+
+    def test_companies_excluded_from_the_environment_are_never_harvested(self):
+        seeds = dict(SEEDS, excluded=[])
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict('os.environ', {'JOB_PILOTTO_EXCLUDED_COMPANIES': ' Sonar , Other'}):
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                scout.harvest(db, seeds, sources=[lambda: scout.seed_candidates(seeds)])
+                names = {row['name'] for row in db.execute('SELECT name FROM scout_candidates')}
+        self.assertIn('Smallco', names)
+        self.assertNotIn('Sonar', names)
 
     def test_tier1_first_found_low_none_and_exclusions(self):
         with tempfile.TemporaryDirectory() as tmp:

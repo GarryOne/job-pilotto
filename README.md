@@ -507,8 +507,7 @@ adding your own. A frontend developer targeting Berlin, for example, would set `
 `["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
 
 For the optional local tooling: `JOB_PILOTTO_CV_PATH` (in your local `.env`) points the launchers at your CV
-(defaults to `~/Documents/CV.pdf` — the maintainer's own file; set this
-to yours).
+(defaults to `~/Documents/CV.pdf`).
 
 ## How the application automation works
 
@@ -608,7 +607,8 @@ A Google tab opens: pick your account → "Google hasn't verified this app" → 
 Pilotto** → tick both read-only permissions → Continue. That's all: the token goes to your Keychain
 (`job-pilotto.google.*`) and your fork's `GOOGLE_*` repository secrets, and it doesn't expire.
 
-This uses the published "Job Pilotto" Google app whose client is in `config/google_oauth_client.json`.
+This uses the published "Job Pilotto" Google app, whose client ships inside the Mac app (it is not in
+git; from a source checkout, use `setup` for your own Google app).
 Your mail stays in *your* copy (your Notion, your Telegram, your Anthropic key); the app's developer
 never sees it ([privacy policy](https://gist.github.com/GarryOne/a1abc02a6396c505234163ada978de11)).
 It's unverified, hence the warning screen, and Google caps unverified apps at 100 users in total.

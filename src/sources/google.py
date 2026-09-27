@@ -7,8 +7,9 @@ and with --github also sets the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE
 repository secrets for CI.
 
 Two ways to connect:
-- The shared Job Pilotto app (default): the published "Job Pilotto" Google app in
-  config/google_oauth_client.json. One command, one browser consent, no Google Cloud setup.
+- The shared Job Pilotto app (default): the published "Job Pilotto" Google app. Its client file,
+  config/google_oauth_client.json, is not in git: the Mac app build adds it from the
+  GOOGLE_SHARED_CLIENT_JSON secret. One command, one browser consent, no Google Cloud setup.
 - Your own Google app: `setup` walks you through creating one (src/sources/google_setup.py), or pass a
   client you made with --client-json.
 
@@ -265,6 +266,9 @@ def main(argv=None):
         if args.client_json:
             args.client_id, args.client_secret = load_client(args.client_json)
         elif not (args.client_id or args.client_secret):
+            if not SHARED_CLIENT.is_file():
+                parser.error('the shared Job Pilotto Google app is only bundled with the Mac app; '
+                             'run `python -m src.sources.google setup` to use your own Google app instead')
             args.client_id, args.client_secret = load_client(SHARED_CLIENT)
             production = True  # the shared app is published: no 7-day expiry
             print('Using the shared Job Pilotto Google app (read-only Gmail and Calendar). '
