@@ -116,12 +116,13 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
-  if (!config.clickDropdowns && await armedLeft()) {
+  const clickDropdowns = config.clickDropdowns !== false;  // on unless turned off in Settings
+  if (!clickDropdowns && await armedLeft()) {
     // Say why they're left, and how to have them chosen automatically.
     summary.todo = [...(summary.todo || []), 'Tip: turn on "Fill drop-down menus too" in the extension Settings to have these chosen for you'];
     await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
   }
-  if (config.clickDropdowns) {
+  if (clickDropdowns) {
     onStep('Choosing the drop-down answers…');
     try {
       const picked = await clickCombos(tab.id);

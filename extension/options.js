@@ -3,7 +3,7 @@
 const $ = id => document.getElementById(id);
 const stored = await chrome.storage.local.get(['workerUrl', 'token', 'checkEligibility', 'testMode', 'clickDropdowns']);
 // Chrome grants debugger only at install (it can't be optional); this switch decides whether it's used.
-$('clickDropdowns').checked = stored.clickDropdowns === true;
+$('clickDropdowns').checked = stored.clickDropdowns !== false;  // on by default
 $('clickDropdowns').addEventListener('change', () => chrome.storage.local.set({clickDropdowns: $('clickDropdowns').checked}));
 $('testMode').checked = stored.testMode === true;
 $('testMode').addEventListener('change', () => chrome.storage.local.set({testMode: $('testMode').checked}));
