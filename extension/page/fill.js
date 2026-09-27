@@ -365,7 +365,7 @@
   };
 
   window.__jobPilottoExtensionFill = async (answers, profile, resume, coverLetter = '', acceptConsents = false) => {
-    if (!window.__jobPilottoGuardActive) return {error: 'The submit guard did not load; nothing was filled.'};
+    if (!('__jobPilottoGuardActive' in window)) return {error: 'The page helpers did not load; nothing was filled.'};
     const form = await window.__jobPilottoDescribeForm();
     for (const group of window.__jobPilottoCheckboxQuestions()) {
       form.push({field: `group:${group.question}`, question: group.question, label: group.question, type: 'checkbox-group', options: group.options,

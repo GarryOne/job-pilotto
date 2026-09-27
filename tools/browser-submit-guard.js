@@ -3,7 +3,9 @@
 // arbitrary browser code or a site-specific background request can bypass DOM event hooks.
 (() => {
   if (window.__jobPilottoGuardActive) return;
-  let active = true;
+  // The Chrome extension sets __jobPilottoNoGuard: it never submits, and blocking the user's own Submit only
+  // got in the way. The agent launchers (Playwright) keep the guard.
+  let active = !window.__jobPilottoNoGuard;
   Object.defineProperty(window, '__jobPilottoGuardActive', {get: () => active});
 
   const legal = /\b(i agree|i accept|terms|privacy|consent\w*|acknowledg\w*|certif\w*|affirm\w*|i confirm i have read|i have read and understood)\b/i;
@@ -82,6 +84,7 @@
     document.documentElement.append(box);
   };
   // Playwright injects this before the page loads; the Chrome extension injects it into a loaded page.
+  if (!active) return;
   if (document.readyState && document.readyState !== 'loading') showUnlock();
   else document.addEventListener('DOMContentLoaded', showUnlock, {once: true});
 })();

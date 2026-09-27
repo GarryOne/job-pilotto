@@ -97,6 +97,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let stepAt = Date.now();
   const step = name => { const now = Date.now(); debug.steps.push({step: name, ms: now - stepAt}); stepAt = now; };
   onStep('Reading the form…');
+  // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
+  await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
