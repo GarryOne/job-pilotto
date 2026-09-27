@@ -7,6 +7,7 @@ import * as apply from '../lib/apply.js';
 import * as pipeline from '../lib/pipeline.js';
 import * as strategy from '../lib/strategy.js';
 import {createStorage} from '../lib/storage.js';
+import {cleanSecret} from '../lib/secrets.js';
 
 // Stand-in for safeStorage: reversible, and obviously not plain text on disk.
 const fakeCrypto = {encrypt: v => Buffer.from(v).reverse().toString('base64'), decrypt: s => Buffer.from(s, 'base64').reverse().toString()};
@@ -121,4 +122,11 @@ test('with Notion connected, the Profile comes from Notion, not the local file',
   assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);
   assert.equal(env.NOTION_TOKEN, 'ntn_x');
   assert.equal(env.NOTION_APPLICATIONS_DB, 'abc');
+});
+
+test('pasted keys lose copy artefacts; look-alike letters from another layout are named, not sent', () => {
+  assert.deepEqual(cleanSecret(' sk-ant-api03-abc\u200b\n'), {value: 'sk-ant-api03-abc'});
+  const {value, error} = cleanSecret('sk-ant-api03-frp802\u0415\u0435hN');
+  assert.equal(value, undefined);
+  assert.match(error, /Character 20 \("\u0415", U\+0415\)/);
 });

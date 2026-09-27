@@ -319,8 +319,14 @@ for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', true], ['ser
   $(`set-${id}-save`).addEventListener('click', async () => {
     const value = $(`set-${id}`).value.trim();
     if (!value) return;
-    if (check && !(await window.pilot.checkAnthropic(value)).ok) { alertLine(name, 'That key was rejected'); return; }
-    await window.pilot.saveSecret(name, value);
+    const checked = check ? await window.pilot.checkAnthropic(value) : {ok: true};
+    if (!checked.ok) { alertLine(name, checked.error || 'That key was rejected'); return; }
+    try {
+      await window.pilot.saveSecret(name, value);
+    } catch (error) {
+      alertLine(name, error.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
+      return;
+    }
     $(`set-${id}`).value = '';
     loadSettings();
   });

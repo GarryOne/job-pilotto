@@ -11,6 +11,7 @@ import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
 import {createStorage, safeStorageCrypto} from './lib/storage.js';
+import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -58,11 +59,13 @@ function handlers() {
     templateUrl: notion.TEMPLATE.template_url,
   }));
   // Connect the user's copy of the Job Pilotto template: every database and page found, every column there.
-  ipcMain.handle('notionConnect', async (_, token) => {
+  ipcMain.handle('notionConnect', async (_, pasted) => {
+    const {value: token, error} = cleanSecret(pasted);
+    if (error) return {ok: false, error};
     try {
-      const result = await notion.connect(token.trim());
+      const result = await notion.connect(token);
       if (result.ok) {
-        storage.setSecret('NOTION_TOKEN', token.trim());
+        storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
       }
       return {...result, titles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages}};
@@ -71,10 +74,17 @@ function handlers() {
     }
   });
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
-  ipcMain.handle('saveSecret', (_, name, value) => { storage.setSecret(name, value.trim()); return storage.secretsPresent(); });
-  ipcMain.handle('checkAnthropic', async (_, key) => {
+  ipcMain.handle('saveSecret', (_, name, pasted) => {
+    const {value, error} = cleanSecret(pasted);
+    if (error) throw new Error(error);
+    storage.setSecret(name, value);
+    return storage.secretsPresent();
+  });
+  ipcMain.handle('checkAnthropic', async (_, pasted) => {
+    const {value: key, error} = cleanSecret(pasted);
+    if (error) return {ok: false, error};
     try {
-      await new Anthropic({apiKey: key.trim()}).models.list({limit: 1}); // free call: is the key valid?
+      await new Anthropic({apiKey: key}).models.list({limit: 1}); // free call: is the key valid?
       return {ok: true};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'This key was rejected. Copy it again from console.anthropic.com.' : error.message};
@@ -111,12 +121,14 @@ function handlers() {
   ipcMain.handle('jobs', () => pipeline.jobs(storage));
   ipcMain.handle('refresh', () => pipeline.refresh(storage, log, 'run'));
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
-  ipcMain.handle('telegramConnect', async (_, token) => {
+  ipcMain.handle('telegramConnect', async (_, pasted) => {
+    const {value: token, error} = cleanSecret(pasted);
+    if (error) return {ok: false, error};
     try {
-      const bot = await telegram.api(token.trim(), 'getMe');
+      const bot = await telegram.api(token, 'getMe');
       window?.webContents.send('telegramWaiting', bot.username);
-      const {chatId} = await telegram.pair(token.trim());
-      storage.setSecret('TELEGRAM_BOT_TOKEN', token.trim());
+      const {chatId} = await telegram.pair(token);
+      storage.setSecret('TELEGRAM_BOT_TOKEN', token);
       storage.saveSettings({telegramChatId: chatId, telegramBot: bot.username, telegramOffset: null});
       restartTelegram();
       return {ok: true, username: bot.username};
