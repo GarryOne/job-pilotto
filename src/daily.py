@@ -9,7 +9,7 @@ import os
 import random
 import re
 
-from . import digest, scout, store, telegram
+from . import digest, features, scout, store, telegram
 from . import doctor
 from .ai import budget, cost, enrich, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, ledger, matches
@@ -175,6 +175,17 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
 
 
+def apply_switches(args):
+    """JOB_PILOTTO_DISABLE (src/features.py) wins over the flags the workflow passes."""
+    for name, flag in (('enrich', 'enrich_max'), ('score', 'score_max'), ('auto_kits', 'auto_kit_max')):
+        if features.disabled(name):
+            setattr(args, flag, 0)
+    if features.disabled('insights'):
+        args.insight = False
+    if features.disabled('telegram'):
+        args.send = False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=JOBS_DB)
@@ -204,6 +215,7 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.limit <= 50:
         parser.error('--limit must be between 1 and 50')
+    apply_switches(args)
     tracker = notion.Tracker.from_env()
     if args.mode == 'apply':
         if not args.job or not tracker:

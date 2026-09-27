@@ -196,6 +196,9 @@ def render(report):
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--pages',type=int,default=1);p.add_argument('--max-companies',type=int,default=30);p.add_argument('--refresh',action='store_true');args=p.parse_args()
     if not 1<=args.pages<=10 or not 1<=args.max_companies<=200:p.error('pages: 1–10; max-companies: 1–200')
+    from ..features import disabled
+    if disabled('discover'):
+        print('jobs.ch/TechTree discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
     client=Client(args.refresh);jobs=[];sources=[]
     for query in _SEARCH['jobs_board_search_queries']:
         for page in range(1,args.pages+1):

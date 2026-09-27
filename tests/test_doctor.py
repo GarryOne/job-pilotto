@@ -60,13 +60,18 @@ class NextStepTest(unittest.TestCase):
 
 
 class ChecksTest(unittest.TestCase):
-    def test_no_token_fails_and_skips_notion_checks(self):
-        with mock.patch.object(doctor, 'gh', return_value=None):
+    def test_fresh_setup_is_not_a_failure(self):
+        # A new developer with no keys: Notion and the extras are optional, so nothing fails.
+        with mock.patch.object(doctor, 'gh', return_value=None), \
+             mock.patch.object(doctor.apply_batch, 'DEFAULT_CV', '/nonexistent/cv.pdf'), \
+             mock.patch.dict(doctor.os.environ, {}, clear=True):
             checks = doctor.run_checks(None, NOW)
         names = {c.name: c.state for c in checks}
-        self.assertEqual(names['Notion'], FAIL)
+        self.assertEqual(names['Notion'], INFO)
+        self.assertEqual(names['CV file'], INFO)
         self.assertNotIn('Profile', names)
-        self.assertTrue(doctor.next_step(checks).startswith('Notion:'))
+        self.assertNotIn(FAIL, names.values())
+        self.assertIn('python3 -m src daily', doctor.next_step(checks))
 
     def test_rejected_token(self):
         self.assertEqual(doctor.check_notion(FakeTracker(fail=True)).state, FAIL)
@@ -92,11 +97,15 @@ class ChecksTest(unittest.TestCase):
                 {'status': 'completed', 'conclusion': 'success', 'createdAt': '2026-09-26T10:00:00Z'}]):
             self.assertEqual(doctor.check_last_crawl(tracker, NOW).detail, '2.0 h ago — 3 new jobs')
 
-    def test_missing_secret_names_the_fix(self):
-        with mock.patch.object(doctor, 'gh', return_value=[{'name': 'NOTION_TOKEN'}]):
-            check = doctor.check_secrets()
-        self.assertEqual(check.state, FAIL)
-        self.assertIn('gh secret set ANTHROPIC_API_KEY', check.fix)
+    def test_features_line_lists_on_off_and_switched_off(self):
+        env = {'NOTION_TOKEN': 'set', 'TELEGRAM_BOT_TOKEN': 'set', 'TELEGRAM_CHAT_ID': 'set',
+               'SERPAPI_API_KEY': 'set', 'JOB_PILOTTO_DISABLE': 'google_jobs'}
+        check = doctor.check_features(env)
+        self.assertEqual(check.state, OK)
+        self.assertIn('on: discover, telegram, notion, scout', check.detail)
+        self.assertIn('not set up: enrich', check.detail)
+        self.assertIn('switched off: google_jobs', check.detail)
+        self.assertEqual(doctor.check_features({'JOB_PILOTTO_DISABLE': 'all'}).state, INFO)
 
     def test_no_kits_points_to_prepare_top(self):
         with mock.patch.object(doctor.apply_batch, 'ready_jobs', return_value=[]):

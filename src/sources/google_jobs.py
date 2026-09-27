@@ -126,4 +126,6 @@ def scan(db, api_key, config, opener=urllib.request.urlopen, now=None):
 
 
 def api_key():
-    return os.getenv('SERPAPI_API_KEY', '').strip()
+    """The SerpApi key, or '' when unset or turned off with JOB_PILOTTO_DISABLE=google_jobs."""
+    from ..features import disabled
+    return '' if disabled('google_jobs') else os.getenv('SERPAPI_API_KEY', '').strip()

@@ -24,6 +24,64 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
    Cloudflare Worker ── commands and buttons ──▶ GitHub Actions runs
 ```
 
+Everything in that diagram except the crawl is **optional**. You can run the core in two minutes
+with no accounts and no keys, then turn on the rest one piece at a time, only if you want it.
+
+## Quick start (no accounts, no keys)
+
+Needs Python 3.10+ and nothing else: the core uses only the standard library.
+
+```bash
+git clone https://github.com/<you>/job-pilotto && cd job-pilotto
+python3 -m src discover     # jobs.ch + TechTree: Swiss software employers and their jobs
+python3 -m src daily        # crawl employer feeds, rank everything, print the digest
+python3 -m src feeds        # the employer-feed crawl as a filterable page: reports/latest.html
+python3 -m src doctor       # what's on, what's optional, and the one next step
+```
+
+Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
+[Configuration](#configuration)) and `config/sources.json` (employer feeds to crawl). That's a
+working job search. Everything below is an upgrade you can skip.
+
+## Optional features
+
+Each feature turns itself on when the keys or variables it needs are set, and stays off
+otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` just shows it as off.
+
+| Feature | What you get | Needs | Cost | Effort |
+|---|---|---|---|---|
+| `discover` | jobs.ch + TechTree employers and jobs | nothing | free | on by default |
+| `scout` | daily search for new employer feeds to crawl | nothing (Notion to keep them) | free | on by default |
+| `telegram` | the digest on your phone | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | free | 5 min |
+| Scheduled runs | a crawl every 4 hours without your laptop | a GitHub fork with Actions on | free | 5 min |
+| `notion` | Applications tracker, Job Matches, run log | `NOTION_TOKEN` + the pages in [docs/notion-schema.md](docs/notion-schema.md) | free | 30 min |
+| Telegram buttons | ✅ applied / ⭐ save / ➕ next, `/run`, `/add` | Cloudflare Worker (`worker/setup.sh`) | free | 15 min |
+| `enrich` | AI facts: languages, seniority, salary, visa | `ANTHROPIC_API_KEY`, `JOB_PILOTTO_ENRICH_MODEL` | ~$0.004/job | 2 min |
+| `score` | AI fit score against your Profile | + `JOB_PILOTTO_SCORE_MODEL`, Notion | ~$0.01/job | 2 min |
+| `auto_kits` | cover letter + form answers for top matches | + `JOB_PILOTTO_AUTO_KIT_MAX`, Notion | ~$0.04/kit | 2 min |
+| `insights` | daily insight + Monday weekly report | + `JOB_PILOTTO_INSIGHT_MODEL`, Notion | ~$0.03/day | 2 min |
+| `google_jobs` | Google Jobs listings via [SerpApi](https://serpapi.com) | `SERPAPI_API_KEY` | free plan: 250 searches/month | 5 min |
+| `mail` | Gmail + Calendar update your applications | Google OAuth client + sign-in, Notion, Anthropic | a few cents/day | 15 min |
+| Form filling | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
+
+A sensible order: Telegram and scheduled runs first (free, 10 minutes), then Notion, then the AI
+stages if the ranking is worth paying for. The paid features only cost money once you add a key.
+The AI stages also stop at your monthly budget (`JOB_PILOTTO_MONTHLY_BUDGET_USD`).
+
+**Turning a feature off without deleting its keys:** list it in `JOB_PILOTTO_DISABLE`,
+comma-separated, or `all` for the core only.
+
+```bash
+echo 'JOB_PILOTTO_DISABLE=google_jobs,mail' >> .env               # local runs
+gh variable set JOB_PILOTTO_DISABLE --body 'google_jobs,mail'     # scheduled runs on GitHub
+gh variable delete JOB_PILOTTO_DISABLE                            # everything back on
+```
+
+The names are the ones in the first column (`discover`, `scout`, `telegram`, `notion`, `enrich`,
+`score`, `auto_kits`, `insights`, `google_jobs`, `mail`), and `src/features.py` defines them. A
+switched-off feature behaves exactly as if its keys were missing, and `doctor` lists it under
+"switched off".
+
 ## What you get
 
 ### 🔎 Finding jobs
@@ -305,7 +363,10 @@ same 15 form questions again) is already done.
 
 ## Prerequisites
 
-**Required — the core pipeline runs entirely in the cloud, any OS:**
+**Required: Python 3.10+.** That's all the [Quick start](#quick-start-no-accounts-no-keys) needs.
+Everything below is for the [optional features](#optional-features); set up only the ones you want.
+
+**For the full cloud pipeline (every 4 hours, Telegram, Notion, AI), any OS:**
 
 1. A **GitHub account** — fork this repo; Actions must stay enabled.
 2. A **Telegram account and bot** — message [@BotFather](https://t.me/BotFather) to create one
@@ -556,6 +617,7 @@ src/
   __main__.py        python -m src <command>
   daily.py           one digest run: crawl, AI, sync, send (modes below)
   doctor.py          readiness checklist and the one next step (python3 -m src doctor)
+  features.py        optional features: what each needs and costs; JOB_PILOTTO_DISABLE switch
   digest.py          filtering, ranking, rotation, paging, message layout, buttons
   telegram.py        sending messages
   store.py           SQLite store (jobs, companies, AI results, shown history) —
@@ -665,6 +727,9 @@ cd worker && npm test
 
 ## First-time setup
 
+Start with the [Quick start](#quick-start-no-accounts-no-keys). The steps below set up the full
+pipeline; skip any step whose feature you don't want, and `doctor` shows that feature as off.
+
 1. Fork the repo, clone it.
 2. Create your Notion integration and the databases/pages in
    [docs/notion-schema.md](docs/notion-schema.md) (paste-ready page templates:
@@ -681,8 +746,8 @@ cd worker && npm test
 8. Fill in your Profile and Application Answers pages in Notion; edit `config/search.json` to your
    own role/location/tech keywords, and `config/preferences.json`, `config/sources.json` and
    `config/scout_seeds.json` to your own languages and target employers.
-9. Run `python3 -m src doctor` and follow its next step until it says "All set". It is the
-   definition of done for setup.
+9. Run `python3 -m src doctor` and follow its next step. Features you skipped show as ℹ️ off,
+   never as a failure; setup is done when nothing is ❌ and the Features line lists what you chose.
 
 ## Set it up with an AI coding agent
 

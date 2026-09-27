@@ -57,6 +57,9 @@ class Google:
 
     @classmethod
     def from_env(cls):
+        from ..features import disabled
+        if disabled('mail'):  # JOB_PILOTTO_DISABLE=mail
+            return None
         found = credentials()
         return cls(*found) if found else None
 

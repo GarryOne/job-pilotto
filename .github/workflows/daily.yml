@@ -42,8 +42,11 @@ concurrency:
   group: ${{ (inputs.mode == 'apply' || inputs.mode == 'more' || inputs.mode == 'prepare' || inputs.mode == 'insight' || inputs.mode == 'weekly' || inputs.mode == 'interview' || inputs.mode == 'add') && format('read-{0}', github.run_id) || 'job-pilotto-state' }}
   cancel-in-progress: false
 
+# Optional features can be switched off without deleting their secrets (src/features.py),
+# e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
   MODE: ${{ inputs.mode || 'scheduled' }}
+  JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
   NOTION_APPLICATIONS_DB: f56b68942d3b43cbb85a7b1ebfe2df1b
 
 jobs:

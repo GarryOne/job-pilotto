@@ -408,13 +408,15 @@ def main(argv=None):
     parser.add_argument('--no-calendar', action='store_true')
     args = parser.parse_args(argv)
     tracker, google = notion.Tracker.from_env(), Google.from_env()
+    if not google:
+        print('Gmail + Calendar is off: Google is not connected or JOB_PILOTTO_DISABLE includes mail. '
+              'See README → Gmail and Calendar.')
+        return 0
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required')
-    if not google:
-        print('Google is not connected (GOOGLE_* secrets / Keychain); nothing to do. See README → Gmail and Calendar.')
-        return 0
     sender = None
-    if args.send:
+    from ..features import disabled
+    if args.send and not disabled('telegram'):
         token, chat_id = telegram.credentials()
         sender = lambda text: telegram.send(text, token, chat_id)
     stats = {}

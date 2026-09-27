@@ -45,7 +45,10 @@ class Tracker:
 
     @classmethod
     def from_env(cls):
+        from ..features import disabled
         token = os.getenv('NOTION_TOKEN')
+        if disabled('notion'):  # JOB_PILOTTO_DISABLE=notion: run as if no token were set
+            return None
         return cls(token, os.getenv('NOTION_APPLICATIONS_DB') or DEFAULT_DATABASE_ID) if token else None
 
     def _request(self, method, path, body=None):

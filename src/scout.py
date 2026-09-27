@@ -392,12 +392,16 @@ def main():
     parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
     args = parser.parse_args()
+    from .features import disabled
+    if disabled('scout'):
+        print('Source scout is off (JOB_PILOTTO_DISABLE includes scout).')
+        return 0
     tracker = notion.Tracker.from_env()
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
     message = telegram_summary(summary, results)
     print(message)
-    if args.send:
+    if args.send and not disabled('telegram'):
         telegram.send(message, *telegram.credentials())
 
 

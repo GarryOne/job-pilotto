@@ -23,6 +23,11 @@ concurrency:
   group: job-pilotto-state
   cancel-in-progress: false
 
+# Optional features can be switched off without deleting their secrets (src/features.py),
+# e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
+env:
+  JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
+
 jobs:
   scout:
     runs-on: ubuntu-latest

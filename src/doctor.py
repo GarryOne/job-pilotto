@@ -11,6 +11,9 @@ The health checks (Google sign-in, mail workflow, AI budget, failing feeds) also
 Checks run in order of dependency: setup → the scheduled pipeline on GitHub → data it produced →
 kits → this Mac's form-filling tools. The next step is the first failing check, else the first
 warning, else "apply to the next job". Nothing here spends money or changes anything.
+
+Only the core (crawl + digest) is required. An optional feature that isn't set up is shown as off
+(ℹ️), never as a failure; the Features line lists what's on, off and switched off (src/features.py).
 """
 import argparse
 import html
@@ -24,6 +27,7 @@ import shutil
 import subprocess
 import sys
 
+from . import features
 from .ai import apply_batch
 from .ai.kit import ANSWERS_PAGE_ID
 from .notion import client as notion, cron_runs
@@ -32,8 +36,6 @@ from .scout import EMPLOYERS_DB
 
 OK, WARN, FAIL, INFO = 'ok', 'warn', 'fail', 'info'
 ICONS = {OK: '✅', WARN: '⚠️ ', FAIL: '❌', INFO: 'ℹ️ '}
-SECRETS = ('NOTION_TOKEN', 'ANTHROPIC_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')
-AI_VARIABLES = ('JOB_PILOTTO_ENRICH_MODEL', 'JOB_PILOTTO_SCORE_MODEL', 'JOB_PILOTTO_AUTO_KIT_MAX')
 STALE_CRAWL_HOURS = 9  # the schedule is every 4 h; two missed runs is worth a warning
 STALE_MAIL_HOURS = 14  # mail runs 3 times a day
 GOOGLE_TESTING_DAYS = 7  # Google expires sign-ins of apps in "Testing" after 7 days
@@ -87,7 +89,9 @@ def _hours_ago(iso, now):
 
 def check_notion(tracker):
     if tracker is None:
-        return Check('Setup', 'Notion', FAIL, 'no Notion token found',
+        # Optional: the core crawl and digest work without it; tracking, scoring and kits need it.
+        state = 'switched off (JOB_PILOTTO_DISABLE)' if features.disabled('notion') else 'not set up'
+        return Check('Setup', 'Notion', INFO, f'{state} — optional; tracking, AI scoring and kits need it',
                      'Store it: security add-generic-password -a "$USER" -s job-pilotto.notion.token -w')
     try:
         tracker._request('GET', 'users/me')
@@ -116,7 +120,7 @@ def check_answers(tracker):
 def check_cv():
     path = Path(apply_batch.DEFAULT_CV).expanduser()
     if not path.is_file():
-        return Check('Setup', 'CV file', FAIL, f'not found: {path}',
+        return Check('Setup', 'CV file', INFO, f'not found: {path} (only needed for form filling)',
                      'Set JOB_PILOTTO_CV_PATH in .env to your CV PDF')
     return Check('Setup', 'CV file', OK, path.name)
 
@@ -126,7 +130,8 @@ def check_cv():
 def check_workflow():
     flows = gh('workflow', 'list', '--json', 'path,state')
     if flows is None:
-        return Check('Pipeline', 'GitHub', WARN, 'gh CLI missing or not logged in; cloud checks skipped',
+        return Check('Pipeline', 'GitHub', INFO, 'gh CLI missing or not logged in; cloud checks skipped '
+                     '(the scheduled GitHub pipeline is optional; everything also runs locally)',
                      'brew install gh && gh auth login')
     daily = next((f for f in flows if f['path'].endswith('daily.yml')), None)
     if not daily or daily['state'] != 'active':
@@ -135,26 +140,34 @@ def check_workflow():
     return Check('Pipeline', 'Scheduled crawl', OK, 'daily.yml enabled (every 4 h)')
 
 
-def check_secrets():
-    names = gh('secret', 'list', '--json', 'name')
-    if names is None:
-        return Check('Pipeline', 'Secrets', INFO, 'not checked (gh unavailable)')
-    missing = [s for s in SECRETS if s not in {n['name'] for n in names}]
-    if missing:
-        return Check('Pipeline', 'Secrets', FAIL, f"missing: {', '.join(missing)}",
-                     f'gh secret set {missing[0]}  (README → Configuration)')
-    return Check('Pipeline', 'Secrets', OK, 'Notion, Anthropic and Telegram set')
+def pipeline_env():
+    """Names of the GitHub secrets and variables set for the scheduled runs, with placeholder values
+    (features only test presence), plus the real value of JOB_PILOTTO_DISABLE. None without gh."""
+    secrets, variables = gh('secret', 'list', '--json', 'name'), gh('variable', 'list', '--json', 'name,value')
+    if secrets is None or variables is None:
+        return None
+    env = {item['name']: 'set' for item in secrets + variables}
+    env['JOB_PILOTTO_DISABLE'] = next((v['value'] for v in variables if v['name'] == 'JOB_PILOTTO_DISABLE'), '')
+    return env
 
 
-def check_ai_variables():
-    variables = gh('variable', 'list', '--json', 'name')
-    if variables is None:
-        return Check('Pipeline', 'AI stages', INFO, 'not checked (gh unavailable)')
-    missing = [v for v in AI_VARIABLES if v not in {n['name'] for n in variables}]
-    if missing:
-        return Check('Pipeline', 'AI stages', WARN, f"off: {', '.join(missing)} not set",
-                     f'gh variable set {missing[0]} --body <value>  (README → Configuration)')
-    return Check('Pipeline', 'AI stages', OK, 'enrich, score and auto-kits on')
+def check_features(env=None):
+    """Which optional features the scheduled runs have. Off is fine; it's the developer's choice."""
+    env = pipeline_env() if env is None else env
+    where = 'GitHub secrets and variables'
+    if env is None:
+        env, where = os.environ, 'this shell and .env (gh unavailable)'
+    rows = features.status(env)
+    on = [f.name for f, state, _ in rows if state == 'on']
+    off = [f.name for f, state, _ in rows if state == 'off']
+    switched = [f.name for f, state, _ in rows if state == 'disabled']
+    detail = f"on: {', '.join(on) or 'core only'}"
+    if off:
+        detail += f"; not set up: {', '.join(off)}"
+    if switched:
+        detail += f"; switched off: {', '.join(switched)}"
+    return Check('Pipeline', 'Features', OK if on else INFO, f'{detail} (from {where})',
+                 'Optional — README → Optional features lists what each needs and costs')
 
 
 def check_last_crawl(tracker, now):
@@ -236,7 +249,8 @@ def check_google(now=None):
     now = now or datetime.now(timezone.utc)
     client = google.Google.from_env()
     if not client:
-        return Check('Health', 'Gmail + Calendar', INFO, 'not connected (optional)',
+        return Check('Health', 'Gmail + Calendar', INFO,
+                     'switched off (JOB_PILOTTO_DISABLE)' if features.disabled('mail') else 'not connected (optional)',
                      'README → Gmail and Calendar setup')
     fix = 'Sign in again: python3 -m src.sources.google auth --client-json ~/Downloads/client_secret_….json --github'
     try:
@@ -255,7 +269,10 @@ def check_google(now=None):
 
 
 def check_mail_workflow(now=None):
+    from .sources import google
     now = now or datetime.now(timezone.utc)
+    if not google.Google.from_env():
+        return Check('Health', 'Mail checks', INFO, 'off (Gmail + Calendar not connected or switched off)')
     runs = gh('run', 'list', '-w', 'mail.yml', '-L', '5', '--json', 'conclusion,status,createdAt,event')
     if runs is None:
         return Check('Health', 'Mail checks', INFO, 'not checked (gh unavailable)')
@@ -338,7 +355,7 @@ def check_mac_tools():
                                         ('Google Chrome', CHROME.exists()),
                                         ('osascript', shutil.which('osascript'))) if not found]
     if missing:
-        return Check('This Mac', 'Form-filling tools', FAIL, f"missing: {', '.join(missing)}",
+        return Check('This Mac', 'Form-filling tools', INFO, f"missing: {', '.join(missing)} (optional)",
                      'Install Claude Code (claude.ai/code) and Google Chrome')
     return Check('This Mac', 'Form-filling tools', OK,
                  'Claude Code and Chrome installed (the Claude in Chrome extension is checked when a run starts)')
@@ -348,7 +365,7 @@ def check_mac_tools():
 
 def run_checks(tracker=None, now=None):
     now = now or datetime.now(timezone.utc)
-    local = [check_cv, check_workflow, check_secrets, check_ai_variables, check_mac_tools,
+    local = [check_cv, check_workflow, check_features, check_mac_tools,
              lambda: check_google(now), lambda: check_mail_workflow(now)]
     remote = [check_profile, check_answers, check_sources, lambda t: check_last_crawl(t, now),
               check_matches, check_kits, check_in_progress, lambda t: check_budget(t, now), check_feeds]
@@ -376,6 +393,9 @@ def next_step(checks):
         for check in checks:
             if check.state == state and check.fix:
                 return f'{check.name}: {check.fix}'
+    if any(c.name == 'Notion' and c.state != OK for c in checks):
+        return ('The core works: python3 -m src daily prints your digest. Unlock more only if you want it: '
+                'README → Optional features')
     return 'All set. Apply to your next job: tools/apply-batch-claude.sh --max 1'
 
 
