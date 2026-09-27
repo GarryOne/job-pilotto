@@ -191,15 +191,15 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Run | Title | "YYYY-MM-DD HH:MM · mode" (UTC) |
 | Started | Date | With time |
 | Duration (s) | Number | |
-| Mode | Select | `scheduled`, `run`, `today` |
+| Mode | Select | `scheduled`, `run`, `today`, `prepare`, `insight`, `weekly`, `interview`, `mail` — every AI job logs a row, so they add up to the month's AI spend (the budget guard sums them) |
 | Trigger | Select | `Schedule`, `Manual` (workflow_dispatch / Telegram), `Local` |
 | Status | Select | `OK`, `Warnings` (a stage skipped or a feed failed), `Quiet` (nothing new) |
 | Feeds / Feed errors | Number | Employer feeds scanned / failed |
 | New jobs / Changed jobs | Number | From this crawl |
 | Closed stale | Number | Jobs not seen for 7 days |
-| Enriched / Scored / Kits / Insights | Number | Done this run per AI stage |
+| Enriched / Scored / Kits / Insights / Interviews / Emails | Number | Done this run per AI stage |
 | Top new score | Number | Best fit score among jobs first seen this run |
-| Cost enrich / score / kits / insight (USD) | Number | Per stage |
+| Cost enrich / score / kits / insight / interview / mail (USD) | Number | Per stage |
 | AI cost (USD) | Number | Total |
 | Tokens (total) | Number | In + out + cached, all stages |
 | Telegram | Text | Sent / not sent |

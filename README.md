@@ -80,8 +80,17 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   crawl: feeds, new/changed jobs, AI work per stage, its exact cost (Haiku enrich, Sonnet score,
   auto kits), Telegram outcome, a link to the GitHub run and a short written report. Written by
   code from the run's numbers, so the report itself costs nothing.
-- 🩺 **Readiness check** (`python3 -m src doctor`): a checklist from setup to "kit ready" that
-  names the one next step, so a newcomer never hits an empty launcher without knowing why.
+- 🩺 **Readiness and health check** (`python3 -m src doctor`): a checklist from setup to "kit ready" that
+  names the one next step, so a newcomer never hits an empty launcher without knowing why. Its health
+  section (Google sign-in and when it expires, the mail checks, the AI budget, feeds failing in the
+  last crawl) also runs every morning and sends one Telegram line only if something is wrong
+  (`doctor --alert` runs it now).
+- 💸 **AI budget guard**: month-to-date AI spend against your Anthropic monthly limit
+  (`JOB_PILOTTO_MONTHLY_BUDGET_USD`). A Telegram alert at 70%; at 90% the scheduled crawl pauses
+  auto-kits and caps scoring, so mail checks, insights and interview reviews keep working until the
+  limit resets. Spend comes from Anthropic's cost report when you add an Admin API key
+  (`ANTHROPIC_ADMIN_KEY`; organization accounts only), otherwise from ⏰ Cronjob Runs, where every AI
+  job (crawls, kits, insights, interviews, mail) logs its cost.
 - 🧠 **Self-improving**: agents read recent learnings for that job board before filling
   (`python3 -m src.ai.apply_run --learnings Greenhouse`), so each run makes the next one better.
 
@@ -373,6 +382,9 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | GitHub secrets for Gmail + Calendar (read-only), set by `python3 -m src.sources.google auth --github`; locally in the Keychain (`job-pilotto.google.*`) |
 | `JOB_PILOTTO_MAIL_MODEL` | model that classifies job emails (repository variable; default `claude-haiku-4-5`) |
 | `JOB_PILOTTO_TZ` | your time zone for reminders (default `Europe/Zurich`) |
+| `JOB_PILOTTO_MONTHLY_BUDGET_USD` | your Anthropic monthly spend limit, for the budget guard (repository variable; default 15) |
+| `ANTHROPIC_ADMIN_KEY` | optional Admin API key (`sk-ant-admin…`, GitHub secret or Keychain `job-pilotto.anthropic.admin-key`): exact monthly spend from Anthropic's cost report |
+| `JOB_PILOTTO_GOOGLE_AUTH_AT` | when you last signed in to Google (set by `google auth --github`); the health check warns before the 7-day Testing limit |
 | `JOB_PILOTTO_INTERVIEW_MODEL` | model for interview reviews (default `claude-sonnet-5`) |
 | `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
@@ -605,6 +617,7 @@ python3 -m src discover --pages 2 --max-companies 80
 python3 -m src feeds                  # employer feeds only, HTML report in reports/
 .venv/bin/python -m src enrich --dry-run
 python3 -m src doctor                          # readiness checklist + the one next step (--next, --json)
+python3 -m src doctor --alert                  # health checks only; one Telegram line if something is wrong
 tools/apply-batch-chatgpt.sh --dry-run        # preview what would be queued into Codex
 tools/apply-batch-claude.sh --max 3            # auto-pick top-3 by score, one Claude session each
 tools/apply-batch-claude.sh <job_url> [more...] # or queue specific jobs by URL
