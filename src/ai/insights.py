@@ -28,6 +28,7 @@ from statistics import mean
 
 from .. import digest, store
 from ..notion import client as notion
+from ..notion import funnel
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
 from . import cost, enrich, interviews, score
 
@@ -228,7 +229,16 @@ def application_stats(tracker, now):
         'applied_last_7_days': sum(d >= week for d in dates), 'applied_last_30_days': sum(d >= month for d in dates),
         'days_since_last_application': (now.date() - date.fromisoformat(dates[-1])).days if dates else None,
         'by_group': groups, 'min_group_for_conclusions': MIN_GROUP,
+        'funnel': funnel_stats(tracker),
     }
+
+
+def funnel_stats(tracker):
+    """Conversion between funnel steps, for the model (the same numbers as the 🎯 Pipeline page)."""
+    steps = funnel.funnel(funnel.reached(tracker))
+    return {'steps': [{k: s.get(k) for k in ('step', 'reached', 'waiting', 'conversion', 'decided', 'decided_conversion',
+                                              'benchmark')} for s in steps],
+            'summary': funnel.summary(steps)}
 
 
 def recent_insights(tracker, days=45):

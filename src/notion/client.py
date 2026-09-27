@@ -184,6 +184,27 @@ class Tracker:
                 self._request('DELETE', f"blocks/{child['id']}")
         self._request('PATCH', f'blocks/{page_id}/children', {'children': [block]})
 
+    def replace_after_heading(self, page_id, heading_text, blocks):
+        """Replace what sits between the heading starting with heading_text and the next heading
+        (or database view) with blocks, keeping the section's place on the page. Appends the
+        heading and blocks when the page has no such heading."""
+        children, heading = self._children(page_id), None
+        for child in children:
+            if heading is None:
+                if (child['type'].startswith('heading_')
+                        and _rich(child[child['type']].get('rich_text')).startswith(heading_text)):
+                    heading = child
+            elif child['type'].startswith('heading_') or child['type'] in ('child_database', 'link_to_page'):
+                break
+            else:
+                self._request('DELETE', f"blocks/{child['id']}")
+        if heading is None:
+            title = {'object': 'block', 'type': 'heading_2',
+                     'heading_2': {'rich_text': [{'type': 'text', 'text': {'content': heading_text}}]}}
+            self._request('PATCH', f'blocks/{page_id}/children', {'children': [title] + blocks})
+        else:
+            self._request('PATCH', f'blocks/{page_id}/children', {'children': blocks, 'after': heading['id']})
+
     def read_kit(self, page_id, heading_text):
         """The application kit dict nested as a JSON code block inside the toggle heading
 

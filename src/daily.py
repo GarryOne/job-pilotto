@@ -12,7 +12,7 @@ import re
 from . import digest, features, scout, store, telegram
 from . import doctor
 from .ai import budget, cost, enrich, insights, interviews, kit, score
-from .notion import client as notion, cron_runs, ledger, matches
+from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
 from .paths import JOBS_DB, CONFIG, DATA, REPORTS, load_search_config
@@ -406,6 +406,13 @@ def main():
             except Exception as error:
                 print(f'Warning: ledger sync skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'ledger sync skipped: {type(error).__name__}')
+            # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI).
+            try:
+                funnel.write(tracker, funnel.funnel(funnel.reached(tracker)),
+                             datetime.now(timezone.utc).strftime('%d %b %H:%M UTC'))
+            except Exception as error:
+                print(f'Warning: funnel update skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'funnel update skipped: {type(error).__name__}')
         seed = args.seed or random.randrange(1, 10**9)
         shown_ids = []
         messages, new_count, keyboards = digest.build_digest(db, args.limit, hidden_urls=hidden, page=args.page,
