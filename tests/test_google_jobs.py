@@ -11,7 +11,8 @@ from src import store
 from src.sources import google_jobs
 from src.sources.feeds import database
 
-CONFIG = {'queries': ['site reliability engineer', 'devops engineer'], 'locations': ['Switzerland'],
+CONFIG = {'queries': ['site reliability engineer', 'devops engineer'], 'country': 'ch',
+          'locations': [{'location': 'Zurich,Zurich,Switzerland', 'language': 'de'}],
           'searches_per_run': 1, 'min_searches_left': 20}
 
 
@@ -35,7 +36,7 @@ class FakeSerpApi:
         if url.path.endswith('account.json'):
             body = {'total_searches_left': self.left}
         else:
-            self.searches.append((params['q'], params['location']))
+            self.searches.append((params['q'], params['location'], params['hl'], params['gl']))
             body = {'error': self.error} if self.error else {'jobs_results': self.results}
         return io.BytesIO(json.dumps(body).encode())
 
@@ -61,8 +62,14 @@ class GoogleJobsTests(unittest.TestCase):
             second = google_jobs.scan(db, 'key', CONFIG, opener=api, now='2026-09-27T14:00:00+00:00')
             self.assertEqual(second['jobs'][0]['status'], 'seen')
             # One paid search per run, the least recently searched pair first.
-            self.assertEqual(api.searches, [('site reliability engineer', 'Switzerland'),
-                                            ('devops engineer', 'Switzerland')])
+            # Each place in its own language: Google Jobs is empty for Zurich in English.
+            self.assertEqual(api.searches, [('site reliability engineer', 'Zurich,Zurich,Switzerland', 'de', 'ch'),
+                                            ('devops engineer', 'Zurich,Zurich,Switzerland', 'de', 'ch')])
+
+    def test_plain_string_locations_search_in_english(self):
+        self.assertEqual(google_jobs.places({'locations': ['New York,New York,United States',
+                                                          {'location': 'Geneva,Geneva,Switzerland', 'language': 'fr'}]}),
+                         {'New York,New York,United States': 'en', 'Geneva,Geneva,Switzerland': 'fr'})
 
     def test_stops_before_the_reserve(self):
         api = FakeSerpApi(left=20, results=[result()])

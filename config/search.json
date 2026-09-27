@@ -29,7 +29,11 @@
   },
   "google_jobs": {
     "queries": ["site reliability engineer", "devops engineer", "platform engineer"],
-    "locations": ["Zurich, Switzerland", "Switzerland"],
+    "country": "ch",
+    "locations": [
+      {"location": "Zurich,Zurich,Switzerland", "language": "de"},
+      {"location": "Geneva,Geneva,Switzerland", "language": "fr"}
+    ],
     "searches_per_run": 1,
     "min_searches_left": 20
   },

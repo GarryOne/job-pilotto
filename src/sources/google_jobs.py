@@ -2,7 +2,10 @@
 """Google Jobs through SerpApi's paid API (engine=google_jobs). Python 3.10+, no dependencies.
 
 Google itself blocks scripted requests (a JavaScript wall for plain HTTP, a CAPTCHA for headless
-browsers), so this uses SerpApi's JSON API instead of scraping. Every search costs one SerpApi
+browsers), so this uses SerpApi's JSON API instead of scraping. Google Jobs answers only in the
+place's own language: Zurich with hl=en is "Fully empty", Zurich with hl=de has results (tested
+27 Sep 2026). So every location carries a `language`, and `location` must be SerpApi's canonical
+name (serpapi.com/locations.json, e.g. "Zurich,Zurich,Switzerland"). Every search costs one SerpApi
 credit, so each run does only `searches_per_run` searches from config/search.json's `google_jobs`
 block, rotating through query × location pairs (least recently searched first), and stops when
 the account has fewer than `min_searches_left` credits. Checking the account costs nothing.
@@ -26,8 +29,15 @@ SOURCE = 'Google Jobs'
 AGGREGATORS = re.compile(r'linkedin\.|glassdoor\.|indeed\.|ziprecruiter\.|jooble\.|talent\.com|'
                          r'simplyhired\.|adzuna\.|jobrapido\.|careerjet\.|bebee\.|jobleads\.', re.I)
 
-DEFAULTS = {'queries': ['site reliability engineer'], 'locations': ['Switzerland'],
+DEFAULTS = {'queries': ['site reliability engineer'], 'country': 'ch',
+            'locations': [{'location': 'Zurich,Zurich,Switzerland', 'language': 'de'}],
             'searches_per_run': 1, 'min_searches_left': 20}
+
+
+def places(config):
+    """{location name: language}; a plain string location searches in English."""
+    return {(loc if isinstance(loc, str) else loc['location']):
+            ('en' if isinstance(loc, str) else loc.get('language', 'en')) for loc in config['locations']}
 
 
 def settings(search_config):
@@ -83,7 +93,8 @@ def scan(db, api_key, config, opener=urllib.request.urlopen, now=None):
     """Run this turn's searches; return a feeds.scan-style report ({'jobs', 'sources'})."""
     now = now or datetime.now(timezone.utc).isoformat(timespec='seconds')
     report = {'jobs': [], 'sources': []}
-    pairs = [(q, loc) for q in config['queries'] for loc in config['locations']]
+    languages = places(config)
+    pairs = [(q, loc) for q in config['queries'] for loc in languages]
     try:
         left = searches_left(api_key, opener)
     except Exception as error:
@@ -98,7 +109,8 @@ def scan(db, api_key, config, opener=urllib.request.urlopen, now=None):
         name = f'{SOURCE}: {query} / {location}'
         try:
             data = _get(SEARCH_URL, {'engine': 'google_jobs', 'q': query, 'location': location,
-                                     'gl': 'ch', 'hl': 'en', 'api_key': api_key}, opener)
+                                     'gl': config['country'], 'hl': languages[location],
+                                     'api_key': api_key}, opener)
             if data.get('error') and 'hasn\'t returned any results' not in data['error']:
                 raise RuntimeError(data['error'])
             results = [normalise(r) for r in data.get('jobs_results', [])]

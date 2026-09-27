@@ -33,13 +33,15 @@ Needs Python 3.10+ and nothing else: the core uses only the standard library.
 
 ```bash
 git clone https://github.com/<you>/job-pilotto && cd job-pilotto
-python3 -m src discover     # jobs.ch + TechTree: Swiss software employers and their jobs
-python3 -m src daily        # crawl employer feeds, rank everything, print the digest
+python3 -m src discover     # job boards (jobs.ch, TechTree): their jobs, and new employers to watch
+python3 -m src daily        # crawl every employer feed, add the board jobs, rank, print the digest
 python3 -m src feeds        # the employer-feed crawl as a filterable page: reports/latest.html
 python3 -m src doctor       # what's on, what's optional, and the one next step
 ```
 
-Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
+Without Notion, `daily` crawls the employer feeds in `config/sources.json`. With Notion, it also
+crawls every Active row of your Employers & Sources database, which the source scout keeps
+growing. Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
 [Configuration](#configuration)) and `config/sources.json` (employer feeds to crawl). That's a
 working job search. Everything below is an upgrade you can skip.
 
@@ -462,9 +464,11 @@ a relevant job and where: `role_keywords` (job titles you want), `board_discover
 against jobs.ch), `quality_stack_keywords` (tech terms the scout uses to judge a new employer feed),
 and `locations.{top_tier,country_wide,abroad}` / `remote_excluded_regions` (your preferred places
 and which "remote" postings don't actually include you). `google_jobs` holds plain (not regex)
-`queries` and SerpApi `locations` for Google Jobs, how many paid searches a crawl may make
-(`searches_per_run`, rotating through every query × location pair) and how many SerpApi credits to
-leave untouched (`min_searches_left`). Values are regex fragments (e.g. `"z[uü]rich"`
+`queries`, the `country` code and `locations` for Google Jobs. Each location is a SerpApi canonical
+name with the place's own `language`: Google Jobs returns nothing for Zurich in English, but does
+in German. It also sets how many paid searches a crawl may make (`searches_per_run`, rotating
+through every query × location pair) and how many SerpApi credits to leave untouched
+(`min_searches_left`). Values are regex fragments (e.g. `"z[uü]rich"`
 matches both spellings, `"\\bsre\\b"` avoids matching inside another word) — copy that style when
 adding your own. A frontend developer targeting Berlin, for example, would set `role_keywords` to
 `["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
