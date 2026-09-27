@@ -353,6 +353,21 @@ def set_stage(tracker, url, stage, source='CLI', note=''):
     return f'{url}: {stage}'
 
 
+def moment(value):
+    """An event time as a comparable UTC datetime. A date without a time counts as midnight in the
+    owner's time zone (JOB_PILOTTO_TZ), so "2026-09-26" sorts before a 01:26 email that day even
+    when Notion returns the email in UTC ("2026-09-25T23:26Z"). Unparseable -> the earliest time."""
+    from zoneinfo import ZoneInfo
+    value = (value or '').replace('Z', '+00:00')
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich')))
+    return parsed.astimezone(timezone.utc)
+
+
 def latest_events(tracker):
     """Applications page id -> {'kind', 'at'} of its latest Stage-type event, plus 'last' (time of its
     latest event of any kind) and 'replied' (whether a Reply received event exists)."""
@@ -362,9 +377,9 @@ def latest_events(tracker):
         at, kind = plain(props.get('At')) or '', plain(props.get('Kind'))
         for link in (props.get('Application') or {}).get('relation', []):
             item = latest.setdefault(link['id'].replace('-', ''), {'kind': None, 'at': '', 'last': '', 'replied': False})
-            item['last'] = max(item['last'], at)
+            item['last'] = max(item['last'], at, key=moment) if item['last'] else at
             item['replied'] |= kind == REPLY
-            if kind in OUTCOME_STAGES and at >= item['at']:
+            if kind in OUTCOME_STAGES and (not item['at'] or moment(at) >= moment(item['at'])):
                 item.update(kind=kind, at=at)
     return latest
 
@@ -389,7 +404,7 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
                                 if info['kind'] is None else
                                 ('Notion edit', 'Stage changed in Notion; time is when the row was last edited'))
                 add_event(tracker, row, stage, source, at=when or now.isoformat(timespec='seconds'), note=note)
-            logged, last_at = logged + 1, max(last_at, when or '')
+            logged, last_at = logged + 1, max(last_at, when or '', key=moment)
         applied = _day(plain(props.get('Applied on')))
         last = _day(last_at) or applied
         if (stage in WAITING_STAGES and not info['replied'] and applied and last

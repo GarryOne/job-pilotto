@@ -330,6 +330,13 @@ class SyncTests(unittest.TestCase):
         self.assertIn('0 stage change(s) logged, 0 moved', ledger.sync(tracker, now=NOW))
         self.assertEqual((tracker.created, tracker.updates), ([], []))
 
+    def test_a_date_only_event_sorts_before_an_email_later_that_local_day(self):
+        # Applied "2026-09-26" (no time) vs a confirmation at 01:26 Zurich, returned by Notion in UTC.
+        tracker = FakeTracker([row(stage='Confirmation received', applied='2026-09-26')],
+                              [event('page-1', 'Confirmation received', '2026-09-25T23:26:00.000+00:00'),
+                               event('page-1', 'Applied', '2026-09-26')])
+        self.assertIn('0 stage change(s) logged', ledger.sync(tracker, now=NOW, dry_run=True))
+
     def test_dry_run_writes_nothing(self):
         tracker = FakeTracker([row(applied='2026-08-01')])
         self.assertIn('1 moved', ledger.sync(tracker, now=NOW, dry_run=True))

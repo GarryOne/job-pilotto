@@ -78,10 +78,11 @@ to several roles at one company, pick the one whose title the item names; if it 
 one role at that company is open. Recruiter platforms (e.g. TechTree) may hide the employer: match on the \
 platform ("Via") and role title.
 - kind: "Confirmation received" = automatic acknowledgement that the application arrived. "Reply received" = a \
-person or process answered without scheduling anything yet (e.g. an invitation to book a call, an assessment \
-link). "Interview scheduled" = a specific call or interview was booked or confirmed (booking confirmations, \
-invites). "Rejected" = not moving forward. "Offer" = an offer. "Other" = relevant but none of these (reminders, \
-logistics, "starting soon").
+person or process answered without a time being fixed yet: an invitation to book or pick a slot, an assessment \
+or test link, a recruiter's message. "Interview scheduled" = a specific call or interview was booked for a stated \
+time (the booking confirmation or calendar invite itself). "Rejected" = not moving forward. "Offer" = an offer. \
+"Other" = relevant but none of these: reminders or "starting soon" notices for a call already booked, "still open" \
+nudges, transcripts or recordings of a call, security codes, logistics.
 - interview_at: only when a specific time is stated; ISO 8601 with offset (assume Europe/Zurich if none is given).
 - summary: factual, short, no email addresses or phone numbers.
 Answer for every item index."""
@@ -195,7 +196,9 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         return None
     twin = _near(by_app.get(key, []), kind, at)
     if twin and not twin[1]:
-        tracker.update_page(twin[0], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}})
+        # Hand-logged events carry estimated times; the email's (or booking's) own timestamp is exact.
+        tracker.update_page(twin[0], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]},
+                                      'At': {'date': {'start': at}}})
         known.add(source_id)
         return None
     if twin:
@@ -230,7 +233,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
     ids = [i for i in google.search(query(apps, days), limit=60) if i not in seen and i not in index[0]]
-    emails = [google.message(i) for i in ids]
+    emails = sorted((google.message(i) for i in ids), key=lambda m: m['date'])
     if not emails:
         return [], 0
     results = classify(client, model, apps, emails, stats)
@@ -238,16 +241,23 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     for i, email in enumerate(emails):
         result = results.get(i) or {'relevant': False}
         row = apps[result['application']] if result.get('relevant') and 0 <= result.get('application', -1) < len(apps) else None
+        if result.get('relevant') and not row:  # e.g. a scheduler email naming only the recruiter
+            row = _by_mention(apps, f"{email['from']} {email['subject']} {email['body'][:1500]}")
         if dry_run:
             print(f"{email['date'][:16]} {email['subject'][:60]!r}: {result}")
             continue
         state['seen'].append(email['id'])
+        if row and result.get('relevant') and re.search(r'transcript|recording', email['subject'], re.I):
+            lines.append(f"📝 {_label(row)}: {escape(email['subject'][:90])} — download it and send it to me "
+                         "for an interview review.")
         if not result.get('relevant') or result.get('kind') == 'Other':
             continue
-        if not row:
+        if not row and not _about_tracked(apps, f"{result['company']} {email['from']} {email['subject']}"):
             lines.append(f"📧 {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
                          " — not tracked yet; /add its job URL to follow it.")
             continue
+        if not row:
+            continue  # about a tracked process but not matched to one role: nothing reliable to log
         changed = record(tracker, row, result['kind'], email['date'], 'Gmail', email['id'],
                          f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now)
         if changed:
@@ -257,12 +267,34 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     return lines, len(emails)
 
 
+def _contact_names(row):
+    """Full names written in the Contact field ("Alex Morgan · alex@yupe.io" -> "alex morgan")."""
+    return {m.lower() for m in re.findall(r"\b[A-Z][a-zà-ÿ'-]+ [A-Z][a-zà-ÿ'-]+\b", _field(row, 'Contact'))}
+
+
 def _matches(row, text):
+    """True if the text names this application's company, platform, a contact's name or email."""
     text = text.lower()
     names = [n.lower() for n in (_field(row, 'Company'), _field(row, 'Via')) if len(n) > 2]
     names += [n.split()[0].lower() for n in names if len(n.split()[0]) >= 5]
+    names += sorted(_contact_names(row))
     emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())
     return any(re.search(rf'(?<![\w]){re.escape(n)}(?![\w])', text) for n in names) or any(e in text for e in emails)
+
+
+def _by_mention(apps, text):
+    """The single application this text names (company, platform or contact), or None."""
+    found = [row for row in apps if _matches(row, text)]
+    return found[0] if len(found) == 1 else None
+
+
+def _about_tracked(apps, text):
+    """True if the text names a tracked company, platform, contact, or a contact's email domain: then an
+    unmatched email isn't a new, untracked application."""
+    if any(_matches(row, text) for row in apps):
+        return True
+    domains = {d.split('.')[0] for row in apps for d in re.findall(r'@([\w-]+\.[\w.-]+)', _field(row, 'Contact').lower())}
+    return any(d and d in text.lower() for d in domains)
 
 
 def _event_text(event):

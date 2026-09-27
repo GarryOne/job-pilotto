@@ -132,7 +132,8 @@ class MailTests(unittest.TestCase):
         self.run_mail(tracker, google, [[result(0, 0, 'Confirmation received')]])
         self.assertEqual(tracker.created, [])
         self.assertEqual(tracker.updates, [('ev-Confirmation received-2026-09-26T01:26:00+02:00',
-                                            {'Source ID': {'rich_text': [{'text': {'content': 'm2'}}]}})])
+                                            {'Source ID': {'rich_text': [{'text': {'content': 'm2'}}]},
+                                             'At': {'date': {'start': '2026-09-26T01:26:30+02:00'}}})])
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
         apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),
@@ -146,6 +147,40 @@ class MailTests(unittest.TestCase):
         self.assertEqual(changes['p1']['Stage'], {'select': {'name': 'Interview scheduled'}})
         self.assertEqual(changes['p1']['Next interview'], {'date': {'start': '2026-09-30T12:30:00+02:00'}})
         self.assertNotIn('p2', changes)  # an Offer is never moved back
+
+    def test_emails_are_processed_oldest_first_and_transcripts_are_flagged(self):
+        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree')]
+        google = FakeGoogle([email('late', 'Reminder: Screening Call', '2026-09-25T09:30:00+00:00'),
+                             email('early', 'Screening Call booked', '2026-09-24T18:05:00+00:00'),
+                             email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00')])
+        tracker = FakeTracker(apps)
+        client = FakeClient([[result(0, 0, 'Interview scheduled'), result(1, 0, 'Other'), result(2, 0, 'Other')]])
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+            sent = []
+            mail.run(tracker, google, client=client, days=2, send=sent.append, calendar=False, now=NOW,
+                     state_path=self.state, stats={})
+        self.assertIn('Item 0\nFrom: no-reply@us.greenhouse-mail.io\nDate: 2026-09-24T18:05', client.calls[0]['messages'][0]['content'])
+        self.assertEqual(tracker.created[0]['At']['date']['start'], '2026-09-24T18:05:00+00:00')
+        self.assertIn('send it to me for an interview review', sent[0])
+
+    def test_unmatched_mail_naming_a_contact_goes_to_that_application(self):
+        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree',
+                    contact='Jan Keller (TechTree); screening call with Alex Morgan · alex@yupe.io'),
+                app('p2', 'Scale AI', 'SRE')]
+        google = FakeGoogle([email('n1', 'Notification: Screening Call between Alex Morgan and Sam Taylor',
+                                   sender='hello@cal.com')])
+        tracker = FakeTracker(apps)
+        _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='Unknown')]])
+        self.assertEqual(tracker.created[0]['Application'], {'relation': [{'id': 'p1'}]})
+        self.assertNotIn('not tracked', ' '.join(sent))
+        self.assertIn('Laelaps AI', sent[0])
+
+    def test_unmatched_mail_about_a_contact_domain_is_not_reported_as_new(self):
+        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree', contact='alex@yupe.io')]
+        google = FakeGoogle([email('n2', 'Your call', sender='hello@cal.com')])
+        tracker = FakeTracker(apps)
+        _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='YuPe (via Cal.com)')]])
+        self.assertEqual((sent, tracker.created), ([], []))
 
     def test_irrelevant_and_untracked_mail(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
