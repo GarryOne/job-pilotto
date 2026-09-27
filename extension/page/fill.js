@@ -247,6 +247,7 @@
     {id: 'legal', icon: '⚖️', title: 'Consents to accept', match: /^Your choice \(legal\):\s*/},
     {id: 'answer', icon: '✍️', title: 'Needs your answer', match: /^(Answer|Pick "[^"]*" for):\s*/},
     {id: 'action', icon: '👉', title: 'To do on the page', match: /^(Click the|Upload your CV|Drop-downs not chosen)/},
+    {id: 'read', icon: '✍️', title: 'Written by AI: read before submitting', match: /^Read:\s*/},
     {id: 'check', icon: '👀', title: 'Worth a check', match: /^Check:\s*/},
     {id: 'done', icon: '✅', title: 'Done for you', match: /^Ticked for you:\s*/},
     {id: 'tip', icon: '💡', title: 'Tip', match: /^Tip:\s*/},
@@ -265,6 +266,8 @@
       .title { font-weight: 700; font-size: 14px; }
       .chip { margin-left: auto; font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
       .chip.ok { background: #1f6b43; } .chip.left { background: #9a4b0a; }
+      .p.ready { box-shadow: 0 0 0 3px #2fb36b, 0 12px 40px rgba(0,0,0,.35); }
+      .ready { color: #b9f0cf; padding: 8px 0 2px; font-weight: 600; }
       .x { background: none; border: 0; color: #8fa3bb; font-size: 16px; cursor: pointer; padding: 0 2px; }
       .body { padding: 6px 14px 12px; }
       section { margin-top: 10px; }
@@ -285,14 +288,14 @@
       sorted[group.id].push(item.replace(group.match, '').trim() || item);
     }
     const open = ['legal', 'answer', 'action'].reduce((n, id) => n + sorted[id].length, 0);
-    const p = el('div', {className: 'p'});
+    const p = el('div', {className: open ? 'p' : 'p ready'});
     const close = el('button', {className: 'x', type: 'button', title: 'Close', textContent: '✕'});
     close.onclick = () => host.remove();
     p.append(el('div', {className: 'head'}, el('div', {className: 'mark', textContent: 'JP'}),
       el('div', {className: 'title', textContent: `${summary.filled} fields filled`}),
-      el('span', {className: `chip ${open ? 'left' : 'ok'}`, textContent: open ? `${open} left for you` : 'Ready to submit'}), close));
+      el('span', {className: `chip ${open ? 'left' : 'ok'}`, textContent: open ? `${open} left for you` : '✓ Ready to submit'}), close));
     const body = el('div', {className: 'body'});
-    if (!open) body.append(el('div', {className: 'ready', textContent: 'Everything is filled. Review the form, then press Submit.'}));
+    if (!open) body.append(el('div', {className: 'ready', textContent: 'All required fields are done. Read the AI-written answers, then press Submit.'}));
     for (const group of GROUPS) {
       const items = sorted[group.id];
       if (!items.length) continue;
@@ -332,7 +335,6 @@
     return {x: Math.round(rect.left + Math.min(40, rect.width / 2)), y: Math.round(rect.top + rect.height / 2),
       label: control.dataset.jobpilottoArmed};
   };
-  window.__jobPilottoPanel = summary => panel(summary);
   // After the country menu is picked: where to type the national number (the widget adds the prefix).
   window.__jobPilottoPhoneSpot = async () => {
     const phone = window.__jobPilottoPhone;
@@ -344,6 +346,70 @@
     return {x: Math.round(rect.left + 30), y: Math.round(rect.top + rect.height / 2), text: phone.national};
   };
   window.__jobPilottoArmedCount = () => document.querySelectorAll('[data-jobpilotto-armed]').length;
+
+  // ---- Live panel: re-checks the page as the user works, so done items disappear and it turns green. ----
+  let liveBase = null;
+  const attention = new Map();  // field id -> label: AI-written answers the user should read
+  const liveTodo = () => {
+    const items = [];
+    // Consents still unticked.
+    for (const box of document.querySelectorAll('input[type=checkbox]')) {
+      const text = `${questionOf(box)} ${labelOf(box)}`, label = box.labels?.[0] || box.closest('label');
+      if (box.checked || !LEGAL.test(text) || !(visible(box) || (label && visible(label)))) continue;
+      items.push(`Your choice (legal): ${clean(String(questionOf(box) || labelOf(box)).replace(/\S*(_|\[\])\S*/g, ' ')).slice(0, 160)}`);
+    }
+    // Dropdowns still waiting for their click.
+    const armedLeft = document.querySelectorAll('[data-jobpilotto-armed]').length;
+    if (armedLeft) items.push(`Click the ${armedLeft} highlighted dropdown(s); each picks its answer when opened`);
+    // Required fields still empty (checkbox groups counted once).
+    const groups = new Set();
+    for (const row of window.__jobPilottoAuditVisibleFields()) {
+      if (!row.required || row.filled || row.legal || /^(attach|dropbox|google drive|enter manually)$/i.test(clean(row.label))) continue;
+      if (row.field === 'resume') { items.push('Upload your CV'); continue; }
+      const el = document.getElementById(row.field);
+      if (el?.closest('[data-jobpilotto-armed]')) continue;
+      if (el?.type === 'checkbox') {
+        const q = questionOf(el);
+        if (Array.from(document.querySelectorAll('input[type=checkbox]')).some(b => questionOf(b) === q && b.checked) || groups.has(q)) continue;
+        groups.add(q);
+        items.push(`Answer: ${q || row.label}`);
+        continue;
+      }
+      items.push(`Answer: ${clean(row.label).replace(row.field, '').trim() || row.field}`);
+    }
+    for (const label of attention.values()) items.push(`Read: ${label}`);
+    const kept = (liveBase?.todo || []).filter(item => /^(Check|Ticked for you|Tip):/.test(item));
+    return [...new Set([...items, ...kept])];
+  };
+  let recheckTimer = null;
+  const recheck = () => {
+    clearTimeout(recheckTimer);
+    recheckTimer = setTimeout(() => {
+      if (liveBase && document.getElementById('job-pilotto-panel')) panel({...liveBase, todo: liveTodo()});
+    }, 350);
+  };
+  if (typeof document.addEventListener === 'function') for (const type of ['change', 'input', 'click']) {
+    document.addEventListener(type, event => { if (!event.composedPath().some(n => n.id === 'job-pilotto-panel')) recheck(); }, true);
+  }
+  // Orange border + tag on answers the AI wrote (long text, cover letter, low confidence); cleared when the user edits.
+  const markAttention = (field, label) => {
+    const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
+    if (!el || attention.has(field)) return;
+    const target = isCombo(el) ? comboControl(el) : el;
+    target.style.outline = '3px solid #f59e0b';
+    target.style.outlineOffset = '2px';
+    const tag = Object.assign(document.createElement('div'), {className: 'job-pilotto-attention', textContent: '✍️ Written by AI: read it before submitting'});
+    tag.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#b45309';
+    target.parentElement.insertBefore(tag, target.nextSibling);
+    attention.set(field, clean(label).slice(0, 120));
+    const clear = event => {
+      if (!event.isTrusted) return;
+      target.style.outline = ''; tag.remove(); attention.delete(field); recheck();
+      el.removeEventListener('input', clear);
+    };
+    el.addEventListener('input', clear);
+  };
+  window.__jobPilottoPanel = summary => { liveBase = summary; panel({...summary, todo: liveTodo()}); };
 
   // Optional cover letter: a textarea labelled Cover letter, or behind an "Enter manually" button.
   const fillCoverLetter = async letter => {
@@ -485,7 +551,16 @@
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
       reason: resumeAttached ? '' : 'no CV in the app'});
     const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
-    panel(summary);
+    for (const item of answers) {
+      const row = rowOf[item.field];
+      if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;
+      const long = row.type === 'textarea' || String(item.value || '').length > 80;
+      const unsure = item.confidence && item.confidence !== 'high';
+      if (long || unsure) markAttention(item.field, row.label || item.question || item.field);
+    }
+    const letterBox = Array.from(document.querySelectorAll('textarea')).find(el => /cover\s*letter/i.test(`${el.id} ${el.name} ${labelOf(el)}`));
+    if (coverLetter && letterBox?.value) markAttention(letterBox.id || letterBox.name, 'Cover letter');
+    window.__jobPilottoPanel(summary);
     return summary;
   };
 })();
