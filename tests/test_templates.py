@@ -21,7 +21,7 @@ class TemplateTests(unittest.TestCase):
                 text = template.read_text()
                 self.assertIn(f'uses: GarryOne/job-pilotto/.github/workflows/{template.name}@main', text)
                 self.assertIn('secrets: inherit', text)
-                self.assertIn('schedule:', text)
+                self.assertNotIn('schedule:', text)  # the app adds the user's schedule
                 passed = set(re.findall(r'^      ([a-z_]+): ', text.split('    with:\n', 1)[1], re.M))
                 self.assertLessEqual(passed, call_inputs((ENGINE / template.name).read_text()))
 

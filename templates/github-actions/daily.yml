@@ -5,8 +5,7 @@ name: Daily job discovery
 run-name: ${{ inputs.mode || 'scheduled' }}${{ inputs.job && format(' {0}', inputs.job) || '' }}
 
 on:
-  schedule:
-    - cron: '30 */4 * * *'
+  # The Job Pilotto app adds your schedule here (Settings → How often).
   # Started by the Telegram bot and the Desktop App; same inputs as the engine.
   workflow_dispatch:
     inputs:

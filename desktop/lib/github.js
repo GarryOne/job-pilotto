@@ -1,7 +1,8 @@
 // "Keep working while my Mac is off": the user's own private GitHub repo runs the searches on a
-// schedule. The app signs in to GitHub (device flow: the user approves a code in the browser), creates
-// <user>/job-pilotto-private, commits the scheduled workflows (templates/github-actions) and the user's
-// search settings, and stores their keys as encrypted repository secrets. Each run executes the public
+// schedule. Least privilege: Job Pilotto is a GitHub App the user installs on that one repository
+// ("Only select repositories"), so the app can't see or touch any other repo. The user creates the repo
+// from the public starter template, installs the app on it, and approves a sign-in code; the app then
+// commits the schedule and search settings, and stores their keys as encrypted repository secrets. Each run executes the public
 // engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
@@ -10,10 +11,15 @@ import path from 'node:path';
 import {cadence, crons, withSchedule} from './cadence.js';
 import {MODELS, REPO} from './pipeline.js';
 
-// Public identifier of the Job Pilotto GitHub OAuth app (device flow needs no client secret).
-export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'Ov23li4RFqDI1xSMaNFB';
-export const SCOPES = 'repo workflow';
+// The Job Pilotto GitHub App (public identifiers; device flow needs no client secret). Its permissions,
+// on the one repository it's installed on: Actions, Contents, Secrets, Variables and Workflows (write).
+export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'PENDING_GITHUB_APP_CLIENT_ID';
+export const APP_SLUG = process.env.JOB_PILOTTO_GITHUB_APP || 'job-pilotto';
 export const REPO_NAME = 'job-pilotto-private';
+export const STARTER = 'GarryOne/job-pilotto-starter';
+// Step 1: a new private repo from the starter template. Step 2: install the app on it only.
+export const CREATE_URL = `https://github.com/new?template_name=${STARTER.split('/')[1]}&template_owner=${STARTER.split('/')[0]}&name=${REPO_NAME}&visibility=private`;
+export const INSTALL_URL = `https://github.com/apps/${APP_SLUG}/installations/new`;
 const API = 'https://api.github.com';
 
 // Keys the cloud runs need (secrets), and what the app's own runs set (variables): same values as pipelineEnv.
@@ -35,7 +41,7 @@ async function form(url, body, fetcher) {
 
 // Step 1 of the sign-in: a code for the user to enter at github.com/login/device.
 export async function startSignIn(fetcher = globalThis.fetch) {
-  const data = await form('https://github.com/login/device/code', {client_id: CLIENT_ID, scope: SCOPES}, fetcher);
+  const data = await form('https://github.com/login/device/code', {client_id: CLIENT_ID}, fetcher);
   if (!data.device_code) throw new Error(data.error_description || 'GitHub did not start the sign-in');
   return {deviceCode: data.device_code, userCode: data.user_code, url: data.verification_uri,
     interval: data.interval || 5, expiresIn: data.expires_in || 900};
@@ -70,20 +76,22 @@ export function client(token, fetcher = globalThis.fetch) {
   };
 }
 
-// The user's private repo: reused if it exists, else created (private, with a first commit).
-export async function ensureRepo(api) {
+// The repo the user installed the app on: the one called job-pilotto-private, else the only one.
+// Throws needsRepo when there's none yet, so the app can show the two setup steps.
+export async function findRepo(api) {
   const {login} = await api('GET', '/user');
-  const full = `${login}/${REPO_NAME}`;
-  try {
-    const repo = await api('GET', `/repos/${full}`);
-    if (!repo.private) throw new Error(`${full} exists and is public. Make it private (or rename it) and try again.`);
-    return {login, repo: full, created: false};
-  } catch (error) {
-    if (error.status !== 404) throw error;
+  const {installations = []} = await api('GET', '/user/installations?per_page=100');
+  const repos = [];
+  for (const installation of installations) {
+    const {repositories = []} = await api('GET', `/user/installations/${installation.id}/repositories?per_page=100`);
+    repos.push(...repositories);
   }
-  await api('POST', '/user/repos', {name: REPO_NAME, private: true, auto_init: true,
-    description: 'My Job Pilotto: scheduled job searches (secrets and settings stay private)'});
-  return {login, repo: full, created: true};
+  const repo = repos.find(r => r.name === REPO_NAME) || (repos.length === 1 ? repos[0] : null);
+  if (!repo) throw Object.assign(new Error(installations.length
+    ? `Job Pilotto can't see a repository called ${REPO_NAME}. Add it to the app's repositories, then check again.`
+    : 'Create your private repository and install Job Pilotto on it, then check again.'), {needsRepo: true});
+  if (!repo.private) throw new Error(`${repo.full_name} is public. Make it private in its Settings, then check again.`);
+  return {login, repo: repo.full_name, created: false};
 }
 
 // Create or update one file on the default branch; unchanged content is left alone.
@@ -157,8 +165,8 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
 // Everything in one go; safe to run again (after a key or setting changes).
 export async function connect(storage, token, {fetcher, onStep = () => {}} = {}) {
   const api = client(token, fetcher);
-  onStep('Creating your private repository…');
-  const {login, repo, created} = await ensureRepo(api);
+  onStep('Finding your private repository…');
+  const {login, repo, created} = await findRepo(api);
   const {files, secrets, variables, removed} = payload(storage);
   onStep('Adding the schedules and your search settings…');
   for (const [file, content] of Object.entries(files)) await putFile(api, repo, file, content, `Job Pilotto: ${file}`);

@@ -205,7 +205,7 @@ function handlers() {
       return {ok: true, ...result};
     } catch (error) {
       if (error.status === 401) storage.setSecret('GITHUB_TOKEN', '');  // revoked: sign in again next time
-      return {ok: false, error: error.message};
+      return {ok: false, error: error.message, ...(error.needsRepo ? {needsRepo: true, createUrl: github.CREATE_URL, installUrl: github.INSTALL_URL} : {})};
     }
   });
   ipcMain.handle('cloudOff', () => { storage.saveSettings({cloud: null}); restartTelegram(); return true; });

@@ -24,7 +24,7 @@ function userStorage() {
 }
 
 // A small GitHub: records calls, answers like the real API.
-async function fakeGitHub({repoExists = false, variableExists = []} = {}) {
+async function fakeGitHub({repoExists = true, variableExists = []} = {}) {
   await sodium.ready;
   const keys = sodium.crypto_box_keypair();
   const calls = [];
@@ -35,8 +35,9 @@ async function fakeGitHub({repoExists = false, variableExists = []} = {}) {
     calls.push({method, route, data});
     const json = (status, value) => ({ok: status < 300, status, json: async () => value});
     if (route === '/user') return json(200, {login: 'ada'});
-    if (route === '/repos/ada/job-pilotto-private') return repoExists ? json(200, {private: true}) : json(404, {message: 'Not Found'});
-    if (route === '/user/repos') return json(201, {});
+    if (route.startsWith('/user/installations?')) return json(200, {installations: repoExists === null ? [] : [{id: 7}]});
+    if (route.startsWith('/user/installations/7/repositories')) return json(200, {repositories: [
+      {name: 'dotfiles', full_name: 'ada/dotfiles', private: false}, {name: 'job-pilotto-private', full_name: 'ada/job-pilotto-private', private: true}]});
     const content = route.match(/^\/repos\/ada\/job-pilotto-private\/contents\/(.+)$/);
     if (content && method === 'GET') return files[content[1]] ? json(200, files[content[1]]) : json(404, {});
     if (content && method === 'PUT') { files[content[1]] = {content: data.content, sha: 'x'}; return json(201, {}); }
@@ -51,14 +52,13 @@ async function fakeGitHub({repoExists = false, variableExists = []} = {}) {
   return {fetcher, calls, files, open};
 }
 
-test('turning it on creates the private repo with the schedules, settings, sealed keys and Notion IDs', async () => {
+test('turning it on fills the repo the app was installed on: schedules, settings, sealed keys, Notion IDs', async () => {
   const storage = userStorage();
   const gh = await fakeGitHub({variableExists: ['NOTION_MATCHES_DB']});
   const result = await github.connect(storage, 'gho_token', {fetcher: gh.fetcher});
 
   assert.equal(result.repo, 'ada/job-pilotto-private');
-  assert.equal(result.created, true);
-  assert.deepEqual(gh.calls.find(c => c.route === '/user/repos').data.private, true);
+  assert.ok(!gh.calls.some(c => c.route === '/user/repos'));  // never creates repos: it has no such permission
   for (const file of ['.github/workflows/daily.yml', '.github/workflows/scout.yml', '.github/workflows/mail.yml', 'README.md',
     'config/search.json', 'config/preferences.json']) assert.ok(gh.files[file], file);
   assert.match(Buffer.from(gh.files['.github/workflows/daily.yml'].content, 'base64').toString(), /GarryOne\/job-pilotto\/.github\/workflows\/daily.yml@main/);
@@ -71,14 +71,13 @@ test('turning it on creates the private repo with the schedules, settings, seale
   assert.equal(storage.settings().cloud.repo, 'ada/job-pilotto-private');
 });
 
-test('running it again reuses the repo and leaves unchanged files alone', async () => {
+test('running it again leaves unchanged files alone', async () => {
   const storage = userStorage();
-  const gh = await fakeGitHub({repoExists: true});
+  const gh = await fakeGitHub();
   await github.connect(storage, 't', {fetcher: gh.fetcher});
   const writes = gh.calls.filter(c => c.method === 'PUT' && c.route.includes('/contents/')).length;
   gh.calls.length = 0;
   const again = await github.connect(storage, 't', {fetcher: gh.fetcher});
-  assert.equal(again.created, false);
   assert.ok(writes > 0);
   assert.equal(gh.calls.filter(c => c.method === 'PUT' && c.route.includes('/contents/')).length, 0);
 });
@@ -107,4 +106,11 @@ test('the schedule and job choices reach the repo: crons, kits on, insights off'
   assert.doesNotMatch(file('scout.yml'), /schedule:/);
   assert.ok(gh.calls.some(c => c.method === 'POST' && c.data?.name === 'JOB_PILOTTO_AUTO_KIT_MAX' && c.data.value === '3'));
   assert.ok(gh.calls.some(c => c.method === 'DELETE' && c.route.endsWith('/actions/variables/JOB_PILOTTO_INSIGHT_MODEL')));
+});
+
+test('not installed yet: it says so, with the two setup links', async () => {
+  const gh = await fakeGitHub({repoExists: null});
+  await assert.rejects(github.connect(userStorage(), 't', {fetcher: gh.fetcher}), error => error.needsRepo === true);
+  assert.match(github.CREATE_URL, /template_name=job-pilotto-starter.*visibility=private/);
+  assert.match(github.INSTALL_URL, /github\.com\/apps\/.+\/installations\/new/);
 });

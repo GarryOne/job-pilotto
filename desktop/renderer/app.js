@@ -508,16 +508,27 @@ $('cloud-connect').addEventListener('click', async () => {
   message('cloud-message', 'Opening GitHub sign-in…');
   const result = await window.pilot.cloudConnect();
   $('cloud-connect').disabled = false;
+  if (result.needsRepo) {
+    cloudUrls = result;
+    show($('cloud-steps'));
+    message('cloud-message', 'Signed in to GitHub ✓ Two more steps, in your browser: Job Pilotto only gets access to the one repository you pick.', 'ok');
+    return;
+  }
   if (!result.ok) { message('cloud-message', result.error, 'error'); return; }
+  show($('cloud-steps'), false);
   state = await window.pilot.state();
   showCloud();
-  message('cloud-message', `${result.created ? 'Created' : 'Updated'} ${result.repo} ✓ ` +
+  message('cloud-message', `Connected to ${result.repo} ✓ ` +
     `${result.secrets.length} keys stored as encrypted secrets. The first run follows your schedule; press Search now to start one right away.`, 'ok');
 });
 window.pilot.onCloudStep(step => {
   if (step.code) message('cloud-message', `In the browser tab that opened, enter the code ${step.code} and approve Job Pilotto (${step.url}).`);
   else message('cloud-message', step.text);
 });
+let cloudUrls = null;
+$('cloud-create').addEventListener('click', () => window.pilot.openExternal(cloudUrls.createUrl));
+$('cloud-install').addEventListener('click', () => window.pilot.openExternal(cloudUrls.installUrl));
+$('cloud-check').addEventListener('click', () => $('cloud-connect').click());
 $('cloud-open').addEventListener('click', () => window.pilot.openExternal(`https://github.com/${state.settings.cloud.repo}`));
 $('cloud-off').addEventListener('click', async () => {
   await window.pilot.cloudOff();
