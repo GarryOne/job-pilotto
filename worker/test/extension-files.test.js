@@ -20,6 +20,8 @@ test('manifest asks for activeTab, scripting and storage, and runs by itself onl
   assert.deepEqual(manifest.host_permissions, ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
     'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*']);
   assert.equal(manifest.optional_host_permissions, undefined);
+  // Clicking drop-downs (real input via Chrome's debugger) is opt-in: requested from Settings, never at install.
+  assert.deepEqual(manifest.optional_permissions, ['debugger']);
 });
 
 test('contact details go into matching empty text fields, never over kit answers or filled fields', () => {

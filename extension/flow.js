@@ -5,8 +5,42 @@ export const JOB_SITES = [
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
 ];
 
+// "Fill drop-down menus too": searchable dropdowns (Greenhouse react-select) open only for real input, so
+// the extension clicks each armed one through Chrome's debugger (trusted input; Chrome shows a debugging
+// bar meanwhile); the page script then picks the kit's answer in the opened menu. Returns how many got picked.
+export async function clickCombos(tabId) {
+  const page = (func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
+    .then(([r]) => r?.result);
+  if (!(await page(() => window.__jobPilottoArmedCount?.() || 0))) return 0;
+  const target = {tabId};
+  await chrome.debugger.attach(target, '1.3');
+  const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
+    {type, x, y, button: 'left', clickCount: 1});
+  let picked = 0, skip = 0;
+  try {
+    for (let i = 0; i < 30; i++) {
+      const before = await page(() => window.__jobPilottoArmedCount());
+      const spot = await page(n => window.__jobPilottoNextCombo(n), [skip]);
+      if (!spot) break;
+      await new Promise(r => setTimeout(r, 150));  // let the scroll settle
+      await mouse('mouseMoved', spot.x, spot.y);
+      await mouse('mousePressed', spot.x, spot.y);
+      await mouse('mouseReleased', spot.x, spot.y);
+      await new Promise(r => setTimeout(r, 900));  // the page opens the menu, filters it and picks the answer
+      const after = await page(() => window.__jobPilottoArmedCount());
+      if (after < before) picked += 1; else skip += 1;  // not picked (no matching option): leave it for the user
+      if (after === 0) break;
+    }
+    await mouse('mousePressed', 5, 5).catch(() => {});  // close any menu left open
+    await mouse('mouseReleased', 5, 5).catch(() => {});
+  } finally {
+    await chrome.debugger.detach(target).catch(() => {});
+  }
+  return picked;
+}
+
 export async function settings() {
-  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode']);
+  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns']);
 }
 
 export async function api(config, path, init = {}) {
@@ -79,5 +113,20 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const me = await api(config, '/extension/me').catch(() => null);
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
+  if (config.clickDropdowns && await chrome.permissions.contains({permissions: ['debugger']})) {
+    onStep('Choosing the drop-down answers…');
+    try {
+      const picked = await clickCombos(tab.id);
+      if (picked) {
+        summary.filled = (summary.filled || 0) + picked;
+        summary.todo = (summary.todo || []).filter(item => !/highlighted dropdown/.test(item));
+        const left = await inPage(tab.id, () => window.__jobPilottoArmedCount());
+        if (left) summary.todo.unshift(`Click the ${left} highlighted dropdown(s); each picks its answer when opened`);
+        await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
+      }
+    } catch (error) {
+      summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
+    }
+  }
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
 }

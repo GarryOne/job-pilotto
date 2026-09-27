@@ -121,7 +121,8 @@
     badge.textContent = `✈️ Click to choose: ${answer}`;
     badge.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#d9540b';
     control.parentElement.insertBefore(badge, control.nextSibling);
-    const done = () => { control.style.outline = ''; badge.remove(); control.removeEventListener('mousedown', onOpen, true); };
+    control.dataset.jobpilottoArmed = '1';
+    const done = () => { control.style.outline = ''; badge.remove(); delete control.dataset.jobpilottoArmed; control.removeEventListener('mousedown', onOpen, true); };
     const onOpen = event => {
       if (!event.isTrusted) return;
       setTimeout(async () => {
@@ -201,6 +202,19 @@
   };
 
   // answers: [{field, value, question?, confidence?, note?}] merged by the extension (AI + kit).
+  // For "Fill drop-down menus too": the next armed dropdown, scrolled into view, as viewport coordinates
+  // for a real click (sent by the extension through Chrome's debugger), or null when none is left.
+  window.__jobPilottoNextCombo = (skip = 0) => {
+    const control = Array.from(document.querySelectorAll('[data-jobpilotto-armed]'))[skip];
+    if (!control) return null;
+    control.scrollIntoView({block: 'center'});
+    const rect = control.getBoundingClientRect();
+    return {x: Math.round(rect.left + Math.min(40, rect.width / 2)), y: Math.round(rect.top + rect.height / 2),
+      left: document.querySelectorAll('[data-jobpilotto-armed]').length};
+  };
+  window.__jobPilottoPanel = summary => panel(summary);
+  window.__jobPilottoArmedCount = () => document.querySelectorAll('[data-jobpilotto-armed]').length;
+
   window.__jobPilottoExtensionFill = async (answers, profile, resume) => {
     if (!window.__jobPilottoGuardActive) return {error: 'The submit guard did not load; nothing was filled.'};
     const form = await window.__jobPilottoDescribeForm();
