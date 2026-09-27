@@ -4,11 +4,25 @@
 Job Matches sync, Telegram outcome, warnings) and hands it to `log_run` at the end. The report is
 written by code from those numbers, so it costs nothing; a Notion failure never fails the run.
 """
+from datetime import datetime, timezone
 import os
 
 CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '98543553a1024a61bd784ada69b2a45d')
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
-          ('kits', 'Cost kits (USD)', 'Kits'), ('insight', 'Cost insight (USD)', 'Insights'))
+          ('kits', 'Cost kits (USD)', 'Kits'), ('insight', 'Cost insight (USD)', 'Insights'),
+          ('interview', 'Cost interview (USD)', 'Interviews'), ('mail', 'Cost mail (USD)', 'Emails'))
+
+
+def new_run(mode):
+    """The run dict an AI job fills for its ⏰ Cronjob Runs row; trigger and link come from GitHub Actions.
+    Every AI job logs one (crawls, kits, insights, interviews, mail), so the rows add up to the month's spend."""
+    event = os.getenv('GITHUB_EVENT_NAME', '')
+    run = {'mode': mode, 'started_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+           'trigger': {'schedule': 'Schedule', '': 'Local'}.get(event, 'Manual'), 'warnings': []}
+    if os.getenv('GITHUB_RUN_ID'):
+        run['run_url'] = (f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/"
+                          f"{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID')}")
+    return run
 
 
 def _text(value):

@@ -208,11 +208,16 @@ def main(argv=None):
         for name, service in KEYCHAIN.items():
             subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''), '-s', service,
                             '-w', values[name]], check=True)
+        # The sign-in date: the health check warns before Google's 7-day limit for apps in "Testing".
+        signed_in = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''),
+                        '-s', 'job-pilotto.google.auth-at', '-w', signed_in], check=True)
         print('Stored in the Keychain:', ', '.join(KEYCHAIN.values()))
         if args.github:
             for name, value in values.items():
                 subprocess.run(['gh', 'secret', 'set', name], input=value, text=True, check=True)
-            print('Set GitHub secrets:', ', '.join(values))
+            subprocess.run(['gh', 'variable', 'set', 'JOB_PILOTTO_GOOGLE_AUTH_AT', '--body', signed_in], check=True)
+            print('Set GitHub secrets:', ', '.join(values), '(and the variable JOB_PILOTTO_GOOGLE_AUTH_AT)')
     google = Google.from_env()
     if not google:
         raise SystemExit('Not connected: run `python -m src.sources.google auth --client-id ... --client-secret ...`')

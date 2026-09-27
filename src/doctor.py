@@ -3,12 +3,17 @@
     python -m src doctor            checklist grouped by area, then "Next step"
     python -m src doctor --next     only the next step (the launchers print this when nothing is ready)
     python -m src doctor --json     machine-readable, for a menu bar or Telegram /status
+    python -m src doctor --alert    health checks only; one Telegram line if something is wrong
+
+The health checks (Google sign-in, mail workflow, AI budget, failing feeds) also run once a day with the
+04:30 UTC scheduled crawl, which sends one Telegram line only when one of them warns or fails.
 
 Checks run in order of dependency: setup → the scheduled pipeline on GitHub → data it produced →
 kits → this Mac's form-filling tools. The next step is the first failing check, else the first
 warning, else "apply to the next job". Nothing here spends money or changes anything.
 """
 import argparse
+import html
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -30,6 +35,10 @@ ICONS = {OK: '✅', WARN: '⚠️ ', FAIL: '❌', INFO: 'ℹ️ '}
 SECRETS = ('NOTION_TOKEN', 'ANTHROPIC_API_KEY', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')
 AI_VARIABLES = ('JOB_PILOTTO_ENRICH_MODEL', 'JOB_PILOTTO_SCORE_MODEL', 'JOB_PILOTTO_AUTO_KIT_MAX')
 STALE_CRAWL_HOURS = 9  # the schedule is every 4 h; two missed runs is worth a warning
+STALE_MAIL_HOURS = 14  # mail runs 3 times a day
+GOOGLE_TESTING_DAYS = 7  # Google expires sign-ins of apps in "Testing" after 7 days
+HEALTH_HOUR_UTC = 4  # the scheduled crawl in this hour sends the daily health alert
+FEED_FAIL_SHARE = 0.3  # this share of feeds failing in the last crawl is a failure, any is a warning
 CHROME = Path('/Applications/Google Chrome.app')
 
 
@@ -194,6 +203,117 @@ def check_matches(tracker):
     return Check('Data', 'Scored jobs', OK, f'{len(rows)} open, {good} scoring 70+')
 
 
+# ---------- Health: sign-ins, background jobs, budget, feeds ----------
+
+def check_budget(tracker, now=None):
+    from .ai import budget
+    info = budget.status(tracker, now)
+    detail = budget.describe(info)
+    if info['level'] == 'pause':
+        return Check('Health', 'AI budget', FAIL, f'{detail}; auto-kits and extra scoring are paused',
+                     'Raise the limit in the Anthropic console (Settings → Limits) and JOB_PILOTTO_MONTHLY_BUDGET_USD, '
+                     'or wait for the reset on the 1st')
+    if info['level'] == 'warn':
+        return Check('Health', 'AI budget', WARN, detail, 'Watch spend; at 90% the optional AI steps pause')
+    return Check('Health', 'AI budget', OK, detail)
+
+
+def _google_auth_age(now):
+    """Days since the Google sign-in, from JOB_PILOTTO_GOOGLE_AUTH_AT (CI variable) or the Keychain."""
+    value = os.getenv('JOB_PILOTTO_GOOGLE_AUTH_AT')
+    if not value and sys.platform == 'darwin':
+        found = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
+                                '-s', 'job-pilotto.google.auth-at', '-w'], capture_output=True, text=True)
+        value = found.stdout.strip()
+    try:
+        return (now - datetime.fromisoformat(value.replace('Z', '+00:00'))).total_seconds() / 86400
+    except (AttributeError, ValueError):
+        return None
+
+
+def check_google(now=None):
+    from .sources import google
+    now = now or datetime.now(timezone.utc)
+    client = google.Google.from_env()
+    if not client:
+        return Check('Health', 'Gmail + Calendar', INFO, 'not connected (optional)',
+                     'README → Gmail and Calendar setup')
+    fix = 'Sign in again: python3 -m src.sources.google auth --client-json ~/Downloads/client_secret_….json --github'
+    try:
+        email = client.profile().get('emailAddress', '?')
+    except Exception as error:
+        expired = 'invalid_grant' in str(error)
+        return Check('Health', 'Gmail + Calendar', FAIL,
+                     'sign-in expired or revoked' if expired else f'unreachable ({type(error).__name__})', fix)
+    age = _google_auth_age(now)
+    if age is not None and age >= GOOGLE_TESTING_DAYS - 2:
+        left = max(0, GOOGLE_TESTING_DAYS - age)
+        return Check('Health', 'Gmail + Calendar', WARN,
+                     f'{email}; signed in {age:.0f} days ago — expires in about {left:.0f} day(s) while the app is in Testing',
+                     fix)
+    return Check('Health', 'Gmail + Calendar', OK, f'connected as {email}' + (f', signed in {age:.0f} day(s) ago' if age is not None else ''))
+
+
+def check_mail_workflow(now=None):
+    now = now or datetime.now(timezone.utc)
+    runs = gh('run', 'list', '-w', 'mail.yml', '-L', '5', '--json', 'conclusion,status,createdAt,event')
+    if runs is None:
+        return Check('Health', 'Mail checks', INFO, 'not checked (gh unavailable)')
+    done = [r for r in runs if r.get('status') == 'completed']
+    if not done:
+        return Check('Health', 'Mail checks', WARN, 'no mail check has run yet', 'gh workflow run mail.yml')
+    last = done[0]
+    hours = _hours_ago(last['createdAt'], now)
+    if last.get('conclusion') != 'success':
+        return Check('Health', 'Mail checks', FAIL, f"last mail check {last.get('conclusion')} ({hours:.0f} h ago)",
+                     'Open the failed run: gh run list -w mail.yml')
+    if hours > STALE_MAIL_HOURS:
+        return Check('Health', 'Mail checks', WARN, f'last one {hours:.0f} h ago; the schedule may be paused',
+                     'gh workflow enable mail.yml')
+    return Check('Health', 'Mail checks', OK, f'last one {hours:.1f} h ago')
+
+
+def check_feeds(tracker):
+    rows = tracker.query_database(cron_runs.CRON_RUNS_DATABASE_ID,
+                                  {'property': 'Feeds', 'number': {'greater_than': 0}})
+    if not rows:
+        return Check('Health', 'Feeds', INFO, 'no crawl with feeds logged yet')
+    latest = max(rows, key=lambda r: (r['properties'].get('Started', {}).get('date') or {}).get('start') or '')
+    number = lambda name: (latest['properties'].get(name) or {}).get('number') or 0
+    feeds, errors = number('Feeds'), number('Feed errors')
+    if errors and errors / feeds >= FEED_FAIL_SHARE:
+        return Check('Health', 'Feeds', FAIL, f'{errors:.0f} of {feeds:.0f} feeds failed in the last crawl',
+                     'Open the last ⏰ Cronjob Runs row for the failing feeds')
+    if errors:
+        return Check('Health', 'Feeds', WARN, f'{errors:.0f} of {feeds:.0f} feeds failed in the last crawl',
+                     'Usually temporary; check again after the next crawl')
+    return Check('Health', 'Feeds', OK, f'all {feeds:.0f} feeds answered in the last crawl')
+
+
+HEALTH_CHECKS = (check_google, check_mail_workflow)
+
+
+def health_checks(tracker, now=None):
+    """The checks that matter for the unattended pipeline (no local tools, no CV file)."""
+    checks = [_safe(fn, now) for fn in HEALTH_CHECKS]
+    if tracker:
+        checks += [_safe(check_budget, tracker, now), _safe(check_feeds, tracker)]
+    return checks
+
+
+def alert(tracker, send, now=None):
+    """One Telegram line when a health check warns or fails; returns what was found."""
+    problems = [c for c in health_checks(tracker, now) if c.state in (WARN, FAIL)]
+    if not problems:
+        return 'Health: all good'
+    lines = [f"{'❌' if c.state == FAIL else '⚠️'} {c.name}: {c.detail}" + (f' — {c.fix}' if c.fix else '')
+             for c in problems]
+    text = '🩺 <b>Job Pilotto health</b>\n' + '\n'.join(html.escape(line) for line in lines)
+    if send:
+        send(text)
+    return text
+
+
 # ---------- Kits and applications ----------
 
 def check_kits(tracker):
@@ -228,9 +348,10 @@ def check_mac_tools():
 
 def run_checks(tracker=None, now=None):
     now = now or datetime.now(timezone.utc)
-    local = [check_cv, check_workflow, check_secrets, check_ai_variables, check_mac_tools]
+    local = [check_cv, check_workflow, check_secrets, check_ai_variables, check_mac_tools,
+             lambda: check_google(now), lambda: check_mail_workflow(now)]
     remote = [check_profile, check_answers, check_sources, lambda t: check_last_crawl(t, now),
-              check_matches, check_kits, check_in_progress]
+              check_matches, check_kits, check_in_progress, lambda t: check_budget(t, now), check_feeds]
     first = check_notion(tracker)
     jobs = [(fn, ()) for fn in local]
     if first.state == OK:
@@ -238,7 +359,7 @@ def run_checks(tracker=None, now=None):
     with ThreadPoolExecutor(max_workers=8) as pool:
         futures = [pool.submit(_safe, fn, *args) for fn, args in jobs]
         results = [first] + [f.result() for f in futures]
-    order = ['Setup', 'Pipeline', 'Data', 'Apply', 'This Mac']
+    order = ['Setup', 'Pipeline', 'Health', 'Data', 'Apply', 'This Mac']
     return sorted(results, key=lambda c: order.index(c.area))
 
 
@@ -273,10 +394,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--json', action='store_true', help='print checks and next step as JSON')
     parser.add_argument('--next', action='store_true', help='print only the next step')
+    parser.add_argument('--alert', action='store_true',
+                        help='health checks only, and send one Telegram line if something is wrong')
     args = parser.parse_args()
     token = notion_token()
     tracker = notion.Tracker(token, os.getenv('NOTION_APPLICATIONS_DB') or notion.DEFAULT_DATABASE_ID) \
         if token else None
+    if args.alert:
+        from . import telegram
+        try:
+            token, chat_id = telegram.credentials()
+            send = lambda text: telegram.send(text, token, chat_id)
+        except SystemExit:
+            send = None
+        print(alert(tracker, send))
+        return 0
     checks = run_checks(tracker)
     if args.json:
         print(json.dumps({'checks': [asdict(c) for c in checks], 'next_step': next_step(checks)}, indent=2,

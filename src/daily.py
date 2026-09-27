@@ -10,7 +10,8 @@ import random
 import re
 
 from . import digest, scout, store, telegram
-from .ai import cost, enrich, insights, interviews, kit, score
+from . import doctor
+from .ai import budget, cost, enrich, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, ledger, matches
 from pathlib import Path
 
@@ -19,15 +20,7 @@ from .sources import ats, feeds, google_jobs
 
 
 
-def new_cron_run(mode):
-    """The run dict main() fills for the ⏰ Cronjob Runs row; trigger and link come from GitHub Actions."""
-    event = os.getenv('GITHUB_EVENT_NAME', '')
-    run = {'mode': mode, 'started_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-           'trigger': {'schedule': 'Schedule', '': 'Local'}.get(event, 'Manual'), 'warnings': []}
-    if os.getenv('GITHUB_RUN_ID'):
-        run['run_url'] = (f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/"
-                          f"{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID')}")
-    return run
+new_cron_run = cron_runs.new_run  # kept for callers and tests
 
 
 def crawl_counts(report, statuses):
@@ -146,7 +139,15 @@ def queue_mail_check(delay=5):
         return False
 
 
-def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None):
+def log_ai_run(tracker, run, args):
+    """⏰ Cronjob Runs row for an on-demand AI job (kit, interview, insight, weekly), so the month's rows add
+    up to the AI spend the budget guard reads. Only real (sending) runs are logged, like the crawl."""
+    if tracker and args.send:
+        run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
+        cron_runs.log_run(tracker, run)
+
+
+def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None):
     """Draft the application kit for one job; save it on its Notion Applications row.
 
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
@@ -165,6 +166,9 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
         import anthropic
         client = anthropic.Anthropic()
     drafted, usage = kit.draft(client, model, job, profile, answers, questions)
+    cost.add(stats, model, usage)
+    if stats is not None:
+        stats.update(pending=1, done=1)
     page, _ = tracker.mark(job, 'Kit ready')
     tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
     kit.record_cost(tracker, page, model, usage)
@@ -214,9 +218,12 @@ def main():
     if args.mode == 'prepare':
         if not args.job or not tracker:
             raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
+        run = new_cron_run('prepare')
+        run['kits'] = {}
         with store.connect(args.db) as db:
-            messages, log = prepare_kit(db, _job_arg(args.job), tracker)
+            messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'])
         print(log)
+        log_ai_run(tracker, run, args)
         print('\n\n'.join(messages))
         if args.send:
             credentials = telegram.credentials()
@@ -243,8 +250,13 @@ def main():
             raise SystemExit('--mode interview requires NOTION_TOKEN')
         token, chat_id = telegram.credentials()
         sender = (lambda text: telegram.send(text, token, chat_id)) if args.send else None
+        run = new_cron_run('interview')
+        run['interview'] = {}
         try:
-            print(interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender))
+            print(interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender,
+                                 stats=run['interview']))
+            run['interview'].update(pending=1, done=1)
+            log_ai_run(tracker, run, args)
         except ValueError as error:  # the owner sent something that can't be analysed: say why
             print(error)
             if sender:
@@ -266,8 +278,12 @@ def main():
         sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else None
         with store.connect(args.db) as db:
             make = insights.run if args.mode == 'insight' else insights.weekly
+            run = new_cron_run(args.mode)
+            run['insight'] = {}
             try:
-                print(make(db, tracker, send=sender, **({'force': True} if args.mode == 'insight' else {})))
+                print(make(db, tracker, send=sender, stats=run['insight'],
+                           **({'force': True} if args.mode == 'insight' else {})))
+                log_ai_run(tracker, run, args)
             except Exception as error:
                 if not cost.limit_reached(error):
                     raise
@@ -277,6 +293,15 @@ def main():
                     telegram.send(message, *telegram.credentials())
         return 0
     run = new_cron_run(args.mode)
+    spend = None
+    if tracker and args.mode in ('scheduled', 'run', 'today'):
+        # AI budget: at 90% of the month's limit the optional AI steps pause; alerts are sent at the end.
+        try:
+            spend = budget.status(tracker)
+            print(f'AI budget: {budget.describe(spend)}')
+            budget.apply_caps(args, spend, run['warnings'])
+        except Exception as error:
+            print(f'Warning: budget check skipped: {type(error).__name__}: {error}')
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
     if tracker:
         try:
@@ -394,6 +419,15 @@ def main():
                 digest.mark_shown(db, shown_ids, seed)
         print(f'\nSent {len(messages)} Telegram message(s); imported {len(imported)} jobs.')
         run['telegram'] = f'sent {len(messages)} message(s), {new_count} new'
+    if spend:
+        with store.connect(args.db) as db:
+            budget.alert_once(db, spend, lambda text: telegram.send(text, token, chat_id))
+    if tracker and args.mode == 'scheduled' and datetime.now(timezone.utc).hour == doctor.HEALTH_HOUR_UTC:
+        # Once a day: one Telegram line if a health check fails (Google sign-in, mail, budget, feeds).
+        try:
+            print(doctor.alert(tracker, lambda text: telegram.send(text, token, chat_id)))
+        except Exception as error:
+            print(f'Warning: health check skipped: {type(error).__name__}: {error}')
     if tracker and args.insight and args.mode == 'scheduled':
         # One insight a day, with the first scheduled run after insights.SEND_HOUR_UTC.
         try:

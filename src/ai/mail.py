@@ -30,7 +30,7 @@ import sys
 from zoneinfo import ZoneInfo
 
 from .. import telegram
-from ..notion import client as notion
+from ..notion import client as notion, cron_runs
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
@@ -383,6 +383,8 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         import anthropic
         client = anthropic.Anthropic()
     lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now)
+    if stats is not None:
+        stats.update(pending=count, done=count)
     notes = []
     if calendar:
         cal_lines, notes = calendar_pass(tracker, google, client, model, apps, index, state, stats, now, dry_run)
@@ -416,9 +418,13 @@ def main(argv=None):
         token, chat_id = telegram.credentials()
         sender = lambda text: telegram.send(text, token, chat_id)
     stats = {}
+    log = cron_runs.new_run('mail')
     try:
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
                   stats=stats))
+        if args.send and stats.get('usd'):  # a ⏰ Cronjob Runs row when it spent anything, for the budget
+            log['mail'] = stats
+            cron_runs.log_run(tracker, log)
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
         if 'invalid_grant' in str(error):
             message = ('⚠️ The Google sign-in for Gmail and Calendar has expired (Google limits apps in testing mode '

@@ -95,6 +95,14 @@ jobs:
           JOB_PILOTTO_INSIGHT_MODEL: ${{ vars.JOB_PILOTTO_INSIGHT_MODEL }}
           # Lets apply/add runs start the Gmail check 5 minutes later (mail.yml).
           GITHUB_TOKEN: ${{ github.token }}
+          # AI budget guard and the daily health check (optional Admin key: exact spend from Anthropic).
+          JOB_PILOTTO_MONTHLY_BUDGET_USD: ${{ vars.JOB_PILOTTO_MONTHLY_BUDGET_USD }}
+          ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          JOB_PILOTTO_GOOGLE_AUTH_AT: ${{ vars.JOB_PILOTTO_GOOGLE_AUTH_AT }}
+          GH_TOKEN: ${{ github.token }}
           JOB: ${{ inputs.job }}
           ACTION: ${{ inputs.action || 'applied' }}
           PAGE: ${{ inputs.page }}

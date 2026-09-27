@@ -23,6 +23,22 @@ class FakeTracker:
         return self.rows.get(database_id, [])
 
 
+_patches = []
+
+
+def setUpModule():
+    # Never reach the real Google account or Anthropic Admin API from these tests.
+    for target in (mock.patch('src.sources.google.credentials', return_value=None),
+                   mock.patch('src.ai.budget.admin_key', return_value=None)):
+        _patches.append(target)
+        target.start()
+
+
+def tearDownModule():
+    for target in _patches:
+        target.stop()
+
+
 class NextStepTest(unittest.TestCase):
     def test_first_failure_wins_over_earlier_warning(self):
         checks = [Check('Setup', 'Answers', WARN, 'empty', 'fill answers'),
