@@ -3,7 +3,7 @@
 # worktrees), run every test suite CI runs, and block the push if one fails, so only green builds reach
 # GitHub. Reads the hook's JSON on stdin; exit 2 blocks the command and shows the reason to Claude.
 #   python: unittest, normally and as CI sees it (no Notion/Telegram/Google/SerpApi credentials)
-#   worker: npm test        desktop: npm test (npm ci first when node_modules is missing)
+#   worker, site: npm test  desktop: npm test (npm ci first when node_modules is missing)
 set -uo pipefail
 
 input="$(cat)"
@@ -53,6 +53,7 @@ run "python" python_tests
 run "python (as CI, no credentials)" python_ci
 run "worker" node_tests worker
 [ -f "$repo/desktop/package.json" ] && run "desktop" node_tests desktop
+[ -f "$repo/site/package.json" ] && run "site" node_tests site
 
 if [ ${#failed[@]} -gt 0 ]; then
   {

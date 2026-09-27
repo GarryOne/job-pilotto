@@ -1,7 +1,14 @@
-# The landing page, served as static files by Cloudflare (Workers static assets, free tier).
+# The landing page (public/, Workers static assets) and its one endpoint, POST /api/waitlist (src/index.js).
 # Deploy: cd site && npx wrangler@4 deploy   (CI: .github/workflows/site.yml on changes under site/)
 name = "job-pilotto-site"
+main = "src/index.js"
 compatibility_date = "2026-09-01"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
+
+# Pro early-access sign-ups.
+[[kv_namespaces]]
+binding = "WAITLIST"
+id = "a871d4644b614266b5bfa7f1b5e811c1"

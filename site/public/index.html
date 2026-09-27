@@ -130,6 +130,11 @@
 
   /* Pricing */
   .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .plans.two { grid-template-columns: repeat(2, 1fr); max-width: 920px; }
+  .plan-link { justify-self: center; font-size: .9rem; color: var(--muted); }
+  .tag.soon { background: var(--line); color: var(--ink, inherit); }
+  .trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .optional { text-transform: none; letter-spacing: 0; opacity: .7; }
   .plan { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; display: grid; gap: 14px; align-content: start; }
   .plan.featured { border: 2px solid var(--signal); box-shadow: var(--shadow); }
   .plan-name { font: 600 .76rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -183,7 +188,7 @@
       <p class="lede">A Mac app that reads new openings every few hours, scores each one against your CV, drafts your answers and fills the application form. Everything is tracked in your own Notion. You review and click Submit.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg"> Download for Mac</a>
-        <a class="btn btn-ghost" href="#board">Join the Zurich pilot</a>
+        <a class="btn btn-ghost" href="#see">See it in action</a>
       </div>
       <p class="hero-note">For Macs with Apple silicon (M1 or newer). Set up in about 10 minutes with a free Notion account and your own AI key. The first time, macOS asks you to allow it: System Settings → Privacy &amp; Security → Open Anyway.</p>
     </div>
@@ -292,63 +297,62 @@
 
   <section class="block" id="pricing">
     <div class="section-head">
-      <span class="eyebrow">Pricing · pilot</span>
-      <h2>Pay for the search, not forever</h2>
-      <p class="lede">A job search ends. The 3-month pass covers a typical one; cancel monthly plans any time.</p>
+      <span class="eyebrow">Pricing</span>
+      <h2>Free to use. Pro when you want more.</h2>
+      <p class="lede">The Mac app is free and open source: you bring your own AI key and your own free Notion. Pro will add the things that are hard to run yourself.</p>
     </div>
-    <div class="plans">
-      <article class="plan">
-        <span class="plan-name">Free · open source</span>
+    <div class="plans two">
+      <article class="plan featured">
+        <span class="tag">Available now</span>
+        <span class="plan-name">Free · Mac app</span>
         <div class="price">0 <small>forever</small></div>
         <ul>
-          <li>Every core feature, run from the source code</li>
-          <li>For developers comfortable with a terminal</li>
-          <li>Same Notion workspace, same privacy</li>
-        </ul>
-        <a class="btn btn-ghost" href="#faq">How to run it yourself</a>
-      </article>
-      <article class="plan featured">
-        <span class="tag">Most people</span>
-        <span class="plan-name">Pro · Mac app</span>
-        <div class="price">CHF 12 <small>/ month</small></div>
-        <p class="hero-note">or CHF 29 for a 3-month pass</p>
-        <ul>
-          <li>Signed Mac app, guided setup, automatic updates</li>
-          <li>Apply to several jobs in one click</li>
-          <li>The maintained list of employer career pages</li>
-          <li>Telegram digest and Chrome extension</li>
+          <li>Guided setup in about 10 minutes</li>
+          <li>Finds, scores and ranks new openings every few hours</li>
+          <li>Drafts cover letters and form answers in your voice</li>
+          <li>Fills application forms in Chrome; you review and submit</li>
+          <li>Telegram digest, your whole search tracked in Notion</li>
+          <li>Keeps working while your Mac is off (with your free GitHub)</li>
+          <li>Open source: read or run the code yourself</li>
         </ul>
         <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
+        <a class="plan-link" href="https://github.com/GarryOne/job-pilotto">or run it from the source code</a>
       </article>
       <article class="plan">
-        <span class="plan-name">Sprint</span>
-        <div class="price">CHF 24 <small>/ month</small></div>
+        <span class="tag soon">Coming soon</span>
+        <span class="plan-name">Pro</span>
+        <div class="price">Soon <small>early sign-ups get a month free</small></div>
         <ul>
-          <li>Everything in Pro</li>
-          <li>Interview recording and question-by-question reviews</li>
-          <li>Hourly checks for new openings</li>
-          <li>For layoffs, relocations and visa deadlines</li>
+          <li>Signed by Apple, installs without warnings, updates itself</li>
+          <li>Hosted searches: nothing to set up on GitHub, checks as often as hourly</li>
+          <li>The maintained index of employer career pages, checked every week</li>
+          <li>Interview recording in the app, with question-by-question reviews</li>
+          <li>One-click Notion connection, no tokens to copy</li>
+          <li>More countries: Germany, the Netherlands, the UK and remote Europe</li>
+          <li>Salary and response-rate benchmarks from roles like yours</li>
+          <li>Priority help and a personal setup call</li>
         </ul>
-        <a class="btn btn-ghost" href="#board">Join the pilot</a>
+        <a class="btn btn-ghost" href="#early">Get early access</a>
       </article>
     </div>
-    <p class="hero-note">Pilot prices. AI usage is billed by Anthropic to your own account, usually a few dollars a month.</p>
+    <p class="hero-note">AI usage is billed by Anthropic to your own account, usually a few dollars a month.</p>
   </section>
 
-  <section class="block" id="board">
+  <section class="block" id="early">
     <div class="boarding">
       <div>
-        <span class="eyebrow">Boarding now · 20 seats</span>
-        <h2>Join the Zurich pilot</h2>
-        <p>The first 20 people get Pro free for their first month and a personal setup call. For macOS. Tech roles in Switzerland where English is fine: SRE, platform, DevOps, backend.</p>
+        <span class="eyebrow">Pro · early access</span>
+        <h2>Be first to try Pro</h2>
+        <p>Hosted searches, the maintained employer index, interview reviews and more countries are on the way. Leave your email and you'll hear from us once, when Pro is ready. Early sign-ups get their first month free.</p>
       </div>
       <form id="waitlist" novalidate>
         <label for="email">Email</label>
         <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-        <label for="role">Role you're looking for</label>
-        <input id="role" name="role" type="text" placeholder="e.g. Senior SRE in Zurich">
-        <button class="btn btn-primary" type="submit">Reserve a seat</button>
-        <p class="fine" id="waitlist-note">We email you once when your seat is ready. No newsletter.</p>
+        <label for="role">What you're looking for <span class="optional">(optional)</span></label>
+        <input id="role" name="role" type="text" maxlength="200" placeholder="e.g. Senior SRE in Zurich">
+        <input class="trap" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-primary" type="submit">Get early access</button>
+        <p class="fine" id="waitlist-note">One email when Pro is ready. No newsletter.</p>
       </form>
     </div>
   </section>
@@ -362,11 +366,11 @@
       <details><summary>Does it apply to jobs for me?</summary><p>No, never. It finds, scores, drafts and fills. Submitting is always your click, after you've reviewed the form.</p></details>
       <details><summary>Do I need Notion?</summary><p>Yes, a free Notion account. It's where you see and track everything: matches, applications, interviews and insights. The app copies a ready-made workspace into your account during setup.</p></details>
       <details><summary>What does the AI cost?</summary><p>You use your own Anthropic account, so the cost goes to you directly and you can see it: usually a few dollars a month. Each search shows what it cost in your Notion.</p></details>
-      <details><summary>Windows or Linux?</summary><p>Mac first. Windows is planned once the pilot is running well.</p></details>
-      <details><summary>Which jobs does it cover?</summary><p>The pilot focuses on tech roles in Switzerland where English is enough, plus remote roles open to people in Switzerland. It reads career pages of top tech employers (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and more), jobs.ch, TechTree and Google Jobs.</p></details>
+      <details><summary>Windows or Linux?</summary><p>Mac first. Windows is planned once the Mac app is stable.</p></details>
+      <details><summary>Which jobs does it cover?</summary><p>Today it focuses on tech roles in Switzerland where English is enough, plus remote roles open to people in Switzerland. It reads career pages of top tech employers (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and more), jobs.ch, TechTree and Google Jobs.</p></details>
       <details><summary>Does it work with LinkedIn?</summary><p>It doesn't read or post on LinkedIn. Most roles you'd find there are also on the employer's own career page, which is where it looks and where you apply.</p></details>
       <details><summary>What happens to my CV?</summary><p>It stays on your Mac. The AI reads it once to draft your Profile (which you review in Notion), and it's attached to the applications you submit. Nothing is stored on a Job Pilotto server.</p></details>
-      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto is open source: run it from the source code with the same Notion workspace. Pro is the signed app with guided setup, updates and the maintained list of employer pages.</p></details>
+      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto is open source: run it from the source code with the same Notion workspace. The Mac app is free too. Pro, coming soon, adds hosted searches, the maintained employer index and interview reviews.</p></details>
     </div>
   </section>
 
@@ -376,20 +380,31 @@
   </footer>
 </div>
 <script>
-  // The pilot waitlist has no server yet: keep the address on this device and say so honestly.
+  // Pro early access: sent to /api/waitlist (site/src/index.js), kept in Cloudflare KV.
   const form = document.getElementById('waitlist');
-  form.addEventListener('submit', event => {
+  form.addEventListener('submit', async event => {
     event.preventDefault();
     const email = document.getElementById('email');
     const note = document.getElementById('waitlist-note');
+    const button = form.querySelector('button');
     if (!email.value || !email.checkValidity()) {
       note.textContent = 'Enter an email address like you@example.com.';
       email.focus();
       return;
     }
-    note.className = 'fine thanks';
-    note.textContent = "Thanks, you're on the list. (Preview: sign-ups aren't sent anywhere yet.)";
-    form.querySelector('button').disabled = true;
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/waitlist', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email.value, role: document.getElementById('role').value, website: form.website.value})});
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      note.className = 'fine thanks';
+      note.textContent = result.already ? "You're already on the list. We'll email you when Pro is ready."
+        : "Thanks, you're on the list. We'll email you once, when Pro is ready.";
+    } catch (error) {
+      button.disabled = false;
+      note.textContent = error.message || "That didn't go through. Please try again.";
+    }
   });
 </script>
 </body>
