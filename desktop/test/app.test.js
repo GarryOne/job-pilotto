@@ -291,3 +291,20 @@ test('claude is found outside the shell PATH, where the installer puts it', () =
   assert.equal(found, '/opt/homebrew/bin/claude');
   assert.equal(apply.claudeBinary({PATH: ''}, () => false), '');
 });
+
+test('the Jobs filter finds a job by its pasted link, however it was copied', async () => {
+  const {matches, looksLikeLink} = await import('../renderer/filter.js');
+  const job = {title: 'Site Reliability Engineer (a)', company: 'KMS AG', location: 'Kriens',
+    url: 'https://www.jobs.ch/en/vacancies/detail/236ae744-8fa8-464d-b4ae-a9e3a9b9c8bd/'};
+  for (const pasted of ['www.jobs.ch/en/vacancies/detail/236ae744-8fa8-464d-b4ae-a9e3a9b9c8bd',
+    'https://www.jobs.ch/en/vacancies/detail/236ae744-8fa8-464d-b4ae-a9e3a9b9c8bd/?utm_source=x#apply',
+    'jobs.ch/en/vacancies/detail/236ae744-8fa8-464d-b4ae-a9e3a9b9c8bd/']) {
+    assert.ok(looksLikeLink(pasted), pasted);
+    assert.ok(matches(job, pasted), pasted);
+  }
+  assert.ok(!matches(job, 'www.jobs.ch/en/vacancies/detail/other-job'));
+  assert.ok(matches(job, 'kms'));
+  assert.ok(matches(job, '236ae744'));  // part of the link, typed as a word
+  assert.ok(!looksLikeLink('site reliability'));
+  assert.ok(matches(job, ''));
+});

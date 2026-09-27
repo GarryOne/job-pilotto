@@ -1,3 +1,5 @@
+import {looksLikeLink, matches} from './filter.js';
+
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
 const $ = id => document.getElementById(id);
@@ -277,9 +279,11 @@ const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
 function renderJobs() {
   const filter = $('filter-status').value;
-  const text = $('filter-text').value.trim().toLowerCase();
-  const rows = allJobs.filter(job => (filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
-    (!text || `${job.title} ${job.company} ${job.location}`.toLowerCase().includes(text)));
+  const text = $('filter-text').value.trim();
+  // A pasted link finds that job whatever its status; words filter within the chosen status.
+  const anyStatus = looksLikeLink(text);
+  const rows = allJobs.filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+    matches(job, text));
   const body = $('jobs-body');
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
@@ -410,6 +414,9 @@ function renderJobs() {
     body.append(tr);
   }
   show($('jobs-empty'), rows.length === 0);
+  $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Find new jobs</b>; the first search takes a few minutes.'
+    : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
+    : text || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
 $('filter-status').addEventListener('change', renderJobs);
 $('filter-text').addEventListener('input', renderJobs);
