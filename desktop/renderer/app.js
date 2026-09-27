@@ -1034,10 +1034,15 @@ $('iv-record').addEventListener('click', async () => {
     message('iv-message', 'Job Pilotto may not use the microphone: System Settings → Privacy & Security → Microphone.', 'error');
     return;
   }
+  // The call's audio needs macOS Screen & System Audio Recording permission; without it the request may
+  // never answer, so after 5 s the recording starts with the microphone alone.
   try {
-    call = await navigator.mediaDevices.getDisplayMedia({audio: true, video: {frameRate: 1, width: 320, height: 200}});
-    if (!call.getAudioTracks().length) { call.getTracks().forEach(t => t.stop()); call = null; }
+    const request = navigator.mediaDevices.getDisplayMedia({audio: true, video: {frameRate: 1, width: 320, height: 200}});
+    call = await Promise.race([request, new Promise(resolve => setTimeout(() => resolve(null), 5000))]);
+    if (!call) request.then(late => late.getTracks().forEach(t => t.stop()), () => {});
+    else if (!call.getAudioTracks().length) { call.getTracks().forEach(t => t.stop()); call = null; }
   } catch { call = null; }
+  if (!call) message('iv-message', '🎙️ Recording your microphone only. For the call\'s audio too: System Settings → Privacy & Security → Screen & System Audio Recording → Job Pilotto (or Electron), then record again.');
   const context = new AudioContext();
   const destination = context.createMediaStreamDestination();
   const mono = stream => {

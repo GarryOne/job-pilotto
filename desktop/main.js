@@ -459,10 +459,14 @@ if (firstCopy) app.whenReady().then(() => {
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   pipeline.ensureConfig(storage);
   handlers();
+  // Without Screen Recording permission there's no source (desktopCapturer rejects "Failed to get sources"),
+  // and Electron throws when a video request is answered without video: catch both, so nothing goes unhandled;
+  // the recorder then records the microphone alone (renderer: 5 s timeout).
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    const answer = streams => { try { callback(streams); } catch {} };
     desktopCapturer.getSources({types: ['screen']})
-      .then(sources => callback(sources[0] ? {video: sources[0], audio: 'loopback'} : {}))
-      .catch(() => callback({}));
+      .then(sources => answer(sources[0] ? {video: sources[0], audio: 'loopback'} : {}))
+      .catch(() => answer({}));
   });
   if (!DEMO) {
     server.setNotifier(notify);
