@@ -328,7 +328,7 @@ function renderJobs() {
         prepare.classList.add('busy');  // spinner only; the fixed width keeps the row still
         prepare.textContent = 'Preparing';
         prepare.title = 'Drafting the kit: usually 15–30 s';
-        const result = await window.pilot.prepareKit(job.code);
+        const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
         prepare.classList.remove('busy');
         if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
       });
@@ -530,7 +530,16 @@ $('cloud-connect').addEventListener('click', async () => {
     `${result.secrets.length} keys stored as encrypted secrets. The first run follows your schedule; press Search now to start one right away.`, 'ok');
 });
 window.pilot.onCloudStep(step => {
-  if (step.code) message('cloud-message', `In the browser tab that opened, enter the code ${step.code} and approve Job Pilotto (${step.url}).`);
+  if (step.code) {
+    // The sign-in code, big and bold, with Copy: it's what the user has to find and type on github.com.
+    const box = $('cloud-message');
+    box.className = 'message';
+    const code = Object.assign(document.createElement('b'), {className: 'device-code', textContent: step.code});
+    const copy = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Copy'});
+    copy.addEventListener('click', () => { navigator.clipboard.writeText(step.code); copy.textContent = 'Copied ✓'; });
+    box.replaceChildren('In the browser tab that opened, enter this code and approve Job Pilotto:', document.createElement('br'),
+      code, ' ', copy, document.createElement('br'), Object.assign(document.createElement('span'), {className: 'muted small', textContent: step.url}));
+  }
   else message('cloud-message', step.text);
 });
 let cloudUrls = null;

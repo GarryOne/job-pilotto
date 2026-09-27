@@ -178,3 +178,4 @@ table.runs tr.run:hover, table.runs tr.run.open { background: #f5f8fb; }
 .row-actions .row-main.busy::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5);
   border-top-color: #fff; animation: spin .8s linear infinite; flex: none; }
 #refresh { min-width: 9.5em; justify-content: center; }
+.device-code { display: inline-block; margin: 8px 6px 6px 0; padding: 6px 12px; font: 700 22px ui-monospace, Menlo, monospace; letter-spacing: .12em; background: var(--signal-soft, #fdeee4); color: var(--navy); border-radius: 8px; user-select: all; }

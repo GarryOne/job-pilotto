@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, shell} from 'electron';
+import {app, BrowserWindow, dialog, ipcMain, Notification, powerMonitor, safeStorage, shell} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -78,6 +78,13 @@ function createWindow() {
 }
 
 const log = line => window?.webContents.send('log', line);
+// A macOS notification; clicking it brings the app to the front.
+function notify(title, body) {
+  if (!Notification.isSupported() || process.env.JOB_PILOTTO_SMOKE) return;
+  const note = new Notification({title, body, silent: false});
+  note.on('click', () => { window?.show(); window?.focus(); });
+  note.show();
+}
 
 function handlers() {
   ipcMain.handle('state', () => ({
@@ -249,9 +256,14 @@ function handlers() {
   ipcMain.handle('openTabs', () => server.openTabs());
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
-  ipcMain.handle('prepareKit', async (_, code) => {
-    const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), log);
-    return {ok: exit === 0};
+  ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
+    // Quietly: the result comes as a notification (and the row's Apply), not as log output.
+    const lines = [];
+    const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), line => lines.push(line));
+    const ineligible = lines.map(line => line.replace(/<[^>]+>/g, '')).find(line => line.includes('Not eligible:'));
+    if (exit !== 0) notify('Kit not prepared', `${name}: ${lines.filter(Boolean).slice(-1)[0] || 'something went wrong'}`);
+    else notify('Application kit ready ✓', ineligible ? `${name}. ${ineligible.trim()}` : `${name}. Press Apply to fill the form.`);
+    return {ok: exit === 0, ineligible: ineligible || ''};
   });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
@@ -291,7 +303,8 @@ if (firstCopy) app.whenReady().then(() => {
   pipeline.ensureConfig(storage);
   handlers();
   if (!DEMO) {
-    server.start(storage, error => log(error.code === 'EADDRINUSE'
+    server.setNotifier(notify);
+  server.start(storage, error => log(error.code === 'EADDRINUSE'
       ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
       : `Chrome extension connection failed: ${error.message}`));
   }

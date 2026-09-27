@@ -88,6 +88,9 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true} = {}) {
   const startedAt = new Date();
   chrome.storage.session.set({[`job:${tab.id}`]: tab.url.split('#')[0]});
+  const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
+    body: JSON.stringify({type, url: tab.url.split('#')[0], ...extra})}).catch(() => {});
+  event('fill-started');
   const withKit = kitAnswers.length > 0;
   // Everything about this fill, for debugging and improving the extension (saved with the run in Notion).
   const debug = {version: chrome.runtime.getManifest().version, browser: navigator.userAgent, steps: [], errors: []};
@@ -183,6 +186,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
     }
   }
+  event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,

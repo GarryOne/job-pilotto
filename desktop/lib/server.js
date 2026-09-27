@@ -48,6 +48,7 @@ export function localEnv(storage) {
       const job = await find(url);
       if (!job) return {ok: false, error: 'This job isn\'t in your list'};
       await pipeline.setStatus(storage, job.url, 'applied');
+      notify('Marked Applied ✓', `${jobName(job)}. Saved in Job Pilotto and your Notion.`);
       return {ok: true, message: 'Marked Applied in Job Pilotto.'};
     },
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
@@ -67,6 +68,12 @@ export function me(storage) {
   } catch {}
   return {contact: settings.contact || {}, resume};
 }
+
+// Desktop notifications for what happens in Chrome (set by main.js): the fill starting and finishing,
+// and the application being marked Applied.
+let notify = () => {};
+export const setNotifier = fn => { notify = fn; };
+const jobName = job => job ? `${job.title} · ${job.company}` : 'this job';
 
 // Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.
 let tabs = new Set();
@@ -95,6 +102,25 @@ export function start(storage, onError = () => {}) {
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify({ok}));
+        return;
+      }
+      if (req.url === '/extension/event') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify({ok}));
+        if (ok) {
+          const event = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+          const {jobs} = await pipeline.jobs(storage).catch(() => ({jobs: []}));
+          const job = jobs.find(j => pageKey(j.url) === pageKey(event.url));
+          if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`);
+          if (event.type === 'fill-done') {
+            notify(event.left ? 'Form filled: a few things left for you' : 'Form filled ✓',
+              `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`);
+          }
+        }
         return;
       }
       if (req.url === '/extension/me') {
