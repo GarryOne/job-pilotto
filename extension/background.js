@@ -138,4 +138,7 @@ async function reportTabs() {
 chrome.tabs.onRemoved.addListener(() => reportTabs());
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });
 chrome.runtime.onStartup.addListener(reportTabs);
+// Also every 30 s, so an app started after the tabs were opened still learns about them.
+chrome.alarms.create('report-tabs', {periodInMinutes: 0.5});
+chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') reportTabs(); });
 reportTabs();

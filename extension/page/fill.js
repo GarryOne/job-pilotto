@@ -121,7 +121,7 @@
     badge.textContent = `✈️ Click to choose: ${answer}`;
     badge.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#d9540b';
     control.parentElement.insertBefore(badge, control.nextSibling);
-    control.dataset.jobpilottoArmed = '1';
+    control.dataset.jobpilottoArmed = labelOf(el) || field;
     const done = () => { control.style.outline = ''; badge.remove(); delete control.dataset.jobpilottoArmed; control.removeEventListener('mousedown', onOpen, true); };
     const onOpen = event => {
       if (!event.isTrusted) return;
@@ -204,13 +204,15 @@
   // answers: [{field, value, question?, confidence?, note?}] merged by the extension (AI + kit).
   // For "Fill drop-down menus too": the next armed dropdown, scrolled into view, as viewport coordinates
   // for a real click (sent by the extension through Chrome's debugger), or null when none is left.
-  window.__jobPilottoNextCombo = (skip = 0) => {
+  window.__jobPilottoNextCombo = async (skip = 0) => {
     const control = Array.from(document.querySelectorAll('[data-jobpilotto-armed]'))[skip];
     if (!control) return null;
-    control.scrollIntoView({block: 'center'});
+    // Instant, not smooth: sites with smooth scrolling (Greenhouse) moved the menu after it was measured.
+    control.scrollIntoView({block: 'center', behavior: 'instant'});
+    await sleep(120);
     const rect = control.getBoundingClientRect();
     return {x: Math.round(rect.left + Math.min(40, rect.width / 2)), y: Math.round(rect.top + rect.height / 2),
-      left: document.querySelectorAll('[data-jobpilotto-armed]').length};
+      label: control.dataset.jobpilottoArmed};
   };
   window.__jobPilottoPanel = summary => panel(summary);
   window.__jobPilottoArmedCount = () => document.querySelectorAll('[data-jobpilotto-armed]').length;
@@ -258,7 +260,24 @@
     }
     const legal = after.filter(row => row.legal && !row.filled).map(row => `Your choice (legal): ${row.label}`);
     const unfilledRequired = open.filter(row => !(row.field === 'resume' && resumeAttached) && !row.legal).length;
-    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
+    // Field-by-field log for the run record: where each answer came from and what happened.
+    const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));
+    const trace = after.filter(row => row.field !== 'resume').map(row => {
+      const label = rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field;
+      const answer = answerOf[row.field];
+      const source = contactFields.has(row.field) ? 'your details' : answer ? (answer.source || 'kit') : '';
+      let outcome = row.filled ? 'filled' : 'left';
+      let reason = '';
+      if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
+      else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
+      else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
+      else if (!row.filled) reason = 'answer given, but the field did not take it';
+      return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
+        low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};
+    });
+    trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
+      reason: resumeAttached ? '' : 'no CV in the app'});
+    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
     panel(summary);
     return summary;
   };

@@ -11,11 +11,11 @@ test('extension page helpers are the same as the tools/ originals (run extension
   }
 });
 
-test('manifest asks for activeTab, debugger, scripting and storage, and runs by itself only on the job-application sites', () => {
+test('manifest asks for activeTab, alarms, debugger, scripting and storage, and runs by itself only on the job-application sites', () => {
   const manifest = JSON.parse(read('extension/manifest.json'));
   assert.equal(manifest.manifest_version, 3);
   // debugger: real clicks on dropdowns, used only when Settings → Fill drop-down menus too is on (Chrome can't make it optional).
-  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'debugger', 'scripting', 'storage']);
+  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'alarms', 'debugger', 'scripting', 'storage']);
   // Granted at install, so tabs opened by the app or "Open & fill" fill themselves (as optional
   // permissions they needed a prompt that closed the popup, and nothing filled).
   assert.deepEqual(manifest.host_permissions, ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',

@@ -11,32 +11,36 @@ export const JOB_SITES = [
 export async function clickCombos(tabId) {
   const page = (func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
     .then(([r]) => r?.result);
-  if (!(await page(() => window.__jobPilottoArmedCount?.() || 0))) return 0;
+  const results = [];
+  if (!(await page(() => window.__jobPilottoArmedCount?.() || 0))) return results;
   const target = {tabId};
   await chrome.debugger.attach(target, '1.3');
   const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
     {type, x, y, button: 'left', clickCount: 1});
-  let picked = 0, skip = 0;
+  const click = async (x, y) => { await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };
+  let skip = 0;
   try {
-    for (let i = 0; i < 30; i++) {
-      const before = await page(() => window.__jobPilottoArmedCount());
+    for (let i = 0; i < 40; i++) {
       const spot = await page(n => window.__jobPilottoNextCombo(n), [skip]);
       if (!spot) break;
-      await new Promise(r => setTimeout(r, 150));  // let the scroll settle
-      await mouse('mouseMoved', spot.x, spot.y);
-      await mouse('mousePressed', spot.x, spot.y);
-      await mouse('mouseReleased', spot.x, spot.y);
-      await new Promise(r => setTimeout(r, 900));  // the page opens the menu, filters it and picks the answer
-      const after = await page(() => window.__jobPilottoArmedCount());
-      if (after < before) picked += 1; else skip += 1;  // not picked (no matching option): leave it for the user
-      if (after === 0) break;
+      const started = Date.now();
+      let picked = false;
+      for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
+        const before = await page(() => window.__jobPilottoArmedCount());
+        const at = attempt === 1 ? spot : await page(n => window.__jobPilottoNextCombo(n), [skip]);
+        if (!at) break;
+        await click(at.x, at.y);
+        await new Promise(r => setTimeout(r, 900));  // the page opens the menu, filters it and picks the answer
+        picked = (await page(() => window.__jobPilottoArmedCount())) < before;
+        if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 200)); }  // close the menu
+      }
+      results.push({label: spot.label, picked, ms: Date.now() - started});
+      if (!picked) skip += 1;
     }
-    await mouse('mousePressed', 5, 5).catch(() => {});  // close any menu left open
-    await mouse('mouseReleased', 5, 5).catch(() => {});
   } finally {
     await chrome.debugger.detach(target).catch(() => {});
   }
-  return picked;
+  return results;
 }
 
 export async function settings() {
@@ -70,10 +74,14 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true} = {}) {
   const startedAt = new Date();
   const withKit = kitAnswers.length > 0;
+  // Everything about this fill, for debugging and improving the extension (saved with the run in Notion).
+  const debug = {version: chrome.runtime.getManifest().version, browser: navigator.userAgent, steps: [], errors: []};
+  let stepAt = Date.now();
+  const step = name => { const now = Date.now(); debug.steps.push({step: name, ms: now - stepAt}); stepAt = now; };
   onStep('Reading the form…');
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
-  let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question,
+  let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null;
   // A job with a kit fills from it at once: the form was read and answered (and eligibility decided) when
@@ -81,6 +89,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   if (kitAnswers.length) useAI = false;
   if (useAI) {
     const form = await inPage(tab.id, () => window.__jobPilottoDescribeForm());
+    step('read the form');
+    debug.form = (form || []).map(({field, label, type, required, filled, legal, options}) =>
+      ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
     // Fields the kit already answered (drafted ahead from the form's questions) don't go to Claude.
     const fromKit = new Set(answers.filter(a => a.value).map(a => a.field));
     const open = (form || []).filter(f => !f.filled && !f.legal && !fromKit.has(f.field)).map(({field, label, type, required, options}) =>
@@ -92,7 +103,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       ai = cached;
       if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: 0};
       const byAI = new Set(ai.answers.map(a => a.field));
-      answers = [...ai.answers, ...answers.filter(a => !byAI.has(a.field))];
+      answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
     } else if (open.length) {
       onStep(`Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
       try {
@@ -104,18 +115,23 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: ai.usd};
         // The AI saw the live form, so its answer wins; kit answers fill whatever it left out.
         const byAI = new Set(ai.answers.map(a => a.field));
-        answers = [...ai.answers, ...answers.filter(a => !byAI.has(a.field))];
+        answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
       } catch (error) {
         aiError = error.message;
+        debug.errors.push(`Claude: ${error.message}`);
       }
+      step('Claude answered');
     }
   }
   onStep('Filling the form…');
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
-  const me = await api(config, '/extension/me').catch(() => null);
+  const me = await api(config, '/extension/me').catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
+  debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
+  debug.details = {fields: Object.keys(me?.contact || {}), cv: me?.resume?.name || null};
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
+  step('filled the page');
   const clickDropdowns = config.clickDropdowns !== false;  // on unless turned off in Settings
   if (!clickDropdowns && await armedLeft()) {
     // Say why they're left, and how to have them chosen automatically.
@@ -125,7 +141,15 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   if (clickDropdowns) {
     onStep('Choosing the drop-down answers…');
     try {
-      const picked = await clickCombos(tab.id);
+      const combos = await clickCombos(tab.id);
+      debug.dropdowns = combos;
+      step('clicked dropdowns');
+      const picked = combos.filter(c => c.picked).length;
+      for (const combo of combos) {
+        const row = (summary.trace || []).find(r => r.label === combo.label);
+        if (row) Object.assign(row, {outcome: combo.picked ? 'filled' : 'left', source: row.source || 'kit',
+          reason: combo.picked ? `dropdown clicked for you (${(combo.ms / 1000).toFixed(1)} s)` : `dropdown clicked, but no option matched (${(combo.ms / 1000).toFixed(1)} s)`});
+      }
       if (picked) {
         summary.filled = (summary.filled || 0) + picked;
         summary.todo = (summary.todo || []).filter(item => !/highlighted dropdown/.test(item));
@@ -134,6 +158,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
       }
     } catch (error) {
+      debug.errors.push(`dropdowns: ${error.message}`);
       summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
       await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
     }
@@ -141,6 +166,6 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,
-    kit: withKit, todo: (summary.todo || []).slice(0, 8)})}).catch(() => {});
+    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], debug: {...debug, aiUsd: ai?.usd || 0}})}).catch(() => {});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
 }

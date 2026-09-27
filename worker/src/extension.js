@@ -200,6 +200,48 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
 
 const ATS = [['greenhouse', 'Greenhouse'], ['ashbyhq', 'Ashby'], ['lever.co', 'Lever'], ['workable', 'Workable']];
 
+// Lessons from a fill, from its field log (no AI): what kept fields from being filled, grouped.
+export function learnings(run) {
+  const left = (run.trace || []).filter((f) => f.outcome !== 'filled');
+  const groups = {};
+  for (const f of left) (groups[f.reason || 'unknown'] ||= []).push(f.label);
+  return Object.entries(groups).map(([reason, labels]) => `${labels.length} left: ${reason} (${labels.slice(0, 4).join(', ')}${labels.length > 4 ? ', …' : ''})`);
+}
+
+// The run's page: summary, the field-by-field log as a table, and what's left for the user.
+function runBlocks(run, minutes) {
+  const t = (s) => [{ type: 'text', text: { content: String(s ?? '').slice(0, 1900) } }];
+  const p = (s) => ({ object: 'block', type: 'paragraph', paragraph: { rich_text: t(s) } });
+  const h = (s) => ({ object: 'block', type: 'heading_3', heading_3: { rich_text: t(s) } });
+  const li = (s) => ({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: t(s) } });
+  const trace = (run.trace || []).slice(0, 90);
+  const blocks = [p(`${run.kit ? 'Filled from the kit' : 'Claude answered the form on the page'} in ${minutes} min; ` +
+    `${trace.filter((f) => f.outcome === 'filled').length} of ${trace.length} fields filled; AI cost $${Number(run.usd || 0).toFixed(3)}.`)];
+  if (trace.length) {
+    blocks.push(h('Field by field'));
+    const cells = (...values) => ({ type: 'table_row', table_row: { cells: values.map(t) } });
+    blocks.push({ object: 'block', type: 'table', table: { table_width: 5, has_column_header: true, children: [
+      cells('Field', 'Required', 'Answer from', 'Result', 'Why / note'),
+      ...trace.map((f) => cells(f.label, f.required ? 'yes' : '', f.source || '—', f.outcome === 'filled' ? '✅ filled' : '⬜ left',
+        [f.reason, f.low && `check: ${f.low}`].filter(Boolean).join(' · '))),
+    ] } });
+  }
+  const lessons = learnings(run);
+  if (lessons.length) { blocks.push(h('Learnings')); blocks.push(...lessons.map(li)); }
+  if ((run.todo || []).length) { blocks.push(h('Left for you')); blocks.push(...run.todo.map(li)); }
+  if (run.debug) {
+    // The full record (step timings, the form as read, every answer and its source, dropdown clicks, errors).
+    const json = JSON.stringify(run.debug, null, 1).slice(0, 190000);
+    const chunks = [];
+    for (let i = 0; i < json.length; i += 1900) chunks.push({ type: 'text', text: { content: json.slice(i, i + 1900) } });
+    blocks.push(h('Debug data'));
+    for (let i = 0; i < chunks.length; i += 100) {
+      blocks.push({ object: 'block', type: 'code', code: { language: 'json', rich_text: chunks.slice(i, i + 100) } });
+    }
+  }
+  return blocks;
+}
+
 // A form fill by the extension, as a row in 🎏 Job Apply — Agent Runs (same columns as the agent runs).
 export async function logRun(env, run) {
   const row = await findRow(env, run.url).catch(() => null);
@@ -219,10 +261,11 @@ export async function logRun(env, run) {
     'Job URL': { url: run.url },
     'Billed to': { select: { name: run.usd ? 'Anthropic API credits' : 'Unknown' } },
     Reason: text(`${run.kit ? 'Filled from the kit' : 'Claude answered the form'}; AI cost $${Number(run.usd || 0).toFixed(3)}`),
-    Learnings: text((run.todo || []).join(' · ')),
+    Learnings: text(learnings(run).join(' · ') || (run.todo || []).join(' · ')),
     ...(row ? { Job: { relation: [{ id: row.id }] } } : {}),
   };
-  const page = await notion(env, 'pages', 'POST', { parent: { database_id: env.NOTION_AGENT_RUNS_DB }, properties });
+  const page = await notion(env, 'pages', 'POST', { parent: { database_id: env.NOTION_AGENT_RUNS_DB }, properties,
+    children: runBlocks(run, minutes) });
   return { ok: true, url: page.url };
 }
 

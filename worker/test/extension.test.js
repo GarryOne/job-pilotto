@@ -185,11 +185,15 @@ test('an extension fill is logged as an Agent Runs row comparable with the agent
   try {
     const result = await logRun({ NOTION_TOKEN: 't', NOTION_APPLICATIONS_DB: 'apps', NOTION_AGENT_RUNS_DB: 'runs' },
       { url: 'https://job-boards.greenhouse.io/acme/jobs/1', started: '2026-09-27T20:00:00Z', ended: '2026-09-27T20:00:12Z',
-        fields: 14, unfilled: 1, usd: 0, kit: true, todo: ['Answer: Location'] });
+        fields: 14, unfilled: 1, usd: 0, kit: true, todo: ['Answer: Location'],
+        trace: [{ label: 'Email', required: true, source: 'your details', outcome: 'filled' },
+          { label: 'Location (City)', required: true, source: '', outcome: 'left', reason: 'no answer in the kit, Profile or your details' }] });
     assert.equal(result.ok, true);
     const p = sent[0].properties;
     assert.equal(sent[0].parent.database_id, 'runs');
     assert.deepEqual([p.Agent.select.name, p.ATS.select.name, p.Status.select.name, p.Minutes.number, p.Fields.number, p['Unfilled required'].number],
       ['Extension', 'Greenhouse', 'Needs input', 0.2, 14, 1]);
+    assert.match(p.Learnings.rich_text[0].text.content, /1 left: no answer in the kit.*Location/);
+    assert.ok(sent[0].children.some((b) => b.type === 'table' && b.table.children.length === 3));
   } finally { globalThis.fetch = base; }
 });
