@@ -22,4 +22,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Workflows: `.github/workflows/daily.yml` (every 4 h), `scout.yml` (daily), `mail.yml` (Gmail + Calendar, 3x a day and 5 min after applying).
 
 ## Tests
-`python3 -m unittest discover -s tests` and `cd worker && npm test`.
+`python3 -m unittest discover -s tests`, `cd worker && npm test` and `cd desktop && npm test`.
+A Claude Code hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs all of them, plus the
+Python suite without credentials as CI sees it, before every `git push` and blocks the push if one
+fails, so only green builds reach GitHub.

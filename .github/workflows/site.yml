@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Not set up yet
         if: env.CLOUDFLARE_API_TOKEN == ''
-        run: echo "::notice::Add the CLOUDFLARE_API_TOKEN secret (Cloudflare → API Tokens → Edit Cloudflare Workers) to deploy the site.
+        run: echo "::notice::Add the CLOUDFLARE_API_TOKEN secret (Cloudflare → API Tokens → Edit Cloudflare Workers) to deploy the site."
       - uses: actions/checkout@v4
         if: env.CLOUDFLARE_API_TOKEN != ''
       - uses: actions/setup-node@v4
