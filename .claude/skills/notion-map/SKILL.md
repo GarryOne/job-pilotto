@@ -40,6 +40,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 │   └── Costs — Spending and Free-Tier Limits (3e562be8fd868106bb17d4bea0723fce)
 ├── 4 · Productization (3e562be8fd8681378229ef71e8420542)
 │   ├── Marketing Strategy — Free vs Premium (3e862be8fd868172a5c7f1056b745d6e)
+│   ├── Market & Competitors [Simplify, Teal, Huntr, JobCopilot, LazyApply; pricing; positioning; checked 28 Sep 2026] (3e862be8fd8681d5bdc5d29d50e085ae)
 │   ├── First Customer Onboarding (3e862be8fd8681e78558d784c7cb9c81)
 │   ├── Job Pilotto [public template: every database and page, no data; published at https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c] (3e862be8fd868143b431df70d505ed7c)
 │   └── Setup Guide, User Guide
@@ -54,6 +55,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 | How the pipeline works (modules, modes, AI stages, kit, feeds) | Technical Reference (`...dc83dc`) |
 | Why a decision was made, alternatives rejected | Decision Log database (`e4d099e6...`) |
 | Dated history of every change, commit references | Run Log (`...86ce57`) |
+| Competitors, their prices, where Job Pilotto differs | Market & Competitors (`...e085ae`) |
 | Milestone status, what's Done vs In progress, key numbers | 3 · Progress (`...ae8f8c69`) + Rollout database |
 | Candidate's real facts the scorer/kit drafts against | Profile — CV and Preferences (`...9921b8c`) — editing it re-scores every open job |
 | Standard form answers (permit, notice, sponsorship, style) | Application Answers (`...868108`) — editing it does NOT re-score |
