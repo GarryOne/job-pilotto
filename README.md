@@ -7,22 +7,13 @@ sends a ranked digest to Telegram. Applications are tracked in Notion. **It neve
 application on your behalf** — drafting and filling can be automated; clicking Submit always stays
 with you.
 
-```
-Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
-                                  │  SQLite state in the Actions cache
-                                  ▼
-                   AI stage 1: facts (Claude Haiku 4.5)
-                   AI stage 2: fit score vs your Profile (Claude Sonnet 5)
-                   AI stage 3: application kit for your best matches (Claude Sonnet 5)
-                                  │
-             ┌────────────────────┼────────────────────┐
-             ▼                    ▼                     ▼
-   Telegram digest (top 10)   Notion: Job Matches,   tools/apply-batch-*.sh: ChatGPT,
-   with buttons               Applications, Profile,  Codex or Claude fills the form
-             │                🤖 Agent Runs           in Chrome — you click Submit,
-             ▼                                        it's marked Applied by itself
-   Cloudflare Worker ── commands and buttons ──▶ GitHub Actions runs
-```
+<p align="center">
+  <img src="docs/images/architecture.png" width="100%"
+       alt="Job Pilotto architecture. 1 Discover: job sources (jobs.ch, TechTree, 29 employer feeds, optional Google Jobs; a daily scout finds new feeds) feed a crawler on GitHub Actions every 4 hours, with seen postings kept in SQLite. 2 Process and rank: Claude Haiku 4.5 extracts job facts, Claude Sonnet 5 scores fit against your profile and drafts an application kit for your best matches. 3 Deliver and act: a Telegram digest with buttons, your private Notion workspace, and an optional application assistant on your Mac that fills the form in Chrome; you review and click Submit, never automated. A Cloudflare Worker turns Telegram buttons into GitHub Actions runs and Notion updates. 4 Learn: the application record frozen at Submit, read-only Gmail and Calendar (confirmations, replies, rejections, interview prep), interview reviews from transcripts, and a daily insight plus weekly report that loop back to Telegram.">
+</p>
+
+<sub>Discover → rank with Claude → deliver to Telegram and Notion → you submit → learn from every reply.
+Diagram source: <a href="docs/images/architecture.svg"><code>docs/images/architecture.svg</code></a>.</sub>
 
 Everything in that diagram except the crawl is **optional**. You can run the core in two minutes
 with no accounts and no keys, then turn on the rest one piece at a time, only if you want it.

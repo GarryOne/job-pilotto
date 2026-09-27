@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EEF4FF"/>
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#64748B"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2563EB"/>
+    </marker>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+      .title{font-size:50px;font-weight:760;letter-spacing:-1.4px;fill:#fff}
+      .subtitle{font-size:20px;font-weight:450;fill:#CBD5E1}
+      .section{font-size:14px;font-weight:780;letter-spacing:1.5px;fill:#64748B}
+      .card-title{font-size:21px;font-weight:730;fill:#0F172A}
+      .body{font-size:16px;font-weight:450;fill:#475569}
+      .small{font-size:14px;font-weight:520;fill:#64748B}
+      .tiny{font-size:12.5px;font-weight:650;fill:#64748B}
+      .tag{font-size:12px;font-weight:800;letter-spacing:.7px;fill:#4338CA}
+      .connector{fill:none;stroke:#64748B;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;marker-end:url(#arrow)}
+      .dash{fill:none;stroke:#2563EB;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 8;marker-end:url(#arrowBlue)}
+      .card{fill:#fff;stroke:#CBD5E1;stroke-width:1.7}
+      .shadow{fill:#0F172A;opacity:.07}
+    </style>
+  </defs>
+
+  <rect width="1600" height="1100" fill="url(#page)"/>
+
+  <!-- Header -->
+  <rect x="40" y="30" width="1520" height="128" rx="28" fill="url(#header)"/>
+  <circle cx="112" cy="94" r="36" fill="#3B82F6"/>
+  <path d="M94 98 L108 112 L132 77" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="170" y="87" class="sans title">Job Pilotto</text>
+  <text x="172" y="125" class="sans subtitle">Automated job discovery, application preparation and learning — with you in control of every submission.</text>
+
+  <!-- Section labels -->
+  <text x="50" y="208" class="sans section">01 · DISCOVER</text>
+  <text x="410" y="208" class="sans section">02 · PROCESS &amp; RANK</text>
+  <text x="870" y="208" class="sans section">03 · DELIVER &amp; ACT</text>
+  <text x="1270" y="208" class="sans section">HUMAN GATE</text>
+
+  <!-- Main-flow connectors: routed only through gutters -->
+  <path d="M210 420 V448" class="connector"/>
+  <path d="M210 545 V573" class="connector"/>
+  <path d="M370 496 H410" class="connector"/>
+  <path d="M830 322 H850 Q860 322 860 301 Q860 290 870 290" class="connector"/>
+  <path d="M830 452 H850 Q860 452 860 432 Q860 420 870 420" class="connector"/>
+  <path d="M830 582 H850 Q860 582 860 593 Q860 605 870 605" class="connector"/>
+  <path d="M1230 605 H1270" class="connector"/>
+  <path d="M1410 680 V770" class="connector"/>
+
+  <!-- Cloudflare dashed routes, kept below cards -->
+  <path d="M1035 350 V688" class="dash"/>
+  <path d="M680 714 H402 Q390 714 390 702 V510 Q390 496 370 496" class="dash"/>
+  <path d="M1160 714 H1242 Q1252 714 1252 704 V478 Q1252 466 1230 466" class="dash"/>
+
+  <!-- DISCOVER cards -->
+  <rect x="54" y="234" width="320" height="190" rx="22" class="shadow"/>
+  <rect x="50" y="230" width="320" height="190" rx="22" class="card"/>
+  <circle cx="91" cy="275" r="25" fill="#E0F2FE"/>
+  <path d="M77 287 H105 M80 287 V265 H102 V287 M86 265 V257 M96 265 V257" fill="none" stroke="#0284C7" stroke-width="2.8" stroke-linecap="round"/>
+  <text x="130" y="269" class="sans card-title">Job sources</text>
+  <text x="130" y="297" class="sans body">jobs.ch · TechTree</text>
+  <text x="80" y="329" class="sans body">29 employer feeds</text>
+  <text x="80" y="353" class="sans small">Greenhouse · Lever · Ashby…</text>
+  <text x="80" y="382" class="sans body">Google Jobs <tspan fill="#2563EB" font-weight="700">(optional)</tspan></text>
+  <rect x="72" y="394" width="276" height="20" rx="10" fill="#F0FDF4"/>
+  <text x="210" y="408" text-anchor="middle" class="sans tiny" fill="#15803D">Daily source scout finds new feeds</text>
+
+  <rect x="54" y="454" width="320" height="95" rx="20" class="shadow"/>
+  <rect x="50" y="450" width="320" height="95" rx="20" class="card"/>
+  <circle cx="91" cy="497" r="25" fill="#DCFCE7"/>
+  <path d="M78 498 L88 508 L105 486 M78 482 H105 M78 513 H105" fill="none" stroke="#16A34A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="130" y="488" class="sans card-title">Crawler</text>
+  <text x="130" y="516" class="sans body">GitHub Actions · every 4 h</text>
+
+  <rect x="54" y="579" width="320" height="105" rx="20" class="shadow"/>
+  <rect x="50" y="575" width="320" height="105" rx="20" class="card"/>
+  <circle cx="91" cy="627" r="25" fill="#F1F5F9"/>
+  <ellipse cx="91" cy="616" rx="13" ry="6" fill="none" stroke="#475569" stroke-width="2.7"/>
+  <path d="M78 616 V637 C78 641 84 645 91 645 C98 645 104 641 104 637 V616 M78 627 C78 631 84 635 91 635 C98 635 104 631 104 627" fill="none" stroke="#475569" stroke-width="2.7"/>
+  <text x="130" y="617" class="sans card-title">State &amp; dedupe</text>
+  <text x="130" y="645" class="sans body">SQLite in the Actions cache</text>
+  <text x="130" y="668" class="sans small">Tracks seen postings</text>
+
+  <!-- PROCESS card -->
+  <rect x="414" y="234" width="420" height="450" rx="24" class="shadow"/>
+  <rect x="410" y="230" width="420" height="450" rx="24" fill="#fff" stroke="#93C5FD" stroke-width="1.8"/>
+  <path d="M434 230 H806 Q830 230 830 254 V299 H410 V254 Q410 230 434 230 Z" fill="url(#accent)"/>
+  <text x="442" y="273" class="sans" font-size="23" font-weight="730" fill="#fff">AI matching pipeline</text>
+
+  <circle cx="458" cy="350" r="23" fill="#6366F1"/>
+  <text x="458" y="357" text-anchor="middle" class="sans" font-size="17" font-weight="800" fill="#fff">1</text>
+  <text x="497" y="339" class="sans card-title">Extract job facts</text>
+  <text x="497" y="367" class="sans body">Role · location · languages · seniority</text>
+  <rect x="704" y="316" width="97" height="26" rx="13" fill="#EEF2FF"/>
+  <text x="752" y="334" text-anchor="middle" class="sans tag">HAIKU 4.5</text>
+  <line x1="458" y1="377" x2="458" y2="426" stroke="#C7D2FE" stroke-width="3.5"/>
+
+  <circle cx="458" cy="454" r="23" fill="#4F46E5"/>
+  <text x="458" y="461" text-anchor="middle" class="sans" font-size="17" font-weight="800" fill="#fff">2</text>
+  <text x="497" y="443" class="sans card-title">Score profile fit</text>
+  <text x="497" y="471" class="sans body">Fit · gaps · reason</text>
+  <rect x="704" y="420" width="97" height="26" rx="13" fill="#EEF2FF"/>
+  <text x="752" y="438" text-anchor="middle" class="sans tag">SONNET 5</text>
+  <line x1="458" y1="481" x2="458" y2="530" stroke="#C7D2FE" stroke-width="3.5"/>
+
+  <circle cx="458" cy="558" r="23" fill="#2563EB"/>
+  <text x="458" y="565" text-anchor="middle" class="sans" font-size="17" font-weight="800" fill="#fff">3</text>
+  <text x="497" y="547" class="sans" font-size="18.5" font-weight="730" fill="#0F172A">Draft application kit</text>
+  <text x="497" y="575" class="sans body">Cover letter and form answers</text>
+  <text x="497" y="599" class="sans small">Best matches only · score ≥ 50</text>
+  <rect x="704" y="524" width="97" height="26" rx="13" fill="#EFF6FF"/>
+  <text x="752" y="542" text-anchor="middle" class="sans tag" fill="#1D4ED8">SONNET 5</text>
+  <rect x="442" y="633" width="356" height="28" rx="14" fill="#F8FAFC"/>
+  <text x="620" y="652" text-anchor="middle" class="sans small">Only strong matches move forward</text>
+
+  <!-- DELIVER cards -->
+  <rect x="874" y="234" width="360" height="120" rx="20" class="shadow"/>
+  <rect x="870" y="230" width="360" height="120" rx="20" class="card"/>
+  <circle cx="910" cy="274" r="24" fill="#E0F2FE"/>
+  <path d="M896 272 L926 261 L920 287 L911 280 L905 286 L904 277 Z" fill="#0284C7"/>
+  <text x="950" y="267" class="sans card-title">Telegram</text>
+  <text x="950" y="294" class="sans body">Top 10 digest with buttons</text>
+  <text x="900" y="321" class="sans small">Daily insight · weekly report · commands</text>
+
+  <rect x="874" y="384" width="360" height="125" rx="20" class="shadow"/>
+  <rect x="870" y="380" width="360" height="125" rx="20" class="card"/>
+  <circle cx="910" cy="426" r="24" fill="#F1F5F9"/>
+  <path d="M899 412 L921 416 V441 L899 437 Z M904 420 L916 422 M904 427 L916 429 M904 434 L913 436" fill="none" stroke="#334155" stroke-width="2.5" stroke-linejoin="round"/>
+  <text x="950" y="416" class="sans" font-size="18.5" font-weight="730" fill="#0F172A">Notion workspace</text>
+  <text x="950" y="439" class="sans small">Your private database</text>
+  <text x="900" y="470" class="sans body">Matches · Applications · Events</text>
+  <text x="900" y="493" class="sans small">Interviews · Insights · Profile</text>
+
+  <rect x="874" y="539" width="360" height="145" rx="20" class="shadow"/>
+  <rect x="870" y="535" width="360" height="145" rx="20" fill="#fff" stroke="#93C5FD" stroke-width="1.8"/>
+  <circle cx="910" cy="580" r="24" fill="#DBEAFE"/>
+  <rect x="898" y="568" width="25" height="20" rx="4" fill="none" stroke="#2563EB" stroke-width="2.6"/>
+  <path d="M898 574 H923 M905 588 H917" stroke="#2563EB" stroke-width="2.6" stroke-linecap="round"/>
+  <text x="950" y="570" class="sans" font-size="18.5" font-weight="730" fill="#0F172A">Application assistant</text>
+  <text x="950" y="593" class="sans small">On your Mac</text>
+  <text x="900" y="621" class="sans body">Claude, Codex or ChatGPT fills</text>
+  <text x="900" y="644" class="sans body">the form in Chrome</text>
+  <text x="900" y="667" class="sans small">Confirmation page → marked Applied</text>
+  <rect x="1146" y="580" width="66" height="24" rx="12" fill="#FFF7ED"/>
+  <text x="1179" y="597" text-anchor="middle" class="sans tiny" fill="#C2410C">OPTIONAL</text>
+
+  <!-- Human step -->
+  <rect x="1274" y="539" width="280" height="145" rx="22" fill="#C2410C" opacity=".08"/>
+  <rect x="1270" y="535" width="280" height="145" rx="22" fill="#FFF7ED" stroke="#FB923C" stroke-width="2.5"/>
+  <circle cx="1310" cy="580" r="24" fill="#FFEDD5"/>
+  <path d="M1298 581 L1307 590 L1323 568" fill="none" stroke="#EA580C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="1347" y="574" class="sans" font-size="20" font-weight="760" fill="#9A3412">You click Submit</text>
+  <text x="1310" y="619" class="sans body" fill="#9A3412">You review every answer.</text>
+  <text x="1310" y="645" class="sans" font-size="14.5" font-weight="680" fill="#C2410C">Submission is never automated.</text>
+
+  <!-- Cloudflare Worker -->
+  <rect x="680" y="692" width="480" height="44" rx="22" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.7"/>
+  <text x="920" y="710" text-anchor="middle" class="sans" font-size="14" font-weight="760" fill="#1D4ED8">CLOUDFLARE WORKER</text>
+  <text x="920" y="728" text-anchor="middle" class="sans" font-size="12.5" font-weight="520" fill="#64748B">Buttons &amp; commands → GitHub Actions · feedback buttons → Notion</text>
+
+  <!-- Learning band -->
+  <rect x="40" y="780" width="1520" height="240" rx="26" fill="#EAF1FF" stroke="#BFDBFE" stroke-width="1.8"/>
+  <rect x="66" y="798" width="294" height="30" rx="15" fill="#DBEAFE"/>
+  <text x="213" y="818" text-anchor="middle" class="sans section" fill="#1D4ED8">04 · LEARN FROM EVERY APPLICATION</text>
+
+  <rect x="64" y="846" width="350" height="148" rx="19" fill="#0F172A" opacity=".055"/>
+  <rect x="60" y="842" width="350" height="148" rx="19" class="card"/>
+  <circle cx="95" cy="878" r="21" fill="#E0E7FF"/>
+  <path d="M85 867 H105 V890 H85 Z M89 872 H101 M89 878 H101 M89 884 H98" fill="none" stroke="#4F46E5" stroke-width="2.2"/>
+  <text x="128" y="877" class="sans" font-size="18" font-weight="730" fill="#0F172A">Application record</text>
+  <text x="86" y="913" class="sans body">Job snapshot</text>
+  <text x="86" y="938" class="sans body">Questions + submitted answers</text>
+  <text x="86" y="963" class="sans small">Frozen at Submit</text>
+
+  <rect x="444" y="846" width="350" height="148" rx="19" fill="#0F172A" opacity=".055"/>
+  <rect x="440" y="842" width="350" height="148" rx="19" class="card"/>
+  <circle cx="475" cy="878" r="21" fill="#DCFCE7"/>
+  <path d="M464 869 H486 V887 H464 Z M464 871 L475 879 L486 871 M470 864 V858 M480 864 V858" fill="none" stroke="#16A34A" stroke-width="2.2" stroke-linejoin="round"/>
+  <text x="508" y="877" class="sans" font-size="18" font-weight="730" fill="#0F172A">Gmail + Calendar</text>
+  <text x="466" y="907" class="sans small">Read-only after applying</text>
+  <text x="466" y="932" class="sans body">Confirmations · replies · rejections</text>
+  <text x="466" y="957" class="sans small">Interview invite → evening-before prep</text>
+
+  <rect x="824" y="846" width="350" height="148" rx="19" fill="#0F172A" opacity=".055"/>
+  <rect x="820" y="842" width="350" height="148" rx="19" class="card"/>
+  <circle cx="855" cy="878" r="21" fill="#F3E8FF"/>
+  <path d="M844 868 H866 V883 H855 L849 889 V883 H844 Z M849 873 H861 M849 878 H858" fill="none" stroke="#7C3AED" stroke-width="2.2" stroke-linejoin="round"/>
+  <text x="888" y="877" class="sans" font-size="18" font-weight="730" fill="#0F172A">Interview reviews</text>
+  <text x="846" y="907" class="sans small">Telegram review after every interview</text>
+  <text x="846" y="932" class="sans body">Strengths · weak answers</text>
+  <text x="846" y="957" class="sans small">What to practise next</text>
+
+  <rect x="1204" y="846" width="336" height="148" rx="19" fill="#0F172A" opacity=".055"/>
+  <rect x="1200" y="842" width="336" height="148" rx="19" class="card"/>
+  <circle cx="1235" cy="878" r="21" fill="#FFEDD5"/>
+  <path d="M1224 888 V880 L1231 873 L1238 879 L1247 866 M1241 866 H1247 V872" fill="none" stroke="#EA580C" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="1268" y="877" class="sans" font-size="18" font-weight="730" fill="#0F172A">Insights</text>
+  <text x="1226" y="907" class="sans body">Daily insight + weekly report</text>
+  <text x="1226" y="932" class="sans small">Response / interview rate by channel</text>
+  <text x="1226" y="957" class="sans small">Skill gaps · what to change</text>
+
+  <!-- Feedback loop above learning cards -->
+  <path d="M1500 842 C1560 826 1578 806 1578 770 V312 Q1578 300 1566 300 H1242" class="dash"/>
+  <rect x="1320" y="288" width="156" height="24" rx="12" fill="#F8FAFC" stroke="#93C5FD"/>
+  <text x="1398" y="305" text-anchor="middle" class="sans tiny" fill="#1D4ED8">FEEDBACK LOOP</text>
+
+  <!-- Footer -->
+  <rect x="40" y="1038" width="1520" height="45" rx="15" fill="#fff" stroke="#CBD5E1" stroke-width="1.5"/>
+  <circle cx="67" cy="1061" r="6" fill="#22C55E"/>
+  <text x="83" y="1067" class="sans" font-size="13.5" font-weight="570" fill="#334155">Start with the crawler in minutes — every other feature is optional</text>
+  <line x1="610" y1="1049" x2="610" y2="1072" stroke="#CBD5E1"/>
+  <circle cx="635" cy="1061" r="6" fill="#F59E0B"/>
+  <text x="651" y="1067" class="sans" font-size="13.5" font-weight="570" fill="#334155">AI budget guard: alert at 70%, optional AI pauses at 90%</text>
+  <line x1="1047" y1="1049" x2="1047" y2="1072" stroke="#CBD5E1"/>
+  <circle cx="1072" cy="1061" r="6" fill="#3B82F6"/>
+  <text x="1088" y="1067" class="sans" font-size="13.5" font-weight="570" fill="#334155">Daily health check: one Telegram line only if something breaks</text>
+</svg>
