@@ -115,6 +115,12 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const me = await api(config, '/extension/me').catch(() => null);
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
+  const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
+  if (!config.clickDropdowns && await armedLeft()) {
+    // Say why they're left, and how to have them chosen automatically.
+    summary.todo = [...(summary.todo || []), 'Tip: turn on "Fill drop-down menus too" in the extension Settings to have these chosen for you'];
+    await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
+  }
   if (config.clickDropdowns) {
     onStep('Choosing the drop-down answers…');
     try {
@@ -128,6 +134,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       }
     } catch (error) {
       summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
+      await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
     }
   }
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
