@@ -120,7 +120,9 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
 def import_watch_report(db, report):
     statuses = []
     for job in report.get('jobs', []):
-        _, status = upsert_job(db, job, job['company'], source_url=job['url'], source_kind='employer feed')
+        # Employer feeds are their own source; aggregated results (Google Jobs) name theirs.
+        _, status = upsert_job(db, job, job.get('source') or job['company'], source_url=job['url'],
+                               source_kind=job.get('source_kind', 'employer feed'))
         statuses.append(status)
     db.commit()
     return statuses

@@ -28,7 +28,8 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
 
 ### 🔎 Finding jobs
 - 🕷️ **Crawls every 4 hours** on GitHub Actions: jobs.ch, TechTree and employer feeds (Greenhouse,
-  Lever, Ashby, Workable, Recruitee, Personio, SmartRecruiters, Amazon, Netflix).
+  Lever, Ashby, Workable, Recruitee, Personio, SmartRecruiters, Amazon, Netflix), plus Google Jobs
+  through SerpApi's paid API when `SERPAPI_API_KEY` is set (one search per crawl, rotating queries).
 - 🛰️ **Source scout**: once a day it checks new candidate employers (seed companies, Hacker News
   "Who is hiring?", open company lists, jobs.ch employers) for a public job feed, scores its quality
   and adds the useful ones to the crawl.
@@ -326,7 +327,8 @@ library, no manual `source` step) the first time any part of this project runs, 
 overriding a variable your shell already has set. `.env` is git-ignored, never committed.
 
 **GitHub repository secrets** (Settings → Secrets and variables → Actions):
-`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NOTION_TOKEN`, `ANTHROPIC_API_KEY`.
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NOTION_TOKEN`, `ANTHROPIC_API_KEY`; optionally
+`SERPAPI_API_KEY` to add Google Jobs (SerpApi charges per search; see `google_jobs` below).
 
 **GitHub repository variables**, all optional, everything is off by default:
 
@@ -366,7 +368,10 @@ a relevant job and where: `role_keywords` (job titles you want), `board_discover
 (broader terms for jobs.ch discovery), `jobs_board_search_queries` (the literal search terms run
 against jobs.ch), `quality_stack_keywords` (tech terms the scout uses to judge a new employer feed),
 and `locations.{top_tier,country_wide,abroad}` / `remote_excluded_regions` (your preferred places
-and which "remote" postings don't actually include you). Values are regex fragments (e.g. `"z[uü]rich"`
+and which "remote" postings don't actually include you). `google_jobs` holds plain (not regex)
+`queries` and SerpApi `locations` for Google Jobs, how many paid searches a crawl may make
+(`searches_per_run`, rotating through every query × location pair) and how many SerpApi credits to
+leave untouched (`min_searches_left`). Values are regex fragments (e.g. `"z[uü]rich"`
 matches both spellings, `"\\bsre\\b"` avoids matching inside another word) — copy that style when
 adding your own. A frontend developer targeting Berlin, for example, would set `role_keywords` to
 `["frontend", "react", "\\bui\\b", "web developer"]` and `locations.top_tier` to `["berlin"]`.
@@ -499,6 +504,7 @@ src/
                      SmartRecruiters, Amazon and Netflix job feeds
     feeds.py         crawls the active employer feeds
     boards.py        jobs.ch and TechTree
+    google_jobs.py   Google Jobs through SerpApi (paid, rotating, budget-guarded)
   ai/
     enrich.py        AI stage 1: facts from each posting, with evidence
     score.py         AI stage 2: fit score against the Notion Profile

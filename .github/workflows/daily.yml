@@ -77,6 +77,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Google Jobs via SerpApi (one paid search per scheduled/run crawl); off while unset.
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
           # AI stage 1 stays off until this repository variable names a model,
           # so no API credits are spent by accident.
           JOB_PILOTTO_ENRICH_MODEL: ${{ vars.JOB_PILOTTO_ENRICH_MODEL }}

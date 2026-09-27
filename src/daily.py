@@ -14,8 +14,8 @@ from .ai import enrich, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, ledger, matches
 from pathlib import Path
 
-from .paths import JOBS_DB, CONFIG, DATA, REPORTS
-from .sources import ats, feeds
+from .paths import JOBS_DB, CONFIG, DATA, REPORTS, load_search_config
+from .sources import ats, feeds, google_jobs
 
 
 
@@ -281,6 +281,12 @@ def main():
             feed_list = scout.active_sources(db, tracker, sources)
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
                 report = feeds.scan(feed_list, feed_db)
+                # Paid per search, so only full crawls use it; off without SERPAPI_API_KEY.
+                if args.mode in ('scheduled', 'run') and google_jobs.api_key():
+                    google = google_jobs.scan(feed_db, google_jobs.api_key(),
+                                              google_jobs.settings(load_search_config()))
+                    report['jobs'] += google['jobs']
+                    report['sources'] += google['sources']
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
             if args.mode in ('scheduled', 'run'):

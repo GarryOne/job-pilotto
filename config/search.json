@@ -27,6 +27,12 @@
     ],
     "abroad": ["berlin", "london", "dubai"]
   },
+  "google_jobs": {
+    "queries": ["site reliability engineer", "devops engineer", "platform engineer"],
+    "locations": ["Zurich, Switzerland", "Switzerland"],
+    "searches_per_run": 1,
+    "min_searches_left": 20
+  },
   "remote_excluded_regions": [
     "\\busa?\\b", "united states", "u\\.s\\.", "canada", "north america", "latam",
     "latin america", "apac", "asia", "india", "australia", "brazil", "mexico", "americas"
