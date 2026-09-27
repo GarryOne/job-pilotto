@@ -3,14 +3,18 @@ import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+import {ROOT} from './root.js';
+
+export const REPO = ROOT;
 export const MODELS = {enrich: 'claude-haiku-4-5', score: 'claude-sonnet-5', kit: 'claude-sonnet-5', insight: 'claude-sonnet-5'};
 const DEFAULT_CONFIG = ['search.json', 'preferences.json', 'sources.json', 'scout_seeds.json'];
 
-// The repo's virtualenv has the anthropic package; otherwise the system python3.
+// The packaged app's own Python (with the anthropic package), else the repo's virtualenv, else python3.
 export function python() {
-  const venv = path.join(REPO, '.venv', 'bin', 'python');
-  return fs.existsSync(venv) ? venv : 'python3';
+  for (const candidate of [path.join(REPO, 'python', 'bin', 'python3'), path.join(REPO, '.venv', 'bin', 'python')]) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return 'python3';
 }
 
 // First run: the user's config starts as the repo defaults (the wizard then rewrites search/preferences).

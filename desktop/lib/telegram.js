@@ -1,7 +1,7 @@
 // Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
 // The app long-polls Telegram for button taps and commands while it runs, and handles them with the
 // Worker's own code (worker/src/index.js handleUpdate); its "dispatch" runs the pipeline locally.
-import {handleUpdate} from '../../worker/src/index.js';
+import {handleUpdate} from '../shared/worker/index.js';
 import * as pipeline from './pipeline.js';
 
 export async function api(token, method, body = {}, fetcher = globalThis.fetch) {

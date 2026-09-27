@@ -6,13 +6,65 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
+    "prestart": "node scripts/stage.mjs",
     "start": "electron .",
-    "test": "node --test test/*.test.js"
+    "pretest": "node scripts/stage.mjs",
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never"
   },
   "devDependencies": {
-    "electron": "^44.4.5"
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0"
+  },
+  "description": "Job Pilotto: finds jobs that fit you, drafts your answers and fills forms; you submit.",
+  "author": "Job Pilotto",
+  "build": {
+    "appId": "app.jobpilotto.desktop",
+    "productName": "Job Pilotto",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.cjs",
+      "lib/**",
+      "renderer/**",
+      "shared/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/pilot",
+        "to": "pilot"
+      }
+    ],
+    "asarUnpack": [],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "Job Pilotto ${version}"
+    },
+    "artifactName": "Job-Pilotto-${version}-${arch}.${ext}"
   }
 }

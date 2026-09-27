@@ -4,7 +4,7 @@
 // every call still needs the extension token.
 import crypto from 'node:crypto';
 import http from 'node:http';
-import {handleExtension, jobKey} from '../../worker/src/extension.js';
+import {handleExtension, jobKey} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
 
 export const PORT = 47111;

@@ -123,3 +123,4 @@ label.radio input { width: auto; margin-top: 3px; }
 .found { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 13px; }
 .found .yes { color: var(--good); }
 .found .no { color: var(--bad); }
+.spaced { margin-top: 8px; }

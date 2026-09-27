@@ -11,8 +11,9 @@ import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
 import {createStorage, safeStorageCrypto} from './lib/storage.js';
+import {fileURLToPath} from 'node:url';
 
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 let storage;
 let window;
 let polling = null;
