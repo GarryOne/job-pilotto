@@ -13,7 +13,7 @@ import {MODELS, REPO} from './pipeline.js';
 
 // The Job Pilotto GitHub App (public identifiers; device flow needs no client secret). Its permissions,
 // on the one repository it's installed on: Actions, Contents, Secrets, Variables and Workflows (write).
-export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'PENDING_GITHUB_APP_CLIENT_ID';
+export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'Iv23liEIBvK1hG0oejDr';
 export const APP_SLUG = process.env.JOB_PILOTTO_GITHUB_APP || 'job-pilotto';
 export const REPO_NAME = 'job-pilotto-private';
 export const STARTER = 'GarryOne/job-pilotto-starter';
