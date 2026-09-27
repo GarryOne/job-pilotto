@@ -194,6 +194,8 @@ def main(argv=None):
     auth.add_argument('--client-id')
     auth.add_argument('--client-secret')
     auth.add_argument('--github', action='store_true', help='also set the three GOOGLE_* repository secrets with gh')
+    auth.add_argument('--production', action='store_true',
+                      help="the app is published ('In production'): this sign-in doesn't expire after 7 days")
     sub.add_parser('check', help='show which account is connected and what it can see')
     args = parser.parse_args(argv)
     if args.command == 'auth':
@@ -209,14 +211,22 @@ def main(argv=None):
             subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''), '-s', service,
                             '-w', values[name]], check=True)
         # The sign-in date: the health check warns before Google's 7-day limit for apps in "Testing".
-        signed_in = datetime.now(timezone.utc).isoformat(timespec='seconds')
-        subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''),
-                        '-s', 'job-pilotto.google.auth-at', '-w', signed_in], check=True)
+        # A published app's sign-in doesn't expire, so the date is cleared instead.
+        signed_in = '' if args.production else datetime.now(timezone.utc).isoformat(timespec='seconds')
+        if signed_in:
+            subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''),
+                            '-s', 'job-pilotto.google.auth-at', '-w', signed_in], check=True)
+        else:
+            subprocess.run(['security', 'delete-generic-password', '-a', os.getenv('USER', ''),
+                            '-s', 'job-pilotto.google.auth-at'], capture_output=True)
         print('Stored in the Keychain:', ', '.join(KEYCHAIN.values()))
         if args.github:
             for name, value in values.items():
                 subprocess.run(['gh', 'secret', 'set', name], input=value, text=True, check=True)
-            subprocess.run(['gh', 'variable', 'set', 'JOB_PILOTTO_GOOGLE_AUTH_AT', '--body', signed_in], check=True)
+            if signed_in:
+                subprocess.run(['gh', 'variable', 'set', 'JOB_PILOTTO_GOOGLE_AUTH_AT', '--body', signed_in], check=True)
+            else:
+                subprocess.run(['gh', 'variable', 'delete', 'JOB_PILOTTO_GOOGLE_AUTH_AT'], capture_output=True)
             print('Set GitHub secrets:', ', '.join(values), '(and the variable JOB_PILOTTO_GOOGLE_AUTH_AT)')
     google = Google.from_env()
     if not google:

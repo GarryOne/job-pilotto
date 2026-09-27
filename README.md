@@ -534,9 +534,17 @@ OAuth consent screen](https://developers.google.com/workspace/guides/configure-o
    --dry-run` to see how each email would be classified, writing nothing).
 
 **Seven-day limit.** While the app's publishing status is "Testing", Google expires the sign-in after 7
-days; the mail check then sends a Telegram message asking you to repeat step 4. To avoid it, publish
-the app (**Audience → Publish app**): Google first requires a homepage URL and a privacy-policy URL on
-the **Branding** page. An unverified app used only by you stays allowed, with the same warning at sign-in.
+days (the daily health check warns two days before; the mail check tells you when it happens). To
+remove the limit, publish the app:
+
+1. Publish a short privacy policy for your app somewhere public (a GitHub gist works; the owner's is
+   [here](https://gist.github.com/GarryOne/a1abc02a6396c505234163ada978de11) as a template).
+2. **Branding**: set the Application home page and Application privacy policy link to it, and add its
+   domain (e.g. `github.com`) under Authorised domains → Save.
+3. **Audience → Publish app → Confirm.** It stays unverified (only you use it); the sign-in keeps the
+   "Google hasn't verified this app" step.
+4. Sign in once more, since tokens from the Testing period keep their 7-day limit:
+   `python3 -m src.sources.google auth --client-json … --github --production`.
 
 Email content that matches the search is sent to the Anthropic API for classification; the results
 (kind, a short summary, the subject) are stored in your Notion.
