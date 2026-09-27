@@ -7,6 +7,12 @@ sends a ranked digest to Telegram. Applications are tracked in Notion. **It neve
 application on your behalf** — drafting and filling can be automated; clicking Submit always stays
 with you.
 
+**Not a developer?** Use the free [Mac app](#mac-app): a guided setup in about ten minutes, no
+terminal, with a Chrome extension that fills the forms. Website:
+[job-pilotto-site.sre-watch-bot.workers.dev](https://job-pilotto-site.sre-watch-bot.workers.dev/)
+([every feature](https://job-pilotto-site.sre-watch-bot.workers.dev/#features),
+[compared with Simplify, Teal, Huntr, JobCopilot and LazyApply](https://job-pilotto-site.sre-watch-bot.workers.dev/compare.html)).
+
 <p align="center">
   <img src="docs/images/architecture.png" width="100%"
        alt="Job Pilotto architecture. 1 Discover: job sources (jobs.ch, TechTree, 29 employer feeds, optional Google Jobs; a daily scout finds new feeds) feed a crawler on GitHub Actions every 4 hours, with seen postings kept in SQLite. 2 Process and rank: Claude Haiku 4.5 extracts job facts, Claude Sonnet 5 scores fit against your profile and drafts an application kit for your best matches. 3 Deliver and act: a Telegram digest with buttons, your private Notion workspace, and an optional application assistant on your Mac that fills the form in Chrome; you review and click Submit, never automated. A Cloudflare Worker turns Telegram buttons into GitHub Actions runs and Notion updates. 4 Learn: the application record frozen at Submit, read-only Gmail and Calendar (confirmations, replies, rejections, interview prep), interview reviews from transcripts, and a daily insight plus weekly report that loop back to Telegram.">
@@ -59,7 +65,9 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | `insights` | daily insight + Monday weekly report | + `JOB_PILOTTO_INSIGHT_MODEL`, Notion | ~$0.03/day | 2 min |
 | `google_jobs` | Google Jobs listings via [SerpApi](https://serpapi.com) | `SERPAPI_API_KEY` | free plan: 250 searches/month | 5 min |
 | `mail` | Gmail + Calendar update your applications | Google OAuth client + sign-in, Notion, Anthropic | a few cents/day | 15 min |
-| Chrome extension | fills the form from its kit in seconds, you Submit | Chrome + the Worker ([extension/README.md](extension/README.md)) | free | 5 min |
+| Mac app | guided setup, job list, Apply / Prepare / Tailor CV buttons, schedules, notifications | a Mac (Apple silicon) | free | 10 min |
+| Chrome extension | fills the form from its kit in seconds, you Submit | Chrome + the Mac app (or the Worker; [extension/README.md](extension/README.md)) | free | 5 min |
+| Tailored CV | a version of your CV per job, every change highlighted | the Mac app, `ANTHROPIC_API_KEY` | ~$0.12/CV | 1 min |
 | Form filling by an AI agent | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
 
 A sensible order: Telegram and scheduled runs first (free, 10 minutes), then Notion, then the AI
@@ -149,6 +157,59 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   job (crawls, kits, insights, interviews, mail) logs its cost.
 - 🧠 **Self-improving**: agents read recent learnings for that job board before filling
   (`python3 -m src.ai.apply_run --learnings Greenhouse`), so each run makes the next one better.
+
+<a id="mac-app"></a>
+
+### 🖥️ The Mac app
+- 🧭 **Guided setup, no terminal**: AI key, your copy of the Notion workspace (found and connected by
+  itself), your CV, and what you're looking for in plain words; Claude drafts your search strategy
+  (roles, places, board searches, hidden languages) for you to edit. Every step is saved as you go.
+- 📋 **Jobs**: every open job with its fit score and reason, links to its kit and posting in Notion,
+  and one main button per job: **Prepare** (draft the kit) → **Apply** (Chrome opens the form, the
+  extension fills it) → **Opened in Chrome**. A ⛔ badge shows the kit's eligibility verdict on hover.
+- ✍️ **Answer once**: questions a form asked that your answers don't cover yet, listed once; your
+  answer goes to your standard answers in Notion and every later form uses it.
+- ⏱️ **How often**: per job (search, kits, insights, new employers, mail), in your time zone.
+- ☁️ **Keep working while my Mac is off**: sign in with GitHub (a GitHub App with access to one
+  repository only) and the app sets up your own private repository with the schedules, secrets and
+  settings; searches then run there even with the Mac off.
+- 🔔 **Notifications**: kit ready, form filled, application marked applied (an in-window toast when
+  macOS blocks them). Keys are encrypted with your Mac's Keychain; data stays in your folder and Notion.
+
+### 🧩 Chrome extension
+- ⚡ **Fills from the kit in seconds**: text fields, dropdowns (real clicks, including searchable ones),
+  phone country from your number's prefix, city type-ahead boxes, checkbox questions, demographic
+  surveys (the "decline" option unless your profile says otherwise), your CV and the cover letter.
+- ✅ **Live checklist on the page**: what's left, grouped (legal choices, answers, dropdowns to click,
+  answers to read), updated as you fill, green "Ready to submit" at the end. Answers written by AI are
+  outlined so you read them first.
+- 🖐️ **Never presses Submit.** Terms and consent boxes are ticked only with the "Tick terms and consent
+  boxes for me" setting or the checklist's "Accept all" button.
+- 🔗 **Follows the Apply hop**: a job board's Apply that opens the employer's own form (jobs.ch → the
+  employer's site) fills with the same job's kit; any other site works with one click on the icon, or
+  automatically with the "every job site" permission.
+- 🧠 **Learns per job site**: after a fill that left fields, Claude Haiku writes short reusable notes
+  for that site (about 1¢ per site, once), used on every later form there. With "Help improve Job
+  Pilotto" on, the *structure* of a field it couldn't operate (never your answers) becomes a GitHub
+  issue that a daily Claude Code run turns into a tested fix.
+- 📋 **Every fill logged** to 🤖 Agent Runs in Notion with a field-by-field table and debug data, and
+  the job is marked Applied when the confirmation page appears.
+
+### 📄 Tailored CV per job
+- ✂️ **Tailor CV** on a job: one Claude Sonnet 5 call reorders your bullets toward the posting, rewords
+  them in its vocabulary, may drop up to two irrelevant ones per role and rewrites the summary
+  (measured: about $0.12 and 1–2 minutes per CV).
+- 🛡️ **Only your facts, checked by code**: same jobs, titles, dates and places; a reworded bullet that
+  changes a number keeps its original wording; tools or terms found nowhere in your CV or Profile are
+  flagged; skills lines may only be reordered.
+- 🔍 **Review window**: the tailored CV with reworded words (old → new), moved and dropped bullets
+  highlighted, next to what changed and why; "Hide highlights" shows it clean; "Open the PDF".
+- 🎨 **Your CV as data, your design kept**: the first time, Claude reads your CV PDF into `cv/cv.json`
+  (edit it freely); a clean default template prints it, or your own `cv/style.css` (the owner's is
+  rebuilt from their Figma file, with fixed pages and an overflow check). Chromium prints the PDF with
+  selectable text.
+- 📤 **Used when you apply**: the extension uploads the tailored CV on that job's form (same file name),
+  your base CV everywhere else.
 
 ### 📈 Learning from your applications
 - 🧊 **Every application frozen when you apply**: the job description, AI facts and fit score,
@@ -270,10 +331,13 @@ a measured accuracy or success-rate benchmark.
 | 🎯 AI fit score against your profile | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
 | 🌍 Location, language and visa filters | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | ✍️ Cover letter and form answers per job | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
-| 📄 Tailored CV per job | ❌ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
+| 📄 Tailored CV per job | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
+| 🔍 Every CV change shown and fact-checked | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| 🖥️ Desktop app with guided setup | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| 🧠 Learns each job site's forms | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | 💾 Saved answer vault, reused on every form | ✅ | ➖ | ➖ | ➖ | ➖ | ✅ | ➖ |
 | 🤖 Fills real application forms | ✅ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
-| 🧰 Choice of agent (ChatGPT, Codex, Claude) | ✅ | ❌ | ❌ | ⚠️ | ❌ | ❌ | ❌ |
+| 🧰 Choice of filler (Chrome extension, ChatGPT, Codex, Claude) | ✅ | ❌ | ❌ | ⚠️ | ❌ | ❌ | ❌ |
 | 🛡️ You always click Submit (enforced) | ✅ | ⚠️ | ➖ | ❌ | ➖ | ❌ | ➖ |
 | 🔍 Post-fill field audit | ⚠️ | ➖ | ➖ | ➖ | ✅ | ✅ | ➖ |
 | 📱 Mobile triage (Telegram buttons) | ✅ | ➖ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
@@ -315,9 +379,9 @@ volume and unattended applying; they don't let you own the sources, scoring or f
 (reference stack), [AgentSpan](https://github.com/agentspan-ai/agentspan) (durable agent runs,
 now [part of Orkes Conductor](https://orkes.io/blog/open-sourcing-agentspan-durable-ai-agents/)).
 
-**⚠️ Current gap:** form filling is driven by browser agents and the kit, not a verified form engine.
-It has filled forms for real, submitted applications (all on Greenhouse so far), typically in
-2–6 minutes, with an accidental-Submit/consent guard and deterministic helpers for ordinary fields. The
+**⚠️ Current gap:** form filling is driven by the Chrome extension or browser agents and the kit, not
+a verified form engine. The extension fills a Greenhouse form in seconds; the agents have filled forms
+for real, submitted applications (all on Greenhouse so far), typically in 2–6 minutes, with an accidental-Submit/consent guard and deterministic helpers for ordinary fields. The
 guard is not a security boundary, each run's audit checks that fields are filled (not that values
 are right), and cross-ATS accuracy hasn't been measured. Always inspect the filled form before submitting.
 

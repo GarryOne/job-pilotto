@@ -1,9 +1,13 @@
 # Job Pilotto website
 
-`public/index.html` is the one-page landing site (no build step). It's served by Cloudflare as static
-files (Workers static assets, free, `*.workers.dev`).
+Static pages in `public/` (no build step), served by Cloudflare Workers static assets (free, `*.workers.dev`):
+
+- `index.html`: the landing page (how it works, every feature, screenshots, setup, pricing, FAQ)
+- `compare.html`: Job Pilotto side by side with Simplify, Teal, Huntr, JobCopilot and LazyApply, from
+  each product's own website (dated on the page; re-check before changing a row)
+- `styles.css`: shared by both pages
+
+`src/index.js` adds one endpoint, `POST /api/waitlist`, which keeps Pro early-access sign-ups in Cloudflare KV.
 
 - Deploy by hand: `cd site && npx wrangler@4 deploy`
 - Automatic: `.github/workflows/site.yml` deploys on every push to `main` that changes `site/`.
-
-The waitlist form doesn't send anything yet; it needs an endpoint before the page is shared widely.
