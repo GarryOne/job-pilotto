@@ -271,6 +271,7 @@ $('strategy-redo').addEventListener('click', () => { show($('app'), false); show
 async function loadSettings() {
   state = await window.pilot.state();
   showCloud();
+  showSchedule();
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';
@@ -302,11 +303,29 @@ $('set-telegram-save').addEventListener('click', async () => {
   message('telegram-message', `Connected to @${result.username} ✓ Matches arrive there after each search.`, 'ok');
   loadSettings();
 });
-// ---------- keep searching while the Mac is off (the user's private GitHub repo) ----------
+// ---------- how often each job runs ----------
+const SCHEDULE_DEFAULTS = {search: 4, kits: 0, insights: 'daily', scout: 'daily', mail: 3};
+function showSchedule() {
+  const schedule = {...SCHEDULE_DEFAULTS, ...(state.settings.schedule || {})};
+  document.querySelectorAll('[data-schedule]').forEach(select => { select.value = String(schedule[select.dataset.schedule]); });
+}
+document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', async () => {
+  const schedule = {...SCHEDULE_DEFAULTS, ...(state.settings.schedule || {})};
+  const value = select.value;
+  schedule[select.dataset.schedule] = /^\d+$/.test(value) ? Number(value) : value;
+  await window.pilot.saveSettings({schedule});
+  state = await window.pilot.state();
+  if (!state.settings.cloud?.repo) { message('schedule-message', 'Saved ✓', 'ok'); return; }
+  message('schedule-message', `Updating ${state.settings.cloud.repo}…`);
+  const result = await window.pilot.cloudConnect();
+  message('schedule-message', result.ok ? `Saved ✓ ${result.repo} follows the new schedule.` : result.error, result.ok ? 'ok' : 'error');
+}));
+
+// ---------- keep working while the Mac is off (the user's private GitHub repo) ----------
 function showCloud() {
   const cloud = state.settings.cloud;
   $('cloud-status').textContent = cloud?.repo
-    ? `✓ On: searching every 4 hours in ${cloud.repo}, even with the Mac off.` : 'Off: searches run only while this app is open.';
+    ? `✓ On: working from ${cloud.repo} on the schedule above, even with the Mac off.` : 'Off: Job Pilotto works only while this app is open.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
   $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
   $('auto-search').disabled = !!cloud?.repo;
@@ -323,7 +342,7 @@ $('cloud-connect').addEventListener('click', async () => {
   state = await window.pilot.state();
   showCloud();
   message('cloud-message', `${result.created ? 'Created' : 'Updated'} ${result.repo} ✓ ` +
-    `${result.secrets.length} keys stored as encrypted secrets. The first search starts within 4 hours, or press Search now.`, 'ok');
+    `${result.secrets.length} keys stored as encrypted secrets. The first run follows your schedule; press Search now to start one right away.`, 'ok');
 });
 window.pilot.onCloudStep(step => {
   if (step.code) message('cloud-message', `In the browser tab that opened, enter the code ${step.code} and approve Job Pilotto (${step.url}).`);

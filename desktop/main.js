@@ -139,7 +139,7 @@ function handlers() {
     await github.cloudDispatch(storage, log)({mode: 'run'});
     return {ok: true, cloud: true};
   });
-  // "Keep searching while my Mac is off": sign in to GitHub (code approved in the browser), then set up
+  // "Keep working while my Mac is off": sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
   ipcMain.handle('cloudConnect', async () => {
     try {

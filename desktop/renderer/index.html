@@ -165,7 +165,7 @@
         <button class="secondary" data-goto-settings="telegram">Set up</button>
       </div>
       <div class="extra">
-        <div><h3>☁️ Keep searching while my Mac is off</h3><p>Searches every 4 hours from your own private GitHub repository (free), with matches in Telegram.</p></div>
+        <div><h3>☁️ Keep working while my Mac is off</h3><p>Searches, application kits, insights and mail checks run on your schedule from your own private GitHub repository (free), even when this Mac is off.</p></div>
         <button class="secondary" data-goto-settings="cloud">Set up</button>
       </div>
       <div class="extra">
@@ -271,13 +271,38 @@
       </div>
       <div class="setting" id="setting-automation">
         <div><h3>⏰ Automatic searches</h3><p class="muted small" id="last-search"></p></div>
-        <label class="radio"><input type="checkbox" id="auto-search"><span>Search for new jobs every 4 hours while Job Pilotto is open</span></label>
+        <label class="radio"><input type="checkbox" id="auto-search"><span>Search on the schedule below while Job Pilotto is open</span></label>
         <label class="radio"><input type="checkbox" id="open-login"><span>Open Job Pilotto when I log in to my Mac</span></label>
       </div>
+      <div class="setting" id="setting-schedule">
+        <div><h3>⏱️ How often</h3><p class="muted small">Times are in your time zone. With "Keep working while my Mac is off" on, GitHub follows this schedule; otherwise the app does, while it's open.</p></div>
+        <div class="schedule">
+          <label><span>🔎 Search for new jobs <small>crawl, AI scoring, Telegram digest</small></span>
+            <select data-schedule="search">
+              <option value="1">every hour</option><option value="2">every 2 hours</option><option value="3">every 3 hours</option>
+              <option value="4">every 4 hours</option><option value="6">every 6 hours</option><option value="8">every 8 hours</option>
+              <option value="12">twice a day</option><option value="24">once a day (07:30)</option><option value="0">only when I ask</option></select></label>
+          <label><span>📝 Draft application kits <small>cover letter and form answers for the best new matches; uses your AI key</small></span>
+            <select data-schedule="kits">
+              <option value="0">only when I ask (📝 Prepare)</option><option value="1">for the best new match, each search</option>
+              <option value="3">for the 3 best new matches, each search</option><option value="5">for the 5 best new matches, each search</option></select></label>
+          <label><span>💡 Insights <small>what's working and what to change</small></span>
+            <select data-schedule="insights">
+              <option value="daily">every morning, weekly report on Mondays</option><option value="off">off</option></select></label>
+          <label><span>🧭 Find new employers <small>adds job feeds from new companies</small></span>
+            <select data-schedule="scout">
+              <option value="daily">every day (08:15)</option><option value="weekly">every Monday (08:15)</option><option value="off">off</option></select></label>
+          <label><span>📧 Check Gmail and Calendar <small>replies, interviews, reminders; needs Google connected</small></span>
+            <select data-schedule="mail">
+              <option value="1">once a day (08:00)</option><option value="3">3 times a day (07, 12, 18)</option>
+              <option value="6">6 times a day (every 3 hours from 07:00)</option><option value="0">off</option></select></label>
+        </div>
+        <p class="message" id="schedule-message"></p>
+      </div>
       <div class="setting" id="setting-cloud">
-        <div><h3>☁️ Keep searching while my Mac is off</h3><p class="muted status-line" id="cloud-status"></p>
-          <p class="muted small" id="cloud-howto">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that searches every 4 hours
-            and sends your matches to Telegram, even when this Mac is asleep or off. You approve one sign-in code in the browser; the app does the rest.
+        <div><h3>☁️ Keep working while my Mac is off</h3><p class="muted status-line" id="cloud-status"></p>
+          <p class="muted small" id="cloud-howto">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
+            above (searches, application kits, insights, new sources, mail) and sends results to Telegram and Notion, even when this Mac is asleep or off. You approve one sign-in code in the browser; the app does the rest.
             Your keys are stored there as encrypted secrets.</p></div>
         <div class="inline">
           <button class="secondary" id="cloud-connect">Turn on</button>

@@ -3,6 +3,7 @@ import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import {cadence} from './cadence.js';
 import {ROOT} from './root.js';
 
 export const REPO = ROOT;
@@ -101,7 +102,9 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.file) args.push('--file', String(inputs.file));
   if (inputs.note) args.push('--note', String(inputs.note));
   if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
-  if (ai && mode === 'scheduled') args.push('--insight');
+  const {insights, kits} = cadence(storage.settings());
+  if (ai && mode === 'scheduled' && insights !== 'off') args.push('--insight');
+  if (ai && kits > 0 && ['scheduled', 'run', 'today'].includes(mode)) args.push('--auto-kit-max', String(kits));
   return args;
 }
 

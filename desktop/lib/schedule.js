@@ -1,10 +1,14 @@
-// Searches every 4 hours while the app is open, and catches up after the Mac wakes from sleep.
-export const EVERY_HOURS = 4;
+// Searches on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
+import {cadence} from './cadence.js';
+
+export const EVERY_HOURS = 4;  // default; the user picks it in Settings → How often
 
 export function due(settings, now = Date.now()) {
   if (settings.autoSearch === false || !settings.setupDone || settings.cloud?.repo) return false; // cloud runs instead
   const last = settings.lastSearchAt ? Date.parse(settings.lastSearchAt) : 0;
-  return now - last >= EVERY_HOURS * 3600 * 1000;
+  const hours = cadence(settings).search;
+  if (!hours) return false;  // searches only when asked
+  return now - last >= hours * 3600 * 1000;
 }
 
 export function startSchedule(storage, search, powerMonitor) {

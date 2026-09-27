@@ -63,13 +63,13 @@ export function telegramEnv(storage, onLine) {
     NOTION_TOKEN: storage.secret('NOTION_TOKEN'),
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_EVENTS_DB: ids.NOTION_EVENTS_DB || '',
-    // With "keep searching while my Mac is off" on, runs happen in the user's GitHub repo.
+    // With "keep working while my Mac is off" on, runs happen in the user's GitHub repo.
     dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine) : localDispatch(storage, onLine),
     status: () => {
       const s = storage.settings();
-      if (s.cloud?.repo) return `☁️ Searches run every 4 hours in your GitHub repo ${s.cloud.repo}, even with the Mac off.`;
+      if (s.cloud?.repo) return `☁️ Job Pilotto works from your GitHub repo ${s.cloud.repo} on your schedule, even with the Mac off.`;
       return s.lastSearchAt ? `🖥️ Last search from the Job Pilotto app: ${new Date(s.lastSearchAt).toLocaleString()}` +
-        `${s.lastSearchOk === false ? ' (with problems)' : ''}. Next one within 4 hours while the app is open.` : '🖥️ No search yet.';
+        `${s.lastSearchOk === false ? ' (with problems)' : ''}. Next one on your schedule while the app is open.` : '🖥️ No search yet.';
     },
   };
 }

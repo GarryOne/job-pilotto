@@ -138,3 +138,7 @@ label.radio input { width: auto; margin-top: 3px; }
 .steps li[data-step="welcome"] { counter-increment: none; }
 .steps li[data-step="welcome"]:not(.done)::before { content: "•"; }
 .steps .app-version { padding-left: 0; }
+.schedule { display: grid; gap: 10px; }
+.schedule label { display: grid; grid-template-columns: 1fr 330px; align-items: center; gap: 12px; font-weight: 600; }
+.schedule label small { display: block; font-weight: 400; color: var(--muted); }
+.schedule select { padding: 6px 8px; border-radius: 8px; border: 1px solid #cfd8e3; background: #fff; font: inherit; font-weight: 400; }

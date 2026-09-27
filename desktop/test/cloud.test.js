@@ -43,7 +43,7 @@ async function fakeGitHub({repoExists = false, variableExists = []} = {}) {
     if (route.endsWith('/actions/secrets/public-key')) return json(200, {key: sodium.to_base64(keys.publicKey, sodium.base64_variants.ORIGINAL), key_id: 'k1'});
     if (route.includes('/actions/secrets/')) return json(201, {});
     if (route.endsWith('/actions/variables') && method === 'POST') return variableExists.includes(data.name) ? json(409, {}) : json(201, {});
-    if (route.includes('/actions/variables/')) return json(204, null);
+    if (route.includes('/actions/variables/')) return {ok: true, status: 204, json: async () => null};
     if (route.includes('/dispatches')) return {ok: true, status: 204, json: async () => null};
     throw new Error(`unexpected ${method} ${route}`);
   };
@@ -94,4 +94,17 @@ test('with the cloud on: no local timer, and buttons start runs in the repo', as
   assert.equal(call.route, '/repos/ada/job-pilotto-private/actions/workflows/daily.yml/dispatches');
   assert.deepEqual(call.data, {ref: 'main', inputs: {mode: 'apply', job: 'ab12', seed: '7'}});
   assert.match(telegramEnv(storage).status(), /even with the Mac off/);
+});
+
+test('the schedule and job choices reach the repo: crons, kits on, insights off', async () => {
+  const storage = userStorage();
+  storage.saveSettings({schedule: {search: 2, kits: 3, insights: 'off', scout: 'off', mail: 1}});
+  const gh = await fakeGitHub();
+  await github.connect(storage, 't', {fetcher: gh.fetcher});
+  const file = name => Buffer.from(gh.files[`.github/workflows/${name}`].content, 'base64').toString();
+  assert.match(file('daily.yml'), /- cron: '\d+ [\d,]+ \* \* \*'/);
+  assert.equal(file('daily.yml').match(/- cron: '\d+ ([\d,]+)/)[1].split(',').length, 12);  // every 2 hours
+  assert.doesNotMatch(file('scout.yml'), /schedule:/);
+  assert.ok(gh.calls.some(c => c.method === 'POST' && c.data?.name === 'JOB_PILOTTO_AUTO_KIT_MAX' && c.data.value === '3'));
+  assert.ok(gh.calls.some(c => c.method === 'DELETE' && c.route.endsWith('/actions/variables/JOB_PILOTTO_INSIGHT_MODEL')));
 });

@@ -1,4 +1,4 @@
-// "Keep searching while my Mac is off": the user's own private GitHub repo runs the searches on a
+// "Keep working while my Mac is off": the user's own private GitHub repo runs the searches on a
 // schedule. The app signs in to GitHub (device flow: the user approves a code in the browser), creates
 // <user>/job-pilotto-private, commits the scheduled workflows (templates/github-actions) and the user's
 // search settings, and stores their keys as encrypted repository secrets. Each run executes the public
@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import path from 'node:path';
 
+import {cadence, crons, withSchedule} from './cadence.js';
 import {MODELS, REPO} from './pipeline.js';
 
 // Public identifier of the Job Pilotto GitHub OAuth app (device flow needs no client secret).
@@ -109,6 +110,12 @@ export async function setSecrets(api, repo, secrets) {
   }
 }
 
+export async function removeVariables(api, repo, names) {
+  for (const name of names) {
+    try { await api('DELETE', `/repos/${repo}/actions/variables/${name}`); } catch (error) { if (error.status !== 404) throw error; }
+  }
+}
+
 export async function setVariables(api, repo, variables) {
   for (const [name, value] of Object.entries(variables)) {
     try {
@@ -123,8 +130,9 @@ export async function setVariables(api, repo, variables) {
 // What goes to the repo: the scheduled workflows, the user's search settings, keys and Notion IDs.
 export function payload(storage, templatesDir = path.join(REPO, 'templates', 'github-actions')) {
   const files = {};
+  const schedule = crons(storage.settings());  // how often, as the user chose (Settings → How often)
   for (const name of fs.readdirSync(templatesDir).filter(name => name.endsWith('.yml'))) {
-    files[`.github/workflows/${name}`] = fs.readFileSync(path.join(templatesDir, name), 'utf8');
+    files[`.github/workflows/${name}`] = withSchedule(fs.readFileSync(path.join(templatesDir, name), 'utf8'), schedule[name]);
   }
   files['README.md'] = fs.readFileSync(path.join(templatesDir, 'README.md'), 'utf8');
   for (const name of CONFIG_FILES) {
@@ -135,10 +143,14 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   const secrets = Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value));
   if (settings.telegramChatId) secrets.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
+  const removed = [];
   if (secrets.ANTHROPIC_API_KEY) {
     for (const [name, stage] of Object.entries(MODEL_VARIABLES)) variables[name] = MODELS[stage];
+    const {insights, kits} = cadence(settings);
+    if (insights === 'off') { delete variables.JOB_PILOTTO_INSIGHT_MODEL; removed.push('JOB_PILOTTO_INSIGHT_MODEL'); }
+    if (kits > 0) variables.JOB_PILOTTO_AUTO_KIT_MAX = String(kits); else removed.push('JOB_PILOTTO_AUTO_KIT_MAX');
   }
-  return {files, secrets, variables};
+  return {files, secrets, variables, removed};
 }
 
 
@@ -147,12 +159,13 @@ export async function connect(storage, token, {fetcher, onStep = () => {}} = {})
   const api = client(token, fetcher);
   onStep('Creating your private repository…');
   const {login, repo, created} = await ensureRepo(api);
-  const {files, secrets, variables} = payload(storage);
+  const {files, secrets, variables, removed} = payload(storage);
   onStep('Adding the schedules and your search settings…');
   for (const [file, content] of Object.entries(files)) await putFile(api, repo, file, content, `Job Pilotto: ${file}`);
   onStep('Storing your keys as encrypted secrets…');
   await setSecrets(api, repo, secrets);
   await setVariables(api, repo, variables);
+  await removeVariables(api, repo, removed);
   storage.saveSettings({cloud: {repo, login, since: storage.settings().cloud?.since || new Date().toISOString(), updatedAt: new Date().toISOString()}});
   return {repo, created, secrets: Object.keys(secrets), variables: Object.keys(variables)};
 }
