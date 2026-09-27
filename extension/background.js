@@ -142,3 +142,29 @@ chrome.runtime.onStartup.addListener(reportTabs);
 chrome.alarms.create('report-tabs', {periodInMinutes: 0.5});
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') reportTabs(); });
 reportTabs();
+
+// Submitted? After you unlock and submit, the site shows its confirmation: Greenhouse …/<job id>/confirmation,
+// Lever …/<job id>/thanks, or a "thank you for applying" page. Then the job is marked Applied in the app and
+// Notion (like the agent launchers' watcher), and a note confirms it on the page.
+const THANKS = /thank(s| you) for (applying|your application)|application (has been )?(submitted|received)|we('ve| have) received your application/i;
+async function checkSubmitted(tabId, tab) {
+  const key = `job:${tabId}`;
+  const job = (await chrome.storage.session.get(key))[key];
+  if (!job || !tab.url) return;
+  const id = job.replace(/\/+$/, '').split('/').pop();
+  const confirmationUrl = new RegExp(`${id}/(confirmation|thanks)`).test(tab.url);
+  const text = confirmationUrl ? '' : await chrome.scripting.executeScript({target: {tabId}, func: () => document.querySelectorAll('input:not([type=hidden]), textarea').length < 3 ? document.body?.innerText?.slice(0, 5000) || '' : ''})
+    .then(([r]) => r?.result || '').catch(() => '');
+  if (!confirmationUrl && !(tab.url.includes(id) && THANKS.test(text))) return;
+  await chrome.storage.session.remove(key);  // once per job
+  const config = await settings();
+  try {
+    const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/applied`, {method: 'POST',
+      headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'}, body: JSON.stringify({url: job})});
+    const result = await response.json().catch(() => ({}));
+    await note(tabId, result.ok === false ? `✈️ Submitted, but Job Pilotto couldn't mark it Applied: ${result.error}` : '✈️ Submitted: marked Applied in Job Pilotto and Notion.');
+  } catch (error) {
+    await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Use the extension's "I submitted it" button.`);
+  }
+}
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'complete' || info.url) checkSubmitted(tabId, tab); });

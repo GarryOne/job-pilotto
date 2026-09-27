@@ -41,6 +41,16 @@ export async function clickCombos(tabId) {
       results.push({label: spot.label, picked, ms: Date.now() - started});
       if (!picked) skip += 1;
     }
+    // A phone widget whose country was just picked: type the number for real, so the form registers it.
+    const phone = await page(() => window.__jobPilottoPhoneSpot?.());
+    if (phone) {
+      await click(phone.x, phone.y);
+      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA',
+        windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
+      await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
+      await chrome.debugger.sendCommand(target, 'Input.insertText', {text: phone.text});
+      results.push({label: 'Phone (typed for real)', picked: true, ms: 0});
+    }
   } finally {
     await chrome.debugger.detach(target).catch(() => {});
   }
@@ -77,6 +87,7 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true} = {}) {
   const startedAt = new Date();
+  chrome.storage.session.set({[`job:${tab.id}`]: tab.url.split('#')[0]});
   const withKit = kitAnswers.length > 0;
   // Everything about this fill, for debugging and improving the extension (saved with the run in Notion).
   const debug = {version: chrome.runtime.getManifest().version, browser: navigator.userAgent, steps: [], errors: []};

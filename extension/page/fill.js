@@ -18,6 +18,13 @@
     ['location', /^\s*(current\s*)?(location|city)\b/i],
   ];
   const TEXT_TYPES = ['text', 'email', 'tel', 'url', 'number', 'textarea'];
+  // Phone widgets with a separate country menu: the country comes from the number's prefix.
+  const DIAL = {'+1': 'United States', '+30': 'Greece', '+31': 'Netherlands', '+32': 'Belgium', '+33': 'France', '+34': 'Spain',
+    '+36': 'Hungary', '+39': 'Italy', '+40': 'Romania', '+41': 'Switzerland', '+43': 'Austria', '+44': 'United Kingdom',
+    '+45': 'Denmark', '+46': 'Sweden', '+47': 'Norway', '+48': 'Poland', '+49': 'Germany', '+351': 'Portugal', '+353': 'Ireland',
+    '+358': 'Finland', '+373': 'Moldova', '+380': 'Ukraine', '+420': 'Czech Republic', '+421': 'Slovakia', '+972': 'Israel',
+    '+971': 'United Arab Emirates', '+91': 'India', '+86': 'China', '+81': 'Japan', '+61': 'Australia', '+55': 'Brazil'};
+  const dialOf = phone => Object.keys(DIAL).sort((a, b) => b.length - a.length).find(code => String(phone || '').replace(/\s/g, '').startsWith(code));
   const LEGAL = /(^|\b)(i agree|i accept|terms|privacy|consent|acknowledg|authorize|certify)(\b|$)/i;
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\*\s*$/, '').trim();
   const norm = text => clean(text).toLowerCase();
@@ -221,6 +228,16 @@
       label: control.dataset.jobpilottoArmed};
   };
   window.__jobPilottoPanel = summary => panel(summary);
+  // After the country menu is picked: where to type the national number (the widget adds the prefix).
+  window.__jobPilottoPhoneSpot = async () => {
+    const phone = window.__jobPilottoPhone;
+    const el = phone && (document.getElementById(phone.field) || document.querySelector(`[name="${CSS.escape(phone.field)}"]`));
+    if (!el) return null;
+    el.scrollIntoView({block: 'center', behavior: 'instant'});
+    await sleep(120);
+    const rect = el.getBoundingClientRect();
+    return {x: Math.round(rect.left + 30), y: Math.round(rect.top + rect.height / 2), text: phone.national};
+  };
   window.__jobPilottoArmedCount = () => document.querySelectorAll('[data-jobpilotto-armed]').length;
 
   window.__jobPilottoExtensionFill = async (answers, profile, resume) => {
@@ -255,6 +272,16 @@
       }
     }
     const answered = new Set(answers.map(a => a.field));
+    const dial = dialOf(profile?.phone);
+    const phoneRow = form.find(row => row.type === 'tel' || /phone|mobile/i.test(row.label || ''));
+    if (dial && phoneRow) {
+      const country = form.find(row => row.type === 'combobox' && /^\s*country\b/i.test(row.label || '') && !answered.has(row.field));
+      if (country && armCombo(country.field, DIAL[dial])) {
+        armed.push(country.label); answers.push({field: country.field, value: DIAL[dial], source: 'your details (phone prefix)'});
+        answered.add(country.field);
+        window.__jobPilottoPhone = {field: phoneRow.field, national: String(profile.phone).replace(/\s/g, '').slice(dial.length)};
+      }
+    }
     for (const row of form) {
       if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field)) continue;
       const [key] = PROFILE_LABELS.find(([name, pattern]) => profile?.[name] && pattern.test(row.label || row.field)) || [];
