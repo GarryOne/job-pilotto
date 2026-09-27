@@ -35,6 +35,8 @@ DATABASES = {
     'NOTION_INTERVIEWS_DB': '78fb76fd0f2c4b9ea0a9e040c48642ba',
     'NOTION_EMPLOYERS_DB': 'c7fe8570c2ff414086ae9bb1ee2dbf64',
 }
+# Pages with no code reading them: created from a docs file, for the user.
+GUIDES = [('📖', 'How Job Pilotto works', 'docs/job-pilotto-guide.md')]
 PAGES = {
     'NOTION_PROFILE_PAGE_ID': ('👤', 'Profile — CV and Preferences'),
     'NOTION_ANSWERS_PAGE_ID': ('📝', 'Application Answers — Standard Form Fields'),
@@ -138,6 +140,8 @@ def build(token, parent, dry_run=False):
             if props:
                 request('PATCH', f'databases/{created[env]}', {'properties': props}, token)
 
+    for emoji, title, source in GUIDES:
+        add_page(token, root['id'], emoji, title, markdown_blocks((ROOT / source).read_text()))
     # Pages: Profile and Answers from the template file; Pipeline is written by the code.
     sections = profile_sections()
     for env, (emoji, title) in PAGES.items():
@@ -150,6 +154,15 @@ def build(token, parent, dry_run=False):
             request('PATCH', f"blocks/{page['id']}/children", {'children': blocks[start:start + 100]}, token)
         created[env] = page['id']
     return {'root': root['id'], 'url': root['url'], 'ids': created, **plan}
+
+
+def add_page(token, parent, emoji, title, blocks):
+    page = request('POST', 'pages', {'parent': {'page_id': parent}, 'icon': {'type': 'emoji', 'emoji': emoji},
+                                     'properties': {'title': {'title': [{'text': {'content': title}}]}},
+                                     'children': blocks[:100]}, token)
+    for start in range(100, len(blocks), 100):
+        request('PATCH', f"blocks/{page['id']}/children", {'children': blocks[start:start + 100]}, token)
+    return page
 
 
 # ---------- page content ----------
@@ -226,6 +239,8 @@ def intro_blocks():
         paragraph('**Start here:** open the Job Pilotto app and follow the setup; it connects to this page. '
                   'Your Profile and standard answers are drafted from your CV; mark anything wrong and the next '
                   'search uses your edits.'),
+        paragraph('**New here?** Read **How Job Pilotto works** below first: what each page is for, a normal week, '
+                  'and what to edit.'),
         {'type': 'divider', 'divider': {}},
     ]
 

@@ -1,0 +1,42 @@
+# What Job Pilotto does
+
+Job Pilotto looks for new jobs every few hours, reads each one, scores how well it fits you, drafts your answers and fills the application form. **You decide what to apply to, review everything, and click Submit yourself.** It never submits for you.
+
+The Job Pilotto app on your Mac does the work. This Notion workspace is where you see and track everything.
+
+# Your pages
+
+| Page | What it's for | Who fills it |
+|---|---|---|
+| **Job Matches — AI Scored** | Every job that fits your search, with a fit score out of 100 and the reason. Start with the **🎯 Best matches** view | The app |
+| **Applications — Job Tracker** | Jobs you saved, prepared, applied to, and what happened next. **✅ Active** shows applications in progress | The app, and you (edit the Stage when something changes) |
+| **Profile — CV and Preferences** | What jobs are scored against: your experience, places, languages, salary, deal-breakers | Drafted from your CV; **you correct it** |
+| **Application Answers — Standard Form Fields** | Your standard answers to common form questions, and how your cover letters should sound | Drafted; **you correct it** |
+| **📈 Application Events** | The history of every application: applied, confirmation, screening, interview, rejection | The app (and Gmail, if connected) |
+| **🎤 Interviews** | A question-by-question review of each interview you send in | The app |
+| **💡 Insights** | One finding a day about your search, and a weekly report on Mondays | The app |
+| **Pipeline — Application Funnel** | How many applications got replies, screenings and interviews, and the step to improve | The app |
+| **Employers & Sources** | The company career pages being checked | The app; untick **Active** to stop checking one |
+| **Job Apply — Agent Runs** | Details of each form an AI agent filled | The app |
+| **Cronjob Runs** | Each search: how many new jobs, what the AI cost | The app |
+
+# A normal week
+
+1. **Look at new matches** in Job Matches or in Telegram (a few minutes a day). ⭐ Save the ones you like, dismiss the rest.
+2. **Apply** from the app: **Apply to jobs…**, pick how many. Each form is filled for you; check every field, then click Submit yourself.
+3. **Record what happens:** confirmations and replies are logged automatically if Gmail is connected; otherwise change the **Stage** in Applications.
+4. **After an interview,** send the transcript or your notes; you get a review of each answer.
+5. **On Mondays,** read the weekly report in Insights.
+
+# What to edit, and what not to
+
+- **Edit freely:** your Profile, your Application Answers, the Stage and Notes of any application. The next search uses your changes.
+- **Please don't rename or delete columns or databases.** The app finds them by name; if something goes missing it tells you what to restore.
+- **Add your own views, filters and pages** as you like; they don't affect the app.
+
+# Good to know
+
+- **Your data** is in this Notion workspace and on your Mac. Nothing is stored by Job Pilotto on a server.
+- **AI costs** go to your own Anthropic account, usually a few dollars a month. Each search's cost is in Cronjob Runs.
+- **Fit scores** are a guide, not a verdict: a 65 with a great team can beat an 80.
+- **Anything marked ❓** in your Profile or answers is a fact the app doesn't know yet. Fill it in so drafts don't have to guess.
