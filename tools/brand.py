@@ -23,7 +23,10 @@ WHITE = (255, 255, 255, 255)
 
 def cut_mark(path):
     """The logo's coloured shapes on a transparent background (tile and page white removed)."""
-    rgb = np.array(Image.open(path).convert('RGB')).astype(int)
+    source = Image.open(path).convert('RGBA')
+    flat = Image.new('RGBA', source.size, (255, 255, 255, 255))
+    flat.alpha_composite(source)  # transparent areas count as white (plain convert('RGB') makes them black)
+    rgb = np.array(flat.convert('RGB')).astype(int)
     light = rgb.min(axis=2)                     # near-white/off-white pixels are background
     alpha = np.clip((236 - light) * 255 // 40, 0, 255).astype(np.uint8)
     rgba = np.dstack([rgb.astype(np.uint8), alpha])
