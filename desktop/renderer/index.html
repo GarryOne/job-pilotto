@@ -295,6 +295,23 @@
         <label class="radio"><input type="checkbox" id="auto-search"><span>Search on the schedule below while Job Pilotto is open</span></label>
         <label class="radio"><input type="checkbox" id="open-login"><span>Open Job Pilotto when I log in to my Mac</span></label>
       </div>
+      <div class="setting" id="setting-contact">
+        <div><h3>🪪 Your details for application forms</h3>
+          <p class="muted small">What the Chrome extension types into forms, with your CV (<span id="contact-cv"></span>). Read from your CV when your strategy was drafted; edit anything here.</p></div>
+        <div class="contact-grid">
+          <label>First name<input data-contact="first_name" type="text"></label>
+          <label>Last name<input data-contact="last_name" type="text"></label>
+          <label>Full name<input data-contact="full_name" type="text"></label>
+          <label>Email<input data-contact="email" type="email"></label>
+          <label>Phone<input data-contact="phone" type="tel"></label>
+          <label>City<input data-contact="location" type="text"></label>
+          <label>LinkedIn URL<input data-contact="linkedin" type="url"></label>
+          <label>GitHub URL<input data-contact="github" type="url"></label>
+          <label>Website<input data-contact="website" type="url"></label>
+        </div>
+        <div class="inline"><button class="secondary" id="contact-save">Save</button><button class="link" id="contact-cv-replace">Replace CV…</button></div>
+        <p class="message" id="contact-message"></p>
+      </div>
       <div class="setting" id="setting-schedule">
         <div><h3>⏱️ How often</h3><p class="muted small">Times are in your time zone. With "Keep working while my Mac is off" on, GitHub follows this schedule; otherwise the app does, while it's open.</p></div>
         <div class="schedule">

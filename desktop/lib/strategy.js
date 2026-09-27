@@ -8,6 +8,8 @@ import {REPO} from './pipeline.js';
 export const MODEL = 'claude-sonnet-5';
 const PRICE = {input: 2, output: 10}; // USD per million tokens, claude-sonnet-5
 
+// Contact details typed into application forms (the Chrome extension's fields), read from the CV.
+export const CONTACT_FIELDS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'location', 'linkedin', 'github', 'website'];
 const list = {type: 'array', items: {type: 'string'}};
 const object = (properties) => ({type: 'object', additionalProperties: false, required: Object.keys(properties), properties});
 export const DRAFT_SCHEMA = object({
@@ -26,6 +28,7 @@ export const DRAFT_SCHEMA = object({
     }),
   }),
   preferences: object({disqualifying_languages: list, excluded_companies: list}),
+  contact: object(Object.fromEntries(CONTACT_FIELDS.map(field => [field, {type: 'string'}]))),
 });
 
 function template() {
@@ -40,7 +43,8 @@ Write:
 2. answers_markdown: their standard application answers, following the "Application Answers" template, same rule for ❓. Include a short "Cover letter style" section inferred from how the CV is written.
 3. search: what the job crawler looks for. Values in role_keywords, title_exclude_keywords, board_discovery_keywords, quality_stack_keywords, locations and remote_excluded_regions are case-insensitive regex fragments in the style of the example (e.g. "z[uü]rich", "\\\\bsre\\\\b", "platform engineer"). jobs_board_search_queries and google_jobs.queries are plain search phrases (3 to 6). locations.top_tier holds the cities they want most, country_wide the rest of that country, abroad other cities they'd move to. remote_excluded_regions lists regions whose "remote" jobs exclude them. google_jobs.locations uses SerpApi canonical names ("Zurich,Zurich,Switzerland") with the place's own language code ("de" for Zurich, "fr" for Geneva, "en" for London).
 4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies they asked to skip (e.g. their current employer).
-5. summary: 2 to 3 plain sentences telling the user what you set up. open_questions: what they should still answer, short.`;
+5. summary: 2 to 3 plain sentences telling the user what you set up. open_questions: what they should still answer, short.
+6. contact: the user's contact details exactly as written in the CV (city for location; full URLs for LinkedIn, GitHub and website). Empty string for anything the CV doesn't show; never guess.`;
 
 // The draft streams in, in schema order; progress is how much of it has arrived and which part is being
 // written. The expected length starts at a typical draft and then follows this user's last one.
@@ -90,6 +94,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
 export function save(storage, accepted) {
+  if (accepted.contact) storage.saveSettings({contact: Object.fromEntries(Object.entries(accepted.contact).filter(([, value]) => value))});
   storage.writeText('profile.md', accepted.profile_markdown.trim() + '\n');
   storage.writeText('answers.md', accepted.answers_markdown.trim() + '\n');
   const current = JSON.parse(storage.readText('config/search.json') || '{}');

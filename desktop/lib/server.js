@@ -3,6 +3,7 @@
 // keys from the Keychain-backed store, and the local job list. Only this computer can connect, and
 // every call still needs the extension token.
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import http from 'node:http';
 import {handleExtension, jobKey} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
@@ -54,6 +55,18 @@ export function localEnv(storage) {
 
 // onError: the port can be taken (another copy of the app, a test run); the app keeps working without
 // the extension connection instead of crashing.
+// The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
+// the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
+export function me(storage) {
+  const settings = storage.settings();
+  let resume = null;
+  try {
+    const data = fs.readFileSync(storage.path('cv.pdf'));
+    resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64')};
+  } catch {}
+  return {contact: settings.contact || {}, resume};
+}
+
 export function start(storage, onError = () => {}) {
   const server = http.createServer(async (req, res) => {
     try {
@@ -64,6 +77,12 @@ export function start(storage, onError = () => {}) {
         const ours = req.headers.origin === `chrome-extension://${EXTENSION_ID}`;
         res.writeHead(ours ? 200 : 403, {'Content-Type': 'application/json', ...(ours ? {'Access-Control-Allow-Origin': req.headers.origin} : {})});
         res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Job Pilotto extension can pair'}));
+        return;
+      }
+      if (req.url === '/extension/me') {
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'});
+        res.end(JSON.stringify(ok ? me(storage) : {error: 'Wrong token: open the extension settings and Connect again'}));
         return;
       }
       const request = new Request(`http://127.0.0.1:${PORT}${req.url}`, {

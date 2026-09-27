@@ -46,7 +46,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       }
     }
   }
+  // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
+  const me = await api(config, '/extension/me').catch(() => null);
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
-    [answers, config.profile || {}, config.resume || null]);
+    [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
 }

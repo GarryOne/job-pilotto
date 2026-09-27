@@ -173,3 +173,18 @@ test('Apply on one job opens it in Chrome with the fill marker; no link, no Chro
   assert.equal(apply.openOne('', open).ok, false);
   assert.equal(calls.length, 1);
 });
+
+test('the strategy draft keeps the contact details it read from the CV; the extension gets them and the CV from the app', async () => {
+  const storage = tempStorage();
+  storage.writeText('cv.pdf', '%PDF-1.4 fake');
+  storage.saveSettings({cvName: 'CV_Ada.pdf'});
+  strategy.save(storage, {profile_markdown: 'P', answers_markdown: 'A', search: {google_jobs: {}}, preferences: {},
+    contact: {first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com', phone: '', github: ''}});
+  assert.deepEqual(storage.settings().contact, {first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com'});
+  const server = await import('../lib/server.js');
+  const me = server.me(storage);
+  assert.equal(me.contact.email, 'ada@example.com');
+  assert.equal(me.resume.name, 'CV_Ada.pdf');
+  assert.equal(Buffer.from(me.resume.data, 'base64').toString(), '%PDF-1.4 fake');
+  assert.ok(strategy.DRAFT_SCHEMA.required.includes('contact'));
+});

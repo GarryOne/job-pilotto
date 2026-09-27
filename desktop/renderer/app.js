@@ -442,6 +442,7 @@ async function loadSettings() {
   renderNotionLinks();
   showCloud();
   showSchedule();
+  showContact();
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';
@@ -473,6 +474,23 @@ $('set-telegram-save').addEventListener('click', async () => {
   message('telegram-message', `Connected to @${result.username} ✓ Matches arrive there after each search.`, 'ok');
   loadSettings();
 });
+// ---------- your details for application forms (the extension asks the app for them) ----------
+function showContact() {
+  const contact = state.settings.contact || {};
+  document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
+  $('contact-cv').textContent = state.settings.cvName ? `now: ${state.settings.cvName}` : 'none yet';
+}
+$('contact-save').addEventListener('click', async () => {
+  const contact = Object.fromEntries([...document.querySelectorAll('[data-contact]')]
+    .map(input => [input.dataset.contact, input.value.trim()]).filter(([, value]) => value));
+  state.settings = await window.pilot.saveSettings({contact});
+  message('contact-message', 'Saved ✓ The extension uses these from the next form it fills.', 'ok');
+});
+$('contact-cv-replace').addEventListener('click', async () => {
+  const name = await window.pilot.chooseCv();
+  if (name) { state = await window.pilot.state(); showContact(); message('contact-message', `CV replaced: ${name}`, 'ok'); }
+});
+
 // ---------- how often each job runs ----------
 const SCHEDULE_DEFAULTS = {search: 4, kits: 0, insights: 'daily', scout: 'daily', mail: 3};
 function showSchedule() {
