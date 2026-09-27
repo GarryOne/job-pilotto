@@ -246,7 +246,7 @@
     } else add('Review everything, then press Submit.', 'color:#b9c8dc');
     // Consent boxes left: one click ticks them all and leaves Submit ready.
     if (summary.todo.some(item => item.startsWith('Your choice (legal)'))) {
-      const tick = document.createElement('button');
+      const tick = document.createElement('button'); tick.type = 'button';  // not a submit button (the guard blocks those)
       tick.textContent = '✓ Tick these for me';
       tick.style.cssText = 'margin:8px 8px 0 0;background:#d9540b;color:#fff;border:0;border-radius:5px;padding:5px 10px;cursor:pointer;font-weight:600';
       tick.onclick = () => {
@@ -257,7 +257,7 @@
       box.append(tick);
       add('Always do this: extension Settings → "Tick terms and consent boxes for me".', 'color:#8fa3bb;font-size:11.5px;margin-top:4px');
     }
-    const close = document.createElement('button');
+    const close = document.createElement('button'); close.type = 'button';  // not a submit button (the guard blocks those)
     close.textContent = 'Close';
     close.style.cssText = 'margin-top:8px;background:#fff;color:#132439;border:0;border-radius:5px;padding:4px 10px;cursor:pointer';
     close.onclick = () => box.remove();
@@ -414,7 +414,8 @@
     const unfilledRequired = open.filter(row => !(row.field === 'resume' && resumeAttached) && !row.legal).length;
     // Field-by-field log for the run record: where each answer came from and what happened.
     const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));
-    const trace = after.filter(row => row.field !== 'resume').map(row => {
+    // Upload widgets' own buttons (Attach, Dropbox, Enter manually…) aren't questions: not in the log.
+    const trace = after.filter(row => row.field !== 'resume' && row.type !== 'file' && !/^(attach|dropbox|google drive|enter manually)$/i.test(clean(row.label))).map(row => {
       const label = rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field;
       const answer = answerOf[row.field];
       const source = contactFields.has(row.field) ? 'your details' : answer ? (answer.source || 'kit') : '';

@@ -73,7 +73,7 @@ async function ineligibleNote(tabId, reason) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px;margin-top:10px';
     const button = (label, primary) => {
-      const b = Object.assign(document.createElement('button'), {textContent: label});
+      const b = Object.assign(document.createElement('button'), {textContent: label, type: 'button'});
       b.style.cssText = `padding:6px 12px;border-radius:7px;border:${primary ? '0' : '1px solid #3b5170'};background:${primary ? '#d9540b' : 'transparent'};` +
         'color:#fff;font:600 12px system-ui,sans-serif;cursor:pointer';
       return b;
