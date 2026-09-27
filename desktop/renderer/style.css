@@ -203,3 +203,12 @@ td:has(.badge-ineligible) { display: table-cell; }
 .toasts { position: fixed; top: 16px; right: 16px; z-index: 50; display: grid; gap: 8px; width: 340px; }
 .toast { background: var(--navy); color: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(15,30,50,.3); display: grid; gap: 4px; cursor: pointer; font-size: 13px; }
 .toast b { font-size: 14px; } .toast small { color: #b9c8dc; }
+/* Row main button: one colour per step, so the next action stands out. */
+.row-actions .row-main { border-radius: 8px; font-weight: 700; border: 1.5px solid transparent; }
+.row-actions .state-prepare { background: #fff; color: var(--signal); border-color: var(--signal); }
+.row-actions .state-prepare:hover { background: var(--signal-soft); }
+.row-actions .state-busy { background: var(--signal-soft); color: #a3470f; border-color: #f5c9ab; }
+.row-actions .row-main.state-busy::before { border-color: rgba(163,71,15,.3); border-top-color: #a3470f; }
+.row-actions .state-apply { background: var(--signal); color: #fff; }
+.row-actions .state-apply:hover { filter: brightness(1.08); }
+.row-actions .state-opened { background: #e3f3f2; color: var(--teal); border-color: #a9d8d6; }

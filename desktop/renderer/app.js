@@ -337,7 +337,7 @@ function renderJobs() {
       // The kit already answered this form: Chrome opens it and the extension fills it at once.
       // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
       const opened = openedInChrome.has(pageKey(job.url));
-      const apply = Object.assign(document.createElement('button'), {className: `row-main ${opened ? 'secondary' : 'primary'}`,
+      const apply = Object.assign(document.createElement('button'), {className: `row-main ${opened ? 'state-opened' : 'state-apply'}`,
         textContent: opened ? 'Opened in Chrome ↻' : 'Apply',
         title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
       apply.addEventListener('click', async () => {
@@ -347,15 +347,15 @@ function renderJobs() {
       box.append(apply);
     } else if (job.status !== 'applied' && job.url && job.code) {
       // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).
-      const prepare = Object.assign(document.createElement('button'), {className: 'row-main primary', textContent: 'Prepare',
+      const prepare = Object.assign(document.createElement('button'), {className: 'row-main state-prepare', textContent: 'Prepare',
         title: 'Draft the application kit (form answers and cover letter) in your Notion; then Apply'});
       prepare.addEventListener('click', async () => {
         prepare.disabled = true;
-        prepare.classList.add('busy');  // spinner only; the fixed width keeps the row still
+        prepare.classList.add('busy', 'state-busy');  // spinner only; the fixed width keeps the row still
         prepare.textContent = 'Preparing';
         prepare.title = 'Drafting the kit: usually 15–30 s';
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
-        prepare.classList.remove('busy');
+        prepare.classList.remove('busy', 'state-busy');
         if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
       });
       box.append(prepare);
