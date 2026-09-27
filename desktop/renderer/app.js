@@ -302,6 +302,19 @@ function renderJobs() {
     if (job.notion_url) addLink(job.kit ? '📝 Kit' : '🗂 Notion', event => window.pilot.openNotion(job.notion_url, event.metaKey),
       job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion');
     addLink('↗ Posting', () => window.pilot.openExternal(job.url), 'The job posting');
+    if (job.kit && job.code) {
+      // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
+      addLink('↻ Redraft', async event => {
+        const a = event.target;
+        if (a.dataset.busy) return;
+        a.dataset.busy = '1';
+        a.textContent = '↻ Redrafting…';
+        const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
+        delete a.dataset.busy;
+        a.textContent = result.ok ? '↻ Redraft' : '↻ Retry redraft';
+        if (result.ok) loadJobs();
+      }, 'Draft the kit again from your current Profile and standard answers (~20 s)');
+    }
     role.append(links);
     const company = Object.assign(document.createElement('td'), {textContent: job.company});
     const place = Object.assign(document.createElement('td'), {textContent: job.location});
