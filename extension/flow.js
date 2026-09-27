@@ -113,7 +113,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const me = await api(config, '/extension/me').catch(() => null);
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
-  if (config.clickDropdowns && await chrome.permissions.contains({permissions: ['debugger']})) {
+  if (config.clickDropdowns) {
     onStep('Choosing the drop-down answers…');
     try {
       const picked = await clickCombos(tab.id);

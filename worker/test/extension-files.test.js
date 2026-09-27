@@ -11,17 +11,17 @@ test('extension page helpers are the same as the tools/ originals (run extension
   }
 });
 
-test('manifest asks for activeTab, scripting and storage, and runs by itself only on the job-application sites', () => {
+test('manifest asks for activeTab, debugger, scripting and storage, and runs by itself only on the job-application sites', () => {
   const manifest = JSON.parse(read('extension/manifest.json'));
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'scripting', 'storage']);
+  // debugger: real clicks on dropdowns, used only when Settings → Fill drop-down menus too is on (Chrome can't make it optional).
+  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'debugger', 'scripting', 'storage']);
   // Granted at install, so tabs opened by the app or "Open & fill" fill themselves (as optional
   // permissions they needed a prompt that closed the popup, and nothing filled).
   assert.deepEqual(manifest.host_permissions, ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
     'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*']);
   assert.equal(manifest.optional_host_permissions, undefined);
-  // Clicking drop-downs (real input via Chrome's debugger) is opt-in: requested from Settings, never at install.
-  assert.deepEqual(manifest.optional_permissions, ['debugger']);
+  assert.equal(manifest.optional_permissions, undefined);
 });
 
 test('contact details go into matching empty text fields, never over kit answers or filled fields', () => {
