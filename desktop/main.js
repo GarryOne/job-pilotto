@@ -466,11 +466,13 @@ if (firstCopy) app.whenReady().then(() => {
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   pipeline.ensureConfig(storage);
   handlers();
-  // Without Screen Recording permission there's no source (desktopCapturer rejects "Failed to get sources"),
-  // and Electron throws when a video request is answered without video: catch both, so nothing goes unhandled;
-  // the recorder then records the microphone alone (renderer: 5 s timeout).
+  // Without Screen Recording permission there's no source (desktopCapturer rejects "Failed to get sources",
+  // logged by Electron as an unhandled rejection), and Electron throws when a video request is answered
+  // without video. So: when macOS says denied, refuse without asking for sources (not-determined still asks,
+  // so macOS shows its prompt once); catch the rest. The recorder then shows the permission panel.
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     const answer = streams => { try { callback(streams); } catch {} };
+    if (['denied', 'restricted'].includes(systemPreferences.getMediaAccessStatus('screen'))) { answer({}); return; }
     desktopCapturer.getSources({types: ['screen']})
       .then(sources => answer(sources[0] ? {video: sources[0], audio: 'loopback'} : {}))
       .catch(() => answer({}));

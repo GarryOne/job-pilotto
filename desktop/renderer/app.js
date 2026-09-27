@@ -849,8 +849,7 @@ async function showPermission(noCallAudio = false) {
     permissionKind = 'screen';
     $('iv-permission-title').textContent = '🔊 Allow the call\'s audio (so the interviewers are recorded too)';
     text = `System Settings → Privacy & Security → <b>Screen &amp; System Audio Recording</b> → turn on ${who}` +
-      ' (not there? click <b>+</b> and add it), then restart Job Pilotto. Until then only your microphone is recorded:' +
-      ' with headphones, that\'s only your voice.';
+      ' (not there? click <b>+</b> and add it), then restart Job Pilotto. Recording starts once the call\'s audio is allowed.';
   }
   $('iv-permission-text').innerHTML = text;
   show($('iv-permission'), !!text);
@@ -1049,26 +1048,51 @@ $('iv-recordings').addEventListener('click', () => iv.recordings());
 let recorder = null;
 // Consent first: Record stays off until the box is ticked, and the tick is asked again for every call.
 $('iv-consent').addEventListener('change', () => { $('iv-record').disabled = !$('iv-consent').checked || !!recorder; });
-$('iv-record').addEventListener('click', async () => {
+// Record starts only with the call's audio (otherwise only your voice would be kept); the permission panel
+// says what to allow. "Record my microphone only" is the explicit choice for in-person or speaker calls.
+async function callAudio() {
+  // Without macOS Screen & System Audio Recording permission the request may never answer: give up after 5 s.
+  try {
+    const request = navigator.mediaDevices.getDisplayMedia({audio: true, video: {frameRate: 1, width: 320, height: 200}});
+    const call = await Promise.race([request, new Promise(resolve => setTimeout(() => resolve(null), 5000))]);
+    if (!call) { request.then(late => late.getTracks().forEach(t => t.stop()), () => {}); return null; }
+    if (!call.getAudioTracks().length) { call.getTracks().forEach(t => t.stop()); return null; }
+    return call;
+  } catch { return null; }
+}
+
+$('iv-record').addEventListener('click', () => startRecording(false));
+$('iv-mic-only').addEventListener('click', () => startRecording(true));
+
+async function startRecording(micOnly) {
   message('iv-message', '');
   if (!$('iv-consent').checked) { message('iv-message', 'First ask everyone on the call and tick the consent box.', 'error'); return; }
-  let mic, call = null;
+  if (recorder) return;
+  $('iv-record').disabled = true;
+  let call = null;
+  if (!micOnly) {
+    message('iv-message', 'Connecting to the call\'s audio…');
+    call = await callAudio();
+    if (!call) {
+      message('iv-message', 'Not recording: the call\'s audio isn\'t allowed yet, so only your voice would be kept. ' +
+        'Allow it (above) and restart, or choose "Record my microphone only".', 'error');
+      await showPermission(true);
+      $('iv-record').disabled = !$('iv-consent').checked;
+      $('iv-permission').scrollIntoView({behavior: 'smooth', block: 'center'});
+      return;
+    }
+    message('iv-message', '');
+  }
+  let mic;
   try {
     mic = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
   } catch {
+    call?.getTracks().forEach(t => t.stop());
     message('iv-message', 'Job Pilotto may not use the microphone yet: allow it (see above), then restart.', 'error');
     showPermission();
+    $('iv-record').disabled = !$('iv-consent').checked;
     return;
   }
-  // The call's audio needs macOS Screen & System Audio Recording permission; without it the request may
-  // never answer, so after 5 s the recording starts with the microphone alone.
-  try {
-    const request = navigator.mediaDevices.getDisplayMedia({audio: true, video: {frameRate: 1, width: 320, height: 200}});
-    call = await Promise.race([request, new Promise(resolve => setTimeout(() => resolve(null), 5000))]);
-    if (!call) request.then(late => late.getTracks().forEach(t => t.stop()), () => {});
-    else if (!call.getAudioTracks().length) { call.getTracks().forEach(t => t.stop()); call = null; }
-  } catch { call = null; }
-  if (!call) message('iv-message', '🎙️ Recording your microphone only. For the call\'s audio too: System Settings → Privacy & Security → Screen & System Audio Recording → Job Pilotto (or Electron), then record again.');
   const context = new AudioContext();
   const destination = context.createMediaStreamDestination();
   const mono = stream => {
@@ -1114,9 +1138,8 @@ $('iv-record').addEventListener('click', async () => {
   recorder = media;
   $('iv-record').disabled = true;
   $('iv-timer').textContent = '00:00';
-  $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' :
-    'Microphone only: the call\'s audio isn\'t allowed yet (see above). With headphones, only you are heard.';
-  if (!call) showPermission(true);
+  $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' : 'Your microphone only (as you chose)';
+  show($('iv-permission'), false);
   show($('iv-recorder'));
-});
+}
 $('iv-stop').addEventListener('click', () => recorder?.state === 'recording' && recorder.stop());
