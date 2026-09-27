@@ -4,6 +4,7 @@
 // need the job database (/run, /today, /apply_<code>) start the GitHub
 // workflow, which replies in Telegram when it finishes.
 
+import { handleReport } from './report.js';
 import { handleExtension } from './extension.js';
 
 const HELP = [
@@ -422,6 +423,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/extension/')) return handleExtension(request, env);
+    if (url.pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (request.method !== 'POST' || url.pathname !== '/telegram') return new Response('Not found', { status: 404 });
     if (request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== env.WEBHOOK_SECRET) {
       return new Response('Forbidden', { status: 403 });

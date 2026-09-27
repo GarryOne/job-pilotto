@@ -239,3 +239,21 @@ test('form knowledge is per site: fields already studied there are not sent to t
   assert.equal(learn.newFields({...run, url: 'https://jobs.lever.co/x/1'}, {'job-boards.greenhouse.io': ['pronouns']}).length, 1);
   assert.equal(learn.newFields(run, {}, [{scope: 'any', field: 'Pronouns'}]).length, 0);  // a note already covers it
 });
+
+test('fill reports: mechanical failures only, form structure only, each site + field once, opt-in', async () => {
+  const reports = await import('../lib/reports.js');
+  const storage = tempStorage();
+  const run = {url: 'https://job-boards.greenhouse.io/x/jobs/1', debug: {version: '0.6.2', form: [{label: 'Location (City)', type: 'combobox', options: ['Geneva']}],
+    answers: [{field: 'loc', value: 'Geneva, Switzerland'}]},
+    trace: [{label: 'Location (City)', required: true, reason: 'dropdown clicked, but no option matched'},
+      {label: 'Pronouns', reason: 'no answer in the kit, Profile or your details'}]};
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true}; };
+  assert.equal(await reports.send(storage, run, fetcher), null);  // off by default
+  storage.saveSettings({shareFillReports: true});
+  const report = await reports.send(storage, run, fetcher);
+  assert.equal(report.fields.length, 1);
+  assert.deepEqual(report.fields[0].options, ['Geneva']);
+  assert.ok(!JSON.stringify(sent).includes('Geneva, Switzerland'));  // no answers
+  assert.equal(await reports.send(storage, run, fetcher), null);  // already reported for this site
+});

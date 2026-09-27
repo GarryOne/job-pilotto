@@ -490,6 +490,7 @@ async function loadSettings() {
   showCloud();
   showSchedule();
   showContact();
+  $('share-reports').checked = !!state.settings.shareFillReports;
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';
@@ -733,3 +734,6 @@ window.pilot.onToast(({title, body, hint}) => {
   $('toasts').append(toast);
   setTimeout(() => toast.remove(), hint ? 20000 : 8000);
 });
+
+// Help improve Job Pilotto (opt-in anonymous form reports).
+$('share-reports').addEventListener('change', async () => { state.settings = await window.pilot.saveSettings({shareFillReports: $('share-reports').checked}); });

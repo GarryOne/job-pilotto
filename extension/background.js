@@ -35,8 +35,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
     // Not one of the supported job sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable):
     // the extension may not touch this page by itself; the user can still click its button here.
-    chrome.action.setBadgeText({tabId, text: '?'});
-    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill with AI (this site needs your click)'});
+    chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
+    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill with AI (this site needs your click)'}).catch(() => {});  // the tab may already be closed
     return;
   }
   started.add(tabId);
@@ -89,7 +89,7 @@ async function ineligibleNote(tabId, reason) {
 
 async function fillOpenedTab(tab, url, force = false) {
   await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
-  chrome.action.setBadgeText({tabId: tab.id, text: '…'});
+  chrome.action.setBadgeText({tabId: tab.id, text: '…'}).catch(() => {});  // the tab may already be closed
   try {
     const config = await settings();
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
@@ -99,11 +99,11 @@ async function fillOpenedTab(tab, url, force = false) {
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
     await progress(tab.id, '');
     if (result.ineligible) await ineligibleNote(tab.id, result.note);
-    chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'});
+    chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
   } catch (error) {
     await progress(tab.id, '');
     await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`);
-    chrome.action.setBadgeText({tabId: tab.id, text: '!'});
+    chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
   }
 }
 

@@ -10,6 +10,7 @@ import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
+import * as reports from './reports.js';
 
 export const PORT = 47111;
 // The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
@@ -61,6 +62,7 @@ export function localEnv(storage) {
       const added = questions.collect(storage, run, job?.company || '');
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
+      reports.send(storage, run).catch(error => console.error('Fill report:', error.message));
     },
   };
 }
