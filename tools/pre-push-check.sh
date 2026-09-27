@@ -32,6 +32,23 @@ python_ci() { JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m un
 node_tests() {  # folder
   cd "$1" && { [ -d node_modules ] || npm ci --silent; } && npm test --silent
 }
+# CI-only failure classes the tests can't see:
+# - workflow files: actionlint (also shellchecks each run: script; info-level notes are allowed)
+workflows() { SHELLCHECK_OPTS='--severity=warning' actionlint .github/workflows/*.yml; }
+# - lock files: the runners use `npm ci`, which refuses a lock file out of sync with package.json. When a
+#   package.json or lock file changed in the commits being pushed, prove `npm ci` works from scratch.
+clean_install() {  # folder
+  local scratch; scratch="$(mktemp -d)"
+  cp "$1/package.json" "$1/package-lock.json" "$scratch/" && (cd "$scratch" && npm ci --ignore-scripts --silent)
+  local code=$?; rm -rf "$scratch"; return $code
+}
+if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
+else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
+upstream="$(git -C "$repo" rev-parse --verify -q '@{upstream}' 2>/dev/null || git -C "$repo" rev-parse -q origin/main)"
+for folder in worker desktop; do
+  if [ -f "$repo/$folder/package-lock.json" ] && git -C "$repo" diff --quiet "$upstream" HEAD -- "$folder/package.json" "$folder/package-lock.json"; then :; 
+  elif [ -f "$repo/$folder/package-lock.json" ]; then run "$folder clean npm ci" clean_install "$folder"; fi
+done
 run "python" python_tests
 run "python (as CI, no credentials)" python_ci
 run "worker" node_tests worker
@@ -41,7 +58,7 @@ if [ ${#failed[@]} -gt 0 ]; then
   {
     echo "Push blocked: tests failed in ${failed[*]} ($repo)."
     echo "Fix them, then push again. Last lines of the test output:"
-    grep -E "^FAIL:|^ERROR:|AssertionError|^not ok|npm ERR|npm error" "$log" | sort -u | tail -15
+    grep -E "^FAIL:|^ERROR:|AssertionError|^not ok|npm ERR|npm error|\.yml:[0-9]+:[0-9]+:" "$log" | sort -u | tail -15
   } >&2
   rm -f "$log"
   exit 2

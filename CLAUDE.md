@@ -25,4 +25,6 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 `python3 -m unittest discover -s tests`, `cd worker && npm test` and `cd desktop && npm test`.
 A Claude Code hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs all of them, plus the
 Python suite without credentials as CI sees it, before every `git push` and blocks the push if one
-fails, so only green builds reach GitHub.
+fails, so only green builds reach GitHub. It also lints the workflow files (`actionlint`, with
+shellcheck on each `run:` script) and, when a `package.json` or lock file changed, proves `npm ci`
+works from scratch, the two CI-only failure classes the tests can't see.
