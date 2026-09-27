@@ -429,6 +429,11 @@ $('strategy-redo').addEventListener('click', () => { show($('app'), false); show
 
 async function loadSettings() {
   state = await window.pilot.state();
+  const hints = await window.pilot.secretHints();
+  for (const [id, name, empty] of [['set-anthropic', 'ANTHROPIC_API_KEY', 'sk-ant-…'], ['set-notion', 'NOTION_TOKEN', 'ntn_…'],
+    ['set-telegram', 'TELEGRAM_BOT_TOKEN', '123456789:AA…'], ['set-serpapi', 'SERPAPI_API_KEY', 'SerpApi key']]) {
+    if ($(id)) $(id).placeholder = hints[name] ? `${hints[name]} · saved (paste a new one to replace it)` : empty;
+  }
   renderNotionLinks();
   showCloud();
   showSchedule();
@@ -439,6 +444,7 @@ async function loadSettings() {
     line.classList.toggle('on', set);
   });
   const ext = await window.pilot.extensionInfo();
+  showExtensionStatus();
   $('ext-url').textContent = ext.url;
   $('ext-token').textContent = ext.token;
   $('data-folder').textContent = state.folder;
@@ -480,6 +486,17 @@ $('contact-cv-replace').addEventListener('click', async () => {
   const name = await window.pilot.chooseCv();
   if (name) { state = await window.pilot.state(); showContact(); message('contact-message', `CV replaced: ${name}`, 'ok'); }
 });
+
+// ---------- Chrome extension: connected? (it checks in every 30 s) ----------
+async function showExtensionStatus() {
+  const seen = await window.pilot.extensionSeen();
+  const on = seen && Date.now() - seen.at < 90 * 1000;
+  $('ext-status').textContent = on ? `✓ Installed and connected${seen.version ? ` (version ${seen.version})` : ''}.`
+    : 'Not connected: install it below, or open Chrome if it\'s installed (it checks in within 30 seconds).';
+  $('ext-status').className = `status-line ${on ? 'on' : ''}`;
+  $('ext-setup').open = !on;
+}
+setInterval(() => { if (!document.querySelector('.view[data-view="settings"]').hidden) showExtensionStatus(); }, 10000);
 
 // ---------- how often each job runs ----------
 const SCHEDULE_DEFAULTS = {search: 4, kits: 0, insights: 'daily', scout: 'daily', mail: 3};

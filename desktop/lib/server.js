@@ -77,6 +77,9 @@ const jobName = job => job ? `${job.title} · ${job.company}` : 'this job';
 
 // Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.
 let tabs = new Set();
+// When the extension last checked in (its tab reports come every 30 s), and its version.
+let seen = null;
+export const extensionSeen = () => seen;
 export const openTabs = () => [...tabs];
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
@@ -98,7 +101,11 @@ export function start(storage, onError = () => {}) {
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         if (ok) {
-          try { tabs = new Set((JSON.parse(body?.toString() || '{}').urls || []).map(pageKey)); } catch {}
+          try {
+            const report = JSON.parse(body?.toString() || '{}');
+            tabs = new Set((report.urls || []).map(pageKey));
+            seen = {at: Date.now(), version: report.version || ''};
+          } catch {}
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify({ok}));

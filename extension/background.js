@@ -132,7 +132,7 @@ async function reportTabs() {
   const config = await settings();
   if (!config.workerUrl?.startsWith('http://127.0.0.1') || !config.token) return;
   const urls = (await chrome.tabs.query({url: JOB_SITES})).map(tab => tab.url);
-  await fetch(`${config.workerUrl}/extension/tabs`, {method: 'POST', body: JSON.stringify({urls}),
+  await fetch(`${config.workerUrl}/extension/tabs`, {method: 'POST', body: JSON.stringify({urls, version: chrome.runtime.getManifest().version}),
     headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'}}).catch(() => {});
 }
 chrome.tabs.onRemoved.addListener(() => reportTabs());

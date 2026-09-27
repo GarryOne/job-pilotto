@@ -255,6 +255,10 @@ function handlers() {
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
   ipcMain.handle('openTabs', () => server.openTabs());
+  ipcMain.handle('extensionSeen', () => server.extensionSeen());
+  // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).
+  ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']
+    .map(name => [name, storage.secret(name)]).filter(([, value]) => value).map(([name, value]) => [name, `${'•'.repeat(12)}${value.slice(-4)}`])));
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
