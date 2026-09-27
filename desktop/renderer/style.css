@@ -37,7 +37,7 @@ textarea { font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace; resize: ver
 .message.error { color: var(--bad); }
 .message.ok { color: var(--good); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; margin-bottom: 24px; }
-.mark { width: 28px; height: 28px; border-radius: 8px; background: var(--signal); color: #fff; display: grid; place-items: center; }
+.mark { width: 30px; height: 30px; border-radius: 8px; display: block; }
 
 /* Wizard */
 .wizard { display: grid; grid-template-columns: 250px 1fr; height: 100vh; }

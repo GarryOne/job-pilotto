@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Job Pilotto</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:image" content="https://job-pilotto-site.sre-watch-bot.workers.dev/images/logo-512.png">
 <meta name="description" content="Job Pilotto is a Mac app that finds the right tech jobs, drafts your answers and fills the form, with everything tracked in your own Notion. You review and click Submit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,7 +56,7 @@
   /* Nav */
   nav { display: flex; align-items: center; gap: 24px; padding-block: 18px; }
   .brand { display: flex; align-items: center; gap: 10px; font: 800 1.05rem var(--display); font-stretch: 125%; text-decoration: none; }
-  .brand-mark { width: 30px; height: 30px; border-radius: 8px; background: var(--signal); display: grid; place-items: center; color: var(--signal-ink); font-size: 15px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 8px; display: block; box-shadow: 0 1px 3px rgba(15, 30, 50, .15); }
   nav .links { display: flex; gap: 22px; margin-left: auto; font-size: .94rem; color: var(--muted); }
   nav .links a { text-decoration: none; }
   nav .links a:hover { color: var(--ink); }
@@ -170,7 +173,7 @@
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">✈</span>Job Pilotto</a>
+    <a class="brand" href="#top"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a>
     <div class="links">
       <a href="#how">How it works</a>
       <a href="#see">See it</a>
