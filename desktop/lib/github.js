@@ -11,7 +11,7 @@ import {cadence, crons, withSchedule} from './cadence.js';
 import {MODELS, REPO} from './pipeline.js';
 
 // Public identifier of the Job Pilotto GitHub OAuth app (device flow needs no client secret).
-export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'Ov23liJobPilottoPending';
+export const CLIENT_ID = process.env.JOB_PILOTTO_GITHUB_CLIENT_ID || 'Ov23li4RFqDI1xSMaNFB';
 export const SCOPES = 'repo workflow';
 export const REPO_NAME = 'job-pilotto-private';
 const API = 'https://api.github.com';
