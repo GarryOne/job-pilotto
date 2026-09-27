@@ -331,6 +331,11 @@
       <p class="message" id="strategy-message"></p>
       <div id="strategy-notion" class="callout" hidden><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
         <div class="inline spaced"><button class="secondary" id="replace-cv">Replace CV…</button><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
+      <div id="cv-card" class="callout cv">
+        <div class="cv-line">📄 <b>CV for tailoring</b> <span id="cv-state"></span></div>
+        <div class="inline spaced"><button class="secondary" id="cv-view">👁️ View as PDF</button><button class="secondary" id="cv-import">🔄 Read my CV PDF</button><button class="link" id="cv-folder">📁 Files</button></div>
+        <p class="message" id="cv-message"></p>
+      </div>
       <label for="strategy-profile">Profile</label><textarea id="strategy-profile" rows="16"></textarea>
       <label for="strategy-answers">Standard application answers</label><textarea id="strategy-answers" rows="16"></textarea>
     </div>
@@ -384,13 +389,6 @@
         </div>
         <div class="inline"><button class="secondary" id="contact-save">Save</button><button class="link" id="contact-cv-replace">Replace CV…</button></div>
         <p class="message" id="contact-message"></p>
-      </div>
-      <div class="setting" id="setting-cv">
-        <div><h3>📄 Your CV for tailoring</h3>
-          <p class="muted small">"✂️ Tailor CV" on a job starts from this version of your CV: its text as data, read once from your CV PDF.
-            The tailored copy only reorders and rewords what is already there. <span id="cv-state"></span></p></div>
-        <div class="inline"><button class="secondary" id="cv-view">View as PDF</button><button class="secondary" id="cv-import">Read my CV PDF again</button><button class="link" id="cv-folder">Show files</button></div>
-        <p class="message" id="cv-message"></p>
       </div>
       <div class="setting" id="setting-schedule">
         <div><h3>⏱️ How often</h3><p class="muted small">Times are in your time zone. With "Keep working while my Mac is off" on, GitHub follows this schedule; otherwise the app does, while it's open.</p></div>

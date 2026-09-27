@@ -246,3 +246,6 @@ td:has(.badge-ineligible) { display: table-cell; }
 .consent { border-left: 4px solid var(--warn); margin-bottom: 14px; }
 .consent p { margin: 6px 0; max-width: 90ch; }
 .consent label.radio { background: var(--surface); margin: 8px 0 4px; max-width: 460px; }
+.callout.cv { background: color-mix(in srgb, #0e7c7b 10%, transparent); }
+.callout.cv .cv-line { font-size: 14px; } .callout.cv #cv-state { color: var(--muted, #6b7a8c); }
+.callout.cv .message:empty { display: none; }

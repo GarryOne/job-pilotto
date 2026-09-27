@@ -265,7 +265,7 @@ $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($
 function openView(name) {
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
-  if (name === 'strategy') loadStrategy();
+  if (name === 'strategy') { loadStrategy(); loadCvSetting(); }
   if (name === 'settings') loadSettings();
   if (name === 'interviews') loadInterviews();
 }
@@ -536,10 +536,10 @@ $('strategy-redo').addEventListener('click', () => { show($('app'), false); show
 
 async function loadCvSetting() {
   const status = await window.pilot.cvStatus();
-  $('cv-state').textContent = status.base ? (status.custom ? 'Using your own design (style.css).' : 'Using the default design.')
-    : 'Not read yet: it happens the first time you tailor, or now.';
+  // One glance: ready (and which design), or not read yet. ✂️ Tailor CV on a job uses it.
+  $('cv-state').textContent = status.base ? `· ✅ ready · ${status.custom ? '🎨 your design' : 'default design'}` : '· ⚪ read on your first ✂️ Tailor CV';
   $('cv-view').hidden = !status.base;
-  $('cv-import').textContent = status.base ? 'Read my CV PDF again' : 'Read my CV PDF';
+  $('cv-import').textContent = status.base ? '🔄 Read my CV PDF again' : '🔄 Read my CV PDF';
 }
 $('cv-view').addEventListener('click', async () => {
   const result = await window.pilot.viewBaseCv();
@@ -560,7 +560,6 @@ $('cv-import').addEventListener('click', async () => {
 $('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());
 
 async function loadSettings() {
-  loadCvSetting();
   state = await window.pilot.state();
   const hints = await window.pilot.secretHints();
   for (const [id, name, empty] of [['set-anthropic', 'ANTHROPIC_API_KEY', 'sk-ant-…'], ['set-notion', 'NOTION_TOKEN', 'ntn_…'],
