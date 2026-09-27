@@ -39,12 +39,22 @@ def jobs(db, limit=200):
     return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
 
 
-def set_status(db, url, status):
-    row = db.execute('SELECT id FROM jobs WHERE url=?', (url,)).fetchone()
+NOTION_STAGES = {'saved': 'Saved', 'applied': 'Applied', 'dismissed': 'Dismissed'}
+
+
+def set_status(db, url, status, tracker=None):
+    """Record the status locally and, with Notion connected, as the job's Applications stage (the source
+    of truth; Saved/Dismissed never overwrite a real application stage, see Tracker.mark)."""
+    row = db.execute("""SELECT jobs.id, jobs.title, jobs.url, jobs.location, jobs.posted_at, jobs.first_seen_at,
+                                 companies.name company FROM jobs JOIN companies ON companies.id=jobs.company_id
+                          WHERE jobs.url=?""", (url,)).fetchone()
     if not row:
         return {'ok': False, 'error': 'job not found'}
     store.set_application_status(db, row['id'], status)
     db.commit()
+    if tracker and status in NOTION_STAGES:
+        _, outcome = tracker.mark(dict(row), NOTION_STAGES[status])
+        return {'ok': True, 'notion': outcome}
     return {'ok': True}
 
 
@@ -58,7 +68,11 @@ def main(argv=None):
     marking.add_argument('status', choices=STATUSES)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
-        result = jobs(db, args.limit) if args.command == 'jobs' else set_status(db, args.url, args.status)
+        if args.command == 'jobs':
+            result = jobs(db, args.limit)
+        else:
+            from .notion.client import Tracker
+            result = set_status(db, args.url, args.status, Tracker.from_env())
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

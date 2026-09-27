@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
+import * as notion from './lib/notion.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
@@ -23,6 +24,11 @@ function createWindow() {
   // Smoke test (JOB_PILOTTO_SMOKE=<png path>): render hidden, save a screenshot, quit.
   if (process.env.JOB_PILOTTO_SMOKE) {
     window.webContents.once('did-finish-load', () => setTimeout(async () => {
+      // JOB_PILOTTO_SMOKE_JS: clicks to run first, e.g. to screenshot a later wizard step.
+      if (process.env.JOB_PILOTTO_SMOKE_JS) {
+        await window.webContents.executeJavaScript(process.env.JOB_PILOTTO_SMOKE_JS);
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
       fs.writeFileSync(process.env.JOB_PILOTTO_SMOKE, (await window.webContents.capturePage()).toPNG());
       app.quit();
     }, 1500));
@@ -38,7 +44,23 @@ function handlers() {
     settings: storage.settings(), secrets: storage.secretsPresent(),
     hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!storage.readText('profile.md'),
     folder: storage.dir,
+    notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
+      .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
+    templateUrl: notion.TEMPLATE.template_url,
   }));
+  // Connect the user's copy of the Job Pilotto template: every database and page found, every column there.
+  ipcMain.handle('notionConnect', async (_, token) => {
+    try {
+      const result = await notion.connect(token.trim());
+      if (result.ok) {
+        storage.setSecret('NOTION_TOKEN', token.trim());
+        storage.saveSettings({notionIds: result.ids});
+      }
+      return {...result, titles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages}};
+    } catch (error) {
+      return {ok: false, error: error.status === 401 ? 'Notion rejected this secret. Copy the Internal Integration Secret again.' : error.message};
+    }
+  });
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
   ipcMain.handle('saveSecret', (_, name, value) => { storage.setSecret(name, value.trim()); return storage.secretsPresent(); });
   ipcMain.handle('checkAnthropic', async (_, key) => {
@@ -60,7 +82,17 @@ function handlers() {
     storage.saveSettings({questionnaire: answers});
     return strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'));
   });
-  ipcMain.handle('saveStrategy', (_, draft) => { strategy.save(storage, draft); storage.saveSettings({setupDone: true}); return true; });
+  ipcMain.handle('saveStrategy', async (_, draft) => {
+    strategy.save(storage, draft);
+    // Notion is where the user reads and edits them from now on.
+    const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
+    if (token && ids.NOTION_PROFILE_PAGE_ID) {
+      await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, draft.profile_markdown);
+      await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown);
+    }
+    storage.saveSettings({setupDone: true});
+    return true;
+  });
   ipcMain.handle('profileText', () => ({profile: storage.readText('profile.md'), answers: storage.readText('answers.md')}));
   ipcMain.handle('saveProfileText', (_, {profile, answers}) => {
     storage.writeText('profile.md', profile);

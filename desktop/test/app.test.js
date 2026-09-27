@@ -99,3 +99,13 @@ test('the pipeline never inherits the developer\'s tokens or .env', () => {
   }
   assert.equal(env.JOB_PILOTTO_NO_DOTENV, '1');
 });
+
+test('with Notion connected, the Profile comes from Notion, not the local file', () => {
+  const storage = tempStorage();
+  storage.setSecret('NOTION_TOKEN', 'ntn_x');
+  storage.saveSettings({notionIds: {NOTION_APPLICATIONS_DB: 'abc'}});
+  const env = pipeline.pipelineEnv(storage, {PATH: '/usr/bin'});
+  assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);
+  assert.equal(env.NOTION_TOKEN, 'ntn_x');
+  assert.equal(env.NOTION_APPLICATIONS_DB, 'abc');
+});

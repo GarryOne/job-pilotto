@@ -26,13 +26,17 @@ export function localEnv(storage) {
     const key = jobKey(url);
     return jobs.find(job => job.url === url || (key && job.url.includes(key)));
   };
+  const notionToken = storage.secret('NOTION_TOKEN');
+  const ids = settings.notionIds || {};
   return {
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
-    NOTION_TOKEN: storage.secret('NOTION_TOKEN'),
-    NOTION_APPLICATIONS_DB: settings.notionIds?.NOTION_APPLICATIONS_DB || '',
-    PROFILE_TEXT: storage.readText('profile.md'),
-    ANSWERS_TEXT: storage.readText('answers.md'),
+    NOTION_TOKEN: notionToken,
+    NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
+    NOTION_PROFILE_PAGE_ID: ids.NOTION_PROFILE_PAGE_ID || '',
+    NOTION_ANSWERS_PAGE_ID: ids.NOTION_ANSWERS_PAGE_ID || '',
+    // Without Notion, the local copies; with it, extension.js reads the Notion pages.
+    ...(notionToken ? {} : {PROFILE_TEXT: storage.readText('profile.md'), ANSWERS_TEXT: storage.readText('answers.md')}),
     JOB_PILOTTO_KIT_MODEL: pipeline.MODELS.kit,
     queue: async () => (await pipeline.jobs(storage)).jobs.filter(j => ['unreviewed', 'saved'].includes(j.status)).slice(0, 25).map(summary),
     markApplied: async url => {

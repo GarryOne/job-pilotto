@@ -1,0 +1,136 @@
+// The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
+// template: finds each database and page by title (config/notion_template.json), checks the columns
+// the pipeline needs, and writes pages (the drafted Profile and standard answers).
+import fs from 'node:fs';
+import path from 'node:path';
+import {REPO} from './pipeline.js';
+
+const API = 'https://api.notion.com/v1/';
+export const TEMPLATE = JSON.parse(fs.readFileSync(path.join(REPO, 'config', 'notion_template.json'), 'utf8'));
+
+async function call(token, method, route, body, fetcher = globalThis.fetch) {
+  const response = await fetcher(API + route, {
+    method,
+    headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
+    ...(body ? {body: JSON.stringify(body)} : {}),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(data.message || `Notion ${response.status}`), {status: response.status});
+  return data;
+}
+
+// Titles compared without emoji, punctuation spacing or case: "💠 Applications — Job Tracker" = "Applications — Job Tracker".
+export const normalise = title => title.normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toLowerCase();
+const titleOf = item => (item.object === 'database' ? item.title : Object.values(item.properties || {})
+  .find(p => p.type === 'title')?.title || []).map(t => t.plain_text).join('');
+
+async function searchAll(token, kind, fetcher) {
+  const found = [];
+  let cursor;
+  do {
+    const page = await call(token, 'POST', 'search', {filter: {property: 'object', value: kind}, page_size: 100,
+      ...(cursor ? {start_cursor: cursor} : {})}, fetcher);
+    found.push(...page.results.filter(item => !item.archived && !item.in_trash));
+    cursor = page.has_more ? page.next_cursor : null;
+  } while (cursor);
+  return found;
+}
+
+// {ids: {NOTION_APPLICATIONS_DB: id, ...}, missing: [titles]}. A workspace may hold more than one copy
+// (an old duplicate, or the owner's live pages next to the template): items are grouped by the page
+// they sit in, and the group holding the most of them wins (then the most recently edited), so the
+// app never mixes databases from two copies.
+export async function discover(token, fetcher) {
+  const [databases, pages] = await Promise.all([searchAll(token, 'database', fetcher), searchAll(token, 'page', fetcher)]);
+  const wanted = [...Object.entries(TEMPLATE.databases).map(([env, title]) => [env, title, databases]),
+    ...Object.entries(TEMPLATE.pages).map(([env, title]) => [env, title, pages])];
+  const parentOf = item => item.parent?.page_id || item.parent?.database_id || item.parent?.type || 'workspace';
+  const groups = new Map();
+  for (const [env, title, items] of wanted) {
+    for (const item of items.filter(i => normalise(titleOf(i)) === normalise(title))) {
+      const group = groups.get(parentOf(item)) || {ids: {}, newest: ''};
+      if (!group.ids[env] || item.last_edited_time > group.newestFor?.[env]) {
+        group.ids[env] = item.id.replace(/-/g, '');
+        group.newestFor = {...group.newestFor, [env]: item.last_edited_time};
+      }
+      if (item.last_edited_time > group.newest) group.newest = item.last_edited_time;
+      groups.set(parentOf(item), group);
+    }
+  }
+  const best = [...groups.values()].sort((a, b) =>
+    Object.keys(b.ids).length - Object.keys(a.ids).length || b.newest.localeCompare(a.newest))[0] || {ids: {}};
+  const ids = best.ids;
+  const missing = wanted.filter(([env]) => !ids[env]).map(([, title]) => title);
+  return {ids, missing};
+}
+
+// Columns the pipeline needs that the user's copy lacks (renamed or deleted): [{title, missing: [...]}].
+export async function checkColumns(token, ids, fetcher) {
+  const problems = [];
+  for (const [env, required] of Object.entries(TEMPLATE.required_properties)) {
+    if (!ids[env]) continue;
+    const database = await call(token, 'GET', `databases/${ids[env]}`, null, fetcher);
+    const missing = required.filter(name => !(name in database.properties));
+    if (missing.length) problems.push({title: TEMPLATE.databases[env], missing});
+  }
+  return problems;
+}
+
+export async function connect(token, fetcher) {
+  await call(token, 'GET', 'users/me', null, fetcher); // is the token valid at all?
+  const {ids, missing} = await discover(token, fetcher);
+  const problems = missing.length ? [] : await checkColumns(token, ids, fetcher);
+  return {ok: !missing.length && !problems.length, ids, missing, problems};
+}
+
+// ---------- writing a page from Markdown (headings, lists, paragraphs, tables, **bold**, `code`) ----------
+const rich = text => text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).filter(Boolean).map(piece => {
+  const bold = piece.startsWith('**'), code = piece.startsWith('`');
+  const content = bold ? piece.slice(2, -2) : code ? piece.slice(1, -1) : piece;
+  return {type: 'text', text: {content: content.slice(0, 2000)}, annotations: {bold, code}};
+});
+
+export function markdownBlocks(text) {
+  const blocks = [];
+  let table = [];
+  const flush = () => {
+    const rows = table.filter(row => !/^\|\s*:?-/.test(row)).map(row => row.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim()));
+    if (rows.length) {
+      const width = Math.max(...rows.map(r => r.length));
+      blocks.push({type: 'table', table: {table_width: width, has_column_header: true, has_row_header: false,
+        children: rows.map(r => ({type: 'table_row', table_row: {cells: [...r, ...Array(width - r.length).fill('')].map(rich)}}))}});
+    }
+    table = [];
+  };
+  for (const line of text.split('\n')) {
+    if (line.startsWith('|')) { table.push(line); continue; }
+    flush();
+    if (!line.trim()) continue;
+    const heading = /^(#{1,3})\s+(.*)/.exec(line);
+    if (heading) { const type = `heading_${heading[1].length}`; blocks.push({type, [type]: {rich_text: rich(heading[2])}}); }
+    else if (/^\s*[-*]\s+/.test(line)) blocks.push({type: 'bulleted_list_item', bulleted_list_item: {rich_text: rich(line.replace(/^\s*[-*]\s+/, ''))}});
+    else if (/^\s*\d+\.\s+/.test(line)) blocks.push({type: 'numbered_list_item', numbered_list_item: {rich_text: rich(line.replace(/^\s*\d+\.\s+/, ''))}});
+    else blocks.push({type: 'paragraph', paragraph: {rich_text: rich(line.trim())}});
+  }
+  flush();
+  return blocks;
+}
+
+// Replace a page's content with the Markdown (its old blocks go to Notion's trash, recoverable).
+export async function writePage(token, pageId, markdown, fetcher) {
+  let cursor;
+  const old = [];
+  do {
+    const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+    old.push(...page.results);
+    cursor = page.has_more ? page.next_cursor : null;
+  } while (cursor);
+  for (const block of old) await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher);
+  const blocks = markdownBlocks(markdown);
+  for (let i = 0; i < blocks.length; i += 100) {
+    await call(token, 'PATCH', `blocks/${pageId}/children`, {children: blocks.slice(i, i + 100)}, fetcher);
+  }
+  return blocks.length;
+}
+
+export const pageUrl = id => `https://www.notion.so/${String(id).replace(/-/g, '')}`;

@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('pilot', {
   draftStrategy: call('draftStrategy'), saveStrategy: call('saveStrategy'),
   profileText: call('profileText'), saveProfileText: call('saveProfileText'),
   jobs: call('jobs'), refresh: call('refresh'), setStatus: call('setStatus'), apply: call('apply'),
+  notionConnect: call('notionConnect'),
   openExternal: call('openExternal'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
 });

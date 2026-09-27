@@ -1,10 +1,11 @@
 # Job Pilotto — desktop app (macOS)
 
-The local-first cockpit for Job Pilotto: a setup wizard, your jobs with fit scores, your strategy,
-and **Apply to N jobs**. Your data (CV, Profile, answers, job database) lives in
-`~/Library/Application Support/Job Pilotto`; keys are encrypted with a key held in your Mac's
-Keychain (Electron `safeStorage`) and never leave the Mac except to the service they belong to.
-No server, no GitHub Actions, no Cloudflare needed.
+The cockpit for Job Pilotto: a setup wizard, Find new jobs, **Apply to N jobs**, settings. **Notion is
+the user interface** (required): users duplicate the public Job Pilotto template, and everything they
+view and edit (applications, matches, Profile, insights, interviews) lives there. The app keeps the
+engine's working data (crawl history, score cache, CV) in `~/Library/Application Support/Job Pilotto`;
+keys are encrypted with a key held in your Mac's Keychain (Electron `safeStorage`) and never leave the
+Mac except to the service they belong to. No server, no GitHub Actions, no Cloudflare needed.
 
 ## Run it (development)
 
@@ -21,10 +22,10 @@ with `pip install -r requirements.txt`).
 
 | Screen | What it does |
 |---|---|
-| **Setup wizard** | Anthropic key (checked, then stored encrypted) → CV (PDF) → a short questionnaire → Claude drafts your Profile, standard answers and search settings from both (about USD 0.05–0.10), you review and save → optional extras |
+| **Setup wizard** | Anthropic key (checked, then stored encrypted) → **Notion**: duplicate the template, create an integration, paste its secret; the app finds every database and page by title (one copy, never mixed) and checks their columns → CV (PDF) → a short questionnaire → Claude drafts your Profile, standard answers and search settings (about USD 0.05–0.10), you review, and they're written into your Notion Profile pages → optional extras |
 | **Jobs** | Every open job, best fit first; **Find new jobs** runs job boards, employer feeds and (with keys) Google Jobs, AI facts and fit scores; Save / Applied / Dismiss per job |
 | **Apply to N jobs** | Picks your best open matches (saved first). **In Chrome with the extension**: opens them as tabs; the extension fills each form, you review and submit. **AI agent sessions**: one Claude session per job in Terminal (`tools/apply-batch-claude.sh`), needs Notion |
-| **Strategy** | Edit your Profile and standard answers; rebuild them from your CV |
+| **Strategy** | Links to your Profile and standard answers in Notion (edit them there); rebuild them from your CV |
 | **Settings** | Keys (Anthropic, Notion, SerpApi), the Chrome extension connection, your data folder |
 
 The Chrome extension connects to the app on this Mac (`http://127.0.0.1:47111` plus a token shown
@@ -34,7 +35,8 @@ in Settings) instead of a Cloudflare Worker; it reuses the same endpoint code
 ## Layout
 
 - `main.js` window, actions and the local extension server; `preload.cjs` the window's only bridge.
-- `lib/storage.js` settings and encrypted secrets; `lib/pipeline.js` runs `src/` with your folder and
+- `lib/notion.js` connects the user's copy of the template (`config/notion_template.json`; the template is
+  built by `tools/notion_template.py`) and writes pages from Markdown. `lib/storage.js` settings and encrypted secrets; `lib/pipeline.js` runs `src/` with your folder and
   keys; `lib/strategy.js` CV → strategy draft; `lib/apply.js` Apply to N; `lib/server.js` extension
   endpoints on 127.0.0.1.
 - `renderer/` the window (plain HTML, CSS and JavaScript).

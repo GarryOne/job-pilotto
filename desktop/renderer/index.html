@@ -14,12 +14,13 @@
     <ol id="step-list">
       <li data-step="welcome">Welcome</li>
       <li data-step="ai">AI key</li>
+      <li data-step="notion">Notion</li>
       <li data-step="cv">Your CV</li>
       <li data-step="goals">What you're looking for</li>
       <li data-step="draft">Your strategy</li>
       <li data-step="extras">Optional extras</li>
     </ol>
-    <p class="fine">Everything stays on this Mac. Keys are encrypted with your Mac's Keychain.</p>
+    <p class="fine">Your data stays in your own accounts: this Mac and your Notion. Keys are encrypted with your Mac's Keychain.</p>
   </aside>
 
   <div class="step-body">
@@ -29,6 +30,7 @@
       <p class="lede">Job Pilotto finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p>
       <ul class="checks">
         <li>Add your AI key (Anthropic)</li>
+        <li>Set up your Job Pilotto workspace in Notion (free)</li>
         <li>Choose your CV</li>
         <li>Say what you're looking for</li>
         <li>Review the strategy it drafts for you</li>
@@ -37,7 +39,7 @@
     </div>
 
     <div class="step" data-step="ai">
-      <span class="eyebrow">Step 1 of 5</span>
+      <span class="eyebrow">Step 1 of 6</span>
       <h1>Connect your AI</h1>
       <p class="lede">Job Pilotto uses Claude to read job postings, score them and draft answers. You pay Anthropic directly, usually a few dollars a month.</p>
       <ol class="howto">
@@ -55,8 +57,28 @@
       </div>
     </div>
 
+    <div class="step" data-step="notion">
+      <span class="eyebrow">Step 2 of 6</span>
+      <h1>Your Job Pilotto workspace in Notion</h1>
+      <p class="lede">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p>
+      <ol class="howto">
+        <li><b>Copy the workspace:</b> <button class="link" id="notion-template">open the Job Pilotto template</button>, then click <b>Duplicate</b> (top right) and pick your workspace.</li>
+        <li><b>Create a connection:</b> open <a href="#" data-link="https://www.notion.so/profile/integrations">notion.so/profile/integrations</a> → <b>New integration</b> → name it "Job Pilotto", choose your workspace, <b>Save</b> → copy the <b>Internal Integration Secret</b>.</li>
+        <li><b>Give it access:</b> on your new <b>Job Pilotto</b> page, click <b>•••</b> (top right) → <b>Connections</b> → <b>Job Pilotto</b> → <b>Confirm</b>.</li>
+        <li>Paste the secret here.</li>
+      </ol>
+      <label for="notion-key">Internal Integration Secret</label>
+      <input id="notion-key" type="password" placeholder="ntn_…" autocomplete="off">
+      <div id="notion-found" class="found" hidden></div>
+      <p class="message" id="notion-message"></p>
+      <div class="actions">
+        <button class="ghost" data-back>Back</button>
+        <button class="primary" id="notion-connect">Connect</button>
+      </div>
+    </div>
+
     <div class="step" data-step="cv">
-      <span class="eyebrow">Step 2 of 5</span>
+      <span class="eyebrow">Step 3 of 6</span>
       <h1>Your CV</h1>
       <p class="lede">It's used to score jobs, draft your answers and attach to applications. It stays on this Mac; only the AI reads it when building your strategy.</p>
       <div class="dropzone">
@@ -71,7 +93,7 @@
     </div>
 
     <div class="step" data-step="goals">
-      <span class="eyebrow">Step 3 of 5</span>
+      <span class="eyebrow">Step 4 of 6</span>
       <h1>What are you looking for?</h1>
       <p class="lede">Short answers are fine. The AI turns them and your CV into search settings you can review.</p>
       <form id="goals-form" class="grid">
@@ -105,7 +127,7 @@
     </div>
 
     <div class="step" data-step="draft">
-      <span class="eyebrow">Step 4 of 5</span>
+      <span class="eyebrow">Step 5 of 6</span>
       <h1>Your strategy</h1>
       <div id="draft-loading" class="loading"><span class="spinner"></span>Reading your CV and drafting your strategy… about 30 seconds.</div>
       <div id="draft-error" class="message error" hidden></div>
@@ -130,16 +152,12 @@
     </div>
 
     <div class="step" data-step="extras">
-      <span class="eyebrow">Step 5 of 5 · optional</span>
+      <span class="eyebrow">Step 6 of 6 · optional</span>
       <h1>Optional extras</h1>
       <p class="lede">Everything works without these. You can add them later in Settings.</p>
       <div class="extra">
         <div><h3>🧩 Chrome extension</h3><p>Fills application forms in Chrome in seconds. You review and submit.</p></div>
         <button class="secondary" data-goto-settings="extension">Set up</button>
-      </div>
-      <div class="extra">
-        <div><h3>🗂️ Notion</h3><p>Keep your applications tracker in your own Notion.</p></div>
-        <button class="secondary" data-goto-settings="notion">Connect</button>
       </div>
       <div class="extra">
         <div><h3>🔎 Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
@@ -157,7 +175,7 @@
     <button class="nav active" data-view="jobs">Jobs</button>
     <button class="nav" data-view="strategy">Strategy</button>
     <button class="nav" data-view="settings">Settings</button>
-    <p class="fine sidebar-foot">Data stays on this Mac.</p>
+    <p class="fine sidebar-foot">Your data: this Mac and your Notion.</p>
   </nav>
 
   <main>
@@ -189,6 +207,8 @@
       <header class="view-head"><div><h1>Strategy</h1><p class="muted">What jobs are scored against, and your standard answers. Edit freely.</p></div>
         <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button><button class="primary" id="strategy-save">Save</button></div></header>
       <p class="message" id="strategy-message"></p>
+      <div id="strategy-notion" class="callout" hidden><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
+        <div class="inline" style="margin-top:8px"><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
       <label for="strategy-profile">Profile</label><textarea id="strategy-profile" rows="16"></textarea>
       <label for="strategy-answers">Standard application answers</label><textarea id="strategy-answers" rows="16"></textarea>
     </div>
@@ -211,7 +231,7 @@
       </div>
       <div class="setting" id="setting-notion">
         <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small">Create an internal integration at <a href="#" data-link="https://www.notion.so/profile/integrations">notion.so/profile/integrations</a>, copy its secret, and share your Job Pilotto pages with it.</p></div>
+          <p class="muted small">Your Job Pilotto workspace. To reconnect, paste the Internal Integration Secret again (<a href="#" data-link="https://www.notion.so/profile/integrations">notion.so/profile/integrations</a>).</p></div>
         <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div>
       </div>
       <div class="setting" id="setting-serpapi">

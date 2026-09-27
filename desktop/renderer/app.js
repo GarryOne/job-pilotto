@@ -1,7 +1,7 @@
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
 const $ = id => document.getElementById(id);
-const STEPS = ['welcome', 'ai', 'cv', 'goals', 'draft', 'extras'];
+const STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras'];
 let state = await window.pilot.state();
 let draft = null;
 let allJobs = [];
@@ -47,9 +47,41 @@ $('ai-save').addEventListener('click', async () => {
   state.secrets = await window.pilot.saveSecret('ANTHROPIC_API_KEY', key);
   $('anthropic-key').value = '';
   message('ai-message', 'Saved ✓', 'ok');
-  goStep('cv');
+  goStep('notion');
 });
-$('ai-skip').addEventListener('click', () => goStep('cv'));
+$('ai-skip').addEventListener('click', () => goStep('notion'));
+
+// Notion is required: the wizard continues only when every database and page of the template is found.
+$('notion-template').addEventListener('click', () => window.pilot.openExternal(state.templateUrl));
+$('notion-connect').addEventListener('click', async () => {
+  const key = $('notion-key').value.trim();
+  if (!key) { message('notion-message', 'Paste the Internal Integration Secret from step 2.', 'error'); return; }
+  $('notion-connect').disabled = true;
+  message('notion-message', 'Looking for your Job Pilotto workspace…');
+  const result = await window.pilot.notionConnect(key);
+  $('notion-connect').disabled = false;
+  const found = $('notion-found');
+  found.replaceChildren();
+  if (result.titles) {
+    show(found);
+    for (const [env, title] of Object.entries(result.titles)) {
+      const ok = result.ids?.[env];
+      found.append(Object.assign(document.createElement('div'), {className: ok ? 'yes' : 'no', textContent: `${ok ? '✓' : '✗'} ${title}`}));
+    }
+  }
+  if (result.ok) {
+    $('notion-key').value = '';
+    state = await window.pilot.state();
+    message('notion-message', 'Connected ✓ Your workspace is ready.', 'ok');
+    setTimeout(() => goStep('cv'), 900);
+  } else if (result.error) {
+    message('notion-message', result.error, 'error');
+  } else if (result.missing?.length) {
+    message('notion-message', 'Some pages aren\'t shared with the connection yet. Check step 1 (Duplicate) and step 3 (••• → Connections → Job Pilotto), then Connect again.', 'error');
+  } else {
+    message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
+  }
+});
 
 function refreshCv() {
   $('cv-name').textContent = state.settings.cvName ? `✓ ${state.settings.cvName}` : 'No CV chosen yet';
@@ -215,11 +247,20 @@ $('apply-go').addEventListener('click', async event => {
 });
 
 async function loadStrategy() {
+  state = await window.pilot.state();
+  const inNotion = !!state.notion?.NOTION_PROFILE_PAGE_ID;
+  show($('strategy-notion'), inNotion);
+  for (const id of ['strategy-profile', 'strategy-answers', 'strategy-save']) show($(id), !inNotion);
+  document.querySelectorAll('label[for="strategy-profile"], label[for="strategy-answers"]').forEach(l => show(l, !inNotion));
+  if (inNotion) return;
   const text = await window.pilot.profileText();
   $('strategy-profile').value = text.profile;
   $('strategy-answers').value = text.answers;
   message('strategy-message', '');
 }
+$('open-profile').addEventListener('click', () => window.pilot.openExternal(state.notion.NOTION_PROFILE_PAGE_ID));
+$('open-answers').addEventListener('click', () => window.pilot.openExternal(state.notion.NOTION_ANSWERS_PAGE_ID));
+$('open-workspace').addEventListener('click', () => window.pilot.openExternal(state.notion.NOTION_MATCHES_DB));
 $('strategy-save').addEventListener('click', async () => {
   await window.pilot.saveProfileText({profile: $('strategy-profile').value, answers: $('strategy-answers').value});
   message('strategy-message', 'Saved ✓ New jobs are scored against it from the next search.', 'ok');
@@ -238,7 +279,15 @@ async function loadSettings() {
   $('ext-token').textContent = ext.token;
   $('data-folder').textContent = state.folder;
 }
-for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', true], ['notion', 'NOTION_TOKEN', false], ['serpapi', 'SERPAPI_API_KEY', false]]) {
+$('set-notion-save').addEventListener('click', async () => {
+  const value = $('set-notion').value.trim();
+  if (!value) return;
+  const result = await window.pilot.notionConnect(value);
+  if (!result.ok) { alertLine('NOTION_TOKEN', result.error || `Not found: ${(result.missing || []).join(', ') || 'columns missing'}`); return; }
+  $('set-notion').value = '';
+  loadSettings();
+});
+for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', true], ['serpapi', 'SERPAPI_API_KEY', false]]) {
   $(`set-${id}-save`).addEventListener('click', async () => {
     const value = $(`set-${id}`).value.trim();
     if (!value) return;
