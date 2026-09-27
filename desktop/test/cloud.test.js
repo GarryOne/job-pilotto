@@ -114,3 +114,13 @@ test('not installed yet: it says so, with the two setup links', async () => {
   assert.match(github.CREATE_URL, /template_name=job-pilotto-starter.*visibility=private/);
   assert.match(github.INSTALL_URL, /github\.com\/apps\/.+\/installations\/new/);
 });
+
+test('installed on several repositories: the user chooses one; the choice is used', async () => {
+  const gh = await fakeGitHub();
+  const fetcher = async (url, init) => {
+    if (url.includes('/user/installations/7/repositories')) return {ok: true, status: 200, json: async () => ({repositories: [
+      {name: 'jobs', full_name: 'ada/jobs', private: true}, {name: 'notes', full_name: 'ada/notes', private: true}]})};
+    return gh.fetcher(url, init);
+  };
+  await assert.rejects(github.connect(userStorage(), 't', {fetcher}), error => error.needsChoice && error.repos.length === 2);
+});

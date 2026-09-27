@@ -78,7 +78,7 @@ export function client(token, fetcher = globalThis.fetch) {
 
 // The repo the user installed the app on: the one called job-pilotto-private, else the only one.
 // Throws needsRepo when there's none yet, so the app can show the two setup steps.
-export async function findRepo(api) {
+export async function findRepo(api, chosen = '') {
   const {login} = await api('GET', '/user');
   const {installations = []} = await api('GET', '/user/installations?per_page=100');
   const repos = [];
@@ -86,7 +86,11 @@ export async function findRepo(api) {
     const {repositories = []} = await api('GET', `/user/installations/${installation.id}/repositories?per_page=100`);
     repos.push(...repositories);
   }
-  const repo = repos.find(r => r.name === REPO_NAME) || (repos.length === 1 ? repos[0] : null);
+  const repo = repos.find(r => r.full_name === chosen) || repos.find(r => r.name === REPO_NAME) || (repos.length === 1 ? repos[0] : null);
+  if (!repo && repos.length > 1) {
+    throw Object.assign(new Error('Choose which repository Job Pilotto should use.'),
+      {needsChoice: true, repos: repos.filter(r => r.private).map(r => r.full_name)});
+  }
   if (!repo) throw Object.assign(new Error(installations.length
     ? `Job Pilotto can't see a repository called ${REPO_NAME}. Add it to the app's repositories, then check again.`
     : 'Create your private repository and install Job Pilotto on it, then check again.'), {needsRepo: true});
@@ -163,10 +167,10 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
 
 
 // Everything in one go; safe to run again (after a key or setting changes).
-export async function connect(storage, token, {fetcher, onStep = () => {}} = {}) {
+export async function connect(storage, token, {fetcher, onStep = () => {}, repo: chosen = ''} = {}) {
   const api = client(token, fetcher);
   onStep('Finding your private repository…');
-  const {login, repo, created} = await findRepo(api);
+  const {login, repo, created} = await findRepo(api, chosen);
   const {files, secrets, variables, removed} = payload(storage);
   onStep('Adding the schedules and your search settings…');
   for (const [file, content] of Object.entries(files)) await putFile(api, repo, file, content, `Job Pilotto: ${file}`);

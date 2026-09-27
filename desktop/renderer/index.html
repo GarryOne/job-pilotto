@@ -338,11 +338,13 @@
           <button class="link" id="cloud-off" hidden>Turn off</button>
         </div>
         <p class="message" id="cloud-message"></p>
-        <ol class="howto small" id="cloud-steps" hidden>
-          <li><b>Create your private repository:</b> <button class="link" id="cloud-create">open GitHub</button> → keep the name <b>job-pilotto-private</b>, choose <b>Private</b> → <b>Create repository</b>.</li>
-          <li><b>Give Job Pilotto access to it only:</b> <button class="link" id="cloud-install">install Job Pilotto</button> → <b>Only select repositories</b> → pick <b>job-pilotto-private</b> → <b>Install</b>.</li>
-          <li>Back here: <button class="secondary" id="cloud-check">Check again</button></li>
-        </ol>
+        <div class="howto small" id="cloud-steps" hidden>
+          <p><b>On the GitHub page that opened:</b> choose <b>Only select repositories</b> → pick a <b>private</b> repository in GitHub's list
+            → <b>Install</b>. Job Pilotto continues by itself as soon as it's installed.</p>
+          <p class="muted">No repository to pick? <button class="link" id="cloud-create">Create one</button> (it's prefilled: private, job-pilotto-private), then
+            <button class="link" id="cloud-install">open the install page again</button>.</p>
+        </div>
+        <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
       </div>
       <div class="setting" id="setting-telegram">
         <div><h3>💬 Telegram</h3><p class="muted status-line" data-secret="TELEGRAM_BOT_TOKEN"></p>

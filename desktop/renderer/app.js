@@ -513,13 +513,26 @@ $('cloud-connect').addEventListener('click', async () => {
     message('cloud-message', 'Add your AI key and connect Notion first: the searches in GitHub use them.', 'error'); return;
   }
   $('cloud-connect').disabled = true;
-  message('cloud-message', 'Opening GitHub sign-in…');
+  if (!cloudWaiting) message('cloud-message', 'Opening GitHub sign-in…');
   const result = await window.pilot.cloudConnect();
   $('cloud-connect').disabled = false;
   if (result.needsRepo) {
+    // Signed in, not installed yet: open GitHub's install page (its repository picker) and wait for the install.
     cloudUrls = result;
     show($('cloud-steps'));
-    message('cloud-message', 'Signed in to GitHub ✓ Two more steps, in your browser: Job Pilotto only gets access to the one repository you pick.', 'ok');
+    if (!cloudWaiting) { window.pilot.openExternal(result.installUrl); cloudSince = Date.now(); }
+    message('cloud-message', 'Signed in to GitHub ✓ Now pick the repository on GitHub. Waiting for the install…', 'waiting');
+    cloudWaiting = true;
+    if (Date.now() - cloudSince < 10 * 60 * 1000) setTimeout(() => $('cloud-connect').click(), 5000);
+    else { cloudWaiting = false; message('cloud-message', 'Still not installed. Install Job Pilotto on a repository on GitHub, then press Turn on again.', 'error'); }
+    return;
+  }
+  cloudWaiting = false;
+  if (result.needsChoice) {
+    show($('cloud-steps'), false);
+    $('cloud-repo').replaceChildren(...result.repos.map(name => Object.assign(document.createElement('option'), {value: name, textContent: name})));
+    show($('cloud-choose'));
+    message('cloud-message', 'Job Pilotto is installed on several repositories: choose the one to use.', '');
     return;
   }
   if (!result.ok) { message('cloud-message', result.error, 'error'); return; }
@@ -543,9 +556,20 @@ window.pilot.onCloudStep(step => {
   else message('cloud-message', step.text);
 });
 let cloudUrls = null;
+let cloudWaiting = false;
+let cloudSince = 0;
+$('cloud-use').addEventListener('click', async () => {
+  $('cloud-use').disabled = true;
+  const result = await window.pilot.cloudConnect($('cloud-repo').value);
+  $('cloud-use').disabled = false;
+  if (!result.ok) { message('cloud-message', result.error, 'error'); return; }
+  show($('cloud-choose'), false);
+  state = await window.pilot.state();
+  showCloud();
+  message('cloud-message', `Connected to ${result.repo} ✓ ${result.secrets.length} keys stored as encrypted secrets.`, 'ok');
+});
 $('cloud-create').addEventListener('click', () => window.pilot.openExternal(cloudUrls.createUrl));
 $('cloud-install').addEventListener('click', () => window.pilot.openExternal(cloudUrls.installUrl));
-$('cloud-check').addEventListener('click', () => $('cloud-connect').click());
 $('cloud-open').addEventListener('click', () => window.pilot.openExternal(`https://github.com/${state.settings.cloud.repo}`));
 $('cloud-off').addEventListener('click', async () => {
   await window.pilot.cloudOff();

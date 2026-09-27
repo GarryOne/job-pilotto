@@ -198,7 +198,7 @@ function handlers() {
   });
   // "Keep working while my Mac is off": sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
-  ipcMain.handle('cloudConnect', async () => {
+  ipcMain.handle('cloudConnect', async (_, chosen = '') => {
     try {
       let token = storage.secret('GITHUB_TOKEN');
       if (!token) {
@@ -208,11 +208,12 @@ function handlers() {
         token = await github.finishSignIn(start);
         storage.setSecret('GITHUB_TOKEN', token);
       }
-      const result = await github.connect(storage, token, {onStep: text => window?.webContents.send('cloudStep', {text})});
+      const result = await github.connect(storage, token, {repo: chosen, onStep: text => window?.webContents.send('cloudStep', {text})});
       return {ok: true, ...result};
     } catch (error) {
       if (error.status === 401) storage.setSecret('GITHUB_TOKEN', '');  // revoked: sign in again next time
-      return {ok: false, error: error.message, ...(error.needsRepo ? {needsRepo: true, createUrl: github.CREATE_URL, installUrl: github.INSTALL_URL} : {})};
+      return {ok: false, error: error.message, ...(error.needsRepo ? {needsRepo: true, createUrl: github.CREATE_URL, installUrl: github.INSTALL_URL} : {}),
+        ...(error.needsChoice ? {needsChoice: true, repos: error.repos} : {})};
     }
   });
   ipcMain.handle('cloudOff', () => { storage.saveSettings({cloud: null}); restartTelegram(); return true; });
