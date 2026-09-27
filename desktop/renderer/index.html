@@ -188,6 +188,7 @@
     <div class="brand"><span class="mark">✈</span>Job Pilotto</div>
     <button class="nav active" data-view="jobs">Jobs</button>
     <button class="nav" data-view="actions">Actions</button>
+    <button class="nav" data-view="runs">Runs</button>
     <button class="nav" data-view="strategy">Strategy</button>
     <button class="nav" data-view="settings">Settings</button>
     <div class="notion-links" id="notion-links" hidden>
@@ -201,7 +202,7 @@
     <div id="log" class="log" hidden></div>
     <div class="view" data-view="jobs">
       <header class="view-head">
-        <div><h1>Jobs</h1><p class="muted" id="jobs-stats">Loading…</p></div>
+        <div><h1>Jobs</h1><p class="muted" id="jobs-stats">Loading…</p><p class="search-status" id="search-status"></p></div>
         <div class="head-actions">
           <button class="secondary" id="refresh">Find new jobs</button>
           <button class="primary" id="apply-open">Apply to jobs…</button>
@@ -222,6 +223,15 @@
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Find new jobs</b>; the first search takes a few minutes.</p>
     </div>
 
+    <div class="view" data-view="runs" hidden>
+      <header class="view-head"><div><h1>Runs</h1><p class="muted">Every search, whether you started it or the schedule did: what it found and what it cost. Click a run for its full log.</p></div></header>
+      <div class="table-wrap"><table class="runs">
+        <thead><tr><th>When</th><th>Started by</th><th>Result</th><th>New</th><th>Scored</th><th>AI cost</th><th>Time</th></tr></thead>
+        <tbody id="runs-body"></tbody>
+      </table></div>
+      <p class="muted" id="runs-empty" hidden>No searches yet. Press <b>Find new jobs</b> on the Jobs screen.</p>
+      <pre class="log run-log" id="run-log" hidden></pre>
+    </div>
     <div class="view" data-view="actions" hidden>
       <header class="view-head"><div><h1>Actions</h1><p class="muted" id="actions-note">Everything the Telegram bot can do. Results appear here and, when Telegram is connected, in your chat.</p></div></header>
       <div class="action-grid">

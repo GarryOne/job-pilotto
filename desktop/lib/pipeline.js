@@ -118,8 +118,43 @@ export function serial(task) {
 
 // Find new jobs: job boards, then employer feeds + Google Jobs, AI facts and fit scores (with a key),
 // and the Telegram digest (when connected). mode 'scheduled' sends only when there's something new.
-export function refresh(storage, onLine, mode = 'run') {
+// Past runs for the Runs screen (newest first, last 50): when, why, what came out, and the log.
+export const RUN_HISTORY = 50;
+export function runs(storage) { try { return JSON.parse(storage.readText('runs.json')) || []; } catch { return []; } }
+let current = null;
+export const running = () => current;
+
+export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
   return serial(async () => {
+    const log = [];
+    const record = {id: Date.now(), trigger, startedAt: new Date().toISOString()};
+    current = {...record, step: 'Starting'};
+    const tee = line => {
+      log.push(line);
+      if (!/^\s|^Warning/.test(line) && line.length < 120) current = {...current, step: line};
+      onLine(line);
+    };
+    let ok = false;
+    try {
+      ok = (await searchOnce(storage, tee, mode)).ok;
+    } catch (error) {
+      tee(`Search failed: ${error.message}`);
+    } finally {
+      let summary = {};
+      try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
+      const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
+      Object.assign(record, {endedAt: new Date().toISOString(), ok, log: log.slice(-400),
+        ...(fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
+          scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {})});
+      storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
+      current = null;
+    }
+    return {ok, run: record};
+  });
+}
+
+function searchOnce(storage, onLine, mode) {
+  return (async () => {
     const ai = !!storage.secret('ANTHROPIC_API_KEY');
     onLine('Searching job boards (jobs.ch, TechTree)…');
     await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
@@ -127,7 +162,7 @@ export function refresh(storage, onLine, mode = 'run') {
     const {code} = await run(storage, dailyArgs(storage, {mode}), onLine);
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchOk: code === 0});
     return {ok: code === 0};
-  });
+  })();
 }
 
 export async function setStatus(storage, url, status) {

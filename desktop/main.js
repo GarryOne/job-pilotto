@@ -169,6 +169,11 @@ function handlers() {
     storage.writeText('answers.md', answers);
     return true;
   });
+  ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running(),
+    lastSearchAt: storage.settings().lastSearchAt || null}));
+  // Right after setup: the first search, so the Jobs screen fills while the user watches.
+  ipcMain.handle('firstSearch', () => (storage.settings().lastSearchAt || pipeline.running() ? {ok: true, skipped: true}
+    : pipeline.refresh(storage, log, 'run', 'first')));
   ipcMain.handle('jobs', async () => {
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
     // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
@@ -180,7 +185,7 @@ function handlers() {
     return pipeline.jobs(storage);
   });
   ipcMain.handle('refresh', async () => {
-    if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run');
+    if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', 'you');
     await github.cloudDispatch(storage, log)({mode: 'run'});
     return {ok: true, cloud: true};
   });
@@ -280,7 +285,7 @@ if (firstCopy) app.whenReady().then(() => {
   if (!DEMO) {
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
-    startSchedule(storage, () => pipeline.refresh(storage, log, 'scheduled'), powerMonitor);
+    startSchedule(storage, () => pipeline.refresh(storage, log, 'scheduled', 'schedule'), powerMonitor);
   }
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });

@@ -458,12 +458,17 @@ def main():
         except Exception as error:
             print(f'Warning: insight skipped: {type(error).__name__}: {error}')
             run['warnings'].append(f'insight skipped: {type(error).__name__}')
-    if tracker and args.mode in ('scheduled', 'run', 'today'):
-        # Only sending runs are logged, so local previews don't fill the table.
+    if args.mode in ('scheduled', 'run', 'today'):
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        url = cron_runs.log_run(tracker, run)
-        if url:
-            print(f'Cronjob run logged: {url}')
+        run['usd'] = round(cron_runs.total_usd(run), 4)
+        # The desktop app's Runs screen reads this summary of the latest crawl.
+        REPORTS.mkdir(parents=True, exist_ok=True)
+        (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
+        # Only sending runs are logged to Notion, so local previews don't fill the table.
+        if tracker:
+            url = cron_runs.log_run(tracker, run)
+            if url:
+                print(f'Cronjob run logged: {url}')
     return 0
 
 

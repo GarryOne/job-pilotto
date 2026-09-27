@@ -13,10 +13,10 @@ const fakeCrypto = {encrypt: v => Buffer.from(v).toString('base64'), decrypt: s 
 const tempStorage = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), fakeCrypto);
 const HOUR = 3600 * 1000;
 
-test('a search is due every 4 hours after setup, unless switched off', () => {
+test('a search is due every 4 hours after the first one, unless switched off', () => {
   const now = Date.parse('2026-09-27T12:00:00Z');
   assert.equal(due({setupDone: false}, now), false);
-  assert.equal(due({setupDone: true}, now), true);
+  assert.equal(due({setupDone: true}, now), false);  // the first search starts when setup finishes, not by timer
   assert.equal(due({setupDone: true, lastSearchAt: new Date(now - 3 * HOUR).toISOString()}, now), false);
   assert.equal(due({setupDone: true, lastSearchAt: new Date(now - 5 * HOUR).toISOString()}, now), true);
   assert.equal(due({setupDone: true, autoSearch: false}, now), false);

@@ -5,7 +5,8 @@ export const EVERY_HOURS = 4;  // default; the user picks it in Settings → How
 
 export function due(settings, now = Date.now()) {
   if (settings.autoSearch === false || !settings.setupDone || settings.cloud?.repo) return false; // cloud runs instead
-  const last = settings.lastSearchAt ? Date.parse(settings.lastSearchAt) : 0;
+  if (!settings.lastSearchAt) return false;  // the first search starts when setup finishes, on screen
+  const last = Date.parse(settings.lastSearchAt);
   const hours = cadence(settings).search;
   if (!hours) return false;  // searches only when asked
   return now - last >= hours * 3600 * 1000;

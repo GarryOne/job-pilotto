@@ -115,6 +115,63 @@ window.pilot.onSaveProgress(({page, done, total}) => {
   message('draft-save-message', `Writing your ${page} to Notion: ${Math.round(done / total * 100)}%`, 'waiting');
 });
 
+// ---------- runs ----------
+const TRIGGER = {you: 'You', schedule: 'Schedule', first: 'First search'};
+const clockTime = iso => new Date(iso).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'});
+const duration = (a, b) => { const s = Math.round((Date.parse(b) - Date.parse(a)) / 1000); return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`; };
+let openRun = null;
+async function loadRuns() {
+  const {runs, running} = await window.pilot.runs();
+  const body = $('runs-body');
+  body.replaceChildren();
+  show($('runs-empty'), !runs.length && !running);
+  const cell = (tr, text, className) => tr.append(Object.assign(document.createElement('td'), {textContent: text ?? '–', className: className || ''}));
+  if (running) {
+    const tr = document.createElement('tr');
+    cell(tr, clockTime(running.startedAt)); cell(tr, TRIGGER[running.trigger] || running.trigger);
+    const result = document.createElement('td'); result.append(Object.assign(document.createElement('span'), {className: 'pill busy', textContent: 'Running…'})); tr.append(result);
+    for (let i = 0; i < 4; i++) cell(tr, '');
+    body.append(tr);
+  }
+  for (const run of runs) {
+    const tr = Object.assign(document.createElement('tr'), {className: `run${openRun === run.id ? ' open' : ''}`});
+    cell(tr, clockTime(run.startedAt)); cell(tr, TRIGGER[run.trigger] || run.trigger);
+    const result = document.createElement('td');
+    result.append(Object.assign(document.createElement('span'), {className: `pill ${run.ok ? 'ok' : 'bad'}`,
+      textContent: run.ok ? (run.warnings?.length ? 'Done, with warnings' : 'Done') : 'Problems'}));
+    tr.append(result);
+    cell(tr, run.new ?? '–'); cell(tr, run.scored ?? '–'); cell(tr, run.usd != null ? `$${run.usd.toFixed(2)}` : '–');
+    cell(tr, run.endedAt ? duration(run.startedAt, run.endedAt) : '–');
+    tr.addEventListener('click', () => {
+      openRun = openRun === run.id ? null : run.id;
+      $('run-log').textContent = (run.log || []).join('\n') || 'No log for this run.';
+      show($('run-log'), openRun === run.id);
+      loadRuns();
+    });
+    body.append(tr);
+  }
+}
+
+// The line under "Jobs": what's happening now, or when the last search ran.
+async function showSearchStatus() {
+  const {running, lastSearchAt, runs} = await window.pilot.runs();
+  const line = $('search-status');
+  line.classList.toggle('busy', !!running);
+  if (running) { line.textContent = `Searching now (${TRIGGER[running.trigger] || running.trigger}): ${running.step}`; return; }
+  if (!lastSearchAt) { line.textContent = 'No search yet.'; return; }
+  const last = runs[0];
+  line.textContent = `Last search ${clockTime(lastSearchAt)}${last?.new != null ? ` · ${last.new} new` : ''}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
+}
+let wasRunning = false;
+setInterval(async () => {
+  if ($('app').hidden) return;
+  const {running} = await window.pilot.runs();
+  if (wasRunning && !running) loadJobs();  // a search just finished: show its jobs
+  wasRunning = !!running;
+  showSearchStatus();
+  if (!document.querySelector('.view[data-view="runs"]').hidden) loadRuns();
+}, 2000);
+
 function refreshCv() {
   $('cv-name').textContent = state.settings.cvName ? `✓ ${state.settings.cvName}` : 'No CV chosen yet';
   $('cv-next').disabled = !state.hasCv;
@@ -226,6 +283,9 @@ async function finishSetup() {
   state.settings = await window.pilot.saveSettings({setupDone: true});
   show($('wizard'), false); show($('app'));
   loadJobs();
+  // The first search starts now, on screen, so the list fills in while the user watches.
+  window.pilot.firstSearch();
+  showSearchStatus();
 }
 $('finish').addEventListener('click', finishSetup);
 // Back through the wizard with everything already filled in (keys, Notion, CV, answers, the last draft).
@@ -267,14 +327,15 @@ function renderJobs() {
       textContent: {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status}));
     const actions = document.createElement('td');
     const box = Object.assign(document.createElement('div'), {className: 'row-actions'});
-    const action = (label, next) => {
-      const button = Object.assign(document.createElement('button'), {className: 'secondary', textContent: label});
+    // Actions read as verbs (the Status column shows where a job stands): no check marks that look like a state.
+    const action = (label, next, title) => {
+      const button = Object.assign(document.createElement('button'), {className: 'secondary', textContent: label, title});
       button.addEventListener('click', async () => { await window.pilot.setStatus(job.url, next); job.status = next; renderJobs(); });
       box.append(button);
     };
-    if (job.status !== 'saved') action('⭐ Save', 'saved');
-    if (job.status !== 'applied') action('✅ Applied', 'applied');
-    if (job.status !== 'dismissed') action('✕', 'dismissed');
+    if (job.status !== 'saved') action('Save', 'saved', 'Keep this job on your list');
+    if (job.status !== 'applied') action('Mark applied', 'applied', 'You applied to this job: track it in Applications');
+    if (job.status !== 'dismissed') action('Dismiss', 'dismissed', 'Not interested: hide this job');
     actions.append(box);
     tr.append(fit, role, company, place, status, actions);
     body.append(tr);

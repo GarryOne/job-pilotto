@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('pilot', {
   checkAnthropic: call('checkAnthropic'), chooseCv: call('chooseCv'),
   draftStrategy: call('draftStrategy'), cachedDraft: call('cachedDraft'), cacheDraftEdits: call('cacheDraftEdits'), saveStrategy: call('saveStrategy'),
   profileText: call('profileText'), saveProfileText: call('saveProfileText'),
-  jobs: call('jobs'), refresh: call('refresh'), setStatus: call('setStatus'), apply: call('apply'),
+  jobs: call('jobs'), runs: call('runs'), firstSearch: call('firstSearch'), refresh: call('refresh'), setStatus: call('setStatus'), apply: call('apply'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), setAutomation: call('setAutomation'),
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),
