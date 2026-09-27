@@ -14,7 +14,7 @@ import os
 class Feature:
     name: str
     label: str
-    needs: tuple      # every one of these environment variables must be set
+    needs: tuple      # every one of these environment variables must be set (a nested tuple: any one of them)
     cost: str         # 'free', 'paid' or 'free tier'
     setup: str        # how to turn it on, one line
 
@@ -28,8 +28,9 @@ FEATURES = (
     Feature('scout', 'Source scout (finds new employer feeds)', (), 'free', 'on by default'),
     Feature('enrich', 'AI stage 1: facts from each posting', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_ENRICH_MODEL'),
             'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_ENRICH_MODEL=claude-haiku-4-5'),
-    Feature('score', 'AI stage 2: fit score against your Profile', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_SCORE_MODEL', 'NOTION_TOKEN'),
-            'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_SCORE_MODEL=claude-sonnet-5 (needs Notion for the Profile)'),
+    Feature('score', 'AI stage 2: fit score against your Profile',
+            ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_SCORE_MODEL', ('NOTION_TOKEN', 'JOB_PILOTTO_PROFILE_FILE')),
+            'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_SCORE_MODEL=claude-sonnet-5 (Profile from Notion or a local file)'),
     Feature('auto_kits', 'Auto-drafted application kits', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_AUTO_KIT_MAX', 'NOTION_TOKEN'),
             'paid', 'JOB_PILOTTO_AUTO_KIT_MAX=5 (plus the AI key and Notion)'),
     Feature('insights', 'Daily insight + weekly report', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_INSIGHT_MODEL', 'NOTION_TOKEN'),
@@ -54,9 +55,17 @@ def disabled(name, env=None):
     return name in names or 'all' in names
 
 
+def _has(env, need):
+    return any(env.get(var) for var in need) if isinstance(need, tuple) else bool(env.get(need))
+
+
+def _name(need):
+    return ' or '.join(need) if isinstance(need, tuple) else need
+
+
 def configured(name, env=None):
     env = os.environ if env is None else env
-    return all(env.get(var) for var in BY_NAME[name].needs)
+    return all(_has(env, need) for need in BY_NAME[name].needs)
 
 
 def enabled(name, env=None):
@@ -68,7 +77,7 @@ def status(env=None):
     env = os.environ if env is None else env
     rows = []
     for feature in FEATURES:
-        missing = [var for var in feature.needs if not env.get(var)]
+        missing = [_name(need) for need in feature.needs if not _has(env, need)]
         state = 'disabled' if disabled(feature.name, env) else 'off' if missing else 'on'
         rows.append((feature, state, missing))
     return rows

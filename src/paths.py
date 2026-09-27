@@ -5,10 +5,6 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CONFIG = ROOT / 'config'
-DATA = ROOT / 'data'
-REPORTS = ROOT / 'reports'
-JOBS_DB = DATA / 'jobs.sqlite'
 
 
 def _load_dotenv():
@@ -35,6 +31,30 @@ def _load_dotenv():
 
 
 _load_dotenv()
+
+# The desktop app keeps each user's settings and data in its own folder (Application Support), so the
+# same code runs from the repo (defaults below) or from the app, which sets these variables.
+CONFIG = Path(os.environ['JOB_PILOTTO_CONFIG_DIR']) if os.getenv('JOB_PILOTTO_CONFIG_DIR') else ROOT / 'config'
+DATA = Path(os.environ['JOB_PILOTTO_DATA_DIR']) if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'data'
+REPORTS = DATA / 'reports' if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'reports'
+JOBS_DB = DATA / 'jobs.sqlite'
+
+
+def local_text(variable):
+    """Text of a local file named by an environment variable (the desktop app's Profile and
+    standard answers), or None. When set, it replaces the Notion page of the same role."""
+    path = os.getenv(variable)
+    if not path or not Path(path).is_file():
+        return None
+    return Path(path).read_text(encoding='utf-8').strip() or None
+
+
+def local_profile():
+    return local_text('JOB_PILOTTO_PROFILE_FILE')
+
+
+def local_answers():
+    return local_text('JOB_PILOTTO_ANSWERS_FILE')
 
 
 def load_search_config():

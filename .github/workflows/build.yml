@@ -1,6 +1,6 @@
 name: build
 
-# Run both test suites on pushes and pull requests to the default branch.
+# Run the Python, Worker and desktop test suites on pushes and pull requests to the default branch.
 on:
   push:
     branches: [main]
@@ -29,5 +29,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: npm ci
+        working-directory: worker
       - run: npm test
         working-directory: worker
+
+  desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # The tests don't start Electron, so its large binary is skipped.
+      - run: npm ci --omit=dev
+        working-directory: desktop
+      - run: npm test
+        working-directory: desktop

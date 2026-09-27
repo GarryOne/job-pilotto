@@ -15,7 +15,7 @@ from .ai import budget, cost, enrich, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
-from .paths import JOBS_DB, CONFIG, DATA, REPORTS, load_search_config
+from .paths import JOBS_DB, CONFIG, DATA, REPORTS, load_search_config, local_profile
 from .sources import ats, feeds, google_jobs
 
 
@@ -359,10 +359,11 @@ def main():
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'enrichment skipped: {type(error).__name__}')
-        if args.score_max and tracker:
-            # Scores only jobs that survive the hard filters; the Profile is re-read every run.
+        if args.score_max and (tracker or local_profile()):
+            # Scores only jobs that survive the hard filters; the Profile is re-read every run
+            # (the desktop app's local Profile file when set, else the Notion page).
             try:
-                profile = tracker.page_text()
+                profile = local_profile() or tracker.page_text()
                 candidates, _ = digest.eligible_jobs(db, hidden)
                 run['score'] = {}
                 print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score']))

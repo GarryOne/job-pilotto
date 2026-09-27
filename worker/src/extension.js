@@ -62,6 +62,7 @@ export function jobKey(url) {
 }
 
 async function findRow(env, url) {
+  if (!env.NOTION_TOKEN || !env.NOTION_APPLICATIONS_DB) return null; // desktop app without Notion
   const query = (filter) => notion(env, `databases/${env.NOTION_APPLICATIONS_DB}/query`, 'POST', { filter, page_size: 5 });
   const exact = await query({ property: 'Job URL', url: { equals: url } });
   if (exact.results.length) return exact.results[0];
@@ -151,8 +152,10 @@ Eligibility: set eligible to false only when the posting clearly rules the appli
 export async function answerForm(env, { url, fields, page_text }, client = null) {
   const row = await findRow(env, url).catch(() => null);
   const kit = row ? await readKit(env, row.id).catch(() => null) : null;
+  // The desktop app passes the local Profile and standard answers; the Worker reads them from Notion.
   const [profile, standard] = await Promise.all([
-    pageText(env, env.NOTION_PROFILE_PAGE_ID), pageText(env, env.NOTION_ANSWERS_PAGE_ID),
+    env.PROFILE_TEXT ?? pageText(env, env.NOTION_PROFILE_PAGE_ID),
+    env.ANSWERS_TEXT ?? (env.NOTION_ANSWERS_PAGE_ID ? pageText(env, env.NOTION_ANSWERS_PAGE_ID) : ''),
   ]);
   const job = row ? summary(row) : { title: '', company: '', url };
   const anthropic = client || new Anthropic({ apiKey: anthropicKey(env), fetch: (...args) => globalThis.fetch(...args) });
@@ -220,11 +223,16 @@ export async function handleExtension(request, env) {
       const job = url.searchParams.get('url');
       if (!job) return json({ error: 'url is required' }, 400);
       const row = await findRow(env, job);
+      if (!row && env.localJob) {
+        const local = await env.localJob(job);
+        if (local) return json({ job: local, kit: null });
+      }
       if (!row) return json({ error: 'not tracked', hint: 'Prepare a kit for this job first (📝 Prepare in Telegram).' }, 404);
       const kit = await readKit(env, row.id);
       return json({ job: summary(row), kit: kit ? kitForForm(kit) : null });
     }
     if (request.method === 'GET' && url.pathname === '/extension/queue') {
+      if (env.queue) return json({ jobs: await env.queue() }); // desktop app: its own list
       const data = await notion(env, `databases/${env.NOTION_APPLICATIONS_DB}/query`, 'POST', {
         filter: { property: 'Stage', select: { equals: 'Kit ready' } },
         sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }], page_size: 25,
@@ -250,6 +258,7 @@ export async function handleExtension(request, env) {
     if (request.method === 'POST' && url.pathname === '/extension/applied') {
       const { url: job } = await request.json().catch(() => ({}));
       if (!job || !/^https?:\/\//.test(job)) return json({ error: 'url is required' }, 400);
+      if (env.markApplied) return json(await env.markApplied(job)); // desktop app: recorded locally
       const response = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${env.WORKFLOW_FILE}/dispatches`, {
         method: 'POST',
         headers: {

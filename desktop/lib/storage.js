@@ -1,0 +1,54 @@
+// Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
+//   settings.json   choices that aren't secret (models, setup progress, Notion page ids)
+//   secrets.json    API keys and tokens, each encrypted with a key held in the macOS Keychain
+//   config/         the pipeline's search.json, preferences.json, sources.json, scout_seeds.json
+//   profile.md, answers.md, cv.pdf, data/jobs.sqlite
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'EXTENSION_TOKEN'];
+
+export function createStorage(dir, crypto) {
+  fs.mkdirSync(dir, {recursive: true});
+  const file = name => path.join(dir, name);
+  const readJson = (name, fallback) => {
+    try { return JSON.parse(fs.readFileSync(file(name), 'utf8')); } catch { return fallback; }
+  };
+  const writeJson = (name, value) => fs.writeFileSync(file(name), JSON.stringify(value, null, 2) + '\n', {mode: 0o600});
+
+  return {
+    dir,
+    path: file,
+    settings: () => readJson('settings.json', {}),
+    saveSettings: patch => {
+      const next = {...readJson('settings.json', {}), ...patch};
+      writeJson('settings.json', next);
+      return next;
+    },
+    setSecret(name, value) {
+      if (!SECRET_NAMES.includes(name)) throw new Error(`Unknown secret ${name}`);
+      const all = readJson('secrets.json', {});
+      if (value) all[name] = crypto.encrypt(value); else delete all[name];
+      writeJson('secrets.json', all);
+    },
+    secret(name) {
+      const sealed = readJson('secrets.json', {})[name];
+      return sealed ? crypto.decrypt(sealed) : '';
+    },
+    // Which secrets are set, for the UI; never the values.
+    secretsPresent: () => Object.fromEntries(SECRET_NAMES.map(name => [name, !!readJson('secrets.json', {})[name]])),
+    readText: name => { try { return fs.readFileSync(file(name), 'utf8'); } catch { return ''; } },
+    writeText: (name, text) => {
+      fs.mkdirSync(path.dirname(file(name)), {recursive: true});
+      fs.writeFileSync(file(name), text, {mode: 0o600});
+    },
+  };
+}
+
+// Electron's safeStorage wraps a key kept in the macOS Keychain; tests pass a stand-in.
+export function safeStorageCrypto(safeStorage) {
+  return {
+    encrypt: value => safeStorage.encryptString(value).toString('base64'),
+    decrypt: sealed => safeStorage.decryptString(Buffer.from(sealed, 'base64')),
+  };
+}

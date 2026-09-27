@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""JSON commands for the desktop app (desktop/), which runs this package as a local helper.
+
+    python -m src.desktop jobs [--limit 200]     ranked open jobs with fit score and application status
+    python -m src.desktop status <URL> <status>  record an application status locally (applied, saved, dismissed)
+
+The app sets JOB_PILOTTO_CONFIG_DIR / JOB_PILOTTO_DATA_DIR / JOB_PILOTTO_PROFILE_FILE, so everything
+here reads and writes the user's own folder. Output is one JSON document on stdout.
+"""
+import argparse
+import json
+
+from . import digest, store
+from .ai import score
+from .notion.client import job_code
+from .paths import JOBS_DB
+
+STATUSES = ('unreviewed', 'saved', 'applied', 'dismissed')
+
+
+def jobs(db, limit=200):
+    """Eligible open jobs, best fit first (unscored after scored, then the rule-based rank)."""
+    candidates, blocked = digest.eligible_jobs(db)
+    fits = score.load(db)
+    rows = []
+    for job in candidates:
+        fit = fits.get(job['id'])
+        rows.append({
+            'id': job['id'], 'code': job_code(job['url']) if job.get('url') else '',
+            'title': job['title'], 'company': job['company'], 'location': job.get('location') or '',
+            'work_mode': job.get('work_mode') or '', 'url': job.get('url') or '',
+            'posted_at': job.get('posted_at') or '', 'first_seen_at': job.get('first_seen_at') or '',
+            'status': job.get('application_status') or 'unreviewed',
+            'fit': fit.get('score') if fit else None,
+            'reason': (fit.get('summary') or fit.get('reason') or '') if fit else '',
+            'rank': digest.rank_score(job),
+        })
+    rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
+    return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
+
+
+def set_status(db, url, status):
+    row = db.execute('SELECT id FROM jobs WHERE url=?', (url,)).fetchone()
+    if not row:
+        return {'ok': False, 'error': 'job not found'}
+    store.set_application_status(db, row['id'], status)
+    db.commit()
+    return {'ok': True}
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest='command', required=True)
+    listing = sub.add_parser('jobs')
+    listing.add_argument('--limit', type=int, default=200)
+    marking = sub.add_parser('status')
+    marking.add_argument('url')
+    marking.add_argument('status', choices=STATUSES)
+    args = parser.parse_args(argv)
+    with store.connect(JOBS_DB) as db:
+        result = jobs(db, args.limit) if args.command == 'jobs' else set_status(db, args.url, args.status)
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

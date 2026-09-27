@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
+<title>Job Pilotto</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- First run: the setup wizard -->
+<section id="wizard" class="wizard" hidden>
+  <aside class="steps">
+    <div class="brand"><span class="mark">✈</span>Job Pilotto</div>
+    <ol id="step-list">
+      <li data-step="welcome">Welcome</li>
+      <li data-step="ai">AI key</li>
+      <li data-step="cv">Your CV</li>
+      <li data-step="goals">What you're looking for</li>
+      <li data-step="draft">Your strategy</li>
+      <li data-step="extras">Optional extras</li>
+    </ol>
+    <p class="fine">Everything stays on this Mac. Keys are encrypted with your Mac's Keychain.</p>
+  </aside>
+
+  <div class="step-body">
+    <div class="step" data-step="welcome">
+      <span class="eyebrow">Check-in · about 5 minutes</span>
+      <h1>Let's set up your job search</h1>
+      <p class="lede">Job Pilotto finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p>
+      <ul class="checks">
+        <li>Add your AI key (Anthropic)</li>
+        <li>Choose your CV</li>
+        <li>Say what you're looking for</li>
+        <li>Review the strategy it drafts for you</li>
+      </ul>
+      <div class="actions"><button class="primary" data-next>Start</button></div>
+    </div>
+
+    <div class="step" data-step="ai">
+      <span class="eyebrow">Step 1 of 5</span>
+      <h1>Connect your AI</h1>
+      <p class="lede">Job Pilotto uses Claude to read job postings, score them and draft answers. You pay Anthropic directly, usually a few dollars a month.</p>
+      <ol class="howto">
+        <li>Open <a href="#" data-link="https://console.anthropic.com/settings/keys">console.anthropic.com → API keys</a> and sign in.</li>
+        <li>Click <b>Create Key</b>, name it "Job Pilotto", copy it.</li>
+        <li>Paste it here.</li>
+      </ol>
+      <label for="anthropic-key">Anthropic API key</label>
+      <input id="anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <p class="message" id="ai-message"></p>
+      <div class="actions">
+        <button class="ghost" data-back>Back</button>
+        <button class="ghost" id="ai-skip">Skip for now</button>
+        <button class="primary" id="ai-save">Check and save</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="cv">
+      <span class="eyebrow">Step 2 of 5</span>
+      <h1>Your CV</h1>
+      <p class="lede">It's used to score jobs, draft your answers and attach to applications. It stays on this Mac; only the AI reads it when building your strategy.</p>
+      <div class="dropzone">
+        <div class="file-icon">📄</div>
+        <div id="cv-name" class="muted">No CV chosen yet</div>
+        <button class="secondary" id="cv-choose">Choose PDF…</button>
+      </div>
+      <div class="actions">
+        <button class="ghost" data-back>Back</button>
+        <button class="primary" id="cv-next" disabled>Continue</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="goals">
+      <span class="eyebrow">Step 3 of 5</span>
+      <h1>What are you looking for?</h1>
+      <p class="lede">Short answers are fine. The AI turns them and your CV into search settings you can review.</p>
+      <form id="goals-form" class="grid">
+        <div class="full"><label for="q-roles">Roles you want</label>
+          <input id="q-roles" placeholder="e.g. Site Reliability Engineer, Platform Engineer, DevOps"></div>
+        <div><label for="q-seniority">Seniority</label>
+          <select id="q-seniority"><option>Junior</option><option>Mid</option><option selected>Senior</option><option>Staff / Principal</option><option>Lead / Manager</option></select></div>
+        <div><label for="q-remote">Work mode</label>
+          <select id="q-remote"><option>On-site, hybrid or remote</option><option>Hybrid or remote</option><option>Remote only</option><option>On-site or hybrid</option></select></div>
+        <div class="full"><label for="q-places">Places, most wanted first</label>
+          <input id="q-places" placeholder="e.g. Zurich, anywhere in Switzerland, Berlin, remote in Europe"></div>
+        <div><label for="q-relocate">Open to relocating?</label>
+          <select id="q-relocate"><option>Yes</option><option>No</option><option>Maybe, for the right role</option></select></div>
+        <div><label for="q-permit">Work permit / citizenship</label>
+          <input id="q-permit" placeholder="e.g. EU citizen, Swiss B permit"></div>
+        <div class="full"><label for="q-languages">Languages and level</label>
+          <input id="q-languages" placeholder="e.g. English fluent, German A2, Romanian native"></div>
+        <div><label for="q-salary">Minimum salary</label>
+          <input id="q-salary" placeholder="e.g. CHF 140,000 a year"></div>
+        <div><label for="q-notice">Notice period</label>
+          <input id="q-notice" placeholder="e.g. 1 month"></div>
+        <div class="full"><label for="q-skip">Companies to skip</label>
+          <input id="q-skip" placeholder="e.g. my current employer"></div>
+        <div class="full"><label for="q-more">Anything else that matters</label>
+          <textarea id="q-more" rows="3" placeholder="e.g. no on-call, interested in AI infrastructure"></textarea></div>
+      </form>
+      <div class="actions">
+        <button class="ghost" data-back>Back</button>
+        <button class="primary" id="goals-next">Build my strategy</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="draft">
+      <span class="eyebrow">Step 4 of 5</span>
+      <h1>Your strategy</h1>
+      <div id="draft-loading" class="loading"><span class="spinner"></span>Reading your CV and drafting your strategy… about 30 seconds.</div>
+      <div id="draft-error" class="message error" hidden></div>
+      <div id="draft-view" hidden>
+        <p class="lede" id="draft-summary"></p>
+        <div class="chips-block">
+          <div><h3>Roles</h3><div class="chips" id="chips-roles"></div></div>
+          <div><h3>Places</h3><div class="chips" id="chips-places"></div></div>
+          <div><h3>Job board searches</h3><div class="chips" id="chips-queries"></div></div>
+          <div><h3>Hidden: jobs requiring</h3><div class="chips" id="chips-languages"></div></div>
+        </div>
+        <div id="open-questions" class="callout" hidden><b>Still to answer</b><ul></ul><p class="fine">Edit them below; ❓ marks anything the AI couldn't know.</p></div>
+        <details open><summary>Profile (what jobs are scored against)</summary><textarea id="draft-profile" rows="14"></textarea></details>
+        <details><summary>Standard application answers</summary><textarea id="draft-answers" rows="14"></textarea></details>
+        <p class="fine" id="draft-cost"></p>
+      </div>
+      <div class="actions">
+        <button class="ghost" data-back>Back</button>
+        <button class="ghost" id="draft-again">Draft again</button>
+        <button class="primary" id="draft-save" disabled>Save my strategy</button>
+      </div>
+    </div>
+
+    <div class="step" data-step="extras">
+      <span class="eyebrow">Step 5 of 5 · optional</span>
+      <h1>Optional extras</h1>
+      <p class="lede">Everything works without these. You can add them later in Settings.</p>
+      <div class="extra">
+        <div><h3>🧩 Chrome extension</h3><p>Fills application forms in Chrome in seconds. You review and submit.</p></div>
+        <button class="secondary" data-goto-settings="extension">Set up</button>
+      </div>
+      <div class="extra">
+        <div><h3>🗂️ Notion</h3><p>Keep your applications tracker in your own Notion.</p></div>
+        <button class="secondary" data-goto-settings="notion">Connect</button>
+      </div>
+      <div class="extra">
+        <div><h3>🔎 Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
+        <button class="secondary" data-goto-settings="serpapi">Add key</button>
+      </div>
+      <div class="actions"><button class="primary" id="finish">Go to my jobs</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- After setup: the app -->
+<section id="app" class="app" hidden>
+  <nav class="sidebar">
+    <div class="brand"><span class="mark">✈</span>Job Pilotto</div>
+    <button class="nav active" data-view="jobs">Jobs</button>
+    <button class="nav" data-view="strategy">Strategy</button>
+    <button class="nav" data-view="settings">Settings</button>
+    <p class="fine sidebar-foot">Data stays on this Mac.</p>
+  </nav>
+
+  <main>
+    <div class="view" data-view="jobs">
+      <header class="view-head">
+        <div><h1>Jobs</h1><p class="muted" id="jobs-stats">Loading…</p></div>
+        <div class="head-actions">
+          <button class="secondary" id="refresh">Find new jobs</button>
+          <button class="primary" id="apply-open">Apply to jobs…</button>
+        </div>
+      </header>
+      <div id="log" class="log" hidden></div>
+      <div class="filters">
+        <select id="filter-status" aria-label="Show">
+          <option value="open">To review</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="dismissed">Dismissed</option><option value="all">All</option>
+        </select>
+        <input id="filter-text" type="search" placeholder="Filter by title, company or place">
+      </div>
+      <div class="table-wrap">
+        <table class="jobs">
+          <thead><tr><th>Fit</th><th>Role</th><th>Company</th><th>Place</th><th>Status</th><th></th></tr></thead>
+          <tbody id="jobs-body"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Find new jobs</b>; the first search takes a few minutes.</p>
+    </div>
+
+    <div class="view" data-view="strategy" hidden>
+      <header class="view-head"><div><h1>Strategy</h1><p class="muted">What jobs are scored against, and your standard answers. Edit freely.</p></div>
+        <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button><button class="primary" id="strategy-save">Save</button></div></header>
+      <p class="message" id="strategy-message"></p>
+      <label for="strategy-profile">Profile</label><textarea id="strategy-profile" rows="16"></textarea>
+      <label for="strategy-answers">Standard application answers</label><textarea id="strategy-answers" rows="16"></textarea>
+    </div>
+
+    <div class="view" data-view="settings" hidden>
+      <header class="view-head"><div><h1>Settings</h1><p class="muted">Keys are encrypted with your Mac's Keychain and never leave this Mac, except to the service they belong to.</p></div></header>
+      <div class="setting" id="setting-ai">
+        <div><h3>Anthropic (AI)</h3><p class="muted status-line" data-secret="ANTHROPIC_API_KEY"></p></div>
+        <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
+      </div>
+      <div class="setting" id="setting-extension">
+        <div><h3>🧩 Chrome extension</h3>
+          <ol class="howto small">
+            <li>Chrome → <code>chrome://extensions</code> → turn on <b>Developer mode</b>.</li>
+            <li><b>Load unpacked</b> → choose the folder this button opens: <button class="link" id="open-extension-folder">Show extension folder</button></li>
+            <li>Right-click the ✈️ icon → <b>Options</b>, paste the two values below, add your contact details and CV, <b>Save</b>.</li>
+          </ol></div>
+        <div class="kv"><span>Connection URL</span><code id="ext-url"></code><button class="link" data-copy="ext-url">Copy</button></div>
+        <div class="kv"><span>Token</span><code id="ext-token"></code><button class="link" data-copy="ext-token">Copy</button></div>
+      </div>
+      <div class="setting" id="setting-notion">
+        <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
+          <p class="muted small">Create an internal integration at <a href="#" data-link="https://www.notion.so/profile/integrations">notion.so/profile/integrations</a>, copy its secret, and share your Job Pilotto pages with it.</p></div>
+        <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div>
+      </div>
+      <div class="setting" id="setting-serpapi">
+        <div><h3>🔎 Google Jobs (SerpApi)</h3><p class="muted status-line" data-secret="SERPAPI_API_KEY"></p>
+          <p class="muted small">Free plan at <a href="#" data-link="https://serpapi.com/users/sign_up">serpapi.com</a>: 250 searches a month.</p></div>
+        <div class="inline"><input type="password" id="set-serpapi" placeholder="SerpApi key"><button class="secondary" id="set-serpapi-save">Save</button></div>
+      </div>
+      <div class="setting">
+        <div><h3>Your data</h3><p class="muted small" id="data-folder"></p></div>
+        <div class="inline"><button class="secondary" id="open-data">Show in Finder</button><button class="ghost" id="rerun-wizard">Run setup again</button></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- Apply dialog -->
+<dialog id="apply-dialog">
+  <form method="dialog" id="apply-form">
+    <h2>Apply to jobs</h2>
+    <p class="muted">Takes your best open matches (saved ones first). Nothing is ever submitted for you.</p>
+    <label for="apply-n">How many jobs</label>
+    <input id="apply-n" type="number" min="1" max="10" value="3">
+    <fieldset>
+      <legend>How to fill them</legend>
+      <label class="radio"><input type="radio" name="apply-mode" value="chrome" checked>
+        <span><b>In Chrome with the extension</b><br><span class="muted">Opens each job as a tab. Click ✈️ → Fill with AI on each form, review, submit. Seconds per form.</span></span></label>
+      <label class="radio"><input type="radio" name="apply-mode" value="agents">
+        <span><b>AI agent sessions</b><br><span class="muted">One Claude session per job in Terminal, as today. Slower (minutes per form); needs Claude Code and Notion.</span></span></label>
+    </fieldset>
+    <p class="message" id="apply-message"></p>
+    <div class="actions"><button class="ghost" value="cancel">Close</button><button class="primary" id="apply-go" value="default">Start</button></div>
+  </form>
+</dialog>
+<script src="app.js" type="module"></script>
+</body>
+</html>
