@@ -24,6 +24,13 @@ document.addEventListener('click', event => {
 // ---------- wizard ----------
 function goStep(name) {
   const index = STEPS.indexOf(name);
+  window.pilot.saveSettings({wizardStep: name});  // reopening the app continues here
+  if (name === 'ai' && state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value) {
+    message('ai-message', '✓ Your key is saved. Continue, or paste a new key to replace it.', 'ok');
+  }
+  if (name === 'notion' && notionReady() && !$('notion-key').value) {
+    message('notion-message', '✓ Connected to your Job Pilotto workspace. Continue, or paste a new token to reconnect.', 'ok');
+  }
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
   document.querySelectorAll('#step-list li').forEach((li, i) => {
     li.classList.toggle('current', i === index);
@@ -37,8 +44,11 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
   goStep(STEPS[Math.max(0, STEPS.indexOf(current) - 1)]);
 }));
 
+const notionReady = () => !!state.notion && Object.keys(state.notion).length >= 11;
+
 $('ai-save').addEventListener('click', async () => {
   const key = $('anthropic-key').value.trim();
+  if (!key && state.secrets.ANTHROPIC_API_KEY) { goStep('notion'); return; }  // saved earlier: just continue
   if (!key.startsWith('sk-ant-')) { message('ai-message', 'Anthropic keys start with sk-ant-. Copy the whole key.', 'error'); return; }
   $('ai-save').disabled = true;
   message('ai-message', 'Checking the key…');
@@ -56,6 +66,7 @@ $('ai-skip').addEventListener('click', () => goStep('notion'));
 $('notion-template').addEventListener('click', () => window.pilot.openExternal(state.templateUrl));
 $('notion-connect').addEventListener('click', async () => {
   const key = $('notion-key').value.trim();
+  if (!key && notionReady()) { goStep('cv'); return; }  // connected earlier: just continue
   if (!key) { message('notion-message', 'Paste the API token from step 2.', 'error'); return; }
   $('notion-connect').disabled = true;
   message('notion-message', 'Looking for your Job Pilotto workspace…', 'waiting');
@@ -118,6 +129,13 @@ const QUESTIONS = {roles: 'q-roles', seniority: 'q-seniority', work_mode: 'q-rem
   relocate: 'q-relocate', work_permit: 'q-permit', languages: 'q-languages', minimum_salary: 'q-salary',
   notice_period: 'q-notice', companies_to_skip: 'q-skip', anything_else: 'q-more'};
 for (const [key, id] of Object.entries(QUESTIONS)) if (state.settings.questionnaire?.[key]) $(id).value = state.settings.questionnaire[key];
+const currentAnswers = () => Object.fromEntries(Object.entries(QUESTIONS).map(([key, id]) => [key, $(id).value.trim()]));
+let answersTimer;
+for (const id of Object.values(QUESTIONS)) $(id).addEventListener('input', () => {
+  clearTimeout(answersTimer);
+  answersTimer = setTimeout(() => window.pilot.saveSettings({questionnaire: currentAnswers()}), 400);
+});
+$('q-seniority').addEventListener('change', () => window.pilot.saveSettings({questionnaire: currentAnswers()}));
 
 async function buildDraft() {
   goStep('draft');
@@ -147,7 +165,11 @@ async function buildDraft() {
     return;
   }
   clearInterval(clock);
-  show($('draft-loading'), false); show($('draft-view'));
+  renderDraft();
+}
+
+function renderDraft() {
+  show($('draft-loading'), false); show($('draft-error'), false); show($('draft-view'));
   $('draft-summary').textContent = draft.summary;
   for (const id of ['chips-roles', 'chips-places', 'chips-queries', 'chips-languages']) $(id).replaceChildren();
   draft.search.role_keywords.forEach(k => chip($('chips-roles'), readable(k)));
@@ -163,7 +185,25 @@ async function buildDraft() {
   $('draft-cost').textContent = `Drafted by Claude for about USD ${draft.usd.toFixed(2)}.`;
   $('draft-save').disabled = false;
 }
-$('goals-next').addEventListener('click', buildDraft);
+// Same answers as the cached draft: show it again (no new Claude call). Changed answers or "Draft again": redraft.
+async function toDraft() {
+  const cached = await window.pilot.cachedDraft();
+  if (cached && JSON.stringify(cached.answers) === JSON.stringify(currentAnswers())) {
+    draft = cached.draft;
+    goStep('draft');
+    renderDraft();
+    return;
+  }
+  buildDraft();
+}
+let editsTimer;
+for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answers', 'answers_markdown']]) {
+  $(id).addEventListener('input', () => {
+    clearTimeout(editsTimer);
+    editsTimer = setTimeout(() => window.pilot.cacheDraftEdits({[field]: $(id).value}), 400);
+  });
+}
+$('goals-next').addEventListener('click', toDraft);
 $('draft-again').addEventListener('click', buildDraft);
 $('draft-save').addEventListener('click', async () => {
   // Writing the pages to Notion takes a while (one request per block): lock the buttons and show progress.
@@ -188,6 +228,8 @@ async function finishSetup() {
   loadJobs();
 }
 $('finish').addEventListener('click', finishSetup);
+// Back through the wizard with everything already filled in (keys, Notion, CV, answers, the last draft).
+$('rerun-setup').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
 
 // ---------- app ----------
 function openView(name) {
@@ -462,4 +504,8 @@ $('replace-cv').addEventListener('click', async () => {
 });
 
 // ---------- start ----------
-if (state.settings.setupDone) { show($('app')); loadJobs(); } else { show($('wizard')); goStep('welcome'); }
+if (state.settings.setupDone) { show($('app')); loadJobs(); } else {
+  show($('wizard'));
+  const resume = state.settings.wizardStep || 'welcome';
+  if (resume === 'draft') toDraft(); else goStep(resume);
+}

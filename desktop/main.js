@@ -111,8 +111,19 @@ function handlers() {
   });
   ipcMain.handle('draftStrategy', async (_, answers) => {
     storage.saveSettings({questionnaire: answers});
-    return strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
+    const draft = await strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
       progress => window?.webContents.send('draftProgress', progress));
+    // Kept so reopening the wizard shows it again instead of paying for a new draft.
+    storage.writeText('draft.json', JSON.stringify({answers, draft, at: new Date().toISOString()}));
+    return draft;
+  });
+  ipcMain.handle('cachedDraft', () => { try { return JSON.parse(storage.readText('draft.json')); } catch { return null; } });
+  ipcMain.handle('cacheDraftEdits', (_, edits) => {
+    try {
+      const cached = JSON.parse(storage.readText('draft.json'));
+      storage.writeText('draft.json', JSON.stringify({...cached, draft: {...cached.draft, ...edits}}));
+    } catch {}
+    return true;
   });
   // One save at a time: a second click while Notion is being written joins the running save.
   let saving = null;

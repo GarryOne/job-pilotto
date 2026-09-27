@@ -5,7 +5,7 @@ const call = name => (...args) => ipcRenderer.invoke(name, ...args);
 contextBridge.exposeInMainWorld('pilot', {
   state: call('state'), saveSettings: call('saveSettings'), saveSecret: call('saveSecret'),
   checkAnthropic: call('checkAnthropic'), chooseCv: call('chooseCv'),
-  draftStrategy: call('draftStrategy'), saveStrategy: call('saveStrategy'),
+  draftStrategy: call('draftStrategy'), cachedDraft: call('cachedDraft'), cacheDraftEdits: call('cacheDraftEdits'), saveStrategy: call('saveStrategy'),
   profileText: call('profileText'), saveProfileText: call('saveProfileText'),
   jobs: call('jobs'), refresh: call('refresh'), setStatus: call('setStatus'), apply: call('apply'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), setAutomation: call('setAutomation'),
