@@ -59,7 +59,8 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | `insights` | daily insight + Monday weekly report | + `JOB_PILOTTO_INSIGHT_MODEL`, Notion | ~$0.03/day | 2 min |
 | `google_jobs` | Google Jobs listings via [SerpApi](https://serpapi.com) | `SERPAPI_API_KEY` | free plan: 250 searches/month | 5 min |
 | `mail` | Gmail + Calendar update your applications | Google OAuth client + sign-in, Notion, Anthropic | a few cents/day | 15 min |
-| Form filling | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
+| Chrome extension | fills the form from its kit in seconds, you Submit | Chrome + the Worker ([extension/README.md](extension/README.md)) | free | 5 min |
+| Form filling by an AI agent | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
 
 A sensible order: Telegram and scheduled runs first (free, 10 minutes), then Notion, then the AI
 stages if the ranking is worth paying for. The paid features only cost money once you add a key.
