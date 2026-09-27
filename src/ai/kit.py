@@ -180,6 +180,20 @@ def draft(client, model, job, profile, answers, questions):
     return kit, response.usage
 
 
+def standard_answers(tracker):
+    """The standard answers, plus what earlier form fills learned (🧠 Form knowledge, NOTION_KNOWLEDGE_PAGE)."""
+    answers = tracker.page_text(ANSWERS_PAGE_ID)
+    knowledge_page = os.getenv('NOTION_KNOWLEDGE_PAGE', '')
+    if knowledge_page:
+        try:
+            learned = tracker.page_text(knowledge_page)
+            if learned.strip():
+                answers += '\n\n# Learned from earlier forms\n' + learned
+        except Exception as error:  # the kit still drafts without it
+            print(f'Warning: form knowledge unavailable: {type(error).__name__}: {error}')
+    return answers
+
+
 def prepare_one(client, model, job, tracker, profile, answers, opener=None):
     """Draft and save one kit; returns (kit dict, questions, page, usage). Marks the row Saved."""
     try:
@@ -221,7 +235,7 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    profile, answers = tracker.page_text(), tracker.page_text(ANSWERS_PAGE_ID)
+    profile, answers = tracker.page_text(), standard_answers(tracker)
     drafted_jobs, failures = [], 0
     for job in pending:
         try:

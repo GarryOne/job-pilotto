@@ -169,4 +169,24 @@ export async function appendAnswer(token, pageId, question, answer, fetcher) {
     bulleted_list_item: {rich_text: [{type: 'text', text: {content: text}}]}}]}, fetcher);
 }
 
+// The 🧠 Form knowledge page: created once next to the Profile page (same parent), then reused.
+export async function ensurePage(token, besideId, title, intro, fetcher) {
+  const beside = await call(token, 'GET', `pages/${besideId}`, null, fetcher);
+  const parent = beside.parent?.page_id ? {page_id: beside.parent.page_id} : null;
+  if (!parent) throw new Error('The Profile page has no parent page to put Form knowledge next to');
+  const icon = title.split(' ')[0], name = title.slice(icon.length).trim();
+  const page = await call(token, 'POST', 'pages', {parent, icon: {type: 'emoji', emoji: icon},
+    properties: {title: {title: [{text: {content: name}}]}},
+    children: [{object: 'block', type: 'paragraph', paragraph: {rich_text: [{type: 'text', text: {content: intro}}]}}]}, fetcher);
+  return page.id.replace(/-/g, '');
+}
+
+export async function appendBullets(token, pageId, lines, fetcher) {
+  const children = lines.map(line => ({object: 'block', type: 'bulleted_list_item',
+    bulleted_list_item: {rich_text: [{type: 'text', text: {content: line.slice(0, 1900)}}]}}));
+  for (let i = 0; i < children.length; i += 100) {
+    await call(token, 'PATCH', `blocks/${pageId}/children`, {children: children.slice(i, i + 100)}, fetcher);
+  }
+}
+
 export const pageUrl = id => `https://www.notion.so/${String(id).replace(/-/g, '')}`;

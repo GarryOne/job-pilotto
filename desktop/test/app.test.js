@@ -212,3 +212,20 @@ test('questions nothing could answer are collected once; answered ones are not a
   assert.equal(storage.settings().openQuestions.length, 0);
   assert.equal(questions.collect(storage, run, 'Other'), 0);  // answered: not asked again
 });
+
+test('form knowledge: learned notes merge per site and field, and read as prompt text', async () => {
+  const learn = await import('../lib/learn.js');
+  let notes = learn.merge([], [{scope: 'job-boards.greenhouse.io', field: 'Preferred First Name', kind: 'answer', value: 'Igor', note: 'Same as first name'}]);
+  notes = learn.merge(notes, [{scope: 'job-boards.greenhouse.io', field: 'preferred first name', kind: 'answer', value: 'Igor', note: 'Use first name'}]);
+  assert.equal(notes.length, 1);
+  assert.match(learn.asText(notes), /Preferred First Name|preferred first name/);
+  const client = {messages: {create: async request => {
+    assert.match(request.system, /Never invent personal facts/);
+    return {usage: {input_tokens: 1000, output_tokens: 100}, content: [{type: 'text', text: JSON.stringify({notes: [
+      {scope: 'any', field: 'Pronouns', kind: 'answer', value: 'Prefer not to say', note: 'From the standard answers'}]})}]};
+  }}};
+  const result = await learn.learn({run: {url: 'https://x.io/a', trace: [{label: 'Pronouns', outcome: 'left', reason: 'no answer'}]}, client, apiKey: 'x'});
+  assert.equal(result.notes.length, 1);
+  const nothing = await learn.learn({run: {url: 'https://x.io/a', trace: [{label: 'Email', outcome: 'filled'}]}, client, apiKey: 'x'});
+  assert.equal(nothing.notes.length, 0);  // nothing left: no AI call
+});

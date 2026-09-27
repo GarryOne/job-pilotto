@@ -150,6 +150,16 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   }
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
   const me = await api(config, '/extension/me').catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
+  // Learned notes (🧠 Form knowledge) answer fields nothing else did, matched by label and site.
+  const host = new URL(tab.url).hostname, company = (tab.url.match(/\/([\w-]+)\/jobs\//) || [])[1] || '';
+  const answered = new Set(answers.map(a => a.field));
+  const labelKey = text => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  for (const field of debug.form || []) {
+    if (answered.has(field.field) || field.filled || field.legal) continue;
+    const note = (me?.knowledge || []).find(n => labelKey(n.field) === labelKey(field.label) &&
+      (n.scope === 'any' || host.includes(n.scope) || n.scope.toLowerCase() === company));
+    if (note) { answers.push({field: field.field, value: note.value, source: 'form knowledge', question: field.label}); answered.add(field.field); }
+  }
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
   debug.details = {fields: Object.keys(me?.contact || {}), cv: me?.resume?.name || null};
   const letter = coverLetter || ai?.cover_letter || '';

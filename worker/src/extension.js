@@ -93,7 +93,7 @@ async function readKit(env, pageId) {
 }
 
 // Readable text of a Notion page (paragraphs, headings, lists, toggles, tables), two levels deep.
-async function pageText(env, pageId, depth = 0) {
+export async function pageText(env, pageId, depth = 0) {
   const lines = [];
   for (const block of await children(env, pageId)) {
     const body = block[block.type] || {};
@@ -159,7 +159,11 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const [profile, standard] = await Promise.all([
     env.PROFILE_TEXT ?? pageText(env, env.NOTION_PROFILE_PAGE_ID),
     env.ANSWERS_TEXT ?? (env.NOTION_ANSWERS_PAGE_ID ? pageText(env, env.NOTION_ANSWERS_PAGE_ID) : ''),
-  ]);
+  ]).then(async ([p, a]) => {
+    // What earlier fills learned about forms (🧠 Form knowledge), as extra standard answers.
+    const known = env.KNOWLEDGE_TEXT ?? (env.NOTION_KNOWLEDGE_PAGE ? await pageText(env, env.NOTION_KNOWLEDGE_PAGE).catch(() => '') : '');
+    return [p, known ? `${a}\n\n# Learned from earlier forms\n${known}` : a];
+  });
   const job = row ? summary(row) : { title: '', company: '', url };
   const anthropic = client || new Anthropic({ apiKey: anthropicKey(env), fetch: (...args) => globalThis.fetch(...args) });
   const response = await anthropic.messages.create({

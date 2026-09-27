@@ -5,8 +5,10 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
-import {handleExtension, jobKey} from '../shared/worker/extension.js';
+import {handleExtension, jobKey, pageText} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
+import * as learn from './learn.js';
+import * as notion from './notion.js';
 import * as questions from './questions.js';
 
 export const PORT = 47111;
@@ -52,17 +54,45 @@ export function localEnv(storage) {
       notify('Marked Applied ✓', `${jobName(job)}. Saved in Job Pilotto and your Notion.`);
       return {ok: true, message: 'Marked Applied in Job Pilotto.'};
     },
+    KNOWLEDGE_TEXT: learn.asText(settings.formKnowledge),
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
     onRun: async run => {
       const job = await find(run.url).catch(() => null);
       const added = questions.collect(storage, run, job?.company || '');
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
+      learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
     },
   };
 }
 
 // onError: the port can be taken (another copy of the app, a test run); the app keeps working without
 // the extension connection instead of crashing.
+// After a fill that left fields: learn reusable notes from its record (one small Claude call), keep them for
+// the extension and mirror them to the user's 🧠 Form knowledge page in Notion (kits read that page).
+async function learnFromRun(storage, run, job) {
+  const apiKey = storage.secret('ANTHROPIC_API_KEY');
+  if (!apiKey || !(run.trace || []).some(f => f.outcome !== 'filled')) return;
+  const settings = storage.settings(), token = storage.secret('NOTION_TOKEN'), ids = settings.notionIds || {};
+  const env = {NOTION_TOKEN: token};
+  const [profile, answers] = token ? await Promise.all([
+    ids.NOTION_PROFILE_PAGE_ID ? pageText(env, ids.NOTION_PROFILE_PAGE_ID).catch(() => '') : '',
+    ids.NOTION_ANSWERS_PAGE_ID ? pageText(env, ids.NOTION_ANSWERS_PAGE_ID).catch(() => '') : '']) :
+    [storage.readText('profile.md'), storage.readText('answers.md')];
+  const {notes, usd} = await learn.learn({run, profile, answers, contact: settings.contact || {}, known: settings.formKnowledge || [], apiKey});
+  if (!notes.length) return;
+  storage.saveSettings({formKnowledge: learn.merge(storage.settings().formKnowledge, notes)});
+  if (token && ids.NOTION_PROFILE_PAGE_ID) {
+    let page = ids.NOTION_KNOWLEDGE_PAGE;
+    if (!page) {
+      page = await notion.ensurePage(token, ids.NOTION_PROFILE_PAGE_ID, learn.PAGE_TITLE,
+        'What Job Pilotto learned from your form fills, used by every later kit and fill. Delete a line to make it forget.');
+      storage.saveSettings({notionIds: {...storage.settings().notionIds, NOTION_KNOWLEDGE_PAGE: page}});
+    }
+    await notion.appendBullets(token, page, notes.map(n => `[${n.scope}] ${n.field}: ${n.note}${n.value ? ` → "${n.value}"` : ''}`));
+  }
+  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} for next time (${job?.company || 'this form'}, $${usd.toFixed(3)}).`);
+}
+
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
 // the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
 export function me(storage) {
@@ -72,7 +102,9 @@ export function me(storage) {
     const data = fs.readFileSync(storage.path('cv.pdf'));
     resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64')};
   } catch {}
-  return {contact: settings.contact || {}, resume};
+  // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
+  const knowledge = (settings.formKnowledge || []).filter(n => n.value && ['answer', 'option'].includes(n.kind));
+  return {contact: settings.contact || {}, resume, knowledge};
 }
 
 // Desktop notifications for what happens in Chrome (set by main.js): the fill starting and finishing,

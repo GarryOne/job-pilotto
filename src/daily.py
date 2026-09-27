@@ -161,7 +161,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     except Exception as error:  # An unreadable form still gets a kit, with likely questions.
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
-    profile, answers = tracker.page_text(), tracker.page_text(kit.ANSWERS_PAGE_ID)
+    profile, answers = tracker.page_text(), kit.standard_answers(tracker)
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
