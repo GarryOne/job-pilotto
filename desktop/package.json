@@ -66,6 +66,7 @@
     "dmg": {
       "title": "Job Pilotto ${version}"
     },
-    "artifactName": "Job-Pilotto-${version}-${arch}.${ext}"
+    "artifactName": "Job-Pilotto-${version}-${arch}.${ext}",
+    "afterPack": "scripts/adhoc-sign.cjs"
   }
 }
