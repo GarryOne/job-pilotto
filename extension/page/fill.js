@@ -219,8 +219,11 @@
     const ticked = [];
     for (const box of document.querySelectorAll('input[type=checkbox]')) {
       const text = `${questionOf(box)} ${labelOf(box)}`;
-      if (!visible(box) || box.checked || !LEGAL.test(text)) continue;
-      box.click();
+      // Sites often hide the real checkbox behind a drawn one: then its label is what's on screen.
+      const label = box.labels?.[0] || box.closest('label');
+      if (box.checked || !LEGAL.test(text) || !(visible(box) || (label && visible(label)))) continue;
+      (visible(box) ? box : label).click();
+      if (!box.checked && label && visible(box)) label.click();
       if (box.checked) ticked.push(clean(String(questionOf(box) || labelOf(box)).replace(/\S*(_|\[\])\S*/g, ' ')).slice(0, 90));
     }
     return ticked;
