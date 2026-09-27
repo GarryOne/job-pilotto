@@ -1,7 +1,7 @@
 // Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
 // The app long-polls Telegram for button taps and commands while it runs, and handles them with the
 // Worker's own code (worker/src/index.js handleUpdate); its "dispatch" runs the pipeline locally.
-import {handleUpdate} from '../shared/worker/index.js';
+import {handleAdd, handleCommand, handleUpdate} from '../shared/worker/index.js';
 import * as pipeline from './pipeline.js';
 
 export async function api(token, method, body = {}, fetcher = globalThis.fetch) {
@@ -93,4 +93,27 @@ export function startPolling(storage, onLine = () => {}, fetcher) {
     }
   })();
   return {stop: () => { running = false; }};
+}
+
+// The Telegram commands, run from the app's buttons. The reply goes to Telegram when it's connected
+// (same message as typing the command), and back to the window as plain text either way.
+export const plainText = html => String(html || '').replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+
+export async function runCommand(storage, name, arg = '', onLine = () => {}, fetcher) {
+  const env = telegramEnv(storage, onLine);
+  const answer = name === 'add' ? await handleAdd(env, `/add ${arg}`) : await handleCommand(env, {name, arg});
+  const {text, keyboard} = typeof answer === 'string' ? {text: answer} : answer;
+  if (env.TELEGRAM_BOT_TOKEN && env.OWNER_CHAT_ID) {
+    await api(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {chat_id: env.OWNER_CHAT_ID, text, parse_mode: 'HTML',
+      disable_web_page_preview: true, ...(keyboard ? {reply_markup: keyboard} : {})}, fetcher).catch(error => onLine(`Telegram: ${error.message}`));
+  }
+  return {text: plainText(text), telegram: !!(env.TELEGRAM_BOT_TOKEN && env.OWNER_CHAT_ID)};
+}
+
+// An interview transcript file from the Mac (or pasted notes), reviewed by the same code as the bot's.
+export function reviewInterview(storage, {path: file, label, notes}, onLine = () => {}) {
+  const inputs = file ? {mode: 'interview', file, note: label || ''}
+    : {mode: 'interview', note: `/interview ${label || 'Interview'}\n${notes || ''}`};
+  localDispatch(storage, onLine)(inputs);
 }

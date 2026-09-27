@@ -124,6 +124,18 @@ function handlers() {
       return {ok: false, error: error.code === 401 ? 'Telegram rejected this token. Copy it again from @BotFather.' : error.message};
     }
   });
+  // Every Telegram command, from the app (the answer also goes to Telegram when connected).
+  const COMMANDS = ['run', 'today', 'applied', 'saved', 'insight', 'weekly', 'mail', 'scout', 'status', 'add', 'help'];
+  ipcMain.handle('command', async (_, name, arg = '') => {
+    if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
+    try { return await telegram.runCommand(storage, name, arg, log); } catch (error) { return {text: `⚠️ ${error.message}`}; }
+  });
+  ipcMain.handle('chooseTranscript', async () => {
+    const picked = await dialog.showOpenDialog(window, {title: 'Choose the interview transcript',
+      filters: [{name: 'Transcript', extensions: ['txt', 'md', 'srt', 'vtt', 'text']}], properties: ['openFile']});
+    return picked.canceled ? null : picked.filePaths[0];
+  });
+  ipcMain.handle('reviewInterview', (_, input) => { telegram.reviewInterview(storage, input, log); return true; });
   ipcMain.handle('setAutomation', (_, patch) => {
     const allowed = {};
     if ('autoSearch' in patch) allowed.autoSearch = !!patch.autoSearch;

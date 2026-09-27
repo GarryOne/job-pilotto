@@ -177,12 +177,14 @@
   <nav class="sidebar">
     <div class="brand"><span class="mark">✈</span>Job Pilotto</div>
     <button class="nav active" data-view="jobs">Jobs</button>
+    <button class="nav" data-view="actions">Actions</button>
     <button class="nav" data-view="strategy">Strategy</button>
     <button class="nav" data-view="settings">Settings</button>
     <p class="fine sidebar-foot">Your data: this Mac and your Notion.</p>
   </nav>
 
   <main>
+    <div id="log" class="log" hidden></div>
     <div class="view" data-view="jobs">
       <header class="view-head">
         <div><h1>Jobs</h1><p class="muted" id="jobs-stats">Loading…</p></div>
@@ -191,7 +193,6 @@
           <button class="primary" id="apply-open">Apply to jobs…</button>
         </div>
       </header>
-      <div id="log" class="log" hidden></div>
       <div class="filters">
         <select id="filter-status" aria-label="Show">
           <option value="open">To review</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="dismissed">Dismissed</option><option value="all">All</option>
@@ -207,12 +208,41 @@
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Find new jobs</b>; the first search takes a few minutes.</p>
     </div>
 
+    <div class="view" data-view="actions" hidden>
+      <header class="view-head"><div><h1>Actions</h1><p class="muted" id="actions-note">Everything the Telegram bot can do. Results appear here and, when Telegram is connected, in your chat.</p></div></header>
+      <div class="action-grid">
+        <button class="action" data-command="run"><b>🔄 Search now</b><span>Find and score new jobs; the digest follows</span></button>
+        <button class="action" data-command="today"><b>📋 Send today's list</b><span>Your current best matches, ranked</span></button>
+        <button class="action" data-command="applied"><b>📨 My applications</b><span>Every application and its stage</span></button>
+        <button class="action" data-command="saved"><b>⭐ Saved jobs</b><span>Jobs you saved for later</span></button>
+        <button class="action" data-command="insight"><b>💡 An insight now</b><span>One finding about your search</span></button>
+        <button class="action" data-command="weekly"><b>📊 Weekly report</b><span>Replies, applications, market, focus</span></button>
+        <button class="action" data-command="mail"><b>📧 Check Gmail</b><span>Confirmations, replies, interviews (if connected)</span></button>
+        <button class="action" data-command="scout"><b>🔎 Find new employers</b><span>Check candidate companies for job feeds</span></button>
+        <button class="action" data-command="status"><b>🩺 Status</b><span>When the last search ran</span></button>
+      </div>
+      <div class="setting">
+        <div><h3>📥 An application you made elsewhere</h3><p class="muted small">Paste the job link; add when you applied if it wasn't today (e.g. "on 23 Sep" or "on or before 23 Sep").</p></div>
+        <div class="inline"><input id="add-url" type="url" placeholder="https://…"><input id="add-date" placeholder="today" class="narrow"><button class="secondary" id="add-go">Add</button></div>
+      </div>
+      <div class="setting">
+        <div><h3>🎤 Review an interview</h3><p class="muted small">A transcript file (.txt, .md, .srt, .vtt) from your recorder, or your own notes. You get a question-by-question review in Notion 🎤 Interviews. Everyone on the call must agree to a recording.</p></div>
+        <label for="interview-label">Which interview</label>
+        <input id="interview-label" placeholder="e.g. Grafana, round 1">
+        <div class="inline spaced"><button class="secondary" id="interview-file">Choose transcript…</button><span class="muted small" id="interview-file-name"></span></div>
+        <label for="interview-notes">…or paste your notes</label>
+        <textarea id="interview-notes" rows="5" placeholder="What they asked, how you answered"></textarea>
+        <div class="inline spaced"><button class="primary" id="interview-go">Review it</button></div>
+      </div>
+      <pre class="answer" id="command-answer" hidden></pre>
+    </div>
+
     <div class="view" data-view="strategy" hidden>
       <header class="view-head"><div><h1>Strategy</h1><p class="muted">What jobs are scored against, and your standard answers. Edit freely.</p></div>
         <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button><button class="primary" id="strategy-save">Save</button></div></header>
       <p class="message" id="strategy-message"></p>
       <div id="strategy-notion" class="callout" hidden><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
-        <div class="inline spaced"><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
+        <div class="inline spaced"><button class="secondary" id="replace-cv">Replace CV…</button><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
       <label for="strategy-profile">Profile</label><textarea id="strategy-profile" rows="16"></textarea>
       <label for="strategy-answers">Standard application answers</label><textarea id="strategy-answers" rows="16"></textarea>
     </div>

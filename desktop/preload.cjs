@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('pilot', {
   jobs: call('jobs'), refresh: call('refresh'), setStatus: call('setStatus'), apply: call('apply'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), setAutomation: call('setAutomation'),
   onTelegramWaiting: callback => ipcRenderer.on('telegramWaiting', (_, username) => callback(username)),
+  command: call('command'), chooseTranscript: call('chooseTranscript'), reviewInterview: call('reviewInterview'),
   openExternal: call('openExternal'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
 });

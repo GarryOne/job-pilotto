@@ -330,5 +330,39 @@ $('open-extension-folder').addEventListener('click', () => window.pilot.showFold
 $('open-data').addEventListener('click', () => window.pilot.showFolder('data'));
 $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
 
+// ---------- actions (every Telegram command) ----------
+function answer(text) { const box = $('command-answer'); show(box); box.textContent = text; box.scrollIntoView({behavior: 'smooth'}); }
+document.querySelectorAll('[data-command]').forEach(button => button.addEventListener('click', async () => {
+  button.disabled = true;
+  const result = await window.pilot.command(button.dataset.command);
+  button.disabled = false;
+  answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
+}));
+$('add-go').addEventListener('click', async () => {
+  const url = $('add-url').value.trim();
+  if (!/^https?:\/\//.test(url)) { answer('Paste the job link first (it starts with https://).'); return; }
+  const result = await window.pilot.command('add', `${url} ${$('add-date').value.trim()}`.trim());
+  answer(result.text);
+  $('add-url').value = ''; $('add-date').value = '';
+});
+let transcript = null;
+$('interview-file').addEventListener('click', async () => {
+  transcript = await window.pilot.chooseTranscript();
+  $('interview-file-name').textContent = transcript ? transcript.split('/').pop() : '';
+});
+$('interview-go').addEventListener('click', async () => {
+  const label = $('interview-label').value.trim();
+  const notes = $('interview-notes').value.trim();
+  if (!transcript && notes.length < 40) { answer('Choose a transcript file, or paste a few lines of notes.'); return; }
+  await window.pilot.reviewInterview({path: transcript, label, notes});
+  answer('Reviewing the interview (about a minute). The review lands in Notion 🎤 Interviews' +
+    (state.settings.telegramChatId ? ' and in Telegram.' : '; progress shows above.'));
+  transcript = null; $('interview-file-name').textContent = ''; $('interview-notes').value = '';
+});
+$('replace-cv').addEventListener('click', async () => {
+  const name = await window.pilot.chooseCv();
+  if (name) message('strategy-message', `CV replaced: ${name}. Use "Rebuild from CV…" to redraft your strategy from it.`, 'ok');
+});
+
 // ---------- start ----------
 if (state.settings.setupDone) { show($('app')); loadJobs(); } else { show($('wizard')); goStep('welcome'); }

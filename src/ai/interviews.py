@@ -17,6 +17,7 @@ from html import escape
 import json
 import os
 import re
+from pathlib import Path
 import urllib.request
 
 from ..notion import client as notion
@@ -227,7 +228,13 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     """Analyse one interview (a Telegram file, or notes text) and record it. Returns a log line."""
     now = now or datetime.now(timezone.utc)
     caption, transcript, name = note, '', ''
-    if file_id:
+    if file_id and Path(file_id).is_file():
+        # The desktop app passes a transcript file from the Mac instead of a Telegram file id.
+        name, transcript = Path(file_id).name, Path(file_id).read_text(encoding='utf-8', errors='replace')
+        if not name.lower().endswith(TEXT_TYPES):
+            raise ValueError(f'{name}: choose a text transcript ({", ".join(TEXT_TYPES)})')
+        transcript = clean(transcript)
+    elif file_id:
         name, transcript = download(token, file_id, opener)
         if not name.lower().endswith(TEXT_TYPES):
             raise ValueError(f'{name}: send a text transcript ({", ".join(TEXT_TYPES)})')

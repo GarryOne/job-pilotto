@@ -122,6 +122,23 @@ class InterviewTests(unittest.TestCase):
         self.assertIn('Mention Patroni', sent[0])
         self.assertEqual(stats['tokens_in'], 15000)
 
+    def test_a_local_transcript_file_from_the_desktop_app(self):
+        import tempfile
+        apps = [app('a-new', 'Anthropic', 'Applied', '2026-09-25'), app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'),
+                app('o-1', 'Acme', 'Offer', '2026-09-01')]
+        tracker, client = FakeTracker(apps), FakeClient()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'grafana round 1.srt'
+            path.write_text(SRT, encoding='utf-8')
+            log = interviews.run(tracker, file_id=str(path), note='Grafana, round 1', client=client, now=NOW,
+                                 opener=lambda *a, **k: self.fail('a local file must not be downloaded'))
+            self.assertIn('Grafana Labs', log)
+            self.assertNotIn('-->', client.calls[0]['messages'][0]['content'])
+            audio = Path(tmp) / 'call.m4a'
+            audio.write_bytes(b'x' * 100)
+            with self.assertRaises(ValueError):
+                interviews.run(FakeTracker([]), file_id=str(audio), client=FakeClient(), now=NOW)
+
     def test_later_stage_is_not_moved_back_and_unknown_application_is_unlinked(self):
         tracker = FakeTracker([app('o-1', 'Acme', 'Offer', '2026-09-01')])
         global RESULT

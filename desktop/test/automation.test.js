@@ -73,3 +73,13 @@ test('the Worker\'s command handling runs locally through the app\'s dispatch', 
   assert.deepEqual(dispatched, [[{mode: 'run'}, undefined]]);
   assert.match(replies[0].text, /Crawling now/);
 });
+
+test('app buttons run the Telegram commands; without Telegram the answer only comes back to the window', async () => {
+  const storage = tempStorage();
+  let called = 0;
+  const result = await telegram.runCommand(storage, 'status', '', () => {}, async () => { called += 1; return new Response('{}'); });
+  assert.match(result.text, /No search yet/);
+  assert.equal(result.telegram, false);
+  assert.equal(called, 0);
+  assert.equal(telegram.plainText('<b>Hi</b> &amp; <a href="x">link</a>'), 'Hi & link');
+});
