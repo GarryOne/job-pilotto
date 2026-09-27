@@ -34,7 +34,8 @@
       "lib/**",
       "renderer/**",
       "shared/**",
-      "package.json"
+      "package.json",
+      "build-info.json"
     ],
     "extraResources": [
       {
@@ -61,7 +62,8 @@
       "category": "public.app-category.productivity",
       "identity": null,
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "icon": "assets/icon.png"
     },
     "dmg": {
       "title": "Job Pilotto ${version}"

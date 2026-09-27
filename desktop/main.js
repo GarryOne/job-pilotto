@@ -15,6 +15,11 @@ import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// Version shown in the About box and the sidebar. build-info.json is written by the packaged build
+// (scripts/stage.mjs --app); without it this is a development copy (npm start).
+const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();
+const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null,
+  label: buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
 let storage;
 let window;
 let polling = null;
@@ -51,6 +56,7 @@ const log = line => window?.webContents.send('log', line);
 
 function handlers() {
   ipcMain.handle('state', () => ({
+    about,
     settings: storage.settings(), secrets: storage.secretsPresent(),
     hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!storage.readText('profile.md'),
     folder: storage.dir,
@@ -180,6 +186,9 @@ app.on('second-instance', () => {
 });
 
 if (firstCopy) app.whenReady().then(() => {
+  app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
+    version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
+  if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
   storage = createStorage(app.getPath('userData'), safeStorageCrypto(safeStorage));
   pipeline.ensureConfig(storage);
   handlers();

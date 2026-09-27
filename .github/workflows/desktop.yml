@@ -60,7 +60,7 @@ jobs:
         run: node scripts/stage.mjs --app && scripts/python.sh
       - name: Build
         working-directory: desktop
-        run: npm run build
+        run: npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
       - name: Release
         working-directory: desktop
         env:

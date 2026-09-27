@@ -133,3 +133,8 @@ label.radio input { width: auto; margin-top: 3px; }
 .answer { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; white-space: pre-wrap; font: 13px/1.5 -apple-system, sans-serif; }
 .narrow { max-width: 180px; }
 @media (max-width: 1000px) { .action-grid { grid-template-columns: repeat(2, 1fr); } }
+.app-version { font-size: 11px; color: #8fa3bb; opacity: .85; margin-top: 4px; padding-left: 8px; }
+/* Welcome isn't a numbered step, so the sidebar matches "Step N of 6" on each page. */
+.steps li[data-step="welcome"] { counter-increment: none; }
+.steps li[data-step="welcome"]:not(.done)::before { content: "•"; }
+.steps .app-version { padding-left: 0; }

@@ -3,6 +3,7 @@
 const $ = id => document.getElementById(id);
 const STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras'];
 let state = await window.pilot.state();
+for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
 
