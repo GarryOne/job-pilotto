@@ -1,6 +1,6 @@
 // Popup: fill the job page you're on (with AI, or from the drafted kit only), mark it Applied,
 // and open the next job from the Ready to apply list. Nothing runs on a page until you click here.
-import {api, fillTab, settings} from './flow.js';
+import {api, cachedAI, fillTab, forgetAI, settings} from './flow.js';
 
 const $ = id => document.getElementById(id);
 const config = await settings();
@@ -88,7 +88,11 @@ async function fill(options) {
   }
 }
 
-$('fill-ai').addEventListener('click', () => fill({useAI: true}));
+// "Fill again with AI" asks Claude again (e.g. after the form changed); the first click uses what's known.
+$('fill-ai').addEventListener('click', async () => {
+  if ($('fill-ai').textContent.startsWith('Fill again')) await forgetAI(tab);
+  fill({useAI: true});
+});
 $('fill-kit').addEventListener('click', () => fill({useAI: false}));
 $('fill-anyway').addEventListener('click', () => fill({useAI: true, force: true}));
 
@@ -165,6 +169,12 @@ async function load() {
       if (error.status === 401) status('The extension token was rejected. Check it in Settings.', 'warn');
       else if (error.status !== 404) status(`Couldn't reach your Worker: ${error.message}`, 'warn');
       // 404: a job that isn't tracked yet can still be filled with AI.
+    }
+    // Already checked on this page (an automatic fill, or an earlier click): show that result now.
+    const known = await cachedAI(tab);
+    if (known && !known.eligible && config.checkEligibility !== false) {
+      $('ineligible').hidden = false;
+      $('ineligible-note').textContent = `Not filled: ${known.eligibility_note}`;
     }
   }
   loadQueue();

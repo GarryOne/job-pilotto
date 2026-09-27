@@ -11,6 +11,7 @@
   .hint { color: #5b6b80; font-size: 12px; }
   button { margin-top: 20px; padding: 9px 18px; border: 0; border-radius: 8px; background: #165bba; color: white; font: 600 14px system-ui; cursor: pointer; }
   #saved { margin-left: 10px; color: #1f7a4d; }
+  label.check { display: flex; gap: 8px; align-items: center; font-weight: 600; } label.check input { width: auto; }
 </style>
 </head>
 <body>
@@ -24,6 +25,11 @@
 <label for="token">Token</label>
 <input id="token" type="password" placeholder="filled in by Connect">
 <div class="hint">Both are filled in by Connect. Keep the Job Pilotto app open while you apply.</div>
+
+<h2>Filling</h2>
+<label class="check"><input type="checkbox" id="checkEligibility"> Check eligibility before filling</label>
+<div class="hint">On: Job Pilotto doesn't fill a form when the job clearly excludes you (location, work permit, language),
+and tells you why; you can still choose Fill anyway. Turn it off to always fill, e.g. while testing.</div>
 
 <h2>Your details and CV</h2>
 <p class="hint">They live in the Job Pilotto app (Settings → Your details for application forms), and the extension

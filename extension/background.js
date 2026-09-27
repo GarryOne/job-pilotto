@@ -62,16 +62,41 @@ async function progress(tabId, text) {
   }}).catch(() => {});
 }
 
-async function fillOpenedTab(tab, url) {
+// "Didn't fill: <reason>" with a Fill anyway button on the page itself.
+async function ineligibleNote(tabId, reason) {
+  await chrome.scripting.executeScript({target: {tabId}, args: [reason], func: text => {
+    document.getElementById('jobpilotto-note')?.remove();
+    const box = Object.assign(document.createElement('div'), {id: 'jobpilotto-note'});
+    box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:340px;background:#132439;color:#fff;' +
+      'border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008';
+    const message = Object.assign(document.createElement('div'), {textContent: `Job Pilotto didn't fill this form: ${text}`});
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-top:10px';
+    const button = (label, primary) => {
+      const b = Object.assign(document.createElement('button'), {textContent: label});
+      b.style.cssText = `padding:6px 12px;border-radius:7px;border:${primary ? '0' : '1px solid #3b5170'};background:${primary ? '#d9540b' : 'transparent'};` +
+        'color:#fff;font:600 12px system-ui,sans-serif;cursor:pointer';
+      return b;
+    };
+    const anyway = button('Fill anyway', true), close = button('Close', false);
+    anyway.onclick = () => { box.remove(); chrome.runtime.sendMessage({type: 'fillAnyway'}); };
+    close.onclick = () => box.remove();
+    row.append(anyway, close);
+    box.append(message, row);
+    document.documentElement.append(box);
+  }}).catch(() => {});
+}
+
+async function fillOpenedTab(tab, url, force = false) {
   await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   chrome.action.setBadgeText({tabId: tab.id, text: '…'});
   try {
     const config = await settings();
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
       {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
-    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], onStep: text => progress(tab.id, text)});
+    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], force, onStep: text => progress(tab.id, text)});
     await progress(tab.id, '');
-    if (result.ineligible) await note(tab.id, `✈️ Job Pilotto didn't fill this form: ${result.note} Open the extension and choose "Fill anyway" if you still want to apply.`);
+    if (result.ineligible) await ineligibleNote(tab.id, result.note);
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'});
   } catch (error) {
     await progress(tab.id, '');
@@ -81,6 +106,11 @@ async function fillOpenedTab(tab, url) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  if (message?.type === 'fillAnyway' && sender.tab) {
+    fillOpenedTab(sender.tab, sender.tab.url.replace(`#${FILL_MARK}`, ''), true);
+    reply({ok: true});
+    return false;
+  }
   if (message?.type !== 'openAndFill') return false;
   (async () => {
     const tab = await chrome.tabs.create({url: message.url, active: true});

@@ -6,7 +6,7 @@ export const JOB_SITES = [
 ];
 
 export async function settings() {
-  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume']);
+  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility']);
 }
 
 export async function api(config, path, init = {}) {
@@ -23,7 +23,16 @@ const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({targe
 
 // useAI: ask the Worker to answer every open field. force: fill even when the AI says you're not eligible.
 // onStep(text): what's happening now, for the popup and the on-page panel.
-export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}} = {}) {
+// Claude's reply for a tab (answers + eligibility), kept for the tab's session so the popup shows the result of
+// an automatic fill and "Fill anyway" reuses the answers instead of asking (and paying) again.
+const cacheKey = tab => `fill:${tab.id}`;
+export async function cachedAI(tab) {
+  const entry = (await chrome.storage.session.get(cacheKey(tab)))[cacheKey(tab)];
+  return entry && entry.url === tab.url.split('#')[0] ? entry.ai : null;
+}
+export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
+
+export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true} = {}) {
   onStep('Reading the form…');
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
@@ -34,13 +43,21 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const form = await inPage(tab.id, () => window.__jobPilottoDescribeForm());
     const open = (form || []).filter(f => !f.filled && !f.legal).map(({field, label, type, required, options}) =>
       ({field, label, type, required, options}));
-    if (open.length) {
+    const cached = reuse ? await cachedAI(tab) : null;
+    if (cached) {
+      ai = cached;
+      if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: 0};
+      const byAI = new Set(ai.answers.map(a => a.field));
+      answers = [...ai.answers, ...answers.filter(a => !byAI.has(a.field))];
+    } else if (open.length) {
       onStep(`Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
       try {
         const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
         ai = await api(config, '/extension/answer', {method: 'POST',
           body: JSON.stringify({url: tab.url, fields: open, page_text: pageText})});
-        if (!ai.eligible && !force) return {ineligible: true, note: ai.eligibility_note, usd: ai.usd};
+        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai}});
+        // Settings → "Check eligibility before filling" off (for testing): fill regardless.
+        if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: ai.usd};
         // The AI saw the live form, so its answer wins; kit answers fill whatever it left out.
         const byAI = new Set(ai.answers.map(a => a.field));
         answers = [...ai.answers, ...answers.filter(a => !byAI.has(a.field))];
