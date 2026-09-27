@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history and tags: the release notes list changes since the last build
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -69,7 +71,8 @@ jobs:
           # Stable names too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${version}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
           cp "dist/Job-Pilotto-${version}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
+          scripts/release-notes.sh "$GITHUB_SHA" > release-notes.md
           gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
             --title "Job Pilotto ${version} (build ${{ github.run_number }})" \
-            --notes "Mac app for Apple Silicon, built from ${GITHUB_SHA::7}. Not signed by Apple yet: the first time, right-click the app → Open → Open." \
+            --notes-file release-notes.md \
             --target "$GITHUB_SHA"
