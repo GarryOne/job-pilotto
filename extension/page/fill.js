@@ -70,6 +70,10 @@
   const optionNodes = () => Array.from(document.querySelectorAll(OPTION))
     .filter(o => o.offsetParent !== null && !o.querySelector(OPTION) && !/iti__/.test(o.className));
   const matchOption = answer => {
+    if (String(answer).includes(' || ')) {
+      for (const alternative of String(answer).split(' || ')) { const hit = matchOption(alternative); if (hit) return hit; }
+      return null;
+    }
     const want = norm(answer);
     const options = optionNodes();
     // "Geneva, Switzerland": an option naming every part (Geneva … Switzerland), when only one does.
@@ -131,7 +135,7 @@
     control.style.outlineOffset = '2px';
     const badge = document.createElement('div');
     badge.className = 'job-pilotto-badge';
-    badge.textContent = `✈️ Click to choose: ${answer}`;
+    badge.textContent = `✈️ Click to choose: ${String(answer).split(' || ')[0]}`;
     badge.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#d9540b';
     control.parentElement.insertBefore(badge, control.nextSibling);
     control.dataset.jobpilottoArmed = labelOf(el) || field;
@@ -144,7 +148,7 @@
           // Long menus (countries, cities) show only their first entries: type the answer to filter,
           // which the menu accepts once your click has opened it.
           // Search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, answer.split(',')[0].trim());
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
         }
@@ -304,6 +308,14 @@
       }
     }
     const answered = new Set(answers.map(a => a.field));
+    // Voluntary demographic questions with no answer: pick the menu's decline option, whatever it's called.
+    const DEMOGRAPHIC = /gender|race|ethnic|veteran|disabilit|sexual orientation|transgender|pronoun/i;
+    const DECLINE = "I don't wish to answer || I do not wish to answer || Decline to self-identify || Decline to self identify || " +
+      "Prefer not to say || Decline to answer || I do not want to answer || Choose not to disclose || I choose not to disclose || Not specified";
+    for (const row of form) {
+      if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field) || !DEMOGRAPHIC.test(row.label || '')) continue;
+      if (armCombo(row.field, DECLINE)) { armed.push(row.label); answers.push({field: row.field, value: 'Decline to self-identify', source: 'standard answer (demographics)'}); answered.add(row.field); }
+    }
     const dial = dialOf(profile?.phone);
     const phoneRow = form.find(row => row.type === 'tel' || /phone|mobile/i.test(row.label || ''));
     if (dial && phoneRow) {
