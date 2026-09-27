@@ -20,6 +20,7 @@ _SEARCH = load_search_config()
 SWISS = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
 RELEVANT = keyword_regex(_SEARCH['role_keywords'])
 PREFERENCES = json.loads((CONFIG / 'preferences.json').read_text())
+MIN_DIGEST_SCORE = PREFERENCES.get('digest_min_score', 50)
 # The tool's own name is "Job Pilotto" (generic, any fork); this is your own digest's display name.
 BRAND_NAME = os.getenv('DIGEST_BRAND_NAME', 'Job Pilotto')
 LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
@@ -281,6 +282,10 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     for job in everything:
         job['fit'] = fits.get(job['id'])
         job['saved'] = (job.get('url') or '').strip() in saved_urls
+    # Scored jobs below digest_min_score stay in Notion Job Matches but don't use digest space;
+    # saved ones always show, and unscored ones are shown so the digest still works without AI.
+    low_fit = {j['id'] for j in everything if j['fit'] and j['fit']['score'] < MIN_DIGEST_SCORE and not j['saved']}
+    everything = [j for j in everything if j['id'] not in low_fit]
     new_ids = {job['id'] for job in store.digest_jobs(db, limit=10_000, only_new=True)}
     recent = recently_shown(db, seed)
     new = rank_jobs([j for j in everything if j['id'] in new_ids], rng)
@@ -309,6 +314,8 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
             stats.append(f"{len(hidden_urls)} applied")
         if blocked:
             stats.append(f"{len(blocked)} filtered")
+        if low_fit:
+            stats.append(f"{len(low_fit)} low fit")
         header = (f"✈️ <b>{BRAND_NAME}</b> · 🆕 {len(new)} new · top {len(shown)} of {len(ranked)}\n"
                   f"<i>{' · '.join(stats)}</i>")
     elif shown:

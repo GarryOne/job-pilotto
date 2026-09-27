@@ -117,7 +117,7 @@ def scan(db, api_key, config, opener=urllib.request.urlopen, now=None):
             matched = []
             with db:
                 for job in results:
-                    if job['id'] in seen or not (feeds.TITLES.search(job['title']) and feeds.wanted_location(job)):
+                    if job['id'] in seen or not (feeds.wanted_title(job['title']) and feeds.wanted_location(job)):
                         continue
                     seen.add(job['id'])
                     matched.append({**{k: job[k] for k in ('company', 'id', 'title', 'url', 'date_posted',

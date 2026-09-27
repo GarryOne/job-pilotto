@@ -450,7 +450,9 @@ Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop 
 
 `config/preferences.json`, `config/sources.json` and `config/scout_seeds.json` hold your hard
 filters, always-crawled employer feeds and scout candidate companies — edit these to your own
-target places, languages and employers.
+target places, languages and employers. `preferences.json` also sets `digest_min_score` (default 50):
+scored jobs below it stay in Notion Job Matches but never take up space in the Telegram digest
+(jobs you ⭐ saved always show; unscored jobs show too, so the digest works without AI).
 
 `config/sources.json` is the **shared starter list**: public facts only (company, ATS, board slug,
 open jobs, date checked). Tiers, ratings, research notes and anything about your applications
@@ -462,7 +464,9 @@ don't answer, and rewrites the file.
 
 **`config/search.json` is what makes this a general-purpose job search, not an SRE-in-Switzerland
 one.** It holds every role, location and tech-stack keyword the code uses to decide what counts as
-a relevant job and where: `role_keywords` (job titles you want), `board_discovery_keywords`
+a relevant job and where: `role_keywords` (job titles you want), `title_exclude_keywords` (titles
+that contain a role keyword but are a different job, such as "Infrastructure Tax Lead" or "SAP ABAP
+Developer"; dropped from feeds, job boards and Google Jobs before any AI step), `board_discovery_keywords`
 (broader terms for jobs.ch discovery), `jobs_board_search_queries` (the literal search terms run
 against jobs.ch), `quality_stack_keywords` (tech terms the scout uses to judge a new employer feed),
 and `locations.{top_tier,country_wide,abroad}` / `remote_excluded_regions` (your preferred places

@@ -25,6 +25,18 @@ def plain_text(markup):
 
 # Feed jobs whose title doesn't match config/search.json's role_keywords never reach the digest.
 TITLES = keyword_regex(_SEARCH['role_keywords'])
+# Titles that contain a role keyword but are another job entirely ("Infrastructure Tax Lead", "SAP ABAP
+# Developer"): dropped before any AI step, from feeds, job boards and Google Jobs alike.
+EXCLUDED_TITLES = keyword_regex(_SEARCH.get('title_exclude_keywords') or [r'(?!x)x'])
+
+
+def wanted_title(title):
+    """A role title we crawl for: matches role_keywords and none of title_exclude_keywords."""
+    return bool(TITLES.search(title or '')) and not EXCLUDED_TITLES.search(title or '')
+
+
+def excluded_title(title):
+    return bool(EXCLUDED_TITLES.search(title or ''))
 
 # Feed jobs outside these places (config/search.json's locations, plus generic remote synonyms)
 # are dropped before they reach the digest or the AI stages.
@@ -90,7 +102,7 @@ def scan(sources, db, fetcher=fetch):
             matched = []
             with db:
                 for job in jobs:
-                    if TITLES.search(job["title"]) and wanted_location(job):
+                    if wanted_title(job["title"]) and wanted_location(job):
                         matched.append({
                             "company": source["company"], "id": str(job["id"]),
                             "title": job["title"], "location": job["location"] or "Unspecified",

@@ -46,6 +46,15 @@ class WatchTests(unittest.TestCase):
             self.assertTrue(report["sources"][0]["ok"], report["sources"][0])
             self.assertEqual(len(report["jobs"]), 1)
 
+    def test_titles_that_only_look_like_the_role_are_dropped(self):
+        from src.sources.feeds import excluded_title, wanted_title
+        self.assertTrue(wanted_title('Senior Site Reliability Engineer'))
+        self.assertTrue(wanted_title('Infrastructure Engineer'))
+        self.assertFalse(wanted_title('Infrastructure Tax Lead'))
+        self.assertFalse(wanted_title('Sales Engineer, Cloud Infrastructure'))
+        self.assertTrue(excluded_title('SAP ABAP Developer'))
+        self.assertFalse(excluded_title('Platform Engineer (Kubernetes)'))
+
     def test_remote_must_be_open_to_europe(self):
         from src.sources.feeds import wanted_location
         self.assertTrue(wanted_location({"location": "Remote (EMEA)"}))

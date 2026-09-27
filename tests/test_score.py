@@ -61,17 +61,21 @@ class ScoreTests(unittest.TestCase):
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 seed_jobs(db, 20)
                 candidates, _ = digest.eligible_jobs(db)
-                for job in candidates:  # job ids 1..20 get scores 41..98
-                    score.save(db, job, 'm', fit(38 + 3 * job['id']), 'p')
+                for job in candidates:
+                    # ids 1-3: low fit (hidden); 4-10: 64..70; 11-20: 86..95, a gap wider than the rotation jitter
+                    value = 30 if job['id'] <= 3 else 60 + job['id'] if job['id'] <= 10 else 75 + job['id']
+                    score.save(db, job, 'm', fit(value), 'p')
                 first = []
                 message = digest.build_digest(db, seed=1, shown_ids=first)[0][0]
                 digest.mark_shown(db, first, seed=1)
                 second = []
                 digest.build_digest(db, seed=2, shown_ids=second)
         self.assertIn('🎯 <b>Best matches</b>', message)
-        self.assertIn('🎯 <b>98</b>', message)
+        self.assertIn('🎯 <b>95</b>', message)
+        self.assertIn('3 low fit', message)
         self.assertIn('<i>Kubernetes + Datadog match; salary not stated</i>', message)
         self.assertEqual(set(first), set(range(11, 21)))  # the ten highest scores
+        self.assertFalse({1, 2, 3} & set(first + second))  # below digest_min_score: never in the digest
         # Light rotation: some best matches return, but the list is not identical.
         self.assertNotEqual(first, second)
         self.assertTrue(set(first) & set(second))

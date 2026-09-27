@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import sqlite3
 
+from .sources.feeds import excluded_title
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS companies (
@@ -132,6 +134,8 @@ def import_company_report(db, report):
     statuses = []
     for company in report.get('companies', []):
         for job in company.get('jobs', []):
+            if excluded_title(job.get('title')):
+                continue  # e.g. "SAP ABAP Developer" from a "software engineer" search: never worth an AI call
             item = dict(job)
             item['company'] = company.get('company') or item.get('company')
             item['notes'] = '; '.join(company.get('notes', []))
