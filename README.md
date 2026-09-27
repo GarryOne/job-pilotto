@@ -560,56 +560,59 @@ without a human confirming first. See `.claude/skills/apply-to-job/SKILL.md`'s L
 learned running this against real forms, and `AGENTS.md` for the same rules aimed at any agent
 working in this repo.
 
-## Gmail and Calendar setup (optional, about 15 minutes)
+## Gmail and Calendar setup (optional)
 
-Read-only access (`gmail.readonly`, `calendar.readonly`) through your own Google Cloud OAuth client.
-Google's own guide for this kind of client: [Create access credentials → OAuth client ID → Desktop
-app](https://developers.google.com/workspace/guides/create-credentials#desktop-app) and [Configure the
-OAuth consent screen](https://developers.google.com/workspace/guides/configure-oauth-consent).
+Read-only access (`gmail.readonly`, `calendar.readonly`): nothing in your mailbox or calendar is ever
+sent, changed or deleted.
 
-1. **Project and APIs.** In the console ([new project](https://console.cloud.google.com/projectcreate),
-   then enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and
-   the [Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com)), or
-   with gcloud, signed in with the Google account whose mail you want to read:
+### The quick way: the shared Job Pilotto app (one command)
 
-   ```sh
-   gcloud auth login you@gmail.com
-   gcloud projects create job-pilotto-$RANDOM --name="Job Pilotto" --account=you@gmail.com
-   gcloud services enable gmail.googleapis.com calendar-json.googleapis.com --project=<that id> --account=you@gmail.com
-   ```
+```sh
+python3 -m src.sources.google auth --github
+```
 
-   The next two steps have no gcloud command for personal accounts; they're console only.
-2. **Consent screen.** [Google Auth Platform](https://console.cloud.google.com/auth/overview) → Get
-   started: app name "Job Pilotto", your email as support and contact email, audience **External**,
-   accept the policy → Create. Then **Audience → Test users → Add users** → your own address. Without
-   this, sign-in fails with "Access blocked … Error 403: access_denied".
-3. **Client.** **Clients → Create client** → type **Desktop app** → Create, and click **Download JSON**
-   before closing the dialog (the secret isn't shown again).
-4. **Sign in**, on your Mac in the repo:
+A Google tab opens: pick your account → "Google hasn't verified this app" → **Advanced → Go to Job
+Pilotto** → tick both read-only permissions → Continue. That's all: the token goes to your Keychain
+(`job-pilotto.google.*`) and your fork's `GOOGLE_*` repository secrets, and it doesn't expire.
 
-   ```sh
-   python3 -m src.sources.google auth --client-json ~/Downloads/client_secret_<…>.json --github
-   ```
+This uses the published "Job Pilotto" Google app whose client is in `config/google_oauth_client.json`.
+Your mail stays in *your* copy (your Notion, your Telegram, your Anthropic key); the app's developer
+never sees it ([privacy policy](https://gist.github.com/GarryOne/a1abc02a6396c505234163ada978de11)).
+It's unverified, hence the warning screen, and Google caps unverified apps at 100 users in total.
 
-   A browser tab opens: pick your account → "Google hasn't verified this app" → **Continue** → tick
-   both read-only permissions → Continue → "Job Pilotto is connected". The token goes to the Keychain
-   (`job-pilotto.google.*`) and, with `--github`, to the `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
-   `GOOGLE_REFRESH_TOKEN` repository secrets. `python3 -m src.sources.google check` confirms.
-5. **First look back:** `gh workflow run mail.yml -f days=14` (or `python3 -m src.ai.mail --days 14
-   --dry-run` to see how each email would be classified, writing nothing).
+### Your own Google app (guided, about 10 minutes)
 
-**Seven-day limit.** While the app's publishing status is "Testing", Google expires the sign-in after 7
-days (the daily health check warns two days before; the mail check tells you when it happens). To
-remove the limit, publish the app:
+For developers who'd rather not depend on the shared app:
 
-1. Publish a short privacy policy for your app somewhere public (a GitHub gist works; the owner's is
-   [here](https://gist.github.com/GarryOne/a1abc02a6396c505234163ada978de11) as a template).
-2. **Branding**: set the Application home page and Application privacy policy link to it, and add its
-   domain (e.g. `github.com`) under Authorised domains → Save.
-3. **Audience → Publish app → Confirm.** It stays unverified (only you use it); the sign-in keeps the
-   "Google hasn't verified this app" step.
-4. Sign in once more, since tokens from the Testing period keep their 7-day limit:
-   `python3 -m src.sources.google auth --client-json … --github --production`.
+```sh
+python3 -m src.sources.google setup
+```
+
+It creates the Google Cloud project and enables the APIs with gcloud, opens the three console pages it
+can't fill in (consent screen, publishing or a test user, the Desktop client) with the values to type,
+optionally publishes a privacy-policy gist from `docs/google-privacy-policy-template.md` so the app can
+be published, picks up the downloaded client file from ~/Downloads, and signs you in. Google's own
+guides: [Desktop app credentials](https://developers.google.com/workspace/guides/create-credentials#desktop-app),
+[consent screen](https://developers.google.com/workspace/guides/configure-oauth-consent).
+
+<details><summary>What it does, step by step (to do it by hand)</summary>
+
+1. `gcloud auth login you@gmail.com`, then
+   `gcloud projects create job-pilotto-$RANDOM --name="Job Pilotto" --account=you@gmail.com` and
+   `gcloud services enable gmail.googleapis.com calendar-json.googleapis.com --project=<id> --account=you@gmail.com`.
+2. [Google Auth Platform](https://console.cloud.google.com/auth/overview) → Get started: app name, your
+   email, audience **External** → Create.
+3. Either publish (Branding: home page + privacy policy URL, authorised domain → Save; **Audience →
+   Publish app**) or add yourself under **Audience → Test users** (then Google expires the sign-in
+   every 7 days; the daily health check warns two days before).
+4. **Clients → Create client** → **Desktop app** → Create → **Download JSON**.
+5. `python3 -m src.sources.google auth --client-json ~/Downloads/client_secret_<…>.json --github`
+   (add `--production` if you published).
+
+</details>
+
+After connecting: `python3 -m src.sources.google check` confirms, and `gh workflow run mail.yml -f days=14`
+(or `python3 -m src.ai.mail --days 14 --dry-run`, which writes nothing) looks back two weeks.
 
 Email content that matches the search is sent to the Anthropic API for classification; the results
 (kind, a short summary, the subject) are stored in your Notion.
@@ -708,7 +711,8 @@ python3 -m src.notion.ledger add <job_url> --applied "on or before 23 Sep"   # a
 python3 -m src.notion.ledger event <job_url> "Reply received" --note "invited to book a call"
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
 python3 -m src daily --send --mode weekly                 # the weekly report now (Sonnet 5, ~USD 0.04)
-python3 -m src.sources.google auth --client-id ID --client-secret SECRET --github   # connect Gmail + Calendar once
+python3 -m src.sources.google auth --github                # connect Gmail + Calendar (shared app)
+python3 -m src.sources.google setup                        # or: guided setup of your own Google app
 python3 -m src.sources.google check                       # which account, what it can see
 python3 -m src.ai.mail --days 10 --dry-run                # classify recent job emails; write nothing
 python3 -m src.ai.mail --send                             # what the mail workflow runs

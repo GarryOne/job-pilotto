@@ -37,7 +37,8 @@ FEATURES = (
     Feature('google_jobs', 'Google Jobs via SerpApi', ('SERPAPI_API_KEY',), 'free tier',
             'SERPAPI_API_KEY from serpapi.com (free plan: 250 searches/month)'),
     Feature('mail', 'Gmail + Calendar reading', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', 'ANTHROPIC_API_KEY'), 'paid',
-            'Google OAuth client + python3 -m src.sources.google auth --github; README → Gmail and Calendar'),
+            'python3 -m src.sources.google auth --github (the shared Job Pilotto app: one browser consent); '
+            'own Google app: python3 -m src.sources.google setup; README → Gmail and Calendar'),
 )
 BY_NAME = {f.name: f for f in FEATURES}
 

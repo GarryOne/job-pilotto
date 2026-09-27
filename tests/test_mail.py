@@ -239,6 +239,27 @@ class GoogleApiTests(unittest.TestCase):
             client.profile()
         self.assertIn('invalid_grant', str(caught.exception))
 
+    def test_auth_without_a_client_uses_the_shared_published_app(self):
+        shared = json.loads(google_api.SHARED_CLIENT.read_text())['installed']
+        with mock.patch.object(google_api, 'authorize', return_value='refresh') as authorize, \
+                mock.patch.object(google_api, 'store') as store, mock.patch.object(google_api, 'report'):
+            google_api.main(['auth', '--github'])
+        authorize.assert_called_once_with(shared['client_id'], shared['client_secret'])
+        store.assert_called_once_with(shared['client_id'], shared['client_secret'], 'refresh', True, True)  # published
+
+    def test_guided_setup_finds_the_newly_downloaded_client_file(self):
+        from src.sources import google_setup
+        import os, time
+        with tempfile.TemporaryDirectory() as tmp:
+            old_file = Path(tmp) / 'client_secret_old.json'
+            old_file.write_text('{}')
+            os.utime(old_file, (time.time() - 3600, time.time() - 3600))
+            start = time.time() - 1
+            self.assertIsNone(google_setup.newest_client_file(start, tmp))
+            new_file = Path(tmp) / 'client_secret_new.json'
+            new_file.write_text('{}')
+            self.assertEqual(google_setup.newest_client_file(start, tmp), str(new_file))
+
     def test_auth_reads_the_downloaded_client_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'client_secret.json'

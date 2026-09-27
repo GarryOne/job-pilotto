@@ -92,17 +92,18 @@ class HealthTests(unittest.TestCase):
         self.assertIn('expires in about 2 day(s)', check.detail)
 
     def test_mail_workflow_states(self):
-        # Google connected (mocked: CI has no Keychain sign-in), so the workflow's runs decide the state.
-        with mock.patch('src.sources.google.Google.from_env', return_value=mock.Mock()):
-            with mock.patch.object(doctor, 'gh', return_value=[{'status': 'completed', 'conclusion': 'failure',
-                                                              'createdAt': '2026-09-27T12:00:00Z', 'event': 'schedule'}]):
-                self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.FAIL)
-            with mock.patch.object(doctor, 'gh', return_value=[{'status': 'completed', 'conclusion': 'success',
-                                                              'createdAt': '2026-09-27T10:00:00Z', 'event': 'schedule'}]):
-                self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.OK)
-        # Not connected: mail is an optional feature, so it's off, not a failure.
+        connected = mock.patch('src.sources.google.Google.from_env', return_value=mock.Mock())
+        connected.start()
+        self.addCleanup(connected.stop)
+        with mock.patch.object(doctor, 'gh', return_value=[{'status': 'completed', 'conclusion': 'failure',
+                                                          'createdAt': '2026-09-27T12:00:00Z', 'event': 'schedule'}]):
+            self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.FAIL)
+        with mock.patch.object(doctor, 'gh', return_value=[{'status': 'completed', 'conclusion': 'success',
+                                                          'createdAt': '2026-09-27T10:00:00Z', 'event': 'schedule'}]):
+            self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.OK)
+        connected.stop()
         with mock.patch('src.sources.google.Google.from_env', return_value=None):
-            self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.INFO)
+            self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.INFO)  # not connected: nothing to judge
 
     def test_feeds_failing_in_the_last_crawl(self):
         tracker = FakeTracker([run_row(0.1, '2026-09-26T10:00:00Z', 29, 0), run_row(0.1, '2026-09-27T10:00:00Z', 29, 29)])

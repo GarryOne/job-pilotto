@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Read-only Google access for Job Pilotto: Gmail (job-related emails) and Calendar (interviews).
 
-Scopes are gmail.readonly and calendar.readonly: nothing is ever sent, changed or deleted. OAuth uses
-the owner's own Google Cloud "Desktop app" client. `auth` runs the one-time browser sign-in on this
-Mac (loopback redirect + PKCE), stores the refresh token in the Keychain, and with --github also sets
-the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN repository secrets for CI.
+Scopes are gmail.readonly and calendar.readonly: nothing is ever sent, changed or deleted. `auth` runs the
+one-time browser sign-in on this Mac (loopback redirect + PKCE), stores the refresh token in the Keychain,
+and with --github also sets the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN
+repository secrets for CI.
+
+Two ways to connect:
+- The shared Job Pilotto app (default): the published "Job Pilotto" Google app in
+  config/google_oauth_client.json. One command, one browser consent, no Google Cloud setup.
+- Your own Google app: `setup` walks you through creating one (src/sources/google_setup.py), or pass a
+  client you made with --client-json.
 
 Usage:
-  python -m src.sources.google auth --client-json ~/Downloads/client_secret_….json [--github]
-  python -m src.sources.google auth --client-id ID --client-secret SECRET [--github]
+  python -m src.sources.google auth --github                  # shared app
+  python -m src.sources.google setup                          # guided: your own Google app
+  python -m src.sources.google auth --client-json ~/Downloads/client_secret_….json --github [--production]
   python -m src.sources.google check
 """
 import argparse
@@ -28,10 +35,12 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from datetime import datetime, timezone
+from pathlib import Path
 from email.utils import parsedate_to_datetime
 
 SCOPES = ('https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly')
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
+SHARED_CLIENT = Path(__file__).resolve().parents[2] / 'config' / 'google_oauth_client.json'
 KEYCHAIN = {'GOOGLE_CLIENT_ID': 'job-pilotto.google.client-id', 'GOOGLE_CLIENT_SECRET': 'job-pilotto.google.client-secret',
             'GOOGLE_REFRESH_TOKEN': 'job-pilotto.google.refresh-token'}
 
@@ -189,56 +198,82 @@ def authorize(client_id, client_secret, open_browser=webbrowser.open):
     return tokens['refresh_token']
 
 
+def load_client(path):
+    """(client id, client secret) from a Desktop-app client JSON (as downloaded, or the shared one)."""
+    with open(os.path.expanduser(str(path))) as handle:
+        client = json.load(handle).get('installed') or {}
+    if not (client.get('client_id') and client.get('client_secret')):
+        raise SystemExit(f'{path} is not a Desktop app client (no "installed" section)')
+    return client['client_id'], client['client_secret']
+
+
+def store(client_id, client_secret, refresh_token, production, github):
+    """Keychain entries (and, with github, the repository secrets) for a completed sign-in.
+    A published app's sign-in doesn't expire; an app in "Testing" gets a sign-in date so the health
+    check can warn before Google's 7-day limit."""
+    values = {'GOOGLE_CLIENT_ID': client_id, 'GOOGLE_CLIENT_SECRET': client_secret, 'GOOGLE_REFRESH_TOKEN': refresh_token}
+    user = os.getenv('USER', '')
+    for name, service in KEYCHAIN.items():
+        subprocess.run(['security', 'add-generic-password', '-U', '-a', user, '-s', service, '-w', values[name]], check=True)
+    signed_in = '' if production else datetime.now(timezone.utc).isoformat(timespec='seconds')
+    if signed_in:
+        subprocess.run(['security', 'add-generic-password', '-U', '-a', user, '-s', 'job-pilotto.google.auth-at',
+                        '-w', signed_in], check=True)
+    else:
+        subprocess.run(['security', 'delete-generic-password', '-a', user, '-s', 'job-pilotto.google.auth-at'],
+                       capture_output=True)
+    print('Stored in the Keychain:', ', '.join(KEYCHAIN.values()))
+    if github:
+        for name, value in values.items():
+            subprocess.run(['gh', 'secret', 'set', name], input=value, text=True, check=True)
+        if signed_in:
+            subprocess.run(['gh', 'variable', 'set', 'JOB_PILOTTO_GOOGLE_AUTH_AT', '--body', signed_in], check=True)
+        else:
+            subprocess.run(['gh', 'variable', 'delete', 'JOB_PILOTTO_GOOGLE_AUTH_AT'], capture_output=True)
+        print('Set GitHub secrets:', ', '.join(values))
+
+
+def report():
+    google = Google.from_env()
+    if not google:
+        raise SystemExit('Not connected: run `python3 -m src.sources.google auth --github`')
+    now = datetime.now(timezone.utc)
+    from datetime import timedelta
+    print(f"Connected Gmail: {google.profile()['emailAddress']}")
+    print(f"Job-related emails in the last 7 days: {len(google.search('newer_than:7d subject:(application OR applying OR interview)', 100))}")
+    print(f"Calendar events in the next 14 days: {len(google.events(now, now + timedelta(days=14)))}")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
-    auth = sub.add_parser('auth', help='one-time browser sign-in; stores the token in the Keychain')
-    auth.add_argument('--client-json', help='the JSON downloaded when creating the Desktop app client')
+    auth = sub.add_parser('auth', help='one-time browser sign-in (the shared Job Pilotto app unless you give your own)')
+    auth.add_argument('--client-json', help='your own Desktop app client, as downloaded from Google Cloud')
     auth.add_argument('--client-id')
     auth.add_argument('--client-secret')
     auth.add_argument('--github', action='store_true', help='also set the three GOOGLE_* repository secrets with gh')
     auth.add_argument('--production', action='store_true',
-                      help="the app is published ('In production'): this sign-in doesn't expire after 7 days")
+                      help="your own app is published ('In production'): the sign-in doesn't expire after 7 days")
+    sub.add_parser('setup', help='guided: create your own Google app (project, APIs, consent screen, client) and sign in')
     sub.add_parser('check', help='show which account is connected and what it can see')
     args = parser.parse_args(argv)
+    if args.command == 'setup':
+        from . import google_setup
+        return google_setup.run()
     if args.command == 'auth':
+        production = args.production
         if args.client_json:
-            with open(os.path.expanduser(args.client_json)) as handle:
-                client = json.load(handle).get('installed') or {}
-            args.client_id, args.client_secret = client.get('client_id'), client.get('client_secret')
+            args.client_id, args.client_secret = load_client(args.client_json)
+        elif not (args.client_id or args.client_secret):
+            args.client_id, args.client_secret = load_client(SHARED_CLIENT)
+            production = True  # the shared app is published: no 7-day expiry
+            print('Using the shared Job Pilotto Google app (read-only Gmail and Calendar). '
+                  'Google will say it is unverified: Advanced → Go to Job Pilotto.')
         if not (args.client_id and args.client_secret):
-            parser.error('give --client-json (a Desktop app client) or both --client-id and --client-secret')
+            parser.error('give --client-json, or both --client-id and --client-secret, or nothing for the shared app')
         token = authorize(args.client_id, args.client_secret)
-        values = {'GOOGLE_CLIENT_ID': args.client_id, 'GOOGLE_CLIENT_SECRET': args.client_secret, 'GOOGLE_REFRESH_TOKEN': token}
-        for name, service in KEYCHAIN.items():
-            subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''), '-s', service,
-                            '-w', values[name]], check=True)
-        # The sign-in date: the health check warns before Google's 7-day limit for apps in "Testing".
-        # A published app's sign-in doesn't expire, so the date is cleared instead.
-        signed_in = '' if args.production else datetime.now(timezone.utc).isoformat(timespec='seconds')
-        if signed_in:
-            subprocess.run(['security', 'add-generic-password', '-U', '-a', os.getenv('USER', ''),
-                            '-s', 'job-pilotto.google.auth-at', '-w', signed_in], check=True)
-        else:
-            subprocess.run(['security', 'delete-generic-password', '-a', os.getenv('USER', ''),
-                            '-s', 'job-pilotto.google.auth-at'], capture_output=True)
-        print('Stored in the Keychain:', ', '.join(KEYCHAIN.values()))
-        if args.github:
-            for name, value in values.items():
-                subprocess.run(['gh', 'secret', 'set', name], input=value, text=True, check=True)
-            if signed_in:
-                subprocess.run(['gh', 'variable', 'set', 'JOB_PILOTTO_GOOGLE_AUTH_AT', '--body', signed_in], check=True)
-            else:
-                subprocess.run(['gh', 'variable', 'delete', 'JOB_PILOTTO_GOOGLE_AUTH_AT'], capture_output=True)
-            print('Set GitHub secrets:', ', '.join(values), '(and the variable JOB_PILOTTO_GOOGLE_AUTH_AT)')
-    google = Google.from_env()
-    if not google:
-        raise SystemExit('Not connected: run `python -m src.sources.google auth --client-id ... --client-secret ...`')
-    now = datetime.now(timezone.utc)
-    print(f"Connected Gmail: {google.profile()['emailAddress']}")
-    print(f"Job-related emails in the last 7 days: {len(google.search('newer_than:7d subject:(application OR applying OR interview)', 100))}")
-    from datetime import timedelta
-    print(f"Calendar events in the next 14 days: {len(google.events(now, now + timedelta(days=14)))}")
+        store(args.client_id, args.client_secret, token, production, args.github)
+    report()
     return 0
 
 

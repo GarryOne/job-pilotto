@@ -252,7 +252,7 @@ def check_google(now=None):
         return Check('Health', 'Gmail + Calendar', INFO,
                      'switched off (JOB_PILOTTO_DISABLE)' if features.disabled('mail') else 'not connected (optional)',
                      'README → Gmail and Calendar setup')
-    fix = 'Sign in again: python3 -m src.sources.google auth --client-json ~/Downloads/client_secret_….json --github'
+    fix = 'Sign in again: python3 -m src.sources.google auth --github  (add --client-json <file> if you use your own Google app)'
     try:
         email = client.profile().get('emailAddress', '?')
     except Exception as error:

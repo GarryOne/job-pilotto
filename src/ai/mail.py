@@ -430,8 +430,8 @@ def main(argv=None):
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
         if 'invalid_grant' in str(error):
             message = ('⚠️ The Google sign-in for Gmail and Calendar has expired (Google limits apps in testing mode '
-                       'to 7 days). On the Mac, in the repo, run: python3 -m src.sources.google auth --client-json '
-                       '~/Downloads/client_secret_….json --github')
+                       'to 7 days). On the Mac, in the repo, run: python3 -m src.sources.google auth --github '
+                       '(add --client-json <file> if you use your own Google app)')
             print(message)
             if sender:
                 sender(escape(message))
