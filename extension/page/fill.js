@@ -25,7 +25,7 @@
     '+358': 'Finland', '+373': 'Moldova', '+380': 'Ukraine', '+420': 'Czech Republic', '+421': 'Slovakia', '+972': 'Israel',
     '+971': 'United Arab Emirates', '+91': 'India', '+86': 'China', '+81': 'Japan', '+61': 'Australia', '+55': 'Brazil'};
   const dialOf = phone => Object.keys(DIAL).sort((a, b) => b.length - a.length).find(code => String(phone || '').replace(/\s/g, '').startsWith(code));
-  const LEGAL = /(^|\b)(i agree|i accept|terms|privacy|consent|acknowledg|authorize|certify)(\b|$)/i;
+  const LEGAL = /\b(i agree|i accept|terms|privacy|consent\w*|acknowledg\w*|certif\w*|affirm\w*|i confirm i have read|i have read and understood)\b/i;
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\*\s*$/, '').trim();
   const norm = text => clean(text).toLowerCase();
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -229,43 +229,94 @@
     return ticked;
   };
 
+  // Scroll to the field an item is about (matched by its label text) and flash it.
+  const reveal = text => {
+    const want = norm(text).slice(0, 60);
+    if (!want) return;
+    const target = Array.from(document.querySelectorAll('label, legend, fieldset, [class*=label], h3, h4, p, span, div'))
+      .filter(el => el.children.length < 6 && norm(el.textContent).includes(want.slice(0, 40)))
+      .sort((a, b) => a.textContent.length - b.textContent.length)[0];
+    if (!target) return;
+    target.scrollIntoView({block: 'center', behavior: 'smooth'});
+    target.animate([{outline: '3px solid #f07014', outlineOffset: '4px'}, {outline: '3px solid transparent', outlineOffset: '4px'}],
+      {duration: 1600, iterations: 2});
+  };
+
+  // The page panel: what was filled and what's left, grouped. In a shadow root, so the site's CSS can't touch it.
+  const GROUPS = [
+    {id: 'legal', icon: '⚖️', title: 'Consents to accept', match: /^Your choice \(legal\):\s*/},
+    {id: 'answer', icon: '✍️', title: 'Needs your answer', match: /^(Answer|Pick "[^"]*" for):\s*/},
+    {id: 'action', icon: '👉', title: 'To do on the page', match: /^(Click the|Upload your CV|Drop-downs not chosen)/},
+    {id: 'check', icon: '👀', title: 'Worth a check', match: /^Check:\s*/},
+    {id: 'done', icon: '✅', title: 'Done for you', match: /^Ticked for you:\s*/},
+    {id: 'tip', icon: '💡', title: 'Tip', match: /^Tip:\s*/},
+  ];
   const panel = summary => {
     document.getElementById('job-pilotto-panel')?.remove();
-    const box = document.createElement('div');
-    box.id = 'job-pilotto-panel';
-    box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;width:320px;max-height:70vh;overflow:auto;' +
-      'background:#132439;color:#fff;border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008';
-    const add = (text, style = '') => {
-      const line = document.createElement('div');
-      line.textContent = text;
-      line.style.cssText = style;
-      box.append(line);
-      return line;
-    };
-    add(`✈️ Job Pilotto filled ${summary.filled} field(s)`, 'font-weight:600;margin-bottom:6px');
-    if (summary.todo.length) {
-      add('Still yours to do:', 'color:#ffb224;margin-top:4px');
-      for (const item of summary.todo) add(`• ${item}`);
-    } else add('Review everything, then press Submit.', 'color:#b9c8dc');
-    // Consent boxes left: one click ticks them all and leaves Submit ready.
-    if (summary.todo.some(item => item.startsWith('Your choice (legal)'))) {
-      const tick = document.createElement('button'); tick.type = 'button';  // not a submit button (the guard blocks those)
-      tick.textContent = '✓ Tick these for me';
-      tick.style.cssText = 'margin:8px 8px 0 0;background:#d9540b;color:#fff;border:0;border-radius:5px;padding:5px 10px;cursor:pointer;font-weight:600';
-      tick.onclick = () => {
-        const ticked = tickConsents();
-        panel({...summary, filled: summary.filled + ticked.length,
-          todo: [...summary.todo.filter(item => !item.startsWith('Your choice (legal)')), ...ticked.map(t => `Ticked for you: ${t}`)]});
-      };
-      box.append(tick);
-      add('Always do this: extension Settings → "Tick terms and consent boxes for me".', 'color:#8fa3bb;font-size:11.5px;margin-top:4px');
+    const host = Object.assign(document.createElement('div'), {id: 'job-pilotto-panel'});
+    host.style.cssText = 'position:fixed;top:14px;right:14px;z-index:2147483647';
+    const root = host.attachShadow({mode: 'open'});
+    root.innerHTML = `<style>
+      :host { all: initial; }
+      .p { width: 340px; max-height: 76vh; overflow: auto; background: #132439; color: #fff; border-radius: 14px;
+        font: 13px/1.45 -apple-system, system-ui, sans-serif; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+      .head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #25405f; position: sticky; top: 0; background: #132439; }
+      .mark { width: 26px; height: 26px; border-radius: 7px; background: #fff; color: #d9540b; display: grid; place-items: center; font-weight: 800; font-size: 12px; }
+      .title { font-weight: 700; font-size: 14px; }
+      .chip { margin-left: auto; font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+      .chip.ok { background: #1f6b43; } .chip.left { background: #9a4b0a; }
+      .x { background: none; border: 0; color: #8fa3bb; font-size: 16px; cursor: pointer; padding: 0 2px; }
+      .body { padding: 6px 14px 12px; }
+      section { margin-top: 10px; }
+      h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #9fb3ca; display: flex; gap: 6px; align-items: center; }
+      h4 .n { background: #25405f; border-radius: 99px; padding: 0 7px; color: #fff; font-size: 11px; }
+      .item { display: block; width: 100%; text-align: left; background: #1b3150; border: 0; color: #e8eef6; border-radius: 8px;
+        padding: 7px 9px; margin: 4px 0; font: inherit; cursor: pointer; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .item:hover { background: #24406a; }
+      .primary { background: #d9540b; color: #fff; border: 0; border-radius: 8px; padding: 7px 12px; font: 600 13px system-ui, sans-serif; cursor: pointer; margin: 6px 0 2px; width: 100%; }
+      .note { color: #8fa3bb; font-size: 11.5px; }
+      details summary { cursor: pointer; color: #9fb3ca; font-size: 12px; list-style: none; }
+      .ready { color: #b9f0cf; padding: 8px 0 2px; }
+    </style>`;
+    const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+    const sorted = Object.fromEntries(GROUPS.map(g => [g.id, []]));
+    for (const item of summary.todo) {
+      const group = GROUPS.find(g => g.match.test(item)) || GROUPS[2];
+      sorted[group.id].push(item.replace(group.match, '').trim() || item);
     }
-    const close = document.createElement('button'); close.type = 'button';  // not a submit button (the guard blocks those)
-    close.textContent = 'Close';
-    close.style.cssText = 'margin-top:8px;background:#fff;color:#132439;border:0;border-radius:5px;padding:4px 10px;cursor:pointer';
-    close.onclick = () => box.remove();
-    box.append(close);
-    document.documentElement.append(box);
+    const open = ['legal', 'answer', 'action'].reduce((n, id) => n + sorted[id].length, 0);
+    const p = el('div', {className: 'p'});
+    const close = el('button', {className: 'x', type: 'button', title: 'Close', textContent: '✕'});
+    close.onclick = () => host.remove();
+    p.append(el('div', {className: 'head'}, el('div', {className: 'mark', textContent: 'JP'}),
+      el('div', {className: 'title', textContent: `${summary.filled} fields filled`}),
+      el('span', {className: `chip ${open ? 'left' : 'ok'}`, textContent: open ? `${open} left for you` : 'Ready to submit'}), close));
+    const body = el('div', {className: 'body'});
+    if (!open) body.append(el('div', {className: 'ready', textContent: 'Everything is filled. Review the form, then press Submit.'}));
+    for (const group of GROUPS) {
+      const items = sorted[group.id];
+      if (!items.length) continue;
+      const list = items.map(text => { const b = el('button', {className: 'item', type: 'button', title: text, textContent: text}); b.onclick = () => reveal(text); return b; });
+      const heading = el('h4', {}, `${group.icon} ${group.title}`, el('span', {className: 'n', textContent: String(items.length)}));
+      if (group.id === 'done' || group.id === 'check' && items.length > 3) {
+        body.append(el('section', {}, el('details', {}, el('summary', {}, heading), ...list)));
+        continue;
+      }
+      const section = el('section', {}, heading, ...list);
+      if (group.id === 'legal') {
+        const tick = el('button', {className: 'primary', type: 'button', textContent: `✓ Accept all ${items.length} for me`});
+        tick.onclick = () => {
+          const ticked = tickConsents();
+          panel({...summary, filled: summary.filled + ticked.length,
+            todo: [...summary.todo.filter(item => !GROUPS[0].match.test(item)), ...ticked.map(text => `Ticked for you: ${text}`)]});
+        };
+        section.append(tick, el('div', {className: 'note', textContent: 'Always: extension Settings → "Tick terms and consent boxes for me".'}));
+      }
+      body.append(section);
+    }
+    p.append(body);
+    root.append(p);
+    document.documentElement.append(host);
   };
 
   // answers: [{field, value, question?, confidence?, note?}] merged by the extension (AI + kit).

@@ -46,3 +46,11 @@ test('contact details go into matching empty text fields, never over kit answers
     {field: 'phone', value: '+41'}, {field: 'question_9', value: 'https://linkedin.com/in/ada'},
   ]);
 });
+
+test('consent boxes are recognised by whole words (Acknowledge, consents, certify), not only stems', () => {
+  const source = read('extension/page/fill.js');
+  const LEGAL = eval(source.match(/const LEGAL = (\/.*\/i);/)[1]);
+  for (const text of ['Acknowledge', 'I consent to Twilio collecting', 'By checking this box, I confirm I have read the policy',
+    'I certify that the information is true', 'Privacy Policy']) assert.ok(LEGAL.test(text), text);
+  for (const text of ['How did you hear about us?', 'Current company', 'Terminal skills', 'Are you legally authorized to work in the country?']) assert.ok(!LEGAL.test(text), text);
+});

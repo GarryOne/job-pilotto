@@ -6,7 +6,7 @@
   let active = true;
   Object.defineProperty(window, '__jobPilottoGuardActive', {get: () => active});
 
-  const legal = /(^|\b)(i agree|i accept|terms|privacy|consent|acknowledg|authorize)(\b|$)/i;
+  const legal = /\b(i agree|i accept|terms|privacy|consent\w*|acknowledg\w*|certif\w*|affirm\w*|i confirm i have read|i have read and understood)\b/i;
   const submit = /(^|\b)(submit|send application|apply now|complete application|finish application)(\b|$)/i;
   const labelOf = el => {
     if (!el) return '';
