@@ -119,39 +119,6 @@ window.pilot.onSaveProgress(({page, done, total}) => {
 const TRIGGER = {you: 'You', schedule: 'Schedule', first: 'First search'};
 const clockTime = iso => new Date(iso).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'});
 const duration = (a, b) => { const s = Math.round((Date.parse(b) - Date.parse(a)) / 1000); return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`; };
-let openRun = null;
-async function loadRuns() {
-  const {runs, running} = await window.pilot.runs();
-  const body = $('runs-body');
-  body.replaceChildren();
-  show($('runs-empty'), !runs.length && !running);
-  const cell = (tr, text, className) => tr.append(Object.assign(document.createElement('td'), {textContent: text ?? '–', className: className || ''}));
-  if (running) {
-    const tr = document.createElement('tr');
-    cell(tr, clockTime(running.startedAt)); cell(tr, TRIGGER[running.trigger] || running.trigger);
-    const result = document.createElement('td'); result.append(Object.assign(document.createElement('span'), {className: 'pill busy', textContent: 'Running…'})); tr.append(result);
-    for (let i = 0; i < 4; i++) cell(tr, '');
-    body.append(tr);
-  }
-  for (const run of runs) {
-    const tr = Object.assign(document.createElement('tr'), {className: `run${openRun === run.id ? ' open' : ''}`});
-    cell(tr, clockTime(run.startedAt)); cell(tr, TRIGGER[run.trigger] || run.trigger);
-    const result = document.createElement('td');
-    result.append(Object.assign(document.createElement('span'), {className: `pill ${run.ok ? 'ok' : 'bad'}`,
-      textContent: run.ok ? (run.warnings?.length ? 'Done, with warnings' : 'Done') : 'Problems'}));
-    tr.append(result);
-    cell(tr, run.new ?? '–'); cell(tr, run.scored ?? '–'); cell(tr, run.usd != null ? `$${run.usd.toFixed(2)}` : '–');
-    cell(tr, run.endedAt ? duration(run.startedAt, run.endedAt) : '–');
-    tr.addEventListener('click', () => {
-      openRun = openRun === run.id ? null : run.id;
-      $('run-log').textContent = (run.log || []).join('\n') || 'No log for this run.';
-      show($('run-log'), openRun === run.id);
-      loadRuns();
-    });
-    body.append(tr);
-  }
-}
-
 // The line under "Jobs": what's happening now, or when the last search ran.
 async function showSearchStatus() {
   const {running, lastSearchAt, runs} = await window.pilot.runs();
@@ -171,7 +138,6 @@ setInterval(async () => {
   if (wasRunning && !running) loadJobs();  // a search just finished: show its jobs
   wasRunning = !!running;
   showSearchStatus();
-  if (!document.querySelector('.view[data-view="runs"]').hidden) loadRuns();
 }, 2000);
 
 function refreshCv() {
@@ -440,7 +406,7 @@ $('open-workspace').addEventListener('click', event => window.pilot.openNotion(s
 const NOTION_LINKS = [['NOTION_MATCHES_DB', '🎯 Job matches'], ['NOTION_APPLICATIONS_DB', '💠 Applications'],
   ['NOTION_EVENTS_DB', '📈 Replies & events'], ['NOTION_INTERVIEWS_DB', '🎤 Interviews'], ['NOTION_INSIGHTS_DB', '💡 Insights'],
   ['NOTION_PIPELINE_PAGE', '📊 Pipeline'], ['NOTION_PROFILE_PAGE_ID', '👤 Profile'], ['NOTION_ANSWERS_PAGE_ID', '📝 Standard answers'],
-  ['NOTION_EMPLOYERS_DB', '🌍 Employers'], ['NOTION_CRON_RUNS_DB', '⏱️ Search runs']];
+  ['NOTION_EMPLOYERS_DB', '🌍 Employers'], ['NOTION_CRON_RUNS_DB', '⏱️ Search runs'], ['NOTION_AGENT_RUNS_DB', '🤖 Form fills']];
 function renderNotionLinks() {
   const box = $('notion-links');
   box.querySelectorAll('.notion-link').forEach(link => link.remove());
