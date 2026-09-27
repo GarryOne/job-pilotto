@@ -25,24 +25,44 @@ async function note(tabId, text) {
   }}).catch(() => {});
 }
 
+// "Apply to N jobs" in the desktop app opens each job with #jobpilotto-fill: every such tab fills
+// itself as soon as it has loaded, in parallel, as long as the extension may run on that job site.
+export const FILL_MARK = 'jobpilotto-fill';
+const started = new Set();
+chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+  if (info.status !== 'complete' || !tab.url?.includes(`#${FILL_MARK}`) || started.has(tabId)) return;
+  const origin = new URL(tab.url).origin + '/*';
+  if (!(await chrome.permissions.contains({origins: [origin]}))) {
+    await note(tabId, '✈️ Job Pilotto can fill this form once it may run on job sites: open the extension on any job page, click Open & fill once, and allow it. For now, click ✈️ → Fill with AI here.');
+    return;
+  }
+  started.add(tabId);
+  await fillOpenedTab(tab, tab.url.replace(`#${FILL_MARK}`, ''));
+});
+
+async function fillOpenedTab(tab, url) {
+  await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
+  chrome.action.setBadgeText({tabId: tab.id, text: '…'});
+  try {
+    const config = await settings();
+    const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
+      {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
+    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || []});
+    if (result.ineligible) await note(tab.id, `✈️ Job Pilotto didn't fill this form: ${result.note} Open the extension and choose "Fill anyway" if you still want to apply.`);
+    chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'});
+  } catch (error) {
+    await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`);
+    chrome.action.setBadgeText({tabId: tab.id, text: '!'});
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message?.type !== 'openAndFill') return false;
   (async () => {
     const tab = await chrome.tabs.create({url: message.url, active: true});
     await loaded(tab.id);
-    await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
-    chrome.action.setBadgeText({tabId: tab.id, text: '…'});
-    try {
-      const config = await settings();
-      const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(message.url)}`,
-        {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
-      const result = await fillTab({...tab, url: message.url}, config, {kitAnswers: kit.kit?.answers || []});
-      if (result.ineligible) await note(tab.id, `✈️ Job Pilotto didn't fill this form: ${result.note} Open the extension and choose "Fill anyway" if you still want to apply.`);
-      chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'});
-    } catch (error) {
-      await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`);
-      chrome.action.setBadgeText({tabId: tab.id, text: '!'});
-    }
+    started.add(tab.id);
+    await fillOpenedTab(tab, message.url);
   })();
   reply({ok: true});
   return false;

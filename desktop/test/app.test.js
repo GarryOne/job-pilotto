@@ -56,6 +56,19 @@ test('agent sessions need Notion; Chrome opens the chosen jobs', async () => {
   assert.equal(spawned.length, 0);
 });
 
+test('Chrome mode marks each job link so the extension fills every tab by itself', async () => {
+  const storage = tempStorage();
+  const spawned = [];
+  const fakeSpawn = (cmd, args) => { spawned.push([cmd, ...args]); return {unref() {}}; };
+  const fakeList = async () => ({jobs: [
+    {url: 'https://job-boards.greenhouse.io/a/jobs/1#top', status: 'unreviewed', fit: 80, title: 'SRE', company: 'A'},
+    {url: 'https://jobs.lever.co/b/2', status: 'saved', fit: 60, title: 'DevOps', company: 'B'}]});
+  const result = await apply.start(storage, {n: 2, mode: 'chrome'}, fakeSpawn, fakeList);
+  assert.equal(result.ok, true);
+  assert.deepEqual(spawned[0], ['open', '-a', 'Google Chrome', 'https://jobs.lever.co/b/2#jobpilotto-fill',
+    'https://job-boards.greenhouse.io/a/jobs/1#jobpilotto-fill']);
+});
+
 test('strategy draft: CV as a PDF document, structured output, then saved into the user folder', async () => {
   const storage = tempStorage();
   pipeline.ensureConfig(storage);

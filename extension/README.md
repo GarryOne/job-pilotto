@@ -15,9 +15,12 @@ filling, the page shows *Unlock for my review*; you check every field, unlock, a
 4. **Searchable dropdowns** (Greenhouse) only open for a real click, so they're highlighted with
    "Click to choose: …". Click one; the extension picks the answer in the menu your click opened.
 5. **Fill without AI** uses only the drafted kit and your contact details (no cost).
-6. **Ready to apply** lists jobs with a drafted kit; **Open & fill** opens one and fills it
-   (asks once for permission on job sites).
-7. After you submit, **I submitted it: mark Applied** updates Notion (Telegram confirms).
+6. **Parallel filling from the desktop app:** **Apply to jobs… → In Chrome** opens N jobs as tabs
+   (each link ends in `#jobpilotto-fill`); the background worker fills every such tab by itself as
+   it loads, side by side, and each shows its own "still yours to do" panel. Needs the one-time
+   permission on job sites (asked by **Open & fill**).
+7. **Ready to apply** lists jobs with a drafted kit; **Open & fill** opens one and fills it.
+8. After you submit, **I submitted it: mark Applied** updates Notion (Telegram confirms).
 
 Multi-page forms: click Next on the page, then Fill again.
 
