@@ -82,14 +82,14 @@ class Tracker:
         return stages
 
     def url_rows(self):
-        """Job URL -> (Stage, Next step) for every Applications row (the desktop app's Jobs list)."""
+        """Job URL -> (Stage, Next step, page URL) for every Applications row (the desktop app's Jobs list)."""
         rows = {}
         for page in self._query():
             props = page['properties']
             url = props['Job URL'].get('url')
             if url:
                 step = ''.join(t.get('plain_text', '') for t in (props.get('Next step') or {}).get('rich_text', []))
-                rows[url.strip()] = ((props['Stage'].get('select') or {}).get('name'), step)
+                rows[url.strip()] = ((props['Stage'].get('select') or {}).get('name'), step, page.get('url') or '')
         return rows
 
     def hidden_urls(self):

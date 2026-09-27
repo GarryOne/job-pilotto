@@ -292,13 +292,26 @@ function renderJobs() {
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
     role.append(link);
     if (job.reason) role.append(Object.assign(document.createElement('div'), {className: 'reason', textContent: job.reason}));
-    // The kit's eligibility verdict (decided once, when the kit was drafted).
-    if (job.ineligible) role.append(Object.assign(document.createElement('div'), {className: 'ineligible', textContent: `⛔ Not eligible: ${job.ineligible}`}));
+    // Open the job: its kit (answers, cover letter, verdict) on its Notion page, or the posting.
+    const links = Object.assign(document.createElement('div'), {className: 'job-links'});
+    const link = (label, open, title) => {
+      const a = Object.assign(document.createElement('a'), {href: '#', textContent: label, title});
+      a.addEventListener('click', event => { event.preventDefault(); open(event); });
+      links.append(a);
+    };
+    if (job.notion_url) link(job.kit ? '📝 Kit' : '🗂 Notion', event => window.pilot.openNotion(job.notion_url, event.metaKey),
+      job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion');
+    link('↗ Posting', () => window.pilot.openExternal(job.url), 'The job posting');
+    role.append(links);
     const company = Object.assign(document.createElement('td'), {textContent: job.company});
     const place = Object.assign(document.createElement('td'), {textContent: job.location});
     const status = document.createElement('td');
     status.append(Object.assign(document.createElement('span'), {className: `status ${job.status}`,
       textContent: {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status}));
+    // The kit's eligibility verdict: a badge, with the reason on hover.
+    if (job.ineligible) status.append(Object.assign(document.createElement('span'), {className: 'badge-ineligible tip', textContent: '⛔ Not eligible',
+      tabIndex: 0}));
+    status.lastChild?.classList.contains('badge-ineligible') && (status.lastChild.dataset.tip = job.ineligible);
     const actions = document.createElement('td');
     const box = Object.assign(document.createElement('div'), {className: 'row-actions'});
     // Actions read as verbs (the Status column shows where a job stands): no check marks that look like a state.

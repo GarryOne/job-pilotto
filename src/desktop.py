@@ -25,9 +25,9 @@ def jobs(db, limit=200, stages=None):
     stages = stages or {}
     NOT_ELIGIBLE = '⛔ Not eligible: '
 
-    def notion(job):  # (Stage, Next step); tests may pass plain stages
-        value = stages.get((job.get('url') or '').strip(), (None, ''))
-        return value if isinstance(value, tuple) else (value, '')
+    def notion(job):  # (Stage, Next step, Notion page URL); tests may pass plain stages
+        value = stages.get((job.get('url') or '').strip(), (None, '', ''))
+        return (tuple(value) + ('', ''))[:3] if isinstance(value, tuple) else (value, '', '')
     candidates, blocked = digest.eligible_jobs(db)
     fits = score.load(db)
     rows = []
@@ -43,6 +43,7 @@ def jobs(db, limit=200, stages=None):
             'reason': (fit.get('summary') or fit.get('reason') or '') if fit else '',
             'rank': digest.rank_score(job),
             # A kit writes Next step (Kit ready / Not eligible); the stage can stay Saved if the job was starred first.
+            'notion_url': notion(job)[2],  # the job's Applications page: kit, verdict, notes
             'kit': notion(job)[0] == 'Kit ready' or notion(job)[1].startswith(('📝 Kit ready', NOT_ELIGIBLE)),
             # The kit's eligibility verdict, written to Next step when it was drafted.
             'ineligible': notion(job)[1][len(NOT_ELIGIBLE):] if notion(job)[1].startswith(NOT_ELIGIBLE) else '',

@@ -41,6 +41,8 @@ class DesktopTests(unittest.TestCase):
         self.assertFalse(desktop.jobs(self.db, stages={'https://x.test/1': 'Saved'})['jobs'][0]['kit'])
         row = desktop.jobs(self.db, stages={'https://x.test/1': ('Kit ready', '⛔ Not eligible: UK residents only')})['jobs'][0]
         self.assertEqual((row['kit'], row['ineligible']), (True, 'UK residents only'))
+        page = desktop.jobs(self.db, stages={'https://x.test/1': ('Kit ready', '', 'https://notion.so/p')})['jobs'][0]
+        self.assertEqual(page['notion_url'], 'https://notion.so/p')
         # starred first, kit drafted later: the stage stays Saved, Next step shows the kit
         self.assertTrue(desktop.jobs(self.db, stages={'https://x.test/1': ('Saved', '📝 Kit ready: review it, then Apply')})['jobs'][0]['kit'])
 
