@@ -1,10 +1,17 @@
 # Job Pilotto brand
 
-- `logo-original.png`: the logo as designed (JP monogram whose line takes off as a paper plane).
-- `logo-mark.png`: the same, trimmed, transparent background. Use on light backgrounds only (the J and P are navy).
-- `app-icon.png`: macOS app icon (1024 px, white rounded tile with standard margins), copied to desktop/assets/icon.png.
-- `icon-<size>.png`: the mark on a white rounded square, for small places: Chrome extension (16/32/48/128),
-  favicon (32), Apple touch icon (180), app sidebar and website logo (128), social image (512).
+The logo: a JP monogram whose line takes off as a paper plane, in the app's slate navy and burnt orange,
+on an off-white rounded tile.
 
-Colours: navy #132439 (text, app sidebar) and orange #F07014 / signal #D9540B.
-On dark backgrounds always use a white tile (`icon-*.png`), never the transparent mark.
+- `logo-tile-original.png`: the artwork (source of everything below).
+- `logo-original.png`: the first version (brighter orange, white background), kept for reference.
+- `logo-mark.png`: the mark alone, transparent. Light backgrounds only (the J and P are navy).
+- `app-icon.png`: macOS app icon (1024 px, tile with the standard macOS margins).
+- `icon-<size>.png`: the tile at small sizes: Chrome extension (16/32/48/128), favicon (32),
+  Apple touch icon (180), app sidebar and website logo (128), social image (512).
+
+Rebuild after changing the artwork: `python3 tools/brand.py` (writes brand/ and copies the icons
+into desktop/, extension/ and site/), then `cd desktop && npm run screenshots` for the website.
+
+Colours: navy #1B2B44 / sidebar #132439, orange #D9540B, tile #F6F8FB.
+On dark backgrounds always use the tile (`icon-*.png`), never the transparent mark.
