@@ -83,6 +83,22 @@ export async function connect(token, fetcher) {
   return {ok: !missing.length && !problems.length, ids, missing, problems};
 }
 
+// Right after the user gives the connection access, Notion shares the page's databases over a minute
+// or so: while some are found and others not yet, wait and look again instead of failing.
+export async function connectWaiting(token, {fetcher, onProgress = () => {}, sleep = ms => new Promise(r => setTimeout(r, ms)),
+  tries = 8, every = 10000, check = connect} = {}) {
+  let result;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    result = await check(token, fetcher);
+    const found = Object.keys(result.ids).length;
+    const waiting = result.missing.length && (found > 0 || attempt <= 2);  // nothing at all twice: not shared
+    if (!waiting || attempt === tries) return result;
+    onProgress({found, total: found + result.missing.length, ids: result.ids});
+    await sleep(every);
+  }
+  return result;
+}
+
 // ---------- writing a page from Markdown (headings, lists, paragraphs, tables, **bold**, `code`) ----------
 const rich = text => text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).filter(Boolean).map(piece => {
   const bold = piece.startsWith('**'), code = piece.startsWith('`');

@@ -142,3 +142,9 @@ label.radio input { width: auto; margin-top: 3px; }
 .schedule label { display: grid; grid-template-columns: 1fr 330px; align-items: center; gap: 12px; font-weight: 600; }
 .schedule label small { display: block; font-weight: 400; color: var(--muted); }
 .schedule select { padding: 6px 8px; border-radius: 8px; border: 1px solid #cfd8e3; background: #fff; font: inherit; font-weight: 400; }
+/* A message while the app waits on something (e.g. Notion sharing the workspace): spinner + calm colour. */
+.message.waiting { color: var(--navy); display: flex; gap: 8px; align-items: center; }
+.message.waiting::before { content: ""; flex: none; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #cfd8e3; border-top-color: var(--signal); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.found .pending { color: var(--muted); }

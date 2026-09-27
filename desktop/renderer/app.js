@@ -58,7 +58,7 @@ $('notion-connect').addEventListener('click', async () => {
   const key = $('notion-key').value.trim();
   if (!key) { message('notion-message', 'Paste the API token from step 2.', 'error'); return; }
   $('notion-connect').disabled = true;
-  message('notion-message', 'Looking for your Job Pilotto workspace…');
+  message('notion-message', 'Looking for your Job Pilotto workspace…', 'waiting');
   const result = await window.pilot.notionConnect(key);
   $('notion-connect').disabled = false;
   const found = $('notion-found');
@@ -81,6 +81,16 @@ $('notion-connect').addEventListener('click', async () => {
     message('notion-message', 'The connection can\'t see these pages yet. Check step 1 (Duplicate) and step 3 (Content access → Edit access → tick Job Pilotto → Save). Just saved it? Notion can take a minute to share every database: Connect again shortly.', 'error');
   } else {
     message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
+  }
+});
+
+window.pilot.onNotionProgress(({found, total, ids, titles}) => {
+  message('notion-message', `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`, 'waiting');
+  const list = $('notion-found');
+  list.replaceChildren();
+  show(list);
+  for (const [env, title] of Object.entries(titles)) {
+    list.append(Object.assign(document.createElement('div'), {className: ids[env] ? 'yes' : 'pending', textContent: `${ids[env] ? '✓' : '…'} ${title}`}));
   }
 });
 

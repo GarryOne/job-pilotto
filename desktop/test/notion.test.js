@@ -77,3 +77,26 @@ test('writing a page replaces its old blocks', async () => {
   assert.deepEqual(calls.filter(c => c.method === 'DELETE').map(c => c.route), ['blocks/b1', 'blocks/b2']);
   assert.equal(calls.at(-1).body.children.length, 2);
 });
+
+test('right after access is given, Connect waits while Notion shares the databases, then succeeds', async () => {
+  const notion = await import('../lib/notion.js');
+  const names = ['A', 'B', 'C', 'D'];
+  const answers = [2, 3, 4].map(n => ({ids: Object.fromEntries(names.slice(0, n).map(k => [k, k.toLowerCase()])),
+    missing: names.slice(n), problems: []})).map(r => ({...r, ok: !r.missing.length}));
+  const progress = [];
+  let slept = 0;
+  const result = await notion.connectWaiting('ntn_x', {check: async () => answers.shift(), sleep: async () => { slept++; },
+    onProgress: p => progress.push(`${p.found}/${p.total}`)});
+  assert.equal(result.ok, true);
+  assert.deepEqual(progress, ['2/4', '3/4']);
+  assert.equal(slept, 2);
+});
+
+test('nothing shared at all: Connect stops after a short wait and says so', async () => {
+  const notion = await import('../lib/notion.js');
+  let calls = 0;
+  const result = await notion.connectWaiting('ntn_x', {check: async () => { calls++; return {ok: false, ids: {}, missing: ['A', 'B'], problems: []}; },
+    sleep: async () => {}});
+  assert.equal(result.ok, false);
+  assert.equal(calls, 3);  // two waits, then the answer
+});

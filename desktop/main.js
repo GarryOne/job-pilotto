@@ -70,7 +70,8 @@ function handlers() {
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
     try {
-      const result = await notion.connect(token);
+      const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
+      const result = await notion.connectWaiting(token, {onProgress: progress => window?.webContents.send('notionProgress', {...progress, titles})});
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
