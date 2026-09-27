@@ -3,9 +3,11 @@
 
     python3 tools/brand.py
 
-Reads brand/logo-tile-original.png (the JP mark on an off-white tile), cuts the mark out of its
-background, and writes: brand/logo-mark.png (transparent), brand/app-icon.png (macOS icon),
-brand/icon-<size>.png (small sizes), then copies them to the Mac app, the Chrome extension and the site.
+Two versions of the same JP mark:
+- desktop app: brand/logo-tile-original.png (app navy and orange, off-white tile) -> the macOS icon and
+  the sidebar logo (brand/app-icon.png, brand/app-logo-128.png);
+- everywhere else (website, favicon, Chrome extension, GitHub App): brand/logo-original.png (white) ->
+  brand/icon-<size>.png. Both marks are also saved transparent (brand/logo-mark*.png).
 """
 from pathlib import Path
 import shutil
@@ -15,7 +17,8 @@ from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 BRAND = ROOT / 'brand'
-TILE = (246, 248, 251, 255)  # the artwork's off-white tile
+APP_TILE = (246, 248, 251, 255)  # the desktop artwork's off-white tile
+WHITE = (255, 255, 255, 255)
 
 
 def cut_mark(path):
@@ -30,7 +33,7 @@ def cut_mark(path):
     return Image.fromarray(rgba, 'RGBA').crop(box)
 
 
-def tile(mark, size, inset, radius, fill, shadow=False):
+def tile(mark, size, inset, radius, fill, shadow=False, colour=WHITE):
     out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     if shadow:
         s = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -38,7 +41,7 @@ def tile(mark, size, inset, radius, fill, shadow=False):
         out = Image.alpha_composite(out, s.filter(ImageFilter.GaussianBlur(size / 55)))
     mask = Image.new('L', (size, size), 0)
     ImageDraw.Draw(mask).rounded_rectangle((inset, inset, size - 1 - inset, size - 1 - inset), radius, fill=255)
-    out.paste(Image.new('RGBA', (size, size), TILE), (0, 0), mask)
+    out.paste(Image.new('RGBA', (size, size), colour), (0, 0), mask)
     m = mark.copy()
     m.thumbnail((int((size - 2 * inset) * fill),) * 2, Image.LANCZOS)
     out.alpha_composite(m, ((size - m.width) // 2, (size - m.height) // 2))
@@ -46,22 +49,25 @@ def tile(mark, size, inset, radius, fill, shadow=False):
 
 
 def main():
-    mark = cut_mark(BRAND / 'logo-tile-original.png')
+    app_mark = cut_mark(BRAND / 'logo-tile-original.png')
+    app_mark.save(BRAND / 'logo-mark-app.png')
+    tile(app_mark, 1024, 100, 185, 0.74, shadow=True, colour=APP_TILE).save(BRAND / 'app-icon.png')  # macOS icon margins
+    tile(app_mark, 128, 0, 26, 0.86, colour=APP_TILE).save(BRAND / 'app-logo-128.png')
+
+    mark = cut_mark(BRAND / 'logo-original.png')
     mark.save(BRAND / 'logo-mark.png')
-    tile(mark, 1024, 100, 185, 0.74, shadow=True).save(BRAND / 'app-icon.png')   # macOS icon grid margins
     for size in (16, 32, 48, 128, 180, 512):
         tile(mark, size, 0, max(3, size // 5), 0.86).save(BRAND / f'icon-{size}.png')
-    copies = {'app-icon.png': ['desktop/assets/icon.png'], 'icon-128.png': ['desktop/renderer/logo.png', 'site/public/images/logo.png'],
-              'icon-32.png': ['site/public/favicon-32.png'], 'icon-180.png': ['site/public/apple-touch-icon.png'],
-              'icon-512.png': ['site/public/images/logo-512.png'],
-              **{f'icon-{s}.png': [f'extension/icons/icon-{s}.png'] for s in (16, 48)}}
-    copies['icon-32.png'].append('extension/icons/icon-32.png')
-    copies['icon-128.png'].append('extension/icons/icon-128.png')
+
+    copies = {'app-icon.png': ['desktop/assets/icon.png'], 'app-logo-128.png': ['desktop/renderer/logo.png'],
+              'icon-128.png': ['site/public/images/logo.png', 'extension/icons/icon-128.png'],
+              'icon-32.png': ['site/public/favicon-32.png', 'extension/icons/icon-32.png'],
+              'icon-16.png': ['extension/icons/icon-16.png'], 'icon-48.png': ['extension/icons/icon-48.png'],
+              'icon-180.png': ['site/public/apple-touch-icon.png'], 'icon-512.png': ['site/public/images/logo-512.png']}
     for name, targets in copies.items():
         for target in targets:
             shutil.copyfile(BRAND / name, ROOT / target)
-    print('Built brand/ icons and copied them to the app, extension and site.')
-
+    print('Built brand/ icons: the desktop app from logo-tile-original.png, everything else from logo-original.png.')
 
 if __name__ == '__main__':
     main()
