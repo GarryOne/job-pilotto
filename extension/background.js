@@ -43,6 +43,25 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await fillOpenedTab(tab, tab.url.replace(`#${FILL_MARK}`, ''));
 });
 
+// A progress panel on the page while a tab fills itself (the popup is closed then).
+async function progress(tabId, text) {
+  await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
+    let box = document.getElementById('jobpilotto-progress');
+    if (!message) { box?.remove(); return; }
+    if (!box) {
+      box = Object.assign(document.createElement('div'), {id: 'jobpilotto-progress'});
+      box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;' +
+        'border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008;display:flex;gap:10px';
+      const spin = document.createElement('span');
+      spin.style.cssText = 'flex:none;width:14px;height:14px;margin-top:2px;border-radius:50%;border:2px solid #3b5170;border-top-color:#f07014';
+      spin.animate([{transform: 'rotate(0)'}, {transform: 'rotate(360deg)'}], {duration: 800, iterations: Infinity});
+      box.append(spin, document.createElement('span'));
+      document.documentElement.append(box);
+    }
+    box.lastChild.textContent = `Job Pilotto: ${message}`;
+  }}).catch(() => {});
+}
+
 async function fillOpenedTab(tab, url) {
   await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   chrome.action.setBadgeText({tabId: tab.id, text: '…'});
@@ -50,10 +69,12 @@ async function fillOpenedTab(tab, url) {
     const config = await settings();
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
       {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
-    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || []});
+    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], onStep: text => progress(tab.id, text)});
+    await progress(tab.id, '');
     if (result.ineligible) await note(tab.id, `✈️ Job Pilotto didn't fill this form: ${result.note} Open the extension and choose "Fill anyway" if you still want to apply.`);
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'});
   } catch (error) {
+    await progress(tab.id, '');
     await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'});
   }

@@ -34,6 +34,10 @@
   .note { font-size: 12px; color: var(--muted); }
   [hidden] { display: none !important; }
   .brand { display: inline-flex; align-items: center; gap: 6px; } .brand img { border-radius: 5px; }
+  .busy { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); }
+  .busy::before { content: ""; flex: none; width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--line);
+    border-top-color: var(--signal); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>

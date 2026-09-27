@@ -61,9 +61,14 @@ function showResult(result) {
 async function fill(options) {
   for (const id of ['fill-ai', 'fill-kit', 'fill-anyway']) $(id).disabled = true;
   $('ineligible').hidden = true;
-  status('Reading the form and filling it…');
+  const started = Date.now();
+  let step = 'Reading the form…';
+  const tick = () => status(`${step} ${Math.round((Date.now() - started) / 1000)} s`, 'busy');
+  tick();
+  const timer = setInterval(tick, 1000);
   try {
-    const result = await fillTab(tab, config, {kitAnswers: kit?.answers || [], ...options});
+    const result = await fillTab(tab, config, {kitAnswers: kit?.answers || [], ...options, onStep: text => { step = text; tick(); }});
+    clearInterval(timer);
     status('');
     if (result.ineligible) {
       $('ineligible').hidden = false;
@@ -74,6 +79,7 @@ async function fill(options) {
       if (result.coverLetter && !kit?.cover_letter) { kit = {...(kit || {answers: []}), cover_letter: result.coverLetter}; $('copy-letter').hidden = false; }
     }
   } catch (error) {
+    clearInterval(timer);
     status(/Cannot access|cannot be scripted/i.test(error.message) ? 'Chrome doesn\'t allow extensions on this page.'
       : `Filling failed: ${error.message}`, 'warn');
   } finally {

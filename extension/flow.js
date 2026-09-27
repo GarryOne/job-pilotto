@@ -22,7 +22,9 @@ const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({targe
   .then(([result]) => result?.result);
 
 // useAI: ask the Worker to answer every open field. force: fill even when the AI says you're not eligible.
-export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = []} = {}) {
+// onStep(text): what's happening now, for the popup and the on-page panel.
+export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}} = {}) {
+  onStep('Reading the form…');
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question,
@@ -33,6 +35,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const open = (form || []).filter(f => !f.filled && !f.legal).map(({field, label, type, required, options}) =>
       ({field, label, type, required, options}));
     if (open.length) {
+      onStep(`Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
       try {
         const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
         ai = await api(config, '/extension/answer', {method: 'POST',
@@ -46,6 +49,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       }
     }
   }
+  onStep('Filling the form…');
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
   const me = await api(config, '/extension/me').catch(() => null);
   const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
