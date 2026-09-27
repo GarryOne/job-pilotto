@@ -29,7 +29,7 @@ function mockFetch({ exact = [row], loose = [], withKit = true } = {}) {
     const body = init.body ? JSON.parse(init.body) : null;
     calls.push({ url, body, headers: init.headers });
     const reply = (json, status = 200) => new Response(status === 204 ? null : JSON.stringify(json), { status });
-    if (url.includes('/databases/db1/query')) return reply({ results: body.filter.url.equals ? exact : loose });
+    if (url.includes('/databases/db1/query')) return reply({ results: !body.filter.url ? exact : body.filter.url.equals ? exact : loose });
     if (url.includes('/blocks/page1/children')) {
       return reply({ results: [
         { id: 'h0', type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'Notes' }] } },
@@ -103,4 +103,58 @@ test('job keys for Greenhouse, Lever and Ashby links', () => {
 test('the Telegram webhook is unchanged', async () => {
   mockFetch();
   assert.equal((await worker.fetch(new Request('https://bot.test/telegram', { method: 'POST' }), env, {})).status, 403);
+});
+
+test('AI answers: profile and answers from Notion, one Claude call, only known fields back', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  mockFetch();
+  const base = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes('/blocks/prof/children')) {
+      return new Response(JSON.stringify({ results: [{ id: 'p1', type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'SRE, B permit' }] } }], has_more: false }));
+    }
+    if (String(url).includes('/blocks/ans/children')) {
+      return new Response(JSON.stringify({ results: [{ id: 'a1', type: 'table_row', table_row: { cells: [[{ plain_text: 'Notice' }], [{ plain_text: '1 month' }]] } }], has_more: false }));
+    }
+    return base(url, init);
+  };
+  const seen = [];
+  const client = { messages: { create: async (request) => {
+    seen.push(request);
+    return {
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+      content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [
+        { field: 'q1', value: '1 month', confidence: 'high', note: '' },
+        { field: 'invented', value: 'x', confidence: 'low', note: '' },
+        { field: 'q2', value: '', confidence: 'low', note: '' }] }) }],
+    };
+  } } };
+  const result = await answerForm({ ...env, NOTION_PROFILE_PAGE_ID: 'prof', NOTION_ANSWERS_PAGE_ID: 'ans' },
+    { url: JOB, fields: [{ field: 'q1', label: 'Notice period', type: 'text' }, { field: 'q2', label: 'Other', type: 'text' }], page_text: 'About the role' }, client);
+  assert.deepEqual(result.answers.map((a) => a.field), ['q1']);
+  assert.equal(result.eligible, true);
+  assert.equal(result.cover_letter, 'Dear team');
+  assert.equal(result.usd, 0.004);
+  const request = seen[0];
+  assert.equal(request.model, 'claude-sonnet-5');
+  assert.equal(request.output_config.format.type, 'json_schema');
+  assert.match(request.system[1].text, /SRE, B permit/);
+  assert.match(request.system[1].text, /Notice \| 1 month/);
+  assert.deepEqual(request.system[1].cache_control, { type: 'ephemeral' });
+  assert.match(request.messages[0].content, /drafted_kit/);
+});
+
+test('AI answer endpoint: validates input and reports a missing key', async () => {
+  mockFetch();
+  assert.equal((await call('/extension/answer', { method: 'POST', body: { url: JOB } })).status, 400);
+  const response = await call('/extension/answer', { method: 'POST', body: { url: JOB, fields: [{ field: 'q1' }] } });
+  assert.equal(response.status, 503);
+});
+
+test('ready-to-apply queue lists Kit ready jobs', async () => {
+  const calls = mockFetch();
+  const data = await (await call('/extension/queue')).json();
+  assert.deepEqual(data.jobs.map((j) => j.company), ['Anthropic']);
+  assert.deepEqual(calls[0].body.filter, { property: 'Stage', select: { equals: 'Kit ready' } });
 });

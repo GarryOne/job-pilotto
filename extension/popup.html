@@ -4,48 +4,58 @@
 <meta charset="utf-8">
 <title>Job Pilotto</title>
 <style>
-  :root { --ink: #182537; --muted: #5b6b80; --line: #dae1e9; --blue: #165bba; --green: #1f7a4d; --amber: #9a6200; --bg: #f7f9fc; }
+  :root { --ink: #182537; --muted: #5b6b80; --line: #dae1e9; --blue: #165bba; --green: #1f7a4d; --amber: #9a6200; --bg: #f7f9fc; --signal: #d9540b; }
   * { box-sizing: border-box; }
-  body { width: 360px; margin: 0; font: 13px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  body { width: 370px; margin: 0; font: 13px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
   header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #132439; color: white; }
   header b { font-size: 14px; }
   header a { margin-left: auto; color: #b9c8dc; font-size: 12px; text-decoration: none; }
-  main { padding: 12px 14px; }
-  .card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  main { padding: 12px 14px; display: grid; gap: 10px; }
+  .card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
   .title { font-weight: 600; font-size: 14px; }
   .muted { color: var(--muted); }
   .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #eaf1fb; color: var(--blue); font-size: 12px; }
-  button { width: 100%; padding: 9px; border: 0; border-radius: 8px; font: 600 13px system-ui, sans-serif; cursor: pointer; margin-top: 6px; }
-  button.primary { background: var(--blue); color: white; }
+  button { width: 100%; padding: 9px; border: 0; border-radius: 8px; font: 600 13px system-ui, sans-serif; cursor: pointer; }
+  button.primary { background: var(--signal); color: white; }
   button.secondary { background: white; color: var(--ink); border: 1px solid var(--line); }
+  button.small { width: auto; padding: 5px 10px; font-size: 12px; }
   button:disabled { opacity: .55; cursor: default; }
+  .actions { display: grid; gap: 6px; }
   ul { margin: 6px 0 0; padding-left: 18px; }
   li { margin: 2px 0; }
   .ok { color: var(--green); }
   .warn { color: var(--amber); }
-  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .queue-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .queue-row:first-of-type { border-top: 0; }
+  .queue-row div { flex: 1; min-width: 0; }
+  .queue-row .title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note { font-size: 12px; color: var(--muted); }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <header><b>✈️ Job Pilotto</b><a href="#" id="settings">Settings</a></header>
 <main>
-  <div id="status" class="card muted">Looking up this page…</div>
+  <div id="status" class="card muted" hidden></div>
   <section id="job" class="card" hidden>
     <div class="title" id="job-title"></div>
     <div class="muted" id="job-company"></div>
     <div style="margin-top:6px"><span class="pill" id="job-stage"></span> <span class="muted" id="job-answers"></span></div>
-    <a id="open-page" href="#" hidden>Open the application page →</a>
   </section>
-  <section id="actions" hidden>
-    <button class="primary" id="fill">Fill form</button>
+  <section id="actions" class="actions" hidden>
+    <button class="primary" id="fill-ai">Fill with AI</button>
+    <button class="secondary" id="fill-kit">Fill without AI</button>
     <button class="secondary" id="copy-letter" hidden>Copy cover letter</button>
-    <button class="secondary" id="applied">I submitted it: mark Applied</button>
+    <button class="secondary" id="applied" hidden>I submitted it: mark Applied</button>
+  </section>
+  <section id="ineligible" class="card warn" hidden>
+    <div id="ineligible-note"></div>
+    <button class="secondary" id="fill-anyway" style="margin-top:8px">Fill anyway</button>
   </section>
   <section id="result" class="card" hidden></section>
-  <section id="review" class="card" hidden>
-    <b>Check before sending</b>
-    <ul id="review-list"></ul>
+  <section id="queue" class="card" hidden>
+    <b>Ready to apply</b> <span class="muted" id="queue-count"></span>
+    <div id="queue-list" style="margin-top:6px"></div>
   </section>
   <p class="note">Job Pilotto never clicks Submit. After filling, review every field, press <b>Unlock for my review</b> on the page, then submit yourself.</p>
 </main>

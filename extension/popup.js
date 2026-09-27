@@ -1,7 +1,9 @@
-// Popup: find this page's job and kit through the Worker, fill the form in the page, mark Applied.
-// Uses only activeTab + scripting: nothing runs on a page until you open the popup there.
+// Popup: fill the job page you're on (with AI, or from the drafted kit only), mark it Applied,
+// and open the next job from the Ready to apply list. Nothing runs on a page until you click here.
+import {JOB_SITES, api, fillTab, settings} from './flow.js';
+
 const $ = id => document.getElementById(id);
-const settings = await chrome.storage.local.get(['workerUrl', 'token', 'profile']);
+const config = await settings();
 const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
 let kit = null;
 let jobUrl = null;
@@ -9,10 +11,9 @@ let jobUrl = null;
 $('settings').addEventListener('click', event => { event.preventDefault(); chrome.runtime.openOptionsPage(); });
 
 function status(text, tone = 'muted') {
-  const box = $('status');
-  box.hidden = !text;
-  box.className = `card ${tone}`;
-  box.textContent = text || '';
+  $('status').hidden = !text;
+  $('status').className = `card ${tone}`;
+  $('status').textContent = text || '';
 }
 
 function list(parent, items) {
@@ -25,113 +26,143 @@ function list(parent, items) {
   parent.append(ul);
 }
 
-async function api(path, init = {}) {
-  const response = await fetch(`${settings.workerUrl.replace(/\/$/, '')}${path}`, {
-    ...init, headers: {Authorization: `Bearer ${settings.token}`, 'Content-Type': 'application/json', ...(init.headers || {})},
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(data.error || `HTTP ${response.status}`), {status: response.status, data});
-  return data;
-}
-
-async function load() {
-  if (!settings.workerUrl || !settings.token) {
-    status('Open Settings and add your Worker URL and extension token first.', 'warn');
-    return;
-  }
-  if (!/^https?:/.test(tab?.url || '')) { status('Open a job application page, then click Job Pilotto again.'); return; }
-  try {
-    const data = await api(`/extension/kit?url=${encodeURIComponent(tab.url)}`);
-    status('');
-    $('job').hidden = false;
-    $('job-title').textContent = data.job.title || 'Untitled job';
-    $('job-company').textContent = data.job.company || '';
-    $('job-stage').textContent = data.job.stage || 'No stage';
-    kit = data.kit;
-    jobUrl = data.job.url || tab.url;
-    $('job-answers').textContent = kit ? `${kit.answers.length} drafted answers` : 'no kit yet';
-    if (data.job.url && new URL(data.job.url).host !== new URL(tab.url).host) {
-      $('open-page').hidden = false;
-      $('open-page').href = data.job.url;
-      $('open-page').onclick = event => { event.preventDefault(); chrome.tabs.update(tab.id, {url: data.job.url}); window.close(); };
-    }
-    $('actions').hidden = false;
-    $('fill').disabled = !kit;
-    if (!kit) status('No kit for this job yet: tap 📝 Prepare under it in Telegram, then reopen this.', 'warn');
-    if (kit?.cover_letter) $('copy-letter').hidden = false;
-    const review = [...(kit?.answers || []).filter(a => a.needs_review).map(a => `Review: ${a.question}`),
-                    ...(kit?.check_before_sending || [])];
-    if (review.length) { $('review').hidden = false; list($('review-list'), review); }
-  } catch (error) {
-    status(error.status === 404 ? 'This job isn\'t in your tracker yet. Save it or prepare a kit from the Telegram digest first.'
-      : error.status === 401 ? 'The extension token was rejected. Check it in Settings.'
-      : `Couldn't reach your Worker: ${error.message}`, 'warn');
-  }
-}
-
-$('fill').addEventListener('click', async () => {
-  $('fill').disabled = true;
-  $('fill').textContent = 'Filling…';
-  try {
-    await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
-      files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
-    const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
-      func: (answers, profile) => window.__jobPilottoExtensionFill(answers, profile),
-      args: [kit.answers, settings.profile || {}]});
-    show(result);
-  } catch (error) {
-    status(`Filling failed: ${error.message}`, 'warn');
-  } finally {
-    $('fill').textContent = 'Fill again';
-    $('fill').disabled = false;
-  }
-});
-
-function show(result) {
+function showResult(result) {
   const box = $('result');
   box.hidden = false;
   box.replaceChildren();
   if (result?.error) { box.textContent = result.error; box.className = 'card warn'; return; }
+  box.className = 'card';
   const head = document.createElement('div');
   head.className = 'ok';
-  head.textContent = `✓ Filled ${result.filled} field(s)${result.contact ? `, ${result.contact} of them your contact details` : ''}.`;
+  head.textContent = `✓ Filled ${result.filled} field(s)${result.resumeAttached ? ' and attached your CV' : ''}.` +
+    (result.usd ? ` AI cost $${result.usd.toFixed(3)}.` : '');
   box.append(head);
-  const todo = [];
-  if (result.resumeMissing) todo.push('Upload your CV');
-  for (const item of result.toPick) todo.push(`Pick "${item.answer}" for: ${item.question}`);
-  for (const label of result.stillRequired) todo.push(`Answer: ${label}`);
-  for (const label of result.legalLeft) todo.push(`Your choice (legal): ${label}`);
-  if (todo.length) {
+  if (result.aiError) {
+    const warn = document.createElement('div');
+    warn.className = 'warn';
+    warn.textContent = `AI answers unavailable (${result.aiError}); filled from the drafted kit and your contact details.`;
+    box.append(warn);
+  }
+  if (result.todo?.length) {
     const title = document.createElement('div');
     title.className = 'warn';
     title.style.marginTop = '6px';
-    title.textContent = 'Still yours to do:';
+    title.textContent = 'Still yours to do (also shown on the page):';
     box.append(title);
-    list(box, todo);
+    list(box, result.todo);
   }
-  if (result.notOnPage) {
-    const note = document.createElement('div');
-    note.className = 'muted';
-    note.style.marginTop = '6px';
-    note.textContent = `${result.notOnPage} drafted answer(s) have no matching field on this page (a later step, or the form changed).`;
-    box.append(note);
+  const next = document.createElement('div');
+  next.className = 'muted';
+  next.style.marginTop = '6px';
+  next.textContent = 'Multi-page form? Click Next on the page, then Fill again.';
+  box.append(next);
+}
+
+async function fill(options) {
+  for (const id of ['fill-ai', 'fill-kit', 'fill-anyway']) $(id).disabled = true;
+  $('ineligible').hidden = true;
+  status('Reading the form and filling it…');
+  try {
+    const result = await fillTab(tab, config, {kitAnswers: kit?.answers || [], ...options});
+    status('');
+    if (result.ineligible) {
+      $('ineligible').hidden = false;
+      $('ineligible-note').textContent = `Not filled: ${result.note}`;
+    } else {
+      showResult(result);
+      $('applied').hidden = false;
+      if (result.coverLetter && !kit?.cover_letter) { kit = {...(kit || {answers: []}), cover_letter: result.coverLetter}; $('copy-letter').hidden = false; }
+    }
+  } catch (error) {
+    status(/Cannot access|cannot be scripted/i.test(error.message) ? 'Chrome doesn\'t allow extensions on this page.'
+      : `Filling failed: ${error.message}`, 'warn');
+  } finally {
+    for (const id of ['fill-ai', 'fill-kit', 'fill-anyway']) $(id).disabled = false;
+    $('fill-ai').textContent = 'Fill again with AI';
   }
 }
 
+$('fill-ai').addEventListener('click', () => fill({useAI: true}));
+$('fill-kit').addEventListener('click', () => fill({useAI: false}));
+$('fill-anyway').addEventListener('click', () => fill({useAI: true, force: true}));
+
 $('copy-letter').addEventListener('click', async () => {
-  await navigator.clipboard.writeText(kit.cover_letter);
-  $('copy-letter').textContent = 'Copied ✓';
+  try { await navigator.clipboard.writeText(kit.cover_letter); $('copy-letter').textContent = 'Copied ✓'; }
+  catch { status('Copy failed; open the kit in Notion to copy the letter.', 'warn'); }
 });
 
 $('applied').addEventListener('click', async () => {
   $('applied').disabled = true;
   try {
-    const data = await api('/extension/applied', {method: 'POST', body: JSON.stringify({url: jobUrl || tab.url})});
+    const data = await api(config, '/extension/applied', {method: 'POST', body: JSON.stringify({url: jobUrl || tab.url})});
     $('applied').textContent = '✓ ' + data.message;
   } catch (error) {
     $('applied').disabled = false;
     status(`Couldn't mark it Applied: ${error.message}`, 'warn');
   }
 });
+
+async function loadQueue() {
+  try {
+    const {jobs} = await api(config, '/extension/queue');
+    if (!jobs.length) return;
+    $('queue').hidden = false;
+    $('queue-count').textContent = `· ${jobs.length} with a drafted kit`;
+    for (const job of jobs.slice(0, 8)) {
+      const row = document.createElement('div');
+      row.className = 'queue-row';
+      const text = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = job.title;
+      const company = document.createElement('div');
+      company.className = 'muted';
+      company.textContent = job.company;
+      text.append(title, company);
+      const open = document.createElement('button');
+      open.className = 'secondary small';
+      open.textContent = 'Open & fill';
+      open.addEventListener('click', async () => {
+        // One-time permission, so the extension can fill a tab it opened itself.
+        const allowed = await chrome.permissions.request({origins: JOB_SITES});
+        if (!allowed) { status('Allow Job Pilotto on job sites to open and fill jobs from this list.', 'warn'); return; }
+        chrome.runtime.sendMessage({type: 'openAndFill', url: job.url});
+        window.close();
+      });
+      row.append(text, open);
+      $('queue-list').append(row);
+    }
+  } catch { /* the queue is a convenience; the page actions still work */ }
+}
+
+async function load() {
+  if (!config.workerUrl || !config.token) {
+    status('Open Settings and add your Worker URL and extension token first.', 'warn');
+    return;
+  }
+  const onPage = /^https?:/.test(tab?.url || '');
+  if (onPage) {
+    $('actions').hidden = false;
+    try {
+      const data = await api(config, `/extension/kit?url=${encodeURIComponent(tab.url)}`);
+      $('job').hidden = false;
+      $('job-title').textContent = data.job.title || 'Untitled job';
+      $('job-company').textContent = data.job.company || '';
+      $('job-stage').textContent = data.job.stage || 'No stage';
+      kit = data.kit;
+      jobUrl = data.job.url || tab.url;
+      $('job-answers').textContent = kit ? `${kit.answers.length} drafted answers` : 'no kit yet';
+      $('fill-kit').hidden = !kit;
+      $('copy-letter').hidden = !kit?.cover_letter;
+      $('applied').hidden = false;
+    } catch (error) {
+      $('fill-kit').hidden = true;
+      if (error.status === 401) status('The extension token was rejected. Check it in Settings.', 'warn');
+      else if (error.status !== 404) status(`Couldn't reach your Worker: ${error.message}`, 'warn');
+      // 404: a job that isn't tracked yet can still be filled with AI.
+    }
+  }
+  loadQueue();
+}
 
 load();

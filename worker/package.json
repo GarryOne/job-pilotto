@@ -5,5 +5,8 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "deploy": "npx wrangler@4 deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0"
   }
 }
