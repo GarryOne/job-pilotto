@@ -39,13 +39,14 @@ test('the pipeline runs on the user folder, with AI models only when a key is se
   assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5');
 });
 
-test('apply picks saved jobs first, then the best fit, never applied or dismissed ones', () => {
+test('apply picks saved jobs first, then the best fit, only with a kit, never applied or dismissed ones', () => {
   const jobs = [
-    {url: 'a', status: 'unreviewed', fit: 60}, {url: 'b', status: 'applied', fit: 95},
-    {url: 'c', status: 'saved', fit: 40}, {url: 'd', status: 'unreviewed', fit: 88},
-    {url: 'e', status: 'dismissed', fit: 99}, {url: 'f', status: 'unreviewed', fit: null},
+    {url: 'a', status: 'unreviewed', fit: 60, kit: true}, {url: 'b', status: 'applied', fit: 95, kit: true},
+    {url: 'c', status: 'saved', fit: 40, kit: true}, {url: 'd', status: 'unreviewed', fit: 88, kit: true},
+    {url: 'e', status: 'dismissed', fit: 99, kit: true}, {url: 'f', status: 'unreviewed', fit: null, kit: true},
+    {url: 'g', status: 'unreviewed', fit: 97},
   ];
-  assert.deepEqual(apply.pick(jobs, 3).map(j => j.url), ['c', 'd', 'a']);
+  assert.deepEqual(apply.pick(jobs, 3).map(j => j.url), ['c', 'd', 'a']);  // g: best fit, but no kit yet
 });
 
 test('agent sessions need Notion; Chrome opens the chosen jobs', async () => {
@@ -62,8 +63,8 @@ test('Chrome mode marks each job link so the extension fills every tab by itself
   const spawned = [];
   const fakeSpawn = (cmd, args) => { spawned.push([cmd, ...args]); return {unref() {}}; };
   const fakeList = async () => ({jobs: [
-    {url: 'https://job-boards.greenhouse.io/a/jobs/1#top', status: 'unreviewed', fit: 80, title: 'SRE', company: 'A'},
-    {url: 'https://jobs.lever.co/b/2', status: 'saved', fit: 60, title: 'DevOps', company: 'B'}]});
+    {url: 'https://job-boards.greenhouse.io/a/jobs/1#top', status: 'unreviewed', fit: 80, title: 'SRE', company: 'A', kit: true},
+    {url: 'https://jobs.lever.co/b/2', status: 'saved', fit: 60, title: 'DevOps', company: 'B', kit: true}]});
   const result = await apply.start(storage, {n: 2, mode: 'chrome'}, fakeSpawn, fakeList);
   assert.equal(result.ok, true);
   assert.deepEqual(spawned[0], ['open', '-a', 'Google Chrome', 'https://jobs.lever.co/b/2#jobpilotto-fill',

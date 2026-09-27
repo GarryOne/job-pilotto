@@ -7,8 +7,9 @@ import * as pipeline from './pipeline.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
+// Only jobs with a drafted kit (their form is already answered), best first.
 export function pick(jobs, n) {
-  return jobs.filter(job => ['unreviewed', 'saved'].includes(job.status) && job.url)
+  return jobs.filter(job => ['unreviewed', 'saved'].includes(job.status) && job.url && job.kit)
     .sort((a, b) => (b.status === 'saved') - (a.status === 'saved') || (b.fit ?? -1) - (a.fit ?? -1))
     .slice(0, n);
 }
@@ -33,7 +34,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
   }
   const {jobs} = await list(storage);
   const chosen = pick(jobs, n);
-  if (!chosen.length) return {ok: false, error: 'No open jobs left to apply to. Find new jobs first.'};
+  if (!chosen.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
   // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel.
   const urls = chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`);
   open('open', ['-a', 'Google Chrome', ...urls], {detached: true, stdio: 'ignore'}).unref();

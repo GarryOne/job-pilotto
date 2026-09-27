@@ -246,6 +246,12 @@ function handlers() {
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
+  // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
+  // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
+  ipcMain.handle('prepareKit', async (_, code) => {
+    const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), log);
+    return {ok: exit === 0};
+  });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
   // browser. ⌘-click opens the app's own Notion window instead (its own sign-in, kept between restarts).

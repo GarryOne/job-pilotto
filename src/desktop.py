@@ -18,8 +18,11 @@ from .paths import JOBS_DB
 STATUSES = ('unreviewed', 'saved', 'applied', 'dismissed')
 
 
-def jobs(db, limit=200):
-    """Eligible open jobs, best fit first (unscored after scored, then the rule-based rank)."""
+def jobs(db, limit=200, stages=None):
+    """Eligible open jobs, best fit first (unscored after scored, then the rule-based rank).
+
+    stages: job URL -> Notion Applications Stage. Kits live in Notion; a job has one when its Stage is Kit ready."""
+    stages = stages or {}
     candidates, blocked = digest.eligible_jobs(db)
     fits = score.load(db)
     rows = []
@@ -34,6 +37,7 @@ def jobs(db, limit=200):
             'fit': fit.get('score') if fit else None,
             'reason': (fit.get('summary') or fit.get('reason') or '') if fit else '',
             'rank': digest.rank_score(job),
+            'kit': stages.get((job.get('url') or '').strip()) == 'Kit ready',
         })
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
     return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
@@ -68,11 +72,18 @@ def main(argv=None):
     marking.add_argument('status', choices=STATUSES)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
+        from .notion.client import Tracker
+        tracker = Tracker.from_env()
         if args.command == 'jobs':
-            result = jobs(db, args.limit)
+            stages = {}
+            if tracker:
+                try:
+                    stages = tracker.url_stages()
+                except Exception as error:  # the list still shows without Notion; Apply then waits for a kit
+                    print(f'Warning: Notion stages unavailable: {type(error).__name__}: {error}', file=__import__('sys').stderr)
+            result = jobs(db, args.limit, stages)
         else:
-            from .notion.client import Tracker
-            result = set_status(db, args.url, args.status, Tracker.from_env())
+            result = set_status(db, args.url, args.status, tracker)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

@@ -42,8 +42,12 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let ai = null, aiError = null;
   if (useAI) {
     const form = await inPage(tab.id, () => window.__jobPilottoDescribeForm());
-    const open = (form || []).filter(f => !f.filled && !f.legal).map(({field, label, type, required, options}) =>
+    // Fields the kit already answered (drafted ahead from the form's questions) don't go to Claude.
+    const fromKit = new Set(answers.filter(a => a.value).map(a => a.field));
+    const open = (form || []).filter(f => !f.filled && !f.legal && !fromKit.has(f.field)).map(({field, label, type, required, options}) =>
       ({field, label, type, required, options}));
+    // With a kit, applying was the user's decision (they prepared it): no eligibility stop.
+    if (fromKit.size) force = true;
     const cached = reuse ? await cachedAI(tab) : null;
     if (cached) {
       ai = cached;

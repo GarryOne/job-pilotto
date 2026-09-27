@@ -35,6 +35,11 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(result['jobs'][0]['title'], 'Site Reliability Engineer')
         json.dumps(result)
 
+    def test_a_job_has_a_kit_when_its_notion_stage_is_kit_ready(self):
+        self.assertFalse(desktop.jobs(self.db)['jobs'][0]['kit'])
+        self.assertTrue(desktop.jobs(self.db, stages={'https://x.test/1': 'Kit ready'})['jobs'][0]['kit'])
+        self.assertFalse(desktop.jobs(self.db, stages={'https://x.test/1': 'Saved'})['jobs'][0]['kit'])
+
     def test_status_is_local_and_reaches_notion_applications(self):
         tracker = FakeTracker()
         self.assertEqual(desktop.set_status(self.db, 'https://x.test/1', 'saved', tracker), {'ok': True, 'notion': 'created'})

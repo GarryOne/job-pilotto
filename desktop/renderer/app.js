@@ -333,16 +333,29 @@ function renderJobs() {
       button.addEventListener('click', async () => { await window.pilot.setStatus(job.url, next); job.status = next; renderJobs(); });
       box.append(button);
     };
-    if (job.status !== 'applied' && job.url) {
-      // Opens the posting in Chrome; the Job Pilotto extension fills the form, you review and submit.
+    if (job.status !== 'applied' && job.url && job.kit) {
+      // The kit already answered this form: Chrome opens it and the extension fills it at once.
       const apply = Object.assign(document.createElement('button'), {className: 'primary', textContent: 'Apply',
-        title: 'Open in Chrome: the extension fills the form, you review and submit'});
+        title: 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
       apply.addEventListener('click', async () => {
         const result = await window.pilot.applyOne(job.url);
         apply.textContent = result.ok ? 'Opened in Chrome' : 'No link';
         setTimeout(() => { apply.textContent = 'Apply'; }, 4000);
       });
       box.append(apply);
+    } else if (job.status !== 'applied' && job.url && job.code) {
+      // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).
+      const prepare = Object.assign(document.createElement('button'), {className: 'primary', textContent: 'Prepare',
+        title: 'Draft the application kit (form answers and cover letter) in your Notion; then Apply'});
+      prepare.addEventListener('click', async () => {
+        prepare.disabled = true;
+        const started = Date.now();
+        const tick = setInterval(() => { prepare.textContent = `Preparing… ${Math.round((Date.now() - started) / 1000)} s`; }, 1000);
+        const result = await window.pilot.prepareKit(job.code);
+        clearInterval(tick);
+        if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
+      });
+      box.append(prepare);
     }
     if (job.status !== 'saved') action('Save', 'saved', 'Keep this job on your list');
     if (job.status !== 'applied') action('Mark applied', 'applied', 'You applied to this job: track it in Applications');
