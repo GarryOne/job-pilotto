@@ -49,7 +49,9 @@ export function localEnv(storage) {
   };
 }
 
-export function start(storage) {
+// onError: the port can be taken (another copy of the app, a test run); the app keeps working without
+// the extension connection instead of crashing.
+export function start(storage, onError = () => {}) {
   const server = http.createServer(async (req, res) => {
     try {
       const chunks = [];
@@ -66,6 +68,7 @@ export function start(storage) {
       res.end(JSON.stringify({error: error.message}));
     }
   });
+  server.on('error', onError);
   server.listen(PORT, '127.0.0.1');
   return server;
 }

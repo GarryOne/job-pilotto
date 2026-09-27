@@ -164,11 +164,28 @@ function handlers() {
 // A separate data folder for tests and demos (JOB_PILOTTO_USER_DATA), so they never touch the real one.
 if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
 
-app.whenReady().then(() => {
+// One copy per data folder: two would fight over the same files, Telegram bot and extension port.
+const firstCopy = app.requestSingleInstanceLock();
+if (!firstCopy) {
+  app.whenReady().then(() => {
+    dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
+      detail: 'Quit the other copy first (⌘Q), then open this one again.'});
+    app.quit();
+  });
+}
+app.on('second-instance', () => {
+  if (window?.isMinimized()) window.restore();
+  window?.show();
+  window?.focus();
+});
+
+if (firstCopy) app.whenReady().then(() => {
   storage = createStorage(app.getPath('userData'), safeStorageCrypto(safeStorage));
   pipeline.ensureConfig(storage);
   handlers();
-  server.start(storage);
+  server.start(storage, error => log(error.code === 'EADDRINUSE'
+    ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
+    : `Chrome extension connection failed: ${error.message}`));
   createWindow();
   restartTelegram();
   // Every 4 hours while the app is open (the digest goes to Telegram when there's something new).
