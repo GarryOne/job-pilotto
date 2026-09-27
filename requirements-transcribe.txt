@@ -1,0 +1,6 @@
+# Optional: interview recordings -> transcript with speakers, on this machine (src/ai/transcribe.py).
+# sherpa-onnx (Apache-2.0) runs Silero VAD, NVIDIA Parakeet-TDT and pyannote + 3D-Speaker models with ONNX Runtime;
+# PyAV decodes any audio/video file. The Mac app bundles these; models download on first use (~520 MB).
+sherpa-onnx>=1.12,<2
+av>=14
+numpy>=1.26

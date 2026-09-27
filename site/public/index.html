@@ -163,6 +163,7 @@
         <ul>
           <li><b>Gmail and Calendar</b> (read-only): confirmations, replies, interviews and rejections update each application by themselves</li>
           <li>A <b>prep message</b> the evening before an interview</li>
+          <li><b>Interviews recorded and transcribed</b> on your Mac, with who said what, saved to Notion under the job (<a href="#interviews">more</a>)</li>
           <li><b>Interview reviews</b> from a transcript or your notes: every question, how you answered, what to practise</li>
           <li>A <b>daily insight</b>, a <b>weekly report</b> and your funnel, with the step to improve</li>
           <li>Gets better at each <b>job site's forms</b> with every fill</li>
@@ -191,6 +192,24 @@
     </div>
   </section>
 
+  <section class="block" id="interviews">
+    <div class="section-head">
+      <span class="eyebrow">New · Interviews</span>
+      <h2>Every interview transcribed, with who said what</h2>
+      <p class="lede">Record the call in the app, or add a recording you already have. It's transcribed on your Mac, free, and saved to your Notion next to the job it belongs to.</p>
+    </div>
+    <div class="iv-feature">
+      <ul>
+        <li><b>Speakers told apart.</b> Each line says who spoke. When you record in the app, it knows which voice is yours.</li>
+        <li><b>Private and free.</b> Open-source speech models run on your Mac. The recording never leaves it, and no minutes are billed.</li>
+        <li><b>Filed under the right job.</b> Pick the application and the transcript lands in your Notion 🎤 Interviews, linked to it. You can change the job at any time.</li>
+        <li><b>A review if you want one.</b> One click and Claude goes through every question: what landed, what a stronger answer would add, and what to practise for the next round. About $0.05.</li>
+        <li><b>From your phone too.</b> Send a voice note or recording to your Telegram bot after the call.</li>
+      </ul>
+      <img src="images/app/interviews.png" loading="lazy" width="1600" height="1024" alt="Interviews page: a consent reminder, a transcript with speakers named, and the job it belongs to">
+    </div>
+    <p class="consent-note"><b>Ask first, every time.</b> Before recording, tell everyone on the call and record only if they all agree. The app won't start recording until you confirm that they did. Recording people without their consent is illegal in Switzerland and many other places.</p>
+  </section>
   <section class="block" id="see">
     <div class="section-head">
       <span class="eyebrow">See it</span>
@@ -198,7 +217,7 @@
       <p class="lede">The Mac app walks you through it: your AI key, your Notion workspace, your CV and what you're looking for. It drafts your search strategy, then keeps working on your schedule.</p>
     </div>
     <video class="demo" src="images/app/walkthrough.mp4" poster="images/app/walkthrough-poster.jpg" autoplay muted loop playsinline controls
-      aria-label="Walkthrough of the Job Pilotto Mac app: setup steps, the job list and the schedule settings"></video>
+      aria-label="Walkthrough of the Job Pilotto Mac app: setup steps, the job list, interviews and the schedule settings"></video>
     <div class="shots">
       <figure><img src="images/app/wizard-goals.png" loading="lazy" width="1600" height="1024" alt="Setup step: roles, places, languages, salary and notice period">
         <figcaption>Say what you're looking for, in plain words.</figcaption></figure>
@@ -266,6 +285,7 @@
           <li>Fills application forms in Chrome; you review and submit</li>
           <li>Apply with Claude: gets through employer sign-ups to the form (with Claude Code)</li>
           <li>Telegram digest, your whole search tracked in Notion</li>
+          <li>Records and transcribes your interviews on your Mac, filed under the job</li>
           <li>Keeps working while your Mac is off (with your free GitHub)</li>
           <li>Open source: read or run the code yourself</li>
         </ul>
@@ -280,7 +300,6 @@
           <li>Signed by Apple, installs without warnings, updates itself</li>
           <li>Hosted searches: nothing to set up on GitHub, checks as often as hourly</li>
           <li>The maintained index of employer career pages, checked every week</li>
-          <li>Interview recording in the app, with question-by-question reviews</li>
           <li>One-click Notion connection, no tokens to copy</li>
           <li>More countries: Germany, the Netherlands, the UK and remote Europe</li>
           <li>Salary and response-rate benchmarks from roles like yours</li>
@@ -297,7 +316,7 @@
       <div>
         <span class="eyebrow">Pro · early access</span>
         <h2>Be first to try Pro</h2>
-        <p>Hosted searches, the maintained employer index, interview reviews and more countries are on the way. Leave your email and you'll hear from us once, when Pro is ready. Early sign-ups get their first month free.</p>
+        <p>Hosted searches, the maintained employer index and more countries are on the way. Leave your email and you'll hear from us once, when Pro is ready. Early sign-ups get their first month free.</p>
       </div>
       <form id="waitlist" novalidate>
         <label for="email">Email</label>
@@ -325,7 +344,7 @@
       <details><summary>Which jobs does it cover?</summary><p>Today it focuses on tech roles in Switzerland where English is enough, plus remote roles open to people in Switzerland. It reads career pages of top tech employers (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and more), jobs.ch, TechTree and Google Jobs.</p></details>
       <details><summary>Does it work with LinkedIn?</summary><p>It doesn't read or post on LinkedIn. Most roles you'd find there are also on the employer's own career page, which is where it looks and where you apply.</p></details>
       <details><summary>What happens to my CV?</summary><p>It stays on your Mac. The AI reads it to draft your Profile (which you review in Notion) and, when you ask, to make a version tailored to one job; you see every change before it's used. Nothing is stored on a Job Pilotto server.</p></details>
-      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto is open source: run it from the source code with the same Notion workspace. The Mac app is free too. Pro, coming soon, adds hosted searches, the maintained employer index and interview reviews.</p></details>
+      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto is open source: run it from the source code with the same Notion workspace. The Mac app is free too. Pro, coming soon, adds hosted searches and the maintained employer index.</p></details>
     </div>
   </section>
 

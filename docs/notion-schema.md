@@ -142,9 +142,11 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 
 ## 🎤 Interviews (database)
 
-Env var: `NOTION_INTERVIEWS_DB`. One row per interview sent to the bot (`src/ai/interviews.py`). The
-page body holds the analysis (strengths, weak spots, signals, practice, every question with ✅/➖/⚠️/❌)
-and the full transcript in a toggle.
+Env var: `NOTION_INTERVIEWS_DB`. One row per interview (`src/ai/interviews.py`): sent to the bot, or
+saved from the app's Interviews page. The page body holds the analysis (strengths, weak spots, signals,
+practice, every question with ✅/➖/⚠️/❌) and the full transcript in a toggle. A transcript saved from
+the app without a review has only the transcript (and a "Not reviewed yet" line where the review goes);
+its Overall is empty until it's reviewed.
 
 | Property | Type | Notes |
 |---|---|---|
@@ -156,7 +158,7 @@ and the full transcript in a toggle.
 | Questions / Weak answers | Number | |
 | Topics / Weak topics | Text | Semicolon-separated; the insights count these across interviews |
 | Next step | Text | |
-| Input | Select | `Transcript`, `Notes` |
+| Input | Select | `Recording` (transcribed with speakers by `src/ai/transcribe.py`), `Transcript`, `Notes` |
 | Cost (USD) | Number (dollar) | |
 | Model | Text | |
 

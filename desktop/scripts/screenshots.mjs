@@ -48,12 +48,15 @@ const FRAMES = [
   {name: 'wizard-extras', fresh: true, js: step('extras')},
   {name: 'jobs', js: ''},
   {name: 'actions', js: view('actions')},
+  {name: 'interviews', js: `(async () => { ${view('interviews')} await new Promise(r => setTimeout(r, 700));
+    document.querySelector('.iv-draft button').click(); await new Promise(r => setTimeout(r, 700));
+    document.querySelector('main').scrollTop = 0; })()`},
   {name: 'schedule', js: view('settings', `document.getElementById('setting-schedule').scrollIntoView()`)},
   {name: 'cloud', js: view('settings', `document.getElementById('setting-cloud').scrollIntoView()`)},
 ];
 // On the page: the stills; in the video: the setup, then the app in use.
-const STILLS = ['wizard-goals', 'wizard-strategy', 'jobs', 'schedule'];
-const VIDEO = ['welcome', 'wizard-ai', 'wizard-notion', 'wizard-cv', 'wizard-goals', 'wizard-strategy', 'wizard-extras', 'jobs', 'schedule', 'cloud'];
+const STILLS = ['wizard-goals', 'wizard-strategy', 'jobs', 'interviews', 'schedule'];
+const VIDEO = ['welcome', 'wizard-ai', 'wizard-notion', 'wizard-cv', 'wizard-goals', 'wizard-strategy', 'wizard-extras', 'jobs', 'interviews', 'schedule', 'cloud'];
 
 const frames = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-frames-'));
 fs.mkdirSync(out, {recursive: true});

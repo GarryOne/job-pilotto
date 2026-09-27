@@ -18,7 +18,7 @@ const HELP = [
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
   '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… on or before 23 Sep',
   '/mail — check Gmail and Calendar for application news now (also runs 3 times a day)',
-  '🎤 After an interview: send the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
+  '🎤 After an interview: send the recording (only if everyone on the call agreed to it; a voice note, audio or video up to 20 MB) or the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
   '/scout — look for new employer job feeds now (~1 min)',
@@ -369,23 +369,38 @@ async function handleButton(env, query) {
   }
 }
 
-// Interview input: a transcript file (with a caption naming the interview), or /interview + notes.
-// Both start an interview run; Telegram files up to 20 MB can be fetched by the run (getFile).
+// Interview input: a recording (voice note, audio or video file), a transcript file (with a caption naming
+// the interview), or /interview + notes. All start an interview run; recordings are transcribed there with
+// speakers. Telegram lets bots fetch files up to 20 MB (getFile): about 2 hours of voice note.
 const TRANSCRIPT_TYPES = /\.(txt|md|srt|vtt|text)$/i;
+const RECORDING_TYPES = /\.(webm|m4a|mp3|wav|ogg|oga|opus|mp4|mov|aac|flac|aiff|mkv)$/i;
+const MAX_FILE = 20 * 1024 * 1024;
+
+export function interviewFile(message) {
+  const media = message.voice || message.audio || message.video || message.video_note;
+  if (media) return {...media, file_name: media.file_name || (message.voice ? 'voice note' : message.video_note ? 'video note' : 'recording'), recording: true};
+  const doc = message.document;
+  if (!doc) return null;
+  return {...doc, recording: RECORDING_TYPES.test(doc.file_name || ''), transcript: TRANSCRIPT_TYPES.test(doc.file_name || '')};
+}
 
 export async function handleInterview(env, message) {
-  const doc = message.document;
-  if (doc) {
-    if (!TRANSCRIPT_TYPES.test(doc.file_name || '')) {
-      return `⚠️ ${escapeHtml(doc.file_name || 'That file')} isn't a text transcript. Export it as .txt, .md, .srt or .vtt.`;
+  const file = interviewFile(message);
+  if (file) {
+    if (!file.recording && !file.transcript) {
+      return `⚠️ ${escapeHtml(file.file_name || 'That file')} isn't a recording or a text transcript. Send audio/video, or .txt, .md, .srt, .vtt.`;
     }
-    if ((doc.file_size || 0) > 20 * 1024 * 1024) return '⚠️ That file is over 20 MB; export the transcript as text.';
-    await dispatch(env, { mode: 'interview', file: doc.file_id, note: (message.caption || '').slice(0, 500) });
-    return `🎤 Got <b>${escapeHtml(doc.file_name)}</b>. Analysing the interview; the summary arrives in 1–2 minutes.`;
+    if ((file.file_size || 0) > MAX_FILE) {
+      return '⚠️ That file is over 20 MB, the most Telegram lets a bot download. Send it as a voice note (smaller), or use the Interviews page of the Job Pilotto app.';
+    }
+    await dispatch(env, { mode: 'interview', file: file.file_id, note: (message.caption || '').slice(0, 500) });
+    return file.recording
+      ? `🎤 Got the ${escapeHtml(file.file_name)}. Transcribing it with speakers, then analysing; the summary arrives in a few minutes.`
+      : `🎤 Got <b>${escapeHtml(file.file_name)}</b>. Analysing the interview; the summary arrives in 1–2 minutes.`;
   }
   const text = message.text || '';
   if (!text.includes('\n')) {
-    return '🎤 Send the transcript file with a caption like "Grafana, round 1", or write /interview Grafana round 1 and your notes on the next lines (one message).';
+    return '🎤 Send the recording (a voice note works) or the transcript file with a caption like "Grafana, round 1", or write /interview Grafana round 1 and your notes on the next lines (one message).';
   }
   await dispatch(env, { mode: 'interview', note: text.slice(0, 4096) });
   return '🎤 Analysing your notes; the summary arrives in about a minute.';
@@ -409,7 +424,7 @@ export async function handleUpdate(env, update) {
       await reply(env, await handleAdd(env, message.text));
       return;
     }
-    if (message.document || parseCommand(message.text)?.name === 'interview') {
+    if (interviewFile(message) || parseCommand(message.text)?.name === 'interview') {
       await reply(env, await handleInterview(env, message));
       return;
     }

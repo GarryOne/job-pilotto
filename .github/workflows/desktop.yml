@@ -13,6 +13,7 @@ on:
       - 'extension/**'
       - 'worker/src/**'
       - 'requirements.txt'
+      - 'requirements-transcribe.txt'
       - 'docs/notion-profile-template.md'
       - 'docs/job-pilotto-guide.md'
       - '.github/workflows/desktop.yml'

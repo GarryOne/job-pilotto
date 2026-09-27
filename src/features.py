@@ -37,6 +37,8 @@ FEATURES = (
             'paid', 'JOB_PILOTTO_INSIGHT_MODEL=claude-sonnet-5 (plus the AI key and Notion)'),
     Feature('google_jobs', 'Google Jobs via SerpApi', ('SERPAPI_API_KEY',), 'free tier',
             'SERPAPI_API_KEY from serpapi.com (free plan: 250 searches/month)'),
+    Feature('transcribe', 'Interview recordings -> transcript with speakers (on this machine)', (), 'free',
+            'pip install -r requirements-transcribe.txt (bundled in the Mac app); models download once (~520 MB)'),
     Feature('mail', 'Gmail + Calendar reading', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', 'ANTHROPIC_API_KEY'), 'paid',
             'python3 -m src.sources.google auth --github (the shared Job Pilotto app: one browser consent); '
             'own Google app: python3 -m src.sources.google setup; README → Gmail and Calendar'),

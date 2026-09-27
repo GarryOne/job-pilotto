@@ -254,11 +254,28 @@ test('a transcript file starts an interview run with its caption', async () => {
   assert.match(calls[1].body.text, /Got <b>grafana.srt<\/b>/);
 });
 
-test('non-text files are refused without a run', async () => {
-  const calls = mockFetch();
+test('recordings start an interview run: voice notes, audio and video files', async () => {
+  let calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ voice: { file_id: 'V1', file_size: 800000, duration: 1800 }, caption: 'Grafana, round 1' });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'interview', file: 'V1', note: 'Grafana, round 1' });
+  assert.match(calls[1].body.text, /Got the voice note\. Transcribing it with speakers/);
+  calls = mockFetch({ '/dispatches': { status: 204 } });
   await sendMessage({ document: { file_id: 'F2', file_name: 'call.m4a', file_size: 9000 } });
+  assert.equal(calls[0].body.inputs.file, 'F2');
+  calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ audio: { file_id: 'A1', file_name: 'zoom.mp3', file_size: 9000 } });
+  assert.equal(calls[0].body.inputs.file, 'A1');
+});
+
+test('other files and files over 20 MB are refused without a run', async () => {
+  let calls = mockFetch();
+  await sendMessage({ document: { file_id: 'F3', file_name: 'slides.pdf', file_size: 9000 } });
   assert.equal(calls.length, 1);
-  assert.match(calls[0].body.text, /isn't a text transcript/);
+  assert.match(calls[0].body.text, /isn't a recording or a text transcript/);
+  calls = mockFetch();
+  await sendMessage({ video: { file_id: 'F4', file_size: 90 * 1024 * 1024 } });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].body.text, /over 20 MB/);
 });
 
 test('/interview with notes dispatches them; without notes it explains', async () => {

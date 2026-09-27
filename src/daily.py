@@ -198,7 +198,8 @@ def main():
     parser.add_argument('--mode', choices=MODES, default='scheduled',
                         help='scheduled: send only when new jobs exist; run/today: always send; '
                              'apply: mark --job as applied in Notion; prepare: draft its application kit')
-    parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply or prepare')
+    parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply or prepare; '
+                                      'interview mode: the job URL the interview belongs to')
     parser.add_argument('--action', choices=sorted(ACTIONS), default='applied',
                         help='for --mode apply: applied, saved or dismissed')
     parser.add_argument('--score-max', type=int, default=0,
@@ -209,7 +210,8 @@ def main():
                         help='auto-draft application kits for up to N best-scored new jobs per run (0 = off)')
     parser.add_argument('--auto-kit-min-score', type=int, default=kit.DEFAULT_AUTO_MIN_SCORE,
                         help='minimum fit score to qualify for an automatic kit')
-    parser.add_argument('--file', help='interview mode: Telegram file id of the transcript')
+    parser.add_argument('--file', help='interview mode: Telegram file id, or a local path, of the recording or transcript')
+    parser.add_argument('--interview', help='interview mode: review this 🎤 Interviews row (saved from the app)')
     parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes')
     parser.add_argument('--insight', action='store_true',
                         help="scheduled mode: send the day's insight if it's due (insight mode always sends one)")
@@ -267,7 +269,7 @@ def main():
         run['interview'] = {}
         try:
             print(interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender,
-                                 stats=run['interview']))
+                                 stats=run['interview'], job_url=args.job, page_id=args.interview))
             run['interview'].update(pending=1, done=1)
             log_ai_run(tracker, run, args)
         except ValueError as error:  # the owner sent something that can't be analysed: say why

@@ -13,7 +13,8 @@
       "status": "saved",
       "fit": 91,
       "reason": "Kubernetes on AWS, observability ownership and on-call leadership: a close match to your last role.",
-      "rank": 99
+      "rank": 99,
+      "notion_url": "https://www.notion.so/0000000000000000000000000000a001"
     },
     {
       "id": 2,
@@ -43,7 +44,8 @@
       "status": "applied",
       "fit": 84,
       "reason": "Leads an OpenTelemetry rollout, exactly your monitoring migration experience.",
-      "rank": 97
+      "rank": 97,
+      "notion_url": "https://www.notion.so/0000000000000000000000000000a003"
     },
     {
       "id": 4,

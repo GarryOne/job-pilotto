@@ -19,9 +19,11 @@ echo "Downloading $url"
 mkdir -p "$here/build/pilot"
 curl -fsSL "$url" | tar -xz -C "$here/build/pilot"   # unpacks to build/pilot/python
 "$target/bin/python3" -m pip install --quiet --disable-pip-version-check -r "$here/../requirements.txt"
+# Interview recordings -> transcript with speakers, on the Mac (sherpa-onnx, PyAV, numpy; about 115 MB).
+"$target/bin/python3" -m pip install --quiet --disable-pip-version-check -r "$here/../requirements-transcribe.txt"
 # Parts of Python the pipeline never uses: its own tests, the Tk GUI toolkit, IDLE, caches.
 lib="$(echo "$target"/lib/python3.12)"
 rm -rf "$lib/test" "$lib/idlelib" "$lib/tkinter" "$lib/turtledemo" "$lib/lib2to3" "$lib/ensurepip" \
        "$target"/lib/libtcl* "$target"/lib/libtk* "$target"/lib/tcl* "$target"/lib/tk* "$target/share"
 find "$target" -name "__pycache__" -type d -prune -exec rm -rf {} +
-"$target/bin/python3" -c "import anthropic, sqlite3, ssl, json, sys; print('Bundled Python', sys.version.split()[0], 'anthropic', anthropic.__version__)"
+"$target/bin/python3" -c "import anthropic, sqlite3, ssl, json, sys, sherpa_onnx, av, numpy; print('Bundled Python', sys.version.split()[0], 'anthropic', anthropic.__version__, 'sherpa-onnx', sherpa_onnx.__version__)"

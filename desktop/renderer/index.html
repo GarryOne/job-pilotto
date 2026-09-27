@@ -188,6 +188,7 @@
   <nav class="sidebar">
     <div class="brand"><img class="mark" src="logo.png" alt="">Job Pilotto</div>
     <button class="nav active" data-view="jobs">Jobs</button>
+    <button class="nav" data-view="interviews">Interviews</button>
     <button class="nav" data-view="actions">Actions</button>
     <button class="nav" data-view="strategy">Strategy</button>
     <button class="nav" data-view="settings">Settings</button>
@@ -246,16 +247,82 @@
         <div><h3>📥 An application you made elsewhere</h3><p class="muted small">Paste the job link; add when you applied if it wasn't today (e.g. "on 23 Sep" or "on or before 23 Sep").</p></div>
         <div class="inline"><input id="add-url" type="url" placeholder="https://…"><input id="add-date" placeholder="today" class="narrow"><button class="secondary" id="add-go">Add</button></div>
       </div>
-      <div class="setting">
-        <div><h3>🎤 Review an interview</h3><p class="muted small">A transcript file (.txt, .md, .srt, .vtt) from your recorder, or your own notes. You get a question-by-question review in Notion 🎤 Interviews. Everyone on the call must agree to a recording.</p></div>
-        <label for="interview-label">Which interview</label>
-        <input id="interview-label" placeholder="e.g. Grafana, round 1">
-        <div class="inline spaced"><button class="secondary" id="interview-file">Choose transcript…</button><span class="muted small" id="interview-file-name"></span></div>
-        <label for="interview-notes">…or paste your notes</label>
-        <textarea id="interview-notes" rows="5" placeholder="What they asked, how you answered"></textarea>
-        <div class="inline spaced"><button class="primary" id="interview-go">Review it</button></div>
-      </div>
       <pre class="answer" id="command-answer" hidden></pre>
+    </div>
+
+    <div class="view" data-view="interviews" hidden>
+      <header class="view-head">
+        <div><h1>Interviews</h1><p class="muted">Record a call or add a recording. It's transcribed on this Mac, free, with who said what.
+          Name the speakers, pick the job, and save it to Notion 🎤 Interviews. A question-by-question review is one click away.</p></div>
+        <div class="head-actions">
+          <button class="secondary" id="iv-add">Add a recording or transcript…</button>
+          <button class="primary" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded">● Record a call</button>
+        </div>
+      </header>
+      <section class="card iv-recorder" id="iv-recorder" hidden>
+        <span class="rec-dot" aria-hidden="true"></span><b>Recording</b><span class="iv-timer" id="iv-timer">00:00</span>
+        <span class="muted small" id="iv-sources"></span>
+        <button class="secondary" id="iv-stop">Stop</button>
+      </section>
+      <section class="callout consent" id="iv-consent-box">
+        <b>⚠️ Ask everyone for consent before you record.</b>
+        <p class="small">At the start of the call, tell the other people that you'd like to record it to transcribe it for your own notes, and record only
+          if everyone agrees. In Switzerland (Art. 179<sup>ter</sup> of the Criminal Code), in many EU countries and in several US states, recording a
+          conversation without the other people's consent is against the law, and it can cost you their trust. The same goes for recordings you add
+          from elsewhere. If anyone says no, take notes instead.</p>
+        <label class="radio"><input type="checkbox" id="iv-consent"><span>Everyone on this call has agreed to be recorded</span></label>
+        <p class="fine">The recording stays on this Mac; only the transcript goes to your Notion.</p>
+      </section>
+      <p class="message" id="iv-message"></p>
+
+      <section id="iv-drafts-block" hidden>
+        <h2 class="iv-heading">On this Mac, not saved yet</h2>
+        <div class="iv-list" id="iv-drafts"></div>
+      </section>
+
+      <section class="card iv-editor" id="iv-editor" hidden>
+        <div class="iv-editor-head">
+          <input id="iv-title" aria-label="Interview name" placeholder="e.g. Grafana, round 1">
+          <button class="ghost" id="iv-close">Close</button>
+        </div>
+        <div id="iv-transcribe" class="iv-transcribe" hidden>
+          <label for="iv-count">People on the call</label>
+          <div class="inline"><select id="iv-count" class="narrow"><option value="0">Detect</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+            <button class="primary" id="iv-transcribe-go">Transcribe</button></div>
+          <p class="fine">Runs on this Mac: about a minute per 10 minutes of audio. The first time, the speech models download once (about 520 MB).</p>
+        </div>
+        <div id="iv-progress" class="progress" hidden>
+          <div class="progress-head"><span class="spinner"></span><b id="iv-progress-text">Starting</b><span id="iv-progress-percent" class="muted"></span></div>
+          <div class="bar"><span id="iv-progress-bar"></span></div>
+        </div>
+        <div id="iv-ready" hidden>
+          <h3>Speakers</h3>
+          <p class="muted small">Name them so the transcript and the review read well. "You" is detected when the call was recorded here with its audio.</p>
+          <div class="iv-speakers" id="iv-speakers"></div>
+          <label for="iv-text">Transcript</label>
+          <textarea id="iv-text" rows="16"></textarea>
+          <label for="iv-job">Job</label>
+          <select id="iv-job"></select>
+          <div class="inline spaced">
+            <button class="primary" id="iv-save">Save to Notion</button>
+            <button class="secondary" id="iv-save-review">Save and review</button>
+            <button class="ghost" id="iv-discard">Delete draft</button>
+          </div>
+          <p class="fine">Review: Claude Sonnet reads the transcript with your profile, about $0.05 per interview.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="iv-heading-row"><h2 class="iv-heading">In your Notion 🎤 Interviews</h2>
+          <div class="inline"><button class="link" id="iv-refresh">Refresh</button><button class="link" id="iv-recordings">Recordings in Finder</button></div></div>
+        <div class="table-wrap">
+          <table class="jobs iv-table">
+            <thead><tr><th>Date</th><th>Interview</th><th>Job</th><th>Review</th><th></th></tr></thead>
+            <tbody id="iv-saved"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="iv-empty" hidden>No interviews in Notion yet.</p>
+      </section>
     </div>
 
     <div class="view" data-view="strategy" hidden>

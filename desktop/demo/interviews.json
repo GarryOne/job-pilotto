@@ -1,0 +1,42 @@
+{
+  "saved": [
+    {
+      "id": "demo-iv-2",
+      "url": "https://www.notion.so/demo-iv-2",
+      "title": "Alpine Data · System design",
+      "date": "2099-01-06",
+      "input": "Recording",
+      "overall": "positive",
+      "round": "System design",
+      "next_step": "Final round with the CTO next week",
+      "application": [
+        "0000000000000000000000000000a003"
+      ]
+    },
+    {
+      "id": "demo-iv-1",
+      "url": "https://www.notion.so/demo-iv-1",
+      "title": "Alpine Data · Recruiter screen",
+      "date": "2099-01-02",
+      "input": "Recording",
+      "overall": "neutral",
+      "round": "Recruiter screen",
+      "next_step": "Technical round with two SREs",
+      "application": [
+        "0000000000000000000000000000a003"
+      ]
+    }
+  ],
+  "draft": {
+    "id": "demo-draft",
+    "title": "Helvetic Cloud, hiring manager",
+    "createdAt": "2099-01-08T14:00:00.000Z",
+    "kind": "audio",
+    "file": "recording.webm",
+    "status": "ready",
+    "stereo": true,
+    "seconds": 2710,
+    "jobUrl": "https://example.com/jobs/1"
+  },
+  "transcript": "[00:00:02] Speaker 1: Thanks for making the time. I lead the platform team here. Could you walk me through an incident you owned end to end?\n[00:00:11] You: Sure. Last spring our Kubernetes cluster ran out of pod IPs during a traffic spike. I saw pods stuck in Pending, traced it to the CNI subnet and added a secondary CIDR range within the hour.\n[00:00:29] Speaker 1: And how did you stop it from happening again?\n[00:00:32] You: An alert on free IPs per subnet, a runbook, and prefix delegation so every node gets a larger block.\n[00:00:41] Speaker 2: I'll jump in on observability. What does a good on-call dashboard look like to you?\n[00:00:47] You: The four golden signals per service first, then saturation of the shared dependencies: the database, the queue, DNS.\n[00:00:58] Speaker 1: Great. Next step would be a system design round with two engineers from the team."
+}

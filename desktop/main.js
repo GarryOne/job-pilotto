@@ -1,11 +1,12 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, dialog, ipcMain, Notification, powerMonitor, safeStorage, shell} from 'electron';
+import {app, BrowserWindow, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
+import * as interviews from './lib/interviews.js';
 import * as notion from './lib/notion.js';
 import {startSchedule} from './lib/schedule.js';
 import * as telegram from './lib/telegram.js';
@@ -282,12 +283,35 @@ function handlers() {
     if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
     try { return await telegram.runCommand(storage, name, arg, log); } catch (error) { return {text: `⚠️ ${error.message}`}; }
   });
-  ipcMain.handle('chooseTranscript', async () => {
-    const picked = await dialog.showOpenDialog(window, {title: 'Choose the interview transcript',
-      filters: [{name: 'Transcript', extensions: ['txt', 'md', 'srt', 'vtt', 'text']}], properties: ['openFile']});
-    return picked.canceled ? null : picked.filePaths[0];
+  // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
+  // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.
+  const demoInterviews = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'interviews.json'), 'utf8'));
+  ipcMain.handle('ivDrafts', () => (DEMO ? [demoInterviews().draft] : interviews.drafts(storage)));
+  ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
+  ipcMain.handle('ivSaved', () => (DEMO ? {ok: true, interviews: demoInterviews().saved} : interviews.saved(storage)));
+  ipcMain.handle('ivAdd', async () => {
+    const picked = await dialog.showOpenDialog(window, {title: 'Choose an interview recording or transcript',
+      filters: [{name: 'Recording or transcript', extensions: [...interviews.AUDIO, ...interviews.TEXT]}], properties: ['openFile']});
+    if (picked.canceled || !picked.filePaths[0]) return null;
+    try { return interviews.add(storage, picked.filePaths[0]); } catch (error) { return {error: error.message}; }
   });
-  ipcMain.handle('reviewInterview', (_, input) => { telegram.reviewInterview(storage, input, log); return true; });
+  ipcMain.handle('ivRecordStart', (_, options) => interviews.startRecording(storage, options));
+  ipcMain.handle('ivRecordChunk', (_, id, bytes) => { interviews.appendRecording(storage, id, bytes); return true; });
+  ipcMain.handle('ivRecordStop', (_, id, seconds) => interviews.stopRecording(storage, id, seconds));
+  ipcMain.handle('ivTranscribe', async (_, id, options) => {
+    const meta = await interviews.transcribe(storage, id, options, step => window?.webContents.send('ivProgress', step));
+    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: name the speakers, pick the job, save it to Notion.`);
+    return meta;
+  });
+  ipcMain.handle('ivSaveDraft', (_, id, patch) => (DEMO ? true : interviews.saveDraft(storage, id, patch)));
+  ipcMain.handle('ivDiscard', (_, id) => { interviews.discard(storage, id); return true; });
+  ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
+  ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
+  ipcMain.handle('ivReview', (_, pageId) => interviews.review(storage, pageId));
+  ipcMain.handle('ivRecordings', () => {
+    fs.mkdirSync(storage.path('recordings'), {recursive: true});
+    return shell.openPath(storage.path('recordings'));
+  });
   ipcMain.handle('setAutomation', (_, patch) => {
     const allowed = {};
     if ('autoSearch' in patch) allowed.autoSearch = !!patch.autoSearch;
@@ -423,6 +447,11 @@ app.on('second-instance', () => {
   window?.focus();
 });
 
+// The interview recorder asks for the screen's audio (the call). Chromium captures system audio on macOS 13+
+// through ScreenCaptureKit behind these switches; without them (or without Screen Recording permission)
+// the recorder falls back to the microphone alone.
+app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
+
 if (firstCopy) app.whenReady().then(() => {
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
@@ -430,6 +459,11 @@ if (firstCopy) app.whenReady().then(() => {
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   pipeline.ensureConfig(storage);
   handlers();
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({types: ['screen']})
+      .then(sources => callback(sources[0] ? {video: sources[0], audio: 'loopback'} : {}))
+      .catch(() => callback({}));
+  });
   if (!DEMO) {
     server.setNotifier(notify);
   server.start(storage, error => log(error.code === 'EADDRINUSE'

@@ -69,6 +69,7 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | Chrome extension | fills the form from its kit in seconds, you Submit | Chrome + the Mac app (or the Worker; [extension/README.md](extension/README.md)) | free | 5 min |
 | Tailored CV | a version of your CV per job, every change highlighted | the Mac app, `ANTHROPIC_API_KEY` | ~$0.12/CV | 1 min |
 | Apply with Claude (recommended) | from the job board through the employer's sign-up to a filled form, you Submit | the Mac app, Claude Code, Notion; Gmail for confirmation emails | your Claude plan | 5 min |
+| `transcribe` | interview recordings → transcript with speakers, on your machine | `pip install -r requirements-transcribe.txt` (bundled in the Mac app) | free (models ~520 MB, downloaded once) | 2 min |
 | Form filling by an AI agent | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
 
 A sensible order: Telegram and scheduled runs first (free, 10 minutes), then Notion, then the AI
@@ -85,7 +86,7 @@ gh variable delete JOB_PILOTTO_DISABLE                            # everything b
 ```
 
 The names are the ones in the first column (`discover`, `scout`, `telegram`, `notion`, `enrich`,
-`score`, `auto_kits`, `insights`, `google_jobs`, `mail`), and `src/features.py` defines them. A
+`score`, `auto_kits`, `insights`, `google_jobs`, `mail`, `transcribe`), and `src/features.py` defines them. A
 switched-off feature behaves exactly as if its keys were missing, and `doctor` lists it under
 "switched off".
 
@@ -121,8 +122,9 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   A reply that isn't a stage yet (a recruiter inviting you to book a call) is logged as "Reply received".
 - 💡 **One insight a day** and a 📊 **weekly report** on Mondays (see below), with 👍 Useful · 👎 Not
   useful · ✅ I'll act on it.
-- 🎤 **Interviews**: send the transcript file with a caption ("Grafana, round 1"), or `/interview` with
-  your notes, and get back what went well, the weak answers and what to practise.
+- 🎤 **Interviews**: send the recording (a voice note, audio or video up to 20 MB) or the transcript file
+  with a caption ("Grafana, round 1"), or `/interview` with your notes, and get back what went well, the
+  weak answers and what to practise. Recordings are transcribed with speakers first (see below).
 - 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… on or before 23 Sep`:
   title, company and location come from the posting page.
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update
@@ -171,6 +173,8 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   Code the button is simply **Apply** (the extension). A ⛔ badge shows the kit's eligibility verdict on hover.
 - ✍️ **Answer once**: questions a form asked that your answers don't cover yet, listed once; your
   answer goes to your standard answers in Notion and every later form uses it.
+- 🎙️ **Interviews**: record a call (after ticking that everyone agreed) or add a recording → a transcript
+  with speakers, made on the Mac → name them, pick the job → **Save to Notion** (optionally **Review**). [More](#-learning-from-your-applications).
 - ⏱️ **How often**: per job (search, kits, insights, new employers, mail), in your time zone.
 - ☁️ **Keep working while my Mac is off**: sign in with GitHub (a GitHub App with access to one
   repository only) and the app sets up your own private repository with the schedules, secrets and
@@ -247,7 +251,17 @@ doesn't.
   replies, how the market moved, how you rated the week's insights, what worked and up to three
   changes for next week. The full report (with the numbers) is a page in 💡 Insights; Telegram
   gets the summary and a link. About USD 0.04 a week.
-- 🎤 **Interview reviews**: send a transcript (`.txt`, `.md`, `.srt`, `.vtt`) or your notes to the bot.
+- 🎙️ **Interview transcription** (the app's **Interviews** page, `src/ai/transcribe.py`): free, on your Mac.
+  - **In:** record the call in the app, or add a recording (`.m4a`, `.mp3`, `.webm`, video…).
+  - **Out:** a transcript with **who said what**; your own voice is labelled **You**.
+  - **Saved to Notion** 🎤 Interviews, linked to the job you pick (relink any time). Only the audio stays on the Mac.
+  - **Open source**, run with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): Parakeet-TDT v2 (English) +
+    pyannote 3.0 / 3D-Speaker for speakers. ~1 min per 10 min of audio on an M1; models (~520 MB) download once.
+  - **Phone:** send a voice note to the bot; it's transcribed the same way in GitHub Actions.
+  - ⚠️ **Ask everyone first.** The app won't record until you confirm they agreed: recording without
+    consent is illegal in Switzerland (Art. 179ter StGB) and many other places.
+- 🎤 **Interview reviews**: from the Interviews page (**Review**, or **Save and review**), or send a
+  recording, a transcript (`.txt`, `.md`, `.srt`, `.vtt`) or your notes to the bot.
   Claude Sonnet 5 links it to the right application, lists every question by topic with how you
   answered (strong / ok / weak, and what a stronger answer would add), strengths, weak spots, what
   they revealed, the next step and what to practise. It's saved in a 🎤 Interviews database (with
@@ -255,13 +269,7 @@ doesn't.
   keep coming up or keep being answered weakly. About USD 0.05 per interview.
   Recruiters who record calls often offer the transcript by email ("Download transcript: …"); the Gmail
   check points those out. See the screenshots below.
-  To get a transcript when you're the guest (most interviews), use a bot-free recorder on your
-  Mac that captures your mic and the call's audio in any app. Free and local:
-  [MacParakeet](https://macparakeet.com/) or [Humla](https://humla.team/local) (with speaker
-  labels). Paid: [MacWhisper](https://goodsnooze.gumroad.com/l/macwhisper) (meeting recording needs
-  Pro, €59 once; local) or [Routines](https://getroutines.ai/) (subscription; cloud transcription).
-  Always ask the interviewers first: recording without everyone's consent is illegal in
-  Switzerland and many other places.
+  A review of a saved transcript is added to that same Notion page, above the transcript.
 - 📧 **Gmail and Calendar, read-only** (`src/ai/mail.py`, workflow `mail.yml`): 3 times a day (07:00,
   12:00, 18:00 Zurich; edit the cron to change it), 5 minutes after an application is marked Applied,
   and on `/mail`. Recent mail from applicant-tracking systems, recruiter platforms and schedulers (or
@@ -770,7 +778,10 @@ src/
     apply_run.py     observable runs: Codex runner, `--record` (Claude runs), `--status`,
                      `--report`, `--context`, `--learnings`
     insights.py      daily insight and Monday weekly report: stats by code, written by Sonnet 5
-    interviews.py    interview transcript or notes -> 🎤 Interviews analysis, event and summary
+    interviews.py    recording, transcript or notes -> 🎤 Interviews row (saved, linked to its job) and
+                     its review, event and summary; `python -m src.ai.interviews list|save|link` (the app)
+    transcribe.py    audio -> transcript with speakers, locally (sherpa-onnx: Silero VAD, Parakeet,
+                     pyannote + 3D-Speaker); `python -m src.ai.transcribe <audio> [--speakers N]`
     mail.py          Gmail + Calendar -> events, Stage, Next interview, prep and follow-up messages
   notion/
     client.py        Notion API: Applications, Profile, Job Matches, Application Answers
@@ -839,12 +850,17 @@ python3 -m src.sources.google check                       # which account, what 
 python3 -m src.ai.mail --days 10 --dry-run                # classify recent job emails; write nothing
 python3 -m src.ai.mail --send                             # what the mail workflow runs
 python3 -m src daily --send --mode interview --note $'/interview Acme round 1\nmy notes...'  # notes, no file
+pip install -r requirements-transcribe.txt                # the local transcription add-on (once)
+python3 -m src.ai.transcribe call.m4a --out call.txt      # a recording -> transcript with speakers (free, local)
+python3 -m src.ai.interviews save call.txt --title "Acme, round 1" --job <job_url>   # -> 🎤 Interviews row
+python3 -m src daily --send --mode interview --interview <page id>   # review a saved row (~USD 0.05)
 ```
 
 `daily` modes: `scheduled` (sends only when there are new jobs), `run` (crawl + always send),
 `today` (no board crawl), `more` (next page of a digest), `apply` (record ✅ / ⭐ / ❌ in Notion),
 `prepare` (draft an application kit for one job), `insight` (send an insight now), `weekly` (send the
-weekly report now), `interview` (analyse a transcript `--file <Telegram file id>` or `--note` text), `add`
+weekly report now), `interview` (analyse a recording or transcript `--file <Telegram file id or path>`,
+`--note` text, or a saved row `--interview <page id>`; `--job <URL>` picks the application), `add`
 (track an application made elsewhere: `--job <URL> --note <date>`). Scheduled runs add `--insight` when `JOB_PILOTTO_INSIGHT_MODEL` is set: the first
 run after 04:00 UTC sends the day's insight, or the weekly report on Mondays.
 

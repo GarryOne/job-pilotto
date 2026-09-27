@@ -267,6 +267,7 @@ function openView(name) {
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   if (name === 'strategy') loadStrategy();
   if (name === 'settings') loadSettings();
+  if (name === 'interviews') loadInterviews();
 }
 document.querySelectorAll('.nav').forEach(nav => nav.addEventListener('click', () => openView(nav.dataset.view)));
 
@@ -793,20 +794,6 @@ $('add-go').addEventListener('click', async () => {
   answer(result.text);
   $('add-url').value = ''; $('add-date').value = '';
 });
-let transcript = null;
-$('interview-file').addEventListener('click', async () => {
-  transcript = await window.pilot.chooseTranscript();
-  $('interview-file-name').textContent = transcript ? transcript.split('/').pop() : '';
-});
-$('interview-go').addEventListener('click', async () => {
-  const label = $('interview-label').value.trim();
-  const notes = $('interview-notes').value.trim();
-  if (!transcript && notes.length < 40) { answer('Choose a transcript file, or paste a few lines of notes.'); return; }
-  await window.pilot.reviewInterview({path: transcript, label, notes});
-  answer('Reviewing the interview (about a minute). The review lands in Notion 🎤 Interviews' +
-    (state.settings.telegramChatId ? ' and in Telegram.' : '; progress shows above.'));
-  transcript = null; $('interview-file-name').textContent = ''; $('interview-notes').value = '';
-});
 $('replace-cv').addEventListener('click', async () => {
   const name = await window.pilot.chooseCv();
   if (name) message('strategy-message', `CV replaced: ${name}. Use "Rebuild from CV…" to redraft your strategy from it.`, 'ok');
@@ -832,3 +819,273 @@ window.pilot.onToast(({title, body, hint}) => {
 
 // Help improve Job Pilotto (opt-in anonymous form reports).
 $('share-reports').addEventListener('change', async () => { state.settings = await window.pilot.saveSettings({shareFillReports: $('share-reports').checked}); });
+
+// ---------- interviews: drafts on this Mac, saved ones in Notion 🎤 Interviews ----------
+const iv = window.pilot.interviews;
+let ivOpen = null;          // the draft in the editor
+let ivSavedRows = [];
+const plainId = id => String(id || '').replace(/-/g, '');
+const linkable = () => allJobs.filter(job => job.notion_url);   // jobs with a Notion Applications row
+const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
+const jobForPage = pageId => allJobs.find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
+
+function jobOptions(select, chosenUrl, emptyLabel) {
+  const jobs = linkable().sort((a, b) => (b.status === 'applied') - (a.status === 'applied') || a.company.localeCompare(b.company));
+  select.replaceChildren(new Option(emptyLabel, ''), ...jobs.map(job => new Option(jobName(job), job.url, false, job.url === chosenUrl)));
+  if (chosenUrl && !jobs.some(job => job.url === chosenUrl)) select.append(new Option(chosenUrl, chosenUrl, false, true));
+}
+
+async function loadInterviews() {
+  if (!allJobs.length) { try { allJobs = (await window.pilot.jobs()).jobs; } catch {} }
+  renderDrafts(await iv.drafts());
+  loadSaved();
+}
+
+function renderDrafts(drafts) {
+  show($('iv-drafts-block'), drafts.length > 0);
+  const STATUS = {new: 'Not transcribed', recording: 'Recording…', transcribing: 'Transcribing…', stopped: 'Stopped: transcribe again',
+    failed: 'Failed', ready: 'Transcript ready'};
+  $('iv-drafts').replaceChildren(...drafts.map(draft => {
+    const row = Object.assign(document.createElement('div'), {className: `iv-draft${draft.id === ivOpen ? ' open' : ''}`});
+    const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+    row.append(Object.assign(document.createElement('b'), {textContent: draft.title}),
+      Object.assign(document.createElement('span'), {className: 'muted small', textContent: `${when} · ${STATUS[draft.status] || draft.status}`}));
+    const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
+    open.addEventListener('click', () => openDraft(draft.id));
+    row.append(open);
+    return row;
+  }));
+}
+
+async function openDraft(id) {
+  const draft = (await iv.drafts()).find(d => d.id === id);
+  if (!draft) return;
+  ivOpen = id;
+  show($('iv-editor'));
+  $('iv-title').value = draft.title || '';
+  const busy = draft.status === 'transcribing';
+  show($('iv-transcribe'), draft.kind === 'audio' && ['new', 'stopped', 'failed'].includes(draft.status));
+  show($('iv-progress'), busy);
+  show($('iv-ready'), draft.status === 'ready');
+  if (draft.status === 'failed') message('iv-message', draft.error || 'Transcription failed', 'error');
+  if (draft.status === 'ready') {
+    $('iv-text').value = await iv.transcript(id);
+    jobOptions($('iv-job'), draft.jobUrl, 'Let Claude find the job when reviewing');
+    renderSpeakers();
+  }
+  renderDrafts(await iv.drafts());
+  $('iv-editor').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+// One field per speaker; renaming rewrites every "[time] Name:" line of the transcript.
+function renderSpeakers() {
+  const names = [...new Set([...$('iv-text').value.matchAll(/^\[\d\d:\d\d:\d\d\] ([^:\n]{1,60}):/gm)].map(m => m[1]))];
+  $('iv-speakers').replaceChildren(...names.map(name => {
+    const label = Object.assign(document.createElement('label'), {textContent: name});
+    const input = Object.assign(document.createElement('input'), {value: name, placeholder: 'e.g. You, Recruiter, Hiring manager'});
+    input.addEventListener('change', () => {
+      const to = input.value.replace(/[:\n[\]]/g, ' ').trim();
+      if (!to || to === name) { input.value = name; return; }
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      $('iv-text').value = $('iv-text').value.replace(new RegExp(`^(\\[\\d\\d:\\d\\d:\\d\\d\\] )${escaped}:`, 'gm'), `$1${to}:`);
+      saveOpenDraft();
+      renderSpeakers();
+    });
+    label.append(input);
+    return label;
+  }));
+}
+
+let draftTimer;
+function saveOpenDraft() {
+  if (!ivOpen) return Promise.resolve();
+  clearTimeout(draftTimer);
+  return iv.saveDraft(ivOpen, {title: $('iv-title').value, jobUrl: $('iv-job').value,
+    ...($('iv-ready').hidden ? {} : {text: $('iv-text').value})});
+}
+$('iv-title').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(saveOpenDraft, 600); });
+$('iv-text').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(() => { saveOpenDraft(); renderSpeakers(); }, 800); });
+$('iv-job').addEventListener('change', saveOpenDraft);
+$('iv-close').addEventListener('click', async () => { await saveOpenDraft(); ivOpen = null; show($('iv-editor'), false); renderDrafts(await iv.drafts()); });
+
+$('iv-transcribe-go').addEventListener('click', async () => {
+  const id = ivOpen;
+  await saveOpenDraft();
+  message('iv-message', '');
+  show($('iv-transcribe'), false);
+  show($('iv-progress'));
+  $('iv-progress-text').textContent = 'Starting';
+  $('iv-progress-bar').style.width = '2%';
+  const meta = await iv.transcribe(id, {speakers: Number($('iv-count').value)});
+  if (ivOpen === id) openDraft(id);
+  if (meta.status !== 'ready') message('iv-message', meta.error || 'Transcription failed', 'error');
+});
+window.pilot.onInterviewProgress(({id, percent, text}) => {
+  if (id !== ivOpen) return;
+  show($('iv-progress'));
+  $('iv-progress-text').textContent = text;
+  $('iv-progress-percent').textContent = percent == null ? '' : `${percent}%`;
+  if (percent != null) $('iv-progress-bar').style.width = `${Math.max(2, percent)}%`;
+});
+
+$('iv-add').addEventListener('click', async () => {
+  const draft = await iv.add();
+  if (!draft) return;
+  if (draft.error) { message('iv-message', draft.error, 'error'); return; }
+  message('iv-message', '');
+  openDraft(draft.id);
+});
+
+async function saveToNotion(andReview) {
+  await saveOpenDraft();
+  const id = ivOpen;
+  for (const button of ['iv-save', 'iv-save-review']) $(button).disabled = true;
+  message('iv-message', 'Saving to Notion…');
+  try {
+    const result = await iv.save(id);
+    if (!result.ok) { message('iv-message', result.error, 'error'); return; }
+    ivOpen = null;
+    show($('iv-editor'), false);
+    renderDrafts(await iv.drafts());
+    message('iv-message', 'Saved to Notion 🎤 Interviews.', 'ok');
+    await loadSaved();
+    if (andReview) reviewRow(result.id);
+  } finally {
+    for (const button of ['iv-save', 'iv-save-review']) $(button).disabled = false;
+  }
+}
+$('iv-save').addEventListener('click', () => saveToNotion(false));
+$('iv-save-review').addEventListener('click', () => saveToNotion(true));
+$('iv-discard').addEventListener('click', async () => {
+  if (!ivOpen) return;
+  await iv.discard(ivOpen);
+  ivOpen = null;
+  show($('iv-editor'), false);
+  renderDrafts(await iv.drafts());
+});
+
+// Saved interviews, from Notion. Changing the job updates the row's Application there.
+const reviewing = new Set();
+async function loadSaved() {
+  const result = await iv.saved();
+  if (!result.ok) { $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
+  ivSavedRows = result.interviews;
+  show($('iv-empty'), ivSavedRows.length === 0);
+  $('iv-empty').textContent = 'No interviews in Notion yet.';
+  $('iv-saved').replaceChildren(...ivSavedRows.map(row => {
+    const tr = document.createElement('tr');
+    const cell = (...children) => { const td = document.createElement('td'); td.append(...children); tr.append(td); return td; };
+    cell(row.date || '');
+    const title = cell(Object.assign(document.createElement('b'), {textContent: row.title}));
+    if (row.next_step) title.append(Object.assign(document.createElement('div'), {className: 'reason', textContent: `Next: ${row.next_step}`}));
+    const select = document.createElement('select');
+    const job = row.application[0] ? jobForPage(row.application[0]) : null;
+    jobOptions(select, job?.url || '', row.application[0] && !job ? 'Linked in Notion (job not in this list)' : 'No job linked');
+    if (row.application[0] && !job) select.value = '';
+    select.addEventListener('change', async () => {
+      select.disabled = true;
+      const done = await iv.link(row.id, select.value);
+      select.disabled = false;
+      message('iv-message', done.ok ? `Linked "${row.title}" ${select.value ? 'to the job' : 'to no job'} in Notion.` : done.error, done.ok ? 'ok' : 'error');
+    });
+    cell(select);
+    cell(row.overall ? Object.assign(document.createElement('span'), {className: `review-tag ${row.overall}`, textContent: `${row.overall}${row.round ? ` · ${row.round}` : ''}`})
+      : reviewing.has(row.id) ? Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'Reviewing…'})
+        : Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'Not reviewed'}));
+    const actions = Object.assign(document.createElement('div'), {className: 'row-actions'});
+    if (!row.overall) {
+      const review = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Review', disabled: reviewing.has(row.id),
+        title: 'Claude reviews it question by question (about $0.05); the review is added to the Notion page'});
+      review.addEventListener('click', () => reviewRow(row.id));
+      actions.append(review);
+    }
+    const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
+    open.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
+    actions.append(open);
+    cell(actions);
+    return tr;
+  }));
+}
+
+async function reviewRow(pageId) {
+  if (!state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get reviews.', 'error'); return; }
+  reviewing.add(pageId);
+  message('iv-message', 'Claude is reviewing the interview (about a minute)…');
+  loadSaved();
+  const result = await iv.review(pageId);
+  reviewing.delete(pageId);
+  message('iv-message', result.ok ? `${result.summary}. The review is on the Notion page.` : result.error, result.ok ? 'ok' : 'error');
+  loadSaved();
+}
+$('iv-refresh').addEventListener('click', loadSaved);
+$('iv-recordings').addEventListener('click', () => iv.recordings());
+
+// Recorder: your microphone on the left channel, the call's audio (screen capture) on the right, so the
+// transcript can tell which speaker is you. Without the call's audio it records the microphone alone.
+let recorder = null;
+// Consent first: Record stays off until the box is ticked, and the tick is asked again for every call.
+$('iv-consent').addEventListener('change', () => { $('iv-record').disabled = !$('iv-consent').checked || !!recorder; });
+$('iv-record').addEventListener('click', async () => {
+  message('iv-message', '');
+  if (!$('iv-consent').checked) { message('iv-message', 'First ask everyone on the call and tick the consent box.', 'error'); return; }
+  let mic, call = null;
+  try {
+    mic = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
+  } catch {
+    message('iv-message', 'Job Pilotto may not use the microphone: System Settings → Privacy & Security → Microphone.', 'error');
+    return;
+  }
+  try {
+    call = await navigator.mediaDevices.getDisplayMedia({audio: true, video: {frameRate: 1, width: 320, height: 200}});
+    if (!call.getAudioTracks().length) { call.getTracks().forEach(t => t.stop()); call = null; }
+  } catch { call = null; }
+  const context = new AudioContext();
+  const destination = context.createMediaStreamDestination();
+  const mono = stream => {
+    const gain = context.createGain();
+    Object.assign(gain, {channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers'});
+    context.createMediaStreamSource(stream).connect(gain);
+    return gain;
+  };
+  if (call) {
+    const merger = context.createChannelMerger(2);
+    mono(mic).connect(merger, 0, 0);
+    mono(call).connect(merger, 0, 1);
+    destination.channelCount = 2;
+    merger.connect(destination);
+  } else {
+    destination.channelCount = 1;
+    mono(mic).connect(destination);
+  }
+  const id = await iv.recordStart({stereo: !!call});
+  const media = new MediaRecorder(destination.stream, {mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: call ? 96000 : 48000});
+  const started = Date.now();
+  let writing = Promise.resolve();
+  media.ondataavailable = event => {
+    if (event.data.size) writing = writing.then(async () => iv.recordChunk(id, new Uint8Array(await event.data.arrayBuffer())));
+  };
+  const timer = setInterval(() => {
+    const s = Math.round((Date.now() - started) / 1000);
+    $('iv-timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }, 500);
+  media.onstop = async () => {
+    clearInterval(timer);
+    await writing;
+    [mic, call].filter(Boolean).forEach(stream => stream.getTracks().forEach(track => track.stop()));
+    context.close();
+    await iv.recordStop(id, (Date.now() - started) / 1000);
+    recorder = null;
+    show($('iv-recorder'), false);
+    $('iv-consent').checked = false;
+    $('iv-record').disabled = true;
+    openDraft(id);
+  };
+  media.start(5000);  // a chunk every 5 s goes to disk
+  recorder = media;
+  $('iv-record').disabled = true;
+  $('iv-timer').textContent = '00:00';
+  $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' :
+    'Microphone only: the call\'s audio needs Screen Recording permission (System Settings → Privacy & Security). With headphones, only you are heard.';
+  show($('iv-recorder'));
+});
+$('iv-stop').addEventListener('click', () => recorder?.state === 'recording' && recorder.stop());

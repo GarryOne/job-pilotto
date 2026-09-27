@@ -113,10 +113,3 @@ export async function runCommand(storage, name, arg = '', onLine = () => {}, fet
   }
   return {text: plainText(text), telegram: !!(env.TELEGRAM_BOT_TOKEN && env.OWNER_CHAT_ID)};
 }
-
-// An interview transcript file from the Mac (or pasted notes), reviewed by the same code as the bot's.
-export function reviewInterview(storage, {path: file, label, notes}, onLine = () => {}) {
-  const inputs = file ? {mode: 'interview', file, note: label || ''}
-    : {mode: 'interview', note: `/interview ${label || 'Interview'}\n${notes || ''}`};
-  localDispatch(storage, onLine)(inputs);
-}

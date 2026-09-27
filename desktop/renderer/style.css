@@ -217,3 +217,32 @@ td:has(.badge-ineligible) { display: table-cell; }
 .badge-recommended { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 700;
   background: var(--signal-soft, #fdeee4); color: #a3470f; vertical-align: 1px; }
 .row-actions .row-main:disabled { cursor: default; }
+
+/* Interviews */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.iv-recorder { display: flex; align-items: center; gap: 12px; border-left: 4px solid var(--bad); }
+.iv-recorder button { margin-left: auto; }
+.rec-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--bad); animation: pulse 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+.iv-timer { font: 600 15px ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+.iv-heading { font-size: 15px; margin: 18px 0 8px; }
+.iv-heading-row { display: flex; justify-content: space-between; align-items: baseline; }
+.iv-heading-row .inline { gap: 16px; }
+.iv-list { display: grid; gap: 8px; margin-bottom: 8px; }
+.iv-draft { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.iv-draft b { flex: 1; }
+.iv-draft.open { border-color: var(--signal); }
+.iv-editor-head { display: flex; gap: 8px; }
+.iv-editor-head input { font-weight: 600; font-size: 16px; }
+.iv-editor .progress { padding: 12px 0; }
+.iv-speakers { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.iv-speakers label { margin: 0; font-weight: 400; font-size: 12px; color: var(--muted); }
+.iv-speakers input { margin-top: 2px; }
+.iv-table select { min-width: 220px; font-size: 13px; padding: 4px 8px; }
+.review-tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--sky); white-space: nowrap; }
+.review-tag.positive { background: #e3f4ea; color: var(--good); }
+.review-tag.neutral { background: #fdf3dc; color: var(--warn); }
+.review-tag.negative { background: #fbe6e4; color: var(--bad); }
+.consent { border-left: 4px solid var(--warn); margin-bottom: 14px; }
+.consent p { margin: 6px 0; max-width: 90ch; }
+.consent label.radio { background: var(--surface); margin: 8px 0 4px; max-width: 460px; }

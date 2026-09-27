@@ -109,6 +109,7 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.seed) args.push('--seed', String(inputs.seed));
   if (inputs.file) args.push('--file', String(inputs.file));
   if (inputs.note) args.push('--note', String(inputs.note));
+  if (inputs.interview) args.push('--interview', String(inputs.interview));
   if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
   const {insights, kits} = cadence(storage.settings());
   if (ai && mode === 'scheduled' && insights !== 'off') args.push('--insight');
