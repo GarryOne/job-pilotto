@@ -337,9 +337,28 @@ async function loadStrategy() {
   $('strategy-answers').value = text.answers;
   message('strategy-message', '');
 }
-$('open-profile').addEventListener('click', () => window.pilot.openExternal(state.notion.NOTION_PROFILE_PAGE_ID));
-$('open-answers').addEventListener('click', () => window.pilot.openExternal(state.notion.NOTION_ANSWERS_PAGE_ID));
-$('open-workspace').addEventListener('click', () => window.pilot.openExternal(state.notion.NOTION_MATCHES_DB));
+$('open-profile').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
+$('open-answers').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));
+$('open-workspace').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_MATCHES_DB, event.metaKey));
+
+// Sidebar: the Notion pages, most used first. Click opens them in the app's Notion window; ⌘-click in the browser.
+const NOTION_LINKS = [['NOTION_MATCHES_DB', '🎯 Job matches'], ['NOTION_APPLICATIONS_DB', '💠 Applications'],
+  ['NOTION_EVENTS_DB', '📈 Replies & events'], ['NOTION_INTERVIEWS_DB', '🎤 Interviews'], ['NOTION_INSIGHTS_DB', '💡 Insights'],
+  ['NOTION_PIPELINE_PAGE', '📊 Pipeline'], ['NOTION_PROFILE_PAGE_ID', '👤 Profile'], ['NOTION_ANSWERS_PAGE_ID', '📝 Standard answers'],
+  ['NOTION_EMPLOYERS_DB', '🌍 Employers'], ['NOTION_CRON_RUNS_DB', '⏱️ Search runs']];
+function renderNotionLinks() {
+  const box = $('notion-links');
+  box.querySelectorAll('.notion-link').forEach(link => link.remove());
+  const links = NOTION_LINKS.filter(([env]) => state.notion?.[env]);
+  show(box, links.length > 0);
+  for (const [env, label] of links) {
+    const link = Object.assign(document.createElement('button'), {className: 'notion-link', textContent: label,
+      title: `${state.notionTitles?.[env] || label} (⌘-click: open in your browser)`});
+    link.addEventListener('click', event => window.pilot.openNotion(state.notion[env], event.metaKey));
+    box.append(link);
+  }
+}
+renderNotionLinks();
 $('strategy-save').addEventListener('click', async () => {
   await window.pilot.saveProfileText({profile: $('strategy-profile').value, answers: $('strategy-answers').value});
   message('strategy-message', 'Saved ✓ New jobs are scored against it from the next search.', 'ok');
@@ -348,6 +367,7 @@ $('strategy-redo').addEventListener('click', () => { show($('app'), false); show
 
 async function loadSettings() {
   state = await window.pilot.state();
+  renderNotionLinks();
   showCloud();
   showSchedule();
   document.querySelectorAll('[data-secret]').forEach(line => {

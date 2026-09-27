@@ -81,6 +81,9 @@ details textarea { margin-top: 8px; }
 .sidebar .brand { color: #fff; padding-left: 8px; }
 .nav { -webkit-app-region: no-drag; background: transparent; color: #b9c8dc; text-align: left; font-size: 14px; padding: 9px 12px; }
 .nav.active { background: #1d3350; color: #fff; }
+.nav-group { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: #6f86a3; margin: 18px 0 4px 12px; }
+.notion-link { -webkit-app-region: no-drag; background: transparent; color: #b9c8dc; text-align: left; font-size: 13px; padding: 6px 12px; border-radius: 8px; }
+.notion-link:hover { background: #1d3350; color: #fff; }
 .sidebar-foot { margin-top: auto; color: #8fa3bb; padding-left: 8px; }
 main { overflow-y: auto; padding: 28px 32px; }
 .view-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }

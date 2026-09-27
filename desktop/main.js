@@ -34,6 +34,26 @@ function restartTelegram() {
   polling = telegram.startPolling(storage, log);
 }
 
+// Notion inside the app: its own window (Notion refuses to be shown in an iframe). The session is kept
+// (partition persist:notion), so the user signs in to Notion once; links to other sites open in the browser.
+let notionWindow = null;
+function openNotion(url) {
+  if (!/^https:\/\/(www\.)?notion\.(so|site)\//.test(url)) return shell.openExternal(url);
+  if (!notionWindow || notionWindow.isDestroyed()) {
+    notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Job Pilotto',
+      webPreferences: {partition: 'persist:notion', contextIsolation: true, sandbox: true}});
+    const outside = target => !/^https:\/\/([a-z0-9-]+\.)*notion\.(so|site|com)\//.test(target);
+    notionWindow.webContents.setWindowOpenHandler(({url: target}) => {
+      if (outside(target)) { shell.openExternal(target); return {action: 'deny'}; }
+      notionWindow.loadURL(target);
+      return {action: 'deny'};
+    });
+  }
+  notionWindow.loadURL(url);
+  notionWindow.show();
+  notionWindow.focus();
+}
+
 function createWindow() {
   window = new BrowserWindow({
     width: 1180, height: 820, minWidth: 900, minHeight: 640, title: 'Job Pilotto', show: !process.env.JOB_PILOTTO_SMOKE,
@@ -68,6 +88,7 @@ function handlers() {
     notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
     templateUrl: notion.TEMPLATE.template_url,
+    notionTitles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages},
   }));
   // Connect the user's copy of the Job Pilotto template: every database and page found, every column there.
   ipcMain.handle('notionConnect', async (_, pasted) => {
@@ -220,6 +241,7 @@ function handlers() {
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
+  ipcMain.handle('openNotion', (_, url, inBrowser) => (inBrowser ? shell.openExternal(url) : openNotion(url)));
   ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? path.join(pipeline.REPO, 'extension') : storage.dir));
   ipcMain.handle('extensionInfo', () => ({url: `http://127.0.0.1:${server.PORT}`, token: server.extensionToken(storage)}));
 }
