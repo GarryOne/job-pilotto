@@ -200,3 +200,6 @@ td:has(.badge-ineligible) { display: table-cell; }
 .question label small { font-weight: 400; color: var(--muted); }
 .question input { padding: 7px 9px; border: 1px solid #cfd8e3; border-radius: 8px; font: inherit; }
 .question .message { grid-column: 1 / -1; }
+.toasts { position: fixed; top: 16px; right: 16px; z-index: 50; display: grid; gap: 8px; width: 340px; }
+.toast { background: var(--navy); color: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(15,30,50,.3); display: grid; gap: 4px; cursor: pointer; font-size: 13px; }
+.toast b { font-size: 14px; } .toast small { color: #b9c8dc; }

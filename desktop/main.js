@@ -80,10 +80,16 @@ function createWindow() {
 
 const log = line => window?.webContents.send('log', line);
 // A macOS notification; clicking it brings the app to the front.
+// If macOS blocks notifications (common for an app run with npm start: "Electron" is off in System
+// Settings), the same message shows as a toast inside the window, with a one-time hint how to allow them.
+let notificationsBlocked = false;
 function notify(title, body) {
-  if (!Notification.isSupported() || process.env.JOB_PILOTTO_SMOKE) return;
+  if (process.env.JOB_PILOTTO_SMOKE) return;
+  const toast = hint => window?.webContents.send('toast', {title, body, hint});
+  if (!Notification.isSupported() || notificationsBlocked) { toast(false); return; }
   const note = new Notification({title, body, silent: false});
   note.on('click', () => { window?.show(); window?.focus(); });
+  note.on('failed', () => { const first = !notificationsBlocked; notificationsBlocked = true; toast(first); });
   note.show();
 }
 

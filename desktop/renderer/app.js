@@ -722,3 +722,14 @@ if (state.settings.setupDone) { show($('app')); loadJobs(); } else {
   const resume = state.settings.wizardStep || 'welcome';
   if (resume === 'draft') toDraft(); else goStep(resume);
 }
+
+// In-window notifications (when macOS blocks system ones).
+window.pilot.onToast(({title, body, hint}) => {
+  const toast = Object.assign(document.createElement('div'), {className: 'toast'});
+  toast.append(Object.assign(document.createElement('b'), {textContent: title}), Object.assign(document.createElement('span'), {textContent: body}));
+  if (hint) toast.append(Object.assign(document.createElement('small'), {textContent:
+    'macOS notifications are off for this app: System Settings → Notifications → Electron (or Job Pilotto) → Allow notifications.'}));
+  toast.addEventListener('click', () => toast.remove());
+  $('toasts').append(toast);
+  setTimeout(() => toast.remove(), hint ? 20000 : 8000);
+});
