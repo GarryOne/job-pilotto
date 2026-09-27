@@ -18,10 +18,11 @@
 <p class="hint">Stored only in this browser (chrome.storage.local). Your contact details never leave your computer; they're typed into forms you open.</p>
 
 <h2>Connection</h2>
-<label for="workerUrl">Worker URL</label>
+<p><button id="pair" type="button">Connect to the Job Pilotto app</button> <span id="pair-status"></span></p>
+<label for="workerUrl">Connection URL <small>(filled in by Connect; or your own Worker's URL)</small></label>
 <input id="workerUrl" placeholder="https://your-bot.your-subdomain.workers.dev">
-<label for="token">Extension token</label>
-<input id="token" type="password" placeholder="the EXTENSION_TOKEN Worker secret">
+<label for="token">Token</label>
+<input id="token" type="password" placeholder="filled in by Connect">
 <div class="hint">Both are in your setup summary (see extension/README.md).</div>
 
 <h2>Contact details for forms</h2>

@@ -67,3 +67,6 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   reply({ok: true});
   return false;
 });
+
+// Just loaded: open the settings page, which connects to the Job Pilotto Mac app by itself.
+chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install') chrome.runtime.openOptionsPage(); });

@@ -8,6 +8,25 @@ const showResume = () => { $('resume-current').textContent = resume ? `Stored: $
 showResume();
 $('workerUrl').value = stored.workerUrl || '';
 $('token').value = stored.token || '';
+
+// The Job Pilotto Mac app gives its connection to this extension only (it checks the extension's ID).
+const APP = 'http://127.0.0.1:47111';
+async function connectToApp(quiet) {
+  $('pair-status').textContent = 'Looking for the Job Pilotto app on this Mac…';
+  try {
+    const response = await fetch(`${APP}/extension/pair`);
+    if (!response.ok) throw new Error(`the app answered ${response.status}`);
+    const {url, token} = await response.json();
+    $('workerUrl').value = url;
+    $('token').value = token;
+    await chrome.storage.local.set({workerUrl: url, token});
+    $('pair-status').textContent = 'Connected to the Job Pilotto app ✓';
+  } catch (error) {
+    $('pair-status').textContent = quiet ? '' : `Couldn't reach the Job Pilotto app (${error.message}). Open the app, then try again.`;
+  }
+}
+$('pair').addEventListener('click', () => connectToApp(false));
+if (!stored.token) connectToApp(false);
 for (const key of PROFILE) $(key).value = stored.profile?.[key] || '';
 
 $('resume').addEventListener('change', async () => {

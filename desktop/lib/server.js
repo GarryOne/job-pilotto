@@ -8,6 +8,9 @@ import {handleExtension, jobKey} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
 
 export const PORT = 47111;
+// The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
+// connection token only to a request from this extension; web pages can't send its Origin.
+export const EXTENSION_ID = 'gpffoneapcfceflfmfgedkcfbommgcfk';
 
 export function extensionToken(storage) {
   let token = storage.secret('EXTENSION_TOKEN');
@@ -57,6 +60,12 @@ export function start(storage, onError = () => {}) {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);
       const body = chunks.length ? Buffer.concat(chunks) : undefined;
+      if (req.url === '/extension/pair') {
+        const ours = req.headers.origin === `chrome-extension://${EXTENSION_ID}`;
+        res.writeHead(ours ? 200 : 403, {'Content-Type': 'application/json', ...(ours ? {'Access-Control-Allow-Origin': req.headers.origin} : {})});
+        res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Job Pilotto extension can pair'}));
+        return;
+      }
       const request = new Request(`http://127.0.0.1:${PORT}${req.url}`, {
         method: req.method, headers: req.headers, ...(body && !['GET', 'HEAD'].includes(req.method) ? {body} : {}),
       });
