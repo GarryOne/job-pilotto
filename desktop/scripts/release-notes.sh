@@ -3,6 +3,7 @@
 # that touch what the app ships), plus install steps. Usage: release-notes.sh [commit] > notes.md
 set -euo pipefail
 sha=$(git rev-parse "${1:-HEAD}")
+cd "$(git rev-parse --show-toplevel)"  # the paths below are from the repo root (CI runs this from desktop/)
 repo=${GITHUB_REPOSITORY:-GarryOne/job-pilotto}
 max=40
 prev=$(git describe --tags --match 'desktop-v*' --abbrev=0 "$sha^" 2>/dev/null || true)
