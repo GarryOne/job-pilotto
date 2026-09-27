@@ -265,13 +265,20 @@ a measured accuracy or success-rate benchmark.
 | 🔍 Post-fill field audit | ⚠️ | ➖ | ➖ | ➖ | ✅ | ✅ | ➖ |
 | 📱 Mobile triage (Telegram buttons) | ✅ | ➖ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
 | 📋 Application tracking | ✅ | ➖ | ✅ | ✅ | ➖ | ➖ | ➖ |
+| 📬 Reads Gmail and Calendar to update each application | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ➖ |
+| 🗂️ Record of what was sent (questions, answers, CV version) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| 📊 Outcome analytics: funnel conversion, what to improve | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ⚠️ |
+| 🎤 Interview review from a transcript or notes | ✅ | ⚠️ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
+| 💸 Your own AI budget cap and health alerts | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | ✅ Marked applied automatically on submit | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | 🔔 Desktop notifications (started, ready, submitted) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | 🚀 High-volume unattended applying | ❌ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
 | 📈 Published cross-ATS fill-accuracy numbers | ❌ | ➖ | ➖ | ➖ | ⚠️ | ➖ | ➖ |
 
 Notes on the rows: Job-CoPilot.ai sends alerts rather than triage buttons; suxrobGM/jobpilot runs
-Claude or Codex; jsmastery-pro's [form-filling report](https://github.com/jsmastery-pro/JobPilot/blob/main/BROWSERBASE_REPORT.md)
+Claude or Codex, reads Gmail replies and shows pipeline analytics; JobCopilot.com (AI mock interviewer)
+and Job-CoPilot.ai (prep from the job description) help before an interview but don't review one that
+happened; arthurpanhku's dashboard shows success rates; jsmastery-pro's [form-filling report](https://github.com/jsmastery-pro/JobPilot/blob/main/BROWSERBASE_REPORT.md)
 documents wrong-field fills on external ATS forms; BhairavJShah's
 [autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py)
 submits when no doubts remain; arthurpanhku's
@@ -282,7 +289,7 @@ résumé attached; `python3 -m src.ai.apply_run --status` / `--report <URL>`), b
 aren't yet compared to their sources.
 
 **In short:** 🏆 Job Pilotto covers the most of the pipeline — discovery → scoring → kits → filling
-→ tracking — with you in control of every submission. 🥈 Hosted tools like JobCopilot.com win on
+→ tracking → learning from outcomes (Gmail replies, funnel, interview reviews) — with you in control of every submission. 🥈 Hosted tools like JobCopilot.com win on
 volume and unattended applying; they don't let you own the sources, scoring or final click.
 🧪 Other open-source projects worth borrowing from: [jlifeng/JobPilot](https://github.com/jlifeng/JobPilot)
 (editable CV variants), [adrianhajdin/job_pilot](https://github.com/adrianhajdin/job_pilot)
