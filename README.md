@@ -189,6 +189,12 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   email among the attendees) do the same; the evening before and the morning of an interview you get a
   prep message (time, link, who, topics you answered weakly before), and afterwards a nudge to send the
   transcript. Nothing in Gmail or Calendar is ever changed. Setup below.
+- 🎯 **Funnel and where to improve**: a 🎯 Pipeline page in Notion shows how many applications
+  reached each step (Prepared → Applied → Human reply → Screening → Interviews → Offer), the
+  conversion between steps and what is still open, plus a board of every application by Stage. A
+  "Where to improve" box names the step below its rule of thumb once at least 5 applications are
+  decided there (`src/notion/funnel.py`, refreshed by every scheduled run, no AI cost). The daily
+  insight gets the same numbers.
 - 🧭 **How you applied counts**: each application has a Channel (Direct, Recruiter platform, Agency,
   Referral) and Via (e.g. TechTree), detected from the job URL; Company always holds the real
   employer, even when a platform reveals it only later. Insights compare reply rates by channel and
@@ -198,7 +204,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 ### 🗂️ Tracking in Notion
 - 📋 Job Matches (every scored job, with its technologies and role family), Applications — Job
-  Tracker (with the frozen application record), 📈 Application Events, 🎤 Interviews, 💡 Insights, Employers & Sources.
+  Tracker (with the frozen application record), 📈 Application Events, 🎤 Interviews, 💡 Insights, 🎯 Pipeline (funnel), Employers & Sources.
 - 👤 Profile and Application Answers pages — the single source for the scorer, the kit drafter and
   every form filler. Answer a question once and it's reused on every form.
 
@@ -238,6 +244,12 @@ what to practise, every question marked ✅ strong · ➖ ok · ⚠️ weak with
 transcript.
 
 <img src="docs/images/notion-interview-review.png" alt="Interview review in Notion" width="495">
+
+**🎯 Pipeline** (Notion): conversion between funnel steps and the step to improve, refreshed by
+every scheduled run. Below it on the page (not shown): a board of every application by Stage and a
+live chart.
+
+<img src="docs/images/notion-pipeline.png" alt="Pipeline funnel in Notion" width="383">
 
 ## How Job Pilotto compares
 
@@ -287,6 +299,12 @@ still has form-fill and submit placeholders. Job Pilotto's audit is ⚠️: ever
 recorded with a page-derived verdict (guard on, required fields filled, no legal box ticked,
 résumé attached; `python3 -m src.ai.apply_run --status` / `--report <URL>`), but field *values*
 aren't yet compared to their sources.
+
+<p align="center">
+  <img src="docs/images/pipeline-coverage.png" width="100%"
+       alt="Job Pilotto pipeline: discover, score, prepare, fill, human review and submit, track, learn; outcomes feed back into your settings">
+</p>
+<sub>Diagram source: <a href="docs/images/pipeline-coverage.svg"><code>docs/images/pipeline-coverage.svg</code></a>.</sub>
 
 **In short:** 🏆 Job Pilotto covers the most of the pipeline — discovery → scoring → kits → filling
 → tracking → learning from outcomes (Gmail replies, funnel, interview reviews) — with you in control of every submission. 🥈 Hosted tools like JobCopilot.com win on
