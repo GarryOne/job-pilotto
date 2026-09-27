@@ -148,3 +148,8 @@ label.radio input { width: auto; margin-top: 3px; }
   border: 2px solid #cfd8e3; border-top-color: var(--signal); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .found .pending { color: var(--muted); }
+.progress { display: grid; gap: 10px; padding: 24px 0; max-width: 640px; }
+.progress-head { display: flex; align-items: center; gap: 10px; }
+.progress-head .muted { margin-left: auto; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar span { display: block; height: 100%; width: 2%; background: var(--signal); border-radius: 99px; transition: width .4s ease; }

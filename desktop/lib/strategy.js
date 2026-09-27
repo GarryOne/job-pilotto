@@ -42,11 +42,24 @@ Write:
 4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies they asked to skip (e.g. their current employer).
 5. summary: 2 to 3 plain sentences telling the user what you set up. open_questions: what they should still answer, short.`;
 
-export async function draft(storage, answers, apiKey, client = null) {
+// The draft streams in, in schema order; progress is how much of it has arrived and which part is being
+// written. The expected length starts at a typical draft and then follows this user's last one.
+export const TYPICAL_DRAFT_CHARS = 40000;
+const PARTS = [['"summary"', 'Writing the summary'], ['"profile_markdown"', 'Writing your Profile'],
+  ['"answers_markdown"', 'Writing your standard answers'], ['"open_questions"', 'Listing what to check'],
+  ['"search"', 'Choosing search settings'], ['"preferences"', 'Setting filters']];
+
+export function progress(text, expected = TYPICAL_DRAFT_CHARS) {
+  let part = 'Reading your CV';
+  for (const [key, label] of PARTS) if (text.includes(key)) part = label;
+  return {part, percent: Math.min(97, Math.round(text.length / expected * 100)), chars: text.length};
+}
+
+export async function draft(storage, answers, apiKey, client = null, onProgress = null) {
   const cv = fs.readFileSync(storage.path('cv.pdf'));
   const example = fs.readFileSync(path.join(REPO, 'config', 'search.json'), 'utf8');
   const anthropic = client || new Anthropic({apiKey});
-  const response = await anthropic.messages.create({
+  const request = {
     model: MODEL,
     max_tokens: 16000,
     system: INSTRUCTIONS,
@@ -55,10 +68,21 @@ export async function draft(storage, answers, apiKey, client = null) {
       {type: 'text', text: `<questionnaire>\n${JSON.stringify(answers, null, 2)}\n</questionnaire>\n\n<templates>\n${template()}\n</templates>\n\n<example_search_settings>\n${example}\n</example_search_settings>`},
     ]}],
     output_config: {format: {type: 'json_schema', schema: DRAFT_SCHEMA}},
-  });
+  };
+  let response;
+  const expected = storage.settings().draftChars || TYPICAL_DRAFT_CHARS;
+  if (onProgress && anthropic.messages.stream) {
+    const stream = anthropic.messages.stream(request);
+    stream.on('text', (_, snapshot) => onProgress(progress(snapshot, expected)));
+    response = await stream.finalMessage();
+  } else {
+    response = await anthropic.messages.create(request);
+  }
   if (response.stop_reason === 'refusal') throw new Error('Claude declined to read this CV');
   if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
-  const result = JSON.parse(response.content.find(block => block.type === 'text').text);
+  const text = response.content.find(block => block.type === 'text').text;
+  const result = JSON.parse(text);
+  storage.saveSettings({draftChars: text.length});  // the next estimate follows this draft
   const usage = response.usage || {};
   result.usd = Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
   return result;

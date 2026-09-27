@@ -111,7 +111,8 @@ function handlers() {
   });
   ipcMain.handle('draftStrategy', async (_, answers) => {
     storage.saveSettings({questionnaire: answers});
-    return strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'));
+    return strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
+      progress => window?.webContents.send('draftProgress', progress));
   });
   ipcMain.handle('saveStrategy', async (_, draft) => {
     strategy.save(storage, draft);

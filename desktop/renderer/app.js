@@ -94,6 +94,12 @@ window.pilot.onNotionProgress(({found, total, ids, titles}) => {
   }
 });
 
+window.pilot.onDraftProgress(({part, percent}) => {
+  $('draft-part').textContent = part;
+  $('draft-percent').textContent = `${percent}%`;
+  $('draft-bar').style.width = `${Math.max(2, percent)}%`;
+});
+
 function refreshCv() {
   $('cv-name').textContent = state.settings.cvName ? `✓ ${state.settings.cvName}` : 'No CV chosen yet';
   $('cv-next').disabled = !state.hasCv;
@@ -120,14 +126,23 @@ async function buildDraft() {
     return;
   }
   const answers = Object.fromEntries(Object.entries(QUESTIONS).map(([key, id]) => [key, $(id).value.trim()]));
+  // Progress while Claude writes: the part it's on, how much has arrived, and the time so far.
+  const started = Date.now();
+  $('draft-part').textContent = 'Reading your CV'; $('draft-percent').textContent = ''; $('draft-bar').style.width = '2%';
+  const clock = setInterval(() => {
+    const seconds = Math.round((Date.now() - started) / 1000);
+    $('draft-time').textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} so far. Usually 1 to 2 minutes; you can leave this window open and wait.`;
+  }, 1000);
   try {
     draft = await window.pilot.draftStrategy(answers);
   } catch (error) {
+    clearInterval(clock);
     show($('draft-loading'), false);
     $('draft-error').textContent = `Couldn't draft your strategy: ${error.message.replace(/^Error invoking remote method '[^']+': /, '')}`;
     show($('draft-error'));
     return;
   }
+  clearInterval(clock);
   show($('draft-loading'), false); show($('draft-view'));
   $('draft-summary').textContent = draft.summary;
   for (const id of ['chips-roles', 'chips-places', 'chips-queries', 'chips-languages']) $(id).replaceChildren();

@@ -130,3 +130,37 @@ test('pasted keys lose copy artefacts; look-alike letters from another layout ar
   assert.equal(value, undefined);
   assert.match(error, /Character 20 \("\u0415", U\+0415\)/);
 });
+
+test('strategy draft streams: progress names the part being written and grows to 100 only at the end', async () => {
+  const storage = tempStorage();
+  pipeline.ensureConfig(storage);
+  storage.writeText('cv.pdf', '%PDF-1.4 fake');
+  const text = JSON.stringify({summary: 'S'.repeat(120), profile_markdown: 'P'.repeat(400), answers_markdown: 'A'.repeat(300), open_questions: [],
+    search: {role_keywords: [], title_exclude_keywords: [], board_discovery_keywords: [], jobs_board_search_queries: [],
+      quality_stack_keywords: [], locations: {top_tier: [], country_wide: [], abroad: []}, remote_excluded_regions: [],
+      google_jobs: {queries: [], country: 'ch', locations: []}}, preferences: {disqualifying_languages: [], excluded_companies: []}});
+  const client = {messages: {stream: () => {
+    const handlers = [];
+    return {
+      on: (event, handler) => { if (event === 'text') handlers.push(handler); },
+      finalMessage: async () => {
+        for (let end = 50; end < text.length; end += 50) handlers.forEach(h => h('', text.slice(0, end)));
+        return {stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text}]};
+      },
+    };
+  }}};
+  const seen = [];
+  await strategy.draft(storage, {}, 'sk-ant-x', client, p => seen.push(p));
+  const parts = [...new Set(seen.map(p => p.part))];
+  assert.deepEqual(parts.slice(0, 3), ['Writing the summary', 'Writing your Profile', 'Writing your standard answers']);
+  assert.ok(seen.every((p, i) => i === 0 || p.percent >= seen[i - 1].percent));
+  assert.ok(seen.every(p => p.percent <= 97));
+  assert.equal(storage.settings().draftChars, text.length);  // the next draft's estimate
+});
+
+test('draft progress: part from the latest field, percent against the expected length', () => {
+  assert.deepEqual(strategy.progress('', 1000), {part: 'Reading your CV', percent: 0, chars: 0});
+  assert.equal(strategy.progress('{"summary":"x","profile_markdown":"' + 'y'.repeat(460), 1000).percent, 50);
+  assert.equal(strategy.progress('{"summary":"x","profile_markdown":"y","answers_markdown":"z', 1000).part, 'Writing your standard answers');
+  assert.equal(strategy.progress('x'.repeat(5000), 1000).percent, 97);
+});
