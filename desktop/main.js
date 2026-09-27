@@ -16,11 +16,15 @@ import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
+// profile and jobs for screenshots (scripts/screenshots.mjs). Nothing is contacted: no Python, Telegram,
+// GitHub or local server, and the keys in demo/secrets.json are placeholders stored unencrypted.
+const DEMO = !!process.env.JOB_PILOTTO_DEMO;
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build
 // (scripts/stage.mjs --app); without it this is a development copy (npm start).
 const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();
 const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null,
-  label: buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
+  label: DEMO ? app.getVersion() : buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
 let storage;
 let window;
 let polling = null;
@@ -127,6 +131,7 @@ function handlers() {
     return true;
   });
   ipcMain.handle('jobs', async () => {
+    if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
     // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
     const cloud = storage.settings().cloud;
     if (cloud?.repo && Date.now() - Date.parse(cloud.checkedAt || 0) > 5 * 60 * 1000) {
@@ -223,16 +228,20 @@ if (firstCopy) app.whenReady().then(() => {
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
-  storage = createStorage(app.getPath('userData'), safeStorageCrypto(safeStorage));
+  storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   pipeline.ensureConfig(storage);
   handlers();
-  server.start(storage, error => log(error.code === 'EADDRINUSE'
-    ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
-    : `Chrome extension connection failed: ${error.message}`));
+  if (!DEMO) {
+    server.start(storage, error => log(error.code === 'EADDRINUSE'
+      ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
+      : `Chrome extension connection failed: ${error.message}`));
+  }
   createWindow();
-  restartTelegram();
-  // Every 4 hours while the app is open (the digest goes to Telegram when there's something new).
-  startSchedule(storage, () => pipeline.refresh(storage, log, 'scheduled'), powerMonitor);
+  if (!DEMO) {
+    restartTelegram();
+    // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
+    startSchedule(storage, () => pipeline.refresh(storage, log, 'scheduled'), powerMonitor);
+  }
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });
 

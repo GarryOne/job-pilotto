@@ -97,6 +97,15 @@
   .leg { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 10px; align-content: start; }
   .leg-code { font: 600 .78rem var(--mono); color: var(--teal); letter-spacing: .1em; }
   .leg p { color: var(--muted); font-size: .95rem; }
+
+  .demo { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--line); background: #eef3f7;
+    box-shadow: 0 18px 50px rgba(15, 30, 50, .12); aspect-ratio: 1280 / 820; }
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 28px; }
+  .shots figure { margin: 0; display: grid; gap: 8px; }
+  .shots img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); }
+  .shots figcaption { color: var(--muted); font-size: .92rem; }
+  .shots-note { color: var(--muted); font-size: .82rem; margin-top: 18px; }
+  @media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
   @media (max-width: 900px) { .route { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 520px) { .route { grid-template-columns: 1fr; } }
 
@@ -159,6 +168,7 @@
     <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">✈</span>Job Pilotto</a>
     <div class="links">
       <a href="#how">How it works</a>
+      <a href="#see">See it</a>
       <a href="#checkin">Setup</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
@@ -222,6 +232,27 @@
         <p>Pick how many jobs to apply to; each form is filled for you. You check it and submit. Replies and interviews land in your Notion.</p>
       </article>
     </div>
+  </section>
+
+  <section class="block" id="see">
+    <div class="section-head">
+      <span class="eyebrow">See it</span>
+      <h2>A few minutes of setup, then it works on its own</h2>
+      <p class="lede">The Mac app walks you through it: your AI key, your Notion workspace, your CV and what you're looking for. It drafts your search strategy, then keeps working on your schedule.</p>
+    </div>
+    <video class="demo" src="images/app/walkthrough.mp4" poster="images/app/walkthrough-poster.jpg" autoplay muted loop playsinline controls
+      aria-label="Walkthrough of the Job Pilotto Mac app: setup steps, the job list and the schedule settings"></video>
+    <div class="shots">
+      <figure><img src="images/app/wizard-goals.png" loading="lazy" width="1600" height="1024" alt="Setup step: roles, places, languages, salary and notice period">
+        <figcaption>Say what you're looking for, in plain words.</figcaption></figure>
+      <figure><img src="images/app/wizard-strategy.png" loading="lazy" width="1600" height="1024" alt="Drafted strategy: roles, places, job board searches and hidden language requirements">
+        <figcaption>It drafts your strategy from your CV. Edit anything.</figcaption></figure>
+      <figure><img src="images/app/jobs.png" loading="lazy" width="1600" height="1024" alt="Job list with fit scores out of 100 and the reason for each">
+        <figcaption>Every job scored against your profile, with the reason.</figcaption></figure>
+      <figure><img src="images/app/schedule.png" loading="lazy" width="1600" height="1024" alt="Settings: how often to search, draft application kits, send insights, find new employers and check mail">
+        <figcaption>You choose how often each job runs, even with your Mac off.</figcaption></figure>
+    </div>
+    <p class="shots-note">Screens use a fictional candidate and fictional companies.</p>
   </section>
 
   <section class="block" id="checkin">

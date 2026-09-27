@@ -10,7 +10,8 @@
     "start": "electron .",
     "pretest": "node scripts/stage.mjs",
     "test": "node --test test/*.test.js",
-    "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never"
+    "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never",
+    "screenshots": "node scripts/stage.mjs && node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "electron": "^44.4.5",

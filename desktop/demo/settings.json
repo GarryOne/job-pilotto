@@ -1,0 +1,10 @@
+{
+  "setupDone": true,
+  "cvName": "CV_Alex_Morgan.pdf",
+  "telegramBot": "alex_jobpilot_bot",
+  "telegramChatId": 1,
+  "notionIds": {"NOTION_APPLICATIONS_DB": "demo", "NOTION_MATCHES_DB": "demo", "NOTION_PROFILE_PAGE_ID": "demo", "NOTION_ANSWERS_PAGE_ID": "demo"},
+  "lastSearchAt": "2099-01-01T08:30:00.000Z",
+  "schedule": {"search": 4, "kits": 3, "insights": "daily", "scout": "daily", "mail": 3},
+  "cloud": {"repo": "alexmorgan/job-pilotto-private"}
+}
