@@ -189,3 +189,10 @@ test('the strategy draft keeps the contact details it read from the CV; the exte
   assert.equal(Buffer.from(me.resume.data, 'base64').toString(), '%PDF-1.4 fake');
   assert.ok(strategy.DRAFT_SCHEMA.required.includes('contact'));
 });
+
+test('the window scripts parse (a syntax error leaves the app window blank)', async () => {
+  const {execFileSync} = await import('node:child_process');
+  for (const file of ['renderer/app.js', 'preload.cjs', 'main.js']) {
+    execFileSync(process.execPath, ['--check', new URL(`../${file}`, import.meta.url).pathname]);
+  }
+});

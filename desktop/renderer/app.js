@@ -294,14 +294,14 @@ function renderJobs() {
     if (job.reason) role.append(Object.assign(document.createElement('div'), {className: 'reason', textContent: job.reason}));
     // Open the job: its kit (answers, cover letter, verdict) on its Notion page, or the posting.
     const links = Object.assign(document.createElement('div'), {className: 'job-links'});
-    const link = (label, open, title) => {
+    const addLink = (label, open, title) => {
       const a = Object.assign(document.createElement('a'), {href: '#', textContent: label, title});
       a.addEventListener('click', event => { event.preventDefault(); open(event); });
       links.append(a);
     };
-    if (job.notion_url) link(job.kit ? '📝 Kit' : '🗂 Notion', event => window.pilot.openNotion(job.notion_url, event.metaKey),
+    if (job.notion_url) addLink(job.kit ? '📝 Kit' : '🗂 Notion', event => window.pilot.openNotion(job.notion_url, event.metaKey),
       job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion');
-    link('↗ Posting', () => window.pilot.openExternal(job.url), 'The job posting');
+    addLink('↗ Posting', () => window.pilot.openExternal(job.url), 'The job posting');
     role.append(links);
     const company = Object.assign(document.createElement('td'), {textContent: job.company});
     const place = Object.assign(document.createElement('td'), {textContent: job.location});
