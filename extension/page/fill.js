@@ -213,6 +213,19 @@
     return true;
   };
 
+  // Tick every visible terms/privacy/consent box and hand Submit to the user (the extension never submits).
+  const tickConsents = () => {
+    window.__jobPilottoHandOver?.();
+    const ticked = [];
+    for (const box of document.querySelectorAll('input[type=checkbox]')) {
+      const text = `${questionOf(box)} ${labelOf(box)}`;
+      if (!visible(box) || box.checked || !LEGAL.test(text)) continue;
+      box.click();
+      if (box.checked) ticked.push(clean(String(questionOf(box) || labelOf(box)).replace(/\S*(_|\[\])\S*/g, ' ')).slice(0, 90));
+    }
+    return ticked;
+  };
+
   const panel = summary => {
     document.getElementById('job-pilotto-panel')?.remove();
     const box = document.createElement('div');
@@ -230,7 +243,20 @@
     if (summary.todo.length) {
       add('Still yours to do:', 'color:#ffb224;margin-top:4px');
       for (const item of summary.todo) add(`• ${item}`);
-    } else add('Review everything, then Unlock and Submit.', 'color:#b9c8dc');
+    } else add('Review everything, then press Submit.', 'color:#b9c8dc');
+    // Consent boxes left: one click ticks them all and leaves Submit ready.
+    if (summary.todo.some(item => item.startsWith('Your choice (legal)'))) {
+      const tick = document.createElement('button');
+      tick.textContent = '✓ Tick these for me';
+      tick.style.cssText = 'margin:8px 8px 0 0;background:#d9540b;color:#fff;border:0;border-radius:5px;padding:5px 10px;cursor:pointer;font-weight:600';
+      tick.onclick = () => {
+        const ticked = tickConsents();
+        panel({...summary, filled: summary.filled + ticked.length,
+          todo: [...summary.todo.filter(item => !item.startsWith('Your choice (legal)')), ...ticked.map(t => `Ticked for you: ${t}`)]});
+      };
+      box.append(tick);
+      add('Always do this: extension Settings → "Tick terms and consent boxes for me".', 'color:#8fa3bb;font-size:11.5px;margin-top:4px');
+    }
     const close = document.createElement('button');
     close.textContent = 'Close';
     close.style.cssText = 'margin-top:8px;background:#fff;color:#132439;border:0;border-radius:5px;padding:4px 10px;cursor:pointer';
@@ -379,13 +405,8 @@
     const readable = text => clean(String(text || '').replace(/\S*(_|\[\])\S*/g, ' ')) || text;
     let consented = [];
     if (acceptConsents) {
-      window.__jobPilottoHandOver?.();  // releases the guard's consent block (and Submit, for the user)
-      for (const box of document.querySelectorAll('input[type=checkbox]')) {
-        const text = `${questionOf(box)} ${labelOf(box)}`;
-        if (!visible(box) || box.checked || !LEGAL.test(text)) continue;
-        box.click();
-        if (box.checked) { consented.push(readable(questionOf(box) || labelOf(box)).slice(0, 90)); filled += 1; }
-      }
+      consented = tickConsents();
+      filled += consented.length;
       for (const row of after) if (row.legal && consented.length) row.filled = row.filled || !!document.getElementById(row.field)?.checked;
     }
     const legal = [...after.filter(row => row.legal && !row.filled && !acceptConsents).map(row => `Your choice (legal): ${readable(row.label)}`),
