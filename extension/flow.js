@@ -106,7 +106,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // the kit was drafted, so no Claude call here; anything the kit missed is listed for the user.
   if (kitAnswers.length) useAI = false;
   if (useAI) {
-    const form = await inPage(tab.id, () => window.__jobPilottoDescribeForm());
+    const form = await inPage(tab.id, async () => [...await window.__jobPilottoDescribeForm(),
+      ...window.__jobPilottoCheckboxQuestions().map(g => ({field: `group:${g.question}`, label: g.question, type: 'checkbox-group', options: g.options}))]);
     step('read the form');
     debug.form = (form || []).map(({field, label, type, required, filled, legal, options}) =>
       ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));

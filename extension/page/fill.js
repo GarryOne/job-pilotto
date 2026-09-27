@@ -37,7 +37,7 @@
     const entries = [];
     for (const row of rows) {
       if (row.filled || row.legal || used.has(row.field) || !TEXT_TYPES.includes(row.type)) continue;
-      if (/preferred|middle|maiden|nick/i.test(row.label || '')) continue;
+      if (/middle|maiden|nick/i.test(row.label || '')) continue;  // "Preferred first name" = your first name
       const match = PROFILE_LABELS.find(([key, pattern]) => profile[key] && pattern.test(row.label || row.field));
       if (!match) continue;
       if (match[0] === 'full_name' && rows.some(r => /first\s*name/i.test(r.label))) continue;
@@ -166,6 +166,27 @@
     return match.checked;
   };
 
+  // A group of checkboxes that is one question ("How did you hear about us?": LinkedIn / Careers website / …):
+  // tick the option whose label best matches the answer (exact, then contained either way, then shared words).
+  const pickCheckboxOption = (question, answer) => {
+    const boxes = Array.from(document.querySelectorAll('input[type=checkbox]')).filter(b => questionOf(b) === question);
+    if (!boxes.length || LEGAL.test(question)) return null;
+    const want = norm(answer), words = want.split(/\W+/).filter(w => w.length > 3);
+    const score = b => { const l = norm(labelOf(b)); return l === want ? 3 : (l.includes(want) || want.includes(l)) ? 2 : words.some(w => l.includes(w)) ? 1 : 0; };
+    const best = boxes.reduce((a, b) => (score(b) > score(a) ? b : a), boxes[0]);
+    if (!score(best)) return false;
+    if (!best.checked) best.click();
+    return best.checked;
+  };
+  window.__jobPilottoCheckboxQuestions = () => {
+    const groups = {};
+    for (const b of document.querySelectorAll('input[type=checkbox]')) {
+      const q = questionOf(b);
+      if (q && visible(b)) (groups[q] ||= []).push(labelOf(b));
+    }
+    return Object.entries(groups).filter(([, options]) => options.length > 1).map(([question, options]) => ({question, options}));
+  };
+
   const setCheckbox = (field, answer) => {
     const box = document.getElementById(field) || document.querySelector(`input[type=checkbox][name="${CSS.escape(field)}"]`);
     if (!box || LEGAL.test(`${questionOf(box)} ${labelOf(box)}`)) return false;
@@ -243,7 +264,17 @@
   window.__jobPilottoExtensionFill = async (answers, profile, resume) => {
     if (!window.__jobPilottoGuardActive) return {error: 'The submit guard did not load; nothing was filled.'};
     const form = await window.__jobPilottoDescribeForm();
+    for (const group of window.__jobPilottoCheckboxQuestions()) {
+      form.push({field: `group:${group.question}`, question: group.question, label: group.question, type: 'checkbox-group', options: group.options,
+        filled: false, legal: LEGAL.test(group.question)});
+    }
     const rowOf = Object.fromEntries(form.map(row => [row.field, row]));
+    // Kit answers name fields as the job board does (question_123[]); a checkbox group is matched by its question.
+    for (const item of answers) {
+      if (rowOf[item.field] || !item.question) continue;
+      const group = form.find(row => row.type === 'checkbox-group' && norm(row.question) === norm(item.question));
+      if (group) item.field = group.field;
+    }
     const contact = window.__jobPilottoProfileEntries(form, profile || {});
     const contactFields = new Set(contact.map(entry => entry.field));
     const todo = [], review = [], armed = [];
@@ -265,6 +296,7 @@
       if (row.type === 'combobox') { if (armCombo(item.field, item.value)) armed.push(row.label); continue; }
       else if (row.type === 'radio') ok = pickRadio(item.field.slice(6), item.value);
       else if (row.type === 'checkbox') ok = setCheckbox(item.field, item.value);
+      else if (row.type === 'checkbox-group') ok = pickCheckboxOption(row.question, item.value);
       if (ok === true) filled += 1;
       if (ok === false) todo.push(`Pick "${item.value}" for: ${row.label}`);
       if (ok !== false && item.confidence && item.confidence !== 'high') {
@@ -290,7 +322,22 @@
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);
     const resumeAttached = resume?.data ? attachResume(resume) : false;
     await sleep(300);
-    const after = window.__jobPilottoAuditVisibleFields();
+    // One row per checkbox group (not per option); legal boxes named by their question, not their id.
+    const groupOf = new Map();
+    for (const b of document.querySelectorAll('input[type=checkbox]')) {
+      const q = questionOf(b);
+      if (q) groupOf.set(b.id || b.name, q);
+    }
+    const seenGroups = new Set();
+    const after = window.__jobPilottoAuditVisibleFields().flatMap(row => {
+      const q = row.type === 'checkbox' && groupOf.get(row.field);
+      if (!q) return [row];
+      const boxes = Array.from(document.querySelectorAll('input[type=checkbox]')).filter(b => questionOf(b) === q);
+      if (boxes.length < 2) return [{...row, label: q}];
+      if (seenGroups.has(q)) return [];
+      seenGroups.add(q);
+      return [{...row, field: `group:${q}`, label: q, filled: boxes.some(b => b.checked), required: boxes.some(b => b.required) || row.required}];
+    });
     const open = after.filter(row => row.required && !row.filled);
     if (open.some(row => row.field === 'resume') && !resumeAttached) todo.unshift('Upload your CV');
     const armedFields = new Set(answers.filter(a => rowOf[a.field]?.type === 'combobox').map(a => a.field));
