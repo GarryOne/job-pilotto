@@ -100,3 +100,19 @@ test('nothing shared at all: Connect stops after a short wait and says so', asyn
   assert.equal(result.ok, false);
   assert.equal(calls, 3);  // two waits, then the answer
 });
+
+test('rewriting a page skips blocks that are already gone and reports progress', async () => {
+  const notion = await import('../lib/notion.js');
+  const calls = [];
+  const fetcher = async (url, {method}) => {
+    calls.push(`${method} ${url.split('/v1/')[1]}`);
+    const reply = (status, body) => ({ok: status < 300, status, json: async () => body});
+    if (method === 'GET') return reply(200, {results: [{id: 'a'}, {id: 'b'}], has_more: false});
+    if (method === 'DELETE' && url.endsWith('/b')) return reply(400, {message: "Can't edit block that is archived."});
+    return reply(200, {});
+  };
+  const progress = [];
+  await notion.writePage('ntn_x', 'page', '# Title\n\nText', fetcher, (done, total) => progress.push(`${done}/${total}`));
+  assert.deepEqual(calls, ['GET blocks/page/children?page_size=100', 'DELETE blocks/a', 'DELETE blocks/b', 'PATCH blocks/page/children']);
+  assert.deepEqual(progress, ['1/3', '2/3', '3/3']);
+});

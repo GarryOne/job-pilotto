@@ -114,16 +114,22 @@ function handlers() {
     return strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
       progress => window?.webContents.send('draftProgress', progress));
   });
-  ipcMain.handle('saveStrategy', async (_, draft) => {
-    strategy.save(storage, draft);
-    // Notion is where the user reads and edits them from now on.
-    const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-    if (token && ids.NOTION_PROFILE_PAGE_ID) {
-      await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, draft.profile_markdown);
-      await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown);
-    }
-    storage.saveSettings({setupDone: true});
-    return true;
+  // One save at a time: a second click while Notion is being written joins the running save.
+  let saving = null;
+  ipcMain.handle('saveStrategy', (_, draft) => {
+    saving ||= (async () => {
+      strategy.save(storage, draft);
+      // Notion is where the user reads and edits them from now on.
+      const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
+      if (token && ids.NOTION_PROFILE_PAGE_ID) {
+        const report = page => (done, total) => window?.webContents.send('saveProgress', {page, done, total});
+        await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, draft.profile_markdown, undefined, report('Profile'));
+        await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
+      }
+      storage.saveSettings({setupDone: true});
+      return {ok: true};
+    })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
+    return saving;
   });
   ipcMain.handle('profileText', () => ({profile: storage.readText('profile.md'), answers: storage.readText('answers.md')}));
   ipcMain.handle('saveProfileText', (_, {profile, answers}) => {

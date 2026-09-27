@@ -100,6 +100,10 @@ window.pilot.onDraftProgress(({part, percent}) => {
   $('draft-bar').style.width = `${Math.max(2, percent)}%`;
 });
 
+window.pilot.onSaveProgress(({page, done, total}) => {
+  message('draft-save-message', `Writing your ${page} to Notion: ${Math.round(done / total * 100)}%`, 'waiting');
+});
+
 function refreshCv() {
   $('cv-name').textContent = state.settings.cvName ? `✓ ${state.settings.cvName}` : 'No CV chosen yet';
   $('cv-next').disabled = !state.hasCv;
@@ -162,7 +166,14 @@ async function buildDraft() {
 $('goals-next').addEventListener('click', buildDraft);
 $('draft-again').addEventListener('click', buildDraft);
 $('draft-save').addEventListener('click', async () => {
-  await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value});
+  // Writing the pages to Notion takes a while (one request per block): lock the buttons and show progress.
+  const buttons = [$('draft-save'), $('draft-again'), ...document.querySelectorAll('.step[data-step="draft"] [data-back]')];
+  buttons.forEach(button => { button.disabled = true; });
+  message('draft-save-message', 'Saving your strategy to Notion…', 'waiting');
+  const result = await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value});
+  buttons.forEach(button => { button.disabled = false; });
+  if (!result.ok) { message('draft-save-message', `${result.error} Your strategy is saved on this Mac; try Save again.`, 'error'); return; }
+  message('draft-save-message', 'Saved ✓', 'ok');
   state = await window.pilot.state();
   goStep('extras');
 });

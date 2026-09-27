@@ -133,7 +133,9 @@ export function markdownBlocks(text) {
 }
 
 // Replace a page's content with the Markdown (its old blocks go to Notion's trash, recoverable).
-export async function writePage(token, pageId, markdown, fetcher) {
+// Replace a page's content: delete its blocks, then append the new ones. onProgress(done, total) counts
+// both. A block that's already gone (e.g. removed by an earlier, interrupted save) is skipped.
+export async function writePage(token, pageId, markdown, fetcher, onProgress = () => {}) {
   let cursor;
   const old = [];
   do {
@@ -141,10 +143,21 @@ export async function writePage(token, pageId, markdown, fetcher) {
     old.push(...page.results);
     cursor = page.has_more ? page.next_cursor : null;
   } while (cursor);
-  for (const block of old) await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher);
   const blocks = markdownBlocks(markdown);
+  const batches = Math.ceil(blocks.length / 100);
+  const total = old.length + batches;
+  let done = 0;
+  for (const block of old) {
+    try {
+      await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher);
+    } catch (error) {
+      if (!(error.status === 404 || /archived/i.test(error.message))) throw error;
+    }
+    onProgress(++done, total);
+  }
   for (let i = 0; i < blocks.length; i += 100) {
     await call(token, 'PATCH', `blocks/${pageId}/children`, {children: blocks.slice(i, i + 100)}, fetcher);
+    onProgress(++done, total);
   }
   return blocks.length;
 }

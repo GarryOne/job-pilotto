@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),
   onDraftProgress: callback => ipcRenderer.on('draftProgress', (_, progress) => callback(progress)),
+  onSaveProgress: callback => ipcRenderer.on('saveProgress', (_, progress) => callback(progress)),
   onTelegramWaiting: callback => ipcRenderer.on('telegramWaiting', (_, username) => callback(username)),
   command: call('command'), chooseTranscript: call('chooseTranscript'), reviewInterview: call('reviewInterview'),
   cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'),
