@@ -90,6 +90,13 @@ export async function jobs(storage) {
   return JSON.parse(stdout.trim().split('\n').pop());
 }
 
+// One job's posting (title, company, description), for tailoring the CV to it.
+export async function posting(storage, code) {
+  const {code: exit, stdout} = await run(storage, ['src.desktop', 'posting', code]);
+  if (exit !== 0) throw new Error('Could not read the job posting');
+  return JSON.parse(stdout.trim().split('\n').pop());
+}
+
 // The same command .github/workflows/daily.yml runs for these inputs (mode, job, action, page, seed,
 // file, note), so Telegram buttons and commands work the same from the app as from the cloud.
 export function dailyArgs(storage, inputs = {}) {

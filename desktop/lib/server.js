@@ -2,6 +2,7 @@
 // Same endpoints and code as the Worker (worker/src/extension.js), with the user's local Profile,
 // keys from the Keychain-backed store, and the local job list. Only this computer can connect, and
 // every call still needs the extension token.
+import * as cv from './cv.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -103,12 +104,14 @@ async function learnFromRun(storage, run, job) {
 
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
 // the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
-export function me(storage) {
+// With the job page's URL (?url=), a CV tailored to that job is sent instead of the base one (same file name).
+export function me(storage, url = '') {
   const settings = storage.settings();
   let resume = null;
+  const tailored = url ? cv.forUrl(storage, url) : null;
   try {
-    const data = fs.readFileSync(storage.path('cv.pdf'));
-    resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64')};
+    const data = fs.readFileSync(tailored ? cv.pdfPath(storage, tailored.job.code) : storage.path('cv.pdf'));
+    resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
   } catch {}
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
   const knowledge = (settings.formKnowledge || []).filter(n => n.value && ['answer', 'option'].includes(n.kind));
@@ -176,14 +179,14 @@ export function start(storage, onError = () => {}) {
         }
         return;
       }
-      if (req.url === '/extension/me') {
+      if (req.url === '/extension/me' || req.url.startsWith('/extension/me?')) {
         const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
         // The browser's preflight (OPTIONS, sent because of the Authorization header) carries no token: answer it.
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? me(storage) : {error: 'Wrong token: open the extension settings and Connect again'}));
+        res.end(JSON.stringify(ok ? me(storage, new URL(req.url, 'http://x').searchParams.get('url') || '') : {error: 'Wrong token: open the extension settings and Connect again'}));
         return;
       }
       const request = new Request(`http://127.0.0.1:${PORT}${req.url}`, {

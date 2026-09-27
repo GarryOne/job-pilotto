@@ -153,7 +153,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
   }
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
-  const me = await api(config, '/extension/me').catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
+  const me = await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
   // Learned notes (🧠 Form knowledge) answer fields nothing else did, matched by label and site.
   const host = new URL(tab.url).hostname, company = (tab.url.match(/\/([\w-]+)\/jobs\//) || [])[1] || '';
   const answered = new Set(answers.map(a => a.field));
@@ -165,7 +165,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     if (note) { answers.push({field: field.field, value: note.value, source: 'form knowledge', question: field.label}); answered.add(field.field); }
   }
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
-  debug.details = {fields: Object.keys(me?.contact || {}), cv: me?.resume?.name || null};
+  debug.details = {fields: Object.keys(me?.contact || {}), cv: me?.resume?.name || null, tailoredCv: !!me?.resume?.tailored};
   const letter = coverLetter || ai?.cover_letter || '';
   const summary = await inPage(tab.id, (list, profile, resume, letter, consents) => window.__jobPilottoExtensionFill(list, profile, resume, letter, consents),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null, letter, config.acceptConsents === true]);

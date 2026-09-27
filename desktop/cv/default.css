@@ -1,0 +1,33 @@
+/* The default CV look: one clean column, Inter, the CV flowing over as many A4 pages as it needs.
+   A user's own cv/style.css replaces this file (the rules in template.js CORE always apply). */
+@page { margin: 16mm 16mm 14mm; }
+body { font-size: 9.5pt; color: #111; line-height: 1.32; }
+a { color: inherit; }
+.head { display: flex; flex-direction: column; gap: 9pt; margin-bottom: 4pt; }
+.name-row { display: flex; justify-content: space-between; align-items: flex-start; }
+.name { font-size: 22pt; font-weight: 600; letter-spacing: -0.2pt; }
+.loc { font-size: 10pt; color: #555; margin-top: 2pt; }
+.photo img { width: 48pt; height: 48pt; border-radius: 50%; object-fit: cover; }
+.links { display: flex; flex-wrap: wrap; gap: 3pt 14pt; font-size: 8.5pt; }
+.link { display: flex; align-items: center; gap: 4pt; }
+.link a { color: #1f5fa8; text-decoration: none; }
+.link img { width: 11pt; height: 11pt; object-fit: contain; }
+h2 { font-size: 12pt; font-weight: 700; border-bottom: 0.75pt solid #d8d8d8; padding-bottom: 2pt; margin: 6pt 0 5pt; }
+.summary p { font-size: 9.5pt; }
+.jobs { display: flex; flex-direction: column; gap: 9pt; }
+.job { display: flex; gap: 7pt; }
+.logo { width: 16pt; height: 16pt; flex: none; margin-top: 1pt; }
+.logo img { width: 100%; height: 100%; object-fit: contain; }
+.body { flex: 1; min-width: 0; }
+.role { break-inside: avoid; }
+.role + .role { margin-top: 6pt; }
+.row { display: flex; justify-content: space-between; gap: 10pt; }
+.title { font-size: 10.5pt; font-weight: 700; }
+.when { font-size: 8.5pt; color: #555; margin-top: 1pt; }
+.text { padding-top: 3pt; }
+.text p + ul, .text ul + p { margin-top: 3pt; }
+li { position: relative; padding-left: 10pt; margin-top: 1pt; }
+li::before { content: '•'; position: absolute; left: 1.5pt; }
+.skills { color: #333; }
+.section { margin-top: 8pt; break-inside: avoid; }
+.edu + .edu { margin-top: 4pt; }

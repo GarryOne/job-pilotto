@@ -212,3 +212,5 @@ td:has(.badge-ineligible) { display: table-cell; }
 .row-actions .state-apply { background: var(--signal); color: #fff; }
 .row-actions .state-apply:hover { filter: brightness(1.08); }
 .row-actions .state-opened { background: #e3f3f2; color: var(--teal); border-color: #a9d8d6; }
+.job-links a.busy-link { color: var(--muted, #6b7a8c); cursor: progress; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }

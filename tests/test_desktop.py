@@ -35,6 +35,13 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(result['jobs'][0]['title'], 'Site Reliability Engineer')
         json.dumps(result)
 
+    def test_posting_finds_a_job_by_its_code(self):
+        from src.notion.client import job_code
+        found = desktop.posting(self.db, job_code('https://x.test/1'))
+        self.assertTrue(found['ok'])
+        self.assertEqual((found['title'], found['company'], found['url']), ('Site Reliability Engineer', 'Acme', 'https://x.test/1'))
+        self.assertFalse(desktop.posting(self.db, 'nope0000')['ok'])
+
     def test_a_job_has_a_kit_when_its_notion_stage_is_kit_ready(self):
         self.assertFalse(desktop.jobs(self.db)['jobs'][0]['kit'])
         self.assertTrue(desktop.jobs(self.db, stages={'https://x.test/1': 'Kit ready'})['jobs'][0]['kit'])

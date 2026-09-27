@@ -3,6 +3,7 @@
 
     python -m src.desktop jobs [--limit 200]     ranked open jobs with fit score and application status
     python -m src.desktop status <URL> <status>  record an application status locally (applied, saved, dismissed)
+    python -m src.desktop posting <code>         one job's posting (title, company, description) for CV tailoring
 
 The app sets JOB_PILOTTO_CONFIG_DIR / JOB_PILOTTO_DATA_DIR / JOB_PILOTTO_PROFILE_FILE, so everything
 here reads and writes the user's own folder. Output is one JSON document on stdout.
@@ -52,6 +53,17 @@ def jobs(db, limit=200, stages=None):
     return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
 
 
+def posting(db, code):
+    """The job whose code (job_code of its URL) is given, with the posting text stored by the crawl."""
+    rows = db.execute("""SELECT jobs.title, jobs.url, jobs.location, jobs.description, companies.name company
+                          FROM jobs JOIN companies ON companies.id=jobs.company_id WHERE jobs.url IS NOT NULL""").fetchall()
+    for row in rows:
+        if job_code(row['url']) == code:
+            return {'ok': True, 'code': code, 'title': row['title'], 'company': row['company'], 'url': row['url'],
+                    'location': row['location'] or '', 'description': row['description'] or ''}
+    return {'ok': False, 'error': 'job not found'}
+
+
 NOTION_STAGES = {'saved': 'Saved', 'applied': 'Applied', 'dismissed': 'Dismissed'}
 
 
@@ -79,8 +91,12 @@ def main(argv=None):
     marking = sub.add_parser('status')
     marking.add_argument('url')
     marking.add_argument('status', choices=STATUSES)
+    sub.add_parser('posting').add_argument('code')
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
+        if args.command == 'posting':
+            print(json.dumps(posting(db, args.code), ensure_ascii=False))
+            return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()
         if args.command == 'jobs':

@@ -315,6 +315,24 @@ function renderJobs() {
         if (result.ok) loadJobs();
       }, 'Draft the kit again from your current Profile and standard answers (~20 s)');
     }
+    if (job.code) {
+      // A CV tailored to this posting (reworded, reordered bullets from your own CV; the extension uploads it here).
+      if (job.tailored) addLink('📄 Tailored CV', () => window.pilot.openTailoredCv(job.code), 'Your CV tailored to this job, with the changes highlighted');
+      addLink(job.tailored ? '↻ Re-tailor' : '✂️ Tailor CV', async event => {
+        const a = event.target;
+        if (a.dataset.busy) return;
+        a.dataset.busy = '1';
+        const label = a.textContent;
+        a.textContent = '✂️ Tailoring…';
+        a.classList.add('busy-link');
+        const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
+        delete a.dataset.busy;
+        a.classList.remove('busy-link');
+        a.textContent = result.ok ? label : '✂️ Retry tailoring';
+        if (!result.ok) a.title = result.error;
+        if (result.ok) { job.tailored = true; renderJobs(); }
+      }, 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, ~10–15¢)');
+    }
     role.append(links);
     const company = Object.assign(document.createElement('td'), {textContent: job.company});
     const place = Object.assign(document.createElement('td'), {textContent: job.location});
@@ -479,7 +497,33 @@ $('strategy-save').addEventListener('click', async () => {
 });
 $('strategy-redo').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('goals'); });
 
+async function loadCvSetting() {
+  const status = await window.pilot.cvStatus();
+  $('cv-state').textContent = status.base ? (status.custom ? 'Using your own design (style.css).' : 'Using the default design.')
+    : 'Not read yet: it happens the first time you tailor, or now.';
+  $('cv-view').hidden = !status.base;
+  $('cv-import').textContent = status.base ? 'Read my CV PDF again' : 'Read my CV PDF';
+}
+$('cv-view').addEventListener('click', async () => {
+  const result = await window.pilot.viewBaseCv();
+  $('cv-message').textContent = !result.ok ? result.error : result.overflow?.length ? `Page ${result.overflow.join(', ')} is too full: its end is cut off.` : '';
+});
+$('cv-import').addEventListener('click', async () => {
+  if ((await window.pilot.cvStatus()).base && !confirm('Replace your CV data (and any hand edits) with a fresh read of your CV PDF?')) return;
+  const button = $('cv-import');
+  button.disabled = true;
+  button.classList.add('busy');
+  $('cv-message').textContent = 'Reading your CV… (about 30 s)';
+  const result = await window.pilot.importCv();
+  button.disabled = false;
+  button.classList.remove('busy');
+  $('cv-message').textContent = result.ok ? `Done ($${result.usd.toFixed(2)}).` : result.error;
+  loadCvSetting();
+});
+$('cv-folder').addEventListener('click', () => window.pilot.showCvFolder());
+
 async function loadSettings() {
+  loadCvSetting();
   state = await window.pilot.state();
   const hints = await window.pilot.secretHints();
   for (const [id, name, empty] of [['set-anthropic', 'ANTHROPIC_API_KEY', 'sk-ant-…'], ['set-notion', 'NOTION_TOKEN', 'ntn_…'],
