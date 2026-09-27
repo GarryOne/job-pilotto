@@ -1,6 +1,6 @@
 // "Open & fill" from the popup's Ready to apply list: open the job, wait for it to load, fill it.
 // The result shows in a panel on the page (the popup has closed by then) and in the icon badge.
-import {fillTab, settings} from './flow.js';
+import {JOB_SITES, fillTab, settings} from './flow.js';
 
 function loaded(tabId) {
   return new Promise(resolve => {
@@ -126,3 +126,16 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 
 // Just loaded: open the settings page, which connects to the Job Pilotto Mac app by itself.
 chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install') chrome.runtime.openOptionsPage(); });
+
+// Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
+async function reportTabs() {
+  const config = await settings();
+  if (!config.workerUrl?.startsWith('http://127.0.0.1') || !config.token) return;
+  const urls = (await chrome.tabs.query({url: JOB_SITES})).map(tab => tab.url);
+  await fetch(`${config.workerUrl}/extension/tabs`, {method: 'POST', body: JSON.stringify({urls}),
+    headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'}}).catch(() => {});
+}
+chrome.tabs.onRemoved.addListener(() => reportTabs());
+chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });
+chrome.runtime.onStartup.addListener(reportTabs);
+reportTabs();

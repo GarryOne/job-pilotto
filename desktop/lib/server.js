@@ -68,6 +68,11 @@ export function me(storage) {
   return {contact: settings.contact || {}, resume};
 }
 
+// Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.
+let tabs = new Set();
+export const openTabs = () => [...tabs];
+export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
+
 export function start(storage, onError = () => {}) {
   const server = http.createServer(async (req, res) => {
     try {
@@ -78,6 +83,18 @@ export function start(storage, onError = () => {}) {
         const ours = req.headers.origin === `chrome-extension://${EXTENSION_ID}`;
         res.writeHead(ours ? 200 : 403, {'Content-Type': 'application/json', ...(ours ? {'Access-Control-Allow-Origin': req.headers.origin} : {})});
         res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Job Pilotto extension can pair'}));
+        return;
+      }
+      if (req.url === '/extension/tabs') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        if (ok) {
+          try { tabs = new Set((JSON.parse(body?.toString() || '{}').urls || []).map(pageKey)); } catch {}
+        }
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify({ok}));
         return;
       }
       if (req.url === '/extension/me') {

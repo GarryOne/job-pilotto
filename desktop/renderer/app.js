@@ -166,6 +166,8 @@ let wasRunning = false;
 setInterval(async () => {
   if ($('app').hidden) return;
   const {running} = await window.pilot.runs();
+  const tabs = new Set(await window.pilot.openTabs());
+  if (tabs.size !== openedInChrome.size || [...tabs].some(url => !openedInChrome.has(url))) { openedInChrome = tabs; renderJobs(); }
   if (wasRunning && !running) loadJobs();  // a search just finished: show its jobs
   wasRunning = !!running;
   showSearchStatus();
@@ -300,7 +302,9 @@ function openView(name) {
 }
 document.querySelectorAll('.nav').forEach(nav => nav.addEventListener('click', () => openView(nav.dataset.view)));
 
-const openedInChrome = new Set();  // jobs opened with Apply this session
+// Job pages open in Chrome now (reported by the extension; refreshed every 2 s), plus ones just opened here.
+let openedInChrome = new Set();
+const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
 function renderJobs() {
   const filter = $('filter-status').value;
@@ -340,13 +344,13 @@ function renderJobs() {
     if (job.status !== 'applied' && job.url && job.kit) {
       // The kit already answered this form: Chrome opens it and the extension fills it at once.
       // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
-      const opened = openedInChrome.has(job.url);
+      const opened = openedInChrome.has(pageKey(job.url));
       const apply = Object.assign(document.createElement('button'), {className: opened ? 'secondary' : 'primary',
         textContent: opened ? 'Opened in Chrome ↻' : 'Apply',
         title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
       apply.addEventListener('click', async () => {
         const result = await window.pilot.applyOne(job.url);
-        if (result.ok) { openedInChrome.add(job.url); renderJobs(); } else apply.textContent = 'No link';
+        if (result.ok) { openedInChrome.add(pageKey(job.url)); renderJobs(); } else apply.textContent = 'No link';
       });
       box.append(apply);
     } else if (job.status !== 'applied' && job.url && job.code) {
