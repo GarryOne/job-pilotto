@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
-export const MODELS = {enrich: 'claude-haiku-4-5', score: 'claude-sonnet-5', kit: 'claude-sonnet-5'};
+export const MODELS = {enrich: 'claude-haiku-4-5', score: 'claude-sonnet-5', kit: 'claude-sonnet-5', insight: 'claude-sonnet-5'};
 const DEFAULT_CONFIG = ['search.json', 'preferences.json', 'sources.json', 'scout_seeds.json'];
 
 // The repo's virtualenv has the anthropic package; otherwise the system python3.
@@ -52,6 +52,8 @@ export function pipelineEnv(storage, parent = process.env) {
     env.JOB_PILOTTO_ENRICH_MODEL = MODELS.enrich;
     env.JOB_PILOTTO_SCORE_MODEL = MODELS.score;
     env.JOB_PILOTTO_KIT_MODEL = MODELS.kit;
+    env.JOB_PILOTTO_INSIGHT_MODEL = MODELS.insight;
+    env.JOB_PILOTTO_MAIL_MODEL = MODELS.enrich;
   }
   if (settings.telegramChatId) env.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   for (const [key, value] of Object.entries(settings.notionIds || {})) if (value) env[key] = value;
@@ -82,16 +84,43 @@ export async function jobs(storage) {
   return JSON.parse(stdout.trim().split('\n').pop());
 }
 
-// Find new jobs: job boards, then employer feeds + Google Jobs, then AI facts and fit scores
-// when an Anthropic key is set. Messages go to onLine as the pipeline prints them.
-export async function refresh(storage, onLine) {
+// The same command .github/workflows/daily.yml runs for these inputs (mode, job, action, page, seed,
+// file, note), so Telegram buttons and commands work the same from the app as from the cloud.
+export function dailyArgs(storage, inputs = {}) {
+  const mode = inputs.mode || 'scheduled';
   const ai = !!storage.secret('ANTHROPIC_API_KEY');
-  onLine('Searching job boards (jobs.ch, TechTree)…');
-  await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
-  onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
-  const args = ['src', 'daily', '--mode', 'run', ...(ai ? ['--enrich-max', '100', '--score-max', '60'] : [])];
-  const {code} = await run(storage, args, onLine);
-  return {ok: code === 0};
+  const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId);
+  const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : [])];
+  if (inputs.job) args.push('--job', String(inputs.job), '--action', String(inputs.action || 'applied'));
+  if (inputs.page) args.push('--page', String(inputs.page));
+  if (inputs.seed) args.push('--seed', String(inputs.seed));
+  if (inputs.file) args.push('--file', String(inputs.file));
+  if (inputs.note) args.push('--note', String(inputs.note));
+  if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
+  if (ai && mode === 'scheduled') args.push('--insight');
+  return args;
+}
+
+// Crawls share one SQLite file: run them one at a time, like the workflow's concurrency group.
+let crawling = Promise.resolve();
+export function serial(task) {
+  const next = crawling.then(task, task);
+  crawling = next.catch(() => {});
+  return next;
+}
+
+// Find new jobs: job boards, then employer feeds + Google Jobs, AI facts and fit scores (with a key),
+// and the Telegram digest (when connected). mode 'scheduled' sends only when there's something new.
+export function refresh(storage, onLine, mode = 'run') {
+  return serial(async () => {
+    const ai = !!storage.secret('ANTHROPIC_API_KEY');
+    onLine('Searching job boards (jobs.ch, TechTree)…');
+    await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
+    onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
+    const {code} = await run(storage, dailyArgs(storage, {mode}), onLine);
+    storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchOk: code === 0});
+    return {ok: code === 0};
+  });
 }
 
 export async function setStatus(storage, url, status) {

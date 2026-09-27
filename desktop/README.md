@@ -43,8 +43,17 @@ in Settings) instead of a Cloudflare Worker; it reuses the same endpoint code
 - Tests: `npm test` (no Electron needed). Smoke test: `JOB_PILOTTO_USER_DATA=/tmp/pilot JOB_PILOTTO_SMOKE=/tmp/shot.png npx electron .`
   renders hidden, saves a screenshot and quits.
 
+## Automatic searches and Telegram
+
+- **Every 4 hours while the app is open** (and after the Mac wakes), it runs a search; the Settings
+  switch turns this off. "Open Job Pilotto when I log in" keeps it running.
+- **Telegram** uses the user's own bot (@BotFather → /newbot → paste the token → press Start). The app
+  sends the digest after each search and **long-polls** for taps and commands while it runs: no
+  webhook, no Cloudflare. The handling is the Worker's own code (`handleUpdate`), with a local
+  `dispatch` that runs the same pipeline command the GitHub workflow would (`lib/pipeline.js dailyArgs`).
+  A bot that already has a webhook (the cloud setup's bot) can't be used by the app.
+
 ## Not yet
 
-Telegram from the app (long polling, no webhook), scheduled searches while the app runs, local
-application kits (today kits live in Notion), meeting recording and transcription, a signed and
-notarised build.
+Interview recording and transcription in the app, local application kits (today kits live in
+Notion), a signed and notarised build.

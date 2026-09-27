@@ -278,7 +278,35 @@ async function loadSettings() {
   $('ext-url').textContent = ext.url;
   $('ext-token').textContent = ext.token;
   $('data-folder').textContent = state.folder;
+  $('auto-search').checked = state.settings.autoSearch !== false;
+  $('open-login').checked = !!state.settings.openAtLogin;
+  $('last-search').textContent = state.settings.lastSearchAt
+    ? `Last search: ${new Date(state.settings.lastSearchAt).toLocaleString()}${state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
+    : 'No search yet.';
+  if (state.settings.telegramBot && state.secrets.TELEGRAM_BOT_TOKEN) {
+    const line = document.querySelector('[data-secret="TELEGRAM_BOT_TOKEN"]');
+    line.textContent = `✓ Connected to @${state.settings.telegramBot}`;
+  }
 }
+$('set-telegram-save').addEventListener('click', async () => {
+  const value = $('set-telegram').value.trim();
+  if (!/^\d+:[\w-]{30,}$/.test(value)) { message('telegram-message', 'That doesn\'t look like a bot token (numbers, a colon, then letters).', 'error'); return; }
+  $('set-telegram-save').disabled = true;
+  message('telegram-message', 'Checking the token…');
+  const result = await window.pilot.telegramConnect(value);
+  $('set-telegram-save').disabled = false;
+  if (!result.ok) { message('telegram-message', result.error, 'error'); return; }
+  $('set-telegram').value = '';
+  message('telegram-message', `Connected to @${result.username} ✓ Matches arrive there after each search.`, 'ok');
+  loadSettings();
+});
+window.pilot.onTelegramWaiting(username => {
+  message('telegram-message', `Now open t.me/${username} in Telegram and press Start (waiting up to 2 minutes)…`);
+  window.pilot.openExternal(`https://t.me/${username}`);
+});
+$('auto-search').addEventListener('change', () => window.pilot.setAutomation({autoSearch: $('auto-search').checked}));
+$('open-login').addEventListener('change', () => window.pilot.setAutomation({openAtLogin: $('open-login').checked}));
+
 $('set-notion-save').addEventListener('click', async () => {
   const value = $('set-notion').value.trim();
   if (!value) return;

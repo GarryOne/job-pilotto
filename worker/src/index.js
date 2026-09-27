@@ -72,6 +72,8 @@ function github(env, path, init = {}) {
 }
 
 async function dispatch(env, inputs, workflow = env.WORKFLOW_FILE) {
+  // The desktop app runs the same pipeline locally instead of starting a GitHub workflow.
+  if (env.dispatch) return env.dispatch(inputs, workflow);
   const response = await github(env, `actions/workflows/${workflow}/dispatches`, {
     method: 'POST', body: JSON.stringify({ ref: 'main', inputs }),
   });
@@ -261,6 +263,7 @@ export async function handleCommand(env, command) {
       await dispatch(env, { batch: '15' }, 'scout.yml');
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';
     case 'status': {
+      if (env.status) return env.status(); // desktop app: its own recent searches
       const response = await github(env, `actions/workflows/${env.WORKFLOW_FILE}/runs?per_page=5`);
       if (!response.ok) throw new Error(`GitHub runs failed: ${response.status}`);
       return formatRuns((await response.json()).workflow_runs);
@@ -395,7 +398,7 @@ export async function handleAdd(env, text) {
   return '📥 Adding it to your applications; the confirmation arrives in about a minute.';
 }
 
-async function handleUpdate(env, update) {
+export async function handleUpdate(env, update) {
   if (update.callback_query) return handleButton(env, update.callback_query);
   const message = update.message;
   // Only the owner's private chat may control the bot; ignore everyone else silently.

@@ -1,10 +1,12 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, dialog, ipcMain, safeStorage, shell} from 'electron';
+import {app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, shell} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as notion from './lib/notion.js';
+import {startSchedule} from './lib/schedule.js';
+import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
@@ -13,6 +15,12 @@ import {createStorage, safeStorageCrypto} from './lib/storage.js';
 const here = path.dirname(new URL(import.meta.url).pathname);
 let storage;
 let window;
+let polling = null;
+
+function restartTelegram() {
+  polling?.stop();
+  polling = telegram.startPolling(storage, log);
+}
 
 function createWindow() {
   window = new BrowserWindow({
@@ -100,7 +108,27 @@ function handlers() {
     return true;
   });
   ipcMain.handle('jobs', () => pipeline.jobs(storage));
-  ipcMain.handle('refresh', () => pipeline.refresh(storage, log));
+  ipcMain.handle('refresh', () => pipeline.refresh(storage, log, 'run'));
+  // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
+  ipcMain.handle('telegramConnect', async (_, token) => {
+    try {
+      const bot = await telegram.api(token.trim(), 'getMe');
+      window?.webContents.send('telegramWaiting', bot.username);
+      const {chatId} = await telegram.pair(token.trim());
+      storage.setSecret('TELEGRAM_BOT_TOKEN', token.trim());
+      storage.saveSettings({telegramChatId: chatId, telegramBot: bot.username, telegramOffset: null});
+      restartTelegram();
+      return {ok: true, username: bot.username};
+    } catch (error) {
+      return {ok: false, error: error.code === 401 ? 'Telegram rejected this token. Copy it again from @BotFather.' : error.message};
+    }
+  });
+  ipcMain.handle('setAutomation', (_, patch) => {
+    const allowed = {};
+    if ('autoSearch' in patch) allowed.autoSearch = !!patch.autoSearch;
+    if ('openAtLogin' in patch) { allowed.openAtLogin = !!patch.openAtLogin; app.setLoginItemSettings({openAtLogin: allowed.openAtLogin}); }
+    return storage.saveSettings(allowed);
+  });
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
@@ -117,6 +145,9 @@ app.whenReady().then(() => {
   handlers();
   server.start(storage);
   createWindow();
+  restartTelegram();
+  // Every 4 hours while the app is open (the digest goes to Telegram when there's something new).
+  startSchedule(storage, () => pipeline.refresh(storage, log, 'scheduled'), powerMonitor);
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });
 

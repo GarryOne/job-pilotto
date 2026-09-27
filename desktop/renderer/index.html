@@ -160,6 +160,10 @@
         <button class="secondary" data-goto-settings="extension">Set up</button>
       </div>
       <div class="extra">
+        <div><h3>💬 Telegram</h3><p>Your best new matches on your phone after each search, with buttons to save, apply or dismiss.</p></div>
+        <button class="secondary" data-goto-settings="telegram">Set up</button>
+      </div>
+      <div class="extra">
         <div><h3>🔎 Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
         <button class="secondary" data-goto-settings="serpapi">Add key</button>
       </div>
@@ -228,6 +232,20 @@
           </ol></div>
         <div class="kv"><span>Connection URL</span><code id="ext-url"></code><button class="link" data-copy="ext-url">Copy</button></div>
         <div class="kv"><span>Token</span><code id="ext-token"></code><button class="link" data-copy="ext-token">Copy</button></div>
+      </div>
+      <div class="setting" id="setting-automation">
+        <div><h3>⏰ Automatic searches</h3><p class="muted small" id="last-search"></p></div>
+        <label class="radio"><input type="checkbox" id="auto-search"><span>Search for new jobs every 4 hours while Job Pilotto is open</span></label>
+        <label class="radio"><input type="checkbox" id="open-login"><span>Open Job Pilotto when I log in to my Mac</span></label>
+      </div>
+      <div class="setting" id="setting-telegram">
+        <div><h3>💬 Telegram</h3><p class="muted status-line" data-secret="TELEGRAM_BOT_TOKEN"></p>
+          <ol class="howto small">
+            <li>In Telegram, open <a href="#" data-link="https://t.me/BotFather">@BotFather</a> → <b>/newbot</b> → pick a name and a username ending in "bot" → copy the token it gives you.</li>
+            <li>Paste it here and click <b>Connect</b>, then open your new bot and press <b>Start</b> within 2 minutes.</li>
+          </ol></div>
+        <div class="inline"><input type="password" id="set-telegram" placeholder="123456789:AA…"><button class="secondary" id="set-telegram-save">Connect</button></div>
+        <p class="message" id="telegram-message"></p>
       </div>
       <div class="setting" id="setting-notion">
         <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
