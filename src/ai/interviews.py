@@ -20,7 +20,7 @@ import re
 import urllib.request
 
 from ..notion import client as notion
-from ..notion.ledger import add_event, plain
+from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
 from . import cost
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-sonnet-5')
@@ -201,6 +201,27 @@ def message(result, app, page_url, usd, truncated=False):
     return '\n'.join(lines)
 
 
+SCREEN = re.compile(r'screen|recruiter|talent|phone|intro', re.I)
+FUNNEL = ('Applying', 'Applied', 'No response', 'Confirmation received', 'Screening', 'Interview scheduled',
+          'Interviewing', 'Offer')
+
+
+def progress(tracker, app, result):
+    """Stage and event for a reviewed interview. A recruiter/screening round is Screening, anything later is
+    Interviewing. Stage only moves forward, and the event is skipped when one of that kind already exists
+    (a review is often sent days after the call, which was usually logged already)."""
+    kind = 'Screening' if SCREEN.search(result.get('round') or '') else 'Interviewing'
+    page = app['id'].replace('-', '')
+    logged = any(plain(e['properties'].get('Kind')) == kind
+                 for e in tracker.query_database(EVENTS_DATABASE_ID)
+                 if any(l['id'].replace('-', '') == page for l in (e['properties'].get('Application') or {}).get('relation', [])))
+    if not logged:
+        add_event(tracker, app, kind, 'Telegram', note=f"{result['round']}: {result['overall']}")
+    stage = plain(app['properties'].get('Stage'))
+    if stage in FUNNEL and FUNNEL.index(kind) > FUNNEL.index(stage):
+        tracker.update_page(app['id'], {'Stage': {'select': {'name': kind}}})
+
+
 def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_MODEL, client=None,
         now=None, opener=urllib.request.urlopen, stats=None):
     """Analyse one interview (a Telegram file, or notes text) and record it. Returns a log line."""
@@ -234,9 +255,7 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
         'properties': properties(result, app, now.date(), model, usd, bool(file_id)),
         'children': page_blocks(result, transcript)})
     if app:
-        add_event(tracker, app, 'Interviewing', 'Telegram', note=f"{result['round']}: {result['overall']}")
-        if plain(app['properties'].get('Stage')) in BEFORE_INTERVIEW:
-            tracker.update_page(app['id'], {'Stage': {'select': {'name': 'Interviewing'}}})
+        progress(tracker, app, result)
     if send:
         send(message(result, app, page.get('url', ''), usd, truncated))
     where = f"{plain(app['properties'].get('Company'))}" if app else 'unlinked'

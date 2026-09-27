@@ -51,6 +51,8 @@ class FakeTracker:
         self.apps, self.requests, self.updates, self.created = apps, [], [], []
 
     def query_database(self, database_id, filter_=None):
+        if database_id == ledger.EVENTS_DATABASE_ID:
+            return getattr(self, 'events', [])
         return self.apps
 
     def page_text(self):
@@ -138,6 +140,24 @@ class InterviewTests(unittest.TestCase):
         self.assertNotIn('Application', tracker.requests[0]['properties'])
         self.assertIn('not linked to an application', sent[0])
         self.assertEqual(tracker.created, [])
+
+    def test_a_screening_review_never_jumps_to_interviewing_or_duplicates_the_event(self):
+        global RESULT
+        original, RESULT = RESULT, dict(RESULT, application=0, round='Recruiter screen (via TechTree)')
+        try:
+            tracker = FakeTracker([app('l-1', 'Laelaps AI', 'Screening', '2026-09-23')])
+            tracker.events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
+                                              'Application': {'type': 'relation', 'relation': [{'id': 'l-1'}]}}}]
+            interviews.run(tracker, note='/interview Laelaps screening\n' + 'Notes about the call. ' * 5,
+                           client=FakeClient(), now=NOW)
+            self.assertEqual((tracker.updates, tracker.created), ([], []))  # already at Screening, already logged
+            tracker = FakeTracker([app('a-1', 'Acme', 'Confirmation received', '2026-09-23')])
+            interviews.run(tracker, note='/interview Acme screen\n' + 'Notes about the call. ' * 5,
+                           client=FakeClient(), now=NOW)
+            self.assertEqual(tracker.updates, [('a-1', {'Stage': {'select': {'name': 'Screening'}}})])
+            self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Screening'}})
+        finally:
+            RESULT = original
 
     def test_refuses_audio_and_empty_notes(self):
         with self.assertRaises(ValueError):
