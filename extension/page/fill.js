@@ -65,6 +65,12 @@
   const matchOption = answer => {
     const want = norm(answer);
     const options = optionNodes();
+    // "Geneva, Switzerland": an option naming every part (Geneva … Switzerland), when only one does.
+    const parts = want.split(/\s*,\s*/).filter(Boolean);
+    if (parts.length > 1) {
+      const all = options.filter(o => parts.every(part => norm(o.textContent).includes(part)));
+      if (all.length >= 1) return all[0];
+    }
     const exact = options.filter(o => norm(o.textContent) === want);
     if (exact.length === 1) return exact[0];
     const starts = options.filter(o => norm(o.textContent).startsWith(want));
@@ -130,10 +136,10 @@
         if (!option) {
           // Long menus (countries, cities) show only their first entries: type the answer to filter,
           // which the menu accepts once your click has opened it.
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, answer);
+          // Search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, answer.split(',')[0].trim());
           el.dispatchEvent(new Event('input', {bubbles: true}));
-          await sleep(250);
-          option = matchOption(answer);
+          for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
         }
         if (option) { option.click(); done(); }
         else badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`;
@@ -247,6 +253,12 @@
       if (ok !== false && item.confidence && item.confidence !== 'high') {
         review.push(`Check: ${row.label}${item.note ? ` (${item.note})` : ''}`);
       }
+    }
+    const answered = new Set(answers.map(a => a.field));
+    for (const row of form) {
+      if (row.type !== 'combobox' || row.filled || row.legal || answered.has(row.field)) continue;
+      const [key] = PROFILE_LABELS.find(([name, pattern]) => profile?.[name] && pattern.test(row.label || row.field)) || [];
+      if (key && armCombo(row.field, String(profile[key]))) { armed.push(row.label); answers.push({field: row.field, value: profile[key], source: 'your details'}); }
     }
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);
     const resumeAttached = resume?.data ? attachResume(resume) : false;

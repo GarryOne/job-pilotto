@@ -30,7 +30,11 @@ export async function clickCombos(tabId) {
         const at = attempt === 1 ? spot : await page(n => window.__jobPilottoNextCombo(n), [skip]);
         if (!at) break;
         await click(at.x, at.y);
-        await new Promise(r => setTimeout(r, 900));  // the page opens the menu, filters it and picks the answer
+        // The page opens the menu, filters it and picks the answer (search fields wait for server suggestions).
+        for (let waited = 0; waited < 5000; waited += 300) {
+          await new Promise(r => setTimeout(r, 300));
+          if ((await page(() => window.__jobPilottoArmedCount())) < before) break;
+        }
         picked = (await page(() => window.__jobPilottoArmedCount())) < before;
         if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 200)); }  // close the menu
       }
@@ -124,6 +128,11 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     }
   }
   onStep('Filling the form…');
+  if (!debug.form) {  // filled from the kit: still record the form as read, for the run log
+    const seen = await inPage(tab.id, () => window.__jobPilottoDescribeForm()).catch(() => []);
+    debug.form = (seen || []).map(({field, label, type, required, filled, legal, options}) =>
+      ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
+  }
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
   const me = await api(config, '/extension/me').catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
