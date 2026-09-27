@@ -383,6 +383,12 @@
           <p class="muted small">Your Job Pilotto workspace. To reconnect, paste your connection's API token again (<a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>).</p></div>
         <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div>
       </div>
+      <div class="setting" id="setting-google">
+        <div><h3>📧 Gmail and Calendar</h3><p class="muted status-line" id="google-status">Checking…</p>
+          <p class="muted small">Read-only. Tracks replies and interviews, and lets Apply with Claude read a sign-up's confirmation email. Nothing is ever sent or changed.</p></div>
+        <div class="inline"><button class="secondary" id="google-connect">Connect Google</button></div>
+        <p class="message" id="google-message"></p>
+      </div>
       <div class="setting" id="setting-serpapi">
         <div><h3>🔎 Google Jobs (SerpApi)</h3><p class="muted status-line" data-secret="SERPAPI_API_KEY"></p>
           <p class="muted small">Free plan at <a href="#" data-link="https://serpapi.com/users/sign_up">serpapi.com</a>: 250 searches a month.</p></div>
@@ -405,10 +411,10 @@
     <input id="apply-n" type="number" min="1" max="10" value="3">
     <fieldset>
       <legend>How to fill them</legend>
-      <label class="radio"><input type="radio" name="apply-mode" value="chrome" checked>
-        <span><b>In Chrome with the extension</b><br><span class="muted">Opens each job as a tab. Click ✈️ → Fill with AI on each form, review, submit. Seconds per form.</span></span></label>
       <label class="radio"><input type="radio" name="apply-mode" value="agents">
-        <span><b>AI agent sessions</b><br><span class="muted">One Claude session per job in Terminal, as today. Slower (minutes per form); needs Claude Code and Notion.</span></span></label>
+        <span><b>Apply with Claude</b> <span class="badge-recommended">Recommended</span><br><span class="muted">One Claude session per job in Terminal, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
+      <label class="radio"><input type="radio" name="apply-mode" value="chrome">
+        <span><b>Fill in Chrome with the extension</b><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
     </fieldset>
     <p class="message" id="apply-message"></p>
     <div class="actions"><button class="ghost" value="cancel">Close</button><button class="primary" id="apply-go" value="default">Start</button></div>

@@ -297,6 +297,19 @@ function handlers() {
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
   ipcMain.handle('apply', (_, options) => apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
+  ipcMain.handle('applyWithClaude', (_, url) => apply.claudeOne(storage, url));
+  ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
+  // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
+  // The token lives in the Keychain, where the Python side (src/sources/google.py) reads it.
+  ipcMain.handle('googleStatus', async () => {
+    const {stdout} = await pipeline.run(storage, ['src.sources.google', 'status']);
+    try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return {connected: false}; }
+  });
+  ipcMain.handle('googleConnect', async () => {
+    const lines = [];
+    const {code} = await pipeline.run(storage, ['src.sources.google', 'auth'], line => lines.push(line));
+    return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
+  });
   ipcMain.handle('openTabs', () => server.openTabs());
   ipcMain.handle('extensionSeen', () => server.extensionSeen());
   ipcMain.handle('openQuestions', () => storage.settings().openQuestions || []);

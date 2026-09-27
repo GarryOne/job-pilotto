@@ -270,6 +270,9 @@ document.querySelectorAll('.nav').forEach(nav => nav.addEventListener('click', (
 
 // Job pages open in Chrome now (reported by the extension; refreshed every 2 s), plus ones just opened here.
 let openedInChrome = new Set();
+// Apply with Claude: offered (and recommended) when Claude Code is installed and Notion is connected.
+let claudeReady = false;
+const claudeStarted = new Set();
 const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
 function renderJobs() {
@@ -355,14 +358,31 @@ function renderJobs() {
       // The kit already answered this form: Chrome opens it and the extension fills it at once.
       // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
       const opened = openedInChrome.has(pageKey(job.url));
-      const apply = Object.assign(document.createElement('button'), {className: `row-main ${opened ? 'state-opened' : 'state-apply'}`,
-        textContent: opened ? 'Opened in Chrome ↻' : 'Apply',
+      const fill = Object.assign(document.createElement('button'), {
+        className: claudeReady ? `secondary${opened ? ' state-opened' : ''}` : `row-main ${opened ? 'state-opened' : 'state-apply'}`,
+        textContent: opened ? 'Opened in Chrome ↻' : claudeReady ? 'Fill in Chrome' : 'Apply',
         title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
-      apply.addEventListener('click', async () => {
+      fill.addEventListener('click', async () => {
         const result = await window.pilot.applyOne(job.url);
-        if (result.ok) { openedInChrome.add(pageKey(job.url)); renderJobs(); } else apply.textContent = 'No link';
+        if (result.ok) { openedInChrome.add(pageKey(job.url)); renderJobs(); } else fill.textContent = 'No link';
       });
-      box.append(apply);
+      if (claudeReady) {
+        // Recommended: a Claude session drives Chrome from the posting through the employer's site
+        // (its own Apply buttons, sign-up, every page) to a filled form; it asks you for CAPTCHAs.
+        const started = claudeStarted.has(pageKey(job.url));
+        const claude = Object.assign(document.createElement('button'), {className: `row-main ${started ? 'state-opened' : 'state-apply'}`,
+          textContent: started ? 'Claude is applying' : 'Apply with Claude', disabled: started,
+          title: started ? 'A Claude session is filling this one in Terminal: answer it there' :
+            'Recommended. Claude opens the posting in Chrome, follows Apply to the employer\'s site, creates an account there ' +
+            'if it asks (password saved in your Keychain) and fills every page from your kit. You solve CAPTCHAs, tick the terms and submit.'});
+        claude.addEventListener('click', async () => {
+          claude.disabled = true;
+          const result = await window.pilot.applyWithClaude(job.url);
+          if (result.ok) { claudeStarted.add(pageKey(job.url)); renderJobs(); } else { claude.disabled = false; claude.textContent = 'Not ready'; claude.title = result.error; }
+        });
+        box.append(claude);
+      }
+      box.append(fill);
     } else if (job.status !== 'applied' && job.url && job.code) {
       // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).
       const prepare = Object.assign(document.createElement('button'), {className: 'row-main state-prepare', textContent: 'Prepare',
@@ -417,6 +437,7 @@ async function loadQuestions() {
 
 async function loadJobs() {
   loadQuestions();
+  claudeReady = (await window.pilot.claudeReady().catch(() => ({ok: false}))).ok;
   try {
     const data = await window.pilot.jobs();
     allJobs = data.jobs;
@@ -449,7 +470,11 @@ $('refresh').addEventListener('click', async () => {
   }
 });
 
-$('apply-open').addEventListener('click', () => { message('apply-message', ''); $('apply-dialog').showModal(); });
+$('apply-open').addEventListener('click', () => {
+  message('apply-message', '');
+  document.querySelector(`input[name="apply-mode"][value="${claudeReady ? 'agents' : 'chrome'}"]`).checked = true;
+  $('apply-dialog').showModal();
+});
 $('apply-go').addEventListener('click', async event => {
   event.preventDefault();
   const mode = document.querySelector('input[name="apply-mode"]:checked').value;
@@ -540,6 +565,7 @@ async function loadSettings() {
     line.textContent = set ? '✓ Connected' : 'Not set';
     line.classList.toggle('on', set);
   });
+  showGoogle();
   const ext = await window.pilot.extensionInfo();
   showExtensionStatus();
   $('ext-url').textContent = ext.url;
@@ -698,6 +724,20 @@ window.pilot.onTelegramWaiting(username => {
 $('auto-search').addEventListener('change', () => window.pilot.setAutomation({autoSearch: $('auto-search').checked}));
 $('open-login').addEventListener('change', () => window.pilot.setAutomation({openAtLogin: $('open-login').checked}));
 
+async function showGoogle() {
+  const google = await window.pilot.googleStatus().catch(() => ({connected: false}));
+  $('google-status').textContent = google.connected ? `✓ Connected as ${google.email}` : google.error ? 'Sign-in expired: connect again' : 'Not connected';
+  $('google-status').classList.toggle('on', !!google.connected);
+  $('google-connect').textContent = google.connected ? 'Reconnect' : 'Connect Google';
+}
+$('google-connect').addEventListener('click', async () => {
+  $('google-connect').disabled = true;
+  message('google-message', 'Finish the sign-in in your browser (Google may call the app unverified: Advanced → Go to Job Pilotto).');
+  const result = await window.pilot.googleConnect();
+  $('google-connect').disabled = false;
+  message('google-message', result.ok ? 'Connected ✓' : result.error, result.ok ? 'ok' : 'error');
+  showGoogle();
+});
 $('set-notion-save').addEventListener('click', async () => {
   const value = $('set-notion').value.trim();
   if (!value) return;

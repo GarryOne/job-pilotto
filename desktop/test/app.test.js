@@ -257,3 +257,23 @@ test('fill reports: mechanical failures only, form structure only, each site + f
   assert.ok(!JSON.stringify(sent).includes('Geneva, Switzerland'));  // no answers
   assert.equal(await reports.send(storage, run, fetcher), null);  // already reported for this site
 });
+
+test('Apply with Claude needs Claude Code and Notion, then starts one Terminal session for the job', () => {
+  const storage = tempStorage();
+  const calls = [];
+  const open = (...args) => { calls.push(args); return {unref() {}}; };
+  assert.match(apply.claudeOne(storage, 'https://www.jobs.ch/en/vacancies/detail/1/', open, () => '').error, /Claude Code/);
+  assert.match(apply.claudeOne(storage, 'https://www.jobs.ch/en/vacancies/detail/1/', open, () => '/usr/local/bin/claude').error, /Notion/);
+  storage.setSecret('NOTION_TOKEN', 'ntn_test');
+  assert.equal(apply.claudeOne(storage, '', open, () => '/usr/local/bin/claude').ok, false);
+  assert.equal(calls.length, 0);
+  assert.deepEqual(apply.claudeOne(storage, 'https://www.jobs.ch/en/vacancies/detail/1/#top', open, () => '/usr/local/bin/claude'), {ok: true});
+  assert.match(calls[0][0], /tools\/apply-batch-claude\.sh$/);
+  assert.deepEqual(calls[0][1], ['https://www.jobs.ch/en/vacancies/detail/1/']);
+});
+
+test('claude is found outside the shell PATH, where the installer puts it', () => {
+  const found = apply.claudeBinary({PATH: '/usr/bin'}, file => file === '/opt/homebrew/bin/claude');
+  assert.equal(found, '/opt/homebrew/bin/claude');
+  assert.equal(apply.claudeBinary({PATH: ''}, () => false), '');
+});

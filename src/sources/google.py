@@ -31,11 +31,12 @@ import secrets
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from email.utils import parsedate_to_datetime
 
@@ -155,6 +156,43 @@ def body_text(payload):
     return re.sub(r'[ \t\xa0]+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
 
 
+# ---------- sign-up confirmation (Apply with Claude) ----------
+
+CODE = re.compile(r'(?<![\w/#-])(?=[A-Z0-9]*\d)[A-Z0-9]{4,8}(?![\w/-])')
+CONFIRM_LINK = re.compile(r'https?://[^\s<>"\')\]]+', re.I)
+CONFIRM_WORDS = re.compile(r'verif|confirm|activat|validat|register|token|code|otp', re.I)
+
+
+def confirmation(email):
+    """The verification code and confirm links in one email: only what finishing a sign-up needs."""
+    text = f"{email['subject']}\n{email['body']}"
+    near = (CODE.search(m.group(0)) for m in re.finditer(r'(?i)(code|pin|otp|password)[^\n]{0,60}', text))
+    code = next((c for c in near if c), None) or CODE.search(email['subject'])
+    links = [link.rstrip('.,;') for link in CONFIRM_LINK.findall(email['body']) if CONFIRM_WORDS.search(link)]
+    return {'from': email['from'], 'subject': email['subject'], 'date': email['date'],
+            'code': code.group(0) if code else '', 'links': list(dict.fromkeys(links))[:3]}
+
+
+def wait_for_confirmation(google, sender='', minutes=15, wait=180, every=10, sleep=time.sleep):
+    """Newest email from the last `minutes` (from `sender`, a domain or address, if given) that has a
+    code or a confirm link; polls for up to `wait` seconds while the site sends it. None if none came."""
+    query = f'newer_than:1d{f" from:{sender}" if sender else ""}'
+    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    for attempt in range(max(1, wait // every + 1)):
+        for message_id in google.search(query, limit=10):
+            email = google.message(message_id)
+            try:
+                recent = datetime.fromisoformat(email['date']) >= since
+            except ValueError:
+                recent = True
+            found = confirmation(email) if recent else None
+            if found and (found['code'] or found['links']):
+                return found
+        if attempt * every < wait:
+            sleep(every)
+    return None
+
+
 # ---------- one-time sign-in ----------
 
 def authorize(client_id, client_secret, open_browser=webbrowser.open):
@@ -257,7 +295,27 @@ def main(argv=None):
                       help="your own app is published ('In production'): the sign-in doesn't expire after 7 days")
     sub.add_parser('setup', help='guided: create your own Google app (project, APIs, consent screen, client) and sign in')
     sub.add_parser('check', help='show which account is connected and what it can see')
+    sub.add_parser('status', help='one JSON line for the Mac app: connected, and which Gmail')
+    verify = sub.add_parser('verify', help="wait for a sign-up's confirmation email; print its code and confirm link")
+    verify.add_argument('--from', dest='sender', default='', help="sender domain or address, e.g. the employer's careers host")
+    verify.add_argument('--minutes', type=int, default=15, help='only emails from the last N minutes (default 15)')
+    verify.add_argument('--wait', type=int, default=180, help='keep checking for up to N seconds (default 180)')
     args = parser.parse_args(argv)
+    if args.command == 'status':
+        google = Google.from_env()
+        try:
+            print(json.dumps({'connected': True, 'email': google.profile()['emailAddress']} if google else {'connected': False}))
+        except Exception as error:  # expired or revoked sign-in: the app offers Connect again
+            print(json.dumps({'connected': False, 'error': str(error)[:200]}))
+        return 0
+    if args.command == 'verify':
+        google = Google.from_env()
+        if not google:
+            print('Gmail is not connected (python -m src.sources.google auth).', file=sys.stderr)
+            return 2
+        found = wait_for_confirmation(google, args.sender, args.minutes, args.wait)
+        print(json.dumps(found or {'error': 'no confirmation email yet'}))
+        return 0 if found else 1
     if args.command == 'setup':
         from . import google_setup
         return google_setup.run()

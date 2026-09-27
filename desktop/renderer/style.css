@@ -214,3 +214,6 @@ td:has(.badge-ineligible) { display: table-cell; }
 .row-actions .state-opened { background: #e3f3f2; color: var(--teal); border-color: #a9d8d6; }
 .job-links a.busy-link { color: var(--muted, #6b7a8c); cursor: progress; animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
+.badge-recommended { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 700;
+  background: var(--signal-soft, #fdeee4); color: #a3470f; vertical-align: 1px; }
+.row-actions .row-main:disabled { cursor: default; }

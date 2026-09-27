@@ -72,8 +72,13 @@ in that file next time — keep evolving it.
   always left for the owner to check themselves, even when the kit supplies an answer for them —
   it's the owner's agreement to make, not something to assert on their behalf. (Adopted 25 Sep 2026
   after observing this as a hard rule in a Codex desktop-app comparison run — see Log.)
-- Never fill passwords or create accounts (Workday, SuccessFactors, Taleo ask for one): stop and
-  hand over to the owner.
+- **Employer accounts: sign up or sign in yourself, but never see the password.** (Owner decision
+  28 Sep 2026, replacing "never create accounts": Apply with Claude has to get from a job board
+  through the employer's sign-up to the form.) Generate it into the Keychain, paste it from the
+  clipboard, clear the clipboard; never type it, echo it, screenshot it with Show on, or write it
+  anywhere else. Steps: "Reaching the form" below.
+- Clicking **Apply now / Create account / Sign in / Next / Save and continue** to reach or move
+  through the form is fine; the final **Submit / Send application** never is.
 - CAPTCHA or "verify you are human": the owner solves it. Never try to bypass it.
 - Contact details (email, phone, address) come from the CV PDF at apply time. Do not store them
   in Notion, the repo or memory.
@@ -190,6 +195,8 @@ in that file next time — keep evolving it.
    location restriction the owner can't meet, is worth showing before opening the form.
 2. **Open the form** in a new Chrome tab (claude-in-chrome). Greenhouse: the form is on the job
    page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the description.
+   A job board's page (jobs.ch, TechTree) or a careers page with only an Apply button: see
+   "Reaching the form".
 3. **Map fields in one JS pass**: list `form input, textarea` with `id`, `type`, `role`,
    `aria-required` and label text. Match kit answers by `field` (= element id; strip `[]`).
    **Keep the returned JSON compact** (short keys, truncate label text to ~60-80 chars, no
@@ -308,6 +315,48 @@ in that file next time — keep evolving it.
      GitHub Action polling Greenhouse instead; not built, since the owner is normally present to
      review and click Submit anyway.
    Then add anything new to **Platform notes** / **Log** below and commit.
+
+## Reaching the form (job boards, employer sites, accounts) — 28 Sep 2026
+The kit's URL is often not the form. Get there in as few steps as possible, one `browser_batch`
+per page where you can:
+1. **Job board page** (jobs.ch, TechTree, …): click its Apply button. It may open the employer's
+   careers page in a **new tab**: re-read the tabs (`tabs_context_mcp`) and carry on there.
+   Example: jobs.ch → `careers.<employer>/job/<title>/<id>/?utm_source=jobsch` (SuccessFactors
+   career site) → its own **Apply now »** → "Career Opportunities: Sign In".
+2. **Sign-in page.** Check the Keychain first (`<host>` = the sign-in page's hostname):
+   `security find-generic-password -a job-pilotto -s "job-pilotto.<host>.password" >/dev/null 2>&1 && echo have`
+   - **Have one:** email from the CV, password pasted as in step 3.
+   - **None:** follow "Create an account" / "Register" / "Not a registered user yet?".
+3. **Create the account.** Fill name, email, phone, country from the CV/Profile as for any form.
+   Password in one Bash call (16 chars with every class: sites often cap at 16–20 and want upper,
+   lower, digit and symbol):
+   ```
+   host=<host>; pw="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 12)Aa1!"
+   security add-generic-password -U -a job-pilotto -s "job-pilotto.$host.password" -l "Job Pilotto: $host" -w "$pw"
+   printf %s "$pw" | pbcopy; unset pw; echo stored job-pilotto.$host.password
+   ```
+   Click the password field, `cmd+v`; the confirm field, `cmd+v`; then `pbcopy </dev/null`. Check
+   with the audit (`filled: true`), never by reading the value. To sign in later:
+   `security find-generic-password -a job-pilotto -s "job-pilotto.$host.password" -w | pbcopy`,
+   paste, clear. If the site rejects the password, regenerate to the rule it shows (same item;
+   `-U` overwrites) and paste again. Security questions and optional profile fields: answer from
+   the Profile/Application Answers like any field; leave them for the owner only when no source has them.
+4. **Confirmation email:** don't ask the owner. Read it from Gmail (read-only, connected in the
+   app's Settings → Gmail and Calendar):
+   `python3 -m src.sources.google verify --from <employer domain> --wait 180`
+   prints one JSON line with `code` and `links` (nothing else from the mailbox). Type the code, or
+   `navigate` to the link, then carry on. Exit 1 = nothing came: retry once without `--from` (some
+   ATSs send from their own domain, e.g. successfactors.com); exit 2 = Gmail not connected: then ask the owner.
+5. **The owner's turn:** CAPTCHA ("I'm not a robot"), terms checkboxes.
+   Fill everything else first, run `tools/notify.sh <job url> "Needs your input — see Terminal"`,
+   say in one line exactly what to do in Chrome ("tick I'm not a robot and the terms box, then
+   reply ok") and wait. Never try to solve or bypass a CAPTCHA. After the reply, click Create
+   account / Sign in and continue. Account exists but no Keychain item: use the site's "Forgot
+   password" to the owner's email and ask the owner for the reset link, or ask them to sign in.
+6. **After sign-in** the site usually lands on the application or a profile step; on a dashboard,
+   open the job again from the careers page and press Apply. Fill page by page (Next / Save and
+   continue is fine), audit each page before leaving it, and stop at the review or Submit page.
+7. In the hand-over, name the account item (`job-pilotto.<host>.password`) so the owner can find it.
 
 ## Full automatic flow (25 Sep 2026)
 
@@ -527,8 +576,11 @@ would, no menu, no portal, no animation to wait for.
 ### Workable, Personio, SmartRecruiters
 - Not yet seen. Record ids, widget types and what worked the first time.
 ### Workday, SuccessFactors, Taleo
-- Account per employer, multi-page. Owner logs in; fill page by page from the kit; never create
-  accounts.
+- Account per employer, multi-page. Sign in or sign up as in "Reaching the form"; the owner does
+  the CAPTCHA and terms. Fill page by page from the kit.
+- SuccessFactors career sites (`careers.<employer>/job/...`): the job page's **Apply now »** leads to
+  "Career Opportunities: Sign In" with a visible reCAPTCHA checkbox; "Create an account" is a link
+  below the sign-in form. Not yet filled end to end: record the sign-up and form field ids here.
 
 ## Efficiency
 - Batch: one JS call to map, one to fill text, try the fast path for each dropdown, then
@@ -566,6 +618,10 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-28 · process · Owner: the extension can't get past job board Apply → employer site →
+  Apply now → sign-up (jobs.ch → a SuccessFactors career site). Apply with Claude (Desktop App row
+  button, recommended) does it now: "Reaching the form" added; "never create accounts" replaced by
+  sign-up with a Keychain-generated password pasted from the clipboard.
 - 2026-09-26 · Greenhouse · Grafana Labs Staff SWE Databases SRE (re-fill) · fiber keys were visible this
   time and `selectViaOnSelect()` returned ok for all 5 dropdowns, but 4 of them (every `question_<n>`
   Yes/No + bot-check) rendered empty afterwards — only the phone `country` kept its value. What worked:
