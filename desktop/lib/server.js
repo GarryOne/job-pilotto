@@ -71,14 +71,20 @@ export function localEnv(storage) {
 // the extension and mirror them to the user's 🧠 Form knowledge page in Notion (kits read that page).
 async function learnFromRun(storage, run, job) {
   const apiKey = storage.secret('ANTHROPIC_API_KEY');
-  if (!apiKey || !(run.trace || []).some(f => f.outcome !== 'filled')) return;
+  if (!apiKey) return;
   const settings = storage.settings(), token = storage.secret('NOTION_TOKEN'), ids = settings.notionIds || {};
+  const studied = settings.formKnowledgeStudied || {};
+  const fresh = learn.newFields(run, studied, settings.formKnowledge || []);
+  if (!fresh.length) return;  // this site's fields were already studied: no AI call
   const env = {NOTION_TOKEN: token};
   const [profile, answers] = token ? await Promise.all([
     ids.NOTION_PROFILE_PAGE_ID ? pageText(env, ids.NOTION_PROFILE_PAGE_ID).catch(() => '') : '',
     ids.NOTION_ANSWERS_PAGE_ID ? pageText(env, ids.NOTION_ANSWERS_PAGE_ID).catch(() => '') : '']) :
     [storage.readText('profile.md'), storage.readText('answers.md')];
-  const {notes, usd} = await learn.learn({run, profile, answers, contact: settings.contact || {}, known: settings.formKnowledge || [], apiKey});
+  const {notes, usd} = await learn.learn({run, profile, answers, contact: settings.contact || {}, known: settings.formKnowledge || [], studied, apiKey});
+  const site = learn.siteOf(run.url);
+  // Remember what was studied, learned or not (a missing personal fact won't be retried; it's in Answer once).
+  storage.saveSettings({formKnowledgeStudied: {...studied, [site]: [...new Set([...(studied[site] || []), ...fresh.map(f => learn.labelKey(f.label))])]}});
   if (!notes.length) return;
   storage.saveSettings({formKnowledge: learn.merge(storage.settings().formKnowledge, notes)});
   if (token && ids.NOTION_PROFILE_PAGE_ID) {

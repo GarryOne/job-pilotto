@@ -229,3 +229,13 @@ test('form knowledge: learned notes merge per site and field, and read as prompt
   const nothing = await learn.learn({run: {url: 'https://x.io/a', trace: [{label: 'Email', outcome: 'filled'}]}, client, apiKey: 'x'});
   assert.equal(nothing.notes.length, 0);  // nothing left: no AI call
 });
+
+test('form knowledge is per site: fields already studied there are not sent to the AI again', async () => {
+  const learn = await import('../lib/learn.js');
+  const run = {url: 'https://job-boards.greenhouse.io/twilio/jobs/1', trace: [
+    {label: 'Pronouns', outcome: 'left', reason: 'no answer'}, {label: 'Consent', outcome: 'left', reason: 'legal/consent: always your choice'}]};
+  assert.equal(learn.newFields(run).length, 1);
+  assert.equal(learn.newFields(run, {'job-boards.greenhouse.io': ['pronouns']}).length, 0);  // studied on this site
+  assert.equal(learn.newFields({...run, url: 'https://jobs.lever.co/x/1'}, {'job-boards.greenhouse.io': ['pronouns']}).length, 1);
+  assert.equal(learn.newFields(run, {}, [{scope: 'any', field: 'Pronouns'}]).length, 0);  // a note already covers it
+});

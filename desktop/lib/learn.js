@@ -14,7 +14,7 @@ const MAX_NOTES = 300;
 const object = properties => ({type: 'object', additionalProperties: false, required: Object.keys(properties), properties});
 export const SCHEMA = object({
   notes: {type: 'array', items: object({
-    scope: {type: 'string', description: 'Where it applies: the job site host (e.g. job-boards.greenhouse.io), a company, or "any"'},
+    scope: {type: 'string', description: 'Where it applies: the job site host given (default), or "any" if it holds on every site'},
     field: {type: 'string', description: 'The field label exactly as on the form'},
     kind: {type: 'string', enum: ['answer', 'option', 'widget', 'meaning']},
     value: {type: 'string', description: 'For answer/option: the exact value or option label to use; else ""'},
@@ -32,6 +32,17 @@ Write short reusable notes that let the next fill complete these fields, ONLY fr
 Never invent personal facts (salary, dates, identity, eligibility) that the given material doesn't state; skip those fields.
 Never write notes about legal or consent checkboxes. No notes if nothing is reusable. Keep each note under 25 words.`;
 
+export const labelKey = label => String(label || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+export const siteOf = url => { try { return new URL(url).hostname; } catch { return ''; } };
+
+// Per site, not per job page: only fields this site hasn't been studied for yet go to the AI (30 Greenhouse
+// forms share their widgets and questions). `studied` = {site: [label keys already sent]}.
+export function newFields(run, studied = {}, known = []) {
+  const site = siteOf(run.url);
+  const seen = new Set([...(studied[site] || []), ...known.filter(n => n.scope === 'any' || site.includes(n.scope)).map(n => labelKey(n.field))]);
+  return (run.trace || []).filter(f => f.outcome !== 'filled' && !/legal|consent/i.test(f.reason || '') && !seen.has(labelKey(f.label)));
+}
+
 export const knowledgeKey = note => `${note.scope}|${note.field}`.toLowerCase().replace(/\s+/g, ' ').trim();
 
 // Merge new notes into the stored list (a newer note for the same scope + field replaces the older one).
@@ -44,8 +55,8 @@ export function merge(existing, notes) {
 // The notes as text for AI prompts (kits, on-page answers).
 export const asText = notes => (notes || []).map(n => `- [${n.scope}] ${n.field}: ${n.note}${n.value ? ` → "${n.value}"` : ''}`).join('\n');
 
-export async function learn({run, profile = '', answers = '', contact = {}, known = [], apiKey, client = null}) {
-  const left = (run.trace || []).filter(f => f.outcome !== 'filled' && !/legal|consent/i.test(f.reason || ''));
+export async function learn({run, profile = '', answers = '', contact = {}, known = [], studied = {}, apiKey, client = null}) {
+  const left = newFields(run, studied, known);
   if (!left.length) return {notes: [], usd: 0};
   const labels = new Set(left.map(f => f.label));
   const form = (run.debug?.form || []).filter(f => labels.has(f.label) || left.some(l => (f.label || '').includes(l.label)));
