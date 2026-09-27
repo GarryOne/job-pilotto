@@ -85,11 +85,13 @@ export async function cachedAI(tab) {
 }
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
-export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true, coverLetter = ''} = {}) {
+// jobUrl: the posting the kit belongs to, when the form lives elsewhere (a job board's Apply led to the employer's site).
+export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true, coverLetter = '', jobUrl = ''} = {}) {
   const startedAt = new Date();
-  chrome.storage.session.set({[`job:${tab.id}`]: tab.url.split('#')[0]});
+  const job = (jobUrl || tab.url).split('#')[0];
+  chrome.storage.session.set({[`job:${tab.id}`]: job, [`from:${tab.id}`]: job});
   const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
-    body: JSON.stringify({type, url: tab.url.split('#')[0], ...extra})}).catch(() => {});
+    body: JSON.stringify({type, url: job, ...extra})}).catch(() => {});
   event('fill-started');
   const withKit = kitAnswers.length > 0;
   // Everything about this fill, for debugging and improving the extension (saved with the run in Notion).
@@ -202,7 +204,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   }
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
-  api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], started: startedAt.toISOString(),
+  api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: job, started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,
     kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], debug: {...debug, aiUsd: ai?.usd || 0}})})
     .then(logged => logged?.url && chrome.storage.session.set({[`run:${tab.id}`]: logged.url})).catch(() => {});

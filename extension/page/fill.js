@@ -28,6 +28,8 @@
   const LEGAL = /\b(i agree|i accept|terms|privacy|consent\w*|acknowledg\w*|certif\w*|affirm\w*|i confirm i have read|i have read and understood)\b/i;
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\*\s*$/, '').trim();
   const norm = text => clean(text).toLowerCase();
+  // Audit labels can repeat themselves (label text + aria-label): "First Name First Name" -> "First Name".
+  const once = text => clean(text).replace(/^(.+?)\s+\1$/i, '$1');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
 
@@ -375,7 +377,8 @@
         items.push(`Answer: ${q || row.label}`);
         continue;
       }
-      items.push(`Answer: ${clean(row.label).replace(row.field, '').trim() || row.field}`);
+      const name = once(clean(row.label).replace(row.field, '')) || row.field;
+      items.push(el?.type === 'file' || row.type === 'file' ? `Upload: ${name}` : `Answer: ${name}`);
     }
     for (const label of attention.values()) items.push(`Read: ${label}`);
     const kept = (liveBase?.todo || []).filter(item => /^(Check|Ticked for you|Tip):/.test(item));
@@ -520,7 +523,7 @@
     if (open.some(row => row.field === 'resume') && !resumeAttached) todo.unshift('Upload your CV');
     const armedFields = new Set(answers.filter(a => rowOf[a.field]?.type === 'combobox').map(a => a.field));
     for (const row of open.filter(r => r.field !== 'resume' && !r.legal && !armedFields.has(r.field))) {
-      todo.push(`Answer: ${rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field}`);
+      todo.push(`Answer: ${once(rowOf[row.field]?.label || clean(row.label).replace(row.field, '')) || row.field}`);
     }
     const readable = text => clean(String(text || '').replace(/\S*(_|\[\])\S*/g, ' ')) || text;
     let consented = [];

@@ -20,7 +20,9 @@ test('manifest asks for activeTab, alarms, debugger, scripting and storage, and 
   // permissions they needed a prompt that closed the popup, and nothing filled).
   assert.deepEqual(manifest.host_permissions, ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
     'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*']);
-  assert.equal(manifest.optional_host_permissions, undefined);
+  // Every other site only through Settings → Work on every job site (asked from the options tab, which stays open).
+  assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
+  assert.match(read('extension/options.js'), /chrome\.permissions\.request\(EVERY_SITE\)/);
   assert.equal(manifest.optional_permissions, undefined);
 });
 

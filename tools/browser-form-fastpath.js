@@ -32,7 +32,8 @@
     return window.__jobPilottoSteps.length;
   };
   window.__jobPilottoFillKnownFields = entries => {
-    if (!window.__jobPilottoGuardActive) return {error: 'submit guard is inactive'};
+    // The Chrome extension turns the guard off on purpose (it never clicks Submit itself).
+    if (!window.__jobPilottoGuardActive && !window.__jobPilottoNoGuard) return {error: 'submit guard is inactive'};
     window.__jobPilottoStep('fill known fields');
     const filled = [], skipped = [];
     for (const item of entries) {

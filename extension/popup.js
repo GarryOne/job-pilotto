@@ -67,7 +67,7 @@ async function fill(options) {
   tick();
   const timer = setInterval(tick, 1000);
   try {
-    const result = await fillTab(tab, config, {kitAnswers: kit?.answers || [], coverLetter: kit?.cover_letter || '', ...options, onStep: text => { step = text; tick(); }});
+    const result = await fillTab(tab, config, {jobUrl, kitAnswers: kit?.answers || [], coverLetter: kit?.cover_letter || '', ...options, onStep: text => { step = text; tick(); }});
     clearInterval(timer);
     status('');
     if (result.ineligible) {
@@ -154,13 +154,15 @@ async function load() {
   if (onPage) {
     $('actions').hidden = false;
     try {
-      const data = await api(config, `/extension/kit?url=${encodeURIComponent(tab.url)}`);
+      // A form reached from a job board's Apply belongs to the posting that tab came from.
+      const from = (await chrome.storage.session.get(`from:${tab.id}`))[`from:${tab.id}`];
+      const data = await api(config, `/extension/kit?url=${encodeURIComponent(from || tab.url)}`);
       $('job').hidden = false;
       $('job-title').textContent = data.job.title || 'Untitled job';
       $('job-company').textContent = data.job.company || '';
       $('job-stage').textContent = data.job.stage || 'No stage';
       kit = data.kit;
-      jobUrl = data.job.url || tab.url;
+      jobUrl = data.job.url || from || tab.url;
       $('job-answers').textContent = kit ? `${kit.answers.length} drafted answers` : 'no kit yet';
       $('fill-kit').hidden = !kit;
       $('copy-letter').hidden = !kit?.cover_letter;

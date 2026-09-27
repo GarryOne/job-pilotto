@@ -62,3 +62,25 @@ test('option picker needs an exact match, so "Male" never picks "Female"', () =>
   assert.equal(missing.ok, false);
   assert.equal(missing.why, 'no exact match');
 });
+
+test('fast path types fields for the Chrome extension, which switches the guard off', () => {
+  class HTMLInputElement {
+    constructor(id) { this.id = id; this.name = id; this.type = 'text'; this.tagName = 'INPUT'; this.labels = []; }
+    getClientRects() { return [1]; }
+    getAttribute() { return null; }
+    matches(selector) { return selector.includes('input[type="text"]'); }
+    dispatchEvent() {}
+  }
+  Object.defineProperty(HTMLInputElement.prototype, 'value', {
+    get() { return this._value || ''; }, set(value) { this._value = value; },
+  });
+  const first = new HTMLInputElement('first_name');
+  const document = {querySelectorAll() { return [first]; }};
+  const window = {__jobPilottoGuardActive: false, __jobPilottoNoGuard: true};
+  const code = fs.readFileSync(new URL('../../tools/browser-form-fastpath.js', import.meta.url), 'utf8');
+  vm.runInNewContext(code, {window, document, HTMLInputElement, HTMLTextAreaElement: class {},
+    getComputedStyle: () => ({visibility: 'visible'}), Event: class {}});
+  const outcome = window.__jobPilottoFillKnownFields([{field: 'first_name', value: 'Ada'}]);
+  assert.deepEqual(Array.from(outcome.filled), ['first_name']);
+  assert.equal(first.value, 'Ada');
+});

@@ -32,6 +32,7 @@ const started = new Set();
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== 'complete' || !tab.url?.includes(`#${FILL_MARK}`) || started.has(tabId)) return;
   const origin = new URL(tab.url).origin + '/*';
+  chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
     // Not one of the supported job sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable):
     // the extension may not touch this page by itself; the user can still click its button here.
@@ -41,6 +42,31 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
   started.add(tabId);
   await fillOpenedTab(tab, tab.url.replace(`#${FILL_MARK}`, ''));
+});
+
+// Job boards (jobs.ch, LinkedIn, company pages…) often only link to the real form on the employer's
+// application site. A tab opened from a Job Pilotto tab, or the same tab moving to another site, keeps its
+// job: the form there fills with that job's kit, once per site.
+chrome.tabs.onCreated.addListener(async tab => {
+  if (!tab.openerTabId) return;
+  const key = `from:${tab.openerTabId}`;
+  const job = (await chrome.storage.session.get(key))[key];
+  if (job) chrome.storage.session.set({[`from:${tab.id}`]: job});
+});
+chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+  if (info.status !== 'complete' || !/^https:/.test(tab.url || '') || tab.url.includes(`#${FILL_MARK}`)) return;
+  const key = `from:${tabId}`;
+  const job = (await chrome.storage.session.get(key))[key];
+  if (!job) return;
+  const site = new URL(tab.url).origin;
+  if (site === new URL(job).origin || started.has(`${tabId} ${site}`)) return;
+  if (!(await chrome.permissions.contains({origins: [site + '/*']}))) {
+    chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
+    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill (or allow every site in Settings)'}).catch(() => {});
+    return;
+  }
+  started.add(`${tabId} ${site}`);
+  await fillOpenedTab(tab, job);
 });
 
 // A progress panel on the page while a tab fills itself (the popup is closed then).
@@ -94,7 +120,7 @@ async function fillOpenedTab(tab, url, force = false) {
     const config = await settings();
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
       {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
-    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, onStep: text => progress(tab.id, text)});
+    const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, onStep: text => progress(tab.id, text)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
     await progress(tab.id, '');
@@ -155,7 +181,9 @@ async function checkSubmitted(tabId, tab) {
   const confirmationUrl = new RegExp(`${id}/(confirmation|thanks)`).test(tab.url);
   const text = confirmationUrl ? '' : await chrome.scripting.executeScript({target: {tabId}, func: () => document.querySelectorAll('input:not([type=hidden]), textarea').length < 3 ? document.body?.innerText?.slice(0, 5000) || '' : ''})
     .then(([r]) => r?.result || '').catch(() => '');
-  if (!confirmationUrl && !(tab.url.includes(id) && THANKS.test(text))) return;
+  // On the employer's own application site the confirmation page doesn't carry the job board's id.
+  const elsewhere = new URL(tab.url).hostname !== new URL(job).hostname;
+  if (!confirmationUrl && !((tab.url.includes(id) || elsewhere) && THANKS.test(text))) return;
   await chrome.storage.session.remove(key);  // once per job
   const config = await settings();
   try {
