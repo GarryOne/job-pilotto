@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell} from 'electron';
+import {app, BrowserWindow, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -308,6 +308,13 @@ function handlers() {
   ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
   ipcMain.handle('ivReview', (_, pageId) => interviews.review(storage, pageId));
+  // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
+  // In development (npm start) macOS may list the terminal that started the app instead of Electron.
+  ipcMain.handle('mediaAccess', () => (DEMO ? {microphone: 'granted', screen: 'granted', dev: false} : {microphone: systemPreferences.getMediaAccessStatus('microphone'),
+    screen: systemPreferences.getMediaAccessStatus('screen'), dev: !app.isPackaged}));
+  ipcMain.handle('openPrivacy', (_, kind) => shell.openExternal(
+    `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
+  ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
   ipcMain.handle('ivRecordings', () => {
     fs.mkdirSync(storage.path('recordings'), {recursive: true});
     return shell.openPath(storage.path('recordings'));

@@ -834,7 +834,32 @@ function jobOptions(select, chosenUrl, emptyLabel) {
   if (chosenUrl && !jobs.some(job => job.url === chosenUrl)) select.append(new Option(chosenUrl, chosenUrl, false, true));
 }
 
+// Which macOS permission is missing, with a button to its System Settings page and one to restart
+// (macOS applies Screen & System Audio Recording only after the app restarts).
+let permissionKind = 'screen';
+async function showPermission(noCallAudio = false) {
+  const access = await iv.access();
+  const who = access.dev ? '<b>Electron</b> (or, if it isn\'t listed, the terminal you ran <code>npm start</code> in)' : '<b>Job Pilotto</b>';
+  let text = '';
+  if (access.microphone === 'denied' || access.microphone === 'restricted') {
+    permissionKind = 'microphone';
+    $('iv-permission-title').textContent = '🎙️ Allow the microphone';
+    text = `System Settings → Privacy & Security → <b>Microphone</b> → turn on ${who}, then restart Job Pilotto.`;
+  } else if (access.screen !== 'granted' || noCallAudio) {
+    permissionKind = 'screen';
+    $('iv-permission-title').textContent = '🔊 Allow the call\'s audio (so the interviewers are recorded too)';
+    text = `System Settings → Privacy & Security → <b>Screen &amp; System Audio Recording</b> → turn on ${who}` +
+      ' (not there? click <b>+</b> and add it), then restart Job Pilotto. Until then only your microphone is recorded:' +
+      ' with headphones, that\'s only your voice.';
+  }
+  $('iv-permission-text').innerHTML = text;
+  show($('iv-permission'), !!text);
+}
+$('iv-permission-open').addEventListener('click', () => iv.openPrivacy(permissionKind));
+$('iv-permission-restart').addEventListener('click', () => { if (!recorder) iv.relaunch(); });
+
 async function loadInterviews() {
+  showPermission();
   if (!allJobs.length) { try { allJobs = (await window.pilot.jobs()).jobs; } catch {} }
   renderDrafts(await iv.drafts());
   loadSaved();
@@ -1031,7 +1056,8 @@ $('iv-record').addEventListener('click', async () => {
   try {
     mic = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}});
   } catch {
-    message('iv-message', 'Job Pilotto may not use the microphone: System Settings → Privacy & Security → Microphone.', 'error');
+    message('iv-message', 'Job Pilotto may not use the microphone yet: allow it (see above), then restart.', 'error');
+    showPermission();
     return;
   }
   // The call's audio needs macOS Screen & System Audio Recording permission; without it the request may
@@ -1089,7 +1115,8 @@ $('iv-record').addEventListener('click', async () => {
   $('iv-record').disabled = true;
   $('iv-timer').textContent = '00:00';
   $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' :
-    'Microphone only: the call\'s audio needs Screen Recording permission (System Settings → Privacy & Security). With headphones, only you are heard.';
+    'Microphone only: the call\'s audio isn\'t allowed yet (see above). With headphones, only you are heard.';
+  if (!call) showPermission(true);
   show($('iv-recorder'));
 });
 $('iv-stop').addEventListener('click', () => recorder?.state === 'recording' && recorder.stop());

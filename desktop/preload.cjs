@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('pilot', {
   interviews: {drafts: call('ivDrafts'), transcript: call('ivTranscript'), add: call('ivAdd'), recordStart: call('ivRecordStart'),
     recordChunk: call('ivRecordChunk'), recordStop: call('ivRecordStop'), transcribe: call('ivTranscribe'), saveDraft: call('ivSaveDraft'),
     discard: call('ivDiscard'), save: call('ivSave'), saved: call('ivSaved'), link: call('ivLink'), review: call('ivReview'),
-    recordings: call('ivRecordings')},
+    recordings: call('ivRecordings'), access: call('mediaAccess'), openPrivacy: call('openPrivacy'), relaunch: call('relaunch')},
   onInterviewProgress: callback => ipcRenderer.on('ivProgress', (_, step) => callback(step)),
   cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'),
   openExternal: call('openExternal'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),

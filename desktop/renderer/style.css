@@ -249,3 +249,5 @@ td:has(.badge-ineligible) { display: table-cell; }
 .callout.cv { background: color-mix(in srgb, #0e7c7b 10%, transparent); }
 .callout.cv .cv-line { font-size: 14px; } .callout.cv #cv-state { color: var(--muted, #6b7a8c); }
 .callout.cv .message:empty { display: none; }
+.permission { border-left: 4px solid var(--teal); margin-bottom: 14px; }
+.permission p { margin: 6px 0 10px; }
