@@ -1,7 +1,9 @@
 # Job Pilotto website
 
-`index.html` is the one-page landing site (no build step, no JavaScript framework). Deploy the
-folder as a static site, for example Cloudflare Pages:
-`npx wrangler@4 pages deploy site --project-name job-pilotto`.
+`public/index.html` is the one-page landing site (no build step). It's served by Cloudflare as static
+files (Workers static assets, free, `*.workers.dev`).
 
-The waitlist form doesn't send anything yet; it needs a Worker endpoint before the page goes live.
+- Deploy by hand: `cd site && npx wrangler@4 deploy`
+- Automatic: `.github/workflows/site.yml` deploys on every push to `main` that changes `site/`.
+
+The waitlist form doesn't send anything yet; it needs an endpoint before the page is shared widely.

@@ -1,0 +1,41 @@
+name: site
+
+# Deploys the landing page (site/public) to Cloudflare when it changes on main.
+# Live at https://job-pilotto-site.sre-watch-bot.workers.dev (Workers static assets, free).
+# Secrets: CLOUDFLARE_API_TOKEN (template "Edit Cloudflare Workers"), CLOUDFLARE_ACCOUNT_ID.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Not set up yet
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::Add the CLOUDFLARE_API_TOKEN secret (Cloudflare → API Tokens → Edit Cloudflare Workers) to deploy the site.
+      - uses: actions/checkout@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        with:
+          node-version: '22'
+      - name: Deploy to Cloudflare
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: site
+        run: npx --yes wrangler@4 deploy --config wrangler.toml

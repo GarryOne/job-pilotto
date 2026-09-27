@@ -6,3 +6,4 @@ reports/
 .venv/
 *.pdf
 .DS_Store
+.wrangler/
