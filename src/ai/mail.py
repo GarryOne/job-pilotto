@@ -420,6 +420,14 @@ def main(argv=None):
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
                   stats=stats))
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
+        if 'invalid_grant' in str(error):
+            message = ('⚠️ The Google sign-in for Gmail and Calendar has expired (Google limits apps in testing mode '
+                       'to 7 days). On the Mac, in the repo, run: python3 -m src.sources.google auth --client-json '
+                       '~/Downloads/client_secret_….json --github')
+            print(message)
+            if sender:
+                sender(escape(message))
+            return 0
         if cost.limit_reached(error):
             print(f'Mail check skipped: the Anthropic API spend limit is reached ({error}). '
                   'Raise it in the Anthropic console, or it resumes when the limit resets.')

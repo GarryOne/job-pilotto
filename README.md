@@ -106,6 +106,8 @@ Job boards + employer feeds ──▶ crawl (GitHub Actions, every 4 h)
   they revealed, the next step and what to practise. It's saved in a 🎤 Interviews database (with
   the full transcript), logged as an Interviewing event, and the insights start tracking topics that
   keep coming up or keep being answered weakly. About USD 0.05 per interview.
+  Recruiters who record calls often offer the transcript by email ("Download transcript: …"); the Gmail
+  check points those out. See the screenshots below.
   To get a transcript when you're the guest (most interviews), use a bot-free recorder on your
   Mac that captures your mic and the call's audio in any app. Free and local:
   [MacParakeet](https://macparakeet.com/) or [Humla](https://humla.team/local) (with speaker
@@ -154,6 +156,24 @@ your Profile, with tier and a one-line reason.
 **One run**: timing, fields audited, status, and the learning the next run reads before filling.
 
 <img src="docs/images/notion-agent-run-detail.png" alt="One Agent Run in Notion" width="560">
+
+**🎤 Interview review** (Telegram): send the transcript to the bot with a caption such as "Northwind
+Robotics, technical 1"; a minute later you get what went well, the weak answers with what a stronger
+answer would add, what to practise, and the next step. *(Screenshots use a fictional interview.)*
+
+<img src="docs/images/telegram-interview.png" alt="Interview review in Telegram" width="420">
+
+**🎤 Interviews** (Notion): one page per interview, linked to its application: round, overall
+impression, the topics asked and the ones answered weakly (counted across interviews by the daily
+insight and the evening-before prep message)…
+
+<img src="docs/images/notion-interview.png" alt="Interview page properties in Notion" width="495">
+
+…then the full review: strengths, weak spots, what they revealed, what could count against you,
+what to practise, every question marked ✅ strong · ➖ ok · ⚠️ weak with a better answer, and the
+transcript.
+
+<img src="docs/images/notion-interview-review.png" alt="Interview review in Notion" width="495">
 
 ## How Job Pilotto compares
 
@@ -463,22 +483,48 @@ without a human confirming first. See `.claude/skills/apply-to-job/SKILL.md`'s L
 learned running this against real forms, and `AGENTS.md` for the same rules aimed at any agent
 working in this repo.
 
-## Gmail and Calendar setup (optional, 10 minutes)
+## Gmail and Calendar setup (optional, about 15 minutes)
 
-Read-only access (`gmail.readonly`, `calendar.readonly`) through your own Google Cloud OAuth client:
+Read-only access (`gmail.readonly`, `calendar.readonly`) through your own Google Cloud OAuth client.
+Google's own guide for this kind of client: [Create access credentials → OAuth client ID → Desktop
+app](https://developers.google.com/workspace/guides/create-credentials#desktop-app) and [Configure the
+OAuth consent screen](https://developers.google.com/workspace/guides/configure-oauth-consent).
 
-1. [Create a project](https://console.cloud.google.com/projectcreate) (e.g. "Job Pilotto").
-2. Enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and the
-   [Google Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com).
-3. [Google Auth Platform](https://console.cloud.google.com/auth/overview) → Get started: app name, your
-   email, audience **External**. Under **Audience**, add yourself as a test user, then **Publish app**:
-   in "Testing" Google expires the sign-in after 7 days. It stays unverified (only you use it), so the
-   sign-in shows "Google hasn't verified this app" → Advanced → continue.
-4. **Clients** → Create client → type **Desktop app** → copy the client ID and secret.
-5. On your Mac, in the repo: `python3 -m src.sources.google auth --client-id … --client-secret … --github`.
-   A browser tab asks for read-only Gmail and Calendar; the token goes to the Keychain and, with
-   `--github`, to the three `GOOGLE_*` repository secrets. `python3 -m src.sources.google check` confirms.
-6. Optional first look back: `gh workflow run mail.yml -f days=14`.
+1. **Project and APIs.** In the console ([new project](https://console.cloud.google.com/projectcreate),
+   then enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and
+   the [Calendar API](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com)), or
+   with gcloud, signed in with the Google account whose mail you want to read:
+
+   ```sh
+   gcloud auth login you@gmail.com
+   gcloud projects create job-pilotto-$RANDOM --name="Job Pilotto" --account=you@gmail.com
+   gcloud services enable gmail.googleapis.com calendar-json.googleapis.com --project=<that id> --account=you@gmail.com
+   ```
+
+   The next two steps have no gcloud command for personal accounts; they're console only.
+2. **Consent screen.** [Google Auth Platform](https://console.cloud.google.com/auth/overview) → Get
+   started: app name "Job Pilotto", your email as support and contact email, audience **External**,
+   accept the policy → Create. Then **Audience → Test users → Add users** → your own address. Without
+   this, sign-in fails with "Access blocked … Error 403: access_denied".
+3. **Client.** **Clients → Create client** → type **Desktop app** → Create, and click **Download JSON**
+   before closing the dialog (the secret isn't shown again).
+4. **Sign in**, on your Mac in the repo:
+
+   ```sh
+   python3 -m src.sources.google auth --client-json ~/Downloads/client_secret_<…>.json --github
+   ```
+
+   A browser tab opens: pick your account → "Google hasn't verified this app" → **Continue** → tick
+   both read-only permissions → Continue → "Job Pilotto is connected". The token goes to the Keychain
+   (`job-pilotto.google.*`) and, with `--github`, to the `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+   `GOOGLE_REFRESH_TOKEN` repository secrets. `python3 -m src.sources.google check` confirms.
+5. **First look back:** `gh workflow run mail.yml -f days=14` (or `python3 -m src.ai.mail --days 14
+   --dry-run` to see how each email would be classified, writing nothing).
+
+**Seven-day limit.** While the app's publishing status is "Testing", Google expires the sign-in after 7
+days; the mail check then sends a Telegram message asking you to repeat step 4. To avoid it, publish
+the app (**Audience → Publish app**): Google first requires a homepage URL and a privacy-policy URL on
+the **Branding** page. An unverified app used only by you stays allowed, with the same warning at sign-in.
 
 Email content that matches the search is sent to the Anthropic API for classification; the results
 (kind, a short summary, the subject) are stored in your Notion.

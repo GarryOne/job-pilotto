@@ -7,6 +7,7 @@ Mac (loopback redirect + PKCE), stores the refresh token in the Keychain, and wi
 the GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN repository secrets for CI.
 
 Usage:
+  python -m src.sources.google auth --client-json ~/Downloads/client_secret_….json [--github]
   python -m src.sources.google auth --client-id ID --client-secret SECRET [--github]
   python -m src.sources.google check
 """
@@ -22,6 +23,7 @@ import secrets
 import subprocess
 import sys
 import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -62,8 +64,11 @@ class Google:
         if not self._token:
             body = urllib.parse.urlencode({'client_id': self.client_id, 'client_secret': self.client_secret,
                                            'refresh_token': self.refresh_token, 'grant_type': 'refresh_token'}).encode()
-            with self.opener(urllib.request.Request(TOKEN_URL, data=body), timeout=20) as response:
-                self._token = json.load(response)['access_token']
+            try:
+                with self.opener(urllib.request.Request(TOKEN_URL, data=body), timeout=20) as response:
+                    self._token = json.load(response)['access_token']
+            except urllib.error.HTTPError as error:
+                raise RuntimeError(f'Google token refresh failed ({error.code}): {error.read().decode(errors="replace")[:200]}') from error
         return self._token
 
     def get(self, url, params=None):
@@ -185,12 +190,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
     auth = sub.add_parser('auth', help='one-time browser sign-in; stores the token in the Keychain')
-    auth.add_argument('--client-id', required=True)
-    auth.add_argument('--client-secret', required=True)
+    auth.add_argument('--client-json', help='the JSON downloaded when creating the Desktop app client')
+    auth.add_argument('--client-id')
+    auth.add_argument('--client-secret')
     auth.add_argument('--github', action='store_true', help='also set the three GOOGLE_* repository secrets with gh')
     sub.add_parser('check', help='show which account is connected and what it can see')
     args = parser.parse_args(argv)
     if args.command == 'auth':
+        if args.client_json:
+            with open(os.path.expanduser(args.client_json)) as handle:
+                client = json.load(handle).get('installed') or {}
+            args.client_id, args.client_secret = client.get('client_id'), client.get('client_secret')
+        if not (args.client_id and args.client_secret):
+            parser.error('give --client-json (a Desktop app client) or both --client-id and --client-secret')
         token = authorize(args.client_id, args.client_secret)
         values = {'GOOGLE_CLIENT_ID': args.client_id, 'GOOGLE_CLIENT_SECRET': args.client_secret, 'GOOGLE_REFRESH_TOKEN': token}
         for name, service in KEYCHAIN.items():

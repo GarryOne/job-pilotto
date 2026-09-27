@@ -229,6 +229,25 @@ class LimitTests(unittest.TestCase):
 
 
 class GoogleApiTests(unittest.TestCase):
+    def test_expired_sign_in_is_reported_clearly(self):
+        import io, urllib.error
+        def opener(request, timeout=None):
+            raise urllib.error.HTTPError(google_api.TOKEN_URL, 400, 'Bad Request', {},
+                                         io.BytesIO(b'{"error": "invalid_grant", "error_description": "Token has been expired or revoked."}'))
+        client = google_api.Google('id', 'secret', 'refresh', opener=opener)
+        with self.assertRaises(RuntimeError) as caught:
+            client.profile()
+        self.assertIn('invalid_grant', str(caught.exception))
+
+    def test_auth_reads_the_downloaded_client_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'client_secret.json'
+            path.write_text(json.dumps({'installed': {'client_id': 'cid', 'client_secret': 'sec'}}))
+            with mock.patch.object(google_api, 'authorize', side_effect=SystemExit('stop')) as authorize:
+                with self.assertRaises(SystemExit):
+                    google_api.main(['auth', '--client-json', str(path)])
+            authorize.assert_called_once_with('cid', 'sec')
+
     def test_body_text_prefers_plain_and_strips_html(self):
         enc = lambda s: base64.urlsafe_b64encode(s.encode()).decode().rstrip('=')
         html_only = {'mimeType': 'multipart/alternative', 'parts': [
