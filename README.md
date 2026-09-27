@@ -68,6 +68,7 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | Mac app | guided setup, job list, Apply / Prepare / Tailor CV buttons, schedules, notifications | a Mac (Apple silicon) | free | 10 min |
 | Chrome extension | fills the form from its kit in seconds, you Submit | Chrome + the Mac app (or the Worker; [extension/README.md](extension/README.md)) | free | 5 min |
 | Tailored CV | a version of your CV per job, every change highlighted | the Mac app, `ANTHROPIC_API_KEY` | ~$0.12/CV | 1 min |
+| Apply with Claude (recommended) | from the job board through the employer's sign-up to a filled form, you Submit | the Mac app, Claude Code, Notion; Gmail for confirmation emails | your Claude plan | 5 min |
 | Form filling by an AI agent | an AI agent fills the form in Chrome, you Submit | a Mac, Claude Code or Codex, Chrome | your AI plan | 10 min |
 
 A sensible order: Telegram and scheduled runs first (free, 10 minutes), then Notion, then the AI
@@ -165,8 +166,9 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   itself), your CV, and what you're looking for in plain words; Claude drafts your search strategy
   (roles, places, board searches, hidden languages) for you to edit. Every step is saved as you go.
 - 📋 **Jobs**: every open job with its fit score and reason, links to its kit and posting in Notion,
-  and one main button per job: **Prepare** (draft the kit) → **Apply** (Chrome opens the form, the
-  extension fills it) → **Opened in Chrome**. A ⛔ badge shows the kit's eligibility verdict on hover.
+  and one main button per job: **Prepare** (draft the kit) → **Apply with Claude** (recommended, see
+  below) or **Fill in Chrome** (the extension fills the form) → **Opened in Chrome**. Without Claude
+  Code the button is simply **Apply** (the extension). A ⛔ badge shows the kit's eligibility verdict on hover.
 - ✍️ **Answer once**: questions a form asked that your answers don't cover yet, listed once; your
   answer goes to your standard answers in Notion and every later form uses it.
 - ⏱️ **How often**: per job (search, kits, insights, new employers, mail), in your time zone.
@@ -175,6 +177,25 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   settings; searches then run there even with the Mac off.
 - 🔔 **Notifications**: kit ready, form filled, application marked applied (an in-window toast when
   macOS blocks them). Keys are encrypted with your Mac's Keychain; data stays in your folder and Notion.
+
+<a id="apply-with-claude"></a>
+
+### 🧭 Apply with Claude (recommended)
+Many postings don't end in a form: jobs.ch's Apply leads to the employer's careers site, which has its
+own **Apply now**, then a sign-in page, then several form pages. The extension stops there; Claude
+doesn't.
+- 🖱️ **One button** on a job in the Mac app (or "Apply to jobs…" for several) starts a Claude Code
+  session in Terminal that drives your Chrome with Claude in Chrome, from the posting to the last form page.
+- 🔑 **Creates the employer account** when a site asks for one, with your details from the CV. The
+  password is generated straight into your Mac's Keychain (`job-pilotto.<site>.password`) and pasted
+  from the clipboard: it never appears in the session, the logs or Notion. Next time it signs in with it.
+- 📧 **Confirms the account itself**: reads the confirmation email's code or link from Gmail
+  (read-only, connected in Settings → Gmail and Calendar).
+- 🙋 **Asks you only for what it must not do**: the CAPTCHA and the terms boxes. You get a notification,
+  one line in Terminal says what to tick, and it carries on.
+- 🛡️ **Never presses Submit.** It stops on the review page; you read it and submit.
+- Needs Claude Code (your Claude plan) and Notion (where the kit lives). Minutes per job, versus seconds
+  for the extension on a form that's right on the page.
 
 ### 🧩 Chrome extension
 - ⚡ **Fills from the kit in seconds**: text fields, dropdowns (real clicks, including searchable ones),
@@ -337,6 +358,7 @@ a measured accuracy or success-rate benchmark.
 | 🧠 Learns each job site's forms | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | 💾 Saved answer vault, reused on every form | ✅ | ➖ | ➖ | ➖ | ➖ | ✅ | ➖ |
 | 🤖 Fills real application forms | ✅ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
+| 🔑 Gets through employer sign-up (account, email confirmation) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
 | 🧰 Choice of filler (Chrome extension, ChatGPT, Codex, Claude) | ✅ | ❌ | ❌ | ⚠️ | ❌ | ❌ | ❌ |
 | 🛡️ You always click Submit (enforced) | ✅ | ⚠️ | ➖ | ❌ | ➖ | ❌ | ➖ |
 | 🔍 Post-fill field audit | ⚠️ | ➖ | ➖ | ➖ | ✅ | ✅ | ➖ |
@@ -661,7 +683,9 @@ working in this repo.
 Read-only access (`gmail.readonly`, `calendar.readonly`): nothing in your mailbox or calendar is ever
 sent, changed or deleted.
 
-### The quick way: the shared Job Pilotto app (one command)
+### The quick way: the shared Job Pilotto app (one click or one command)
+
+In the Mac app: **Settings → Gmail and Calendar → Connect Google**. From a terminal:
 
 ```sh
 python3 -m src.sources.google auth --github
