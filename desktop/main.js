@@ -11,6 +11,7 @@ import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
+import * as questions from './lib/questions.js';
 import {createStorage, safeStorageCrypto} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -256,6 +257,18 @@ function handlers() {
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
   ipcMain.handle('openTabs', () => server.openTabs());
   ipcMain.handle('extensionSeen', () => server.extensionSeen());
+  ipcMain.handle('openQuestions', () => storage.settings().openQuestions || []);
+  ipcMain.handle('answerQuestion', async (_, questionKey, answer) => {
+    const q = (storage.settings().openQuestions || []).find(item => item.key === questionKey);
+    if (!q) return {ok: false, error: 'Already answered'};
+    if (answer) {
+      const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_ANSWERS_PAGE_ID;
+      if (!token || !page) return {ok: false, error: 'Connect Notion first: answers are saved in your standard answers page.'};
+      try { await notion.appendAnswer(token, page, q.question, answer); } catch (error) { return {ok: false, error: `Notion: ${error.message}`}; }
+    }
+    questions.close(storage, questionKey, !!answer);
+    return {ok: true};
+  });
   // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).
   ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']
     .map(name => [name, storage.secret(name)]).filter(([, value]) => value).map(([name, value]) => [name, `${'•'.repeat(12)}${value.slice(-4)}`])));

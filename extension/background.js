@@ -94,7 +94,7 @@ async function fillOpenedTab(tab, url, force = false) {
     const config = await settings();
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
       {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
-    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], force, onStep: text => progress(tab.id, text)});
+    const result = await fillTab({...tab, url}, config, {kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, onStep: text => progress(tab.id, text)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
     await progress(tab.id, '');

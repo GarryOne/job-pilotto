@@ -372,7 +372,33 @@ function renderJobs() {
 $('filter-status').addEventListener('change', renderJobs);
 $('filter-text').addEventListener('input', renderJobs);
 
+// ---------- questions to answer once ----------
+async function loadQuestions() {
+  const list = await window.pilot.openQuestions();
+  show($('questions'), list.length > 0);
+  $('questions-list').replaceChildren(...list.map(q => {
+    const row = Object.assign(document.createElement('div'), {className: 'question'});
+    const label = Object.assign(document.createElement('label'), {textContent: q.question});
+    if (q.company) label.append(Object.assign(document.createElement('small'), {textContent: ` · asked by ${q.company}`}));
+    const input = Object.assign(document.createElement('input'), {type: 'text', placeholder: 'Your standard answer'});
+    const save = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Save'});
+    const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip', title: 'Not a question to keep an answer for'});
+    const note = Object.assign(document.createElement('span'), {className: 'message'});
+    const answer = async value => {
+      save.disabled = skip.disabled = true;
+      const result = await window.pilot.answerQuestion(q.key, value);
+      if (result.ok) loadQuestions(); else { note.className = 'message error'; note.textContent = result.error; save.disabled = skip.disabled = false; }
+    };
+    save.addEventListener('click', () => input.value.trim() && answer(input.value.trim()));
+    input.addEventListener('keydown', event => { if (event.key === 'Enter' && input.value.trim()) answer(input.value.trim()); });
+    skip.addEventListener('click', () => answer(''));
+    row.append(label, input, save, skip, note);
+    return row;
+  }));
+}
+
 async function loadJobs() {
+  loadQuestions();
   try {
     const data = await window.pilot.jobs();
     allJobs = data.jobs;

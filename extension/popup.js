@@ -67,7 +67,7 @@ async function fill(options) {
   tick();
   const timer = setInterval(tick, 1000);
   try {
-    const result = await fillTab(tab, config, {kitAnswers: kit?.answers || [], ...options, onStep: text => { step = text; tick(); }});
+    const result = await fillTab(tab, config, {kitAnswers: kit?.answers || [], coverLetter: kit?.cover_letter || '', ...options, onStep: text => { step = text; tick(); }});
     clearInterval(timer);
     status('');
     if (result.ineligible) {
@@ -182,3 +182,15 @@ async function load() {
 }
 
 load();
+
+// The latest fill of this tab, recorded in Notion's Form fills (Agent Runs): field by field, learnings, debug data.
+async function showRunLink() {
+  if (!tab?.id) return;
+  const key = `run:${tab.id}`;
+  const url = (await chrome.storage.session.get(key))[key];
+  if (!url) return;
+  $('run-log').hidden = false;
+  $('run-log').onclick = event => { event.preventDefault(); chrome.tabs.create({url}); };
+}
+showRunLink();
+chrome.storage.session.onChanged.addListener(changes => { if (tab?.id && changes[`run:${tab.id}`]) showRunLink(); });

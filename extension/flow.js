@@ -58,7 +58,7 @@ export async function clickCombos(tabId) {
 }
 
 export async function settings() {
-  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns']);
+  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents']);
 }
 
 export async function api(config, path, init = {}) {
@@ -85,7 +85,7 @@ export async function cachedAI(tab) {
 }
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
-export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true} = {}) {
+export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true, coverLetter = ''} = {}) {
   const startedAt = new Date();
   chrome.storage.session.set({[`job:${tab.id}`]: tab.url.split('#')[0]});
   const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
@@ -152,8 +152,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const me = await api(config, '/extension/me').catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
   debug.details = {fields: Object.keys(me?.contact || {}), cv: me?.resume?.name || null};
-  const summary = await inPage(tab.id, (list, profile, resume) => window.__jobPilottoExtensionFill(list, profile, resume),
-    [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null]);
+  const letter = coverLetter || ai?.cover_letter || '';
+  const summary = await inPage(tab.id, (list, profile, resume, letter, consents) => window.__jobPilottoExtensionFill(list, profile, resume, letter, consents),
+    [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null, letter, config.acceptConsents === true]);
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
   step('filled the page');
   const clickDropdowns = config.clickDropdowns !== false;  // on unless turned off in Settings
@@ -191,6 +192,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,
-    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], debug: {...debug, aiUsd: ai?.usd || 0}})}).catch(() => {});
+    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], debug: {...debug, aiUsd: ai?.usd || 0}})})
+    .then(logged => logged?.url && chrome.storage.session.set({[`run:${tab.id}`]: logged.url})).catch(() => {});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
 }

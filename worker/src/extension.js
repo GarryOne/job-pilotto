@@ -331,6 +331,7 @@ export async function handleExtension(request, env) {
     }
     if (request.method === 'POST' && url.pathname === '/extension/run') {
       const run = await request.json().catch(() => ({}));
+      await env.onRun?.(run);  // desktop app: collects the questions nothing could answer
       if (!run.url || !env.NOTION_TOKEN || !env.NOTION_AGENT_RUNS_DB) return json({ ok: false, skipped: true });
       return json(await logRun(env, run).catch((error) => ({ ok: false, error: error.message })));
     }

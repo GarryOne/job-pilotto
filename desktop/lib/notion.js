@@ -162,4 +162,11 @@ export async function writePage(token, pageId, markdown, fetcher, onProgress = (
   return blocks.length;
 }
 
+// One "Question — Answer" line at the end of a page (the standard answers).
+export async function appendAnswer(token, pageId, question, answer, fetcher) {
+  const text = `${question} — ${answer}`.slice(0, 1900);
+  await call(token, 'PATCH', `blocks/${pageId}/children`, {children: [{object: 'block', type: 'bulleted_list_item',
+    bulleted_list_item: {rich_text: [{type: 'text', text: {content: text}}]}}]}, fetcher);
+}
+
 export const pageUrl = id => `https://www.notion.so/${String(id).replace(/-/g, '')}`;

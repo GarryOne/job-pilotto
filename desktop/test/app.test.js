@@ -196,3 +196,19 @@ test('the window scripts parse (a syntax error leaves the app window blank)', as
     execFileSync(process.execPath, ['--check', new URL(`../${file}`, import.meta.url).pathname]);
   }
 });
+
+test('questions nothing could answer are collected once; answered ones are not asked again', async () => {
+  const questions = await import('../lib/questions.js');
+  const storage = tempStorage();
+  const run = {url: 'https://x/1', trace: [
+    {label: 'Are you open to relocation?', required: true, reason: questions.NO_ANSWER},
+    {label: 'Nickname', required: false, reason: questions.NO_ANSWER},
+    {label: 'Email', required: true, reason: ''}]};
+  assert.equal(questions.collect(storage, run, 'Acme'), 1);
+  assert.equal(questions.collect(storage, run, 'Acme'), 0);  // already open
+  const [q] = storage.settings().openQuestions;
+  assert.equal(q.company, 'Acme');
+  questions.close(storage, q.key, true);
+  assert.equal(storage.settings().openQuestions.length, 0);
+  assert.equal(questions.collect(storage, run, 'Other'), 0);  // answered: not asked again
+});

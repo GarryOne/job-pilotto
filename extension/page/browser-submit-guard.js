@@ -52,6 +52,14 @@
   };
 
   // A deliberate owner action releases the guard only after the agent hands over the tab.
+  // "Tick terms and consent boxes for me" (extension setting): after filling, the extension hands the form over
+  // with consents ticked, so the user only presses Submit. The extension itself never submits.
+  window.__jobPilottoHandOver = () => {
+    active = false;
+    const box = document.getElementById('job-pilotto-submit-guard');
+    if (box) box.firstChild.textContent = 'Job Pilotto: filled, consents ticked. Review everything, then press Submit yourself. ';
+    box?.querySelector('button')?.remove();
+  };
   const showUnlock = () => {
     const box = document.createElement('div');
     box.id = 'job-pilotto-submit-guard';

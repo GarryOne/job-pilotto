@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import {handleExtension, jobKey} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
+import * as questions from './questions.js';
 
 export const PORT = 47111;
 // The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
@@ -52,6 +53,11 @@ export function localEnv(storage) {
       return {ok: true, message: 'Marked Applied in Job Pilotto.'};
     },
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
+    onRun: async run => {
+      const job = await find(run.url).catch(() => null);
+      const added = questions.collect(storage, run, job?.company || '');
+      if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
+    },
   };
 }
 

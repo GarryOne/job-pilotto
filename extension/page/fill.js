@@ -265,7 +265,26 @@
   };
   window.__jobPilottoArmedCount = () => document.querySelectorAll('[data-jobpilotto-armed]').length;
 
-  window.__jobPilottoExtensionFill = async (answers, profile, resume) => {
+  // Optional cover letter: a textarea labelled Cover letter, or behind an "Enter manually" button.
+  const fillCoverLetter = async letter => {
+    const find = () => Array.from(document.querySelectorAll('textarea')).find(el => visible(el) && /cover\s*letter/i.test(`${el.id} ${el.name} ${labelOf(el)}`));
+    let box = find();
+    if (!box) {
+      const heading = Array.from(document.querySelectorAll('label, legend, h3, h4, div')).find(el => /^\s*cover\s*letter\s*\*?\s*$/i.test(el.textContent || ''));
+      const scope = heading?.parentElement || document;
+      const manual = Array.from(scope.querySelectorAll('button, a')).find(el => /enter manually|type it|paste/i.test(el.textContent || ''));
+      if (!manual) return false;
+      manual.click();
+      for (let i = 0; i < 10 && !box; i++) { await sleep(150); box = find(); }
+    }
+    if (!box || String(box.value || '').trim()) return false;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, letter);
+    box.dispatchEvent(new Event('input', {bubbles: true}));
+    box.dispatchEvent(new Event('change', {bubbles: true}));
+    return true;
+  };
+
+  window.__jobPilottoExtensionFill = async (answers, profile, resume, coverLetter = '', acceptConsents = false) => {
     if (!window.__jobPilottoGuardActive) return {error: 'The submit guard did not load; nothing was filled.'};
     const form = await window.__jobPilottoDescribeForm();
     for (const group of window.__jobPilottoCheckboxQuestions()) {
@@ -333,6 +352,7 @@
     }
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);
     const resumeAttached = resume?.data ? attachResume(resume) : false;
+    if (coverLetter && await fillCoverLetter(coverLetter)) filled += 1;
     await sleep(300);
     // One row per checkbox group (not per option); legal boxes named by their question, not their id.
     const groupOf = new Map();
@@ -356,7 +376,20 @@
     for (const row of open.filter(r => r.field !== 'resume' && !r.legal && !armedFields.has(r.field))) {
       todo.push(`Answer: ${rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field}`);
     }
-    const legal = after.filter(row => row.legal && !row.filled).map(row => `Your choice (legal): ${row.label}`);
+    const readable = text => clean(String(text || '').replace(/\S*(_|\[\])\S*/g, ' ')) || text;
+    let consented = [];
+    if (acceptConsents) {
+      window.__jobPilottoHandOver?.();  // releases the guard's consent block (and Submit, for the user)
+      for (const box of document.querySelectorAll('input[type=checkbox]')) {
+        const text = `${questionOf(box)} ${labelOf(box)}`;
+        if (!visible(box) || box.checked || !LEGAL.test(text)) continue;
+        box.click();
+        if (box.checked) { consented.push(readable(questionOf(box) || labelOf(box)).slice(0, 90)); filled += 1; }
+      }
+      for (const row of after) if (row.legal && consented.length) row.filled = row.filled || !!document.getElementById(row.field)?.checked;
+    }
+    const legal = [...after.filter(row => row.legal && !row.filled && !acceptConsents).map(row => `Your choice (legal): ${readable(row.label)}`),
+      ...consented.map(text => `Ticked for you: ${text}`)];
     const unfilledRequired = open.filter(row => !(row.field === 'resume' && resumeAttached) && !row.legal).length;
     // Field-by-field log for the run record: where each answer came from and what happened.
     const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));

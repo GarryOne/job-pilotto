@@ -193,3 +193,10 @@ td:has(.badge-ineligible) { display: table-cell; }
 .job-links { display: flex; gap: 14px; margin-top: 6px; font-size: 13px; }
 .job-links a { color: var(--signal); text-decoration: none; font-weight: 600; }
 .job-links a:hover { text-decoration: underline; }
+.questions { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--signal); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; }
+.questions h3 { margin: 0 0 4px; }
+.question { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.question label { font-weight: 600; font-size: 14px; }
+.question label small { font-weight: 400; color: var(--muted); }
+.question input { padding: 7px 9px; border: 1px solid #cfd8e3; border-radius: 8px; font: inherit; }
+.question .message { grid-column: 1 / -1; }

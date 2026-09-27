@@ -1,7 +1,9 @@
 // Settings: only the connection to the Job Pilotto app (filled in by Connect). The user's contact details
 // and CV live in the app, which the extension asks for each time it fills a form (flow.js).
 const $ = id => document.getElementById(id);
-const stored = await chrome.storage.local.get(['workerUrl', 'token', 'checkEligibility', 'testMode', 'clickDropdowns']);
+const stored = await chrome.storage.local.get(['workerUrl', 'token', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents']);
+$('acceptConsents').checked = stored.acceptConsents === true;
+$('acceptConsents').addEventListener('change', () => chrome.storage.local.set({acceptConsents: $('acceptConsents').checked}));
 // Chrome grants debugger only at install (it can't be optional); this switch decides whether it's used.
 $('clickDropdowns').checked = stored.clickDropdowns !== false;  // on by default
 $('clickDropdowns').addEventListener('change', () => chrome.storage.local.set({clickDropdowns: $('clickDropdowns').checked}));
