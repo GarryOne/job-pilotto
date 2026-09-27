@@ -41,7 +41,7 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 ├── 4 · Productization (3e562be8fd8681378229ef71e8420542)
 │   ├── Marketing Strategy — Free vs Premium (3e862be8fd868172a5c7f1056b745d6e)
 │   ├── First Customer Onboarding (3e862be8fd8681e78558d784c7cb9c81)
-│   ├── Job Pilotto [public template: every database and page, no data] (3e862be8fd868143b431df70d505ed7c)
+│   ├── Job Pilotto [public template: every database and page, no data; published at https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c] (3e862be8fd868143b431df70d505ed7c)
 │   └── Setup Guide, User Guide
 └── Session Handoff — Start Here (for Claude) (3e562be8fd8681af9a4dd8732964fd94)
 ```

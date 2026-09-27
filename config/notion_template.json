@@ -1,6 +1,6 @@
 {
   "_comment": "The public Job Pilotto Notion template (tools/notion_template.py builds it). The desktop app opens template_url for the user to duplicate, then finds each database and page in their copy by these titles and checks the columns in required_properties.",
-  "template_url": "https://app.notion.com/p/Job-Pilotto-3e862be8fd868143b431df70d505ed7c",
+  "template_url": "https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c",
   "databases": {
     "NOTION_APPLICATIONS_DB": "Applications — Job Tracker",
     "NOTION_MATCHES_DB": "Job Matches — AI Scored",
