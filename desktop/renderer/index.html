@@ -165,6 +165,10 @@
         <button class="secondary" data-goto-settings="telegram">Set up</button>
       </div>
       <div class="extra">
+        <div><h3>☁️ Keep searching while my Mac is off</h3><p>Searches every 4 hours from your own private GitHub repository (free), with matches in Telegram.</p></div>
+        <button class="secondary" data-goto-settings="cloud">Set up</button>
+      </div>
+      <div class="extra">
         <div><h3>🔎 Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
         <button class="secondary" data-goto-settings="serpapi">Add key</button>
       </div>
@@ -269,6 +273,18 @@
         <div><h3>⏰ Automatic searches</h3><p class="muted small" id="last-search"></p></div>
         <label class="radio"><input type="checkbox" id="auto-search"><span>Search for new jobs every 4 hours while Job Pilotto is open</span></label>
         <label class="radio"><input type="checkbox" id="open-login"><span>Open Job Pilotto when I log in to my Mac</span></label>
+      </div>
+      <div class="setting" id="setting-cloud">
+        <div><h3>☁️ Keep searching while my Mac is off</h3><p class="muted status-line" id="cloud-status"></p>
+          <p class="muted small" id="cloud-howto">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that searches every 4 hours
+            and sends your matches to Telegram, even when this Mac is asleep or off. You approve one sign-in code in the browser; the app does the rest.
+            Your keys are stored there as encrypted secrets.</p></div>
+        <div class="inline">
+          <button class="secondary" id="cloud-connect">Turn on</button>
+          <button class="link" id="cloud-open" hidden>Open repository</button>
+          <button class="link" id="cloud-off" hidden>Turn off</button>
+        </div>
+        <p class="message" id="cloud-message"></p>
       </div>
       <div class="setting" id="setting-telegram">
         <div><h3>💬 Telegram</h3><p class="muted status-line" data-secret="TELEGRAM_BOT_TOKEN"></p>

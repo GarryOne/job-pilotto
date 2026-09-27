@@ -270,6 +270,7 @@ $('strategy-redo').addEventListener('click', () => { show($('app'), false); show
 
 async function loadSettings() {
   state = await window.pilot.state();
+  showCloud();
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';
@@ -300,6 +301,40 @@ $('set-telegram-save').addEventListener('click', async () => {
   $('set-telegram').value = '';
   message('telegram-message', `Connected to @${result.username} ✓ Matches arrive there after each search.`, 'ok');
   loadSettings();
+});
+// ---------- keep searching while the Mac is off (the user's private GitHub repo) ----------
+function showCloud() {
+  const cloud = state.settings.cloud;
+  $('cloud-status').textContent = cloud?.repo
+    ? `✓ On: searching every 4 hours in ${cloud.repo}, even with the Mac off.` : 'Off: searches run only while this app is open.';
+  $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
+  $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
+  $('auto-search').disabled = !!cloud?.repo;
+}
+$('cloud-connect').addEventListener('click', async () => {
+  if (!state.secrets.ANTHROPIC_API_KEY || !state.secrets.NOTION_TOKEN) {
+    message('cloud-message', 'Add your AI key and connect Notion first: the searches in GitHub use them.', 'error'); return;
+  }
+  $('cloud-connect').disabled = true;
+  message('cloud-message', 'Opening GitHub sign-in…');
+  const result = await window.pilot.cloudConnect();
+  $('cloud-connect').disabled = false;
+  if (!result.ok) { message('cloud-message', result.error, 'error'); return; }
+  state = await window.pilot.state();
+  showCloud();
+  message('cloud-message', `${result.created ? 'Created' : 'Updated'} ${result.repo} ✓ ` +
+    `${result.secrets.length} keys stored as encrypted secrets. The first search starts within 4 hours, or press Search now.`, 'ok');
+});
+window.pilot.onCloudStep(step => {
+  if (step.code) message('cloud-message', `In the browser tab that opened, enter the code ${step.code} and approve Job Pilotto (${step.url}).`);
+  else message('cloud-message', step.text);
+});
+$('cloud-open').addEventListener('click', () => window.pilot.openExternal(`https://github.com/${state.settings.cloud.repo}`));
+$('cloud-off').addEventListener('click', async () => {
+  await window.pilot.cloudOff();
+  state = await window.pilot.state();
+  showCloud();
+  message('cloud-message', 'Off. The app searches while it is open. Your GitHub repository is still there: delete it on GitHub, or turn this on again later.');
 });
 window.pilot.onTelegramWaiting(username => {
   message('telegram-message', `Now open t.me/${username} in Telegram and press Start (waiting up to 2 minutes)…`);

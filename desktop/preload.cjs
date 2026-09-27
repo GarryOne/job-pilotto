@@ -9,8 +9,10 @@ contextBridge.exposeInMainWorld('pilot', {
   profileText: call('profileText'), saveProfileText: call('saveProfileText'),
   jobs: call('jobs'), refresh: call('refresh'), setStatus: call('setStatus'), apply: call('apply'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), setAutomation: call('setAutomation'),
+  onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
   onTelegramWaiting: callback => ipcRenderer.on('telegramWaiting', (_, username) => callback(username)),
   command: call('command'), chooseTranscript: call('chooseTranscript'), reviewInterview: call('reviewInterview'),
+  cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'),
   openExternal: call('openExternal'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
 });

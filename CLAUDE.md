@@ -20,6 +20,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - `config/` holds editable settings: `preferences.json`, `sources.json`, `scout_seeds.json`.
 - `worker/` is the Cloudflare Worker for Telegram commands and buttons (`npm test`, `npx wrangler@4 deploy`).
 - Workflows: `.github/workflows/daily.yml`, `scout.yml`, `mail.yml` are the engine: reusable (`workflow_call`) and manual, with no schedule, so this public repo never runs on anyone's data. The schedules (daily every 4 h, scout daily, mail 3x a day and 5 min after applying) live in each user's private repo, from `templates/github-actions/` (the owner's: `GarryOne/job-pilotto-private`).
+- `desktop/lib/github.js`: the app's "Keep searching while my Mac is off": GitHub device-flow sign-in, creates `<user>/job-pilotto-private`, commits the templates + the user's `config/search.json`/`preferences.json` (overlaid on the defaults by the engine), sets sealed secrets and variables; while on, Telegram buttons dispatch there and the Jobs list comes from the latest `job-pilotto-jobs-db` artifact.
 - Notion IDs have no defaults in code: they come from the environment (`.env`, repository variables, or the Desktop App).
 
 ## Tests

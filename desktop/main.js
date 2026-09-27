@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
+import * as github from './lib/github.js';
 import * as notion from './lib/notion.js';
 import {startSchedule} from './lib/schedule.js';
 import * as telegram from './lib/telegram.js';
@@ -124,8 +125,40 @@ function handlers() {
     storage.writeText('answers.md', answers);
     return true;
   });
-  ipcMain.handle('jobs', () => pipeline.jobs(storage));
-  ipcMain.handle('refresh', () => pipeline.refresh(storage, log, 'run'));
+  ipcMain.handle('jobs', async () => {
+    // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
+    const cloud = storage.settings().cloud;
+    if (cloud?.repo && Date.now() - Date.parse(cloud.checkedAt || 0) > 5 * 60 * 1000) {
+      storage.saveSettings({cloud: {...cloud, checkedAt: new Date().toISOString()}});
+      await github.syncDatabase(storage).catch(error => log(`Cloud job list: ${error.message}`));
+    }
+    return pipeline.jobs(storage);
+  });
+  ipcMain.handle('refresh', async () => {
+    if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run');
+    await github.cloudDispatch(storage, log)({mode: 'run'});
+    return {ok: true, cloud: true};
+  });
+  // "Keep searching while my Mac is off": sign in to GitHub (code approved in the browser), then set up
+  // the user's private repo. Also re-run after a key or setting changes ("Update").
+  ipcMain.handle('cloudConnect', async () => {
+    try {
+      let token = storage.secret('GITHUB_TOKEN');
+      if (!token) {
+        const start = await github.startSignIn();
+        window?.webContents.send('cloudStep', {code: start.userCode, url: start.url});
+        shell.openExternal(start.url);
+        token = await github.finishSignIn(start);
+        storage.setSecret('GITHUB_TOKEN', token);
+      }
+      const result = await github.connect(storage, token, {onStep: text => window?.webContents.send('cloudStep', {text})});
+      return {ok: true, ...result};
+    } catch (error) {
+      if (error.status === 401) storage.setSecret('GITHUB_TOKEN', '');  // revoked: sign in again next time
+      return {ok: false, error: error.message};
+    }
+  });
+  ipcMain.handle('cloudOff', () => { storage.saveSettings({cloud: null}); restartTelegram(); return true; });
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
   ipcMain.handle('telegramConnect', async (_, pasted) => {
     const {value: token, error} = cleanSecret(pasted);

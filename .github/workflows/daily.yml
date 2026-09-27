@@ -78,6 +78,17 @@ jobs:
         # Called from a private repo (templates/github-actions): run this repo's code there.
         with:
           repository: ${{ inputs.code_repository || github.repository }}
+      # Called from a private repo: its config/ (the user's search.json and preferences.json, written
+      # by the Desktop App) replaces the defaults; files it doesn't have keep this repo's version.
+      - name: Your settings
+        if: inputs.code_repository != ''
+        uses: actions/checkout@v4
+        with:
+          path: .user
+          sparse-checkout: config
+      - name: Apply your settings
+        if: inputs.code_repository != ''
+        run: if [ -d .user/config ]; then cp -v .user/config/*.json config/; fi
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

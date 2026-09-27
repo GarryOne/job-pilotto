@@ -18,7 +18,8 @@
     "electron-builder-squirrel-windows": "^26.15.3"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.128.0"
+    "@anthropic-ai/sdk": "^0.128.0",
+    "libsodium-wrappers": "^0.7.16"
   },
   "description": "Job Pilotto: finds jobs that fit you, drafts your answers and fills forms; you submit.",
   "author": "Job Pilotto",

@@ -2,6 +2,7 @@
 // The app long-polls Telegram for button taps and commands while it runs, and handles them with the
 // Worker's own code (worker/src/index.js handleUpdate); its "dispatch" runs the pipeline locally.
 import {handleAdd, handleCommand, handleUpdate} from '../shared/worker/index.js';
+import * as github from './github.js';
 import * as pipeline from './pipeline.js';
 
 export async function api(token, method, body = {}, fetcher = globalThis.fetch) {
@@ -62,9 +63,11 @@ export function telegramEnv(storage, onLine) {
     NOTION_TOKEN: storage.secret('NOTION_TOKEN'),
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_EVENTS_DB: ids.NOTION_EVENTS_DB || '',
-    dispatch: localDispatch(storage, onLine),
+    // With "keep searching while my Mac is off" on, runs happen in the user's GitHub repo.
+    dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine) : localDispatch(storage, onLine),
     status: () => {
       const s = storage.settings();
+      if (s.cloud?.repo) return `☁️ Searches run every 4 hours in your GitHub repo ${s.cloud.repo}, even with the Mac off.`;
       return s.lastSearchAt ? `🖥️ Last search from the Job Pilotto app: ${new Date(s.lastSearchAt).toLocaleString()}` +
         `${s.lastSearchOk === false ? ' (with problems)' : ''}. Next one within 4 hours while the app is open.` : '🖥️ No search yet.';
     },

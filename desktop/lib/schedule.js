@@ -2,7 +2,7 @@
 export const EVERY_HOURS = 4;
 
 export function due(settings, now = Date.now()) {
-  if (settings.autoSearch === false || !settings.setupDone) return false;
+  if (settings.autoSearch === false || !settings.setupDone || settings.cloud?.repo) return false; // cloud runs instead
   const last = settings.lastSearchAt ? Date.parse(settings.lastSearchAt) : 0;
   return now - last >= EVERY_HOURS * 3600 * 1000;
 }
