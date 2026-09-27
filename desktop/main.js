@@ -77,7 +77,7 @@ function handlers() {
       }
       return {...result, titles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages}};
     } catch (error) {
-      return {ok: false, error: error.status === 401 ? 'Notion rejected this secret. Copy the Internal Integration Secret again.' : error.message};
+      return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
   });
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));

@@ -56,7 +56,7 @@ $('ai-skip').addEventListener('click', () => goStep('notion'));
 $('notion-template').addEventListener('click', () => window.pilot.openExternal(state.templateUrl));
 $('notion-connect').addEventListener('click', async () => {
   const key = $('notion-key').value.trim();
-  if (!key) { message('notion-message', 'Paste the Internal Integration Secret from step 2.', 'error'); return; }
+  if (!key) { message('notion-message', 'Paste the API token from step 2.', 'error'); return; }
   $('notion-connect').disabled = true;
   message('notion-message', 'Looking for your Job Pilotto workspace…');
   const result = await window.pilot.notionConnect(key);
@@ -78,7 +78,7 @@ $('notion-connect').addEventListener('click', async () => {
   } else if (result.error) {
     message('notion-message', result.error, 'error');
   } else if (result.missing?.length) {
-    message('notion-message', 'Some pages aren\'t shared with the connection yet. Check step 1 (Duplicate) and step 3 (••• → Connections → Job Pilotto), then Connect again.', 'error');
+    message('notion-message', 'The connection can\'t see these pages yet. Check step 1 (Duplicate) and step 3 (Content access → Edit access → tick Job Pilotto → Save), then Connect again.', 'error');
   } else {
     message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
   }
