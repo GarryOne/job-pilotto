@@ -27,3 +27,13 @@ def add(stats, model, usage):
     stats['tokens_out'] = stats.get('tokens_out', 0) + usage.output_tokens
     stats['cache_read'] = stats.get('cache_read', 0) + (getattr(usage, 'cache_read_input_tokens', 0) or 0)
     stats['usd'] = stats.get('usd', 0.0) + usd(model, usage)
+
+
+def limit_reached(error):
+    """True when an API error is the account's spend limit or an empty credit balance, not a bug."""
+    text = str(error).lower()
+    return 'usage limit' in text or 'credit balance' in text
+
+
+LIMIT_MESSAGE = ('⚠️ The Anthropic API spend limit is reached, so {what} is paused. Raise the limit in the '
+                 'Anthropic console (Settings → Limits); otherwise it resumes when the limit resets.{retry}')

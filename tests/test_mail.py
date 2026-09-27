@@ -220,6 +220,14 @@ class MailTests(unittest.TestCase):
         self.assertTrue(any('How did' in m and 'transcript' in m for m in sent))
 
 
+class LimitTests(unittest.TestCase):
+    def test_limit_reached(self):
+        from src.ai import cost
+        self.assertTrue(cost.limit_reached(Exception("You have reached your specified API usage limits.")))
+        self.assertTrue(cost.limit_reached(Exception('Your credit balance is too low')))
+        self.assertFalse(cost.limit_reached(Exception('overloaded')))
+
+
 class GoogleApiTests(unittest.TestCase):
     def test_body_text_prefers_plain_and_strips_html(self):
         enc = lambda s: base64.urlsafe_b64encode(s.encode()).decode().rstrip('=')

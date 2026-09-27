@@ -10,7 +10,7 @@ import random
 import re
 
 from . import digest, scout, store, telegram
-from .ai import enrich, insights, interviews, kit, score
+from .ai import cost, enrich, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, ledger, matches
 from pathlib import Path
 
@@ -249,6 +249,16 @@ def main():
             print(error)
             if sender:
                 sender(f'⚠️ {escape(str(error))}')
+        except Exception as error:
+            if not cost.limit_reached(error):
+                raise
+            run_url = f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID', '')}"
+            message = cost.LIMIT_MESSAGE.format(what='the interview review', retry=(
+                ' Your transcript is kept: after raising it, send it again, or re-run '
+                f'<a href="{escape(run_url, quote=True)}">this run</a>.' if os.getenv('GITHUB_RUN_ID') else ''))
+            print(message)
+            if sender:
+                sender(message)
         return 0
     if args.mode in ('insight', 'weekly'):
         if not tracker:
@@ -256,7 +266,15 @@ def main():
         sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else None
         with store.connect(args.db) as db:
             make = insights.run if args.mode == 'insight' else insights.weekly
-            print(make(db, tracker, send=sender, **({'force': True} if args.mode == 'insight' else {})))
+            try:
+                print(make(db, tracker, send=sender, **({'force': True} if args.mode == 'insight' else {})))
+            except Exception as error:
+                if not cost.limit_reached(error):
+                    raise
+                message = cost.LIMIT_MESSAGE.format(what=f'the {args.mode} report', retry='')
+                print(message)
+                if args.send:
+                    telegram.send(message, *telegram.credentials())
         return 0
     run = new_cron_run(args.mode)
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()

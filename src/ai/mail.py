@@ -420,7 +420,7 @@ def main(argv=None):
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
                   stats=stats))
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
-        if 'usage limit' in str(error).lower() or 'credit balance' in str(error).lower():
+        if cost.limit_reached(error):
             print(f'Mail check skipped: the Anthropic API spend limit is reached ({error}). '
                   'Raise it in the Anthropic console, or it resumes when the limit resets.')
             return 0
