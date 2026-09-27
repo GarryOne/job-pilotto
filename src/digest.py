@@ -302,7 +302,10 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
         # Stable sort: unseen first, each group keeping its score order.
         older.sort(key=lambda j: j['id'] in recent)
     ranked = [('new', j) for j in new]
-    ranked += [('best' if (j['fit'] or {}).get('score', 0) >= BEST_MATCH_SCORE else 'older', j) for j in older]
+    # Each section once: all best matches (in their rotated order), then the rest. Rotation alone could
+    # put a 56 between two 80s and repeat the "Best matches" heading.
+    is_best = lambda j: (j['fit'] or {}).get('score', 0) >= BEST_MATCH_SCORE
+    ranked += [('best', j) for j in older if is_best(j)] + [('older', j) for j in older if not is_best(j)]
     ranked = ranked[:limit]
     first = (page - 1) * PAGE_SIZE
     shown = ranked[first:first + PAGE_SIZE]
