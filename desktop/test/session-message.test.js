@@ -63,3 +63,33 @@ test('the checks split into what Claude needs from you and what happened; a ❓ 
   assert.equal(readAsk('❓ **Notice period:** none. Suggested: 3 months').question, 'Notice period');
   assert.equal(readAsk('No question here'), null);
 });
+
+test('a report with heading lines ("**Left for you:**" then bullets): its items are for you, the rest is what happened', async () => {
+  const {sortChecks} = await import('../renderer/session-message.js');
+  const {checks, needs, done, audit, intro} = readSessionMessage(`The Acme form is filled and open in Chrome. Nothing was submitted.
+
+**How I got to the form:** the page loads the form in a frame, so I opened it directly.
+
+**Filled (19 fields):**
+- Name, email, phone
+- Cover letter pasted, CV attached last
+
+**Left for you:**
+- ⚠️ Art. 13 GDPR notice (required) is a legal acknowledgment, so you tick it.
+- ⚠️ Any relatives or partners working at Acme? (required) Also no source.
+- "First generation to attend university?" (optional): no source.
+
+**Kit checks before sending:**
+- The posting names Go; you have none.
+
+**Run record:** saved to Notion.
+
+Review everything, then Submit yourself.`);
+  assert.deepEqual(done.map(section => [section.label, section.items.length]), [['How I got to the form', 0], ['Filled (19 fields)', 2]]);
+  assert.deepEqual(checks, []);
+  assert.equal(audit, 'saved to Notion.');
+  assert.equal(intro.length, 2);
+  const sorted = sortChecks(needs, {forYou: true}).needs;
+  assert.deepEqual(sorted.map(need => need.kind), ['agree', 'ask', 'ask', 'confirm']);
+  assert.deepEqual(sorted.slice(1, 3).map(need => need.question), ['Any relatives or partners working at Acme?', 'First generation to attend university?']);
+});

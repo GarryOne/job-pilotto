@@ -3229,10 +3229,13 @@ function sessionMenu(item) {
   return menu;
 }
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
-const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself/i;
+const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself|ready for you to review|nothing was submitted/i;
 // A message that ends on a question still waits for your answer first.
 const sessionReview = item => item.status === 'done'
-  || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !/\?\s*$/.test(item.brief || item.question || ''));
+  || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !asksYou(item));
+// Claude asks you something when one of its own sentences (outside its report's lists) ends with "?"; a listed form
+// question ("Any relatives working at Acme?") is not Claude asking.
+const asksYou = item => (item.question ? readSessionMessage(item.question).intro.some(line => /\?\**\s*$/.test(line)) : /\?\s*$/.test(item.brief || ''));
 const sessionState = item => (sessionReview(item) ? SESSION_STATE.done : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // Live while Claude works: a ticking duration, and its latest step from the log (the last "●" line it wrote).
 const sessionTail = {};  // the end of each session's output, for its latest step
@@ -3298,30 +3301,31 @@ function foldRow(short, more) {
   li.append(detail);
   return li;
 }
+let fullFor = null;  // the session whose Claude's message the banner shows (folded again for another one)
 function renderNextStep(item) {
   const review = sessionReview(item), asking = item.status === 'input' && !review, running = item.status === 'running';
-  const {checks, audit, done, intro} = readSessionMessage(item.question);
+  const {checks, needs: forYou, audit, done, intro} = readSessionMessage(item.question);
   const tone = review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
-  $('ss-next-icon').className = `focus-round tone-${tone}`;
-  $('ss-next-icon').replaceChildren(icon(review || asking ? 'alert' : running ? 'pulse' : 'info'));
   const brief = item.brief || '';
-  const ask = /\?$/.test(brief) ? brief : '';
+  const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = review ? 'Review the filled application'
     : asking ? ask || 'Claude needs your answer'
     : running ? 'Claude is filling the application' : item.status === 'failed' ? 'The session stopped' : 'The session ended';
-  // What to read: one line when the form is ready (Claude's words stay one click away), else Claude's own text.
+  // Its state, after the title: finished (when), waiting (since when) or working (for how long).
+  const since = item.needsYouSince || item.endedAt || item.startedAt;
+  const state = $('ss-next-state');
+  state.textContent = review ? `· Claude finished at ${hhmmOf(since)}` : asking ? `· waiting since ${hhmmOf(since)}`
+    : running ? '· working' : `· ended at ${hhmmOf(since)}`;
+  if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
+  // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask);
-  const words = review ? [el('p', 'rich-p', 'The form is ready in Chrome. Check the answers and legal boxes, then submit it yourself.')]
+  $('ss-question').replaceChildren(...(review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? richText(said.join('\n'))
-    : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})];
-  if (review && item.question) {
-    const full = el('details', 'ss-full');
-    full.append(el('summary', '', 'Claude\'s full message'), ...richText(item.question));
-    words.push(full);
-  }
-  $('ss-question').replaceChildren(...words);
-  show($('ss-steps'), review);
+    : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
+  const full = $('ss-full');
+  full.replaceChildren(...(review && item.question ? richText(item.question) : []));
+  if (fullFor !== item.id) { full.hidden = true; fullFor = item.id; }
   const actions = [];
   if (review) {
     actions.push(sessionButton('Open filled form', 'primary', async () => {
@@ -3329,6 +3333,13 @@ function renderNextStep(item) {
       if (went === 'chrome') toastMessage('Form tab not found', 'Chrome is in front, but no open tab matches this job. Look for the tab Claude used.');
     }, 'link'));
     actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    if (item.question) {
+      const toggle = sessionButton(full.hidden ? 'Claude\'s message ▾' : 'Claude\'s message ▴', 'link', () => {
+        full.hidden = !full.hidden;
+        toggle.querySelector('span').textContent = full.hidden ? 'Claude\'s message ▾' : 'Claude\'s message ▴';
+      });
+      actions.push(toggle);
+    }
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
     actions.push(never);
@@ -3341,20 +3352,10 @@ function renderNextStep(item) {
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
   }
   $('ss-actions').replaceChildren(...actions);
-  // Its state, on the right: finished (when), waiting (since when) or working (since when).
-  const side = el('div', 'ss-side');
-  const mark = el('span', `focus-round tone-${review ? 'good' : tone}`);
-  mark.append(icon(review ? 'check' : asking ? 'clock' : running ? 'refresh' : 'info'));
-  const since = item.needsYouSince || item.endedAt || item.startedAt;
-  side.append(mark, el('b', '', review ? `Claude finished at ${hhmmOf(since)}` : asking ? `Waiting since ${hhmmOf(since)}`
-    : running ? 'Working for' : `Ended at ${hhmmOf(since)}`),
-  el('span', 'muted small', review ? (item.status === 'done' ? 'Form filled in Chrome and recorded in Notion.' : 'Form filled in Chrome.')
-    : asking ? 'Claude is paused until you answer.' : running ? `Started at ${hhmmOf(item.startedAt)}. You'll be notified when it needs you.` : ''));
-  if (running) ticking(side.querySelector('b'), 'Working for ', item.startedAt);
-  $('ss-next-side').replaceChildren(side);
   // Two sections under the step: what Claude needs from you (answer, agree, confirm), then what happened
   // (what it filled, the problems it hit, its audit). Its other report sections join what happened.
-  const {needs, filled} = sortChecks(checks);
+  const sorted = sortChecks(checks), mine = sortChecks(forYou, {forYou: true});
+  const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
   show($('ss-needs-card'), needs.length > 0);
   $('ss-needs-title').textContent = review ? 'What Claude needs from you' : 'What Claude flagged';
   $('ss-needs-count').replaceChildren(pill(`${needs.length}`, 'warn'));

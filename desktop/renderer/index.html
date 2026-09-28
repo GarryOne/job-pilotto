@@ -376,19 +376,10 @@
           <div class="ss-job" id="ss-job"></div>
           <!-- The one thing to do now: what Claude needs (or what's left for you), its steps and buttons; its state on the right. -->
           <div class="ss-next" id="ss-decision">
-            <span class="focus-round" id="ss-next-icon"></span>
-            <div class="ss-next-body">
-              <span class="ss-eyebrow">Your next step</span>
-              <b class="ss-next-title" id="ss-next-title"></b>
-              <div class="ss-question" id="ss-question"></div>
-              <ol class="ss-steps" id="ss-steps" hidden>
-                <li><span class="ss-step-n">1</span><span><b>Review answers</b><span class="muted small">Check your information</span></span></li>
-                <li><span class="ss-step-n">2</span><span><b>Accept terms</b><span class="muted small">Tick the legal boxes</span></span></li>
-                <li><span class="ss-step-n">3</span><span><b>Submit yourself</b><span class="muted small">Click Submit in Chrome</span></span></li>
-              </ol>
-              <div class="ss-decision-actions" id="ss-actions"></div>
-            </div>
-            <div class="ss-next-side" id="ss-next-side"></div>
+            <div class="ss-next-head"><b class="ss-next-title" id="ss-next-title"></b><span class="muted" id="ss-next-state"></span></div>
+            <div class="ss-question" id="ss-question"></div>
+            <div class="ss-decision-actions" id="ss-actions"></div>
+            <div class="ss-full" id="ss-full" hidden></div>
           </div>
           <section class="ss-fact-card ss-needs" id="ss-needs-card" hidden>
             <div class="ss-fact-head"><i data-icon="alert"></i><b id="ss-needs-title">What Claude needs from you</b><span id="ss-needs-count"></span></div>
