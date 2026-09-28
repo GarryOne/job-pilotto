@@ -286,7 +286,8 @@ def _label(row):
     return f"{escape(_who(row))} — {escape(_field(row, 'Job'))[:60]}"
 
 
-def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None, rejected=None):
+def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None, rejected=None,
+              on_new=None):
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
     ids = [i for i in google.search(query(apps, days), limit=60) if i not in seen and i not in index[0]]
@@ -313,12 +314,12 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             continue
         if result.get('kind') == OUTREACH:
             if not row:
-                lines += new_lead(tracker, client, model, email, apps, stats)
+                lines += new_lead(tracker, client, model, email, apps, stats, on_new)
                 continue
             result['kind'] = REPLY  # the same recruiter again, about a role already tracked
         if not row and named:
             # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.
-            row = _from_email(tracker, apps, result, email, stats, lines)
+            row = _from_email(tracker, apps, result, email, stats, lines, on_new)
         if not row and not _about_tracked(apps, f"{result['company']} {email['from']} {email['subject']}"):
             lines.append(f"📧 {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
                          " — not tracked yet; /add its job URL to follow it.")
@@ -377,7 +378,7 @@ def review_rejections(tracker, client, rejected, stats, backfill=2):
 TRACKABLE = ('Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer')
 
 
-def _from_email(tracker, apps, result, email, stats, lines):
+def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     """An Applications row for the role an email names (Stage Applied; the email's own event then moves it on).
     Keyed by company + role, so a second email about it (a duplicate, the rejection after the confirmation) finds it."""
     company, role = result['company'].strip(), result['role'].strip()
@@ -426,13 +427,15 @@ def _from_email(tracker, apps, result, email, stats, lines):
     add_event(tracker, row, 'Applied', 'Gmail', at=applied or None,
               note=f'Applied outside Job Pilotto; found in the email "{email["subject"][:120]}" (date is an upper bound)')
     apps.append(row)
+    if on_new:  # facts and fit score from the email, like a found job (src/ai/added.py)
+        on_new(url, {'title': role, 'company': company, 'description': f"{email['subject']}\n\n{email['body']}"[:8000]}, row)
     lines.append(f"➕ {_label(row)}: tracked from this email (applied elsewhere).")
     if stats is not None:
         stats.setdefault('updates', []).append(f"➕ Tracked · {company} — {role[:70]}")
     return row
 
 
-def new_lead(tracker, client, model, email, apps, stats):
+def new_lead(tracker, client, model, email, apps, stats, on_new=None):
     """A recruiter's pitch -> a tracked recruiter lead (opportunity.track); lines for Telegram."""
     text = f"Subject: {email['subject']}\n\n{email['body']}"
     try:
@@ -447,12 +450,15 @@ def new_lead(tracker, client, model, email, apps, stats):
     if not row:
         return []
     apps.append(row)  # a second email in this batch about the same role matches it
+    fit = on_new(opportunity.lead_url(lead, text, email['id']), {
+        'title': opportunity.title(lead), 'company': lead.get('company') or '', 'location': lead.get('location') or '',
+        'work_mode': lead.get('work_mode') or '', 'description': text[:8000]}, row) if on_new else None
     if stats is not None:
         stats.setdefault('updates', []).append(f"🤝 Recruiter lead · {opportunity.label(lead)}"[:140])
     link = (f"\n<a href=\"{escape(row['url'], quote=True)}\">In Notion</a> — set Stage to Screening once you reply"
             if row.get('url') else '')
     return [f"🤝 New recruiter lead: <b>{escape(opportunity.label(lead))}</b>"
-            + (f" · {escape(lead['salary'])}" if lead.get('salary') else '') + link]
+            + (f" · {escape(lead['salary'])}" if lead.get('salary') else '') + (f" · {escape(fit)}" if fit else '') + link]
 
 
 def _contact_names(row):
@@ -564,7 +570,7 @@ def prep_message(tracker, row, event, start, day):
 
 
 def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None, calendar=True, dry_run=False,
-        now=None, state_path=STATE_FILE, stats=None):
+        now=None, state_path=STATE_FILE, stats=None, on_new=None):
     state = load_state(state_path)
     apps = applications(tracker)
     index = _events_index(tracker)
@@ -572,7 +578,8 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         import anthropic
         client = anthropic.Anthropic()
     rejected = []
-    lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected)
+    lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected,
+                             None if dry_run else on_new)
     if stats is not None:
         stats.update(pending=count, done=count)
     notes = []
@@ -631,8 +638,10 @@ def main(argv=None):
             print(f'Cronjob run logged: {url}')
 
     try:
+        from ..paths import JOBS_DB
+        from . import added  # jobs tracked from an email get facts and a fit score, like found ones
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
-                  stats=stats))
+                  stats=stats, on_new=added.hook(tracker, JOBS_DB, log)))
         if logged:
             log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash

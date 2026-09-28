@@ -690,9 +690,18 @@
   <form method="dialog">
     <h2>📥 Applied elsewhere</h2>
     <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your Notion Applications
-      as Applied, shows here under Applied, and Gmail replies about it are tracked like any other application.</p>
+      as Applied with the same facts and fit score as the jobs Job Pilotto finds, and Gmail replies about it are tracked like any other.</p>
     <label for="applied-url">Job link</label>
     <input id="applied-url" type="url" placeholder="https://…" required>
+    <div id="applied-manual" hidden>
+      <p class="muted small">LinkedIn, Glassdoor and Indeed pages aren't read by Job Pilotto. Add what the fit score needs:</p>
+      <label for="applied-title">Job title</label>
+      <input id="applied-title" placeholder="e.g. Senior Site Reliability Engineer">
+      <label for="applied-company">Company</label>
+      <input id="applied-company" placeholder="e.g. Acme">
+      <label for="applied-text">Job description (paste it)</label>
+      <textarea id="applied-text" rows="5" placeholder="Copy the posting's text here, for the facts and the fit score"></textarea>
+    </div>
     <label for="applied-when">When you applied</label>
     <input id="applied-when" type="date" required>
     <label class="radio"><input type="checkbox" id="applied-approx"><span>Not sure of the day: on or before this date</span></label>

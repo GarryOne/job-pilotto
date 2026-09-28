@@ -472,9 +472,21 @@ def parse_applied(text, today=None):
     return value, approx
 
 
+# Sites whose pages are never fetched (terms, login walls): the title, company and text come from you instead.
+NO_FETCH = ('linkedin.com', 'glassdoor.', 'indeed.', 'levels.fyi', 'reddit.com')
+
+
+def no_fetch(url):
+    host = (re.match(r'https?://([^/]+)', url or '') or [None, ''])[1].lower()
+    return any(site in host for site in NO_FETCH)
+
+
 def page_meta(url, opener=urllib.request.urlopen):
     """Title, company, location, posting date and description of a job page: the job board's API when
-    supported (ats.posting), else the page's schema.org JobPosting (most job sites publish one)."""
+    supported (ats.posting), else the page's schema.org JobPosting (most job sites publish one). Never for
+    NO_FETCH sites (LinkedIn, Glassdoor…): {} there."""
+    if no_fetch(url):
+        return {}
     meta = dict(ats.posting(url) or {})
     try:
         request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Job Pilotto)'})

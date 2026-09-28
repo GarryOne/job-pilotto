@@ -125,8 +125,10 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 - 🎤 **Interviews**: send the recording (a voice note, audio or video up to 20 MB) or the transcript file
   with a caption ("Grafana, round 1"), or `/interview` with your notes, and get back what went well, the
   weak answers and what to practise. Recordings are transcribed with speakers first (see below).
-- 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… on or before 23 Sep`:
-  title, company and location come from the posting page.
+- 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… two days ago`:
+  title, company, location and description come from the posting page, then it gets the same AI facts, fit
+  score and Job Matches row as a job Job Pilotto found (`src/ai/added.py`, about USD 0.01–0.02). LinkedIn,
+  Glassdoor and Indeed pages are never read: in the app, paste the title, company and description instead.
 - 📥 **Log anything: a message or a screenshot.** A recruiter's pitch, a reply, an interview time, a rejection
   from LinkedIn, Gmail or WhatsApp: send the screenshot to the bot (or forward the message, or `/add` its text),
   or Jobs → **+ Log message or screenshot…** in the app (⌘V a screenshot; "Which job?" lets you pick it).

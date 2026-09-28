@@ -396,10 +396,10 @@ function handlers() {
     try { return await telegram.runCommand(storage, name, arg, log); } catch (error) { return {text: `⚠️ ${error.message}`}; }
   });
   // Jobs → Applied elsewhere: tracked like /add, but waited for, so the list shows it as Applied right away.
-  ipcMain.handle('addApplied', async (_, url, when = '') => {
+  ipcMain.handle('addApplied', async (_, url, when = '', details = {}) => {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
     if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: applications are tracked there.'};
-    try { return await pipeline.addApplied(storage, url, when, log); } catch (error) { return {ok: false, text: error.message}; }
+    try { return await pipeline.addApplied(storage, url, when, log, details || {}); } catch (error) { return {ok: false, text: error.message}; }
   });
   // Jobs → Recruiter message: a recruiter lead read by Claude, waited for so the list shows it.
   ipcMain.handle('addLead', async (_, text, talking = false, image = null, target = '') => {

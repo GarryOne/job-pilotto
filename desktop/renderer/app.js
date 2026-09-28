@@ -1118,6 +1118,13 @@ $('applied-open').addEventListener('click', () => {
   $('applied-dialog').showModal();
   $('applied-url').focus();
 });
+// Pages Job Pilotto never reads (src/notion/ledger.py NO_FETCH): ask for the title, company and text instead.
+const NO_FETCH = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
+$('applied-url').addEventListener('input', () => {
+  let host = '';
+  try { host = new URL($('applied-url').value.trim()).hostname; } catch {}
+  $('applied-manual').hidden = !NO_FETCH.test(host);
+});
 $('applied-go').addEventListener('click', async event => {
   event.preventDefault();
   const url = $('applied-url').value.trim();
@@ -1126,11 +1133,16 @@ $('applied-go').addEventListener('click', async event => {
   message('applied-message', 'Reading the posting and adding it to Notion…', 'waiting');
   const day = $('applied-when').value;  // YYYY-MM-DD from the date picker
   if (!day) { message('applied-message', 'Pick the day you applied.', 'error'); return; }
-  const result = await window.pilot.addApplied(url, $('applied-approx').checked ? `on or before ${day}` : day);
+  const manual = !$('applied-manual').hidden;
+  if (manual && !$('applied-title').value.trim()) { message('applied-message', 'Add the job title (the page itself isn\'t read).', 'error'); return; }
+  const details = manual ? {title: $('applied-title').value.trim(), company: $('applied-company').value.trim(), text: $('applied-text').value.trim()} : {};
+  const result = await window.pilot.addApplied(url, $('applied-approx').checked ? `on or before ${day}` : day, details);
   $('applied-go').disabled = false;
   message('applied-message', result.text, result.ok ? 'ok' : 'error');
   if (!result.ok) return;
   $('applied-url').value = ''; $('applied-approx').checked = false;
+  ['applied-title', 'applied-company', 'applied-text'].forEach(id => { $(id).value = ''; });
+  $('applied-manual').hidden = true;
   $('filter-status').value = 'applied';  // show it where it now is
   loadJobs();
 });

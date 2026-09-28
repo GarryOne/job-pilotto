@@ -27,7 +27,7 @@ from pathlib import Path
 
 from ..notion import client as notion, ledger
 from ..notion.ledger import REPLY, _block, add_event, plain
-from . import cost, mail, opportunity
+from . import added, cost, mail, opportunity
 
 DEFAULT_MODEL = opportunity.DEFAULT_MODEL
 OUTREACH, APPLIED, NOT_JOB = 'Recruiter outreach', 'Applied', 'Not job-related'
@@ -180,9 +180,11 @@ def _row_for(tracker, url):
 
 
 def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
-        event_source='CLI', stats=None, now=None, target=''):
+        event_source='CLI', stats=None, now=None, target='', on_new=None):
     """Read one pasted message or screenshot, update or create the job it's about. Returns one line for the reply.
-    target: '' = Claude decides which job; 'new' = a new job; a job URL = that job (the app's "Which job?")."""
+    target: '' = Claude decides which job; 'new' = a new job; a job URL = that job (the app's "Which job?").
+    on_new(url, job, row): called for a job tracked here for the first time (src/ai/added.hook: facts, fit score,
+    Job Matches row, like a found job); returns a short line for the reply, or None."""
     text = (text or '').strip()
     if not image and len(text) < opportunity.MIN_TEXT:
         raise ValueError('Paste the whole message or a screenshot of it, not just a line.')
@@ -222,7 +224,10 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         row, line = opportunity.track(tracker, lead, text, source=source, event_source=event_source, talking=talking,
                                       at=when, seed=seed, extra_blocks=_image_blocks(tracker, image),
                                       note=f'Logged: {summary}'[:300])
-        return ('🤝 ' + line) if row else ('ℹ️ ' + line)
+        if not row:
+            return 'ℹ️ ' + line
+        fit = _rich(on_new, row, lead, text)
+        return '🤝 ' + line + (f' · {fit}' if fit else '')
 
     created = False
     if row is None and job:  # an open job, not tracked yet
@@ -265,8 +270,19 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     if not changed:
         return f'ℹ️ Already logged: {label} ({stage})'
     _keep(tracker, row, text, image, summary, when)
+    fit = _rich(on_new, row, item, text) if created and not job else None  # an open job was scored by its search
     verb = 'Tracked' if created else 'Updated'
-    return f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}"
+    return f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
+
+
+def _rich(on_new, row, item, text):
+    """The AI stages for a job tracked here for the first time (see src/ai/added.py)."""
+    if not on_new:
+        return None
+    url = plain(row['properties'].get('Job URL'))
+    job = {'title': opportunity.title(item), 'company': item.get('company') or '', 'location': item.get('location') or '',
+           'work_mode': item.get('work_mode') or '', 'description': added.description_of(item, text)}
+    return on_new(url, job, row)
 
 
 def load_image(path):

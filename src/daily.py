@@ -12,7 +12,7 @@ import sys
 
 from . import digest, features, scout, store, telegram
 from . import doctor
-from .ai import budget, cost, enrich, inbox, insights, interviews, kit, score
+from .ai import added, budget, cost, enrich, inbox, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
@@ -233,6 +233,9 @@ def main():
     parser.add_argument('--interview', help='interview mode: review this 🎤 Interviews row (saved from the app)')
     parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes; add mode: the date applied, '
                              'or (without --job) the recruiter\'s message')
+    parser.add_argument('--job-title', default='', help='add mode: the job title, when the page can\'t be read (LinkedIn…)')
+    parser.add_argument('--job-company', default='', help='add mode: the company, when the page can\'t be read')
+    parser.add_argument('--job-text', default='', help='add mode: the job description, pasted (for the AI stages)')
     parser.add_argument('--target', default='', help="add mode without --job: 'new', or the URL of the job it's about "
                                                       '(default: Claude decides)')
     parser.add_argument('--log-run', action='store_true',
@@ -286,7 +289,8 @@ def main():
             source = 'Telegram' if args.send else 'Manual'
             reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
                                      event_source='Telegram' if args.send else 'CLI',
-                                     talking=args.action == 'talking', stats=run['mail'], target=args.target))
+                                     talking=args.action == 'talking', stats=run['mail'], target=args.target,
+                                     on_new=added.hook(tracker, args.db, run)))
             run['mail'].update(pending=1, done=1)
             queue_mail_check()
         except ValueError as error:
@@ -300,18 +304,34 @@ def main():
         # /add <job URL> [date]: track an application made outside Job Pilotto.
         if not tracker:
             raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
+        run = new_cron_run('add')
         try:
             applied, approx = ledger.parse_applied(args.note)
             meta = ledger.page_meta(args.job)
+            given = {'title': args.job_title, 'company': args.job_company, 'description': args.job_text}
+            meta.update({key: value.strip() for key, value in given.items() if value and value.strip()})
             meta['company'] = ledger.company_for(tracker, args.job, meta)
-            reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
-                                                          source='Telegram', meta=meta))
-            # The app's Jobs list shows it too, as Applied (the local cache of the Applications row just written).
             with store.connect(args.db) as db:
+                # The same AI stages as a found job (facts, fit score, Job Matches row) before the record is
+                # frozen, so the application record carries them too. AI trouble never blocks tracking it.
+                fit = None
+                try:
+                    fit = added.process(db, tracker, args.job, meta, stats=run)
+                except Exception as error:  # noqa: BLE001
+                    print(f'Warning: AI stages skipped: {type(error).__name__}: {error}')
+                reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
+                                                              source='Telegram', meta=meta))
+                if fit:
+                    reply += f' · {escape(fit)}'
+                if ledger.no_fetch(args.job) and not meta.get('description'):
+                    reply += ('\nℹ️ LinkedIn-type pages aren\'t read. For the fit score and facts, send me a screenshot of '
+                              'the job posting too, or add it in the app with its text.')
+                # The app's Jobs list shows it too, as Applied (the local cache of the Applications row just written).
                 store.track_applied(db, args.job, meta)
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
+        log_ai_run(tracker, run, args)
         print(reply)
         if args.send:
             telegram.send(reply, *telegram.credentials())

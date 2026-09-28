@@ -91,8 +91,10 @@ export async function jobs(storage) {
 
 // A job applied to elsewhere: Applications row (Applied, with the date), the event, the frozen record, a Gmail
 // check, and the job in the Jobs list as Applied. Waits for it, so the list can refresh; returns its one line.
-export async function addApplied(storage, url, when = '', onLine = () => {}) {
-  const {code, stdout} = await run(storage, dailyArgs(storage, {mode: 'add', job: url, note: when}), onLine);
+// details: {title, company, text} for pages that aren't read (LinkedIn…); the AI stages then score it like a found job.
+export async function addApplied(storage, url, when = '', onLine = () => {}, details = {}) {
+  const inputs = {mode: 'add', job: url, note: when, jobTitle: details.title, jobCompany: details.company, jobText: details.text};
+  const {code, stdout} = await run(storage, dailyArgs(storage, inputs), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const text = line.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
   return {ok: code === 0 && !text.startsWith('⚠️'), text: text || 'Could not add it (see the activity log)'};
@@ -126,6 +128,9 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.job) args.push('--job', String(inputs.job), '--action', String(inputs.action || 'applied'));
   if (inputs.talking) args.push('--action', 'talking');
   if (inputs.target) args.push('--target', String(inputs.target));
+  if (inputs.jobTitle) args.push('--job-title', String(inputs.jobTitle));
+  if (inputs.jobCompany) args.push('--job-company', String(inputs.jobCompany));
+  if (inputs.jobText) args.push('--job-text', String(inputs.jobText));
   if (inputs.page) args.push('--page', String(inputs.page));
   if (inputs.seed) args.push('--seed', String(inputs.seed));
   if (inputs.file) args.push('--file', String(inputs.file));
