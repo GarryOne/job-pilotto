@@ -456,6 +456,10 @@ function handlers() {
   ipcMain.handle('standardAnswers', async () => {
     try { return {ok: true, groups: await questions.standardAnswers(storage)}; } catch (error) { return {ok: false, error: error.message}; }
   });
+  ipcMain.handle('rescorePrevious', async () => {
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'rescore-previous']);
+    return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
+  });
   ipcMain.handle('strategyData', async () => {
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
     if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};

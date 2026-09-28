@@ -12,7 +12,7 @@ import sys
 
 from . import digest, features, scout, store, telegram
 from . import doctor
-from .ai import added, budget, cost, enrich, inbox, insights, interviews, kit, score
+from .ai import added, budget, cost, enrich, inbox, insights, interviews, kit, provenance, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
@@ -181,6 +181,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
     kit.record_next_step(tracker, page, drafted)
     kit.record_cost(tracker, page, model, usage)
+    provenance.record_kit(tracker, page, profile, answers)
     return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
 
 

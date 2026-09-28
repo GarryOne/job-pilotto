@@ -146,6 +146,8 @@
         <button class="ghost" data-back>Back</button>
         <button class="primary" id="goals-next">Build my strategy</button>
       </div>
+      <p class="muted small" id="goals-cost" hidden>Rebuilding reads your CV and these answers with Claude Sonnet 5: about $0.10–$0.20.
+        Nothing in your strategy changes until you review the result and pick what to apply.</p>
     </div>
 
     <div class="step" data-step="draft">
@@ -551,6 +553,9 @@
           </article>
         </div>
       </div>
+      <div class="alert tone-info settings-alert" id="strategy-previous" hidden><i data-icon="info"></i>
+        <div><strong>Previous scoring method</strong><p id="strategy-previous-text"></p></div>
+        <button class="secondary" id="strategy-rescore"></button></div>
       <p class="message" id="strategy-load"></p>
     </div>
 
@@ -968,7 +973,7 @@
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2>Review what this rebuild changes</h2>
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
     <p class="dialog-lead">Tick what to apply. Nothing changes until you do; a copy of your current strategy is kept in Notion first
-      (“🗂 Previous strategy”). Applications and their history are never changed.</p>
+      (“🗂 Previous strategy”). Applications and their history are never changed. <span id="rebuild-draft-cost"></span></p>
     <div class="review-groups" id="rebuild-groups"><p class="message waiting">Comparing the draft with your current strategy…</p></div>
     <p class="muted small" id="rebuild-total"></p>
     <div class="dialog-foot">

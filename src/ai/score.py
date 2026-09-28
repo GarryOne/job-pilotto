@@ -90,6 +90,9 @@ def input_hash(job, facts, profile):
 FORM_ONLY = re.compile(r'contact|\blinks?\b|application form answers|📎', re.I)
 
 
+CURRENT_METHOD, PREVIOUS_METHOD = 'Current', 'Previous'  # Job Matches "Scoring method"
+
+
 def scoring_profile(profile):
     """The Profile as the fit score reads it: without its contact, links and form-answer sections, so a new phone
     number or LinkedIn link doesn't re-score every job (experience, goals, salary, locations still do)."""
@@ -121,7 +124,10 @@ def pending_jobs(db, candidates, profile, limit, full_profile=None):
         if row and row['scorer_version'] == SCORER_VERSION and row['input_hash'] == current:
             continue
         if row and full_profile and row['scorer_version'] == SCORER_VERSION and row['input_hash'] == input_hash(job, job.get('ai'), full_profile):
-            db.execute('UPDATE scores SET input_hash=? WHERE job_id=?', (current, job['id']))
+            # Kept without an AI call, and labelled: scored from the whole Profile (the previous method), not this one.
+            data = json.loads(db.execute('SELECT data_json FROM scores WHERE job_id=?', (job['id'],)).fetchone()['data_json'])
+            data['method'] = PREVIOUS_METHOD
+            db.execute('UPDATE scores SET input_hash=?, data_json=? WHERE job_id=?', (current, json.dumps(data, ensure_ascii=False), job['id']))
             continue
         pending.append(job)
     db.commit()
@@ -158,7 +164,9 @@ def save(db, job, model, data, profile):
         input_hash=excluded.input_hash, model=excluded.model, created_at=excluded.created_at,
         data_json=excluded.data_json""",
                (job['id'], SCORER_VERSION, input_hash(job, job.get('ai'), profile), model,
-                datetime.now(timezone.utc).isoformat(timespec='seconds'), json.dumps(data, ensure_ascii=False)))
+                datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                json.dumps({**data, 'method': CURRENT_METHOD, 'scorer_version': SCORER_VERSION,
+                            'inputs': input_hash(job, job.get('ai'), profile)[:12]}, ensure_ascii=False)))
     db.commit()
 
 
@@ -166,6 +174,19 @@ def load(db):
     """Map job_id -> score data, for the digest."""
     db.executescript(SCORES_TABLE)
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM scores')}
+
+
+def previous_method(db):
+    """Job ids whose score is from the previous scoring method (kept, not re-scored yet)."""
+    return [job_id for job_id, data in load(db).items() if data.get('method') == PREVIOUS_METHOD]
+
+
+def rescore_previous(db):
+    """Queue the previous-method scores for a new score (the next searches re-score them, 60 per search)."""
+    ids = previous_method(db)
+    db.executemany("UPDATE scores SET input_hash='' WHERE job_id=?", [(job_id,) for job_id in ids])
+    db.commit()
+    return len(ids)
 
 
 def stale_count(db, candidates, profile):

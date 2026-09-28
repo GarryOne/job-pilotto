@@ -46,6 +46,7 @@ document.addEventListener('click', event => {
 function goStep(name) {
   const index = STEPS.indexOf(name);
   window.pilot.saveSettings({wizardStep: name});  // reopening the app continues here
+  if (name === 'goals') showDraftCost();
   if (name === 'ai' && state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value) {
     message('ai-message', '✓ Your key is saved. Continue, or paste a new key to replace it.', 'ok');
     // The saved key, masked (dots and its last 4 characters), as in Settings.
@@ -799,6 +800,10 @@ for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answer
   $(id).addEventListener('input', () => { draft[field] = $(id).value; draftChanged([field]); });
 }
 $('goals-next').addEventListener('click', toDraft);
+// Rebuild from CV (setup done before): say what drafting costs before it runs; nothing changes until the review.
+function showDraftCost() {
+  show($('goals-cost'), !!state.settings.setupDone);
+}
 $('draft-again').addEventListener('click', buildDraft);
 async function saveDraft(parts = null) {
   for (const key of Object.keys(saveState)) delete saveState[key];
@@ -837,6 +842,7 @@ async function openRebuildReview() {
   $('replace-go').disabled = true;
   $('replace-dialog').showModal();
   const current = {...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value};
+  $('rebuild-draft-cost').textContent = draft?.usd ? `This draft cost $${draft.usd.toFixed(2)} (already spent). ` : '';
   const result = await window.pilot.rebuildImpact(current);
   if (!result.ok) { $('rebuild-groups').replaceChildren(el('p', 'message error', result.error)); return; }
   if (!result.groups.length) { $('rebuild-groups').replaceChildren(el('p', 'muted', 'This draft changes nothing in your current strategy.')); return; }
@@ -1170,8 +1176,11 @@ function renderJobs() {
     const skills = tags(job, 8);
     for (const skill of skills.slice(0, 3)) chips.append(tag(skill));
     if (skills.length > 3) chips.append(tag(`+${skills.length - 3}`, {title: skills.slice(3).join(', ')}));
-    if (job.kit && job.notion_url) chips.append(tag('📝 Kit', {title: 'Application kit: form answers, cover letter, eligibility (in Notion)',
-      onClick: event => window.pilot.openNotion(job.notion_url, event.metaKey)}));
+    if (job.kit && job.notion_url) {
+      // Which inputs it was drafted from (src/ai/provenance.py): today's, earlier ones, or unknown (before they were recorded).
+      const {label, title} = kitLabel(job.kit_state);
+      chips.append(tag(label, {title: `${title} Click to open it in Notion.`, onClick: event => window.pilot.openNotion(job.notion_url, event.metaKey)}));
+    }
     if (job.tailored && job.code) chips.append(tag('📄 Tailored CV', {title: 'Your CV tailored to this job, with the changes highlighted',
       onClick: () => window.pilot.openTailoredCv(job.code)}));
     if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected (on its Notion page)',
@@ -1296,7 +1305,9 @@ function renderJobs() {
     menu.push({label: '↗ Open posting', run: () => window.pilot.openExternal(job.url), title: 'The job posting'});
     if (job.kit && job.code) {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
-      menu.push({label: '↻ Redraft kit', title: 'Draft the kit again from your current Profile and standard answers (~20 s)', run: () =>
+      const earlier = String(job.kit_state || '').startsWith('earlier');
+      menu.push({label: earlier ? '↻ Redraft kit (earlier inputs)' : '↻ Redraft kit',
+        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s, about 4¢); replaces it in Notion', run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
@@ -1583,6 +1594,17 @@ $('apply-go').addEventListener('click', async event => {
   message('apply-message', result.ok ? result.message : result.error, result.ok ? 'ok' : 'error');
 });
 
+// A kit's provenance, for its tag: "Current", "Drafted with earlier inputs" (which ones changed), or "Inputs unknown".
+const INPUT_NAMES = {cv: 'CV', profile: 'Profile', answers: 'standard answers'};
+function kitLabel(state = '') {
+  if (state === 'current') return {label: '📝 Kit', title: 'Current: drafted from your current CV, Profile and standard answers.'};
+  if (state.startsWith('earlier')) {
+    const changed = state.split(':')[1]?.split(',').map(name => INPUT_NAMES[name] || name).join(', ') || 'inputs';
+    return {label: '📝 Kit · earlier inputs', title: `Drafted with earlier inputs: your ${changed} changed since. Redraft it from the ⋯ menu if you still want it.`};
+  }
+  return {label: '📝 Kit', title: 'Inputs unknown: drafted before Job Pilotto recorded which CV, Profile and answers a kit came from.'};
+}
+
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
 function chips(items, tone = '') {
   const box = el('div', 'chip-list');
@@ -1613,6 +1635,12 @@ async function loadStrategy() {
   $('strategy-score-note').textContent = !data.scored ? 'No scored matches yet: run a search with your AI key.'
     : `Average of each part of the fit score across your ${data.scored} scored matches.` +
       (data.stale ? ` Scores updating: ${data.stale} job${data.stale === 1 ? '' : 's'} wait for a new score after a Profile change (60 per search).` : '');
+  show($('strategy-previous'), !!data.previous);
+  if (data.previous) {
+    $('strategy-previous-text').textContent = `${data.previous} score${data.previous === 1 ? ' is' : 's are'} from the previous scoring method ` +
+      '(it also read your contact details and links). Kept to avoid the cost; they are re-scored when the job or your Profile changes.';
+    $('strategy-rescore').textContent = `Re-score them now (≈ $${(data.previous * 0.015).toFixed(2)})`;
+  }
   $('strategy-scores').replaceChildren(...data.components.map(part => {
     const [label, tone] = level(part.value);
     const line = el('div', 'score-bar');
@@ -1641,6 +1669,13 @@ async function loadStrategy() {
 }
 $('strategy-edit').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_SEARCH_SETTINGS_PAGE || state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
 $('strategy-jobs').addEventListener('click', () => openView('jobs'));
+$('strategy-rescore').addEventListener('click', async () => {
+  $('strategy-rescore').disabled = true;
+  const result = await window.pilot.rescorePrevious();
+  $('strategy-rescore').disabled = false;
+  toastMessage(result.ok ? 'Queued for re-scoring' : 'Not queued', result.ok ? `${result.queued} jobs get a new score over the next searches (60 per search).` : result.error);
+  loadStrategy();
+});
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
 function profileTab(name) {

@@ -206,6 +206,8 @@ def prepare_one(client, model, job, tracker, profile, answers, opener=None):
     tracker.replace_section(page['id'], KIT_HEADING, notion_blocks(job, drafted, questions, model))
     record_next_step(tracker, page, drafted)
     record_cost(tracker, page, model, usage)
+    from . import provenance  # which CV, Profile and answers it came from ("Drafted with earlier inputs" later)
+    provenance.record_kit(tracker, page, profile, answers)
     return drafted, questions, page, usage
 
 

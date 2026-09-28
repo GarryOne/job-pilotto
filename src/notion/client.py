@@ -120,7 +120,7 @@ class Tracker:
                                          'match_status': None, 'first_seen': page.get('created_time', '')})
             row.update(stage=select(props.get('Stage')), next_step=text(props.get('Next step')), notion_url=page.get('url') or '',
                        rejection=select(props.get('Rejection reason')) or '', rejection_lesson=text(props.get('Rejection lesson')),
-                       via=text(props.get('Via')), contact=text(props.get('Contact')))
+                       via=text(props.get('Via')), contact=text(props.get('Contact')), kit_inputs=text(props.get('Kit inputs')))
         return list(found.values())
 
     def hidden_urls(self):

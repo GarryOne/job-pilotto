@@ -389,6 +389,9 @@
               "color": "gray"
             }
           ]
+        },
+        "Kit inputs": {
+          "type": "rich_text"
         }
       }
     },
@@ -625,6 +628,19 @@
         },
         "First seen": {
           "type": "date"
+        },
+        "Scoring method": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Current",
+              "color": "green"
+            },
+            {
+              "name": "Previous",
+              "color": "gray"
+            }
+          ]
         }
       }
     },

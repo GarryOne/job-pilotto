@@ -113,3 +113,36 @@ class ScoringProfileTests(unittest.TestCase):
         score.save(db, job, 'm', {'score': 80}, self.PROFILE)  # scored before scoring_profile existed
         self.assertEqual(score.stale_count(db, [job], self.PROFILE), 0)  # adopted: its hash is updated, no re-score
         self.assertEqual(score.stale_count(db, [job], self.PROFILE.replace('+00 000', '+2')), 0)
+
+
+class ProvenanceTests(unittest.TestCase):
+    def test_kept_scores_are_labelled_previous_method_and_can_be_queued_for_a_new_score(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        profile = '# Goals\n- SRE\n# Contact\n- Phone: 1'
+        job = {'id': 1, 'title': 'SRE', 'description': 'Run Kubernetes', 'ai': {}, 'first_seen_at': '2026-09-28'}
+        score.save(db, job, 'm', {'score': 80}, profile)  # the whole Profile: the previous method
+        score.stale_count(db, [job], profile)  # kept without an AI call...
+        self.assertEqual(score.load(db)[1]['method'], 'Previous')  # ...but labelled as such
+        self.assertEqual(score.previous_method(db), [1])
+        self.assertEqual(score.rescore_previous(db), 1)
+        self.assertEqual(score.stale_count(db, [job], profile), 1)  # queued: the next search re-scores it
+        score.save(db, job, 'm', {'score': 82}, score.scoring_profile(profile))
+        self.assertEqual((score.load(db)[1]['method'], score.load(db)[1]['scorer_version']), ('Current', score.SCORER_VERSION))
+
+
+class KitProvenanceTests(unittest.TestCase):
+    def test_a_kit_is_current_until_its_cv_profile_or_answers_change_and_unknown_without_a_record(self):
+        import tempfile
+        from pathlib import Path
+        from src.ai import provenance
+        with tempfile.TemporaryDirectory() as tmp:
+            cv = Path(tmp) / 'cv.pdf'
+            cv.write_bytes(b'%PDF one')
+            recorded = provenance.kit_inputs('# Goals\n- SRE\n# Contact\n- Phone: 1', '# A\n- x', cv)
+            self.assertEqual(provenance.kit_state(recorded, provenance.kit_inputs('# Goals\n- SRE\n# Contact\n- Phone: 2', '# A\n- x', cv)), 'current')
+            self.assertEqual(provenance.kit_state(recorded, provenance.kit_inputs('# Goals\n- SRE, platform', '# A\n- y', cv)), 'earlier:profile,answers')
+            cv.write_bytes(b'%PDF two')
+            self.assertEqual(provenance.kit_state(recorded, provenance.kit_inputs('# Goals\n- SRE', '# A\n- x', cv)), 'earlier:cv')
+        self.assertEqual(provenance.kit_state('', 'cv:a profile:b answers:c'), 'unknown')

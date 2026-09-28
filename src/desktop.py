@@ -13,7 +13,7 @@ import argparse
 import json
 
 from . import digest, store
-from .ai import score
+from .ai import provenance, score
 from .notion.client import job_code
 from .paths import JOBS_DB
 
@@ -40,7 +40,7 @@ def _kit(stage, step):
     return stage == 'Kit ready' or step.startswith(('📝 Kit ready', NOT_ELIGIBLE))
 
 
-def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None):
+def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None):
     """The Jobs list, best fit first (unscored after scored, then the rule-based rank).
 
     notion_jobs (Tracker.notion_jobs): the list itself, from Notion (the source of truth), with Notion's fields only;
@@ -80,8 +80,11 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None):
             # Only Notion's fields: a field the list needs is a Notion column (config/notion_schema.json), never cache-only.
             job = {'url': url, 'title': item.get('title'), 'company': item.get('company'), 'location': item.get('location'),
                    'work_mode': item.get('work_mode'), 'first_seen_at': item.get('first_seen', '')}
+            # A kit's inputs vs today's: current, earlier (drafted before the CV, Profile or answers changed), unknown.
+            kit_state = provenance.kit_state(item.get('kit_inputs'), kit_inputs) if _kit(stage, item.get('next_step') or '') else ''
             rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url'),
-                            rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or ''))
+                            rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or '',
+                            kit_state=kit_state))
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:
                 fit = fits.get(job['id'])
@@ -237,7 +240,7 @@ def strategy(db, tracker=None):
                  + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]
                  + [f'Title: {word}' for word in unique(search.get('title_exclude_keywords'))[:6]]
                  + [f'Remote only from {region}' for region in unique(search.get('remote_excluded_regions'))[:3]],
-        'components': components, 'scored': len(scored), 'stale': stale,
+        'components': components, 'scored': len(scored), 'stale': stale, 'previous': len(score.previous_method(db)),
         'counts': {'matches': len(scored), 'kits': stages.get('Kit ready', 0), 'sent': sent},
         'insight': insight,
     }
@@ -253,6 +256,7 @@ def main(argv=None):
     marking.add_argument('status', choices=STATUSES)
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('strategy')
+    sub.add_parser('rescore-previous')
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
         if args.command == 'posting':
@@ -260,6 +264,9 @@ def main(argv=None):
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()
+        if args.command == 'rescore-previous':
+            print(json.dumps({'queued': score.rescore_previous(db)}))
+            return 0
         if args.command == 'strategy':
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
             return 0
@@ -271,7 +278,14 @@ def main(argv=None):
                 except Exception as error:  # the list still shows from the cache, marked as possibly out of date
                     print(f'Warning: Notion unavailable, showing the cached list: {type(error).__name__}: {error}',
                           file=__import__('sys').stderr)
-            result = jobs(db, args.limit, notion_jobs=found)
+            current = None  # the inputs a kit would be drafted from now: to tell current kits from earlier ones
+            if found and any(_kit(job.get('stage'), job.get('next_step') or '') for job in found):
+                try:
+                    from .ai import kit
+                    current = provenance.kit_inputs(tracker.page_text(), kit.standard_answers(tracker))
+                except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
+                    pass
+            result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current)
             fresh = found is not None
             if tracker and not fresh:
                 result['stale'] = True
