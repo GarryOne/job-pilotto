@@ -3712,6 +3712,14 @@ function renderSessionPage() {
   if (item.status === 'running') ticking(livePill, `${logLabel} · `, item.startedAt);
   $('ss-live-state').replaceChildren(livePill);
   $('ss-log-last').textContent = `> ${review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
+  // A session that isn't running (closed with the app, or ended) takes no typing: say so, with Resume one click away.
+  const offline = !isLive(item);
+  show($('ss-offline'), offline);
+  show($('ss-replies'), !offline);
+  $('ss-offline-resume').hidden = !item.resumable;
+  $('ss-offline').querySelector('span').textContent = item.resumable
+    ? 'Claude isn\'t running (it closed with the app), so typing and replies go nowhere.'
+    : 'This session has ended: typing goes nowhere. Start a new session from the job to continue.';
   openLog(logChoice[item.id] ?? item.status === 'running', false);
 }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -3724,7 +3732,13 @@ async function attachTerminal(id) {
     xtermFit = new FitAddon();
     xterm.loadAddon(xtermFit);
     xterm.open($('ss-terminal'));
-    xterm.onData(data => openSessionId && window.pilot.sessionWrite(openSessionId, data));
+    xterm.onData(data => {
+      if (!openSessionId) return;
+      const item = sessionList.find(entry => entry.id === openSessionId);
+      // Keys typed into a session that isn't running: point at Resume instead of losing them silently.
+      if (item && !isLive(item)) { if (!/^\x1b\[[IO]$/.test(data)) $('ss-offline').classList.add('is-flash'), setTimeout(() => $('ss-offline').classList.remove('is-flash'), 900); return; }
+      window.pilot.sessionWrite(openSessionId, data);
+    });
     // The wheel scrolls the log (see wheel.js); a live Claude on its own full screen gets it instead.
     let carry = 0;
     xterm.attachCustomWheelEventHandler(event => {
@@ -3761,6 +3775,7 @@ function say(text) {
   xterm?.focus();
 }
 document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
+$('ss-offline-resume').addEventListener('click', () => { const item = sessionList.find(entry => entry.id === openSessionId); if (item) resumeSession(item); });
 $('ss-copy').addEventListener('click', async () => {
   const text = (await window.pilot.sessionOutput(openSessionId)).replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
   await navigator.clipboard.writeText(text);

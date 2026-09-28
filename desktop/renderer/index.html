@@ -408,7 +408,11 @@
             <div class="ss-log-last" id="ss-log-last"></div>
             <div class="ss-log-body" id="ss-log-body" hidden>
               <div class="ss-terminal" id="ss-terminal"></div>
-              <div class="ss-chips">
+              <div class="ss-chips ss-offline" id="ss-offline" hidden>
+                <span class="small">Claude isn't running (it closed with the app), so typing and replies go nowhere.</span>
+                <button class="ui-tag is-action" id="ss-offline-resume">Resume Claude to reply</button>
+              </div>
+              <div class="ss-chips" id="ss-replies">
                 <span class="small">Type in the log, or send a quick reply:</span>
                 <button class="ui-tag is-action" data-say="Explain in one or two lines what you are doing now and why.">Explain this step</button>
                 <button class="ui-tag is-action" data-say="Continue.">Continue</button>
