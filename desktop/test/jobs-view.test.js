@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
+import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -55,13 +55,16 @@ test('clicking a counter shows the jobs it counts', () => {
   assert.equal(byStat(jobs, 'companies').length, stats(jobs).companies);
 });
 
-test('application counters follow the Notion stage', () => {
+test('application counters follow the Notion stage, with the funnel\'s stage sets', () => {
   const jobs = [
     {status: 'applied', stage: 'Applied'}, {status: 'applied', stage: 'Interviewing'}, {status: 'applied', stage: 'Rejected'},
     {status: 'applied', stage: 'No response'}, {status: 'saved', stage: 'Saved'}, {status: 'unreviewed', stage: ''},
+    {status: 'applied', stage: 'Applying'},  // a form still being filled: not sent, not counted
+    {status: 'applied', stage: 'Screening'},
   ];
-  assert.deepEqual(applicationStats(jobs), {applied: 4, active: 2, interviews: 1, rejected: 1});
-  assert.deepEqual(byStat(jobs, 'active'), [jobs[0], jobs[1]]);
+  assert.deepEqual(applicationStats(jobs), {applied: 5, active: 3, interviews: 2, rejected: 1});
+  assert.deepEqual(inProcess(jobs), {screening: 1, interviews: 1});
+  assert.deepEqual(byStat(jobs, 'active'), [jobs[0], jobs[1], jobs[7]]);
   assert.deepEqual(byStat(jobs, 'rejected'), [jobs[2]]);
 });
 

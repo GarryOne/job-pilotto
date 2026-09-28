@@ -63,3 +63,16 @@ class ReplaceAfterHeadingTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SameDefinitionsTests(unittest.TestCase):
+    def test_the_jobs_counters_and_the_funnel_use_the_same_stage_sets(self):
+        import re
+        from pathlib import Path
+        from src.notion import funnel, ledger
+        js = (Path(__file__).resolve().parents[1] / 'desktop' / 'renderer' / 'jobs-view.js').read_text()
+        stages = lambda name: set(re.findall(r"'([^']+)'", re.search(rf'export const {name} = new Set\(\[(.*?)\]\)', js, re.S)[1]))
+        self.assertEqual(stages('SENT'), set(ledger.OUTCOME_STAGES))  # "Applied" = what the funnel counts as applied
+        steps = {name: marks for name, marks, *_ in funnel.STEPS}
+        self.assertEqual(stages('SCREENING') | stages('INTERVIEWS'), steps['📞 Screening'])
+        self.assertEqual(stages('INTERVIEWS'), steps['🧑‍💻 Interviews'])

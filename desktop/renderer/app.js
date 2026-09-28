@@ -1,7 +1,7 @@
 import {replaceCell, replaceLine, withLine} from './markdown-edit.js';
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from './jobs-view.js';
+import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 import {openPalette} from './palette.js';
@@ -1574,6 +1574,9 @@ async function loadJobs() {
     $('stat-companies').textContent = count.companies;
     const applications = applicationStats(allJobs);
     for (const kind of Object.keys(applications)) $(`stat-${kind}`).textContent = applications[kind];
+    const talking = inProcess(allJobs);
+    document.querySelector('[data-stat="interviews"]').title = `Now: ${talking.screening} screening · ${talking.interviews} interviewing or offer. ` +
+      'Applied counts applications sent (not forms still being filled); the Focus funnel counts every step an application ever reached.';
   } catch (error) {
     $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }

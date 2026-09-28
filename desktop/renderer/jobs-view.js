@@ -26,15 +26,25 @@ export function stats(jobs, total, now = Date.now()) {
   };
 }
 
-// Applications, by their Notion Stage: ended (rejected, withdrawn, no answer) or still in play (active).
+// Applications right now, by their Notion Stage, with the same stage sets as the Focus funnel (src/notion/funnel.py):
+// sent = an outcome stage (not "Applying", a form still being filled); ended = rejected, withdrawn, no answer;
+// in process = screening (Screening, Interview scheduled: often a screening call) or interviews (Interviewing, Offer).
+// The funnel counts what each application ever reached; these count where it stands now.
+export const SENT = new Set(['Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer',
+  'Rejected', 'Withdrawn', 'No response']);
 const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
-const TALKING = new Set(['Screening', 'Interview scheduled', 'Interviewing', 'Offer']);
+export const SCREENING = new Set(['Screening', 'Interview scheduled']);
+export const INTERVIEWS = new Set(['Interviewing', 'Offer']);
+const TALKING = new Set([...SCREENING, ...INTERVIEWS]);
 const APPLICATION = {
-  applied: job => job.status === 'applied',
-  active: job => job.status === 'applied' && !ENDED.has(job.stage),
-  interviews: job => job.status === 'applied' && TALKING.has(job.stage),
-  rejected: job => job.status === 'applied' && job.stage === 'Rejected',
+  applied: job => SENT.has(job.stage),
+  active: job => SENT.has(job.stage) && !ENDED.has(job.stage),
+  interviews: job => TALKING.has(job.stage),
+  rejected: job => job.stage === 'Rejected',
 };
+// The "In process" box's hover: how many are screening and how many interviewing.
+export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(job.stage)).length,
+  interviews: jobs.filter(job => INTERVIEWS.has(job.stage)).length});
 // A job's status pill: its own status, except that an application shows where it stands in Notion (its Stage),
 // e.g. Rejected rather than Applied.
 const STATUS = {unreviewed: ['New', 'info'], saved: ['Saved', 'signal'], applied: ['Applied', 'good'], dismissed: ['Dismissed', 'neutral']};
