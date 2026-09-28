@@ -29,6 +29,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 from zoneinfo import ZoneInfo
 
 from .. import telegram
@@ -120,8 +121,15 @@ def save_state(state, path=STATE_FILE):
 
 def applications(tracker):
     """Applications that emails and events can belong to, oldest first (stable indexes)."""
-    rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES + (opportunity.LEAD_STAGE,)]})
+    stages = lambda names: {'or': [{'property': 'Stage', 'select': {'equals': stage}} for stage in names]}
+    try:
+        rows = tracker.query_database(tracker.database_id, stages(OUTCOME_STAGES + (opportunity.LEAD_STAGE,)))
+    except urllib.error.HTTPError as error:
+        # A workspace without the "Recruiter lead" choice yet (it's added by the app's repair, or by the first lead):
+        # Notion refuses a filter on an unknown choice, and then there are no leads to match anyway.
+        if error.code != 400:
+            raise
+        rows = tracker.query_database(tracker.database_id, stages(OUTCOME_STAGES))
     return sorted(rows, key=lambda r: (plain(r['properties'].get('Applied on')) or '', r['id']))
 
 

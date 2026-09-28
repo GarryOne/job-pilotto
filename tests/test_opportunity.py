@@ -162,6 +162,19 @@ class MailOutreachTests(unittest.TestCase):
         mail.applications(tracker)
         self.assertIn({'property': 'Stage', 'select': {'equals': 'Recruiter lead'}}, filters[0]['or'])
 
+    def test_a_workspace_without_the_recruiter_lead_choice_still_gets_its_mail_checked(self):
+        import urllib.error
+        tracker, filters = Tracker(), []
+
+        def query(db, f=None):
+            filters.append(f)
+            if any(c['select']['equals'] == 'Recruiter lead' for c in f['or']):
+                raise urllib.error.HTTPError('https://api.notion.com', 400, 'validation_error', {}, None)
+            return [app('p1', 'Scale AI', 'SRE')]
+        tracker.query_database = query
+        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])
+        self.assertEqual(len(filters), 2)
+
 
 class DailyAddTests(unittest.TestCase):
     def test_add_mode_without_a_job_link_tracks_the_message_as_a_lead(self):
