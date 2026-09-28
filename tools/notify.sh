@@ -3,14 +3,19 @@
 #   Job Pilotto / grafanalabs job 6103687004 / Form filled — review and Submit
 # Clicking it brings the Terminal window of the session that sent it to the front (needs
 # `brew install terminal-notifier`; without it, a plain notification). Used by the launchers'
-# agents, the Codex runner and wait-and-mark-applied.sh. No-op off macOS.
+# agents, the Codex runner and wait-and-mark-applied.sh. Off macOS it goes through the app.
 url="${1:?usage: $0 <job URL> <message>}"
 message="${2:?usage: $0 <job URL> <message>}"
 here="$(cd "$(dirname "$0")" && pwd)"
 id="$(printf '%s' "${url%%\?*}" | sed -E 's#/+$##; s#.*/##')"
 board="$(printf '%s' "$url" | sed -E 's#https?://[^/]+/([^/?]+).*#\1#')"
 case "$url" in *amazon.jobs*) board=amazon; id="$(printf '%s' "$url" | sed -E 's#.*/jobs/([0-9]+).*#\1#')" ;; esac
-command -v osascript >/dev/null || exit 0
+# Off macOS (Windows, in Git Bash): the Job Pilotto app shows the notification, when it's running.
+if ! command -v osascript >/dev/null; then
+  curl -s -m 3 -X POST -H 'X-Job-Pilotto: launcher' --data-urlencode "job=$board job $id" \
+    --data-urlencode "message=$message" http://127.0.0.1:47111/claude/notify >/dev/null 2>&1
+  exit 0
+fi
 
 # The Terminal tab this came from: the nearest ancestor process attached to a tty (agents run
 # tools in subprocesses without one). Empty for detached processes such as the submit watcher.

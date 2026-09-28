@@ -40,6 +40,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from email.utils import parsedate_to_datetime
 
+from .. import secret_store
+
 SCOPES = ('https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/calendar.readonly')
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 SHARED_CLIENT = Path(__file__).resolve().parents[2] / 'config' / 'google_oauth_client.json'
@@ -48,11 +50,7 @@ KEYCHAIN = {'GOOGLE_CLIENT_ID': 'job-pilotto.google.client-id', 'GOOGLE_CLIENT_S
 
 
 def _keychain(service):
-    if sys.platform != 'darwin':
-        return None
-    result = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''), '-s', service, '-w'],
-                            capture_output=True, text=True)
-    return result.stdout.strip() or None if result.returncode == 0 else None
+    return secret_store.get(service)
 
 
 def credentials():
@@ -251,17 +249,14 @@ def store(client_id, client_secret, refresh_token, production, github):
     A published app's sign-in doesn't expire; an app in "Testing" gets a sign-in date so the health
     check can warn before Google's 7-day limit."""
     values = {'GOOGLE_CLIENT_ID': client_id, 'GOOGLE_CLIENT_SECRET': client_secret, 'GOOGLE_REFRESH_TOKEN': refresh_token}
-    user = os.getenv('USER', '')
     for name, service in KEYCHAIN.items():
-        subprocess.run(['security', 'add-generic-password', '-U', '-a', user, '-s', service, '-w', values[name]], check=True)
+        secret_store.put(service, values[name])
     signed_in = '' if production else datetime.now(timezone.utc).isoformat(timespec='seconds')
     if signed_in:
-        subprocess.run(['security', 'add-generic-password', '-U', '-a', user, '-s', 'job-pilotto.google.auth-at',
-                        '-w', signed_in], check=True)
+        secret_store.put('job-pilotto.google.auth-at', signed_in)
     else:
-        subprocess.run(['security', 'delete-generic-password', '-a', user, '-s', 'job-pilotto.google.auth-at'],
-                       capture_output=True)
-    print('Stored in the Keychain:', ', '.join(KEYCHAIN.values()))
+        secret_store.delete('job-pilotto.google.auth-at')
+    print('Stored in this computer\'s secret store:', ', '.join(KEYCHAIN.values()))
     if github:
         for name, value in values.items():
             subprocess.run(['gh', 'secret', 'set', name], input=value, text=True, check=True)

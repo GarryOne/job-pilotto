@@ -168,6 +168,16 @@ export function start(storage, onError = () => {}) {
         res.end(JSON.stringify(local && job ? {ticket: issueTicket(job)} : {error: 'Not allowed'}));
         return;
       }
+      if (req.url === '/claude/notify') {
+        // A Claude session's tools/notify.sh where there's no osascript (Windows): the app shows it. Local only, as above.
+        const local = req.method === 'POST' && req.headers['x-job-pilotto'] === 'launcher' && !req.headers.origin;
+        const form = new URLSearchParams(body?.toString() || '');
+        const message = form.get('message')?.slice(0, 300);
+        if (local && message) notify(`Job Pilotto · ${form.get('job')?.slice(0, 120) || 'Apply with Claude'}`, message);
+        res.writeHead(local && message ? 200 : 403, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({ok: !!(local && message)}));
+        return;
+      }
       if (req.url === '/extension/ticket') {
         const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type'};

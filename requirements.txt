@@ -1,1 +1,2 @@
 anthropic>=1,<2
+keyring>=25; sys_platform == "win32"   # Windows Credential Manager (src/secret_store.py); the Mac uses its Keychain

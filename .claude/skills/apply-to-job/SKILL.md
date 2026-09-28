@@ -74,8 +74,9 @@ in that file next time — keep evolving it.
   after observing this as a hard rule in a Codex desktop-app comparison run — see Log.)
 - **Employer accounts: sign up or sign in yourself, but never see the password.** (Owner decision
   28 Sep 2026, replacing "never create accounts": Apply with Claude has to get from a job board
-  through the employer's sign-up to the form.) Generate it into the Keychain, paste it from the
-  clipboard, clear the clipboard; never type it, echo it, screenshot it with Show on, or write it
+  through the employer's sign-up to the form.) Generate it into this computer's secret store
+  (Keychain on the Mac, Credential Manager on Windows) with `python3 -m src.ai.passwords`, paste it
+  from the clipboard, clear the clipboard; never type it, echo it, screenshot it with Show on, or write it
   anywhere else. Steps: "Reaching the form" below.
 - Clicking **Apply now / Create account / Sign in / Next / Save and continue** to reach or move
   through the form is fine; the final **Submit / Send application** never is.
@@ -329,23 +330,19 @@ per page where you can:
    careers page in a **new tab**: re-read the tabs (`tabs_context_mcp`) and carry on there.
    Example: jobs.ch → `careers.<employer>/job/<title>/<id>/?utm_source=jobsch` (SuccessFactors
    career site) → its own **Apply now »** → "Career Opportunities: Sign In".
-2. **Sign-in page.** Check the Keychain first (`<host>` = the sign-in page's hostname):
-   `security find-generic-password -a job-pilotto -s "job-pilotto.<host>.password" >/dev/null 2>&1 && echo have`
+2. **Sign-in page.** Check for a stored password first (`<host>` = the sign-in page's hostname):
+   `python3 -m src.ai.passwords have <host>` (prints `have` / `none`)
    - **Have one:** email from the CV, password pasted as in step 3.
    - **None:** follow "Create an account" / "Register" / "Not a registered user yet?".
 3. **Create the account.** Fill name, email, phone, country from the CV/Profile as for any form.
-   Password in one Bash call (16 chars with every class: sites often cap at 16–20 and want upper,
-   lower, digit and symbol):
-   ```
-   host=<host>; pw="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 12)Aa1!"
-   security add-generic-password -U -a job-pilotto -s "job-pilotto.$host.password" -l "Job Pilotto: $host" -w "$pw"
-   printf %s "$pw" | pbcopy; unset pw; echo stored job-pilotto.$host.password
-   ```
-   Click the password field, `cmd+v`; the confirm field, `cmd+v`; then `pbcopy </dev/null`. Check
-   with the audit (`filled: true`), never by reading the value. To sign in later:
-   `security find-generic-password -a job-pilotto -s "job-pilotto.$host.password" -w | pbcopy`,
-   paste, clear. If the site rejects the password, regenerate to the rule it shows (same item;
-   `-U` overwrites) and paste again. Security questions and optional profile fields: answer from
+   Password (16 chars with every class: sites often cap at 16–20 and want upper, lower, digit and
+   symbol), generated, stored and copied in one call, never shown:
+   `python3 -m src.ai.passwords new <host>`
+   Click the password field, paste (`cmd+v` on the Mac, `ctrl+v` on Windows); the confirm field,
+   paste; then `python3 -m src.ai.passwords clear`. Check with the audit (`filled: true`), never by
+   reading the value. To sign in later: `python3 -m src.ai.passwords copy <host>`, paste, clear. If
+   the site rejects the password, regenerate to the rule it shows (`new <host> --length 12` or
+   `--no-symbols`; it overwrites the stored one) and paste again. Security questions and optional profile fields: answer from
    the Profile/Application Answers like any field; leave them for the owner only when no source has them.
 4. **Confirmation email:** don't ask the owner. Read it from Gmail (read-only, connected in the
    app's Settings → Gmail and Calendar):
@@ -357,7 +354,7 @@ per page where you can:
    Fill everything else first, run `tools/notify.sh <job url> "Needs your input — see Terminal"`,
    say in one line exactly what to do in Chrome ("tick I'm not a robot and the terms box, then
    reply ok") and wait. Never try to solve or bypass a CAPTCHA. After the reply, click Create
-   account / Sign in and continue. Account exists but no Keychain item: use the site's "Forgot
+   account / Sign in and continue. Account exists but no stored password: use the site's "Forgot
    password" to the owner's email and ask the owner for the reset link, or ask them to sign in.
 6. **After sign-in** the site usually lands on the application or a profile step; on a dashboard,
    open the job again from the careers page and press Apply. Fill page by page (Next / Save and
