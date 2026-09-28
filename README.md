@@ -185,7 +185,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 - 🎙️ **Interviews**: record a call (after ticking that everyone agreed) or add a recording → a transcript
   with speakers, made on the Mac → name them, pick the job → **Save to Notion** (optionally **Review**). [More](#-learning-from-your-applications).
 - ⏱️ **How often**: per job (search, kits, insights, new employers, mail), in your time zone.
-- ☁️ **Keep working while my Mac is off**: sign in with GitHub (a GitHub App with access to one
+- ☁️ **Always on** (runs on GitHub, even when your Mac is off): sign in with GitHub (a GitHub App with access to one
   repository only) and the app sets up your own private repository with the schedules, secrets and
   settings; searches then run there even with the Mac off.
 - 🔔 **Notifications**: kit ready, form filled, application marked applied (an in-window toast when

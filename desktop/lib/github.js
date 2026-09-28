@@ -1,4 +1,4 @@
-// "Keep working while my Mac is off": the user's own private GitHub repo runs the searches on a
+// Always on: the user's own private GitHub repo runs the searches on a
 // schedule. Least privilege: Job Pilotto is a GitHub App the user installs on that one repository
 // ("Only select repositories"), so the app can't see or touch any other repo. The user creates the repo
 // from the public starter template, installs the app on it, and approves a sign-in code; the app then

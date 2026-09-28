@@ -398,7 +398,7 @@ test('Windows wording: the PC, File Explorer, Ctrl, its own encryption; the Mac 
   const {osText} = await import('../renderer/os.js');
   assert.equal(osText("Keys are encrypted with your Mac's Keychain and never leave this Mac.", 'win32'),
     "Keys are encrypted with Windows' built-in encryption and never leave this PC.");
-  assert.equal(osText('Keep working while my Mac is off', 'win32'), 'Keep working while my PC is off');
+  assert.equal(osText('Runs on GitHub, even when your Mac is off.', 'win32'), 'Runs on GitHub, even when your PC is off.');
   assert.equal(osText('Show in Finder', 'win32'), 'Show in File Explorer');
   assert.equal(osText('Recordings in Finder', 'win32'), 'Recordings in File Explorer');
   assert.equal(osText('(⌘-click: in a window)', 'win32'), '(Ctrl-click: in a window)');

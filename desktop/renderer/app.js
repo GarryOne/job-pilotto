@@ -327,7 +327,7 @@ function renderActivity(data) {
   }));
   if (!runs.length && !running) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted', textContent: 'Nothing has run yet.'}));
 
-  // How often: from Settings → How often (the cloud does it when "Keep working while my Mac is off" is on).
+  // How often: from Settings → How often (GitHub does it when Always on is on).
   const cloud = !!state?.settings?.cloud?.repo;
   // A card per scheduled task: what, which day, and the time in large type (or why there's none).
   const slot = (glyph, name, at, none) => {
@@ -359,7 +359,7 @@ function renderActivity(data) {
     `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} · ${capital(outcome(run))}${where}`;
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
-  show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Keep working while my Mac is off)
+  show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Always on)
   $('activity-github').dataset.url = run?.url || '';
   const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
@@ -1067,7 +1067,7 @@ function renderJobs() {
         prepare.title = 'Drafting the kit: usually 15–30 s';
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
         prepare.classList.remove('busy', 'state-busy');
-        // On GitHub (Keep working while my Mac is off): Recent activity follows it; the list reloads when it's done.
+        // On GitHub (Always on): Recent activity follows it; the list reloads when it's done.
         if (result.cloud) { prepare.textContent = 'Preparing on GitHub…'; openActivity(true); return; }
         if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
       });
@@ -1553,18 +1553,18 @@ document.querySelectorAll('[data-schedule]').forEach(select => select.addEventLi
   message('schedule-message', result.ok ? `Saved ✓ ${result.repo} follows the new schedule.` : result.error, result.ok ? 'ok' : 'error');
 }));
 
-// ---------- keep working while the Mac is off (the user's private GitHub repo) ----------
+// ---------- Always on: runs in the user's private GitHub repo, even with the Mac off ----------
 function showCloud() {
   const cloud = state.settings.cloud;
   $('cloud-status').textContent = cloud?.repo
-    ? osText(`✓ On: working from ${cloud.repo} on the schedule above, even with the Mac off.`) : 'Off: Job Pilotto works only while this app is open.';
+    ? osText(`✓ On: running from ${cloud.repo} on the schedule above, even with the Mac off.`) : 'Off: jobs run on this Mac while the app is open.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
   $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
   $('auto-search').disabled = !!cloud?.repo;
   showTelegramCloud();
 }
 
-// Telegram buttons while this computer is off (the user's own Cloudflare Worker; lib/telegram-cloud.js).
+// Telegram buttons, always on (the user's own Cloudflare Worker; lib/telegram-cloud.js).
 function showTelegramCloud() {
   const on = state.settings.telegramCloud;
   show($('tg-cloud'), !!state.settings.cloud?.repo);

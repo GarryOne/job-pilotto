@@ -29,11 +29,11 @@ function fakeCloudflare({subdomain = 'alex'} = {}) {
   return {calls, fetcher};
 }
 
-test('turning it on needs the Telegram bot and "Keep working while my Mac is off" first', async () => {
+test('turning it on needs the Telegram bot and Always on first', async () => {
   const storage = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-tgc-')), {encrypt: v => v, decrypt: v => v});
   assert.match((await tgCloud.turnOn(storage, 'cf')).error, /Telegram/);
   storage.setSecret('TELEGRAM_BOT_TOKEN', '1:a'); storage.saveSettings({telegramChatId: 1});
-  assert.match((await tgCloud.turnOn(storage, 'cf')).error, /Mac is off/);
+  assert.match((await tgCloud.turnOn(storage, 'cf')).error, /Always on first/);
 });
 
 test('the Worker gets the chat, repo and Notion ids as plain values and the keys as secrets', () => {

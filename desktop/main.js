@@ -359,7 +359,7 @@ function handlers() {
     await github.cloudDispatch(storage, log)({mode: 'run'});
     return {ok: true, cloud: true};
   });
-  // "Keep working while my Mac is off": sign in to GitHub (code approved in the browser), then set up
+  // Always on: sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
   ipcMain.handle('cloudConnect', async (_, chosen = '') => {
     try {
@@ -383,7 +383,7 @@ function handlers() {
     if (storage.settings().telegramCloud) await telegramCloud.turnOff(storage);  // its buttons start runs there
     storage.saveSettings({cloud: null}); restartTelegram(); return true;
   });
-  // Telegram buttons while this computer is off: the user's own Cloudflare Worker (lib/telegram-cloud.js).
+  // Telegram buttons, always on: the user's own Cloudflare Worker (lib/telegram-cloud.js).
   ipcMain.handle('telegramCloudOn', async (_, token) => { const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
   ipcMain.handle('telegramCloudOff', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
@@ -608,7 +608,7 @@ function handlers() {
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
-    // With Keep working while my Mac is off, background jobs run in the user's GitHub repo: Recent activity
+    // With Always on, background jobs run in the user's GitHub repo: Recent activity
     // shows it starting, its progress and its result (its ⏱️ Search runs row); the job's row updates from Notion.
     if (cloud()) {
       await github.cloudDispatch(storage, log)({mode: 'prepare', job: code});
