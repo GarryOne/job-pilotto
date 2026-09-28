@@ -421,14 +421,37 @@ MONTHS = {m: i for i, m in enumerate(
     ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'), 1)}
 
 
+NUMBER_WORDS = {'a': 1, 'an': 1, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
+                'eight': 8, 'nine': 9, 'ten': 10, 'a couple of': 2, 'couple of': 2, 'a few': 3, 'few': 3}
+
+
+def _relative(text, today):
+    """A date from "today", "yesterday", "two days ago", "3 weeks ago", "last week" (a week ago), else None."""
+    from datetime import timedelta
+    if re.search(r'\btoday\b', text):
+        return today
+    if re.search(r'\byesterday\b', text):
+        return today - timedelta(days=1)
+    if re.search(r'\blast week\b', text):
+        return today - timedelta(days=7)
+    words = '|'.join(sorted(map(re.escape, NUMBER_WORDS), key=len, reverse=True))
+    if m := re.search(rf'\b(\d+|{words})\s+(day|week|month)s?\s+ago\b', text):
+        count = int(m[1]) if m[1].isdigit() else NUMBER_WORDS[m[1]]
+        return today - timedelta(days=count * {'day': 1, 'week': 7, 'month': 30}[m[2]])
+    return None
+
+
 def parse_applied(text, today=None):
-    """(date or None, approximate) from "2026-09-23", "23 Sep", "23.09", "on or before 23 Sep", "~23/9".
+    """(date or None, approximate) from "2026-09-23", "23 Sep", "23.09", "on or before 23 Sep", "~23/9", or
+    "today", "yesterday", "two days ago", "3 weeks ago", "last week" (weeks and months ago count as approximate).
     A year-less date in the future is taken as last year's."""
     today = today or date.today()
     text = (text or '').strip().lower()
     if not text:
         return None, False
-    approx = bool(re.search(r'before|approx|around|about|~|<=|≤|ca\.?\b', text))
+    approx = bool(re.search(r'before|approx|around|about|~|<=|≤|ca\.?\b|week|month|few|couple', text))
+    if (relative := _relative(text, today)) is not None:
+        return relative, approx
     found = None
     if m := re.search(r'(\d{4})-(\d{1,2})-(\d{1,2})', text):
         found = (int(m[1]), int(m[2]), int(m[3]))
@@ -441,7 +464,7 @@ def parse_applied(text, today=None):
     elif m := re.search(r'(\d{1,2})[./](\d{1,2})(?:[./](\d{4}))?', text):
         found = (int(m[3]) if m[3] else None, int(m[2]), int(m[1]))
     if not found:
-        raise ValueError(f'Could not read a date from "{text}". Try 2026-09-23, 23 Sep or "on or before 23 Sep".')
+        raise ValueError(f'Could not read a date from "{text}". Try 2026-09-23, 23 Sep, "two days ago" or "on or before 23 Sep".')
     year, month, day = found
     value = date(year or today.year, month, day)
     if year is None and value > today:

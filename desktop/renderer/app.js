@@ -1089,6 +1089,9 @@ document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('
 }));
 // Applied elsewhere: tracked in Notion like /add, then shown in the list as Applied.
 $('applied-open').addEventListener('click', () => {
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);  // local day
+  $('applied-when').value = today;
+  $('applied-when').max = today;  // no future dates
   message('applied-message', '');
   $('applied-go').disabled = false;
   $('applied-dialog').showModal();
@@ -1100,11 +1103,13 @@ $('applied-go').addEventListener('click', async event => {
   if (!/^https?:\/\//.test(url)) { message('applied-message', 'Paste the job link (it starts with https://).', 'error'); return; }
   $('applied-go').disabled = true;
   message('applied-message', 'Reading the posting and adding it to Notion…', 'waiting');
-  const result = await window.pilot.addApplied(url, $('applied-when').value.trim());
+  const day = $('applied-when').value;  // YYYY-MM-DD from the date picker
+  if (!day) { message('applied-message', 'Pick the day you applied.', 'error'); return; }
+  const result = await window.pilot.addApplied(url, $('applied-approx').checked ? `on or before ${day}` : day);
   $('applied-go').disabled = false;
   message('applied-message', result.text, result.ok ? 'ok' : 'error');
   if (!result.ok) return;
-  $('applied-url').value = ''; $('applied-when').value = '';
+  $('applied-url').value = ''; $('applied-approx').checked = false;
   $('filter-status').value = 'applied';  // show it where it now is
   loadJobs();
 });

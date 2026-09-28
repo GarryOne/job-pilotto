@@ -694,7 +694,8 @@
     <label for="applied-url">Job link</label>
     <input id="applied-url" type="url" placeholder="https://…" required>
     <label for="applied-when">When you applied</label>
-    <input id="applied-when" placeholder="today — or e.g. 23 Sep, on or before 23 Sep">
+    <input id="applied-when" type="date" required>
+    <label class="radio"><input type="checkbox" id="applied-approx"><span>Not sure of the day: on or before this date</span></label>
     <p class="message" id="applied-message"></p>
     <div class="actions">
       <button class="ghost" value="cancel" formnovalidate>Close</button>

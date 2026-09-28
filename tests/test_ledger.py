@@ -215,9 +215,15 @@ class AddApplicationTests(unittest.TestCase):
         self.assertEqual(ledger.parse_applied('2026-09-23', today), (date(2026, 9, 23), False))
         self.assertEqual(ledger.parse_applied('Sep 2', today), (date(2026, 9, 2), False))
         self.assertEqual(ledger.parse_applied('30 Dec', today), (date(2025, 12, 30), False))  # never in the future
+        self.assertEqual(ledger.parse_applied('two days ago', today), (today.fromordinal(today.toordinal() - 2), False))
+        self.assertEqual(ledger.parse_applied('2 days ago', today), (today.fromordinal(today.toordinal() - 2), False))
+        self.assertEqual(ledger.parse_applied('yesterday', today), (today.fromordinal(today.toordinal() - 1), False))
+        self.assertEqual(ledger.parse_applied('today', today), (today, False))
+        self.assertEqual(ledger.parse_applied('a couple of weeks ago', today), (today.fromordinal(today.toordinal() - 14), True))
+        self.assertEqual(ledger.parse_applied('last week', today), (today.fromordinal(today.toordinal() - 7), True))
         self.assertEqual(ledger.parse_applied('', today), (None, False))
         with self.assertRaises(ValueError):
-            ledger.parse_applied('last week', today)
+            ledger.parse_applied('some time ago', today)
 
     def test_channel_for(self):
         self.assertEqual(ledger.channel_for('https://jobs.techtree.dev/job/1'), ('Recruiter platform', 'TechTree'))

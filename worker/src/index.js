@@ -16,7 +16,7 @@ const HELP = [
   '/saved — jobs you saved with ⭐',
   '/insight — one insight about your search now (~1 min)',
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
-  '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… on or before 23 Sep',
+  '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… two days ago (or 23 Sep, on or before 23 Sep)',
   '📥 A recruiter wrote, an employer replied, you applied somewhere? Send me a screenshot (LinkedIn, Gmail, WhatsApp…), forward the message, or /add followed by its text: I find the job it\'s about and update it, or add it. Emails are picked up by the Gmail check',
   '/mail — check Gmail and Calendar for application news now (also runs 3 times a day)',
   '🎤 After an interview: send the recording (only if everyone on the call agreed to it; a voice note, audio or video up to 20 MB) or the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
