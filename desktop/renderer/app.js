@@ -131,10 +131,75 @@ async function showSearchStatus() {
   const last = runs[0];
   line.textContent = `Last search ${clockTime(lastSearchAt)}${last?.new != null ? ` · ${last.new} new` : ''}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
 }
+
+// ---------- activity bar (bottom of every screen) ----------
+// Plain-language phases of a search, recognised from its log lines.
+const PHASES = [
+  {match: /^Searching job boards/, label: 'Job boards (jobs.ch, TechTree)'},
+  {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
+];
+let logLines = [];  // this session's live log; when empty, the panel shows the last run's saved log
+function phaseIndex(lines) {
+  let index = -1;
+  lines.forEach(line => PHASES.forEach((phase, i) => { if (phase.match.test(line)) index = i; }));
+  return index;
+}
+function renderActivity({running, runs, nextSearchAt}) {
+  const last = runs[0];
+  const lines = logLines.length || running ? logLines : (last?.log || []);
+  const state = running ? 'busy' : last && !last.ok ? 'error' : last ? 'ok' : 'idle';
+  $('activity').dataset.state = state;
+  const checked = lines.filter(line => /^Checked: /.test(line)).length;
+  const next = nextSearchAt ? `Next search ${clockTime(new Date(nextSearchAt).toISOString())}` : 'Searches only when you ask';
+  if (running) {
+    const who = running.trigger === 'schedule' ? 'Scheduled search' : running.trigger === 'first' ? 'First search' : 'Search you started';
+    $('activity-title').textContent = `${who} running`;
+    $('activity-step').textContent = running.step || 'Starting…';
+    $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
+  } else if (last) {
+    $('activity-title').textContent = last.ok ? 'Last search done' : 'Last search had problems';
+    $('activity-step').textContent = `${clockTime(last.endedAt || last.startedAt)}${last.new != null ? ` · ${last.new} new job${last.new === 1 ? '' : 's'}` : ''}` +
+      (last.ok ? '' : ' · click to see why');
+    $('activity-meta').textContent = next;
+  } else {
+    $('activity-title').textContent = 'No search yet';
+    $('activity-step').textContent = 'Click "Find new jobs" to start one.';
+    $('activity-meta').textContent = next;
+  }
+  // Phase checklist: done ✓, now ●, later ○.
+  const at = phaseIndex(lines);
+  $('activity-phases').replaceChildren(...PHASES.map((phase, i) => {
+    const status = i < at || (i === at && !running) ? 'done' : i === at ? 'now' : 'todo';
+    return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
+  }));
+  show($('activity-phases'), at >= 0);
+  const log = $('log');
+  const text = lines.join('\n') || 'Nothing to show yet.';
+  if (log.textContent !== text) {
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    log.textContent = text;
+    if (atBottom) log.scrollTop = log.scrollHeight;  // follow new lines unless the user scrolled up to read
+  }
+}
+// Re-render soon (log lines arrive in bursts; one read of the run state per burst).
+let activityTimer = null;
+function refreshActivity() {
+  if (activityTimer) return;
+  activityTimer = setTimeout(async () => { activityTimer = null; renderActivity(await window.pilot.runs()); }, 250);
+}
+$('activity-toggle').addEventListener('click', () => {
+  const open = $('activity-panel').hidden;
+  show($('activity-panel'), open);
+  $('activity-toggle').setAttribute('aria-expanded', open);
+  if (open) $('log').scrollTop = $('log').scrollHeight;
+});
+
 let wasRunning = false;
 setInterval(async () => {
   if ($('app').hidden) return;
-  const {running} = await window.pilot.runs();
+  const runsNow = await window.pilot.runs();
+  const {running} = runsNow;
+  renderActivity(runsNow);
   const tabs = new Set(await window.pilot.openTabs());
   if (tabs.size !== openedInChrome.size || [...tabs].some(url => !openedInChrome.has(url))) { openedInChrome = tabs; renderJobs(); }
   if (wasRunning && !running) loadJobs();  // a search just finished: show its jobs
@@ -463,22 +528,22 @@ async function loadJobs() {
 }
 
 window.pilot.onLog(line => {
-  const log = $('log');
-  show(log);
-  log.textContent += line + '\n';
-  log.scrollTop = log.scrollHeight;
+  if (/^Searching job boards/.test(line)) logLines = [];  // a new search starts a fresh log
+  logLines.push(line);
+  refreshActivity();
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
   $('refresh').textContent = 'Searching…';
-  $('log').textContent = '';
+  logLines = [];
   try {
     const result = await window.pilot.refresh();
-    $('log').textContent += result.ok ? '\nDone.\n' : '\nFinished with problems; see above.\n';
+    logLines.push('', result.ok ? 'Done.' : 'Finished with problems; see above.');
   } finally {
     $('refresh').disabled = false;
     $('refresh').textContent = 'Find new jobs';
     loadJobs();
+    refreshActivity();
   }
 });
 

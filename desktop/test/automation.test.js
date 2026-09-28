@@ -5,7 +5,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {handleUpdate} from '../shared/worker/index.js';
 import * as pipeline from '../lib/pipeline.js';
-import {due} from '../lib/schedule.js';
+import {due, nextAt, startSchedule} from '../lib/schedule.js';
 import {createStorage} from '../lib/storage.js';
 import * as telegram from '../lib/telegram.js';
 
@@ -20,6 +20,18 @@ test('a search is due every 4 hours after the first one, unless switched off', (
   assert.equal(due({setupDone: true, lastSearchAt: new Date(now - 3 * HOUR).toISOString()}, now), false);
   assert.equal(due({setupDone: true, lastSearchAt: new Date(now - 5 * HOUR).toISOString()}, now), true);
   assert.equal(due({setupDone: true, autoSearch: false}, now), false);
+});
+
+test('the next search time shows in the activity bar, and a scheduled search is announced before it starts', async () => {
+  const last = Date.parse('2026-09-27T12:00:00Z');
+  assert.equal(nextAt({setupDone: true, lastSearchAt: new Date(last).toISOString()}), last + 4 * HOUR);
+  assert.equal(nextAt({setupDone: true, lastSearchAt: new Date(last).toISOString(), cloud: {repo: 'a/b'}}), null);
+  const events = [];
+  const storage = {settings: () => ({setupDone: true, lastSearchAt: new Date(Date.now() - 5 * HOUR).toISOString()})};
+  const schedule = startSchedule(storage, async () => events.push('search'), null, {soon: () => events.push('soon'), headsUp: 0, firstCheck: 0});
+  await new Promise(resolve => setTimeout(resolve, 50));
+  schedule.stop();
+  assert.deepEqual(events, ['soon', 'search']);
 });
 
 test('Telegram actions run the same pipeline command as the GitHub workflow', () => {

@@ -200,7 +200,6 @@
   </nav>
 
   <main>
-    <div id="log" class="log" hidden></div>
     <div class="view" data-view="jobs">
       <header class="view-head">
         <div><h1>Jobs</h1><p class="muted" id="jobs-stats">Loading…</p><p class="search-status" id="search-status"></p></div>
@@ -468,6 +467,21 @@
       </div>
     </div>
   </main>
+
+  <!-- Always visible: what's running now (your searches and scheduled ones), or the last and next search. -->
+  <footer class="activity" id="activity">
+    <div class="activity-panel" id="activity-panel" hidden>
+      <ol class="activity-phases" id="activity-phases"></ol>
+      <pre id="log" class="log"></pre>
+    </div>
+    <button class="activity-bar" id="activity-toggle" aria-expanded="false" aria-controls="activity-panel">
+      <span class="activity-dot" id="activity-dot"></span>
+      <b id="activity-title">No search yet</b>
+      <span class="activity-step" id="activity-step"></span>
+      <span class="activity-meta" id="activity-meta"></span>
+      <span class="activity-chev" aria-hidden="true">▴</span>
+    </button>
+  </footer>
 </section>
 
 <!-- Apply dialog -->
