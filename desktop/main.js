@@ -147,6 +147,35 @@ function notify(title, body) {
   note.show();
 }
 
+// Recent activity: Notion's run history merged with this Mac's own runs and the jobs just sent to GitHub.
+function activity() {
+  pendingCloud = pendingCloud.filter(job => Date.now() - job.id < 10 * 60000);
+  const local = pipeline.runs(storage);
+  const {runs, live, waiting} = notionRuns ? runHistory.merge(notionRuns, local, pendingCloud) : {runs: local, live: pendingCloud[0] || null, waiting: pendingCloud};
+  pendingCloud = waiting;
+  const settings = storage.settings();
+  return {runs, running: pipeline.running() || live, queued: pipeline.queued(), lastSearchAt: settings.lastSearchAt || null,
+    nextSearchAt: nextAt(settings), nextMailAt: nextMailAt(settings)};
+}
+
+// While the app is open, every finished job is a notification, wherever it ran (this Mac, GitHub, a Telegram
+// button): once per run. With the window in front the app shows it itself (its own pop-up), so no double.
+const announced = new Set();
+let announcing = false;
+function announceRuns() {
+  const {runs} = activity();
+  if (!announcing) { runs.forEach(run => announced.add(run.id)); announcing = true; return; }  // history, not news
+  for (const run of runs) {
+    if (announced.has(run.id)) continue;
+    announced.add(run.id);
+    if (Date.now() - Date.parse(run.endedAt || run.startedAt) > 5 * 60000) continue;
+    if (window?.isFocused()) continue;
+    if (run.kind === 'prepare' && run.where === 'mac') continue;  // prepareKit gives its own ("Press Apply…")
+    const note = runHistory.notice(run);
+    if (note) notify(note.title, note.body);
+  }
+}
+
 function handlers() {
   ipcMain.handle('state', () => ({
     about,
@@ -324,17 +353,9 @@ function handlers() {
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
   });
-  ipcMain.handle('runs', () => {
-    pendingCloud = pendingCloud.filter(job => Date.now() - job.id < 10 * 60000);
-    const local = pipeline.runs(storage);
-    const {runs, live, waiting} = notionRuns ? runHistory.merge(notionRuns, local, pendingCloud) : {runs: local, live: pendingCloud[0] || null, waiting: pendingCloud};
-    pendingCloud = waiting;
-    return {runs, running: pipeline.running() || live, queued: pipeline.queued(), ...schedule()};
-  });
+  ipcMain.handle('runs', () => activity());
   ipcMain.handle('runDetail', (_, pageId) => runHistory.detail(storage, pageId).catch(error => ({message: null, log: [`Not read from Notion: ${error.message}`]})));
-  const schedule = () => ({
-    lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings()),
-    nextMailAt: nextMailAt(storage.settings())});
+
   ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
     ? github.cloudDispatch(storage, log)({}, 'mail.yml').then(() => ({ok: true, cloud: true}))
     : pipeline.checkMail(storage, log, 'you').then(({ok, run}) => ({ok, run}))));
@@ -616,7 +637,8 @@ function handlers() {
     }
     // Quietly: the result comes as a notification (and the row's Apply), not as log output.
     const lines = [];
-    const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), line => lines.push(line));
+    const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), line => lines.push(line),
+      pipeline.triggerEnv('you'));
     const ineligible = lines.map(line => line.replace(/<[^>]+>/g, '')).find(line => line.includes('Not eligible:'));
     if (exit !== 0) notify('Kit not prepared', `${name}: ${lines.filter(Boolean).slice(-1)[0] || 'something went wrong'}`);
     else notify('Application kit ready ✓', ineligible ? `${name}. ${ineligible.trim()}` : `${name}. Press Apply to fill the form.`);
@@ -816,22 +838,13 @@ if (firstCopy) app.whenReady().then(() => {
     setInterval(backupIfDue, 6 * 3600 * 1000);
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
-    // Searches: a notification a minute before one starts, and one with the result when it's done.
-    // Gmail checks: a notification only when they recorded something (a reply, rejection, interview…).
+    // Searches: a notification a minute before one starts; every finished run: announceRuns (every 5 s).
     startSchedule(storage, {
-      search: async () => {
-        const {ok, run} = await pipeline.refresh(storage, log, 'scheduled', 'schedule');
-        notify(ok ? 'Scheduled search done' : 'Scheduled search had problems',
-          ok ? (run.new ? `${run.new} new job${run.new === 1 ? '' : 's'} found.` : 'No new jobs this time.')
-            : 'Open Job Pilotto and click the activity bar to see what happened.');
-      },
-      mail: async () => {
-        const {ok, run} = await pipeline.checkMail(storage, log, 'schedule');
-        if (!ok) notify('Gmail check had problems', 'Open Job Pilotto and click the activity bar to see what happened.');
-        else if (run.updates?.length) notify(`Gmail: ${run.updates.length} application update${run.updates.length === 1 ? '' : 's'}`,
-          run.updates.slice(0, 3).join('\n'));
-      },
+      // Their notifications come from announceRuns, like every run's (wherever it ran).
+      search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
+      mail: () => pipeline.checkMail(storage, log, 'schedule'),
     }, powerMonitor, {soon: () => notify('Job search starting in 1 minute', 'Your scheduled search for new jobs is about to run.')});
+    setInterval(announceRuns, 5000);
     setTimeout(resumeQueue, 20 * 1000);  // after the schedule's own catch-up check has queued what's due
   }
   if (!DEMO) setInterval(() => focusReminder().catch(() => {}), 5 * 60 * 1000);

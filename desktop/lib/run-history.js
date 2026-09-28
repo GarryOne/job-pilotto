@@ -85,3 +85,26 @@ export function merge(notionRuns, localRuns, pending = []) {
   return {runs: [...merged, ...missing].filter(run => !run.live).sort((a, b) => b.id - a.id),
     live: merged.find(run => run.live) || waiting[0] || null, waiting};
 }
+
+// A finished run as a macOS / Windows notification, wherever it ran; null when there's nothing to say
+// (a Gmail check that recorded nothing, a Telegram button's small action).
+const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', weekly: 'Weekly report', today: "Today's list",
+  scout: 'Find employers', prepare: 'Application kit', interview: 'Interview review', add: 'Tracked application', rejection: 'Rejection review'};
+export function notice(run) {
+  if (!NAMES[run.kind] && run.kind) return null;
+  const where = run.where === 'github' ? ' (on GitHub)' : '';
+  const name = NAMES[run.kind] || 'Search';
+  if (run.ok === false || run.off) return {title: `${name} had problems${where}`, body: 'Open Job Pilotto and click the activity bar to see what happened.'};
+  if (run.kind === 'mail') {
+    const count = run.updates?.length ?? Number(/(\d+) update/.exec(run.result || run.summary || '')?.[1] || 0);
+    if (!count) return null;
+    return {title: `Gmail: ${count} application update${count === 1 ? '' : 's'}${where}`,
+      body: run.updates?.length ? run.updates.slice(0, 3).join('\n') : run.result};
+  }
+  if (!run.kind || run.kind === 'search') {
+    const fresh = run.new;
+    return {title: `${run.trigger === 'schedule' ? 'Scheduled search' : 'Search'} done${where}`,
+      body: fresh ? `${fresh} new job${fresh === 1 ? '' : 's'} found.` : 'No new jobs this time.'};
+  }
+  return {title: `${name} done${where}`, body: String(run.result || run.summary || run.message || 'Done.').split('\n')[0].slice(0, 180)};
+}
