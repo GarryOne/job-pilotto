@@ -131,6 +131,13 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null;
+  // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
+  const me = await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
+    // No app or no connection: stop, rather than fill a form without your name and CV.
+    if (usesApp(config) && (!error.status || error.status === 401)) throw new Error(error.status ? NOT_CONNECTED : NO_APP);
+    debug.errors.push(`details from the app: ${error.message}`);
+    return null;
+  });
   // The best of both, like an Apply with Claude session: the kit's answers first (drafted when the kit was made),
   // then Claude only for the questions they don't cover, so nothing is left empty that could be answered. A form
   // the kit covers fully costs nothing (no call when nothing is open).
@@ -140,10 +147,16 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     step('read the form');
     debug.form = (form || []).map(({field, label, type, required, filled, legal, options}) =>
       ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
-    // Fields the kit already answered (drafted ahead from the form's questions) don't go to Claude.
-    const fromKit = new Set(answers.filter(a => a.value).map(a => a.field));
-    const open = (form || []).filter(f => !f.filled && !f.legal && !fromKit.has(f.field)).map(({field, label, type, required, options}) =>
-      ({field, label, type, required, options}));
+    // What goes to Claude is only what nothing else answers: not a field the kit covers (answered, or left empty on
+    // purpose: an optional question it chose to skip), not your contact details and CV (the app's, filled below),
+    // not a file. A form the kit was drafted from therefore needs no Claude call at all.
+    const fromKit = new Set(kitAnswers.map(a => a.field).filter(Boolean));
+    const contact = new Set((await inPage(tab.id, (rows, profile) => window.__jobPilottoProfileEntries(rows, profile).map(e => e.field),
+      [form || [], me?.contact || config.profile || {}]).catch(() => [])) || []);
+    const PERSONAL = /^(first_name|last_name|preferred_name|email|phone|resume|resume_text|cover_letter|cover_letter_text|longitude|latitude)$/;
+    const open = (form || []).filter(f => !f.filled && !f.legal && f.type !== 'file' && !fromKit.has(f.field) && !contact.has(f.field) &&
+      !PERSONAL.test(f.field)).map(({field, label, type, required, options}) => ({field, label, type, required, options}));
+    debug.sentToClaude = open.map(f => f.field);
     // With a kit, applying was the user's decision (they prepared it): no eligibility stop.
     if (fromKit.size) force = true;
     const cached = reuse ? await cachedAI(tab) : null;
@@ -153,7 +166,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       const byAI = new Set(ai.answers.map(a => a.field));
       answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
     } else if (open.length) {
-      onStep(`Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
+      onStep(withKit ? `Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} the kit doesn't cover (10–30 s)…`
+        : `Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
       try {
         const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
         ai = await api(config, '/extension/answer', {method: 'POST',
@@ -177,13 +191,6 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     debug.form = (seen || []).map(({field, label, type, required, filled, legal, options}) =>
       ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
   }
-  // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
-  const me = await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
-    // No app or no connection: stop, rather than fill a form without your name and CV.
-    if (usesApp(config) && (!error.status || error.status === 401)) throw new Error(error.status ? NOT_CONNECTED : NO_APP);
-    debug.errors.push(`details from the app: ${error.message}`);
-    return null;
-  });
   // Learned notes (🧠 Form knowledge) answer fields nothing else did, matched by label and site.
   const host = new URL(tab.url).hostname, company = (tab.url.match(/\/([\w-]+)\/jobs\//) || [])[1] || '';
   const answered = new Set(answers.map(a => a.field));
