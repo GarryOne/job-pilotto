@@ -585,15 +585,15 @@ details.manual { margin-top: 18px; }
 .review .tile b { font-size: 14px; }
 .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .review .chips { gap: 6px; }
-.review .chip.removable { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: 12px; background: var(--sky); }
+.review .chip.removable { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: 12px; background: var(--sky); }
 .review .chip .x { background: transparent; border: 0; padding: 0 4px; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; }
-.review .chip.more { font-size: 12px; padding: 2px 10px; white-space: nowrap; }
+.review .chip.more { font-size: 12px; font-weight: 600; padding: 2px 10px; white-space: nowrap; flex: none; width: auto; min-width: max-content; line-height: 1.5; display: inline-flex; align-items: center; }
 .review #draft-summary { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
 .review #draft-summary.open { -webkit-line-clamp: unset; }
 .review .card-head .link { white-space: nowrap; }
 .review .tile b { font-size: 13px; }
 .review .chip .x:hover { color: #b42318; }
-.review .chip.more { border-style: dashed; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
+.review .chip.more { border-style: dashed; background: transparent; color: var(--muted); cursor: pointer; }
 .review .chips.bad .chip.removable { background: #fdecec; border-color: #f3c2c2; color: #9a1c12; }
 .review .priority { background: #e9f7ef; border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
 .review .priority b { color: #1f7a4a; font-size: 13px; }
