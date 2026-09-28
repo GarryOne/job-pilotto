@@ -639,3 +639,7 @@ details.manual { margin-top: 18px; }
 
 /* Reviewing a finished setup: the Notion connect steps are shown dimmed, the button disabled */
 .oauth.locked ol { opacity: .55; }
+
+/* Jobs list loading from Notion: centred spinner and one line */
+.list-loading { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-6) var(--sp-4); color: var(--muted); }
+.list-loading .spinner { width: 28px; height: 28px; }

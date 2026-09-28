@@ -1044,8 +1044,19 @@ async function loadQuestions() {
   }));
 }
 
+// While the list loads from Notion (a few seconds): a spinner in the empty list the first time; afterwards the
+// list stays and the subtitle says it's refreshing.
+function showLoading() {
+  if (allJobs.length) { $('jobs-stats').textContent = 'Refreshing from Notion…'; return; }
+  const box = el('div', 'list-loading');
+  box.append(el('span', 'spinner'), el('div', '', 'Loading your jobs from Notion…'),
+    el('div', 'muted small', 'Job Matches and Applications, usually a few seconds'));
+  $('jobs-body').replaceChildren(box);
+  $('jobs-stats').textContent = 'Loading from Notion…';
+}
 async function loadJobs() {
   loadQuestions();
+  showLoading();
   claudeReady = (await window.pilot.claudeReady().catch(() => ({ok: false}))).ok;
   try {
     const data = await window.pilot.jobs();
