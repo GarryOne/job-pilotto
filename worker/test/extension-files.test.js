@@ -110,3 +110,13 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and joins
   assert.match(read('extension/review.js'), /__jobPilottoReviewAlive\?\.\(\)/);
   assert.match(read('extension/hook.js'), /__jobPilottoHookAlive\?\.\(\)/);
 });
+
+test('a kit fill starts at once: kit and contact details prefetched, no fixed wait from the panel, quick dropdowns', () => {
+  const background = read('extension/background.js');
+  assert.match(background, /const data = await prefetch\(config, /);  // the panel's first look fetches both
+  assert.match(background, /fillOpenedTab\(sender\.tab, url, !!message\.force, \{fast: true\}\)/);
+  assert.match(background, /if \(!fast\) await new Promise/);
+  const flow = read('extension/flow.js');
+  assert.match(flow, /const me = early \|\| await api\(/);
+  assert.match(flow, /limit = 1500; waited < limit; waited \+= 100/);
+});

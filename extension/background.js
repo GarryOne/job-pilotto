@@ -105,18 +105,38 @@ async function ineligibleNote(tabId, reason) {
 }
 
 // Returns what was done ({filled, todo, ineligible, note}) or {error}, for Apply with Claude's hand-off.
-async function fillOpenedTab(tab, url, force = false) {
-  await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
+// The kit and your contact details + CV per job, fetched when the panel first sees the form, so Fill starts at once.
+// Kept 10 minutes (an edited kit or profile shows up after that, or at the next page load).
+const early = new Map();  // job url -> {at, kit: Promise, me: Promise}
+const FRESH_MS = 10 * 60 * 1000;
+function prefetch(config, url) {
+  const known = early.get(url);
+  if (known && Date.now() - known.at < FRESH_MS) return known;
+  const entry = {at: Date.now(),
+    kit: api(config, `/extension/kit?url=${encodeURIComponent(url)}`),
+    me: api(config, `/extension/me?url=${encodeURIComponent(url)}`)};
+  entry.kit.catch(() => early.delete(url));
+  entry.me.catch(() => early.delete(url));
+  early.set(url, entry);
+  return entry;
+}
+
+// fast: the page is already there (the panel's Fill): no wait for it to render.
+async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
+  if (!fast) await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   chrome.action.setBadgeText({tabId: tab.id, text: '…'}).catch(() => {});  // the tab may already be closed
   try {
     const config = await settings();
+    const ready = prefetch(config, url);
     // No kit (404: not tracked) fills without one; no app or no connection stops with the reason.
-    const kit = await api(config, `/extension/kit?url=${encodeURIComponent(url)}`).catch(error => {
+    const kit = await ready.kit.catch(error => {
       if (error.status === 401) throw error;
       if (!error.status) throw new Error(NO_APP);
       return {};
     });
-    const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, onStep: text => progress(tab.id, text)});
+    const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
+    const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, me,
+      onStep: text => progress(tab.id, text)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
     await progress(tab.id, '');
@@ -184,7 +204,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const config = await settings();
       const app = !config.workerUrl || config.workerUrl.startsWith('http://127.0.0.1');
       try {
-        const data = await api(config, `/extension/kit?url=${encodeURIComponent(message.url || sender.tab.url)}`);
+        const data = await prefetch(config, String(message.url || sender.tab.url).split('#')[0]).kit;  // the contact details come along
         return {connected: true, app, job: data.job || null, answers: data.kit?.answers?.length || 0, coverLetter: data.kit?.cover_letter || ''};
       } catch (error) {
         return {connected: error.status === 404, app, job: null, answers: 0, coverLetter: '', why: error.status ? '' : (app ? NO_APP : error.message)};
@@ -195,7 +215,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message?.type === 'panelFill' && sender.tab) {
     const url = String(message.url || sender.tab.url).split('#')[0];
     started.add(sender.tab.id);
-    forgetAI(sender.tab).then(() => fillOpenedTab(sender.tab, url, !!message.force)).then(result => reply({
+    forgetAI(sender.tab).then(() => fillOpenedTab(sender.tab, url, !!message.force, {fast: true})).then(result => reply({
       ok: !result?.error, error: result?.error || '', ineligible: !!result?.ineligible, note: result?.note || '',
       filled: result?.filled || 0, todo: (result?.todo || []).slice(0, 20), coverLetter: result?.coverLetter || ''}));
     return true;

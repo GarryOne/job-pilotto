@@ -33,13 +33,16 @@ export async function clickCombos(tabId) {
         const at = attempt === 1 ? spot : await page(n => window.__jobPilottoNextCombo(n), [skip]);
         if (!at) break;
         await click(at.x, at.y);
-        // The page opens the menu, filters it and picks the answer (search fields wait for server suggestions).
-        for (let waited = 0; waited < 5000; waited += 300) {
-          await new Promise(r => setTimeout(r, 300));
+        // The page opens the menu, filters it and picks the answer: a fixed list picks within a few tenths of a second,
+        // so it gets 1.5 s; a search field that is still loading its suggestions from the server gets up to 5 s.
+        const loading = () => page(() => !!document.querySelector('[class*=loading-indicator], [class*=loadingIndicator], [class*=menu-notice--loading], [class*=loadingMessage]'));
+        for (let waited = 0, limit = 1500; waited < limit; waited += 100) {
+          await new Promise(r => setTimeout(r, 100));
           if ((await page(() => window.__jobPilottoArmedCount())) < before) break;
+          if (limit < 5000 && await loading()) limit = 5000;
         }
         picked = (await page(() => window.__jobPilottoArmedCount())) < before;
-        if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 200)); }  // close the menu
+        if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 100)); }  // close the menu
       }
       results.push({label: spot.label, picked, ms: Date.now() - started});
       if (!picked) skip += 1;
@@ -111,7 +114,8 @@ export async function cachedAI(tab) {
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
 // jobUrl: the posting the kit belongs to, when the form lives elsewhere (a job board's Apply led to the employer's site).
-export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true, coverLetter = '', jobUrl = ''} = {}) {
+// me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
+export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];
   chrome.storage.session.set({[`job:${tab.id}`]: job, [`from:${tab.id}`]: job});
@@ -132,7 +136,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null;
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
-  const me = await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
+  const me = early || await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
     // No app or no connection: stop, rather than fill a form without your name and CV.
     if (usesApp(config) && (!error.status || error.status === 401)) throw new Error(error.status ? NOT_CONNECTED : NO_APP);
     debug.errors.push(`details from the app: ${error.message}`);
