@@ -64,12 +64,13 @@ SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['results'],
     'properties': {'results': {'type': 'array', 'items': {
         'type': 'object', 'additionalProperties': False,
-        'required': ['index', 'relevant', 'application', 'company', 'kind', 'interview_at', 'summary'],
+        'required': ['index', 'relevant', 'application', 'company', 'role', 'kind', 'interview_at', 'summary'],
         'properties': {
             'index': {'type': 'integer'},
             'relevant': {'type': 'boolean', 'description': "About one of the owner's own job applications"},
             'application': {'type': 'integer', 'description': 'Index in the applications list, or -1'},
             'company': {'type': 'string', 'description': 'Hiring company (or platform) named in the item'},
+            'role': {'type': 'string', 'description': 'Exact role title the item names (with its location suffix, e.g. "| Spain | Remote"), else ""'},
             'kind': {'type': 'string', 'enum': KINDS},
             'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a scheduled call/interview with UTC offset, else ""'},
             'summary': {'type': 'string', 'description': 'What happened, max 120 characters, no personal data'},
@@ -93,6 +94,8 @@ time (the booking confirmation or calendar invite itself). "Rejected" = not movi
 message, or LinkedIn's notification of one); a follow-up about a role already in the list is "Reply received". \
 "Other" = relevant but none of these: reminders or "starting soon" notices for a call already booked, "still open" \
 nudges, transcripts or recordings of a call, security codes, logistics.
+- role: the role title exactly as the item writes it, including any location part; "" when it names none. An item \
+naming a role that differs from every listed role at that company (e.g. another country) gets application -1.
 - interview_at: only when a specific time is stated; ISO 8601 with offset (assume Europe/Zurich if none is given).
 - summary: factual, short, no email addresses or phone numbers.
 Answer for every item index."""
@@ -295,7 +298,9 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     for i, email in enumerate(emails):
         result = results.get(i) or {'relevant': False}
         row = apps[result['application']] if result.get('relevant') and 0 <= result.get('application', -1) < len(apps) else None
-        if result.get('relevant') and not row:  # e.g. a scheduler email naming only the recruiter
+        named = result.get('relevant') and not row and result.get('role') and result.get('company') \
+            and result.get('kind') in TRACKABLE
+        if result.get('relevant') and not row and not named:  # e.g. a scheduler email naming only the recruiter
             row = _by_mention(apps, f"{email['from']} {email['subject']} {email['body'][:1500]}")
         if dry_run:
             print(f"{email['date'][:16]} {email['subject'][:60]!r}: {result}")
@@ -311,6 +316,9 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                 lines += new_lead(tracker, client, model, email, apps, stats)
                 continue
             result['kind'] = REPLY  # the same recruiter again, about a role already tracked
+        if not row and named:
+            # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.
+            row = _from_email(tracker, apps, result, email, stats, lines)
         if not row and not _about_tracked(apps, f"{result['company']} {email['from']} {email['subject']}"):
             lines.append(f"📧 {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
                          " — not tracked yet; /add its job URL to follow it.")
@@ -332,6 +340,41 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
             _short(stats, result['kind'], row, extra)
     return lines, len(emails)
+
+
+TRACKABLE = ('Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer')
+
+
+def _from_email(tracker, apps, result, email, stats, lines):
+    """An Applications row for the role an email names (Stage Applied; the email's own event then moves it on).
+    Keyed by company + role, so a second email about it (a duplicate, the rejection after the confirmation) finds it."""
+    company, role = result['company'].strip(), result['role'].strip()
+    words = lambda text: ' '.join(re.findall(r'[a-z0-9]+', text.lower()))
+    same = [r for r in apps if words(_field(r, 'Company')) == words(company)
+            and words(_field(r, 'Job')) and (words(role) in words(_field(r, 'Job')) or words(_field(r, 'Job')) in words(role))]
+    if same:
+        return same[0]
+    url = f'https://mail.google.com/mail/u/0/#all/{email["id"]}'
+    applied = (email['date'] or '')[:10]
+    props = {'Job': {'title': [{'text': {'content': role[:200]}}]}, 'Company': {'rich_text': [{'text': {'content': company[:200]}}]},
+             'Job URL': {'url': url}, 'Stage': {'select': {'name': 'Applied'}}, 'Source': {'select': {'name': 'Gmail'}},
+             'Date approximate': {'checkbox': True},
+             'Notes': {'rich_text': [{'text': {'content': f'Tracked from an email: "{email["subject"][:150]}"'}}]}}
+    if applied:
+        props['Applied on'] = {'date': {'start': applied}}
+    row = tracker.create_page(tracker.database_id, props)
+    known = row.setdefault('properties', {})  # Notion returns the new row's properties; test fakes may not
+    for name, value in (('Company', {'rich_text': [{'plain_text': company}]}), ('Job', {'title': [{'plain_text': role}]}),
+                        ('Stage', {'select': {'name': 'Applied'}}), ('Applied on', {'date': {'start': applied}})):
+        known.setdefault(name, value)
+    row.setdefault('url', '')
+    add_event(tracker, row, 'Applied', 'Gmail', at=applied or None,
+              note=f'Applied outside Job Pilotto; found in the email "{email["subject"][:120]}" (date is an upper bound)')
+    apps.append(row)
+    lines.append(f"➕ {_label(row)}: tracked from this email (applied elsewhere).")
+    if stats is not None:
+        stats.setdefault('updates', []).append(f"➕ Tracked · {company} — {role[:70]}")
+    return row
 
 
 def new_lead(tracker, client, model, email, apps, stats):

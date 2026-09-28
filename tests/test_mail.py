@@ -205,6 +205,32 @@ class MailTests(unittest.TestCase):
         self.assertIn("doesn't say which role", sent[0])
         self.assertIn('Rejected · Grafana Labs', stats['updates'][0])
 
+    def test_a_role_named_in_email_but_not_tracked_becomes_an_application(self):
+        apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote')]
+        google = FakeGoogle([email('c1', 'Thank you for applying to Grafana Labs', '2026-09-25T09:00:00+02:00'),
+                             email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
+        tracker, stats = FakeTracker(apps), {}
+        spain = dict(company='Grafana Labs', role='Staff SRE | Spain | Remote')
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+            mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Confirmation received'), **spain},
+                                                          {**result(1, -1, 'Rejected'), **spain}]]),
+                     days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats=stats)
+        rows = [p for p in tracker.created if 'Stage' in p]
+        self.assertEqual(len(rows), 1)  # the rejection found the row the confirmation made
+        self.assertEqual(rows[0]['Job']['title'][0]['text']['content'], 'Staff SRE | Spain | Remote')
+        self.assertEqual(rows[0]['Applied on']['date']['start'], '2026-09-25')
+        kinds = [p['Kind']['select']['name'] for p in tracker.created if 'Kind' in p]
+        self.assertEqual(kinds, ['Applied', 'Confirmation received', 'Rejected'])
+        self.assertIn({'Stage': {'select': {'name': 'Rejected'}}}, [u for _, u in tracker.updates])
+        self.assertIn('➕ Tracked · Grafana Labs — Staff SRE | Spain | Remote', stats['updates'])
+
+    def test_a_placeholder_plain_part_falls_back_to_the_html(self):
+        encode = lambda text: base64.urlsafe_b64encode(text.encode()).decode()
+        payload = {'mimeType': 'multipart/alternative', 'parts': [
+            {'mimeType': 'text/plain', 'body': {'data': encode('No Text Available')}},
+            {'mimeType': 'text/html', 'body': {'data': encode('<p>We have decided not to move forward.</p>')}}]}
+        self.assertEqual(google_api.body_text(payload), 'We have decided not to move forward.')
+
     def test_emails_read_against_another_ledger_are_read_again(self):
         self.state.write_text(json.dumps({'ledger': 'old-workspace-events', 'seen': ['m1'], 'notified': ['prep:e1']}))
         state = mail.load_state(self.state, ledger='real-events')

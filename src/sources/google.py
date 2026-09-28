@@ -134,8 +134,11 @@ def _decode(data):
     return base64.urlsafe_b64decode(data + '=' * (-len(data) % 4)).decode('utf-8', errors='replace')
 
 
+PLACEHOLDER_MAX = 60  # a plain part shorter than this, next to an HTML part, is a placeholder
+
+
 def body_text(payload):
-    """The text/plain part, else the text/html part with tags removed."""
+    """The text/plain part, else (none, or a placeholder) the text/html part with tags removed."""
     plain_parts, html_parts = [], []
 
     def walk(part):
@@ -147,11 +150,16 @@ def body_text(payload):
         for child in part.get('parts', []) or []:
             walk(child)
     walk(payload)
-    if plain_parts:
-        return '\n'.join(plain_parts).strip()
+    plain_text = '\n'.join(plain_parts).strip()
     text = re.sub(r'(?is)<(script|style).*?</\1>', ' ', '\n'.join(html_parts))
     text = re.sub(r'(?i)<br\s*/?>|</p>|</div>|</li>', '\n', text)
-    return re.sub(r'[ \t\xa0]+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
+    html_text = re.sub(r'[ \t\xa0]+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
+    # Some senders put only a placeholder in the plain part ("No Text Available"): then the HTML is the email.
+    placeholder = re.fullmatch(r'no (text|plain text)( available| version)?\.?', plain_text, re.I) or (
+        len(plain_text) < PLACEHOLDER_MAX and len(html_text) > 2 * len(plain_text) + 20)
+    if plain_text and not (placeholder and html_text):
+        return plain_text
+    return html_text
 
 
 # ---------- sign-up confirmation (Apply with Claude) ----------
