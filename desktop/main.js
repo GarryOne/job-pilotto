@@ -464,6 +464,8 @@ function handlers() {
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
   ipcMain.handle('strategyData', async () => {
+    // Demo mode: JOB_PILOTTO_DEMO_STRATEGY_DELAY ms first, to see (and screenshot) the loading state.
+    if (DEMO && process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY)));
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
     if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};
     return viewCache.remember(storage, 'strategy', {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())});

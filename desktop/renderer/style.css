@@ -958,3 +958,22 @@ main { min-width: 0; }
 .runs-go { color: var(--muted); font-size: var(--fs-lg); }
 .runs-empty { padding: var(--sp-3) 0; }
 @media (max-width: 1180px) { .task-grid { grid-template-columns: 1fr; } .runs-row { grid-template-columns: 32px 1fr auto; } .runs-row > :nth-child(n+4) { display: none; } }
+
+/* Strategy while it loads: the cards' own rows, greyed */
+.skeleton.chip { display: inline-block; width: 96px; height: 28px; }
+.skeleton.chip.wide { width: 150px; }
+.skeleton.w-name { width: 140px; } .skeleton.w-track { flex: 1; } .skeleton.w-level { width: 60px; }
+.skeleton.w-count { width: 40px; } .skeleton.w-label { width: 120px; }
+.score-bar.is-loading { display: flex; align-items: center; gap: var(--sp-3); }
+.score-bar.is-loading .icon { width: 18px; height: 18px; color: var(--ink-2); flex: none; }
+.glance-row.is-loading { display: flex; align-items: center; gap: var(--sp-3); }
+.glance-row.is-loading .glance-arrow { margin-left: auto; }
+#strategy-avoid .skeleton { display: inline-block; margin-right: var(--sp-2); }
+.summary-card.suggestion.is-loading h3, .summary-card.suggestion.is-loading .arrow-link { visibility: hidden; }
+#strategy-insight-text .skeleton + .skeleton { margin-top: var(--sp-2); }
+.loading-pill { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 4px 12px; border-radius: var(--r-pill);
+  background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: var(--fs-sm); }
+.loading-pill::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); animation: pulse-dot 1.2s var(--ease) infinite; }
+@keyframes pulse-dot { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .loading-pill::before { animation: none; } }
+.synced:has(.loading-pill)::before { display: none; }  /* the pill has its own dot while loading */

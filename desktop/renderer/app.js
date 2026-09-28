@@ -1650,16 +1650,43 @@ async function loadStrategy() {
   if (saved?.result?.ok && !strategyShown) {
     renderStrategy(saved.result);
     $('strategy-synced').textContent = `Saved ${ago(saved.at) || 'just now'} · updating…`;
-  } else if (!strategyShown) message('strategy-load', 'Reading your strategy…', 'waiting');
+  } else if (!strategyShown) strategySkeleton();
   const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
-  if (!data.ok) { message('strategy-load', data.error, 'error'); return; }
+  if (!data.ok) { $('strategy-view-loading')?.remove(); message('strategy-load', data.error, 'error'); return; }
   message('strategy-load', '');
+  $('strategy-view-loading')?.remove();
   renderStrategy(data);
   $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
 }
 let strategyShown = false;
+// First load: every card in its final shape, greyed (the same rows, icons and chips), and a pill in the header.
+function strategySkeleton() {
+  const chipBones = n => { const box = el('div', 'chip-list'); for (let i = 0; i < n; i++) box.append(bone('chip')); return box; };
+  const row = (glyph, label, value) => { const dt = el('dt'); dt.append(icon(glyph), label); const dd = el('dd'); dd.append(value); return [dt, dd]; };
+  $('strategy-targets').replaceChildren(...row('briefcase', 'Roles', chipBones(3)), ...row('pin', 'Locations', chipBones(3)),
+    ...row('chart', 'Compensation', bone('w-80 tall')), ...row('building', 'Company interests', chipBones(3)));
+  $('strategy-scores').replaceChildren(...['settings', 'layers', 'pin', 'chart'].map(glyph => {
+    const line = el('div', 'score-bar is-loading');
+    line.append(icon(glyph), bone('w-name tall'), bone('w-track'), bone('w-level'));
+    return line;
+  }));
+  $('strategy-avoid').replaceChildren(...[0, 1, 2].map(() => bone('chip wide')));
+  $('strategy-glance').replaceChildren(...['file', 'layers', 'send'].map(glyph => {
+    const line = el('div', 'glance-row is-loading');
+    line.append(tile(glyph, 'neutral'), bone('w-count tall'), bone('w-label'), el('span', 'glance-arrow', '›'));
+    return line;
+  }));
+  const insight = $('strategy-insight');
+  insight.hidden = false;
+  insight.classList.add('is-loading');
+  $('strategy-insight-text').replaceChildren(bone('w-80'), bone('w-60'));
+  const pill = el('span', 'loading-pill', 'Loading strategy…');
+  pill.id = 'strategy-view-loading';
+  $('strategy-synced').replaceChildren(pill);
+}
 function renderStrategy(data) {
   strategyShown = true;
+  $('strategy-insight').classList.remove('is-loading');
   const row = (glyph, label, value) => {
     const dt = el('dt');
     dt.append(icon(glyph), label);

@@ -25,7 +25,9 @@ export const SCREENS = [
     `${open('actions')} document.querySelector('[data-command=status]').click(); ${wait(1200)}`],
   ['interviews', 'Interviews: recorder, drafts and the saved library table', `${open('interviews')} ${wait(1200)}`],
   ['settings', 'Settings: setting rows (title, explanation, control)', `${open('settings')} ${wait(1200)}`],
-  ['strategy', 'Strategy: long-form editing', `${open('strategy')} ${wait(1200)}`],
+  ['strategy', 'Strategy: targeting rows with chips, score bars, Avoid; side glance card', `${open('strategy')} ${wait(2500)}`],
+  ['strategy-loading', 'Strategy loading: each card in its final shape, greyed; "Loading strategy…" pill', `${open('strategy')} ${wait(900)}`,
+    {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '60000'}],
 ];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
