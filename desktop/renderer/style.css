@@ -931,7 +931,8 @@ main { min-width: 0; }
 .ss-log-last { font: var(--fs-sm) var(--font-mono); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--navy-line); border-radius: var(--r-sm); cursor: pointer;
   color: var(--on-navy-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ss-log-body { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ss-terminal { height: 48vh; min-height: 260px; background: var(--navy); overflow: hidden; }
+.ss-terminal { height: 48vh; min-height: 260px; background: var(--navy); overflow: hidden; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--navy-line); border-radius: var(--r-sm); box-sizing: border-box; }
+.ss-terminal .xterm-viewport { background: transparent !important; }
 .ss-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; color: var(--on-navy-2); }
 @media (max-width: 1180px) { .ss-grid { grid-template-columns: 1fr; } }
 

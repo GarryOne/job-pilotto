@@ -3644,7 +3644,7 @@ async function attachTerminal(id) {
   const {Terminal} = await import('../node_modules/@xterm/xterm/lib/xterm.mjs');
   const {FitAddon} = await import('../node_modules/@xterm/addon-fit/lib/addon-fit.mjs');
   if (!xterm) {
-    xterm = new Terminal({fontFamily: cssVar('--font-mono'), fontSize: 13, cursorBlink: true, convertEol: false, scrollback: 5000,
+    xterm = new Terminal({fontFamily: cssVar('--font-mono'), fontSize: 12, lineHeight: 1.35, cursorBlink: true, cursorStyle: 'bar', convertEol: false, scrollback: 5000,
       theme: {background: cssVar('--navy'), foreground: cssVar('--on-navy'), cursor: cssVar('--signal'), selectionBackground: cssVar('--navy-active')}});
     xtermFit = new FitAddon();
     xterm.loadAddon(xtermFit);
