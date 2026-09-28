@@ -8,7 +8,7 @@ import {REPO} from './pipeline.js';
 const API = 'https://api.notion.com/v1/';
 export const TEMPLATE = JSON.parse(fs.readFileSync(path.join(REPO, 'config', 'notion_template.json'), 'utf8'));
 
-async function call(token, method, route, body, fetcher = globalThis.fetch) {
+export async function call(token, method, route, body, fetcher = globalThis.fetch) {
   const response = await fetcher(API + route, {
     method,
     headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},

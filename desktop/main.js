@@ -16,6 +16,7 @@ import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
+import * as schema from './lib/schema.js';
 import * as contactDetails from './lib/contact.js';
 import {createStorage, safeStorageCrypto} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
@@ -148,7 +149,12 @@ function handlers() {
     if (error) return {ok: false, error};
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
-      const result = await notion.connectWaiting(token, {onProgress: progress => window?.webContents.send('notionProgress', {...progress, titles})});
+      let result = await notion.connectWaiting(token, {onProgress: progress => window?.webContents.send('notionProgress', {...progress, titles})});
+      // Missing columns or databases (an older template, or a deleted one): add them from the schema, check again.
+      if (!result.ok && result.ids?.NOTION_PROFILE_PAGE_ID) {
+        const fixed = await schema.repair(token, result.ids);
+        if (fixed.created.length || fixed.columns.length) result = {...await notion.connect(token), repaired: fixed};
+      }
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});

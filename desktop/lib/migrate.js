@@ -5,10 +5,18 @@ import * as contact from './contact.js';
 import * as knowledge from './knowledge.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
+import * as schema from './schema.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 
 export const STEPS = [
+  // The workspace itself: columns and databases the code needs that it lacks (config/notion_schema.json).
+  {name: 'workspace', run: async (storage, fetcher) => {
+    const fixed = await schema.repair(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, schema.load(), fetcher);
+    if (!fixed.created.length && !fixed.columns.length) return false;
+    storage.saveSettings({notionIds: fixed.ids});
+    return true;
+  }},
   // Profile and standard answers: Notion pages since setup; the local copies are leftovers.
   {name: 'profile copies', run: async storage => {
     if (!storage.readText('profile.md') && !storage.readText('answers.md')) return false;
