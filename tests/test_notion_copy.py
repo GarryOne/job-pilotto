@@ -75,6 +75,11 @@ class NotionCopyTests(unittest.TestCase):
             env.write('NOTION_TOKEN=secret\nNOTION_APPLICATIONS_DB=f56b-6894\nNOTION_PROFILE_PAGE_ID="3e56"\nOTHER=x\n')
         self.assertEqual(c.ids_from_env_file(env.name), {'NOTION_APPLICATIONS_DB': 'f56b6894', 'NOTION_PROFILE_PAGE_ID': '3e56'})
 
+    def test_target_databases_come_from_the_desktop_apps_settings(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as settings:
+            json.dump({'setupDone': True, 'notionIds': {'NOTION_APPLICATIONS_DB': '3e96-2be8', 'NOTION_MATCHES_DB': ''}}, settings)
+        self.assertEqual(c.ids_from_env_file(settings.name), {'NOTION_APPLICATIONS_DB': '3e962be8'})
+
     def test_every_field_is_copied_except_the_ones_notion_computes(self):
         self.assertEqual(c.value({'type': 'select', 'select': {'name': 'Applied', 'color': 'blue', 'id': 'x'}}, 'select'),
                          {'select': {'name': 'Applied'}})

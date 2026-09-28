@@ -14,6 +14,7 @@ Tokens are read from the macOS Keychain by service name (never printed), e.g. jo
     #    and the target's Profile / Standard answers are replaced; --dry-run: only count)
     python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/sre-watch/.env \
         --to job-pilotto.notion-app.token [--replace] [--dry-run]
+    # (one token that sees both workspaces: --to the same token, --to-ids "~/Library/Application Support/Job Pilotto/settings.json")
     # 4. Optional: write ⚙️ Search settings from a config folder (search.json + preferences.json)
     python3 tools/notion_copy.py settings --token job-pilotto.notion-app.token --config ~/sre-watch/config
 
@@ -103,10 +104,14 @@ def title_of(item):
 
 
 def ids_from_env_file(path):
-    """{ENV: id} from a .env file's NOTION_* lines: use it when a workspace holds several copies with the same
-    titles (e.g. the public template's source next to the real databases), so the right ones are copied."""
+    """{ENV: id} from a .env file's NOTION_* lines, or from the Desktop App's settings.json (its "notionIds"):
+    use it when a token sees several copies with the same titles (e.g. the old workspace next to the app's
+    new one, or the public template's source next to the real databases), so the right ones are used."""
     ids = {}
-    for line in Path(path).expanduser().read_text().splitlines():
+    text = Path(path).expanduser().read_text()
+    if Path(path).suffix == '.json':
+        return {k: str(v).replace('-', '') for k, v in (json.loads(text).get('notionIds') or {}).items() if v}
+    for line in text.splitlines():
         key, _, val = line.strip().partition('=')
         if key.startswith('NOTION_') and key != 'NOTION_TOKEN' and val.strip():
             ids[key] = val.strip().strip('"\'').replace('-', '')
@@ -349,11 +354,13 @@ def main(argv=None):
     copying.add_argument('--from', dest='source', required=True)
     copying.add_argument('--from-ids', dest='source_ids', help='a .env file naming the source databases and pages (else found by title)')
     copying.add_argument('--to', dest='target', required=True)
+    copying.add_argument('--to-ids', dest='target_ids', help='the same for the target, e.g. the Desktop App\'s settings.json')
     copying.add_argument('--replace', action='store_true')
     copying.add_argument('--dry-run', action='store_true')
     writing = sub.add_parser('settings')
     writing.add_argument('--token', required=True)
     writing.add_argument('--config', required=True)
+    writing.add_argument('--ids', help='the target\'s .env or the Desktop App\'s settings.json (when the token sees several copies)')
     args = parser.parse_args(argv)
     if args.command == 'ids':
         found = find_ids(Notion(keychain(args.token)))
@@ -363,12 +370,14 @@ def main(argv=None):
     elif args.command == 'copy':
         src, dst = Notion(keychain(args.source)), Notion(keychain(args.target))
         src_ids = ids_from_env_file(args.source_ids) if args.source_ids else find_ids(src)
-        dst_ids = find_ids(dst)
+        dst_ids = ids_from_env_file(args.target_ids) if args.target_ids else find_ids(dst)
+        if src_ids.get('NOTION_APPLICATIONS_DB') == dst_ids.get('NOTION_APPLICATIONS_DB'):
+            raise SystemExit('Source and target are the same workspace: pass --from-ids / --to-ids')
         key = hashlib.sha1(f"{src_ids.get('NOTION_APPLICATIONS_DB')}>{dst_ids.get('NOTION_APPLICATIONS_DB')}".encode()).hexdigest()[:12]
         print(json.dumps(copy(src, dst, src_ids, dst_ids, STATE / f'{key}.json', args.replace, args.dry_run), indent=1))
     else:
         dst = Notion(keychain(args.token))
-        page = find_ids(dst).get('NOTION_SEARCH_SETTINGS_PAGE')
+        page = (ids_from_env_file(args.ids) if args.ids else find_ids(dst)).get('NOTION_SEARCH_SETTINGS_PAGE')
         if not page:
             raise SystemExit('No ⚙️ Search settings page in that workspace (the app creates it at start-up)')
         settings_page(dst, page, args.config)

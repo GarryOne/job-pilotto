@@ -30,6 +30,10 @@ uploaded to Notion (expiring links), views.
    missing columns/pages from `config/notion_schema.json`. Finish the wizard (a first search may run; its rows
    are replaced below).
 3. Owner gives you that same token → Keychain `job-pilotto.notion-app.token`.
+   **Connected with "Connect with Notion"** (the app keeps that token encrypted, nobody has it): the owner adds the
+   terminal's connection to the new page too (page ⋯ → Connections), then use `--to job-pilotto.notion.token`
+   with `--to-ids "~/Library/Application Support/Job Pilotto/settings.json"` (and `settings --ids` the same),
+   so the one token writes only into the app's workspace. The tool refuses when source and target are the same.
 4. **Check, then copy:**
    ```
    python3 tools/notion_copy.py ids  --token job-pilotto.notion-app.token          # target found, only one copy?
