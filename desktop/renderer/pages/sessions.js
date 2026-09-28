@@ -3,6 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
+import {asksYou, firstLine, isLive, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
@@ -11,11 +12,8 @@ import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from '
 import {applyFormStates, askRow, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
-// Application sessions (Apply with Claude in the app): declared before start-up code renders the job list.
-const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
-  ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
-// Claude is running in it (demo sessions say nothing: they run while not ended).
-export const isLive = item => item.live ?? !item.endedAt;
+// Other pages import these from here.
+export {firstLine, isLive, sessionDuration, sessionReview, sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
 
@@ -80,27 +78,12 @@ export function sessionMenu(item) {
   else menu.push({label: '✕ Remove from the list', run: () => removeSession(item)});
   return menu;
 }
-// Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
-const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself|ready for you to review|nothing was submitted/i;
-// A message that ends on a question still waits for your answer first.
-export const sessionReview = item => item.status === 'done'
-  || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !asksYou(item));
-// Claude asks you something when one of its own sentences (outside its report's lists) ends with "?"; a listed form
-// question ("Any relatives working at Acme?") is not Claude asking.
-const asksYou = item => (item.question ? readSessionMessage(item.question).intro.some(line => /\?\**\s*$/.test(line)) : /\?\s*$/.test(item.brief || ''));
-export const sessionState = item => (sessionReview(item) ? SESSION_STATE.done : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // Live while Claude works: a ticking duration, and its latest step from the log (the last "●" line it wrote).
 export const sessionTail = {};  // the end of each session's output, for its latest step
 export function ticking(node, prefix, since) {
   Object.assign(node.dataset, {since, prefix});
   node.textContent = prefix + sessionDuration({startedAt: since});
   return node;
-}
-export function sessionDuration(item) {
-  const end = item.endedAt || item.needsYouSince;
-  const seconds = Math.max(0, Math.round(((end ? new Date(end) : new Date()) - new Date(item.startedAt)) / 1000));
-  if (seconds >= 3600) return `${Math.floor(seconds / 3600)}h ${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}m`;
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
 }
 const hhmmOf = iso => new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 // Removing a session whose job is still Applying asks whether it was submitted (Applied, or back to Kit ready), so
@@ -146,16 +129,6 @@ function sessionButton(text, kind, run, glyph) {
   button.append(el('span', '', text));
   button.addEventListener('click', run);
   return button;
-}
-// The part of a text shown on its row: all of it when short, else whole sentences up to the limit (at least one).
-export function firstLine(text, limit = 110) {
-  if (text.length <= limit) return text;
-  let shown = '';
-  for (const sentence of text.split(/(?<=\.)\s+/)) {
-    if (shown && shown.length + sentence.length + 1 > limit) break;
-    shown = shown ? `${shown} ${sentence}` : sentence;
-  }
-  return shown;
 }
 // A row that shows one line and unfolds the rest on click (a › that turns).
 function foldRow(short, more) {
