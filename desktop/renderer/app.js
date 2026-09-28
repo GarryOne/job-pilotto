@@ -876,7 +876,6 @@ $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 function settingsPage(name) {
-  if (name === 'profile') setTimeout(() => profileTab('details'), 0);
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
 }
@@ -884,6 +883,12 @@ function settingsPage(name) {
 function openSetting(id) {
   const card = $(`setting-${id}`);
   if (!card) return;
+  const view = card.closest('.view')?.dataset.view;
+  if (view && view !== 'settings') {  // a card on another page (Profile: CV, details, links, assistant)
+    openView(view);
+    setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
+    return;
+  }
   settingsPage(card.closest('[data-settings-page]')?.dataset.settingsPage || 'overview');
   if (card.classList.contains('conn-panel')) document.querySelectorAll('.conn-panel').forEach(panel => show(panel, panel === card));
   setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
@@ -893,6 +898,15 @@ document.addEventListener('click', event => {
   if (go) { settingsPage(go.dataset.settingsGo); document.querySelector('main')?.scrollTo(0, 0); }
 });
 $('ov-backups').addEventListener('click', () => window.pilot.showBackups());
+$('ov-profile').addEventListener('click', () => openView('profile'));
+// Profile (main menu): CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
+async function openProfile() {
+  state = await window.pilot.state();
+  $('contact-save').disabled = true;
+  $('claude-consent').checked = !!state.settings.claudeConsent;
+  showContact();
+  profileTab('details');
+}
 
 // Connections status, shared by Overview (cards + alert), Connections (Connected / Available + alert) and the
 // dot on Connections. required: counted for the alert and the dot (Google Jobs is an optional extra).
@@ -1014,10 +1028,11 @@ function openView(name) {
   if (name === 'strategy') { loadStrategy(); loadCvSetting(); showCvChanged(); }
   if (name === 'settings') {
     settingsPage('overview');
-    $('automation-save').disabled = $('contact-save').disabled = true;
+    $('automation-save').disabled = true;
     loadSettings();
     window.pilot.dailyTarget().then(setting => { $('set-target').value = setting.target; $('set-remind').checked = setting.reminders; });
   }
+  if (name === 'profile') openProfile();
   if (name === 'interviews') loadInterviews();
   if (name === 'focus') loadFocus();
 }
