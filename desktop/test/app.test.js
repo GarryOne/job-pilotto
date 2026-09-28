@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {fakeNotion} from './fake-notion.js';
 import {fileURLToPath} from 'node:url';
 import * as apply from '../lib/apply.js';
 import * as pipeline from '../lib/pipeline.js';
@@ -184,7 +185,7 @@ test('the strategy draft keeps the contact details it read from the CV; the exte
     contact: {first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com', phone: '', github: ''}});
   assert.deepEqual(storage.settings().contact, {first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com'});
   const server = await import('../lib/server.js');
-  const me = server.me(storage);
+  const me = await server.me(storage);
   assert.equal(me.contact.email, 'ada@example.com');
   assert.equal(me.resume.name, 'CV_Ada.pdf');
   assert.equal(Buffer.from(me.resume.data, 'base64').toString(), '%PDF-1.4 fake');
@@ -198,20 +199,40 @@ test('the window scripts parse (a syntax error leaves the app window blank)', as
   }
 });
 
-test('questions nothing could answer are collected once; answered ones are not asked again', async () => {
+test('open questions are the ❓ lines of the Notion standard answers; answering fills the line in place', async () => {
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
+  storage.setSecret('NOTION_TOKEN', 'ntn_x');
+  storage.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  const {blocks, fetcher} = fakeNotion(['Notice period: ❓', 'Salary expectation: CHF 130,000']);
   const run = {url: 'https://x/1', trace: [
     {label: 'Are you open to relocation?', required: true, reason: questions.NO_ANSWER},
     {label: 'Nickname', required: false, reason: questions.NO_ANSWER},
+    {label: 'Salary expectation', required: true, reason: questions.NO_ANSWER},  // the page already has it
     {label: 'Email', required: true, reason: ''}]};
-  assert.equal(questions.collect(storage, run, 'Acme'), 1);
-  assert.equal(questions.collect(storage, run, 'Acme'), 0);  // already open
-  const [q] = storage.settings().openQuestions;
-  assert.equal(q.company, 'Acme');
-  questions.close(storage, q.key, true);
-  assert.equal(storage.settings().openQuestions.length, 0);
-  assert.equal(questions.collect(storage, run, 'Other'), 0);  // answered: not asked again
+  assert.equal(await questions.collect(storage, run, 'Acme', fetcher), 1);
+  assert.equal(await questions.collect(storage, run, 'Acme', fetcher), 0);  // already on the page
+  assert.equal(blocks.at(-1).text, 'Are you open to relocation?: ❓ (asked by Acme)');
+  const open = await questions.list(storage, fetcher);
+  assert.deepEqual(open.map(q => [q.question, q.company]), [['Notice period', ''], ['Are you open to relocation?', 'Acme']]);
+  assert.deepEqual(await questions.answer(storage, open[1].key, 'Yes, within Switzerland', fetcher), {ok: true});
+  assert.equal(blocks.at(-1).text, 'Are you open to relocation?: Yes, within Switzerland');
+  assert.deepEqual(await questions.answer(storage, open[0].key, '', fetcher), {ok: true});  // skip = line removed
+  assert.deepEqual(blocks.map(b => b.text), ['Salary expectation: CHF 130,000', 'Are you open to relocation?: Yes, within Switzerland']);
+  assert.equal((await questions.list(storage, fetcher)).length, 0);
+  assert.equal(storage.settings().openQuestions, undefined);  // nothing kept on the Mac
+});
+
+test('without Notion, open questions wait on the Mac until Notion is connected', async () => {
+  const questions = await import('../lib/questions.js');
+  const storage = tempStorage();
+  const run = {url: 'https://x/1', trace: [{label: 'Are you open to relocation?', required: true, reason: questions.NO_ANSWER}]};
+  assert.equal(await questions.collect(storage, run, 'Acme'), 1);
+  assert.equal(await questions.collect(storage, run, 'Acme'), 0);
+  const [q] = await questions.list(storage);
+  assert.equal((await questions.answer(storage, q.key, 'Yes')).ok, false);  // answers belong in Notion
+  assert.deepEqual(await questions.answer(storage, q.key, ''), {ok: true});
+  assert.equal((await questions.list(storage)).length, 0);
 });
 
 test('form knowledge: learned notes merge per site and field, and read as prompt text', async () => {

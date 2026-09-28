@@ -190,3 +190,37 @@ export async function appendBullets(token, pageId, lines, fetcher) {
 }
 
 export const pageUrl = id => `https://www.notion.so/${String(id).replace(/-/g, '')}`;
+
+// ---------- text blocks of a page (the standard answers' ❓ lines, the 🧠 Form knowledge bullets) ----------
+const plainOf = block => (block[block.type]?.rich_text || []).map(t => t.plain_text).join('');
+// Every block with text, in page order, down to toggles and nested lists (2 levels): [{id, type, text}].
+export async function textBlocks(token, pageId, fetcher, depth = 0) {
+  const found = [];
+  let cursor;
+  do {
+    const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+    for (const block of page.results) {
+      if (block[block.type]?.rich_text) found.push({id: block.id, type: block.type, text: plainOf(block)});
+      if (block.has_children && depth < 2 && !['child_page', 'child_database'].includes(block.type)) {
+        found.push(...await textBlocks(token, block.id, fetcher, depth + 1));
+      }
+    }
+    cursor = page.has_more ? page.next_cursor : null;
+  } while (cursor);
+  return found;
+}
+export async function setBlockText(token, block, text, fetcher) {
+  await call(token, 'PATCH', `blocks/${block.id}`, {[block.type]: {rich_text: [{type: 'text', text: {content: text.slice(0, 1900)}}]}}, fetcher);
+}
+export const deleteBlock = (token, id, fetcher) => call(token, 'DELETE', `blocks/${id}`, null, fetcher);
+// Bullets inserted right after one block (e.g. under a section heading).
+export async function insertBulletsAfter(token, pageId, afterId, lines, fetcher) {
+  const children = lines.map(line => ({object: 'block', type: 'bulleted_list_item',
+    bulleted_list_item: {rich_text: [{type: 'text', text: {content: line.slice(0, 1900)}}]}}));
+  if (children.length) await call(token, 'PATCH', `blocks/${pageId}/children`, {children, after: afterId}, fetcher);
+}
+export async function appendHeading(token, pageId, text, fetcher) {
+  const page = await call(token, 'PATCH', `blocks/${pageId}/children`, {children: [{object: 'block', type: 'heading_2',
+    heading_2: {rich_text: [{type: 'text', text: {content: text}}]}}]}, fetcher);
+  return page.results?.[0]?.id;
+}

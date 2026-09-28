@@ -7,6 +7,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import * as strategy from './strategy.js';
+import * as knowledge from './knowledge.js';
+import * as contactDetails from './contact.js';
 import {handleExtension, jobKey, pageText} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
@@ -58,11 +60,15 @@ export function localEnv(storage) {
       notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`);
       return {ok: true, message: 'Marked Applied in your Notion.'};
     },
-    KNOWLEDGE_TEXT: learn.asText(settings.formKnowledge),
+    // With Notion, extension.js reads the 🧠 Form knowledge page itself; without, the notes waiting on the Mac.
+    ...(notionToken ? {NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || ''} : {KNOWLEDGE_TEXT: learn.asText(settings.formKnowledge)}),
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
     onRun: async run => {
       const job = await find(run.url).catch(() => null);
-      const added = questions.collect(storage, run, job?.company || '');
+      const added = await questions.collect(storage, run, job?.company || '').catch(error => {
+        console.error('Open questions:', error.message);
+        return 0;
+      });
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
       reports.send(storage, run).catch(error => console.error('Fill report:', error.message));
@@ -79,31 +85,25 @@ async function learnFromRun(storage, run, job) {
   if (!apiKey) return;
   const settings = storage.settings(), token = storage.secret('NOTION_TOKEN'), ids = settings.notionIds || {};
   const studied = settings.formKnowledgeStudied || {};
-  const fresh = learn.newFields(run, studied, settings.formKnowledge || []);
+  const known = await knowledge.notes(storage);
+  const fresh = learn.newFields(run, studied, known);
   if (!fresh.length) return;  // this site's fields were already studied: no AI call
   const {profile, answers} = await strategy.profileTexts(storage).catch(() => ({profile: '', answers: ''}));
-  const {notes, usd} = await learn.learn({run, profile, answers, contact: settings.contact || {}, known: settings.formKnowledge || [], studied, apiKey});
+  const {notes, usd} = await learn.learn({run, profile, answers, contact: await contactOf(storage), known, studied, apiKey});
   const site = learn.siteOf(run.url);
-  // Remember what was studied, learned or not (a missing personal fact won't be retried; it's in Answer once).
+  // Remember what was studied, learned or not (a cache on the Mac: a missing personal fact isn't retried; it's in Answer once).
   storage.saveSettings({formKnowledgeStudied: {...studied, [site]: [...new Set([...(studied[site] || []), ...fresh.map(f => learn.labelKey(f.label))])]}});
   if (!notes.length) return;
-  storage.saveSettings({formKnowledge: learn.merge(storage.settings().formKnowledge, notes)});
-  if (token && ids.NOTION_PROFILE_PAGE_ID) {
-    let page = ids.NOTION_KNOWLEDGE_PAGE;
-    if (!page) {
-      page = await notion.ensurePage(token, ids.NOTION_PROFILE_PAGE_ID, learn.PAGE_TITLE,
-        'What Job Pilotto learned from your form fills, used by every later kit and fill. Delete a line to make it forget.');
-      storage.saveSettings({notionIds: {...storage.settings().notionIds, NOTION_KNOWLEDGE_PAGE: page}});
-    }
-    await notion.appendBullets(token, page, notes.map(n => `[${n.scope}] ${n.field}: ${n.note}${n.value ? ` → "${n.value}"` : ''}`));
-  }
+  await knowledge.add(storage, notes);
   notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} for next time (${job?.company || 'this form'}, $${usd.toFixed(3)}).`);
 }
 
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
 // the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
 // With the job page's URL (?url=), a CV tailored to that job is sent instead of the base one (same file name).
-export function me(storage, url = '') {
+const contactOf = storage => contactDetails.read(storage).catch(() => ({}));
+
+export async function me(storage, url = '') {
   const settings = storage.settings();
   let resume = null;
   const tailored = url ? cv.forUrl(storage, url) : null;
@@ -112,8 +112,9 @@ export function me(storage, url = '') {
     resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
   } catch {}
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
-  const knowledge = (settings.formKnowledge || []).filter(n => n.value && ['answer', 'option'].includes(n.kind));
-  return {contact: settings.contact || {}, resume, knowledge};
+  const direct = (await knowledge.notes(storage).catch(() => [])).filter(n => n.value && ['answer', 'option'].includes(n.kind))
+    .map(({block, ...note}) => note);
+  return {contact: await contactOf(storage), resume, knowledge: direct};
 }
 
 // Desktop notifications for what happens in Chrome (set by main.js): the fill starting and finishing,
@@ -220,7 +221,7 @@ export function start(storage, onError = () => {}) {
         if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? me(storage, new URL(req.url, 'http://x').searchParams.get('url') || '') : {error: 'Wrong token: open the extension settings and Connect again'}));
+        res.end(JSON.stringify(ok ? await me(storage, new URL(req.url, 'http://x').searchParams.get('url') || '') : {error: 'Wrong token: open the extension settings and Connect again'}));
         return;
       }
       const request = new Request(`http://127.0.0.1:${PORT}${req.url}`, {

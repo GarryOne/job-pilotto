@@ -838,15 +838,17 @@ $('set-telegram-save').addEventListener('click', async () => {
 });
 // ---------- your details for application forms (the extension asks the app for them) ----------
 function showContact() {
-  const contact = state.settings.contact || {};
-  document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
+  window.pilot.contact().then(contact => {
+    document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
+  }).catch(error => message('contact-message', `Couldn't read them from Notion: ${error.message}`, 'error'));
   $('contact-cv').textContent = state.settings.cvName ? `now: ${state.settings.cvName}` : 'none yet';
 }
 $('contact-save').addEventListener('click', async () => {
   const contact = Object.fromEntries([...document.querySelectorAll('[data-contact]')]
     .map(input => [input.dataset.contact, input.value.trim()]).filter(([, value]) => value));
-  state.settings = await window.pilot.saveSettings({contact});
-  message('contact-message', 'Saved ✓ The extension uses these from the next form it fills.', 'ok');
+  const result = await window.pilot.saveContact(contact);
+  message('contact-message', result.ok ? (state.notion ? 'Saved in your Notion Profile ✓ The extension uses these from the next form it fills.'
+    : 'Saved ✓ The extension uses these from the next form it fills.') : result.error, result.ok ? 'ok' : 'error');
 });
 $('contact-cv-replace').addEventListener('click', async () => {
   const name = await window.pilot.chooseCv();

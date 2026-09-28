@@ -110,7 +110,8 @@ export function dropLocalCopies(storage) {
 }
 
 export function save(storage, accepted) {
-  if (accepted.contact) storage.saveSettings({contact: Object.fromEntries(Object.entries(accepted.contact).filter(([, value]) => value))});
+  // With Notion, contact details go into the Profile page (main.js adds the section); without, they wait here.
+  if (accepted.contact && !storage.secret('NOTION_TOKEN')) storage.saveSettings({contact: Object.fromEntries(Object.entries(accepted.contact).filter(([, value]) => value))});
   storage.writeText('profile.md', accepted.profile_markdown.trim() + '\n');
   storage.writeText('answers.md', accepted.answers_markdown.trim() + '\n');
   const current = JSON.parse(storage.readText('config/search.json') || '{}');

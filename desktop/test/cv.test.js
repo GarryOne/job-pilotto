@@ -123,7 +123,7 @@ test('the template flows by default and uses fixed pages for a custom layout', (
   assert.match(marked, /class="mark-dropped"/);
 });
 
-test('the extension gets the tailored CV on that job\'s page and the base CV elsewhere', () => {
+test('the extension gets the tailored CV on that job\'s page and the base CV elsewhere', async () => {
   const storage = tempStorage();
   fs.writeFileSync(storage.path('cv.pdf'), 'BASE');
   const {cv: tailored, review} = cv.applyTailoring(BASE, answer());
@@ -131,11 +131,11 @@ test('the extension gets the tailored CV on that job\'s page and the base CV els
     createdAt: new Date().toISOString(), model: cv.MODEL, usd: 0.05, changes: [], warnings: [], cv: tailored, review}, Buffer.from('TAILORED'));
   assert.ok(cv.exists(storage, 'ab12cd34'));
   assert.equal(cv.forUrl(storage, 'https://boards.example/jobs/1/#jobpilotto-fill').job.code, 'ab12cd34');
-  const onJob = me(storage, 'https://boards.example/jobs/1');
+  const onJob = await me(storage, 'https://boards.example/jobs/1');
   assert.equal(Buffer.from(onJob.resume.data, 'base64').toString(), 'TAILORED');
   assert.equal(onJob.resume.tailored, true);
-  assert.equal(Buffer.from(me(storage, 'https://other.example/jobs/2').resume.data, 'base64').toString(), 'BASE');
-  assert.equal(Buffer.from(me(storage).resume.data, 'base64').toString(), 'BASE');
+  assert.equal(Buffer.from((await me(storage, 'https://other.example/jobs/2')).resume.data, 'base64').toString(), 'BASE');
+  assert.equal(Buffer.from((await me(storage)).resume.data, 'base64').toString(), 'BASE');
   const page = fs.readFileSync(cv.reviewPage(storage, cv.load(storage, 'ab12cd34')), 'utf8');
   assert.match(page, /What changed and why/);
   assert.match(page, /Hide highlights/);

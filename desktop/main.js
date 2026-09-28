@@ -16,6 +16,7 @@ import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
+import * as contactDetails from './lib/contact.js';
 import {createStorage, safeStorageCrypto} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -158,6 +159,9 @@ function handlers() {
     }
   });
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
+  ipcMain.handle('contact', () => contactDetails.read(storage));
+  ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(() => ({ok: true}))
+    .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   ipcMain.handle('saveSecret', (_, name, pasted) => {
     const {value, error} = cleanSecret(pasted);
     if (error) throw new Error(error);
@@ -206,7 +210,11 @@ function handlers() {
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
       if (token && ids.NOTION_PROFILE_PAGE_ID) {
         const report = page => (done, total) => window?.webContents.send('saveProgress', {page, done, total});
-        await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, draft.profile_markdown, undefined, report('Profile'));
+        // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.
+        const known = await contactDetails.read(storage).catch(() => ({}));
+        const merged = {...known, ...Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value))};
+        const profile = draft.profile_markdown.trim() + (Object.keys(merged).length ? `\n\n${contactDetails.markdown(merged)}\n` : '\n');
+        await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('Profile'));
         await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
         strategy.dropLocalCopies(storage);  // Notion has them now
       }
@@ -370,18 +378,9 @@ function handlers() {
   });
   ipcMain.handle('openTabs', () => server.openTabs());
   ipcMain.handle('extensionSeen', () => server.extensionSeen());
-  ipcMain.handle('openQuestions', () => storage.settings().openQuestions || []);
-  ipcMain.handle('answerQuestion', async (_, questionKey, answer) => {
-    const q = (storage.settings().openQuestions || []).find(item => item.key === questionKey);
-    if (!q) return {ok: false, error: 'Already answered'};
-    if (answer) {
-      const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_ANSWERS_PAGE_ID;
-      if (!token || !page) return {ok: false, error: 'Connect Notion first: answers are saved in your standard answers page.'};
-      try { await notion.appendAnswer(token, page, q.question, answer); } catch (error) { return {ok: false, error: `Notion: ${error.message}`}; }
-    }
-    questions.close(storage, questionKey, !!answer);
-    return {ok: true};
-  });
+  ipcMain.handle('openQuestions', () => questions.list(storage).catch(() => []));
+  ipcMain.handle('answerQuestion', (_, questionKey, answer) => questions.answer(storage, questionKey, answer)
+    .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).
   ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']
     .map(name => [name, storage.secret(name)]).filter(([, value]) => value).map(([name, value]) => [name, `${'•'.repeat(12)}${value.slice(-4)}`])));
