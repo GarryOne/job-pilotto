@@ -18,6 +18,7 @@ import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
 import * as reset from './lib/reset.js';
+import * as notionOAuth from './lib/notion-oauth.js';
 import * as contactDetails from './lib/contact.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
@@ -145,15 +146,15 @@ function handlers() {
     notionTitles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages},
   }));
   // Connect the user's copy of the Job Pilotto template: every database and page found, every column there.
-  ipcMain.handle('notionConnect', async (_, pasted) => {
-    const {value: token, error} = cleanSecret(pasted);
-    if (error) return {ok: false, error};
+  // Connect to the user's Notion with a token (pasted, or from "Connect with Notion"): find the workspace, or
+  // build it from the schema in the one page the connection sees (templateRoot: the page Notion just copied).
+  async function connectNotion(token, {templateRoot = null} = {}) {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       let result = await notion.connectWaiting(token, {onProgress: progress => window?.webContents.send('notionProgress', {...progress, titles})});
       // A new, empty Job Pilotto page: build the whole workspace in it from the schema (the latest version).
       if (!result.ok && !Object.keys(result.ids || {}).length) {
-        const root = await notion.sharedRoot(token);
+        const root = templateRoot || await notion.sharedRoot(token);
         if (root) {
           window?.webContents.send('notionProgress', {building: true, titles});
           const built = await schema.repair(token, {}, schema.load(), undefined, root);
@@ -170,11 +171,26 @@ function handlers() {
         storage.saveSettings({notionIds: result.ids});
         if (!DEMO) migrate.run(storage, log);  // anything an older version kept on this Mac moves in now
       }
-      return {...result, titles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages}};
+      return {...result, titles};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
+  }
+  ipcMain.handle('notionConnect', async (_, pasted) => {
+    const {value: token, error} = cleanSecret(pasted);
+    if (error) return {ok: false, error};
+    return connectNotion(token);
   });
+  // "Connect with Notion": Notion's consent page in the browser, then the same connect as above.
+  ipcMain.handle('notionOAuth', async () => {
+    const signedIn = await notionOAuth.connect(url => shell.openExternal(url));
+    if (!signedIn.ok) return signedIn;
+    window?.show();
+    window?.focus();
+    const root = signedIn.duplicated_template_id ? String(signedIn.duplicated_template_id).replace(/-/g, '') : null;
+    return {...await connectNotion(signedIn.access_token, {templateRoot: root}), workspace: signedIn.workspace_name};
+  });
+  ipcMain.handle('notionOAuthCancel', () => notionOAuth.cancel());
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
   ipcMain.handle('contact', () => (DEMO ? {} : contactDetails.read(storage)));
   ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(() => ({ok: true}))

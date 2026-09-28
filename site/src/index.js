@@ -1,6 +1,9 @@
-// The website: static pages (public/) plus one endpoint, POST /api/waitlist, which keeps Pro early-access
+// The website: static pages (public/), POST /api/waitlist, and "Connect with Notion" for the app (src/notion.js).
+// POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
+import * as notion from './notion.js';
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PER_HOUR = 10;  // sign-ups accepted from one address per hour
 
@@ -34,7 +37,11 @@ export async function waitlist(request, env) {
 
 export default {
   async fetch(request, env) {
-    if (new URL(request.url).pathname === '/api/waitlist') return waitlist(request, env);
+    const {pathname} = new URL(request.url);
+    if (pathname === '/api/waitlist') return waitlist(request, env);
+    if (pathname === '/api/notion/start') return notion.start(request, env);
+    if (pathname === notion.CALLBACK) return notion.callback(request, env);
+    if (pathname === '/api/notion/token') return notion.collect(request, env);
     return env.ASSETS.fetch(request);
   },
 };

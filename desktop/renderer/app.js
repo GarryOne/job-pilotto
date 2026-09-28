@@ -37,8 +37,9 @@ function goStep(name) {
   if (name === 'ai' && state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value) {
     message('ai-message', '✓ Your key is saved. Continue, or paste a new key to replace it.', 'ok');
   }
+  if (name === 'notion') showNotionNext();
   if (name === 'notion' && notionReady() && !$('notion-key').value) {
-    message('notion-message', '✓ Connected to your Job Pilotto workspace. Continue, or paste a new token to reconnect.', 'ok');
+    message('notion-message', '✓ Connected to your Job Pilotto workspace. Continue, or connect again.', 'ok');
   }
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
   document.querySelectorAll('#step-list li').forEach((li, i) => {
@@ -73,14 +74,27 @@ $('ai-skip').addEventListener('click', () => goStep('notion'));
 
 // Notion is required: the wizard continues only when every database and page of the template is found.
 $('notion-template').addEventListener('click', () => window.pilot.openExternal(state.templateUrl));
+// Connected earlier (e.g. setup run again): Continue without connecting again.
+function showNotionNext() { show($('notion-next'), notionReady()); }
+$('notion-next').addEventListener('click', () => goStep('cv'));
+$('notion-oauth').addEventListener('click', async () => {
+  $('notion-oauth').disabled = true;
+  message('notion-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
+  const result = await window.pilot.notionOAuth();
+  $('notion-oauth').disabled = false;
+  if (!result.ok && !result.titles) { message('notion-message', result.error || 'Not connected.', 'error'); if (/Paste a token/.test(result.error || '')) $('notion-manual').open = true; return; }
+  showNotionResult(result);
+});
 $('notion-connect').addEventListener('click', async () => {
   const key = $('notion-key').value.trim();
-  if (!key && notionReady()) { goStep('cv'); return; }  // connected earlier: just continue
   if (!key) { message('notion-message', 'Paste the API token from step 2.', 'error'); return; }
   $('notion-connect').disabled = true;
   message('notion-message', 'Looking for your Job Pilotto workspace…', 'waiting');
   const result = await window.pilot.notionConnect(key);
   $('notion-connect').disabled = false;
+  showNotionResult(result);
+});
+async function showNotionResult(result) {
   const found = $('notion-found');
   found.replaceChildren();
   if (result.titles) {
@@ -93,7 +107,7 @@ $('notion-connect').addEventListener('click', async () => {
   if (result.ok) {
     $('notion-key').value = '';
     state = await window.pilot.state();
-    message('notion-message', 'Connected ✓ Your workspace is ready.', 'ok');
+    message('notion-message', `Connected ✓ ${result.workspace ? `${result.workspace}: ` : ''}your workspace is ready.`, 'ok');
     setTimeout(() => goStep('cv'), 900);
   } else if (result.error) {
     message('notion-message', result.error, 'error');
@@ -102,7 +116,7 @@ $('notion-connect').addEventListener('click', async () => {
   } else {
     message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
   }
-});
+}
 
 window.pilot.onNotionProgress(({found, total, ids, titles, building}) => {
   if (building) { message('notion-message', 'Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy · Job Pilotto</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta name="description" content="How Job Pilotto handles your data: your Notion, your computer, nothing kept by us.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Newsreader:opsz,wght@6..72,400..600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>.legal{max-width:720px;margin:48px auto;padding:0 20px} .legal h1{margin-bottom:4px} .legal h2{margin-top:28px} .legal p,.legal li{line-height:1.6}</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topnav"><a class="brand" href="index.html"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a></nav>
+  <main class="legal">
+    <h1>Privacy</h1>
+    <p class="muted">Last updated 28 September 2026</p>
+    <p><b>In short:</b> your job search lives in <b>your own Notion workspace</b> and on <b>your own computer</b>. We don't run a
+      database of your data and we don't sell or share anything.</p>
+    <h2>What Job Pilotto stores, and where</h2>
+    <ul>
+      <li><b>Your Notion workspace</b> (the page you connect): job matches, applications, replies, interviews, insights, your Profile,
+        standard answers and search settings. You can read, edit or delete everything there.</li>
+      <li><b>Your computer</b>: your keys (encrypted by the operating system), your CV and tailored CVs, call recordings, and a cache of
+        job listings. Settings → Your data lets you export or delete them.</li>
+      <li><b>Optional, only if you connect them</b>: Gmail and Calendar (read-only, to track replies and interviews), Telegram (to send you
+        matches), a private GitHub repository (to run while your computer is off), and the AI provider you give a key for
+        (Anthropic), which receives job postings and the parts of your profile needed to score jobs and draft answers.</li>
+    </ul>
+    <h2>Connect with Notion</h2>
+    <p>When you connect Notion, Notion asks you which pages Job Pilotto may use. Our server receives a one-time code from Notion,
+      trades it for your access token and hands that token to the Job Pilotto app on your computer. The token is held for at most
+      10 minutes, only until your app collects it, then deleted; it is never logged. Job Pilotto only reads and writes the pages you
+      chose. You can remove its access at any time in Notion (Settings → Connections).</p>
+    <h2>Website</h2>
+    <p>If you join the Pro early-access list, we keep the email address (and the role you typed) to write to you about it, and
+      nothing else. Ask us to delete it any time.</p>
+    <h2>Contact</h2>
+    <p>Questions or deletion requests: open an issue at <a href="https://github.com/GarryOne/job-pilotto">github.com/GarryOne/job-pilotto</a>.</p>
+  </main>
+  <footer>
+    <span>✈ Job Pilotto</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="index.html">Home</a></span>
+  </footer>
+</div>
+</body>
+</html>

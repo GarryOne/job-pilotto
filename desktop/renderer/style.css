@@ -551,3 +551,8 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .setting.danger-zone h3 { color: #b42318; }
 button.danger-solid { background: #b42318; color: #fff; border-color: #b42318; }
 button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Wizard → Notion: one button, the token way folded below */
+.oauth { display: grid; gap: 8px; justify-items: start; margin: 18px 0 6px; }
+button.big { font-size: 16px; padding: 12px 22px; }
+details.manual { margin-top: 18px; }

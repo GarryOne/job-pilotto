@@ -1,4 +1,4 @@
-# The landing page (public/, Workers static assets) and its one endpoint, POST /api/waitlist (src/index.js).
+# The landing page (public/, Workers static assets), POST /api/waitlist, and Connect with Notion (src/notion.js).
 # Deploy: cd site && npx wrangler@4 deploy   (CI: .github/workflows/site.yml on changes under site/)
 name = "job-pilotto-site"
 main = "src/index.js"
@@ -12,3 +12,8 @@ binding = "ASSETS"
 [[kv_namespaces]]
 binding = "WAITLIST"
 id = "a871d4644b614266b5bfa7f1b5e811c1"
+
+# Connect with Notion (Notion public connection "Job Pilotto"). The secret: npx wrangler@4 secret put NOTION_CLIENT_SECRET
+# The session tokens live 10 minutes in the WAITLIST namespace under "notion:<hash>".
+[vars]
+NOTION_CLIENT_ID = ""
