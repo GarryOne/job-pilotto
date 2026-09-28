@@ -1011,6 +1011,10 @@
             {
               "name": "Recruiter lead",
               "color": "purple"
+            },
+            {
+              "name": "Replied",
+              "color": "green"
             }
           ]
         },

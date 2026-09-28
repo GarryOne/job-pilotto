@@ -239,6 +239,7 @@
 <section id="app" class="app" hidden>
   <nav class="sidebar">
     <div class="brand"><img class="mark" src="logo.png" alt="">Job Pilotto</div>
+    <button class="nav" data-view="focus"><i data-icon="pin"></i>Focus</button>
     <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs</button>
     <button class="nav" data-view="interviews"><i data-icon="calendar"></i>Interviews</button>
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions</button>
@@ -299,6 +300,23 @@
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span></span></div>
       <div class="job-list" id="jobs-body"></div>
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.</p>
+    </div>
+
+    <div class="view" data-view="focus" hidden>
+      <header class="view-head jobs-head">
+        <div><h1>Focus</h1><p class="muted subtitle" id="focus-note">What to do next, most important first. Read from your Notion.</p></div>
+        <div class="head-actions"><button class="secondary with-icon" id="focus-refresh"><i data-icon="refresh"></i><span>Refresh</span></button></div>
+      </header>
+      <section class="card focus-today">
+        <div class="focus-progress">
+          <div><b id="focus-count">–</b> <span class="muted" id="focus-of">applications today</span></div>
+          <div class="focus-bar" aria-hidden="true"><span id="focus-bar"></span></div>
+        </div>
+        <label class="focus-setting">Daily target <input type="number" id="focus-target" min="1" max="200" step="1"></label>
+        <label class="focus-setting"><input type="checkbox" id="focus-remind"> Remind me at 11:00, 15:00 and 19:00</label>
+      </section>
+      <ol class="focus-list" id="focus-list"></ol>
+      <p class="empty" id="focus-empty" hidden>Nothing waits for you right now.</p>
     </div>
 
     <div class="view" data-view="actions" hidden>

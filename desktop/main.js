@@ -542,6 +542,10 @@ function handlers() {
     return storage.saveSettings(allowed);
   });
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
+  // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
+  ipcMain.handle('focus', (_, target) => (DEMO ? {ok: true, focus: {items: [], today: {applied: 0, target: target || 30, kits_ready: 0}}}
+    : pipeline.focus(storage, Number(target) || 30)));
+  ipcMain.handle('focusDone', (_, pageId) => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId))));
   // A rejected job's menu → Why was I rejected? (also runs by itself after the Gmail check logs a rejection).
   ipcMain.handle('reviewRejection', async (_, url) => {
     if (DEMO) return {ok: true, text: 'Reviewed (demo): nothing was written.'};
@@ -785,7 +789,23 @@ if (firstCopy) app.whenReady().then(() => {
       },
     }, powerMonitor, {soon: () => notify('Job search starting in 1 minute', 'Your scheduled search for new jobs is about to run.')});
   }
+  if (!DEMO) setInterval(() => focusReminder().catch(() => {}), 5 * 60 * 1000);
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });
+
+// Focus reminders at 11:00, 15:00 and 19:00 (this Mac's time), once per slot: a notification and a Telegram
+// message when someone waits for an answer, an interview is close, or today's applications are behind the target.
+const FOCUS_HOURS = [11, 15, 19];
+async function focusReminder(now = new Date()) {
+  const settings = storage.settings();
+  if (!settings.setupDone || settings.focusReminders === false) return;
+  const slot = FOCUS_HOURS.filter(hour => now.getHours() >= hour).pop();
+  if (slot == null) return;
+  const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${slot}`;  // local day
+  if (settings.lastFocusReminder === key) return;
+  storage.saveSettings({lastFocusReminder: key});
+  const text = await pipeline.focusReminder(storage, Number(settings.dailyTarget) || 30, true);
+  if (text) notify('Focus: what to do next', text);
+}
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

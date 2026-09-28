@@ -712,3 +712,22 @@ main { min-width: 0; }
 /* A one-off job's result (insight, today's list, report) in Recent activity, when Telegram didn't get it */
 .activity-message { white-space: pre-wrap; font: inherit; font-size: var(--fs-sm); background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--r-md); padding: 10px 12px; margin: 8px 0; max-height: 220px; overflow-y: auto; }
+
+/* Focus: today's progress and the ranked to-do list */
+.focus-today { display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap; }
+.focus-progress { flex: 1; min-width: 220px; }
+.focus-progress b { font-size: var(--fs-xl); }
+.focus-bar { height: 8px; background: var(--bg); border-radius: var(--r-pill); margin-top: var(--sp-2); overflow: hidden; }
+.focus-bar span { display: block; height: 100%; width: 0; background: var(--signal); border-radius: var(--r-pill); transition: width .3s var(--ease); }
+.focus-setting { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); }
+.focus-setting input[type=number] { width: 72px; }
+.focus-list { list-style: none; padding: 0; margin: 0; }
+.focus-item { display: flex; align-items: center; gap: var(--sp-4); border-left: 4px solid var(--line); }
+.focus-item.is-p1 { border-left-color: var(--bad); }
+.focus-item.is-p2 { border-left-color: var(--warn); }
+.focus-item.is-p3 { border-left-color: var(--info); }
+.focus-body { flex: 1; min-width: 0; }
+.focus-title { font-weight: 600; }
+.focus-detail { margin: var(--sp-1) 0 0; }
+.focus-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 1180px) { .focus-item { flex-direction: column; align-items: stretch; } .focus-actions { justify-content: flex-start; } }

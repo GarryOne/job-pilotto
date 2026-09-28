@@ -845,6 +845,7 @@ function openView(name) {
   if (name === 'strategy') { loadStrategy(); loadCvSetting(); showCvChanged(); }
   if (name === 'settings') loadSettings();
   if (name === 'interviews') loadInterviews();
+  if (name === 'focus') loadFocus();
 }
 document.querySelectorAll('.nav').forEach(nav => {
   nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
@@ -1828,7 +1829,7 @@ window.pilot.lastReset().then(done => {
 
 // ---------- start ----------
 // Notion is required (it's where Job Pilotto keeps your data): set up without it -> the Notion step first.
-if (state.settings.setupDone && state.notion) { show($('app')); loadJobs(); } else {
+if (state.settings.setupDone && state.notion) { show($('app')); loadJobs(); openView('focus'); } else {
   show($('wizard'));
   const resume = state.settings.setupDone ? 'notion' : state.settings.wizardStep || 'welcome';
   if (resume === 'draft') toDraft(); else goStep(resume);
@@ -2330,3 +2331,58 @@ async function startRecording(micOnly) {
   show($('iv-recorder'));
 }
 $('iv-stop').addEventListener('click', () => recorder?.state === 'recording' && recorder.stop());
+
+// ---------- Focus: what to do next (src/focus.py, from Notion, no AI) ----------
+const FOCUS_WHEN = {1: ['Now', 'bad'], 2: ['Soon', 'warn'], 3: ['Today', 'info'], 4: ['When you can', 'neutral']};
+function focusButton(label, className, run) {
+  const button = Object.assign(document.createElement('button'), {className, textContent: label});
+  button.addEventListener('click', run);
+  return button;
+}
+function openLink(url, event) {
+  if (/notion\.(so|com)\//.test(url)) window.pilot.openNotion(url, event?.metaKey); else window.pilot.openExternal(url);
+}
+async function loadFocus() {
+  const target = Number(state.settings.dailyTarget) || 30;
+  $('focus-target').value = target;
+  $('focus-remind').checked = state.settings.focusReminders !== false;
+  $('focus-note').textContent = 'Reading your Notion…';
+  const result = await window.pilot.focus(target);
+  if (!result.ok) { $('focus-note').textContent = result.error || 'Could not read your Notion.'; return; }
+  const {items, today} = result.focus;
+  $('focus-note').textContent = 'What to do next, most important first. Read from your Notion.';
+  $('focus-count').textContent = `${today.applied} / ${today.target}`;
+  $('focus-bar').style.width = `${Math.min(100, Math.round(100 * today.applied / Math.max(today.target, 1)))}%`;
+  $('focus-list').replaceChildren(...items.map(item => {
+    const li = el('li', `card focus-item is-p${item.priority}`);
+    const [when, tone] = FOCUS_WHEN[item.priority] || FOCUS_WHEN[4];
+    const body = el('div', 'focus-body');
+    body.append(el('div', 'focus-title', `${item.emoji} ${item.title}`), el('p', 'muted focus-detail', item.detail));
+    const actions = el('div', 'focus-actions');
+    actions.append(pill(when, tone));
+    if (item.link) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
+    if (item.kind === 'apply') actions.append(focusButton('Go to jobs', 'primary', () => openView('jobs')));
+    if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
+    if (item.notion_url) actions.append(focusButton('Open in Notion', 'secondary', event => openLink(item.notion_url, event)));
+    if (item.done && item.page_id) actions.append(focusButton('Done', 'ghost', async event => {
+      event.currentTarget.disabled = true;
+      const done = await window.pilot.focusDone(item.page_id);
+      if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
+      loadFocus();
+    }));
+    li.append(body, actions);
+    return li;
+  }));
+  show($('focus-empty'), !items.length);
+}
+$('focus-refresh').addEventListener('click', loadFocus);
+$('focus-target').addEventListener('change', async () => {
+  const value = Math.max(1, Math.min(200, Math.round(Number($('focus-target').value) || 30)));
+  await window.pilot.saveSettings({dailyTarget: value});
+  state = await window.pilot.state();
+  loadFocus();
+});
+$('focus-remind').addEventListener('change', async () => {
+  await window.pilot.saveSettings({focusReminders: $('focus-remind').checked});
+  state = await window.pilot.state();
+});
