@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
+import {ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -62,10 +62,19 @@ test('application counters follow the Notion stage, with the funnel\'s stage set
     {status: 'applied', stage: 'Applying'},  // a form still being filled: not sent, not counted
     {status: 'applied', stage: 'Screening'},
   ];
-  assert.deepEqual(applicationStats(jobs), {applied: 5, active: 3, interviews: 2, rejected: 1});
+  // Sent = waiting + in process + closed: the boxes add up.
+  assert.deepEqual(applicationStats(jobs), {applied: 5, waiting: 1, interviews: 2, closed: 2});
+  assert.equal(5, 1 + 2 + 2);
   assert.deepEqual(inProcess(jobs), {screening: 1, interviews: 1});
-  assert.deepEqual(byStat(jobs, 'active'), [jobs[0], jobs[1], jobs[7]]);
-  assert.deepEqual(byStat(jobs, 'rejected'), [jobs[2]]);
+  assert.deepEqual(byStat(jobs, 'waiting'), [jobs[0]]);
+  assert.deepEqual(byStat(jobs, 'closed'), [jobs[2], jobs[3]]);
+});
+
+test('Applying is stuck only when no session explains it', () => {
+  const job = {stage: 'Applying', url: 'https://jobs.test/1'};
+  assert.equal(isStuck(job, () => false), true);
+  assert.equal(isStuck(job, () => true), false);  // a session for it is open: it is in progress, not stuck
+  assert.equal(isStuck({stage: 'Applied'}, () => false), false);
 });
 
 test('sorting keeps the engine order for best match; newest and company reorder a copy', () => {

@@ -150,6 +150,16 @@ class Tracker:
         page, outcome = self.mark(job, 'Applied', today)
         return page, outcome == 'created'
 
+    def revert_applying(self, url):
+        """An application session that ended without a submission: Applying goes back to Kit ready (the kit is
+        still there). Only from Applying: an Applied or later stage is never touched.
+        Returns 'updated' | 'unchanged'."""
+        existing = self.find(url)
+        if not existing or (existing['properties']['Stage'].get('select') or {}).get('name') != 'Applying':
+            return 'unchanged'
+        self._request('PATCH', f"pages/{existing['id']}", {'properties': {'Stage': {'select': {'name': 'Kit ready'}}}})
+        return 'updated'
+
     def mark(self, job, stage, today=None):
         """Record a Telegram button action. Returns (page, 'created' | 'updated' | 'unchanged').
 

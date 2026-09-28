@@ -1,7 +1,7 @@
 import {replaceCell, replaceLine, withLine} from './markdown-edit.js';
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from './jobs-view.js';
+import {ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 import {openPalette} from './palette.js';
@@ -35,7 +35,7 @@ for (const line of document.querySelectorAll('[data-version]')) line.textContent
 let draft = null;
 let allJobs = [];
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
-let statFilter = null;  // the counter clicked above the list: 'applied', 'active', 'interviews', 'rejected', 'high', 'week', 'companies' or null
+let statFilter = null;  // the counter clicked above the list: 'applied', 'waiting', 'interviews', 'closed', 'high', 'week', 'companies', 'stuck' or null
 
 // ---------- helpers ----------
 function show(element, visible = true) { element.hidden = !visible; }
@@ -1229,6 +1229,18 @@ let openedInChrome = new Set();
 let claudeReady = false;
 const claudeStarted = new Set();
 const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
+// Applying, with no session open for it: one to settle (banner on Jobs).
+const stuck = job => isStuck(job, entry => sessionList.some(item => pageKey(item.url) === pageKey(entry.url)));
+function renderStuck() {
+  const count = allJobs.filter(stuck).length;
+  show($('jobs-stuck'), count > 0);
+  $('jobs-stuck-text').textContent = `${count} job${count === 1 ? ' is' : 's are'} still marked Applying but ${count === 1 ? 'has' : 'have'} no open session. Did you submit ${count === 1 ? 'it' : 'them'}?`;
+}
+$('jobs-stuck-show').addEventListener('click', () => {
+  statFilter = 'stuck';
+  $('filter-status').value = 'all';
+  renderJobs();
+});
 
 // Pill tones: where a job stands, and how it's worked.
 const MODE_TONE = {remote: 'good', hybrid: 'info'};
@@ -1241,7 +1253,7 @@ function renderJobs() {
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
-  const rows = sorted(byStat(allJobs, statFilter).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+  const rows = sorted((statFilter === 'stuck' ? allJobs.filter(stuck) : byStat(allJobs, statFilter)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
     matches(job, text)), $('sort-by').value);
   const body = $('jobs-body');
   body.replaceChildren();
@@ -1323,6 +1335,7 @@ function renderJobs() {
       const result = await window.pilot.setStatus(job.url, next).catch(error => ({ok: false, error: error.message}));
       if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
       job.status = next;
+      if (next === 'applied' && job.stage === 'Applying') job.stage = 'Applied';
       renderJobs();
     };
     // Chrome opens the job's form and the extension fills it at once from the kit.
@@ -1439,14 +1452,23 @@ function renderJobs() {
     // Actions read as verbs (the Status column shows where a job stands).
     menu.push('-');
     if (job.status !== 'saved') menu.push({label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
-    if (job.status !== 'applied') menu.push({label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
+    if (job.stage === 'Applying') {  // the session is over or was closed: say what happened, instead of staying Applying
+      menu.push({label: '✅ I submitted it', run: setStatus('applied'), title: 'Mark it Applied in Notion'});
+      menu.push({label: '↩ Not submitted', title: 'Back to Kit ready', run: async () => {
+        const result = await window.pilot.unapplyJob(job.url).catch(error => ({ok: false, error: error.message}));
+        if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
+        job.stage = 'Kit ready';
+        renderJobs();
+      }});
+    } else if (job.status !== 'applied') menu.push({label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
     if (job.status !== 'dismissed') menu.push({label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
     body.append(row);
   }
-  const statLabel = {applied: 'applied', active: 'active applications', interviews: 'interviews', rejected: 'rejected', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
+  const statLabel = {applied: 'applied', waiting: 'waiting for a reply', interviews: 'in process', closed: 'closed', stuck: 'still marked Applying', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
+  renderStuck();
   $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}` + (statLabel ? ` · ${statLabel}` : '');
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
   if (jobsLoading && !allJobs.length) { show($('jobs-empty'), false); showLoading(); return; }  // still loading, not empty
@@ -1680,8 +1702,11 @@ function showJobsData(data) {
     const applications = applicationStats(allJobs);
     for (const kind of Object.keys(applications)) $(`stat-${kind}`).textContent = applications[kind];
     const talking = inProcess(allJobs);
-    document.querySelector('[data-stat="interviews"]').title = `Now: ${talking.screening} screening · ${talking.interviews} interviewing or offer. ` +
-      'Applied counts applications sent (not forms still being filled); the Focus funnel counts every step an application ever reached.';
+    document.querySelector('[data-stat="interviews"]').title = `Now: ${talking.screening} screening · ${talking.interviews} interviewing or offer.`;
+    document.querySelector('[data-stat="applied"]').title = 'Applications sent = waiting for a reply + in process + closed. Forms still being filled are sessions, not counted here.';
+    document.querySelector('[data-stat="waiting"]').title = 'Sent, no answer yet (Applied, Confirmation received).';
+    document.querySelector('[data-stat="closed"]').title = 'Rejected, withdrawn, or no answer after the waiting time.';
+    renderStuck();
   }
 }
 
@@ -3228,7 +3253,7 @@ function sessionMenu(item) {
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
   if (item.resumable) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
   if (isLive(item)) menu.push({label: '⏹ Stop session', danger: true, run: () => window.pilot.sessionStop(item.id)});
-  else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
+  else menu.push({label: '✕ Remove from the list', run: () => removeSession(item)});
   return menu;
 }
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
@@ -3258,6 +3283,21 @@ function sessionDuration(item) {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
 }
 const hhmmOf = iso => new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+// Removing a session whose job is still Applying asks whether it was submitted (Applied, or back to Kit ready), so
+// a job never stays stuck as Applying; any other job's session just goes.
+async function removeSession(item) {
+  if (sessionJob(item).stage === 'Applying') {
+    const result = await window.pilot.sessionFinish(item.id);
+    if (result?.cancelled) return;
+    if (!result?.ok) { toastMessage('Not removed', result?.error || 'Notion could not be updated. Try again.'); return; }
+    const job = sessionJob(item);
+    job.stage = result.submitted ? 'Applied' : 'Kit ready';
+    if (result.submitted) job.status = 'applied';
+  } else await window.pilot.sessionRemove(item.id);
+  if (openSessionId === item.id) openSessionId = null;
+  await refreshSessions();
+  if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs();
+}
 // Claude again, in this session's conversation (the app was closed, or the session stopped). The log opens to show it.
 async function resumeSession(item) {
   const result = await window.pilot.sessionResume(item.id);
@@ -3358,7 +3398,7 @@ function renderNextStep(item) {
     actions.push(never);
   } else if (asking && !live) {
     if (item.resumable) actions.push(resume('primary'));
-    actions.push(sessionButton('Remove from the list', 'secondary', async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }));
+    actions.push(sessionButton('Remove from the list', 'secondary', () => removeSession(item)));
   } else if (asking) {
     actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
     actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));

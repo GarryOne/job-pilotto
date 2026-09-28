@@ -258,6 +258,7 @@ def main(argv=None):
     marking = sub.add_parser('status')
     marking.add_argument('url')
     marking.add_argument('status', choices=STATUSES)
+    sub.add_parser('unapply').add_argument('url')  # a session ended without a submission: Applying -> Kit ready
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
@@ -268,6 +269,17 @@ def main(argv=None):
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()
+        if args.command == 'unapply':
+            if not tracker:
+                print(json.dumps({'ok': False, 'error': 'Notion is not connected.'}))
+                return 0
+            try:
+                outcome = tracker.revert_applying(args.url)
+            except Exception as error:  # noqa: BLE001 — shown to the user; nothing changed
+                print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
+                return 0
+            print(json.dumps({'ok': True, 'notion': outcome}))
+            return 0
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))
             return 0

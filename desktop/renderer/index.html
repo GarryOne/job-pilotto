@@ -270,9 +270,9 @@
       </header>
       <div class="stat-cards">
         <button class="stat signal" data-stat="applied" aria-pressed="false"><span class="stat-icon"><i data-icon="send"></i></span><div><b id="stat-applied">–</b><span>Applied</span></div></button>
-        <button class="stat blue" data-stat="active" aria-pressed="false"><span class="stat-icon"><i data-icon="pulse"></i></span><div><b id="stat-active">–</b><span>Active</span></div></button>
+        <button class="stat blue" data-stat="waiting" aria-pressed="false"><span class="stat-icon"><i data-icon="clock"></i></span><div><b id="stat-waiting">–</b><span>Waiting for reply</span></div></button>
         <button class="stat green" data-stat="interviews" aria-pressed="false"><span class="stat-icon"><i data-icon="mic"></i></span><div><b id="stat-interviews">–</b><span>In process</span></div></button>
-        <button class="stat red" data-stat="rejected" aria-pressed="false"><span class="stat-icon"><i data-icon="close"></i></span><div><b id="stat-rejected">–</b><span>Rejected</span></div></button>
+        <button class="stat red" data-stat="closed" aria-pressed="false"><span class="stat-icon"><i data-icon="close"></i></span><div><b id="stat-closed">–</b><span>Closed</span></div></button>
         <button class="stat blue" data-stat="total" aria-pressed="false"><span class="stat-icon"><i data-icon="file"></i></span><div><b id="stat-total">–</b><span>Total matches</span></div></button>
         <button class="stat green" data-stat="high" aria-pressed="false"><span class="stat-icon"><i data-icon="target"></i></span><div><b id="stat-high">–</b><span>High fit (70+)</span></div></button>
         <button class="stat sky" data-stat="week" aria-pressed="false"><span class="stat-icon"><i data-icon="bookmark"></i></span><div><b id="stat-week">–</b><span>New this week</span></div></button>
@@ -293,6 +293,10 @@
         <label class="sort-box"><i data-icon="sort"></i><select id="sort-by" aria-label="Sort by">
           <option value="best">Best match</option><option value="newest">Newest</option><option value="company">Company A–Z</option>
         </select></label>
+      </div>
+      <div class="stuck-banner" id="jobs-stuck" hidden>
+        <i data-icon="alert"></i><span id="jobs-stuck-text"></span>
+        <button class="secondary small-button" id="jobs-stuck-show">Show them</button>
       </div>
       <div class="list-bar">
         <div class="list-left"><span id="jobs-count"></span>

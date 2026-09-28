@@ -685,6 +685,20 @@ function handlers() {
   ipcMain.handle('sessionStop', (_, id) => terminals.stop(String(id)));
   ipcMain.handle('sessionResume', async (_, id) => (await claudeConsent()) ? apply.resumeSession(storage, String(id)) : {ok: false, error: 'Cancelled.'});
   ipcMain.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
+  // Removing a session whose job is still Applying: was it submitted? Notion first; the session goes only if that worked.
+  ipcMain.handle('sessionFinish', async (_, id) => {
+    const found = terminals.get(String(id));
+    if (!found) return {ok: true};
+    const {message, detail, buttons} = quitDialog.submitted(found.company);
+    const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
+      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 2, message, detail});
+    if (response === 2) return {ok: false, cancelled: true};
+    const result = DEMO ? {ok: true} : response === 0 ? await pipeline.setStatus(storage, found.url, 'applied') : await pipeline.unapply(storage, found.url);
+    if (!result.ok) return {ok: false, error: result.error || 'Notion could not be updated.'};
+    terminals.remove(String(id));
+    return {ok: true, submitted: response === 0};
+  });
+  ipcMain.handle('unapplyJob', (_, url) => pipeline.unapply(storage, String(url)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.

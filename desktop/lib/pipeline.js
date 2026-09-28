@@ -369,6 +369,11 @@ export async function focusReminder(storage, send = false) {
   try { return code === 0 ? JSON.parse(stdout.trim().split('\n').pop()).text || '' : ''; } catch { return ''; }
 }
 
+// A session ended without a submission: the job goes back from Applying to Kit ready (in Notion first).
+export async function unapply(storage, url) {
+  const {stdout} = await run(storage, ['src.desktop', 'unapply', url]);
+  return JSON.parse(stdout.trim().split('\n').pop() || '{"ok":false}');
+}
 export async function setStatus(storage, url, status) {
   const {stdout} = await run(storage, ['src.desktop', 'status', url, status]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{}');

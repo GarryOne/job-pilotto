@@ -36,11 +36,13 @@ const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
 export const SCREENING = new Set(['Screening', 'Interview scheduled']);
 export const INTERVIEWS = new Set(['Interviewing', 'Offer']);
 const TALKING = new Set([...SCREENING, ...INTERVIEWS]);
+// Sent = waiting + in process + closed: the boxes add up.
+const WAITING = new Set(['Applied', 'Confirmation received']);
 const APPLICATION = {
   applied: job => SENT.has(job.stage),
-  active: job => SENT.has(job.stage) && !ENDED.has(job.stage),
+  waiting: job => WAITING.has(job.stage),
   interviews: job => TALKING.has(job.stage),
-  rejected: job => job.stage === 'Rejected',
+  closed: job => ENDED.has(job.stage),  // rejected, withdrawn, or no answer
 };
 // The "In process" box's hover: how many are screening and how many interviewing.
 export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(job.stage)).length,
@@ -57,7 +59,8 @@ export function statusPill(job) {
   const [label, tone] = STATUS[job.status] || [job.status, 'neutral'];
   return {label, tone};
 }
-// The application counters: applied in total, still active, interviewing, rejected.
+// The application counters: applied (sent) in total, then where they stand: waiting for a reply, in process, closed.
+// A job still "Applying" is not sent; it is a session in progress (or one to settle: isStuck).
 export function applicationStats(jobs) {
   return Object.fromEntries(Object.entries(APPLICATION).map(([kind, test]) => [kind, jobs.filter(test).length]));
 }
@@ -127,3 +130,6 @@ export function ago(iso, now = Date.now()) {
   const days = Math.floor(hours / 24);
   return days < 14 ? `${days}d ago` : `${Math.floor(days / 7)}w ago`;
 }
+
+// "Applying" that no open session explains: the session was closed without saying whether it was submitted.
+export const isStuck = (job, hasSession) => job.stage === 'Applying' && !hasSession(job);

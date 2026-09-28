@@ -1,3 +1,12 @@
+// What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
+export function submitted(company) {
+  return {
+    message: `Did you submit the application to ${company || 'this company'}?`,
+    detail: 'Yes: it is marked Applied in Notion.\nNo: it goes back to Kit ready, so it doesn\'t stay stuck as Applying.\n\nYou can change it later in Jobs.',
+    buttons: ['Yes, I submitted it', 'No, not submitted', 'Cancel'],
+  };
+}
+
 // The words of the "you're quitting while something works" dialogs (native macOS/Windows dialogs: a title, a few
 // lines, buttons). Short, one line per thing that would stop, and what happens to it.
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;

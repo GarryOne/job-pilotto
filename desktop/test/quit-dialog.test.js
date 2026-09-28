@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {sessionsOnly, working} from '../lib/quit-dialog.js';
+import {sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
 
 const label = session => session.company;
 const sessions = names => names.map(company => ({company}));
@@ -28,4 +28,11 @@ test('a search, waiting tasks and sessions together: one line each, then the thr
   assert.match(dialog.detail, /Quit when done:.*\nQuit now:/);
   assert.deepEqual(dialog.buttons, ['Quit when done', 'Quit now', 'Cancel']);
   assert.doesNotMatch(working({busy: {kind: 'search'}, taskName: () => 'Search', label}).detail, /Resume Claude/);
+});
+
+test('removing a session whose job is still Applying asks whether it was submitted, both answers explained', () => {
+  const dialog = submitted('N26');
+  assert.equal(dialog.message, 'Did you submit the application to N26?');
+  assert.match(dialog.detail, /Yes: it is marked Applied in Notion\.\nNo: it goes back to Kit ready/);
+  assert.deepEqual(dialog.buttons, ['Yes, I submitted it', 'No, not submitted', 'Cancel']);
 });

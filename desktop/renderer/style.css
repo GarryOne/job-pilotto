@@ -313,6 +313,10 @@ button.with-icon .icon { width: 15px; height: 15px; }
 #refresh { min-width: 0; }
 
 /* Counters */
+.stuck-banner { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); margin-bottom: var(--sp-3);
+  border: 1px solid var(--warn-line); border-left: 4px solid var(--warn); border-radius: var(--r-md); background: var(--warn-soft); }
+.stuck-banner .icon { width: 18px; height: 18px; color: var(--warn); flex: none; }
+.stuck-banner span { flex: 1; }
 .stat-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
 .stat { --tint: var(--info-soft); --tone: var(--info); display: flex; align-items: center; gap: 11px; background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; background-image: linear-gradient(90deg, var(--tint), transparent 70%); }
