@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('pilot', {
     recordings: call('ivRecordings'), access: call('mediaAccess'), tapAvailable: call('ivTapAvailable'), tapStart: call('ivTapStart'), openPrivacy: call('openPrivacy'), relaunch: call('relaunch')},
   onInterviewProgress: callback => ipcRenderer.on('ivProgress', (_, step) => callback(step)),
   onCallLevel: callback => ipcRenderer.on('ivLevel', (_, level) => callback(level)),
-  cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'),
+  cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'), telegramCloudOn: call('telegramCloudOn'), telegramCloudOff: call('telegramCloudOff'),
   openExternal: call('openExternal'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
   onMoved: callback => ipcRenderer.on('moved', (_, steps) => callback(steps)),

@@ -23,6 +23,7 @@ import * as contactDetails from './lib/contact.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
+import * as telegramCloud from './lib/telegram-cloud.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
@@ -302,11 +303,19 @@ function handlers() {
         ...(error.needsChoice ? {needsChoice: true, repos: error.repos} : {})};
     }
   });
-  ipcMain.handle('cloudOff', () => { storage.saveSettings({cloud: null}); restartTelegram(); return true; });
+  ipcMain.handle('cloudOff', async () => {
+    if (storage.settings().telegramCloud) await telegramCloud.turnOff(storage);  // its buttons start runs there
+    storage.saveSettings({cloud: null}); restartTelegram(); return true;
+  });
+  // Telegram buttons while this computer is off: the user's own Cloudflare Worker (lib/telegram-cloud.js).
+  ipcMain.handle('telegramCloudOn', async (_, token) => { const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
+  ipcMain.handle('telegramCloudOff', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
   // Telegram: check the bot token, wait for the user to press Start, then listen for taps and commands.
   ipcMain.handle('telegramConnect', async (_, pasted) => {
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
+    // A new bot: the old one's Worker goes (pairing needs getUpdates, which a webhook blocks); turn it on again after.
+    if (storage.settings().telegramCloud) await telegramCloud.turnOff(storage);
     try {
       const bot = await telegram.api(token, 'getMe');
       window?.webContents.send('telegramWaiting', bot.username);

@@ -556,3 +556,6 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .oauth { display: grid; gap: 8px; justify-items: start; margin: 18px 0 6px; }
 button.big { font-size: 16px; padding: 12px 22px; }
 details.manual { margin-top: 18px; }
+
+.subsetting { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.subsetting h4 { margin: 0 0 4px; }

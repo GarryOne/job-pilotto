@@ -1009,7 +1009,33 @@ function showCloud() {
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
   $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
   $('auto-search').disabled = !!cloud?.repo;
+  showTelegramCloud();
 }
+
+// Telegram buttons while this computer is off (the user's own Cloudflare Worker; lib/telegram-cloud.js).
+function showTelegramCloud() {
+  const on = state.settings.telegramCloud;
+  show($('tg-cloud'), !!state.settings.cloud?.repo);
+  $('tg-cloud-status').textContent = on ? osText(`✓ On: your bot answers from Cloudflare, even with the Mac off (${on.url.replace('https://', '')}).`)
+    : 'Off: your bot answers buttons and commands only while this app is open.';
+  show($('tg-cloud-howto'), !on);
+  show($('tg-cloud-token'), !on);
+  $('tg-cloud-on').textContent = on ? 'Update' : 'Turn on';
+  show($('tg-cloud-off'), !!on);
+}
+$('tg-cloud-on').addEventListener('click', async () => {
+  $('tg-cloud-on').disabled = true;
+  message('tg-cloud-message', 'Setting up your bot helper on Cloudflare…');
+  const result = await window.pilot.telegramCloudOn($('tg-cloud-token').value);
+  $('tg-cloud-on').disabled = false;
+  if (result.ok) { $('tg-cloud-token').value = ''; state = await window.pilot.state(); showTelegramCloud(); }
+  message('tg-cloud-message', result.ok ? 'Done ✓ Try a button in Telegram.' : result.error, result.ok ? 'ok' : 'error');
+});
+$('tg-cloud-off').addEventListener('click', async () => {
+  await window.pilot.telegramCloudOff();
+  state = await window.pilot.state(); showTelegramCloud();
+  message('tg-cloud-message', 'Off: the app answers your bot again while it\'s open.', 'ok');
+});
 $('cloud-connect').addEventListener('click', async () => {
   if (!state.secrets.ANTHROPIC_API_KEY || !state.secrets.NOTION_TOKEN) {
     message('cloud-message', 'Add your AI key and connect Notion first: the searches in GitHub use them.', 'error'); return;

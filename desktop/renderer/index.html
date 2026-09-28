@@ -474,6 +474,18 @@
             <button class="link" id="cloud-install">open the install page again</button>.</p>
         </div>
         <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
+        <div class="subsetting" id="tg-cloud" hidden>
+          <h4>📲 Telegram buttons while this computer is off</h4>
+          <p class="muted small status-line" id="tg-cloud-status"></p>
+          <ol class="howto small" id="tg-cloud-howto">
+            <li>Create a free <a href="#" data-link="https://dash.cloudflare.com/sign-up">Cloudflare</a> account if you don't have one.</li>
+            <li><a href="#" data-link="https://dash.cloudflare.com/profile/api-tokens?name=Job%20Pilotto%20Telegram&amp;permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D">Create a token</a> (it opens prefilled: <b>Workers Scripts: Edit</b>, <b>Account Settings: Read</b>) → Continue → Create → copy it.</li>
+            <li>Paste it here and click <b>Turn on</b>. Job Pilotto puts a small bot helper on your Cloudflare account; your buttons then start runs in your repository.</li>
+          </ol>
+          <div class="inline"><input type="password" id="tg-cloud-token" placeholder="Cloudflare API token">
+            <button class="secondary" id="tg-cloud-on">Turn on</button><button class="link" id="tg-cloud-off" hidden>Turn off</button></div>
+          <p class="message" id="tg-cloud-message"></p>
+        </div>
       </div>
       <div class="setting" id="setting-telegram">
         <div><h3>💬 Telegram</h3><p class="muted status-line" data-secret="TELEGRAM_BOT_TOKEN"></p>

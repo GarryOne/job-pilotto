@@ -15,6 +15,11 @@ const copy = (from, to) => fs.cpSync(path.join(repo, from), to, {recursive: true
 
 fs.rmSync(path.join(desktop, 'shared'), {recursive: true, force: true});
 copy('worker/src', path.join(desktop, 'shared', 'worker'));
+// The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
+// Cloudflare account for "Telegram buttons while this computer is off" (lib/telegram-cloud.js).
+await (await import('esbuild')).build({entryPoints: [path.join(repo, 'worker', 'src', 'index.js')], bundle: true,
+  format: 'esm', platform: 'browser', conditions: ['workerd', 'worker', 'browser'], target: 'es2022', minify: true,
+  nodePaths: [path.join(desktop, 'node_modules')], outfile: path.join(desktop, 'shared', 'bot-worker.js'), logLevel: 'warning'});
 
 if (process.argv.includes('--app')) {
   const pilot = path.join(desktop, 'build', 'pilot');

@@ -85,6 +85,7 @@ export function startPolling(storage, onLine = () => {}, fetcher) {
     while (running) {
       const token = storage.secret('TELEGRAM_BOT_TOKEN');
       if (!token || !storage.settings().telegramChatId) return;
+      if (storage.settings().telegramCloud) return;  // the user's Cloudflare Worker answers instead (telegram-cloud.js)
       try {
         const updates = await api(token, 'getUpdates', {timeout: 50, ...(offset ? {offset} : {})}, fetcher);
         for (const update of updates) {
