@@ -66,6 +66,19 @@ export async function listTabs() {
   try { return JSON.parse(await jxa(LIST)) || []; } catch { return []; }
 }
 
+// Closes this job's form tab (the application was cancelled) with the Mac's scripting, when the extension didn't.
+// Returns true when a tab was closed.
+export async function closeFormTab({url, company}) {
+  if (process.platform !== 'darwin') return false;
+  try {
+    const tabs = JSON.parse(await jxa(LIST)) || [];
+    const tab = pickTab(tabs, {url, company});
+    if (!tab || scoreTab(tab, {url, company}) < 70) return false;  // only a confident match: never someone else's tab
+    await jxa(`Application('Google Chrome').windows.byId(${Number(tab.win)}).tabs[${Number(tab.index) - 1}].close()`);
+    return true;
+  } catch { return false; }
+}
+
 // Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'. The posting
 // opens only when Chrome isn't running: on most job sites the posting's link IS the form, so opening it while Chrome
 // runs would add a second, empty copy of the form next to the filled one.

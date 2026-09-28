@@ -55,3 +55,12 @@ test('"show me this field": the app learns whether a form page took it, or that 
   review.queueFocus('s2', 'Privacy');
   assert.equal(await review.delivered('s2', 30), false);  // no page with the extension answered
 });
+
+test('"close this form" reaches the matching page once, and the app hears that it was taken', async () => {
+  review._reset();
+  review.queueClose('s1');
+  const taken = review.delivered('s1', 2000);
+  assert.deepEqual(review.report(sessions, form()).commands, [{close: true}]);
+  assert.equal(await taken, true);
+  assert.deepEqual(review.report(sessions, form()).commands, []);
+});

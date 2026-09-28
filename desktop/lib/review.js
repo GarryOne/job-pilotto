@@ -27,6 +27,10 @@ export function matchSession(sessions, page) {
 export function setWatch(id, items) {
   watches.set(id, (Array.isArray(items) ? items : []).filter(item => item?.id && item?.label).map(({id: key, label}) => ({id: String(key), label: String(label)})));
 }
+// "Close this form": the page answering it closes its own tab (the application was cancelled).
+export function queueClose(id, now = Date.now()) {
+  commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {close: true, at: now}]);
+}
 export function queueFocus(id, label, now = Date.now()) {
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {focus: String(label), at: now}]);
 }
@@ -57,6 +61,6 @@ export function report(sessions, payload, now = Date.now()) {
   // The panel's header: which job this is and what Claude is doing on it (no answers, no personal data).
   const about = {id: session.id, url: session.url, title: session.title || '', company: session.company || '', status: session.status,
     note: session.note || '', live: session.live ?? !session.endedAt};
-  return {matched: session.id, session: about, watch: watches.get(session.id) || [], commands: due.map(({focus}) => ({focus}))};
+  return {matched: session.id, session: about, watch: watches.get(session.id) || [], commands: due.map(({focus, close}) => (close ? {close: true} : {focus}))};
 }
 export const _reset = () => { watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests

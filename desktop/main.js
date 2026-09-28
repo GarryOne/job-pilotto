@@ -18,7 +18,7 @@ import * as terminals from './lib/terminals.js';
 import * as quitDialog from './lib/quit-dialog.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
-import {listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
+import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import {logTo} from './lib/log.js';
@@ -687,6 +687,24 @@ function handlers() {
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
   // A session started again from scratch: it stops and closes (outcome 'restarted' in its statistics), and a new
   // Apply with Claude session starts on the same job (its kit, a new conversation). The job stays Applying.
+  // Cancel: Claude stops, the form tab closes (the extension closes it; else the Mac's scripting, on a confident match),
+  // the job goes back to Kit ready in Notion, and the session goes (outcome 'Cancelled' in its statistics).
+  ipcMain.handle('sessionCancel', async (_, id) => {
+    const old = terminals.get(String(id));
+    if (!old) return {ok: false, error: 'This session is no longer in the list.'};
+    const {message, detail, buttons} = quitDialog.cancel(old.company);
+    const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
+      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 1, cancelId: 1, message, detail});
+    if (response !== 0) return {ok: false, cancelled: true};
+    terminals.stop(old.id);
+    review.queueClose(old.id);
+    const closed = (await review.delivered(old.id, 6000)) || await closeFormTab({url: old.url, company: old.company});
+    const reset = DEMO ? {ok: true} : await pipeline.unapply(storage, old.url).catch(error => ({ok: false, error: error.message}));
+    if (!reset.ok) return {ok: false, error: `Notion: ${reset.error || 'not updated'}. The session stays; try again.`, closed};
+    terminals.setOutcome(old.id, 'cancelled');
+    terminals.remove(old.id);
+    return {ok: true, closed};
+  });
   ipcMain.handle('sessionRestart', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};

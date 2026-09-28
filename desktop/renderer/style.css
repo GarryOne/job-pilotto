@@ -1084,3 +1084,6 @@ main { min-width: 0; }
 .sd-toggle:hover { background: var(--surface); }
 .sd-card { cursor: pointer; }
 .sd-card:hover { border-color: var(--info-line); box-shadow: var(--shadow-sm); }
+
+/* Session page header: Start again, Cancel application, ⋯ */
+#ss-more { display: flex; align-items: center; gap: var(--sp-2); }

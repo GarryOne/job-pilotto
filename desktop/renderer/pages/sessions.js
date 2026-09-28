@@ -74,7 +74,6 @@ export function sessionMenu(item) {
   const menu = [{label: '↗ Open posting', run: () => window.pilot.openExternal(item.url)}];
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
   if (item.resumable) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
-  menu.push({label: '↺ Start again from scratch', run: () => restartSession(item)});
   if (isLive(item)) menu.push({label: '⏹ Stop Claude', run: () => window.pilot.sessionStop(item.id)});
   menu.push({label: '✕ Close this session', danger: true, run: () => closeSession(item)});
   return menu;
@@ -107,8 +106,20 @@ async function closeSession(item) {
   if (isLive(item)) await window.pilot.sessionStop(item.id);
   await removeSession(item);
 }
+// Cancel: Claude stops, the form tab closes, the job goes back to Kit ready, the session goes (asked once).
+export async function cancelSession(item) {
+  const result = await window.pilot.sessionCancel(item.id);
+  if (result?.cancelled) return;
+  if (!result?.ok) { toastMessage('Not cancelled', result?.error || 'Try again.'); await refreshSessions(); return; }
+  const job = sessionJob(item);
+  if (job.stage === 'Applying') job.stage = 'Kit ready';
+  if (!result.closed) toastMessage('Application cancelled', 'The job is back to Kit ready. Its form tab wasn\'t found: close it in Chrome yourself.');
+  if (shared.openSessionId === item.id) shared.openSessionId = null;
+  await refreshSessions();
+  if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs();
+}
 // Start again: this session closes and a new one starts on the same job (asked once, in a dialog).
-async function restartSession(item) {
+export async function restartSession(item) {
   const result = await window.pilot.sessionRestart(item.id);
   if (result?.cancelled) return;
   if (!result?.ok) { toastMessage('Not started again', result?.error || 'Try again.'); await refreshSessions(); return; }

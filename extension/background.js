@@ -234,6 +234,11 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       .then(() => reply({ok: true}), () => reply({ok: false}));
     return true;
   }
+  // The application was cancelled in the app: this form's tab closes.
+  if (message?.type === 'panelCloseTab' && sender.tab) {
+    chrome.tabs.remove(sender.tab.id).then(() => reply({ok: true}), () => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'panelOpenApp') {
     settings().then(config => api(config, '/extension/open', {method: 'POST', body: JSON.stringify({session: message.session})}))
       .then(data => reply({ok: !!data.ok}), () => reply({ok: false}));

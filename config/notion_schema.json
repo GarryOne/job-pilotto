@@ -842,6 +842,10 @@
             {
               "name": "Restarted",
               "color": "blue"
+            },
+            {
+              "name": "Cancelled",
+              "color": "red"
             }
           ]
         },

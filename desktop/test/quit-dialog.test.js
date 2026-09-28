@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {leftOpen, restart, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
+import {cancel, leftOpen, restart, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
 
 const label = session => session.company;
 const sessions = names => names.map(company => ({company}));
@@ -56,4 +56,11 @@ test('start again from scratch: asked once, says what closes, what starts and th
   assert.equal(dialog.message, 'Start the Canonical application again from scratch?');
   assert.match(dialog.detail, /This session stops and is closed.*A new Apply with Claude session then starts on the same job.*close it first for an empty form/s);
   assert.deepEqual(dialog.buttons, ['Start again', 'Cancel']);
+});
+
+test('cancel: asked once, says the form tab closes (what was filled is lost) and the job goes back to Kit ready', () => {
+  const dialog = cancel('Canonical');
+  assert.equal(dialog.message, 'Cancel the Canonical application?');
+  assert.match(dialog.detail, /the form tab closes in Chrome \(what was filled there is lost\), and the job goes back to Kit ready/);
+  assert.deepEqual(dialog.buttons, ['Cancel application', 'Keep it']);
 });

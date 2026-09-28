@@ -317,6 +317,7 @@
       watch = Array.isArray(reply?.watch) ? reply.watch : [];
       // The app asked to see this form (and maybe one field): this tab comes forward, then the field.
       for (const command of reply?.commands || []) {
+        if (command.close) { send({type: 'panelCloseTab'}).catch(() => {}); return; }  // the application was cancelled in the app
         send({type: 'panelShowTab'}).catch(() => {});
         if (!open) setOpen(true);
         const field = command.focus && find(command.focus, state.list);

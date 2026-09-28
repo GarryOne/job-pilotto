@@ -7,7 +7,7 @@ import {clockTime} from './activity.js';
 import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
-import {isLive, logChoice, openLog, refreshSessions, renderNextStep, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, ticking} from './sessions.js';
+import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, ticking} from './sessions.js';
 import {toastMessage} from './startup.js';
 
 export async function openSession(id) {
@@ -43,7 +43,12 @@ export function renderSessionPage() {
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
   $('ss-status').replaceChildren(pill(sessionReview(item) ? 'Ready for your review' : label, tone, {dot: true}));
-  $('ss-more').replaceChildren(moreButton(sessionMenu(item), 'More'));
+  // Start again and Cancel beside ⋯: the two ways out of a session that isn't going well.
+  const again = Object.assign(el('button', 'secondary', '↺ Start again'), {title: 'Close this session and start a new one on the same job'});
+  again.addEventListener('click', () => restartSession(item));
+  const cancel = Object.assign(el('button', 'secondary', 'Cancel application'), {title: 'Claude stops, the form tab closes, the job goes back to Kit ready'});
+  cancel.addEventListener('click', () => cancelSession(item));
+  $('ss-more').replaceChildren(again, cancel, moreButton(sessionMenu(item), 'More'));
   const job = sessionJob(item);
   const head = el('div', 'ss-job-card');
   const words = el('div', 'ss-job-words');

@@ -22,6 +22,16 @@ export function leftOpen(sessions, label, kept = 0) {
   };
 }
 
+// "Cancel application": what goes, asked once (the form's answers are lost with its tab).
+export function cancel(company) {
+  return {
+    message: `Cancel the ${company ? `${company} application` : 'application'}?`,
+    detail: 'Claude stops, the form tab closes in Chrome (what was filled there is lost), and the job goes back to ' +
+      'Kit ready, so you can apply again later. Nothing is submitted.',
+    buttons: ['Cancel application', 'Keep it'],
+  };
+}
+
 // "Start again from scratch" on a session: what happens, asked once before it does.
 export function restart(company) {
   return {
