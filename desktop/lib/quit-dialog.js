@@ -10,14 +10,14 @@ export function sessionLines(sessions, label) {
   return lines;
 }
 
-const AFTER = 'What\'s already filled stays in Chrome. Open Application sessions after you restart the app and press Resume Claude to carry on.';
+const AFTER = 'Filled forms stay in Chrome. After restarting, press Resume Claude in Application sessions.';
 
 // Only Claude sessions are working (the queue is empty): keep them, or stop them and quit.
 export function sessionsOnly(sessions, label) {
   const one = sessions.length === 1;
   return {
     message: one ? 'Claude is still filling an application' : `Claude is still filling ${sessions.length} applications`,
-    detail: `${sessionLines(sessions, label).join('\n')}\n\nQuitting now stops ${one ? 'it' : 'them'} where ${one ? 'it is' : 'they are'}. ${AFTER}`,
+    detail: `${sessionLines(sessions, label).join('\n')}\n\nQuitting stops ${one ? 'it' : 'them'} where ${one ? 'it is' : 'they are'}. ${AFTER}`,
     buttons: ['Keep working', 'Stop and quit'],
   };
 }
