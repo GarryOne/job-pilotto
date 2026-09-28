@@ -418,3 +418,15 @@ test('every wizard step sits inside the wizard\'s content column (an extra </div
   }
   assert.equal(depth, 0, 'the wizard\'s divs are balanced');
 });
+
+test('every Settings card is closed before the next one starts (an unclosed card nests the rest inside it)', () => {
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  const start = html.indexOf('<div class="view" data-view="settings"');
+  const view = html.slice(start, html.indexOf('</main>', start));
+  let depth = 0;
+  for (const tag of view.matchAll(/<(\/?)div\b[^>]*>/g)) {
+    depth += tag[1] ? -1 : 1;
+    if (/class="setting[ "]/.test(tag[0])) assert.equal(depth, 2, `${tag[0]} is nested inside another card`);
+  }
+  assert.equal(depth, 0, 'the Settings view\'s divs are balanced');
+});

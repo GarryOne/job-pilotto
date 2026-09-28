@@ -63,9 +63,14 @@
       <h1>Your Job Pilotto workspace in Notion</h1>
       <p class="lede">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p>
       <div class="oauth">
+        <ol class="howto">
+          <li><b>In Notion, make an empty page:</b> sidebar → <b>+</b> (new page) → name it <b>Job Pilotto</b>, leave it empty.
+            Job Pilotto builds your whole workspace inside it (databases and pages).</li>
+          <li><b>Click Connect with Notion</b> below. Notion opens in your browser: <b>Select pages</b> → tick <b>only</b> that
+            Job Pilotto page (nothing else) → <b>Allow access</b>.</li>
+          <li><b>Come back here</b> when the browser says "Connected to Notion ✓". Job Pilotto builds your workspace, about a minute.</li>
+        </ol>
         <button class="primary big" id="notion-oauth">Connect with Notion</button>
-        <p class="small muted">Notion opens in your browser. Choose <b>Use a template</b> (Notion copies the Job Pilotto workspace into your Notion), or
-          pick an <b>empty page</b> named Job Pilotto: Job Pilotto builds everything inside it. Then come back here.</p>
       </div>
       <div id="notion-found" class="found" hidden></div>
       <p class="message" id="notion-message"></p>
@@ -395,6 +400,7 @@
         <div class="kv"><span>Connection URL</span><code id="ext-url"></code><button class="link" data-copy="ext-url">Copy</button></div>
         <div class="kv"><span>Token</span><code id="ext-token"></code><button class="link" data-copy="ext-token">Copy</button></div>
         </details>
+        </div>
       </div>
       <div class="setting" id="setting-reports">
         <div><h3>🛠️ Help improve Job Pilotto</h3>

@@ -152,16 +152,24 @@ function handlers() {
   async function connectNotion(token, {templateRoot = null} = {}) {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
-      let result = await notion.connectWaiting(token, {onProgress: progress => window?.webContents.send('notionProgress', {...progress, titles})});
-      // A new, empty Job Pilotto page: build the whole workspace in it from the schema (the latest version).
+      const send = progress => window?.webContents.send('notionProgress', {...progress, titles});
+      let result = await notion.connect(token);
+      // A new, empty Job Pilotto page (nothing of ours in it yet): find it (Notion can take a few seconds to share
+      // it with the connection), then build the whole workspace in it from the schema (the latest version).
       if (!result.ok && !Object.keys(result.ids || {}).length) {
-        const root = templateRoot || await notion.sharedRoot(token);
+        let root = templateRoot;
+        for (let attempt = 0; !root && attempt < 12; attempt++) {
+          root = await notion.sharedRoot(token);
+          if (!root) { send({waitingPage: true}); await new Promise(resolve => setTimeout(resolve, 5000)); }
+        }
         if (root) {
-          window?.webContents.send('notionProgress', {building: true, titles});
+          send({building: true});
           const built = await schema.repair(token, {}, schema.load(), undefined, root);
           result = {ok: built.created.length > 0 && !!built.ids.NOTION_PROFILE_PAGE_ID, ids: built.ids, missing: [], problems: [], built: built.created};
         }
       }
+      // Some parts found (a copied template still being shared): wait for the rest, as before.
+      else if (!result.ok) result = await notion.connectWaiting(token, {onProgress: send});
       // Missing columns or databases (an older template, or a deleted one): add them from the schema, check again.
       if (!result.ok && result.ids?.NOTION_PROFILE_PAGE_ID) {
         const fixed = await schema.repair(token, result.ids);

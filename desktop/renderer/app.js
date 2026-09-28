@@ -118,8 +118,9 @@ async function showNotionResult(result) {
   }
 }
 
-window.pilot.onNotionProgress(({found, total, ids, titles, building}) => {
-  if (building) { message('notion-message', 'Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }
+window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage}) => {
+  if (building) { show($('notion-found'), false); message('notion-message', 'Connected ✓ Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }
+  if (waitingPage) { show($('notion-found'), false); message('notion-message', 'Waiting for Notion to share your Job Pilotto page with the app…', 'waiting'); return; }
   message('notion-message', `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`, 'waiting');
   const list = $('notion-found');
   list.replaceChildren();
