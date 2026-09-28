@@ -177,6 +177,13 @@ def _section(profile, word):
     return ''
 
 
+def _quietly(call):
+    try:
+        return call()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def strategy(db, tracker=None):
     """What the Strategy page shows, all from the user's own data: search settings (the cache of ⚙️ Search settings),
     preferences, the average fit components of the scored open jobs, counts, the Profile's compensation line and
@@ -201,27 +208,24 @@ def strategy(db, tracker=None):
     stages = {}
     insight, compensation = None, ''
     if tracker:
-        try:
-            for stage in tracker.url_stages().values():
-                stages[stage] = stages.get(stage, 0) + 1
-        except Exception:  # noqa: BLE001 — the rest still shows
-            pass
-        try:
-            compensation = _section(tracker.page_text(), 'compensation') or _section(tracker.page_text(), 'salary')
-        except Exception:  # noqa: BLE001
-            pass
         from .ai.insights import INSIGHTS_DATABASE_ID
-        if INSIGHTS_DATABASE_ID:
-            try:
-                rows = tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
-                                        {'page_size': 1, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]})['results']
-                if rows:
-                    from .notion.ledger import plain
-                    props = rows[0]['properties']
-                    insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
-                               'url': rows[0].get('url', '')}
-            except Exception:  # noqa: BLE001
-                pass
+        from .notion.client import together
+
+        def latest_insight():
+            if not INSIGHTS_DATABASE_ID:
+                return []
+            return tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
+                                    {'page_size': 1, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]})['results']
+        quiet = lambda call: lambda: _quietly(call)  # a failed read leaves its part empty; the rest still shows
+        url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
+        for stage in (url_stages or {}).values():
+            stages[stage] = stages.get(stage, 0) + 1
+        compensation = _section(profile or '', 'compensation') or _section(profile or '', 'salary')
+        if rows:
+            from .notion.ledger import plain
+            props = rows[0]['properties']
+            insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
+                       'url': rows[0].get('url', '')}
     stale = 0
     if tracker:  # jobs whose fit score waits for the new Profile ("Scores updating"), re-scored over the next searches
         try:

@@ -284,10 +284,13 @@ def settings_target():
         return DEFAULT_TARGET
 
 
-def load(tracker, *, target=DEFAULT_TARGET, now=None):
-    rows = tracker.query_database(tracker.database_id)
-    events = tracker.query_database(EVENTS_DATABASE_ID) if EVENTS_DATABASE_ID else []
-    interviews = tracker.query_database(INTERVIEWS_DATABASE_ID) if INTERVIEWS_DATABASE_ID else []
+def load(tracker, *, target=None, now=None):
+    """Applications, events, interviews and (without a target given) the Search settings target, read at once."""
+    rows, events, interviews, target = notion.together(
+        lambda: tracker.query_database(tracker.database_id),
+        lambda: tracker.query_database(EVENTS_DATABASE_ID) if EVENTS_DATABASE_ID else [],
+        lambda: tracker.query_database(INTERVIEWS_DATABASE_ID) if INTERVIEWS_DATABASE_ID else [],
+        lambda: target or settings_target())
     return build(rows, events, interviews, target=target, now=now)
 
 
@@ -331,7 +334,7 @@ def main(argv=None):
         add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You answered (marked done in Focus)')
         print(json.dumps({'ok': True}))
         return 0
-    focus = load(tracker, target=args.target or settings_target())
+    focus = load(tracker, target=args.target)
     if args.command == 'remind':
         text = reminder(focus)
         if text and args.send:

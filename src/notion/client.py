@@ -26,6 +26,18 @@ SOFT_STAGES = {'Saved', 'Dismissed', 'Kit ready'}
 # 'Kit ready' = a kit was drafted automatically; 'Saved' = the owner tapped ⭐ (starred in digests).
 
 
+def together(*calls, workers=4):
+    """Run independent Notion reads at the same time (each is one or a few HTTP requests): a page load then waits
+    for the slowest read, not the sum. Results in order; the first error is raised, like calling them in turn.
+    At most `workers` at once, within Notion's rate limit (about 3 requests a second on average)."""
+    from concurrent.futures import ThreadPoolExecutor
+    if len(calls) < 2:
+        return [call() for call in calls]
+    with ThreadPoolExecutor(max_workers=min(workers, len(calls))) as pool:
+        futures = [pool.submit(call) for call in calls]
+        return [future.result() for future in futures]
+
+
 def job_code(url):
     """Short stable code for /apply_<code>; derived from the URL so cache loss can't remap it."""
     return hashlib.sha1(url.strip().encode()).hexdigest()[:8]
@@ -99,8 +111,10 @@ class Tracker:
         text = lambda prop: ''.join(t.get('plain_text', '') for t in (prop or {}).get('rich_text') or (prop or {}).get('title') or [])
         select = lambda prop: ((prop or {}).get('select') or {}).get('name')
         found = {}
+        # Job Matches and Applications at the same time: the list waits for the slower one, not both.
+        matches, applications = together(lambda: self._query(None, MATCHES_DATABASE_ID) if MATCHES_DATABASE_ID else [], self._query)
         if MATCHES_DATABASE_ID:
-            for page in self._query(None, MATCHES_DATABASE_ID):
+            for page in matches:
                 props = page['properties']
                 url = ((props.get('Job URL') or {}).get('url') or '').strip()
                 if url and normalize_url(url) not in found:
@@ -109,7 +123,7 @@ class Tracker:
                                   'fit': (props.get('Score') or {}).get('number'), 'reason': text(props.get('Reason')),
                                   'match_status': select(props.get('Status')),
                                   'first_seen': ((props.get('First seen') or {}).get('date') or {}).get('start') or page.get('created_time', '')}
-        for page in self._query():
+        for page in applications:
             props = page['properties']
             url = ((props.get('Job URL') or {}).get('url') or '').strip()
             if not url:
@@ -191,9 +205,20 @@ class Tracker:
             cursor = result['next_cursor']
 
     def page_text(self, page_id=PROFILE_PAGE_ID):
-        """Plain-text rendering of a page: headings, paragraphs, lists and table rows."""
+        """Plain-text rendering of a page: headings, paragraphs, lists and table rows. Read once per process (one
+        command is one short run): a second call, e.g. the Profile for two sections, costs nothing."""
+        cache = self.__dict__.setdefault('_page_texts', {})
+        if page_id not in cache:
+            cache[page_id] = self._page_text(page_id)
+        return cache[page_id]
+
+    def _page_text(self, page_id):
         lines = []
-        for block in self._children(page_id):
+        blocks = self._children(page_id)
+        # A table's rows are its own request: read all the page's tables at the same time.
+        tables = [block for block in blocks if block['type'] == 'table']
+        rows = dict(zip((t['id'] for t in tables), together(*[lambda t=t: self._children(t['id']) for t in tables])))
+        for block in blocks:
             kind = block['type']
             body = block.get(kind, {})
             if kind.startswith('heading_'):
@@ -203,7 +228,7 @@ class Tracker:
             elif kind in ('bulleted_list_item', 'numbered_list_item', 'to_do'):
                 lines.append('- ' + _rich(body.get('rich_text')))
             elif kind == 'table':
-                for row in self._children(block['id']):
+                for row in rows[block['id']]:
                     lines.append(' | '.join(_rich(cell) for cell in row['table_row']['cells']))
         return '\n'.join(line for line in lines if line.strip()).strip()
 
