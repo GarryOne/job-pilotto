@@ -164,15 +164,29 @@
       <video class="demo" src="images/app/demo.mp4" poster="images/app/demo-poster.jpg" autoplay muted loop playsinline preload="auto"
         aria-label="The Job Pilotto app: what to do next, the job list, applying with Claude, a session asking you a question, recent activity, actions, strategy and interviews"></video>
     </figure>
-    <div class="shots">
-      <figure><div class="mac-window is-small"><div class="mac-bar" aria-hidden="true"><span class="mac-dots"><i></i><i></i><i></i></span><span class="mac-title">Job Pilotto</span></div><img src="images/app/jobs.png" loading="lazy" width="1600" height="1024" alt="Job list in the Mac app with fit scores out of 100 and the reason for each"></div>
-        <figcaption><b>Mac app:</b> every job scored against your profile, with the reason.</figcaption></figure>
-      <figure><div class="mac-window is-small"><div class="mac-bar" aria-hidden="true"><span class="mac-dots"><i></i><i></i><i></i></span><span class="mac-title">Job Pilotto</span></div><img src="images/app/interviews.png" loading="lazy" width="1600" height="1024" alt="Interviews page: consent reminder, transcript with speakers named, and the job it belongs to"></div>
-        <figcaption><b>Mac app:</b> an interview transcribed with speakers, filed under its job.</figcaption></figure>
-      <figure class="tall"><img src="images/proof/telegram-interview.png" loading="lazy" width="1040" height="1349" alt="Telegram message: interview review with strong answers, weak answers and what to practise">
-        <figcaption><b>Telegram:</b> the review after an interview.</figcaption></figure>
-      <figure class="tall"><img src="images/proof/notion-interview-review.png" loading="lazy" width="495" height="830" alt="Notion page: interview review with strengths, weak spots, signals and every question">
-        <figcaption><b>Notion:</b> the full review, question by question.</figcaption></figure>
+    <div class="carousel">
+      <div class="car-head"><h3>Up close</h3>
+        <div class="car-nav"><button type="button" class="car-btn" data-dir="-1" aria-label="Previous">←</button><button type="button" class="car-btn" data-dir="1" aria-label="Next">→</button></div></div>
+      <div class="car-track" tabindex="0" aria-label="Close-ups of the app, Telegram and Notion (scroll sideways)">
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/claude-asks.png" loading="lazy" alt="Card in the app: Claude waiting for you with two kit answers to check and Continue or Skip buttons"></div>
+          <figcaption><b>Claude asks before it guesses.</b> A session stops on the answers it isn't sure of; you reply in one click.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/up-next.png" loading="lazy" alt="Up next list: reply to two recruiters, then apply to your next role"></div>
+          <figcaption><b>What to do next, most important first.</b> Replies waiting, interviews coming, today's applications.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame is-wide"><img src="images/app/snips/job-row.png" loading="lazy" alt="A job row with a fit score of 86, the reason and its tags"></div>
+          <figcaption><b>Every job scored, with the reason.</b> Fit out of 100 against your CV, and why.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame is-wide"><img src="images/app/snips/sessions.png" loading="lazy" alt="Application sessions: one needs your input, one applying, one form filled"></div>
+          <figcaption><b>Several applications at once.</b> Each Claude session in its own card; you're told when one needs you.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/activity.png" loading="lazy" alt="Recent activity: a completed new jobs check with 12 new jobs"></div>
+          <figcaption><b>Every run, and what it found.</b> Searches, Gmail checks and reports, with their result.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/funnel.png" loading="lazy" alt="Application funnel from prepared to interviews, with the step to improve"></div>
+          <figcaption><b>Where your applications stall.</b> The step to improve, with what to change.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/interview.png" loading="lazy" alt="An interview transcript with speakers and the job it belongs to"></div>
+          <figcaption><b>Interviews transcribed on your Mac.</b> Speakers named, filed under the job, reviewed by Claude.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/proof/telegram-interview.png" loading="lazy" alt="Telegram message: interview review with strong answers, weak answers and what to practise"></div>
+          <figcaption><b>The review, in Telegram.</b> Strong answers, weak ones and what to practise.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/proof/notion-interview-review.png" loading="lazy" alt="Notion page: interview review with strengths, weak spots, signals and every question"></div>
+          <figcaption><b>Everything in your own Notion.</b> The full review, question by question.</figcaption></figure>
+      </div>
     </div>
   </section>
 
@@ -328,6 +342,12 @@
   </footer>
 </div>
 <script>
+for (const button of document.querySelectorAll('.car-btn')) button.addEventListener('click', () => {
+  const track = button.closest('.carousel').querySelector('.car-track');
+  const card = track.querySelector('.car-item');
+  track.scrollBy({left: Number(button.dataset.dir) * ((card?.offsetWidth || 400) + 20), behavior: 'smooth'});
+});
+
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.documentElement.classList.add('js');
 

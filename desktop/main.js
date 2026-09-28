@@ -102,7 +102,17 @@ function createWindow() {
         await window.webContents.executeJavaScript(process.env.JOB_PILOTTO_SMOKE_JS);
         await new Promise(resolve => setTimeout(resolve, 400));
       }
-      fs.writeFileSync(process.env.JOB_PILOTTO_SMOKE, (await window.webContents.capturePage()).toPNG());
+      // JOB_PILOTTO_SMOKE_SELECTOR: only that element (and a small margin), e.g. for the website's close-ups.
+      const selector = process.env.JOB_PILOTTO_SMOKE_SELECTOR;
+      const rect = selector ? await window.webContents.executeJavaScript(`(() => {
+        const node = document.querySelector(${JSON.stringify(selector)}); if (!node) return null;
+        node.scrollIntoView({block: 'nearest'}); const r = node.getBoundingClientRect(), m = ${Number(process.env.JOB_PILOTTO_SMOKE_MARGIN ?? 12)};
+        if (!r.width || !r.height) return null;
+        return {x: Math.max(0, Math.floor(r.left - m)), y: Math.max(0, Math.floor(r.top - m)),
+          width: Math.min(innerWidth, Math.ceil(r.width + 2 * m)), height: Math.min(innerHeight - Math.max(0, r.top - m), Math.ceil(r.height + 2 * m))};
+      })()`) : null;
+      if (selector && !rect) { console.error(`smoke: no element matches ${selector}`); app.quit(); return; }
+      fs.writeFileSync(process.env.JOB_PILOTTO_SMOKE, (await (rect ? window.webContents.capturePage(rect) : window.webContents.capturePage())).toPNG());
       app.quit();
     }, 1500));
   }

@@ -358,3 +358,24 @@ table.compare { width: 100%; min-width: 820px; border-collapse: collapse; font-s
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .js .reveal { opacity: 1; transform: none; }
 }
+
+/* Up close: a sideways strip of close-ups (native scroll + snap, arrows scroll one card) */
+.carousel { margin-top: 36px; }
+.car-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.car-head h3 { margin: 0; font: 500 1.3rem var(--serif); letter-spacing: -.01em; }
+.car-nav { display: flex; gap: 8px; }
+.car-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 1rem; cursor: pointer; }
+.car-btn:hover { border-color: var(--ink); }
+.car-track { display: grid; grid-auto-flow: column; grid-auto-columns: min(82%, 460px); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory;
+  padding: 4px 2px 14px; scrollbar-width: none; }
+.car-track::-webkit-scrollbar { display: none; }
+.car-item { margin: 0; scroll-snap-align: start; display: grid; gap: 12px; align-content: start; }
+.car-frame { height: 300px; display: grid; place-items: center; padding: 22px; border-radius: 16px; border: 1px solid var(--line);
+  background: linear-gradient(150deg, var(--raised), var(--paper)); overflow: hidden; }
+.car-frame img { max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 10px; box-shadow: var(--shadow-lg); background: var(--surface); }
+.car-item figcaption { color: var(--muted); font-size: .92rem; line-height: 1.45; }
+.car-item figcaption b { color: var(--ink); font-weight: 600; }
+/* Wide, short close-ups: show them at a readable size, cropped on the right with a fade. */
+.car-frame.is-wide { place-items: center start; padding-right: 0; }
+.car-frame.is-wide img { max-width: none; width: 190%;
+  -webkit-mask-image: linear-gradient(90deg, #000 40%, transparent 52%); mask-image: linear-gradient(90deg, #000 40%, transparent 52%); }
