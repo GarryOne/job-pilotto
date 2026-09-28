@@ -217,7 +217,15 @@ export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
     const {code} = await run(storage, args, tee, triggerEnv(trigger));
     return {ok: code === 0};
-  }, (record, log) => ({summary: taskSummary(kind, log)}));
+  }, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
+}
+// Without Telegram the pipeline prints its message between <<<message / message>>> (src/telegram.py to_app);
+// the last one, as plain text (Telegram HTML removed), is what the app shows as the result.
+export function appMessage(log) {
+  const end = log.lastIndexOf('message>>>'), start = log.lastIndexOf('<<<message', end);
+  if (end < 0 || start < 0) return null;
+  const entities = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'"};
+  return log.slice(start + 1, end).join('\n').replace(/<[^>]+>/g, '').replace(/&(amp|lt|gt|quot|#39);/g, m => entities[m]).trim().slice(0, 6000) || null;
 }
 // The result line a task printed, made readable: "Insight sent: Skills — Go in 40% (0.012 USD)" -> "Skills — Go in 40%".
 export function taskSummary(kind, log) {
@@ -233,9 +241,11 @@ function tracked(storage, kind, trigger, onLine, work, summarize) {
     const log = [];
     const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
     current = {...record, step: 'Starting'};
+    let inMessage = false;  // a message for the app (appMessage) isn't a progress step
     const tee = line => {
       log.push(line);
-      if (!/^\s|^Warning/.test(line) && line.length < 120) current = {...current, step: line};
+      if (line === '<<<message' || line === 'message>>>') inMessage = line === '<<<message';
+      else if (!inMessage && !/^\s|^Warning/.test(line) && line.length < 120) current = {...current, step: line};
       onLine(line);
     };
     let ok = false;

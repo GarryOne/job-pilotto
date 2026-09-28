@@ -450,9 +450,11 @@ def main():
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
     message = telegram_summary(summary, results)
-    print(message)
     if args.send and not disabled('telegram'):
+        print(message)
         telegram.send(message, *telegram.credentials())
+    else:
+        telegram.to_app(message)  # no Telegram: the desktop app shows the summary
 
 
 if __name__ == '__main__':

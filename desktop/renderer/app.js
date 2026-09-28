@@ -240,8 +240,19 @@ function outcome(run) {
   if (kindOf(run) !== 'search') return run.summary || 'done';
   return run.new != null ? plural(run.new, 'new job') : 'done';
 }
+// An Actions page command waits for its run (by kind) to end, then its answer shows the result.
+const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', scout: 'scout', mail: 'mail', run: 'search'};
+let awaitedRun = null;  // {kind, since}
+function showAwaitedResult(runs) {
+  const run = awaitedRun && runs.find(r => kindOf(r) === awaitedRun.kind && r.id >= awaitedRun.since && r.endedAt);
+  if (!run) return;
+  awaitedRun = null;
+  const kind = KIND[kindOf(run)];
+  answer(`${kind.icon} ${kind.name}: ${run.message ? `\n\n${run.message}` : capital(outcome(run))}`);
+}
 function renderActivity(data) {
   lastActivity = data;
+  showAwaitedResult(data.runs);
   const {running, runs, nextSearchAt, nextMailAt} = data;
   if (!running) idleSeen = true;
   const last = runs[0];
@@ -323,6 +334,9 @@ function renderActivity(data) {
       return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
+  // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram.
+  $('activity-message').textContent = !run?.live && run?.message || '';
+  show($('activity-message'), !run?.live && !!run?.message);
   // The full log stays folded unless the task is running or went wrong (then it's what you want to see).
   const failed = run && !run.live && (!run.ok || run.off);
   if (run && $('activity-log').dataset.for !== String(run.id)) {
@@ -1600,6 +1614,7 @@ function answer(text) { const box = $('command-answer'); show(box); box.textCont
 document.querySelectorAll('[data-command]').forEach(button => button.addEventListener('click', async () => {
   openActivity(true);  // feedback at once: what runs and its log, in Recent activity
   button.disabled = true;
+  if (COMMAND_KIND[button.dataset.command]) awaitedRun = {kind: COMMAND_KIND[button.dataset.command], since: Date.now() - 2000};
   const result = await window.pilot.command(button.dataset.command);
   button.disabled = false;
   answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));

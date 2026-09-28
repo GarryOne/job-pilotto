@@ -122,5 +122,11 @@ export async function runCommand(storage, name, arg = '', onLine = () => {}, fet
     await api(env.TELEGRAM_BOT_TOKEN, 'sendMessage', {chat_id: env.OWNER_CHAT_ID, text, parse_mode: 'HTML',
       disable_web_page_preview: true, ...(keyboard ? {reply_markup: keyboard} : {})}, fetcher).catch(error => onLine(`Telegram: ${error.message}`));
   }
-  return {text: plainText(text), telegram: !!(env.TELEGRAM_BOT_TOKEN && env.OWNER_CHAT_ID)};
+  const telegram = !!(env.TELEGRAM_BOT_TOKEN && env.OWNER_CHAT_ID);
+  return {text: telegram ? plainText(text) : inApp(plainText(text)), telegram};
 }
+// The bot's replies promise a Telegram message; without Telegram the result shows in the app instead.
+export const inApp = text => text
+  .replace('Sending the current list in about a minute.', "Preparing today's list; it shows here in about a minute.")
+  .replace('The digest arrives in about 3 minutes.', 'New jobs show in the Jobs list in about 3 minutes.')
+  .replace(/\barrives in about a minute/, 'shows here in about a minute');

@@ -708,3 +708,7 @@ main { min-width: 0; }
   font-size: var(--fs-xs); padding: 6px 10px; border-radius: var(--r-md); text-align: left; }
 .palette-hint:hover { color: var(--on-accent); }
 @media (max-width: 1179px) { .palette-hint { display: none; } }
+
+/* A one-off job's result (insight, today's list, report) in Recent activity, when Telegram didn't get it */
+.activity-message { white-space: pre-wrap; font: inherit; font-size: var(--fs-sm); background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 10px 12px; margin: 8px 0; max-height: 220px; overflow-y: auto; }

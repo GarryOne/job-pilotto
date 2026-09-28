@@ -13,6 +13,15 @@ def credentials():
     return token, chat_id
 
 
+# Without Telegram, a message goes to whoever ran us: the desktop app reads the text between these markers
+# from the output and shows it (Actions page, Recent activity). reply_markup (buttons) has no meaning there.
+APP_MESSAGE = ('<<<message', 'message>>>')
+
+
+def to_app(text, reply_markup=None):
+    print(f'{APP_MESSAGE[0]}\n{text}\n{APP_MESSAGE[1]}')
+
+
 def send(text, token, chat_id, reply_markup=None):
     endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
     fields = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}

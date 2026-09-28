@@ -171,3 +171,13 @@ test('one-off jobs from the Actions page are tracked with a readable result line
   assert.equal(pipeline.taskName('insight'), 'Insight');
   assert.equal(pipeline.taskName('mail'), 'Gmail check');
 });
+
+test('without Telegram, a job\'s message is read from its output and the replies say it shows in the app', async () => {
+  const pipeline = await import('../lib/pipeline.js');
+  const log = ['Scouting…', '<<<message', '🔎 <b>Source scout</b> · checked 15 · 🆕 1 new source', '1. <b>Acme &amp; Co</b> · Greenhouse', 'message>>>', 'Cronjob run logged: https://n'];
+  assert.equal(pipeline.appMessage(log), '🔎 Source scout · checked 15 · 🆕 1 new source\n1. Acme & Co · Greenhouse');
+  assert.equal(pipeline.appMessage(['no message here']), null);
+  assert.equal(telegram.inApp('💡 Looking at the market and your applications; the insight arrives in about a minute.'),
+    '💡 Looking at the market and your applications; the insight shows here in about a minute.');
+  assert.equal(telegram.inApp('📋 Sending the current list in about a minute.'), "📋 Preparing today's list; it shows here in about a minute.");
+});

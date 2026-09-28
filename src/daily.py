@@ -348,7 +348,7 @@ def main():
     if args.mode in ('insight', 'weekly'):
         if not tracker:
             raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')
-        sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else None
+        sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else telegram.to_app
         with store.connect(args.db) as db:
             make = insights.run if args.mode == 'insight' else insights.weekly
             run = new_cron_run(args.mode)
@@ -364,6 +364,8 @@ def main():
                 print(message)
                 if args.send:
                     telegram.send(message, *telegram.credentials())
+                else:
+                    telegram.to_app(message)
         return 0
     run = new_cron_run(args.mode)
     spend = None
@@ -486,6 +488,8 @@ def main():
     if sys.stdout.isatty():  # the Telegram HTML is a preview for a terminal; the app's log gets a summary line
         print(text)
     if not args.send:
+        if not sys.stdout.isatty():
+            telegram.to_app(text)  # the desktop app shows the list itself
         print(f"\nDigest ready: {plural(len(shown_ids), 'job')}, {new_count} new. Telegram isn't connected, so nothing "
               'was sent (terminal: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send).')
         if args.mode in ('scheduled', 'run', 'today'):
