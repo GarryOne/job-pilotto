@@ -90,9 +90,9 @@ jobs:
           # Stable names too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${version}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
           cp "dist/Job-Pilotto-${version}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
-          scripts/release-notes.sh "$GITHUB_SHA" > release-notes.md
+          { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; } > release-notes.md
           gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
-            --title "Job Pilotto ${version}" \
+            --title "$(scripts/release-title.sh "$version")" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA" \
             --draft   # published by the windows job once the .exe is there (or by mac-only if it fails)
