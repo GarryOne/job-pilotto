@@ -3,6 +3,7 @@ import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
 import {ago, avatar, band, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
+import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
@@ -18,7 +19,6 @@ let allJobs = [];
 
 // ---------- helpers ----------
 function show(element, visible = true) { element.hidden = !visible; }
-const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? {className} : {}, text != null ? {textContent: text} : {});
 function message(id, text, tone = '') { const el = $(id); el.textContent = text || ''; el.className = `message ${tone}`; }
 function chip(parent, text) { const span = document.createElement('span'); span.className = 'chip'; span.textContent = text; parent.append(span); }
 // Regex fragments from the draft ("z[uü]rich", "\\bsre\\b") shown as plain words.
@@ -236,7 +236,7 @@ function renderActivity(data) {
     // Status circle (✓ / ! / spinner), what ran, when and what it found, who started it.
     button.append(el('span', 'run-status'), el('span', 'run-kind', `${kind.icon} ${kind.name}`),
       el('span', 'muted run-what', run.live ? 'Running now' : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))}`),
-      el('span', `run-who ${run.trigger === 'you' ? 'you' : ''}`, capital(WHO[run.trigger] || run.trigger)));
+      pill(capital(WHO[run.trigger] || run.trigger), run.trigger === 'you' ? 'good' : 'neutral'));
     button.addEventListener('click', () => { selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;
@@ -248,12 +248,10 @@ function renderActivity(data) {
   // A card per scheduled task: what, which day, and the time in large type (or why there's none).
   const slot = (glyph, name, at, none) => {
     const card = el('div', 'ap-slot');
-    const tile = el('span', 'ap-slot-icon');
-    tile.append(icon(glyph));
     const words = el('div', '');
     const due = at && at <= Date.now();
     words.append(el('b', '', name), el('small', 'muted', at ? (due ? 'at the next check' : new Date(at).toLocaleDateString([], {weekday: 'short'})) : none));
-    card.append(tile, words, el('span', 'ap-time', at ? (due ? 'Due now' : hhmm(at)) : ''));
+    card.append(tile(glyph, 'info'), words, el('span', 'ap-time', at ? (due ? 'Due now' : hhmm(at)) : ''));
     return card;
   };
   $('activity-schedule').replaceChildren(...[
@@ -708,41 +706,14 @@ let claudeReady = false;
 const claudeStarted = new Set();
 const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
-// The ⋯ menu of a job row: one floating list, closed by Esc, a click outside, scrolling, or picking an item.
-const rowMenu = Object.assign(document.createElement('div'), {className: 'row-menu', hidden: true, role: 'menu'});
-document.body.append(rowMenu);
-function closeRowMenu() {
-  rowMenu.hidden = true;
-  document.querySelector('.more[aria-expanded="true"]')?.setAttribute('aria-expanded', 'false');
-}
-function openRowMenu(anchor, items) {
-  const wasOpen = anchor.getAttribute('aria-expanded') === 'true';
-  closeRowMenu();
-  if (wasOpen) return;
-  rowMenu.replaceChildren(...items.map(item => {
-    if (item === '-') return document.createElement('hr');
-    const button = Object.assign(document.createElement('button'), {textContent: item.label, title: item.title || '', className: item.danger ? 'danger' : ''});
-    button.setAttribute('role', 'menuitem');
-    button.addEventListener('click', event => { closeRowMenu(); item.run(event); });
-    return button;
-  }));
-  rowMenu.hidden = false;
-  anchor.setAttribute('aria-expanded', 'true');
-  const box = anchor.getBoundingClientRect();
-  const below = box.bottom + 6 + rowMenu.offsetHeight <= window.innerHeight;
-  rowMenu.style.top = `${Math.max(8, below ? box.bottom + 6 : box.top - rowMenu.offsetHeight - 6)}px`;
-  rowMenu.style.left = `${Math.max(8, box.right - rowMenu.offsetWidth)}px`;
-  rowMenu.querySelector('button')?.focus();
-}
-document.addEventListener('click', event => { if (!rowMenu.hidden && !event.target.closest('.row-menu, .more')) closeRowMenu(); });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') closeRowMenu(); });
-document.querySelector('main').addEventListener('scroll', closeRowMenu);
-
+// Pill tones: where a job stands, and how it's worked.
+const STATUS_TONE = {unreviewed: 'info', saved: 'signal', applied: 'good', dismissed: 'neutral'};
+const MODE_TONE = {remote: 'good', hybrid: 'info'};
 // Work in progress on a job (redrafting its kit, tailoring its CV), shown on its row while the menu is closed.
 const busyNotes = new Map();
 
 function renderJobs() {
-  closeRowMenu();
+  closeMenu();
   const filter = $('filter-status').value;
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
@@ -766,7 +737,7 @@ function renderJobs() {
     const titleLine = el('div', 'title-line');
     const link = Object.assign(el('a', '', job.title), {href: '#', title: 'Open the posting'});
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
-    titleLine.append(link, el('span', `status inline ${job.status}`, statusLabel));
+    titleLine.append(link, Object.assign(pill(statusLabel, STATUS_TONE[job.status]), {className: `ui-pill tone-${STATUS_TONE[job.status] || 'neutral'} status-inline`}));
     role.append(titleLine);
     // Compact list: company · place · mode · age on one line, in place of those columns.
     const meta = el('div', 'meta');
@@ -782,19 +753,13 @@ function renderJobs() {
     const chips = el('div', 'tags');
     // Three skill tags, the rest behind "+N".
     const skills = tags(job, 8);
-    for (const tag of skills.slice(0, 3)) chips.append(el('span', 'tag', tag));
-    if (skills.length > 3) chips.append(Object.assign(el('span', 'tag more-tags', `+${skills.length - 3}`), {title: skills.slice(3).join(', ')}));
-    if (job.kit && job.notion_url) {
-      const kit = Object.assign(el('button', 'tag link-tag', '📝 Kit'), {title: 'Application kit: form answers, cover letter, eligibility (in Notion)'});
-      kit.addEventListener('click', event => window.pilot.openNotion(job.notion_url, event.metaKey));
-      chips.append(kit);
-    }
-    if (job.tailored && job.code) {
-      const cv = Object.assign(el('button', 'tag link-tag', '📄 Tailored CV'), {title: 'Your CV tailored to this job, with the changes highlighted'});
-      cv.addEventListener('click', () => window.pilot.openTailoredCv(job.code));
-      chips.append(cv);
-    }
-    if (busyNotes.has(job.url)) chips.append(el('span', 'tag busy-note', busyNotes.get(job.url)));
+    for (const skill of skills.slice(0, 3)) chips.append(tag(skill));
+    if (skills.length > 3) chips.append(tag(`+${skills.length - 3}`, {title: skills.slice(3).join(', ')}));
+    if (job.kit && job.notion_url) chips.append(tag('📝 Kit', {title: 'Application kit: form answers, cover letter, eligibility (in Notion)',
+      onClick: event => window.pilot.openNotion(job.notion_url, event.metaKey)}));
+    if (job.tailored && job.code) chips.append(tag('📄 Tailored CV', {title: 'Your CV tailored to this job, with the changes highlighted',
+      onClick: () => window.pilot.openTailoredCv(job.code)}));
+    if (busyNotes.has(job.url)) chips.append(tag(busyNotes.get(job.url), {busy: true}));
     if (chips.childElementCount) role.append(chips);
 
     const company = el('div', 'company');
@@ -808,15 +773,16 @@ function renderJobs() {
     if (job.work_mode) {
       const line = el('div', 'place-line');
       const mode = workMode(job.work_mode);
-      line.append(icon('globe'), Object.assign(el('span', `mode ${mode.kind}`, mode.label), {title: job.work_mode}));
+      line.append(icon('globe'), pill(mode.label, MODE_TONE[mode.kind] || 'neutral', {title: job.work_mode}));
       place.append(line);
     }
 
     const status = el('div', 'status-cell');
-    status.append(el('span', `status ${job.status}`, statusLabel));
+    status.append(pill(statusLabel, STATUS_TONE[job.status]));
     // The kit's eligibility verdict: a badge, with the reason on hover.
     if (job.ineligible) {
-      const verdict = Object.assign(el('span', 'badge-ineligible tip', '⛔ Not eligible'), {tabIndex: 0});
+      const verdict = Object.assign(pill('⛔ Not eligible', 'bad'), {tabIndex: 0});
+      verdict.classList.add('tip');
       verdict.dataset.tip = job.ineligible;
       status.append(verdict);
     }
@@ -922,13 +888,7 @@ function renderJobs() {
     if (job.status !== 'saved') menu.push({label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
     if (job.status !== 'applied') menu.push({label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
     if (job.status !== 'dismissed') menu.push({label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
-    const more = Object.assign(el('button', 'secondary more'), {title: 'More: save, dismiss, kit, posting, tailor CV'});
-    more.setAttribute('aria-label', 'More actions');
-    more.setAttribute('aria-haspopup', 'menu');
-    more.setAttribute('aria-expanded', 'false');
-    more.append(icon('more'));
-    more.addEventListener('click', () => openRowMenu(more, menu));
-    box.append(more);
+    box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
     body.append(row);
@@ -1509,12 +1469,10 @@ function renderDrafts(drafts) {
   // Status: words for the meta line, and a pill.
   const STATUS = {new: 'Not transcribed', recording: 'Recording…', transcribing: 'Transcribing…', stopped: 'Stopped: transcribe again',
     failed: 'Failed', ready: 'Transcript ready'};
-  const PILL = {ready: ['ok', 'Ready'], transcribing: ['busy', 'Transcribing'], recording: ['busy', 'Recording'], failed: ['bad', 'Failed']};
+  const PILL = {ready: ['good', 'Ready'], transcribing: ['signal', 'Transcribing'], recording: ['signal', 'Recording'], failed: ['bad', 'Failed']};
   $('iv-drafts').replaceChildren(...drafts.map(draft => {
     const busy = draft.status === 'recording' || draft.status === 'transcribing';
     const row = el('div', `iv-draft${draft.id === ivOpen ? ' open' : ''}`);
-    const tile = el('span', 'iv-tile');
-    tile.append(icon(draft.kind === 'audio' ? 'mic' : 'file'));
     const text = el('div', 'iv-draft-text');
     const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
     const meta = el('div', 'muted small');
@@ -1522,8 +1480,8 @@ function renderDrafts(drafts) {
       draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);
     meta.textContent = parts.join('  ·  ');
     text.append(el('b', '', draft.title), meta);
-    const [tone, label] = PILL[draft.status] || ['', STATUS[draft.status] || draft.status];
-    const pill = el('span', `pill-dot ${tone}`, label);
+    const [tone, label] = PILL[draft.status] || ['neutral', STATUS[draft.status] || draft.status];
+    const state = pill(label, tone, {dot: true});
     // The next step for this draft: transcribe it, or review the transcript and save it.
     const needsTranscript = draft.kind === 'audio' && ['new', 'stopped', 'failed'].includes(draft.status);
     const main = Object.assign(el('button', 'primary iv-main', draft.status === 'ready' ? 'Review & save' : needsTranscript ? 'Transcribe' : 'Open'),
@@ -1540,15 +1498,9 @@ function renderDrafts(drafts) {
         renderDrafts(await iv.drafts());
       }});
     }
-    const more = Object.assign(el('button', 'secondary more'), {title: 'More: open, show in Finder, delete'});
-    more.setAttribute('aria-label', 'More actions');
-    more.setAttribute('aria-haspopup', 'menu');
-    more.setAttribute('aria-expanded', 'false');
-    more.append(icon('more'));
-    more.addEventListener('click', () => openRowMenu(more, menu));
     const actions = el('div', 'row-actions');
-    actions.append(main, more);
-    row.append(tile, text, pill, actions);
+    actions.append(main, moreButton(menu, 'More: open, show in Finder, delete'));
+    row.append(tile(draft.kind === 'audio' ? 'mic' : 'file'), text, state, actions);
     return row;
   }));
 }
@@ -1669,6 +1621,7 @@ $('iv-discard').addEventListener('click', async () => {
 // Saved interviews, from Notion. Changing the job updates the row's Application there.
 const reviewing = new Set();
 const OUTCOME = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative'};
+const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
 async function loadSaved() {
   const result = await iv.saved();
   if (!result.ok) { ivSavedRows = []; $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
@@ -1676,7 +1629,7 @@ async function loadSaved() {
   renderSaved();
 }
 function renderSaved() {
-  closeRowMenu();
+  closeMenu();
   const text = $('iv-filter').value.trim().toLowerCase(), outcome = $('iv-outcome').value;
   const rows = ivSavedRows.filter(row => {
     const job = row.application[0] ? jobForPage(row.application[0]) : null;
@@ -1729,8 +1682,8 @@ function renderSaved() {
     cell(who, picker);
 
     cell(job ? placeAndMode(job.location, job.work_mode) || '–' : '–').className = 'iv-where';
-    cell(row.overall ? el('span', `pill-dot ${row.overall}`, `${OUTCOME[row.overall] || row.overall}`)
-      : el('span', `pill-dot${reviewing.has(row.id) ? ' busy' : ''}`, reviewing.has(row.id) ? 'Reviewing…' : 'Not reviewed'));
+    cell(row.overall ? pill(OUTCOME[row.overall] || row.overall, OUTCOME_TONE[row.overall] || 'neutral', {dot: true})
+      : pill(reviewing.has(row.id) ? 'Reviewing…' : 'Not reviewed', reviewing.has(row.id) ? 'signal' : 'neutral', {dot: true}));
 
     // Actions: open the review (or get one), then the rest in ⋯.
     const actions = el('div', 'row-actions');
@@ -1756,13 +1709,7 @@ function renderSaved() {
         loadSaved();
       }},
     ];
-    const more = Object.assign(el('button', 'secondary more'), {title: 'More: open in Notion, change job, delete'});
-    more.setAttribute('aria-label', 'More actions');
-    more.setAttribute('aria-haspopup', 'menu');
-    more.setAttribute('aria-expanded', 'false');
-    more.append(icon('more'));
-    more.addEventListener('click', () => openRowMenu(more, menu));
-    actions.append(main, more);
+    actions.append(main, moreButton(menu, 'More: open in Notion, change job, delete'));
     cell(actions);
     return tr;
   }));

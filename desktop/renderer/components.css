@@ -1,0 +1,44 @@
+/* Job Pilotto components (built by components.js; values from tokens.css; every variant in gallery.html). */
+
+/* Pill: a short status */
+.ui-pill { --tone: var(--muted); --tone-soft: var(--bg);
+  display: inline-flex; align-items: center; gap: 6px; font: 600 var(--fs-xs) var(--font-sans); padding: 2px 9px;
+  border-radius: var(--r-pill); background: var(--tone-soft); color: var(--tone); white-space: nowrap; line-height: 1.5; }
+.ui-pill.dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* Tag: a label; .is-action = a button in the accent colour; .is-busy = work in progress */
+.ui-tag { font: 500 var(--fs-xs) var(--font-sans); padding: 2px 7px; border-radius: var(--r-sm); background: var(--surface-2);
+  color: var(--ink-2); border: 1px solid var(--line); white-space: nowrap; }
+.ui-tag[title] { cursor: help; }
+button.ui-tag.is-action { cursor: pointer; background: var(--signal-soft); color: var(--signal-ink); border-color: var(--signal-line); }
+button.ui-tag.is-action:hover { border-color: var(--signal); }
+.ui-tag.is-busy { background: var(--surface); color: var(--muted); border-style: dashed; animation: ui-pulse 1.2s ease-in-out infinite; }
+@keyframes ui-pulse { 50% { opacity: .45; } }
+
+/* Tile: an icon on a soft square */
+.ui-tile { --tone: var(--signal); --tone-soft: var(--signal-soft);
+  width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center; flex: none;
+  background: var(--tone-soft); color: var(--tone); }
+.ui-tile .icon { width: 18px; height: 18px; }
+.ui-tile.tone-info { border-radius: 50%; }
+
+/* ⋯ button and its menu */
+.ui-more { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
+.ui-more[aria-expanded="true"], .ui-more:hover { background: var(--bg); }
+.ui-menu { position: fixed; z-index: 60; min-width: 190px; display: grid; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 5px; box-shadow: var(--shadow-lg); }
+.ui-menu button { background: transparent; text-align: left; font-weight: 500; font-size: var(--fs-sm); padding: 7px 9px;
+  border-radius: var(--r-sm); color: var(--ink); }
+.ui-menu button:hover, .ui-menu button:focus-visible { background: var(--bg); outline: none; }
+.ui-menu button.danger { color: var(--bad); }
+.ui-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px; }
+
+/* Tones: pills and tiles (last, so they override each component's default) */
+.tone-info { --tone: var(--info); --tone-soft: var(--info-soft); }
+.tone-good { --tone: var(--good); --tone-soft: var(--good-soft); }
+.tone-warn { --tone: var(--warn); --tone-soft: var(--warn-soft); }
+.tone-bad { --tone: var(--bad); --tone-soft: var(--bad-soft); }
+.tone-signal { --tone: var(--signal-ink); --tone-soft: var(--signal-soft); }
+.tone-teal { --tone: var(--teal); --tone-soft: var(--teal-soft); }
+
+@media (prefers-reduced-motion: reduce) { .ui-tag.is-busy { animation: none; } }

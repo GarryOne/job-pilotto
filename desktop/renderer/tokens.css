@@ -1,0 +1,78 @@
+/* Job Pilotto design tokens: the only place with raw colours, sizes and fonts.
+   Screens use these through var(--…) and the components (components.js); test/design.test.js fails
+   when a stylesheet uses a colour, corner radius or font size that isn't one of them. */
+:root {
+  /* Surfaces and text */
+  --bg: #eef3f7;            /* the page behind cards */
+  --sky: var(--bg);         /* older name */
+  --surface: #ffffff;       /* cards, inputs, menus */
+  --surface-2: #f8fafc;     /* a quieter surface: table heads, detail boxes, tags */
+  --ink: #0f1b2d;           /* text */
+  --ink-2: #3a4a5e;         /* secondary text on light (tags) */
+  --muted: #4c5d72;         /* captions, hints */
+  --line: #d3dde7;          /* borders, dividers */
+  --line-strong: #b8c4d3;   /* input borders, hovered borders */
+  --on-accent: #ffffff;     /* text on orange, navy, green… */
+
+  /* Navy: sidebar, setup steps, logs */
+  --navy: #132439;
+  --navy-hover: #1a2d46;
+  --navy-active: #1f3552;
+  --navy-line: #3b5170;
+  --on-navy: #e3ebf5;
+  --on-navy-2: #b9c8dc;
+  --on-navy-3: #8fa3bb;
+
+  /* Brand accent: orange (actions), teal (done), amber (the board) */
+  --signal: #d9540b;
+  --signal-rgb: 217 84 11;
+  --signal-ink: #a3470f;    /* orange text on the soft background */
+  --signal-soft: #fdeee4;
+  --signal-line: #f5c9ab;
+  --teal: #0e7c7b;
+  --teal-soft: #e3f3f2;
+  --teal-line: #a9d8d6;
+  --amber: #ffb224;
+
+  /* Status */
+  --good: #1f7a4d;  --good-bright: #2e9e6a;  --good-soft: #e3f4ea;
+  --warn: #9a6200;  --warn-bright: #f0a92b;  --warn-soft: #fdf3dc;  --warn-line: #f4e2c2;
+  --bad: #b3261e;   --bad-bright: #d0685a;   --bad-soft: #fbe6e4;   --bad-line: #f3c2c2;
+  --info: #2563b0;  --info-soft: #e8f0fb;    --info-line: #b9c8f5;
+  --violet: #6a4bbd; --violet-soft: #f1edfb;
+
+  /* Shadows: one colour, four depths */
+  --shadow-rgb: 15 30 50;
+  --shadow-sm: 0 1px 2px rgb(var(--shadow-rgb) / .12);
+  --shadow-md: 0 4px 16px rgb(var(--shadow-rgb) / .08);
+  --shadow-lg: 0 18px 48px rgb(var(--shadow-rgb) / .22), 0 3px 10px rgb(var(--shadow-rgb) / .08);
+  --shadow-xl: 0 30px 80px rgb(var(--shadow-rgb) / .35), 0 4px 14px rgb(var(--shadow-rgb) / .12);
+  --scrim: rgb(var(--shadow-rgb) / .4);
+
+  /* Corners */
+  --r-sm: 6px;     /* tags, small buttons */
+  --r-md: 10px;    /* buttons, inputs, cards */
+  --r-lg: 14px;    /* panels, dialogs */
+  --r-pill: 999px; /* pills, chips */
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --fs-xs: 11px;      /* pills, table heads, fine print */
+  --fs-sm: 12px;      /* captions, meta lines */
+  --fs-md: 13px;      /* body in dense lists */
+  --fs-base: 14px;    /* body */
+  --fs-lg: 16px;      /* section titles */
+  --fs-xl: 20px;      /* page sub-titles, big numbers */
+  --fs-2xl: 24px;     /* page titles */
+  --fs-display: 34px; /* the setup wizard's big marks */
+
+  /* Space: 4px steps */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+  /* Motion */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  font: var(--fs-base)/1.5 var(--font-sans);
+  color: var(--ink);
+}

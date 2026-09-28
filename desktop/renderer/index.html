@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
 <title>Job Pilotto</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -261,7 +263,7 @@
         <div class="stat violet"><span class="stat-icon"><i data-icon="building"></i></span><div><b id="stat-companies">–</b><span>Unique companies</span></div></div>
       </div>
       <details class="questions" id="questions" hidden>
-        <summary><b>✍️ Answer once</b><span class="q-count" id="questions-count"></span><span class="muted small">used in every application</span></summary>
+        <summary><b>✍️ Answer once</b><span class="ui-pill tone-signal" id="questions-count"></span><span class="muted small">used in every application</span></summary>
         <p class="muted small">Forms asked these and nothing in your profile or standard answers covered them. Your answer is added to your
           Notion standard answers; redraft a job's kit (↻) to use it there.</p>
         <p class="message error" id="questions-error" hidden></p>
@@ -333,7 +335,7 @@
       <p class="message" id="iv-message"></p>
 
       <section id="iv-drafts-block" hidden>
-        <div class="iv-section-head"><h2>Local recordings</h2><span class="q-count" id="iv-unsaved"></span></div>
+        <div class="iv-section-head"><h2>Local recordings</h2><span class="ui-pill tone-signal" id="iv-unsaved"></span></div>
         <div class="iv-list" id="iv-drafts"></div>
       </section>
 
@@ -574,7 +576,7 @@
     <div class="activity-panel" id="activity-panel" hidden role="dialog" aria-labelledby="activity-heading">
       <div class="ap-head">
         <span class="ap-pulse"><i data-icon="pulse"></i></span>
-        <h3 id="activity-heading">Recent activity</h3><span class="ap-count" id="activity-count"></span>
+        <h3 id="activity-heading">Recent activity</h3><span class="ui-pill" id="activity-count"></span>
         <button class="icon-btn ap-close" id="activity-close" aria-label="Close" title="Close (Esc)"><i data-icon="close"></i></button>
       </div>
       <div class="activity-cols">

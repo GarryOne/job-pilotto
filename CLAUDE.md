@@ -33,6 +33,17 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever
   started it, so users see what happened in Notion without the app having to show it.
 
+## Desktop UI: one design system
+- Values live in `desktop/renderer/tokens.css` only: colours, corner radii (`--r-sm|md|lg|pill`), the type scale
+  (`--fs-…`), fonts, spacing (`--sp-…`), shadows. Screens use `var(--…)`. `desktop/test/design.test.js` fails on a
+  raw colour, radius, font size or font family anywhere else, so a new one-off value can't reach `main`.
+- Building blocks come from `components.js` + `components.css`: `pill(text, tone)`, `tag()`, `tile()`,
+  `moreButton(items)` (the ⋯ menu), plus the button classes (`primary`, `secondary`, `ghost`, `link`, `danger`,
+  `with-icon`). Use them; if a screen needs something new, add it there (modifiers are `is-…`, tones `tone-…`)
+  and to `gallery.js`, rather than styling it once in `style.css`.
+- `npm run gallery` (in `desktop/`) shows every token and component on one page; check it after changing one.
+- New colour or size? Add a token (and say why) instead of a literal. The website (`site/`) has its own styles.
+
 ## Layout
 - Python package `src/` (run with `python -m src <daily|scout|discover|feeds|enrich>`): `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite; `scout.py` source scout; `paths.py` repo paths; `features.py` optional-feature registry and the `JOB_PILOTTO_DISABLE` switch (only the crawl + digest core is required; new features must be optional, on when their keys exist, and listed there).
 - `src/sources/` (`ats.py` feed adapters, `feeds.py` employer-feed crawl, `boards.py` jobs.ch/TechTree), `src/ai/` (`enrich.py` stage 1 Haiku 4.5, `score.py` stage 2 Sonnet 5, `kit.py` application kit Sonnet 5 on 📝 Prepare or auto-drafted, `apply_batch.py` queues kits into the ChatGPT/Codex desktop app, `insights.py` daily insight + Monday weekly report: code stats + Sonnet 5 → Telegram and 💡 Insights, `interviews.py` recording/transcript/notes → 🎤 Interviews rows (the app saves transcripts there, linked to the job; Notion is the database) and their review, `transcribe.py` local audio → transcript with speakers (optional add-on `requirements-transcribe.txt`: sherpa-onnx with Silero VAD, Parakeet-TDT v2 English, pyannote + 3D-Speaker ERes2Net), `mail.py` Gmail + Calendar → events/Stage/Next interview/prep messages; client in `src/sources/google.py`), `src/notion/` (`client.py` Notion API, `matches.py` Job Matches sync, `ledger.py` application record frozen at Applied + 📈 Application Events outcome history + scheduled sync/no-response rule, `funnel.py` funnel conversion + step to improve → 🎯 Pipeline page, no AI).

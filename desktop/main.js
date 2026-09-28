@@ -70,7 +70,9 @@ function createWindow() {
     backgroundColor: '#eef3f7',
     webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false},
   });
-  window.loadFile(path.join(here, 'renderer', 'index.html'));
+  // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
+  const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
+  window.loadFile(path.join(here, 'renderer', page));
   // Smoke test (JOB_PILOTTO_SMOKE=<png path>): render hidden, save a screenshot, quit.
   if (process.env.JOB_PILOTTO_SMOKE) {
     window.webContents.once('did-finish-load', () => setTimeout(async () => {
