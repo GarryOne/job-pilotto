@@ -120,7 +120,10 @@ async function fillOpenedTab(tab, url, force = false) {
   try {
     const config = await settings();
     const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
-      {headers: {Authorization: `Bearer ${config.token}`}}).then(r => r.json()).catch(() => ({}));
+      {headers: {Authorization: `Bearer ${config.token}`}})
+      // A wrong token fails every call (kit, answers, your details): say so rather than fill nothing.
+      .then(r => (r.status === 401 ? Promise.reject(new Error('it is not connected to the Job Pilotto app (extension Settings → Connect)'))
+        : r.json().catch(() => ({}))), () => ({}));
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, onStep: text => progress(tab.id, text)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);

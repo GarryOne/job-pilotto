@@ -32,6 +32,14 @@ test('contact details are a section of the Notion Profile; saving rewrites only 
   assert.deepEqual(empty.texts(), ['## Summary', '## 📇 Contact details', 'Email: a@b.c']);
 });
 
+test('an older Profile\'s "Contact" and "Links" sections are read too (Name is split into first and last)', async () => {
+  const storage = connected();
+  const {fetcher} = fakeNotion(['## Summary', 'Name: not this one', '## Contact', 'Name: Igor Mardari', 'Location: Geneva, Switzerland',
+    'Email: igor@x.com', 'Phone: +40 770', '(Added from CV.)', '## Links', 'LinkedIn: https://linkedin.com/in/igor', 'Medium: https://m.com']);
+  assert.deepEqual(await contact.read(storage, fetcher), {full_name: 'Igor Mardari', first_name: 'Igor', last_name: 'Mardari',
+    location: 'Geneva, Switzerland', email: 'igor@x.com', phone: '+40 770', linkedin: 'https://linkedin.com/in/igor'});
+});
+
 test('form knowledge lives on its Notion page: a newer note replaces its line, the rest are appended', async () => {
   const storage = connected({NOTION_KNOWLEDGE_PAGE: 'kp'});
   const {fetcher, texts} = fakeNotion(['What Job Pilotto learned…', '[any] Preferred First Name: Same as first name → "Igor"']);

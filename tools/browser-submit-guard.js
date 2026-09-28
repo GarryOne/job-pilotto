@@ -2,7 +2,8 @@
 // submission while an agent fills a form. It is not an adversarial security boundary:
 // arbitrary browser code or a site-specific background request can bypass DOM event hooks.
 (() => {
-  if (window.__jobPilottoGuardActive) return;
+  // Already set up on this page (a second fill): its getter can't be redefined, and may read false (the extension's).
+  if ('__jobPilottoGuardActive' in window) return;
   // The Chrome extension sets __jobPilottoNoGuard: it never submits, and blocking the user's own Submit only
   // got in the way. The agent launchers (Playwright) keep the guard.
   let active = !window.__jobPilottoNoGuard;

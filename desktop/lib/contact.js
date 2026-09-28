@@ -24,14 +24,25 @@ async function section(t, fetcher) {
   return {heading: blocks[start], lines: blocks.slice(start + 1, end < 0 ? undefined : end)};
 }
 
+// Lines under the headings that match `title`, until the next heading.
+const under = (blocks, title) => blocks.filter((b, i) => !b.type.startsWith('heading') &&
+  title.test(blocks.slice(0, i).reverse().find(h => h.type.startsWith('heading'))?.text.trim() || ''));
+
 export async function read(storage, fetcher) {
   const t = target(storage);
-  const {lines} = await section(t, fetcher);
+  const {heading, lines} = await section(t, fetcher);
+  // Profiles written before the app kept them as "Contact" (Name: …) and "Links" (LinkedIn: …): read those too.
+  const blocks = heading ? [] : await notion.textBlocks(t.token, t.page, fetcher);
   const contact = {};
-  for (const line of lines) {
+  for (const line of heading ? lines : under(blocks, /^(📇\s*)?(contact|links)$/i)) {
     const [label, ...rest] = line.text.split(':');
-    const key = KEY_BY_LABEL[label.trim().toLowerCase()];
-    if (key && rest.join(':').trim()) contact[key] = rest.join(':').trim();
+    const value = rest.join(':').trim(), name = label.trim().toLowerCase();
+    const key = KEY_BY_LABEL[name] || (name === 'name' ? 'full_name' : null);
+    if (key && value && !contact[key]) contact[key] = value;
+  }
+  if (contact.full_name && !contact.first_name) {
+    const [first, ...last] = contact.full_name.split(/\s+/);
+    Object.assign(contact, {first_name: first, ...(last.length ? {last_name: last.join(' ')} : {})});
   }
   return contact;
 }
