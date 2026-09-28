@@ -5,7 +5,7 @@ import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, plac
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 import {openPalette} from './palette.js';
-import {latestStep, readSessionMessage, splitLabel} from './session-message.js';
+import {latestStep, PROBLEM, readSessionMessage, sortChecks, splitLabel} from './session-message.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
@@ -3349,20 +3349,33 @@ function renderNextStep(item) {
     : asking ? 'Claude is paused until you answer.' : running ? `Started at ${hhmmOf(item.startedAt)}. You'll be notified when it needs you.` : ''));
   if (running) ticking(side.querySelector('b'), 'Working for ', item.startedAt);
   $('ss-next-side').replaceChildren(side);
-  // What Claude flagged, and its audit note, as two cards under the step.
-  show($('ss-checks-card'), checks.length > 0);
-  $('ss-checks-card').querySelector('b').textContent = review ? 'Before you submit' : 'What Claude flagged';
-  $('ss-checks').replaceChildren(...checks.map(text => {
-    const {label, text: rest} = splitLabel(text);
-    const short = label || firstLine(rest);
-    return foldRow(short, label ? rest : rest.slice(short.length).trim());
+  // Two sections under the step: what Claude needs from you (answer, agree, confirm), then what happened
+  // (what it filled, the problems it hit, its audit). Its other report sections join what happened.
+  const {needs, filled} = sortChecks(checks);
+  show($('ss-needs-card'), needs.length > 0);
+  $('ss-needs-title').textContent = review ? 'What Claude needs from you' : 'What Claude flagged';
+  $('ss-needs-count').replaceChildren(pill(`${needs.length}`, 'warn'));
+  $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need) : needRow(need))));
+  const happened = [
+    ...done.map(section => {
+      const lead = firstLine(section.text);
+      return {short: section.label ? `**${section.label}:** ${lead}`.trim() : lead, problem: section.label === 'Problems' || PROBLEM.test(section.text),
+        more: [section.text.slice(lead.length).trim(), ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n')};
+    }),
+    ...filled.map(({text, problem}) => {
+      const {label, text: rest} = splitLabel(text);
+      const short = label || firstLine(rest);
+      return {short, problem, more: label ? rest : rest.slice(short.length).trim()};
+    })];
+  // Problems first: they explain the rest.
+  happened.sort((x, y) => Number(y.problem) - Number(x.problem));
+  $('ss-happened').replaceChildren(...happened.map(({short, more, problem}) => {
+    const row = foldRow(short, more);
+    if (problem) row.classList.add('is-problem');
+    return row;
   }));
-  // What Claude did (its other sections): one line each, the details one click away.
-  show($('ss-done-card'), done.length > 0);
-  $('ss-done-count').replaceChildren(pill(`${done.length}`, 'neutral'));
-  $('ss-done').replaceChildren(...done.map(section => foldRow(section.label || firstLine(section.text),
-    [section.label ? section.text : '', ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n'))));
   show($('ss-audit-card'), !!audit);
+  $('ss-audit-pill').replaceChildren();
   if (audit) {
     const capital = audit.charAt(0).toUpperCase() + audit.slice(1);
     const summary = firstLine(capital, 160), rest = capital.slice(summary.length).trim();
@@ -3372,8 +3385,56 @@ function renderNextStep(item) {
     $('ss-audit-detail').replaceChildren(...richText(rest));
     show($('ss-audit-more'), !!rest);
   }
-  show($('ss-facts'), checks.length > 0 || !!audit);
-  $('ss-facts').classList.toggle('is-single', !(checks.length && audit));
+  show($('ss-happened-card'), happened.length > 0 || !!audit);
+}
+// Something only you can do: tick an agreement in the form yourself, or a judgement call to confirm.
+function needRow(need) {
+  const li = el('li', `ss-need is-${need.kind}`);
+  const glyph = el('span', 'ss-need-glyph', need.kind === 'agree' ? '⚖️' : '👀');
+  const body = el('div', 'ss-need-body');
+  const words = el('div');
+  words.append(...richText(need.text).flatMap(node => [...node.childNodes]));
+  body.append(words, el('span', 'muted small ss-need-hint', need.kind === 'agree' ? 'Tick it yourself in the form.' : 'Your call before you submit.'));
+  li.append(glyph, body);
+  return li;
+}
+// A fact Claude couldn't find: its suggested answer (editable), and a tick that saves it to your standard answers
+// in Notion, so every later application has it. Type it in the form too: the form is already filled.
+const savedAnswers = new Map();  // question → the answer saved this session (the page redraws often)
+function askRow(need) {
+  const li = el('li', 'ss-need is-ask');
+  const body = el('div', 'ss-need-body');
+  const head = el('div', 'ss-ask-q');
+  head.append(el('b', '', need.question));
+  if (need.why) head.append(el('span', 'muted small', ` · ${need.why}`));
+  const input = el('input', 'ss-ask-input');
+  input.type = 'text';
+  input.placeholder = 'Your answer';
+  const saved = savedAnswers.get(need.question);
+  input.value = saved ?? need.suggested;
+  const box = el('label', 'ss-ask-save');
+  const tick = el('input');
+  tick.type = 'checkbox';
+  const note = el('span', 'small', saved ? 'Saved to your answers' : need.suggested ? 'Suggested: save it to your answers' : 'Save to your answers');
+  box.append(tick, note);
+  tick.checked = input.disabled = tick.disabled = !!saved;
+  tick.addEventListener('change', async () => {
+    const value = input.value.trim();
+    if (!value) { tick.checked = false; note.textContent = 'Write an answer first'; input.focus(); return; }
+    tick.disabled = input.disabled = true;
+    note.textContent = 'Saving to Notion…';
+    const result = await window.pilot.rememberAnswer(need.question, value);
+    if (result.ok) { savedAnswers.set(need.question, value); note.textContent = 'Saved to your answers · type it in the form too'; box.classList.add('is-saved'); return; }
+    tick.checked = tick.disabled = input.disabled = false;
+    note.textContent = result.error || 'Couldn\'t save';
+    box.classList.add('is-error');
+  });
+  if (saved) box.classList.add('is-saved');
+  const line = el('div', 'ss-ask-line');
+  line.append(input, box);
+  body.append(head, line);
+  li.append(el('span', 'ss-need-glyph', '❓'), body);
+  return li;
 }
 document.querySelector('.sd-head').addEventListener('click', event => {
   if (event.target.closest('#sd-all')) return;

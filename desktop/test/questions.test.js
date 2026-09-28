@@ -93,3 +93,20 @@ test('the Standard answers tab reads the page as groups: table rows, guidance li
   assert.deepEqual(groups[1].items.map(item => [item.question, item.answer, !!item.open]),
     [['Cover letter style', 'Length: 130–170 words.\nSign-off: just the name.', false], ['Email', 'Asked by Acme', true]]);
 });
+
+test('remember: a session\'s ❓ answered with one tick answers the open line, else adds "Question: answer"', async () => {
+  const {fetcher: base} = page();
+  const writes = [];
+  const fetcher = (url, init = {}) => {
+    if (init.method === 'PATCH') writes.push([url.replace('https://api.notion.com/v1/', ''), init.body]);
+    return base(url, init);
+  };
+  const s = storage();
+  assert.deepEqual(await questions.remember(s, 'Visa sponsorship needed', 'Yes', fetcher), {ok: true});
+  assert.equal(writes.at(-1)[0], 'blocks/line');
+  assert.match(writes.at(-1)[1], /Visa sponsorship needed: Yes/);
+  await questions.remember(s, "Bachelor's degree result", '8.5 / 10', fetcher);
+  assert.equal(writes.at(-1)[0], 'blocks/answers/children');
+  assert.match(writes.at(-1)[1], /Bachelor's degree result: 8\.5 \/ 10/);
+  assert.equal((await questions.remember(s, 'Anything', ' ', fetcher)).ok, false);
+});

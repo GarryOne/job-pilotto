@@ -269,7 +269,26 @@ in that file next time — keep evolving it.
    An empty result doesn't guarantee *correct* answers — it only rules out the most common failure
    mode (a field silently never got filled). Still read the screenshot before handing over.
 8. **Hand over**: tell the owner in chat: filled fields (count), ❓ items left empty, kit checks,
-   "Review and click Submit". Leave the tab open.
+   "Review and click Submit". Leave the tab open. The app's session page splits your message into
+   **What Claude needs from you** and **What happened**, so write it in this shape:
+   ```
+   <one sentence: the form is filled in the open tab; nothing was submitted>
+   - **Filled:** what you filled (one line; the CV file name).
+   - **Problems:** what went wrong on the way and how you got round it (omit when none).
+   - **Needs you:**
+     - ❓ **<question, as the form asks it>**: why it's unknown. **Suggested:** <your best answer>
+     - ⚖️ **<agreement / legal box>**: tick it yourself.
+     - 👀 **<judgement call>**: e.g. an answer that discloses a gap, the role's travel.
+   - **Run record:** …
+   ```
+   - **Every ❓ gets a `Suggested:` answer** — the most plausible one from the CV, Profile, Application
+     Answers and the form's own options (e.g. a degree result on the country's scale, "Top 20%"), marked
+     "(guess)" when it's inferred. It is only a suggestion: the field stays empty in the form. The owner
+     edits it if needed and ticks one box, which saves `<question>: <answer>` to the standard answers
+     page (`questions.remember`), so the next kit knows it. Write the question generically (no company
+     name) so it's reusable; one ❓ per question.
+   - Only what the owner must act on goes under **Needs you**; "these fields were filled" lines go in
+     **Filled**.
    - **Grow coverage**: every kit is drafted fresh from the Profile and Application Answers pages
      each time (`kit.py` reads both live, no caching) — so a ❓ or a `check_before_sending` item
      that's a **stable, non-job-specific fact** (education, permit, standard demographic answers,

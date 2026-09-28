@@ -142,3 +142,18 @@ export async function standardAnswers(storage, fetcher) {
   }
   return groups.filter(each => each.items.length).map(({category, items}) => ({category, items}));
 }
+
+// A fact Claude asked about in a session ("❓ Bachelor's degree result … Suggested: 8.5/10"), confirmed with one tick:
+// it answers that open ❓ line or table row when the page has one, rewrites the line that already gives this
+// question an answer, or adds "Question: answer" at the end, so the next kit and fill know it.
+export async function remember(storage, question, value, fetcher) {
+  const text = unmarked(question), answerText = String(value || '').trim();
+  if (!text || !answerText) return {ok: false, error: 'Write an answer first'};
+  const target = notionPage(storage), wanted = key(text);
+  const open = (await list(storage, fetcher)).find(q => key(q.question) === wanted);
+  if (open) return answer(storage, open.key, answerText, fetcher);
+  const line = (await notion.textBlocks(target.token, target.page, fetcher)).find(block => /list_item|paragraph/.test(block.type) && key(label(block.text)) === wanted);
+  if (line) await notion.setBlockText(target.token, line, `${text}: ${answerText}`, fetcher);
+  else await notion.appendBullets(target.token, target.page, [`${text}: ${answerText}`], fetcher);
+  return {ok: true};
+}

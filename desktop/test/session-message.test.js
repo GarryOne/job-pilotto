@@ -43,3 +43,23 @@ test('the latest step: the last ● line of the terminal output, without colours
   assert.equal(latestStep(output), 'Form open with the extension hook present.');
   assert.equal(latestStep('no steps yet'), '');
 });
+
+test('the checks split into what Claude needs from you and what happened; a ❓ carries its suggested answer', async () => {
+  const {sortChecks, readAsk} = await import('../renderer/session-message.js');
+  const {needs, filled} = sortChecks([
+    'Name, email and phone, and your LinkedIn.',
+    'Dropdowns:',
+    'The extension failed on this page ("api is not defined"), so I filled everything myself.',
+    "❓ **Bachelor's degree result**: no grade is on file. **Suggested:** 8.5 / 10 (guess)",
+    '❓ **Maths at high school**: the kit\'s "Top 20%" is a guess.',
+    '⚖️ **AI-use pledge**: these are agreements, so you choose them yourself.',
+    "Your answers say you have no Ceph experience. Make sure you're happy disclosing that.",
+  ]);
+  assert.deepEqual(needs.map(need => need.kind), ['ask', 'ask', 'agree', 'confirm']);
+  assert.deepEqual(needs.slice(0, 2).map(({question, why, suggested}) => ({question, why, suggested})), [
+    {question: "Bachelor's degree result", why: 'no grade is on file.', suggested: '8.5 / 10 (guess)'},
+    {question: 'Maths at high school', why: 'the kit\'s "Top 20%" is a guess.', suggested: ''}]);
+  assert.deepEqual(filled.map(item => item.problem), [false, true]);
+  assert.equal(readAsk('❓ **Notice period:** none. Suggested: 3 months').question, 'Notice period');
+  assert.equal(readAsk('No question here'), null);
+});

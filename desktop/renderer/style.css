@@ -887,8 +887,6 @@ main { min-width: 0; }
 .ss-side .focus-round.tone-good { background: var(--good-soft); color: var(--good); }
 .ss-side .focus-round.tone-info { background: var(--surface); color: var(--info); }
 /* Before you submit / Form audit: two cards side by side (one full width when alone). */
-.ss-facts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
-.ss-facts.is-single { grid-template-columns: minmax(0, 1fr); }
 .ss-fact-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); background: var(--surface); }
 .ss-fact-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .ss-fact-head .icon { width: 18px; height: 18px; color: var(--ink-2); }
@@ -901,6 +899,23 @@ main { min-width: 0; }
 .ss-check:not(.has-more) .ss-check-line .icon { visibility: hidden; }
 .ss-check.is-open .ss-check-line .icon { transform: rotate(90deg); }
 .ss-check-more { margin: var(--sp-1) 0 0 22px; }
+/* What happened: a problem Claude hit stands out (and comes first). */
+.ss-check.is-problem .ss-check-line { color: var(--warn); }
+.ss-check.is-problem .ss-check-line .icon { color: var(--warn); }
+.ss-audit { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+/* What Claude needs from you: the page's to-do, in the step's warm tone. */
+.ss-needs { border-color: var(--warn-line); }
+.ss-needs .ss-fact-head .icon { color: var(--warn); }
+.ss-need { display: flex; gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
+.ss-need-glyph { flex: none; width: 22px; }
+.ss-need-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1; }
+.ss-need-hint { display: block; }
+.ss-ask-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.ss-ask-input { flex: 1 1 260px; max-width: 460px; }
+.ss-ask-save { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); white-space: nowrap; margin: 0; }
+.ss-ask-save input { width: auto; margin: 0; }
+.ss-ask-save.is-saved { color: var(--good); }
+.ss-ask-save.is-error { color: var(--bad); }
 /* What Claude did: folded by default (a report to look up, not a task). */
 .ss-done-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); background: var(--surface); margin: 0; }
 .ss-done-card > summary { list-style: none; cursor: pointer; margin: 0; padding: var(--sp-1) 0; }
@@ -926,7 +941,7 @@ main { min-width: 0; }
 .ss-log-body { display: flex; flex-direction: column; gap: var(--sp-2); }
 .ss-terminal { height: 48vh; min-height: 260px; background: var(--navy); overflow: hidden; }
 .ss-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; color: var(--on-navy-2); }
-@media (max-width: 1180px) { .ss-grid, .ss-facts { grid-template-columns: 1fr; } .ss-next { flex-wrap: wrap; } .ss-next-side { width: 100%; border-left: 0; padding-left: 0; } }
+@media (max-width: 1180px) { .ss-grid { grid-template-columns: 1fr; } .ss-next { flex-wrap: wrap; } .ss-next-side { width: 100%; border-left: 0; padding-left: 0; } }
 
 .app > .activity { grid-column: 2; }
 .sd-words .focus-top { flex-direction: column; align-items: flex-start; gap: 2px; }

@@ -390,21 +390,18 @@
             </div>
             <div class="ss-next-side" id="ss-next-side"></div>
           </div>
-          <div class="ss-facts" id="ss-facts" hidden>
-            <section class="ss-fact-card" id="ss-checks-card" hidden>
-              <div class="ss-fact-head"><i data-icon="file"></i><b>Before you submit</b></div>
-              <ul class="ss-checks" id="ss-checks"></ul>
-            </section>
-            <section class="ss-fact-card" id="ss-audit-card" hidden>
-              <div class="ss-fact-head"><i data-icon="shield"></i><b>Form audit</b><span id="ss-audit-pill"></span></div>
-              <p class="muted ss-audit-summary" id="ss-audit-summary"></p>
+          <section class="ss-fact-card ss-needs" id="ss-needs-card" hidden>
+            <div class="ss-fact-head"><i data-icon="alert"></i><b id="ss-needs-title">What Claude needs from you</b><span id="ss-needs-count"></span></div>
+            <ul class="ss-checks" id="ss-needs"></ul>
+          </section>
+          <section class="ss-fact-card" id="ss-happened-card" hidden>
+            <div class="ss-fact-head"><i data-icon="check"></i><b>What happened</b><span id="ss-audit-pill"></span></div>
+            <ul class="ss-checks" id="ss-happened"></ul>
+            <div class="ss-audit" id="ss-audit-card" hidden>
+              <p class="muted ss-audit-summary"><b>Form audit:</b> <span id="ss-audit-summary"></span></p>
               <details class="ss-audit-more" id="ss-audit-more"><summary>View audit details</summary><div id="ss-audit-detail"></div></details>
-            </section>
-          </div>
-          <details class="ss-done-card" id="ss-done-card" hidden>
-            <summary class="ss-fact-head"><i data-icon="check"></i><b>What Claude did</b><span id="ss-done-count"></span></summary>
-            <ul class="ss-checks" id="ss-done"></ul>
-          </details>
+            </div>
+          </section>
           <section class="ss-log" id="ss-log">
             <div class="ss-log-head" id="ss-log-head">
               <span class="ss-log-glyph">&gt;_</span><b>Session log</b><span id="ss-live-state"></span>

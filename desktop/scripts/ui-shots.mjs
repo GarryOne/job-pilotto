@@ -19,7 +19,7 @@ export const SCREENS = [
   ['focus-loading', 'Loading state: skeleton cards in the page\'s shape, "Syncing…" by Refresh', `${open('focus')} ${wait(900)}`,
     {JOB_PILOTTO_DEMO_FOCUS_DELAY: '60000'}],
   ['jobs', 'Jobs: stat tiles, toolbar, job rows (fit ring, tags, status pill, main action, ⋯)', `${open('jobs')} ${wait(1200)}`],
-  ['session', 'Session page: list, job header, next-step card (steps, actions, state), Before you submit + Form audit cards, folded session log',
+  ['session', 'Session page: list, job header, next-step card (steps, actions, state), What Claude needs from you (❓ suggested answer + save tick, ⚖️, 👀), What happened (problems first, form audit), folded session log',
     `document.getElementById('sd-all').click(); ${wait(1500)}`],
   ['actions', 'Actions: running banner, task cards by category with Run, Recent runs table', `${open('actions')} ${wait(1500)}`],
   ['interviews', 'Interviews: recorder, drafts and the saved library table', `${open('interviews')} ${wait(1200)}`],
