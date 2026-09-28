@@ -12,8 +12,14 @@ look at it.
 ## 1. Look first
 - Reference screenshots of today's screens: `desktop/docs/ui/*.jpg` (fictional demo data). Open the one closest
   to what you build and match it: spacing, density, card style, where actions sit.
-- Refresh them after a screen changes: `cd desktop && npm run ui-shots` (demo mode, never real data), and commit
-  the new images with the change.
+- **Check your own change with one screen, not all of them:** `cd desktop && npm run shot -- <page>` (~5 s, demo
+  data; prints the picture's path). `--select '#ss-decision'` for one element, `--session Acme --log` for a session
+  and its log, `--reload` to test after ⌘R, `--output <file>` to show a recorded terminal output as the log.
+  **Prefer reading state to reading pixels:** `--eval "__jp.terminal()" --no-picture` prints JSON (`__jp.shared`,
+  `__jp.sessions`, `__jp.openSession`, `__jp.terminal()`: rows, screen, mouse mode, visible lines).
+- Refresh the reference images only after big UI changes, about once a day, or when the owner asks:
+  `npm run ui-shots` (all, 4 at a time, ~15 s) or `npm run ui-shots -- session jobs` (only those). Commit only the
+  images of screens that changed.
 - Tokens and components: `desktop/renderer/tokens.css`, `components.js`/`components.css`, `npm run gallery`.
   Only `var(--…)` values: `desktop/test/design.test.js` fails on a raw colour, radius, font size or font family.
 

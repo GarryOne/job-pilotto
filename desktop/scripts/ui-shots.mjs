@@ -1,7 +1,7 @@
 // Reference screenshots of every screen, for the ui-look-and-feel skill (.claude/skills/ui-look-and-feel):
 // what the app looks like today, so a new page or section is built to match. Fictional demo data only (demo/),
 // never a real profile. Run after a screen changes: npm run ui-shots  →  docs/ui/<screen>.jpg
-import {spawnSync, execFileSync} from 'node:child_process';
+import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,20 +29,34 @@ export const SCREENS = [
     {JOB_PILOTTO_DEMO_STRATEGY_DELAY: '60000'}],
 ];
 
+// npm run ui-shots [-- name …]: every screen, or only the named ones; several at once (each its own demo folder).
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   fs.mkdirSync(out, {recursive: true});
-  for (const [name, , js, env = {}] of SCREENS) {
+  const wanted = process.argv.slice(2);
+  const screens = wanted.length ? SCREENS.filter(([name]) => wanted.includes(name)) : SCREENS;
+  const unknown = wanted.filter(name => !SCREENS.some(([known]) => known === name));
+  if (unknown.length) { console.error(`unknown screen: ${unknown.join(', ')} (known: ${SCREENS.map(([name]) => name).join(', ')})`); process.exit(1); }
+  const shoot = ([name, , js, env = {}]) => new Promise(resolve => {
     const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ui-'));
     for (const file of fs.readdirSync(path.join(desktop, 'demo'))) {
       if (file !== 'jobs.json') fs.copyFileSync(path.join(desktop, 'demo', file), path.join(data, file));
     }
     const png = path.join(data, 'shot.png');
-    spawnSync(electron, ['.'], {cwd: desktop, stdio: 'ignore', timeout: 60000, env: {...process.env, ...env,
+    const child = spawn(electron, ['.'], {cwd: desktop, stdio: 'ignore', env: {...process.env, ...env,
       JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: js}});
-    if (!fs.existsSync(png)) { console.error(`${name}: no screenshot (its script failed?)`); process.exitCode = 1; fs.rmSync(data, {recursive: true, force: true}); continue; }
-    // 1400 px wide JPEGs: sharp enough to read, small enough for git (~150 KB each).
-    execFileSync('sips', ['-Z', '1400', '-s', 'format', 'jpeg', '-s', 'formatOptions', '78', png, '--out', path.join(out, `${name}.jpg`)], {stdio: 'ignore'});
-    fs.rmSync(data, {recursive: true, force: true});
-    console.log(`docs/ui/${name}.jpg`);
-  }
+    const timer = setTimeout(() => child.kill(), 90000);
+    child.on('exit', () => {
+      clearTimeout(timer);
+      if (!fs.existsSync(png)) { console.error(`${name}: no screenshot (its script failed?)`); process.exitCode = 1; }
+      // 1400 px wide JPEGs: sharp enough to read, small enough for git (~150 KB each).
+      else { execFileSync('sips', ['-Z', '1400', '-s', 'format', 'jpeg', '-s', 'formatOptions', '78', png, '--out', path.join(out, `${name}.jpg`)], {stdio: 'ignore'}); console.log(`docs/ui/${name}.jpg`); }
+      fs.rmSync(data, {recursive: true, force: true});
+      resolve();
+    });
+  });
+  const started = Date.now();
+  const queue = [...screens];
+  const workers = Array.from({length: Math.min(4, queue.length)}, async () => { while (queue.length) await shoot(queue.shift()); });
+  await Promise.all(workers);
+  console.log(`${screens.length} screen(s) in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 }

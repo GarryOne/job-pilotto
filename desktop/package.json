@@ -15,6 +15,7 @@
     "gallery": "JOB_PILOTTO_DEMO=1 JOB_PILOTTO_PAGE=gallery.html JOB_PILOTTO_USER_DATA=${TMPDIR:-/tmp}/job-pilotto-gallery electron .",
     "build:win": "node scripts/stage.mjs --app && electron-builder --win --publish never",
     "ui-shots": "node scripts/stage.mjs && node scripts/ui-shots.mjs",
+    "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs"
   },
   "devDependencies": {

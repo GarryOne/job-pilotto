@@ -51,7 +51,10 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   strategy, settings, interviews, activity…); `renderer/app.js` only runs each page's `init()` in order. Helpers every
   page uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an
   imported binding is read-only. Put logic that can be tested without a window in its own small module
-  (`renderer/session-message.js`, `wheel.js`) with a test in `desktop/test/`.
+  (`renderer/session-message.js`, `session-state.js`, `wheel.js`) with a test in `desktop/test/`.
+- **Checking a UI change:** `npm run shot -- <page>` (one screen, ~5 s) or `--eval "…" --no-picture` to read the
+  window's state (`window.__jp`) as JSON; `--reload` tests after ⌘R. The full reference set (`npm run ui-shots`)
+  is only for big changes, about daily, or when the owner asks (details: skill `ui-look-and-feel`).
 - **Before building or changing any screen, read the skill `ui-look-and-feel`** (`.claude/skills/ui-look-and-feel/SKILL.md`):
   the reference screenshots (`desktop/docs/ui/`, refreshed with `npm run ui-shots`), the page and card patterns the
   owner approved, and how to render your change in demo mode and look at it before saying it's done.

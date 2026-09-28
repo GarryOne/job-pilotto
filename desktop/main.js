@@ -109,6 +109,21 @@ function createWindow() {
         await window.webContents.executeJavaScript(process.env.JOB_PILOTTO_SMOKE_JS);
         await new Promise(resolve => setTimeout(resolve, 400));
       }
+      // JOB_PILOTTO_SMOKE_RELOAD_JS: reload the window (⌘R), then run these steps (a bug that shows only after a reload).
+      if (process.env.JOB_PILOTTO_SMOKE_RELOAD_JS) {
+        await new Promise(resolve => { window.webContents.once('did-finish-load', resolve); window.webContents.reload(); });
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await window.webContents.executeJavaScript(process.env.JOB_PILOTTO_SMOKE_RELOAD_JS);
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+      // JOB_PILOTTO_SMOKE_EVAL: an expression evaluated in the window (window.__jp has its state); the result goes as
+      // JSON to <JOB_PILOTTO_SMOKE>.json. Reading state is faster and exacter than looking at a picture.
+      if (process.env.JOB_PILOTTO_SMOKE_EVAL) {
+        const value = await window.webContents.executeJavaScript(`(async () => JSON.stringify(await (${process.env.JOB_PILOTTO_SMOKE_EVAL}), null, 2))()`)
+          .catch(error => JSON.stringify({error: String(error.message || error)}));
+        fs.writeFileSync(`${process.env.JOB_PILOTTO_SMOKE}.json`, value ?? 'null');
+      }
+      if (process.env.JOB_PILOTTO_SMOKE_NO_PICTURE) { app.quit(); return; }
       // JOB_PILOTTO_SMOKE_SELECTOR: only that element (and a small margin), e.g. for the website's close-ups.
       const selector = process.env.JOB_PILOTTO_SMOKE_SELECTOR;
       const rect = selector ? await window.webContents.executeJavaScript(`(() => {
