@@ -22,6 +22,7 @@
       <li data-step="draft">Your strategy</li>
       <li data-step="extras">Optional extras</li>
     </ol>
+    <button class="wizard-exit" id="wizard-exit" hidden>✕ Back to the app</button>
     <p class="fine">Your data stays in your own accounts: this Mac and your Notion. Keys are encrypted with your Mac's Keychain.</p>
     <p class="fine app-version" data-version></p>
   </aside>
@@ -409,6 +410,11 @@
     </div>
 
     <div class="view" data-view="settings" hidden>
+      <div class="back-to-setup" id="back-to-setup" hidden>
+        <span>You're finishing your setup: set this up here, then go back to the last step.</span>
+        <button class="secondary small-btn" id="back-to-setup-go">← Back to setup</button>
+        <button class="link" id="back-to-setup-close" title="Hide">✕</button>
+      </div>
       <header class="view-head"><div><h1>Settings</h1><p class="muted">Keys are encrypted with your Mac's Keychain and never leave this Mac, except to the service they belong to.</p></div>
         <button class="secondary" id="rerun-setup">Run setup again</button></header>
       <div class="setting" id="setting-ai">
@@ -604,6 +610,21 @@
 </section>
 
 <!-- Apply dialog -->
+<!-- Wizard step 5: saving the strategy to Notion, step by step -->
+<dialog id="save-dialog" class="save-dialog">
+  <h2 id="save-title">Saving your strategy to Notion</h2>
+  <p class="muted small">Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
+  <ol class="save-steps" id="save-steps">
+    <li data-save-step="local">Saving your search settings on this computer</li>
+    <li data-save-step="profile">Writing your Profile to Notion <span class="count"></span></li>
+    <li data-save-step="answers">Writing your standard answers to Notion <span class="count"></span></li>
+    <li data-save-step="search">Creating your ⚙️ Search settings page in Notion</li>
+  </ol>
+  <div class="bar"><span id="save-bar"></span></div>
+  <p class="message" id="save-message"></p>
+  <div class="actions"><button class="secondary" id="save-close" hidden>Close</button><button class="primary" id="save-retry" hidden>Try again</button></div>
+</dialog>
+
 <dialog id="applied-dialog">
   <form method="dialog">
     <h2>📥 Applied elsewhere</h2>

@@ -45,10 +45,19 @@ function goStep(name) {
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
   document.querySelectorAll('#step-list li').forEach((li, i) => {
     li.classList.toggle('current', i === index);
-    li.classList.toggle('done', i < index);
+    li.classList.toggle('done', i < index || !!state.settings.setupDone);
+    li.classList.toggle('jump', !!state.settings.setupDone || i < index);
   });
+  show($('wizard-exit'), !!state.settings.setupDone);
   if (name === 'cv') refreshCv();
 }
+// Finished steps (or any step once setup was done before) can be opened from the sidebar.
+document.querySelectorAll('#step-list li').forEach(li => li.addEventListener('click', () => {
+  if (!li.classList.contains('jump') || li.classList.contains('current')) return;
+  if (li.dataset.step === 'draft') toDraft(); else goStep(li.dataset.step);
+}));
+// Setup was done before (Run setup again, Rebuild from CV): leave the wizard any time, nothing changes.
+$('wizard-exit').addEventListener('click', () => { show($('wizard'), false); show($('app')); loadJobs(); });
 document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep('ai')));
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
   const current = STEPS.find(step => !document.querySelector(`.step[data-step="${step}"]`).hidden);
@@ -141,8 +150,19 @@ window.pilot.onDraftProgress(({part, percent, notes = []}) => {
   $('draft-bar').style.width = `${Math.max(2, percent)}%`;
 });
 
-window.pilot.onSaveProgress(({page, done, total}) => {
-  message('draft-save-message', `Writing your ${page} to Notion: ${Math.round(done / total * 100)}%`, 'waiting');
+// The save window: a step is ● while it runs (with blocks written), ✓ when it's done; the bar sums them.
+const SAVE_STEPS = {local: 5, profile: 50, answers: 30, search: 15};
+const saveState = {};
+window.pilot.onSaveProgress(({step, done, total, finished}) => {
+  saveState[step] = finished ? 1 : total ? done / total : saveState[step] || 0;
+  document.querySelectorAll('#save-steps li').forEach(li => {
+    const name = li.dataset.saveStep, value = saveState[name];
+    li.className = value === 1 ? 'done' : value !== undefined ? 'now' : '';
+    const count = li.querySelector('.count');
+    if (count) count.textContent = name === step && total && !finished ? `· ${done} of ${total} blocks` : '';
+  });
+  const percent = Object.entries(SAVE_STEPS).reduce((sum, [name, share]) => sum + share * (saveState[name] || 0), 0);
+  $('save-bar').style.width = `${Math.max(3, Math.round(percent))}%`;
 });
 
 // ---------- runs ----------
@@ -660,21 +680,35 @@ for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answer
 }
 $('goals-next').addEventListener('click', toDraft);
 $('draft-again').addEventListener('click', buildDraft);
-$('draft-save').addEventListener('click', async () => {
-  // Writing the pages to Notion takes a while (one request per block): lock the buttons and show progress.
-  const buttons = [$('draft-save'), $('draft-again'), ...document.querySelectorAll('.step[data-step="draft"] [data-back]')];
-  buttons.forEach(button => { button.disabled = true; });
-  message('draft-save-message', 'Saving your strategy to Notion…', 'waiting');
+async function saveDraft() {
+  for (const key of Object.keys(saveState)) delete saveState[key];
+  document.querySelectorAll('#save-steps li').forEach(li => { li.className = ''; const count = li.querySelector('.count'); if (count) count.textContent = ''; });
+  $('save-bar').style.width = '3%';
+  $('save-title').textContent = 'Saving your strategy to Notion';
+  message('save-message', '');
+  show($('save-close'), false); show($('save-retry'), false);
+  if (!$('save-dialog').open) $('save-dialog').showModal();
   const result = await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value});
-  buttons.forEach(button => { button.disabled = false; });
-  if (!result.ok) { message('draft-save-message', osText(`${result.error} Your strategy is saved on this Mac; try Save again.`), 'error'); return; }
-  message('draft-save-message', 'Saved ✓', 'ok');
+  if (!result.ok) {
+    $('save-title').textContent = 'Not saved to Notion yet';
+    message('save-message', osText(`${result.error} Your strategy is kept on this computer: try again.`), 'error');
+    show($('save-close')); show($('save-retry'));
+    return;
+  }
+  $('save-title').textContent = 'Saved to Notion ✓';
+  $('save-bar').style.width = '100%';
   state = await window.pilot.state();
-  goStep('extras');
-});
+  setTimeout(() => { $('save-dialog').close(); goStep('extras'); }, 900);
+}
+$('draft-save').addEventListener('click', saveDraft);
+$('save-retry').addEventListener('click', saveDraft);
+$('save-close').addEventListener('click', () => $('save-dialog').close());
+$('save-dialog').addEventListener('cancel', event => { if (!$('save-close').hidden) return; event.preventDefault(); });  // no Esc while saving
+// "Set up" on the last step: finish the setup, open that Settings card, and offer the way back to the wizard.
 document.querySelectorAll('[data-goto-settings]').forEach(button => button.addEventListener('click', async () => {
   await finishSetup();
   openView('settings');
+  show($('back-to-setup'));
   $(`setting-${button.dataset.gotoSettings}`).scrollIntoView({behavior: 'smooth'});
 }));
 async function finishSetup() {
@@ -686,6 +720,8 @@ async function finishSetup() {
   showSearchStatus();
 }
 $('finish').addEventListener('click', finishSetup);
+$('back-to-setup-go').addEventListener('click', () => { show($('back-to-setup'), false); show($('app'), false); show($('wizard')); goStep('extras'); });
+$('back-to-setup-close').addEventListener('click', () => show($('back-to-setup'), false));
 // Back through the wizard with everything already filled in (keys, Notion, CV, answers, the last draft).
 $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
 

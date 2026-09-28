@@ -576,4 +576,28 @@ details.manual { margin-top: 18px; }
 .review .doc-view .editable { cursor: text; border-radius: var(--r-sm); }
 .review .doc-view .editable:hover { outline: 1px dashed var(--line); outline-offset: 2px; }
 .review .doc-view .editable[contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
+
 .review .doc-view li.ask, .review .doc-view p.ask { background: var(--warn-soft); }
+
+/* Wizard step 5: the save window */
+.save-dialog { width: min(560px, 90vw); border: 0; border-radius: var(--r-lg); padding: 24px 28px; box-shadow: var(--shadow-xl); }
+.save-dialog::backdrop { background: var(--scrim); }
+.save-dialog h2 { margin: 0 0 4px; font-size: var(--fs-xl); }
+.save-steps { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 8px; font-size: var(--fs-base); color: var(--muted); }
+.save-steps li::before { content: '○'; display: inline-block; width: 22px; }
+.save-steps li.now { color: var(--ink); font-weight: 600; }
+.save-steps li.now::before { content: '●'; color: var(--signal); animation: pulse 1.2s ease-in-out infinite; }
+.save-steps li.done { color: var(--ink); }
+.save-steps li.done::before { content: '✓'; color: var(--teal); font-weight: 700; }
+.save-steps .count { color: var(--muted); font-weight: 400; }
+.save-dialog .bar { margin: 4px 0 12px; }
+.save-dialog .actions { justify-content: flex-end; }
+
+/* Wizard: finished steps open from the sidebar; the way back to the app / to setup */
+#step-list li.jump { cursor: pointer; -webkit-app-region: no-drag; }
+#step-list li.jump:not(.current):hover { color: var(--on-navy); }
+.wizard-exit { -webkit-app-region: no-drag; margin-top: auto; margin-bottom: 12px; background: var(--navy-active); color: var(--on-navy); border: 1px solid var(--navy-line); text-align: left; }
+.wizard-exit:hover { background: var(--navy-hover); }
+.back-to-setup { position: sticky; top: -28px; z-index: 4; display: flex; align-items: center; gap: 12px; background: var(--signal-soft);
+  border: 1px solid var(--signal-line); border-radius: var(--r-md); padding: 10px 14px; margin: -8px 0 16px; font-size: var(--fs-base); }
+.back-to-setup span { flex: 1; }

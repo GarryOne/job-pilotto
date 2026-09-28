@@ -265,16 +265,25 @@ function handlers() {
       // Notion is required: the Profile, standard answers and contact details live only there.
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
       if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {ok: false, error: 'Connect Notion first: your strategy is saved there.'};
+      // Progress for the save window: each step starts, advances (blocks written) and finishes.
+      const step = (name, extra = {}) => window?.webContents.send('saveProgress', {step: name, ...extra});
       strategy.save(storage, draft);
-      const report = page => (done, total) => window?.webContents.send('saveProgress', {page, done, total});
+      step('local', {finished: true});
+      const report = page => (done, total) => step(page, {done, total});
       // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.
       const known = await contactDetails.read(storage).catch(() => ({}));
       const merged = {...known, ...Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value))};
       const profile = draft.profile_markdown.trim() + (Object.keys(merged).length ? `\n\n${contactDetails.markdown(merged)}\n` : '\n');
-      await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('Profile'));
-      await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
+      step('profile');
+      await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('profile'));
+      step('profile', {finished: true});
+      step('answers');
+      await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('answers'));
+      step('answers', {finished: true});
       strategy.dropLocalCopies(storage);  // Notion has them now
+      step('search');
       await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      step('search', {finished: true});
       storage.saveSettings({setupDone: true});
       return {ok: true};
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
