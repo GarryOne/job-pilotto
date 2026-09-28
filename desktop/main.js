@@ -336,9 +336,9 @@ function handlers() {
   // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
   // In development (npm start) macOS may list the terminal that started the app instead of Electron.
   ipcMain.handle('mediaAccess', () => (DEMO ? {microphone: 'granted', screen: 'granted', dev: false} : {microphone: systemPreferences.getMediaAccessStatus('microphone'),
-    screen: systemPreferences.getMediaAccessStatus('screen'), dev: !app.isPackaged}));
-  ipcMain.handle('openPrivacy', (_, kind) => shell.openExternal(
-    `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
+    screen: mediaAccess('screen'), dev: !app.isPackaged}));
+  ipcMain.handle('openPrivacy', (_, kind) => shell.openExternal(process.platform === 'win32' ? 'ms-settings:privacy-microphone'
+    : `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
   ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
   ipcMain.handle('ivRecordings', () => {
     fs.mkdirSync(storage.path('recordings'), {recursive: true});
@@ -479,6 +479,11 @@ app.on('second-instance', () => {
   window?.focus();
 });
 
+// Screen capture needs a permission only on the Mac; Windows lets any app capture the screen and its audio.
+function mediaAccess(type) {
+  return process.platform === 'darwin' || type !== 'screen' ? systemPreferences.getMediaAccessStatus(type) : 'granted';
+}
+
 // The interview recorder asks for the screen's audio (the call). Chromium captures system audio on macOS 13+
 // through ScreenCaptureKit behind these switches; without them (or without Screen Recording permission)
 // the recorder falls back to the microphone alone.
@@ -504,7 +509,7 @@ if (firstCopy) app.whenReady().then(() => {
   // so macOS shows its prompt once); catch the rest. The recorder then shows the permission panel.
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
     const answer = streams => { try { callback(streams); } catch {} };
-    if (['denied', 'restricted'].includes(systemPreferences.getMediaAccessStatus('screen'))) { answer({}); return; }
+    if (['denied', 'restricted'].includes(mediaAccess('screen'))) { answer({}); return; }
     desktopCapturer.getSources({types: ['screen']})
       .then(sources => answer(sources[0] ? {video: sources[0], audio: 'loopback'} : {}))
       .catch(() => answer({}));

@@ -11,11 +11,12 @@ export const MODELS = {enrich: 'claude-haiku-4-5', score: 'claude-sonnet-5', kit
 const DEFAULT_CONFIG = ['search.json', 'preferences.json', 'sources.json', 'scout_seeds.json'];
 
 // The packaged app's own Python (with the anthropic package), else the repo's virtualenv, else python3.
-export function python() {
-  for (const candidate of [path.join(REPO, 'python', 'bin', 'python3'), path.join(REPO, '.venv', 'bin', 'python')]) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return 'python3';
+// Windows keeps them elsewhere: python\python.exe (python-build-standalone) and .venv\Scripts\python.exe.
+export function python(platform = process.platform, exists = fs.existsSync) {
+  const candidates = platform === 'win32'
+    ? [path.join(REPO, 'python', 'python.exe'), path.join(REPO, '.venv', 'Scripts', 'python.exe')]
+    : [path.join(REPO, 'python', 'bin', 'python3'), path.join(REPO, '.venv', 'bin', 'python')];
+  return candidates.find(candidate => exists(candidate)) || (platform === 'win32' ? 'python' : 'python3');
 }
 
 // First run: the user's config starts as the repo defaults (the wizard then rewrites search/preferences).
@@ -31,13 +32,16 @@ export function ensureConfig(storage) {
 
 // Only what a program needs to run, from the parent environment: never the developer's tokens or
 // Job Pilotto settings exported in the shell the app was started from.
-const SYSTEM = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'SSL_CERT_FILE'];
+// On Windows, Python can't open a socket without SystemRoot, and finds the user's folders through the rest.
+const SYSTEM = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'SSL_CERT_FILE',
+  'SystemRoot', 'SYSTEMROOT', 'windir', 'USERPROFILE', 'USERNAME', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'ComSpec', 'PATHEXT'];
 
 export function pipelineEnv(storage, parent = process.env) {
   const settings = storage.settings();
   const env = {
     ...Object.fromEntries(SYSTEM.filter(name => parent[name]).map(name => [name, parent[name]])),
     PYTHONUNBUFFERED: '1',
+    PYTHONUTF8: '1',  // files and pipes in UTF-8 on Windows too (its default is the ANSI code page)
     JOB_PILOTTO_NO_DOTENV: '1',
     JOB_PILOTTO_SOURCE: 'Job Pilotto app',  // the Source of Applications rows the app creates
     JOB_PILOTTO_CONFIG_DIR: storage.path('config'),
@@ -73,7 +77,7 @@ export function run(storage, args, onLine = () => {}) {
     let stdout = '', buffer = '';
     const lines = chunk => {
       buffer += chunk;
-      const parts = buffer.split('\n');
+      const parts = buffer.split(/\r?\n/);  // Windows ends lines with \r\n
       buffer = parts.pop();
       parts.filter(Boolean).forEach(onLine);
     };

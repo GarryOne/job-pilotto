@@ -319,3 +319,17 @@ test('Apply with Claude tickets: one job, three hours, unknown ones refused', as
   assert.equal(server.checkTicket(ticket, 'https://boards.greenhouse.io/acme/jobs/1', now + 3 * 3600 * 1000 + 1), false);
   assert.equal(server.checkTicket('guess', 'https://boards.greenhouse.io/acme/jobs/1', now), false);
 });
+
+test('Windows: Chrome is chrome.exe itself (no shell), the bundled Python is python.exe, claude may be claude.cmd', () => {
+  const env = {ProgramFiles: 'C:\\Program Files', LOCALAPPDATA: 'C:\\Users\\x\\AppData\\Local'};
+  const chrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  assert.deepEqual(apply.chromeCommand(['https://x/?a=1&b=2'], 'win32', env, file => file === chrome), [chrome, ['https://x/?a=1&b=2']]);
+  assert.equal(apply.chromeCommand(['https://x'], 'win32', env, () => false), null);
+  assert.deepEqual(apply.chromeCommand(['https://x'], 'darwin'), ['open', ['-a', 'Google Chrome', 'https://x']]);
+  assert.match(pipeline.python('win32', file => file.endsWith('python.exe')), /python[\\/]python\.exe$/);
+  assert.equal(pipeline.python('win32', () => false), 'python');
+  const npm = 'C:\\Users\\x\\AppData\\Roaming\\npm\\claude.cmd';
+  assert.equal(apply.claudeBinary({PATH: 'C:\\Windows;C:\\Tools', USERPROFILE: 'C:\\Users\\x', APPDATA: 'C:\\Users\\x\\AppData\\Roaming'},
+    file => file === npm, 'win32'), npm);
+  assert.equal(apply.claudeReady({}, () => npm, 'win32').ok, false);
+});

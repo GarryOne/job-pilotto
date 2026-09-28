@@ -1,7 +1,8 @@
 name: desktop
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
-# GitHub Release, only when something that goes into the app changed on main.
+# GitHub Release, only when something that goes into the app changed on main. The Windows job then adds
+# an x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") to the same release.
 on:
   push:
     branches: [main]
@@ -30,6 +31,8 @@ jobs:
   build:
     runs-on: macos-14   # Apple Silicon
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,12 +66,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/stage.mjs --app && scripts/python.sh
       - name: Version
+        id: version
         working-directory: desktop
         # package.json holds the target and phase (e.g. 0.2.0-alpha); each release gets the next number.
         run: |
           version=$(scripts/next-version.sh)
           npm version "$version" --no-git-tag-version --allow-same-version >/dev/null
           echo "Releasing $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build
         working-directory: desktop
         run: npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
@@ -87,3 +92,51 @@ jobs:
             --title "Job Pilotto ${version}" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA"
+
+  windows:
+    needs: build   # the release exists and has its version
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5   # only reads the Python release list; the app bundles its own Python
+        with:
+          python-version: '3.12'
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+      - name: App tests (on Windows; reported, not blocking yet)
+        working-directory: desktop
+        continue-on-error: true
+        run: npm test
+      - name: Add the shared Google app client
+        env:
+          CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}
+        run: if [ -n "$CLIENT" ]; then printf '%s' "$CLIENT" > config/google_oauth_client.json; fi
+      - name: Bundle Python
+        working-directory: desktop
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHON_ARCH: x86_64-pc-windows-msvc
+        run: node scripts/stage.mjs --app && scripts/python.sh
+      - name: Build
+        working-directory: desktop
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null
+          npm run build:win -- -c.buildVersion="${{ github.run_number }}"
+      - name: Add to the release
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A stable name too, so a download link can always point at the latest build.
+          cp "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
+          gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe

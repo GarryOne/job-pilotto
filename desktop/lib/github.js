@@ -219,5 +219,7 @@ export async function syncDatabase(storage, {fetcher = globalThis.fetch, unzip} 
 
 async function unzipFile(zip, dir) {
   const {execFile} = await import('node:child_process');
-  await new Promise((resolve, reject) => execFile('/usr/bin/unzip', ['-o', zip, '-d', dir], error => error ? reject(error) : resolve()));
+  // Windows 10+ ships bsdtar, which also reads zip files.
+  const [command, args] = process.platform === 'win32' ? ['tar', ['-xf', zip, '-C', dir]] : ['/usr/bin/unzip', ['-o', zip, '-d', dir]];
+  await new Promise((resolve, reject) => execFile(command, args, error => error ? reject(error) : resolve()));
 }

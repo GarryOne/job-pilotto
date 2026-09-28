@@ -21,19 +21,39 @@ export function pick(jobs, n) {
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
 export function openOne(url, open = spawn) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
-  open('open', ['-a', 'Google Chrome', `${url.split('#')[0]}#${FILL_MARK}`], {detached: true, stdio: 'ignore'}).unref();
+  const chrome = chromeCommand([`${url.split('#')[0]}#${FILL_MARK}`]);
+  if (!chrome) return {ok: false, error: NO_CHROME};
+  open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true};
 }
 
-// Where the Claude Code installer and Homebrew put `claude`: an app opened from the Finder has no shell PATH.
-export function claudeBinary(env = process.env, exists = fs.existsSync) {
-  const dirs = [...String(env.PATH || '').split(':').filter(Boolean), path.join(os.homedir(), '.local', 'bin'),
-    path.join(os.homedir(), '.claude', 'local'), '/opt/homebrew/bin', '/usr/local/bin'];
-  return dirs.map(dir => path.join(dir, 'claude')).find(file => exists(file)) || '';
+const NO_CHROME = 'Google Chrome was not found. Install it (with the Job Pilotto extension) to fill applications.';
+
+// How to open URLs in Chrome: `open -a` on the Mac; on Windows chrome.exe itself (no shell, so a URL's & stays
+// part of the URL), from where the installer puts it. null when Chrome isn't installed.
+export function chromeCommand(urls, platform = process.platform, env = process.env, exists = fs.existsSync) {
+  if (platform !== 'win32') return ['open', ['-a', 'Google Chrome', ...urls]];
+  const chrome = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean)
+    .map(dir => path.win32.join(dir, 'Google', 'Chrome', 'Application', 'chrome.exe')).find(file => exists(file));
+  return chrome ? [chrome, urls] : null;
 }
 
-// Apply with Claude works when Claude Code is installed and Notion holds the kits.
-export function claudeReady(storage, binary = claudeBinary) {
+// Where the Claude Code installer and Homebrew put `claude`: an app opened from the Finder has no shell PATH.
+// On Windows: claude.exe (native installer, ~/.local/bin) or claude.cmd (npm, %APPDATA%\npm).
+export function claudeBinary(env = process.env, exists = fs.existsSync, platform = process.platform) {
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  const home = env.USERPROFILE && platform === 'win32' ? env.USERPROFILE : os.homedir();
+  const dirs = [...String(env.PATH || '').split(platform === 'win32' ? ';' : ':').filter(Boolean), p.join(home, '.local', 'bin'),
+    p.join(home, '.claude', 'local'), ...(platform === 'win32' ? [env.APPDATA && p.join(env.APPDATA, 'npm')].filter(Boolean)
+      : ['/opt/homebrew/bin', '/usr/local/bin'])];
+  const names = platform === 'win32' ? ['claude.exe', 'claude.cmd'] : ['claude'];
+  return dirs.flatMap(dir => names.map(name => p.join(dir, name))).find(file => exists(file)) || '';
+}
+
+// Apply with Claude works when Claude Code is installed and Notion holds the kits. Its sessions run in the
+// Mac's Terminal (tools/apply-batch-claude.sh), so not on Windows yet.
+export function claudeReady(storage, binary = claudeBinary, platform = process.platform) {
+  if (platform === 'win32') return {ok: false, error: 'Apply with Claude is Mac-only for now. Use Fill in Chrome.'};
   if (!binary()) return {ok: false, error: 'Apply with Claude needs Claude Code: install it from claude.com/claude-code, or use Fill in Chrome.'};
   if (!storage.secret('NOTION_TOKEN')) return {ok: false, error: 'Apply with Claude reads the kit from Notion. Connect Notion in Settings first, or use Fill in Chrome.'};
   return {ok: true};
@@ -72,8 +92,9 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
   const chosen = pick(jobs, n);
   if (!chosen.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
   // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel.
-  const urls = chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`);
-  open('open', ['-a', 'Google Chrome', ...urls], {detached: true, stdio: 'ignore'}).unref();
+  const chrome = chromeCommand(chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`));
+  if (!chrome) return {ok: false, error: NO_CHROME};
+  open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true, jobs: chosen.map(job => `${job.title} · ${job.company}`),
     message: `Opened ${chosen.length} job(s) in Chrome; each fills itself in a few seconds. Review every tab and submit yourself. ` +
       '(If a form sits behind an "Apply" button, open it and click ✈️ → Fill with AI.)'};
