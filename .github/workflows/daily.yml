@@ -12,6 +12,7 @@ on:
       seed: {type: string, default: ''}
       file: {type: string, default: ''}
       note: {type: string, default: ''}
+      interview: {type: string, default: ''}
       code_repository: {type: string, default: '', description: 'owner/repo whose code runs (this public repo)'}
   workflow_dispatch:
     inputs:
@@ -38,6 +39,9 @@ on:
         required: false
       note:
         description: 'interview mode: caption, or /interview <label> plus notes; add mode: application date'
+        required: false
+      interview:
+        description: 'interview mode: the 🎤 Interviews row (Notion page id) to review, saved from the app'
         required: false
   # No schedule here: the timer lives in your private repo, so this public repo never runs on your data.
 
@@ -158,6 +162,7 @@ jobs:
           SEED: ${{ inputs.seed }}
           FILE: ${{ inputs.file }}
           NOTE: ${{ inputs.note }}
+          INTERVIEW: ${{ inputs.interview }}
         run: |
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
@@ -174,7 +179,8 @@ jobs:
             ai="$ai --auto-kit-max $JOB_PILOTTO_AUTO_KIT_MAX ${JOB_PILOTTO_AUTO_KIT_MIN_SCORE:+--auto-kit-min-score $JOB_PILOTTO_AUTO_KIT_MIN_SCORE}"
           fi
           if [ -n "$JOB_PILOTTO_INSIGHT_MODEL" ] && [ "$MODE" = scheduled ]; then ai="$ai --insight"; fi
-          python -m src daily $send --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} ${FILE:+--file "$FILE"} ${NOTE:+--note "$NOTE"} $ai
+          # --log-run: every run leaves its ⏱️ Search runs row (running, then result and log), Telegram or not.
+          python -m src daily $send --log-run --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} ${FILE:+--file "$FILE"} ${NOTE:+--note "$NOTE"} ${INTERVIEW:+--interview "$INTERVIEW"} $ai
       - name: Report failure to Telegram
         if: failure()
         env:

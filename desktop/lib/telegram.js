@@ -52,7 +52,7 @@ export function localDispatch(storage, onLine = () => {}) {
     const failed = error => onLine(`Telegram action failed: ${error.message}`);
     if (workflow === 'scout.yml') {
       const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
-      pipeline.task(storage, 'scout', ['src', 'scout', ...send, '--batch', String(inputs.batch || 15)], onLine).catch(failed);
+      pipeline.task(storage, 'scout', ['src', 'scout', ...send, '--log-run', '--batch', String(inputs.batch || 15)], onLine).catch(failed);
       return;
     }
     if (inputs.mode === 'run') { pipeline.refresh(storage, onLine, 'run', 'you').catch(failed); return; }
@@ -73,6 +73,7 @@ export function telegramEnv(storage, onLine) {
     NOTION_TOKEN: storage.secret('NOTION_TOKEN'),
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_EVENTS_DB: ids.NOTION_EVENTS_DB || '',
+    NOTION_CRON_RUNS_DB: ids.NOTION_CRON_RUNS_DB || '',  // /status and the app's Status: the runs in Notion
     // With "keep working while my Mac is off" on, runs happen in the user's GitHub repo.
     dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine) : localDispatch(storage, onLine),
     status: () => {

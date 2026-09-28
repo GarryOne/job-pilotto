@@ -20,6 +20,7 @@ on:
       seed: {description: 'ranking seed (more mode)', required: false}
       file: {description: 'interview mode: Telegram file id of the transcript', required: false}
       note: {description: 'interview caption or notes; add mode: application date', required: false}
+      interview: {description: 'interview mode: the 🎤 Interviews row to review (from the app)', required: false}
 
 permissions:
   contents: read
@@ -36,5 +37,6 @@ jobs:
       seed: ${{ inputs.seed }}
       file: ${{ inputs.file }}
       note: ${{ inputs.note }}
+      interview: ${{ inputs.interview }}
       code_repository: GarryOne/job-pilotto
     secrets: inherit

@@ -4,8 +4,13 @@
 Job Matches sync, Telegram outcome, warnings) and hands it to `log_run` at the end. The report is
 written by code from those numbers, so it costs nothing; a Notion failure never fails the run.
 """
+import atexit
+from collections import deque
 from datetime import datetime, timezone
+from html import unescape
 import os
+import re
+import sys
 
 CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '')
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
@@ -24,7 +29,19 @@ def new_run(mode):
     if os.getenv('GITHUB_RUN_ID'):
         run['run_url'] = (f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/"
                           f"{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID')}")
+    if _auto.get('tracker') and mode in LOGGED_MODES and not _open.get('run'):
+        begin(_auto['tracker'], run)
     return run
+
+
+# The jobs that always end with a row (log_run), so opening one at the start is safe (see begin()).
+LOGGED_MODES = {'scheduled', 'run', 'today', 'prepare', 'add', 'interview', 'insight', 'weekly', 'mail', 'rejection', 'scout'}
+_auto = {}
+
+
+def auto_begin(tracker):
+    """This process logs its run: the next new_run() opens the row at once (Status Running)."""
+    _auto['tracker'] = tracker
 
 
 def _text(value):
@@ -47,6 +64,8 @@ def total_tokens(run):
 def status(run):
     if run.get('warnings') or run.get('feed_errors'):
         return 'Warnings'
+    if run.get('headline'):
+        return 'OK'
     if run.get('mode') in ('mail', 'rejection'):
         return 'OK' if run.get('updates') else 'Quiet'
     return 'OK' if run.get('new') or run.get('changed') else 'Quiet'
@@ -65,6 +84,8 @@ def mail_lines(run):
 
 def report_lines(run):
     """The mini-report: a headline, then what stood out, most useful first."""
+    if run.get('headline'):  # a one-off job (insight, weekly report, find employers…) says what it did
+        return [f"{run['headline']} (AI cost ${total_usd(run):.3f})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
     if run.get('mode') == 'mail':
         return mail_lines(run)
     if run.get('mode') == 'rejection':  # its AI cost is kept under "insight" (a review of your own search)
@@ -140,13 +161,121 @@ def run_page(run):
     return properties, children[:95]
 
 
-def log_run(tracker, run):
-    """Create the Cronjob Runs row; returns its URL, or None when Notion refuses (never raises)."""
+# Notion is where every run's history lives, wherever it ran (this Mac, GitHub, a Telegram button): the row
+# appears when the job starts (Status Running), and at the end holds the report, what the job produced (the
+# message it sent or showed) and the last lines of its output. The app, Telegram and Notion all read these rows.
+LOG_LINES = 80
+_output = deque(maxlen=LOG_LINES)
+_open = {}  # the row this process opened with begin(): {'tracker', 'id', 'url', 'run'}
+
+
+class _Tee:
+    """stdout/stderr, also kept (last lines) for the run's page."""
+    def __init__(self, stream):
+        self.stream, self.partial = stream, ''
+
+    def write(self, text):
+        self.partial += text
+        *lines, self.partial = self.partial.split('\n')
+        lines = [line for line in lines if line.strip()]
+        _output.extend(lines)
+        if lines:
+            _progress(lines[-1])
+        return self.stream.write(text)
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
+
+def capture():
+    if not isinstance(sys.stdout, _Tee):
+        sys.stdout, sys.stderr = _Tee(sys.stdout), _Tee(sys.stderr)
+
+
+def begin(tracker, run):
+    """Open the run's row now (Status Running), so a job in progress shows everywhere; log_run() completes it.
+    Returns its URL, or None (never raises)."""
+    capture()
+    if not tracker or not CRON_RUNS_DATABASE_ID:
+        return None
+    try:
+        properties = {key: value for key, value in run_page(run)[0].items()
+                      if key in ('Run', 'Started', 'Mode', 'Trigger', 'Run URL')}
+        properties['Status'] = {'select': {'name': 'Running'}}
+        page = tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID}, 'properties': properties})
+        _open.update(tracker=tracker, id=page['id'], url=page.get('url'), run=run)
+        print(f"Cronjob run logged: {page.get('url')}")  # the desktop app links its activity row to this
+        return page.get('url')
+    except Exception as error:
+        print(f'Warning: cronjob run not opened in Notion: {type(error).__name__}: {error}')
+        return None
+
+
+STEP_EVERY = 10  # seconds between progress updates of a running row
+_last_step = {'at': 0.0}
+
+
+def _progress(line):
+    """A running job's latest output line as its row's Summary (⏳ …), at most every STEP_EVERY seconds, so a
+    job running elsewhere (GitHub, a Telegram button) shows some progress in the app and in Notion."""
+    import time
+    if not _open.get('run') or len(line) > 160 or line.startswith(('Warning', ' ', 'Cronjob run logged', '<<<', 'message>>>')):
+        return
+    now = time.monotonic()
+    if now - _last_step['at'] < STEP_EVERY:
+        return
+    _last_step['at'] = now
+    try:
+        _open['tracker']._request('PATCH', f"pages/{_open['id']}", {'properties': {'Summary': _text(f'⏳ {line}')}})
+    except Exception:  # noqa: BLE001 - progress is best effort
+        pass
+
+
+def plain(html):
+    """A Telegram HTML message as plain text."""
+    return unescape(re.sub(r'<[^>]+>', '', html)).strip()
+
+
+def extra_blocks(messages, lines):
+    """What the run produced (its last message) and a toggle with the last lines of its output."""
+    blocks = []
+    if messages:
+        blocks.append(_para('Result', 'heading_3'))
+        blocks += [_para(line) for line in plain(messages[-1]).split('\n') if line.strip()][:40]
+    if lines:
+        chunks = ['\n'.join(list(lines)[i:i + 25]) for i in range(0, len(lines), 25)]
+        blocks.append({'object': 'block', 'type': 'toggle', 'toggle': {
+            'rich_text': [{'text': {'content': f'Technical log (last {len(lines)} lines)'}}],
+            'children': [{'object': 'block', 'type': 'code', 'code': {'language': 'plain text',
+                          'rich_text': [{'text': {'content': chunk[:2000]}}]}} for chunk in chunks]}})
+    return blocks
+
+
+def log_run(tracker, run, failed=False):
+    """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises)."""
+    from .. import telegram
     try:
         properties, children = run_page(run)
+        if failed:
+            properties['Status'] = {'select': {'name': 'Failed'}}
+        children = children[:50] + extra_blocks(telegram.MESSAGES, list(_output))
+        if _open.get('id') and _open.get('run') is run:
+            _open.pop('run')
+            tracker._request('PATCH', f"pages/{_open['id']}", {'properties': properties})
+            tracker._request('PATCH', f"blocks/{_open['id']}/children", {'children': children[:100]})
+            return _open.get('url')
         page = tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID},
-                                                  'properties': properties, 'children': children})
+                                                  'properties': properties, 'children': children[:100]})
         return page.get('url')
     except Exception as error:
         print(f'Warning: cronjob run not logged to Notion: {type(error).__name__}: {error}')
         return None
+
+
+@atexit.register
+def _unfinished():
+    """A job that ended before reporting (a crash, an early exit): its row says so instead of staying Running."""
+    if _open.get('run'):
+        run = _open['run']
+        run['warnings'] = list(run.get('warnings') or []) + ['ended before its report (see the technical log)']
+        log_run(_open['tracker'], run, failed=True)

@@ -183,6 +183,22 @@ export async function connect(storage, token, {fetcher, onStep = () => {}, repo:
   return {repo, created, secrets: Object.keys(secrets), variables: Object.keys(variables)};
 }
 
+// Who wants to know a run was just started there (the app shows "Starting on GitHub…" until its row appears).
+const dispatched = new Set();
+export const onDispatch = listener => dispatched.add(listener);
+
+// The repo's workflow files and search settings, brought up to date (at start: new inputs reach existing repos).
+export async function updateRepo(storage, {fetcher} = {}) {
+  const {repo} = storage.settings().cloud || {};
+  if (!repo || !storage.secret('GITHUB_TOKEN')) return [];
+  const api = client(storage.secret('GITHUB_TOKEN'), fetcher);
+  const changed = [];
+  for (const [file, content] of Object.entries(payload(storage).files)) {
+    if (await putFile(api, repo, file, content, `Job Pilotto: ${file}`)) changed.push(file);
+  }
+  return changed;
+}
+
 // Telegram buttons and the app's Actions start a run in the user's repo instead of on this Mac.
 export function cloudDispatch(storage, onLine = () => {}, fetcher) {
   return async (inputs, workflow = 'daily.yml') => {
@@ -193,6 +209,7 @@ export function cloudDispatch(storage, onLine = () => {}, fetcher) {
       await client(storage.secret('GITHUB_TOKEN'), fetcher)('POST', `/repos/${repo}/actions/workflows/${workflow}/dispatches`,
         {ref: 'main', inputs: clean});
       onLine(`Started ${workflow.replace('.yml', '')}${clean.mode ? ` (${clean.mode})` : ''} in ${repo}.`);
+      dispatched.forEach(listener => listener({workflow, inputs: clean}));
     } catch (error) {
       onLine(`Could not start the run in ${repo}: ${error.message}`);
     }

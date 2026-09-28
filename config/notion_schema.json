@@ -910,6 +910,14 @@
             {
               "name": "Quiet",
               "color": "gray"
+            },
+            {
+              "name": "Running",
+              "color": "blue"
+            },
+            {
+              "name": "Failed",
+              "color": "red"
             }
           ]
         },

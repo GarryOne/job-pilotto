@@ -1,0 +1,87 @@
+// Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
+// user's GitHub repo, a Telegram button), from the start (Status Running, with a ⏳ progress line) to the end
+// (report, result, technical log). So the app shows the same history as Notion and Telegram, and a job running
+// elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a row isn't there yet.
+import {call} from './notion.js';
+
+const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today', mail: 'mail', scout: 'scout', insight: 'insight',
+  weekly: 'weekly', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection'};
+// What started it: the Mac's schedule, you (the app, Telegram, GitHub's Run button) or GitHub's schedule.
+const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
+const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
+
+const text = prop => (prop?.rich_text || prop?.title || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
+
+// One row as an activity record (the same shape as the Mac's own runs.json records).
+export function fromRow(page, now = Date.now()) {
+  const p = page.properties || {};
+  const startedAt = p.Started?.date?.start || page.created_time;
+  const mode = p.Mode?.select?.name || 'scheduled';
+  const status = p.Status?.select?.name || '';
+  const trigger = p.Trigger?.select?.name || '';
+  const seconds = p['Duration (s)']?.number;
+  const summary = text(p.Summary);
+  const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS;
+  const ended = !running && seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : (running ? undefined : startedAt);
+  const record = {id: Date.parse(startedAt), pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind: KIND[mode] || 'action', mode,
+    trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
+  if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
+  const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
+  return {...record, endedAt: ended, ok, new: p['New jobs']?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
+    result: result(summary, status, p['New jobs']?.number, mode)};
+}
+
+// One line on what it did: the row's Summary without the cost, or the count of new jobs for a search.
+export function result(summary, status, fresh, mode) {
+  if (status === 'Running') return 'never finished (see the log)';
+  const line = summary.replace(/\s*\(AI cost \$[\d.]+\)\.?$/, '').replace(/;?\s*AI cost \$[\d.]+\.?$/, '').trim();
+  if (KIND[mode] === 'search' && fresh != null) return fresh ? `${fresh} new job${fresh === 1 ? '' : 's'}` : 'nothing new';
+  return line || (status === 'Failed' ? 'failed' : 'done');
+}
+
+const ids = storage => storage.settings().notionIds || {};
+
+// The latest rows, newest first.
+export async function list(storage, {fetcher, size = 25} = {}) {
+  const token = storage.secret('NOTION_TOKEN'), db = ids(storage).NOTION_CRON_RUNS_DB;
+  if (!token || !db) return null;
+  const {results = []} = await call(token, 'POST', `databases/${db}/query`,
+    {sorts: [{property: 'Started', direction: 'descending'}], page_size: size}, fetcher);
+  return results.map(page => fromRow(page));
+}
+
+// A run's page: what it produced (under "Result") and its technical log (the toggle's code blocks).
+export async function detail(storage, pageId, {fetcher} = {}) {
+  const token = storage.secret('NOTION_TOKEN');
+  const {results: blocks = []} = await call(token, 'GET', `blocks/${pageId}/children?page_size=100`, null, fetcher);
+  const plain = block => text(block[block.type]);
+  const at = blocks.findIndex(block => block.type === 'heading_3' && plain(block) === 'Result');
+  const message = at < 0 ? null : blocks.slice(at + 1).filter(block => block.type === 'paragraph').map(plain).join('\n') || null;
+  const toggle = blocks.find(block => block.type === 'toggle' && /^Technical log/.test(plain(block)));
+  let log = [];
+  if (toggle?.has_children) {
+    const {results: code = []} = await call(token, 'GET', `blocks/${toggle.id}/children?page_size=100`, null, fetcher);
+    log = code.filter(block => block.type === 'code').flatMap(block => plain(block).split('\n'));
+  }
+  const report = blocks.filter(block => block.type === 'bulleted_list_item').map(plain);
+  return {message, log: log.length ? log : report};
+}
+
+// The activity list: Notion's rows, with this Mac's own record where it's the same run (it has the full log and
+// the live lines) and this Mac's records Notion doesn't have yet. `pending`: jobs just sent to GitHub that
+// haven't opened their row yet ("Starting on GitHub…").
+export function merge(notionRuns, localRuns, pending = []) {
+  const byUrl = new Map(localRuns.filter(run => run.notionUrl).map(run => [run.notionUrl.replace(/[?#].*/, ''), run]));
+  const used = new Set();
+  const merged = notionRuns.map(row => {
+    const local = byUrl.get(String(row.notionUrl || '').replace(/[?#].*/, ''));
+    if (!local) return row;
+    used.add(local);
+    return row.live ? {...row, id: local.id} : {...row, ...local, pageId: row.pageId, url: row.url, where: 'mac', result: row.result};
+  });
+  const oldest = notionRuns.length ? Math.min(...notionRuns.map(row => row.id)) : 0;
+  const missing = localRuns.filter(run => !used.has(run) && run.id >= oldest);
+  const waiting = pending.filter(job => !notionRuns.some(row => row.mode === job.mode && row.id >= job.id - 60000));
+  return {runs: [...merged, ...missing].filter(run => !run.live).sort((a, b) => b.id - a.id),
+    live: merged.find(run => run.live) || waiting[0] || null, waiting};
+}

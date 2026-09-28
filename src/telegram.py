@@ -31,11 +31,17 @@ def plain(text):
     return html.unescape(TELEGRAM_TAG.sub('', text))
 
 
+# Every message this run produced (sent or shown in the app), for its ⏱️ Search runs page (cron_runs.log_run).
+MESSAGES = []
+
+
 def to_app(text, reply_markup=None):
+    MESSAGES.append(text)
     print(f'{APP_MESSAGE[0]}\n{plain(text)}\n{APP_MESSAGE[1]}')
 
 
 def send(text, token, chat_id, reply_markup=None):
+    MESSAGES.append(text)
     endpoint = f"https://api.telegram.org/bot{token}/sendMessage"
     fields = {'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': 'true'}
     if reply_markup:

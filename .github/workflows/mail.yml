@@ -91,7 +91,10 @@ jobs:
           JOB_PILOTTO_MAIL_MODEL: ${{ vars.JOB_PILOTTO_MAIL_MODEL || 'claude-haiku-4-5' }}
         run: |
           pip install --quiet -r requirements.txt
-          python -m src.ai.mail --send --days "${{ inputs.days || '2' }}"
+          send=""
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
+          # --log-run: its ⏱️ Search runs row (running, then result and log) is how the app and Notion see it.
+          python -m src.ai.mail $send --log-run --days "${{ inputs.days || '2' }}"
       - name: Save mail state
         if: always() && env.GOOGLE_REFRESH_TOKEN != ''
         uses: actions/cache/save@v4

@@ -92,6 +92,23 @@ export function formatRuns(runs) {
   return ['🛠 <b>Recent runs</b>', ...lines].join('\n');
 }
 
+// /status: the latest ⏱️ Search runs rows, wherever they ran (the Mac, GitHub, a button here), with the one running.
+export function formatNotionRuns(pages) {
+  if (!pages.length) return 'No runs yet.';
+  const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
+  const ICON = { Running: '⏳', Failed: '❌', Warnings: '⚠️' };
+  const lines = pages.map((page) => {
+    const p = page.properties;
+    const status = p.Status?.select?.name || '';
+    const when = (p.Started?.date?.start || '').replace('T', ' ').slice(0, 16);
+    const where = p['Run URL']?.url ? ' · GitHub' : /^Mac/.test(p.Trigger?.select?.name || '') ? ' · Mac' : '';
+    const summary = text(p.Summary).replace(/;?\s*\(?AI cost \$[\d.]+\)?\.?$/, '');
+    return `${ICON[status] || '✅'} <a href="${escapeHtml(page.url)}">${escapeHtml(p.Mode?.select?.name || 'run')}</a> · ${when} UTC${where}`
+      + (summary ? `\n   ${escapeHtml(summary.slice(0, 160))}` : '');
+  });
+  return ['🛠 <b>Recent runs</b>', ...lines].join('\n');
+}
+
 export function formatApplied(pages, databaseUrl) {
   const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
   if (!pages.length) return `No applications yet. Tap /apply_&lt;code&gt; under a job, or add one in <a href="${databaseUrl}">Notion</a>.`;
@@ -265,7 +282,13 @@ export async function handleCommand(env, command) {
       await dispatch(env, { batch: '15' }, 'scout.yml');
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';
     case 'status': {
-      if (env.status) return env.status(); // desktop app: its own recent searches
+      // Notion ⏱️ Search runs is the one history, the same from the app, this bot and Notion.
+      if (env.NOTION_TOKEN && env.NOTION_CRON_RUNS_DB) {
+        const response = await notion(env, `databases/${env.NOTION_CRON_RUNS_DB}/query`, 'POST',
+          { sorts: [{ property: 'Started', direction: 'descending' }], page_size: 6 });
+        if (response.ok) return formatNotionRuns((await response.json()).results || []);
+      }
+      if (env.status) return env.status(); // desktop app without Notion runs: its own recent searches
       const response = await github(env, `actions/workflows/${env.WORKFLOW_FILE}/runs?per_page=5`);
       if (!response.ok) throw new Error(`GitHub runs failed: ${response.status}`);
       return formatRuns((await response.json()).workflow_runs);

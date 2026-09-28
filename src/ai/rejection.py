@@ -225,6 +225,7 @@ def main(argv=None):
         print('No rejected application waits for a review.')
         return 0
     stats, profile, lines = {}, tracker.page_text(), []
+    cron_runs.auto_begin(tracker)  # the review's ⏱️ Search runs row opens when it starts
     log = cron_runs.new_run('rejection')
     try:
         for row in rows:

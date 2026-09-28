@@ -254,6 +254,8 @@ def main():
         parser.error('--limit must be between 1 and 50')
     apply_switches(args)
     tracker = notion.Tracker.from_env()
+    if tracker and (args.send or args.log_run):
+        cron_runs.auto_begin(tracker)  # the run's ⏱️ Search runs row opens when it starts
     if args.mode == 'apply':
         if not args.job or not tracker:
             raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
@@ -381,8 +383,9 @@ def main():
             run = new_cron_run(args.mode)
             run['insight'] = {}
             try:
-                print(make(db, tracker, send=sender, stats=run['insight'],
-                           **({'force': True} if args.mode == 'insight' else {})))
+                run['headline'] = make(db, tracker, send=sender, stats=run['insight'],
+                                       **({'force': True} if args.mode == 'insight' else {}))
+                print(run['headline'])
                 log_ai_run(tracker, run, args)
             except Exception as error:
                 if not cost.limit_reached(error):

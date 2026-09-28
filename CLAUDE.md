@@ -37,8 +37,14 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   fields only; the cache is kept in step and only adds jobs a search couldn't write to Notion yet (marked).
 - Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only
   after Notion confirmed it has it) and a test.
-- Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever
-  started it, so users see what happened in Notion without the app having to show it.
+- Every run (search, Gmail check, kit, review, insight, report, find employers) leaves a row in ⏱️ Search runs,
+  wherever it ran (the Mac, the user's GitHub repo, a Telegram button): opened at the start (Status Running,
+  `cron_runs.begin`, with a ⏳ progress line in Summary), completed at the end with its report, its **Result**
+  (the message it sent or showed) and a **Technical log** toggle. That row is the one run history: the app's
+  Recent activity (`desktop/lib/run-history.js`) and Telegram /status read it; `runs.json` is only a cache.
+- Background jobs run in exactly one place: the user's GitHub repo when "Keep working while my Mac is off" is on
+  (app buttons, Prepare, interview review and the first search included), else this Mac. Only what needs the Mac
+  (recording/transcribing, Apply with Claude, form filling, Google sign-in) or an instant answer runs locally.
 
 ## Desktop UI: one design system
 - Values live in `desktop/renderer/tokens.css` only: colours, corner radii (`--r-sm|md|lg|pill`), the type scale

@@ -624,8 +624,10 @@ def main(argv=None):
         token, chat_id = telegram.credentials()
         sender = lambda text: telegram.send(text, token, chat_id)
     stats = {}
-    log = cron_runs.new_run('mail')
     logged = (args.send or args.log_run) and not args.dry_run
+    if logged:
+        cron_runs.auto_begin(tracker)  # the check's ⏱️ Search runs row opens when it starts
+    log = cron_runs.new_run('mail')
 
     def log_check(warning=None):  # one ⏰ Search runs row per check: what it read, what it recorded, the cost
         log['mail'] = {key: value for key, value in stats.items() if key != 'updates'}

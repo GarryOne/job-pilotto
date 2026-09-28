@@ -214,20 +214,24 @@ const PHASES = [
 ];
 const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
   weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'},
-  action: {icon: '⚡', name: 'Telegram action'}};
-const kindOf = run => run?.kind || 'search';
+  action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
+  add: {icon: '➕', name: 'Tracked application'}, rejection: {icon: '🔍', name: 'Rejection review'}};
+const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'started by you', first: 'first search'};
 // A Recent activity row's label: gray "Queued" while it waits, gray "Scheduled" for the schedule's runs,
 // green "Started by you" for the ones you started.
 function runBadge(run) {
   if (run.waiting) return ['Queued', 'neutral'];
-  if (run.trigger === 'schedule') return ['Scheduled', 'neutral'];
-  return [capital(WHO[run.trigger] || run.trigger), run.trigger === 'you' ? 'good' : 'neutral'];
+  if (run.trigger === 'schedule') return ['Scheduled' + (run.where === 'github' ? ' · ☁️ GitHub' : ''), 'neutral'];
+  return [capital(WHO[run.trigger] || run.trigger) + runBadgeWhere(run), run.trigger === 'you' ? 'good' : 'neutral'];
 }
+// Where it ran, when not on this Mac (a run read from Notion: the user's GitHub repo, or elsewhere).
+const runBadgeWhere = run => (run.where === 'github' ? ' · ☁️ GitHub' : '');
 let logLines = [];      // the running task's lines, live
 let idleSeen = true;    // nothing was running at the last check: the next log line starts a new task
 let selectedRun = null; // id of the past run picked in "Recent activity"; null = the latest
 let lastActivity = null;
+const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
 function phaseIndex(lines) {
   let index = -1;
   lines.forEach(line => PHASES.forEach((phase, i) => { if (phase.match.test(line)) index = i; }));
@@ -238,6 +242,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 // One line on what a finished run did.
 function outcome(run) {
+  if (run.result) return run.result;  // a run read from Notion ⏱️ Search runs says it itself
   if (kindOf(run) === 'mail') {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
     if (run.problem) return run.problem;
@@ -260,7 +265,9 @@ function showAwaitedResult(runs) {
   if (!run) return;
   awaitedRun = null;
   const kind = KIND[kindOf(run)];
-  answer(`${kind.icon} ${kind.name}: ${run.message ? `\n\n${run.message}` : capital(outcome(run))}`);
+  const show = message => answer(`${kind.icon} ${kind.name}: ${message ? `\n\n${message}` : capital(outcome(run))}`);
+  if (run.message || !run.pageId) show(run.message);
+  else window.pilot.runDetail(run.pageId).then(detail => show(detail.message), () => show(null));  // on its Notion page
 }
 function renderActivity(data) {
   lastActivity = data;
@@ -279,7 +286,7 @@ function renderActivity(data) {
   if (running) {
     const kind = KIND[kindOf(running)];
     const next = (data.queued || []).length;
-    $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger})${next ? ` · ${next} queued` : ''}`;
+    $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
     $('activity-step').textContent = running.step || 'Starting…';
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
@@ -337,12 +344,19 @@ function renderActivity(data) {
     slot('mail', 'Next Gmail check', nextMailAt, cloud ? 'In the cloud' : 'Off'),
   ].filter(Boolean));
 
-  // The selected run (or the live / latest one): what it did, its phases, and its full log.
-  const run = shown || (running ? {...running, live: true} : last);
+  // The selected run (or the live / latest one): what it did, its phases, and its full log. A run read from
+  // Notion brings its result and log from its page the first time it's shown.
+  const picked = shown || (running ? {...running, live: true} : last);
+  const run = picked?.pageId && !picked.log && !picked.live ? {...picked, ...runDetails.get(picked.pageId)} : picked;
+  if (run?.pageId && !run.log && !run.live && !runDetails.has(run.pageId)) {
+    runDetails.set(run.pageId, {log: ['Reading from Notion…']});
+    window.pilot.runDetail(run.pageId).then(detail => { runDetails.set(run.pageId, detail); renderActivity(lastActivity); });
+  }
   const lines = shown ? shown.log || [] : liveLines || last?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;
-  $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name} · running now` :
-    `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} · ${capital(outcome(run))}`;
+  const where = run?.where === 'github' ? ' · ☁️ on GitHub' : run?.where === 'elsewhere' ? ' · elsewhere' : '';
+  $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name} · ${run.step || 'running now'}${where}` :
+    `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} · ${capital(outcome(run))}${where}`;
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
   show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Keep working while my Mac is off)
@@ -443,6 +457,7 @@ function announceRuns({running, runs}) {
   }
   for (const run of runs.filter(r => !announced.done.has(r.id))) {
     announced.done.add(run.id);
+    if (Date.now() - Date.parse(run.endedAt || run.startedAt) > 3 * 60000) continue;  // history arriving (Notion), not news
     const kind = KIND[kindOf(run)] || KIND.search;
     const failed = !run.ok || run.off;
     toastMessage(`${failed ? '⚠️' : '✅'} ${kind.name} ${failed ? 'had problems' : 'done'}`, `${capital(outcome(run))}${where(run)}`).onclick = () => openActivity(true);
@@ -1052,6 +1067,8 @@ function renderJobs() {
         prepare.title = 'Drafting the kit: usually 15–30 s';
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
         prepare.classList.remove('busy', 'state-busy');
+        // On GitHub (Keep working while my Mac is off): Recent activity follows it; the list reloads when it's done.
+        if (result.cloud) { prepare.textContent = 'Preparing on GitHub…'; openActivity(true); return; }
         if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
       });
       box.append(prepare);
@@ -1080,7 +1097,7 @@ function renderJobs() {
       menu.push({label: '↻ Redraft kit', title: 'Draft the kit again from your current Profile and standard answers (~20 s)', run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
-          if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
+          if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
         })});
     }
     if (job.stage === 'Rejected') {

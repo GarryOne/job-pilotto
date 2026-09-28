@@ -27,7 +27,7 @@ import urllib.parse
 import urllib.request
 
 from . import store, telegram
-from .notion import client as notion
+from .notion import client as notion, cron_runs
 from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, feeds
 
@@ -429,6 +429,7 @@ def main():
     parser.add_argument('--db', type=Path, default=JOBS_DB)
     parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
+    parser.add_argument('--log-run', action='store_true', help='log this run to Notion ⏱️ Search runs (the desktop app does)')
     parser.add_argument('--export-sources', action='store_true',
                         help='write config/sources.json: the shared starter list of verified public feeds '
                              '(sources.json + Active Employers & Sources rows); needs NOTION_TOKEN')
@@ -447,14 +448,21 @@ def main():
         print('Source scout is off (JOB_PILOTTO_DISABLE includes scout).')
         return 0
     tracker = notion.Tracker.from_env()
+    logged = tracker and (args.send or args.log_run)
+    if logged:
+        cron_runs.auto_begin(tracker)  # the scout's ⏱️ Search runs row opens when it starts
+    log = cron_runs.new_run('scout')
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
     message = telegram_summary(summary, results)
+    log['headline'] = cron_runs.plain(message).split('\n')[0]
     if args.send and not disabled('telegram'):
         print(message)
         telegram.send(message, *telegram.credentials())
     else:
         telegram.to_app(message)  # no Telegram: the desktop app shows the summary
+    if logged:
+        cron_runs.log_run(tracker, log)
 
 
 if __name__ == '__main__':

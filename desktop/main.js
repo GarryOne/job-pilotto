@@ -6,7 +6,7 @@ import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
-import * as cloudRuns from './lib/cloud-runs.js';
+import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
@@ -29,7 +29,11 @@ import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 import * as telegramCloud from './lib/telegram-cloud.js';
 
-let cloudRunning = null;  // the run in progress in the user's GitHub repo (cloud-runs.js), for Recent activity
+// Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
+// GitHub that haven't opened their row yet.
+let notionRuns = null;
+let pendingCloud = [];
+const cloud = () => !!storage?.settings().cloud?.repo;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
@@ -320,15 +324,24 @@ function handlers() {
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
   });
-  ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running() || cloudRunning, queued: pipeline.queued(),
+  ipcMain.handle('runs', () => {
+    pendingCloud = pendingCloud.filter(job => Date.now() - job.id < 10 * 60000);
+    const local = pipeline.runs(storage);
+    const {runs, live, waiting} = notionRuns ? runHistory.merge(notionRuns, local, pendingCloud) : {runs: local, live: pendingCloud[0] || null, waiting: pendingCloud};
+    pendingCloud = waiting;
+    return {runs, running: pipeline.running() || live, queued: pipeline.queued(), ...schedule()};
+  });
+  ipcMain.handle('runDetail', (_, pageId) => runHistory.detail(storage, pageId).catch(error => ({message: null, log: [`Not read from Notion: ${error.message}`]})));
+  const schedule = () => ({
     lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings()),
-    nextMailAt: nextMailAt(storage.settings())}));
+    nextMailAt: nextMailAt(storage.settings())});
   ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
     ? github.cloudDispatch(storage, log)({}, 'mail.yml').then(() => ({ok: true, cloud: true}))
     : pipeline.checkMail(storage, log, 'you').then(({ok, run}) => ({ok, run}))));
   // Right after setup: the first search, so the Jobs screen fills while the user watches.
   ipcMain.handle('firstSearch', () => (storage.settings().lastSearchAt || pipeline.running() ? {ok: true, skipped: true}
-    : pipeline.refresh(storage, log, 'run', 'first')));
+    : cloud() ? github.cloudDispatch(storage, log)({mode: 'run'}).then(() => ({ok: true, cloud: true}))  // background jobs run in one place
+      : pipeline.refresh(storage, log, 'run', 'first')));
   ipcMain.handle('jobs', async () => {
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
     // Searches run in the cloud: show the latest cloud run's jobs (checked at most every 5 minutes).
@@ -467,7 +480,10 @@ function handlers() {
   ipcMain.handle('ivDiscard', async (_, id) => (DEMO ? (interviews.discard(storage, id), true) : (await interviews.drop(storage, id)).ok));
   ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
-  ipcMain.handle('ivReview', (_, pageId) => interviews.review(storage, pageId));
+  ipcMain.handle('ivReview', (_, pageId) => (cloud()
+    ? github.cloudDispatch(storage, log)({mode: 'interview', interview: pageId}).then(() => ({ok: true, cloud: true,
+      summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}))
+    : interviews.review(storage, pageId)));
   ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
   // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
   // In development (npm start) macOS may list the terminal that started the app instead of Electron.
@@ -592,6 +608,12 @@ function handlers() {
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
+    // With Keep working while my Mac is off, background jobs run in the user's GitHub repo: Recent activity
+    // shows it starting, its progress and its result (its ⏱️ Search runs row); the job's row updates from Notion.
+    if (cloud()) {
+      await github.cloudDispatch(storage, log)({mode: 'prepare', job: code});
+      return {ok: true, cloud: true};
+    }
     // Quietly: the result comes as a notification (and the row's Apply), not as log output.
     const lines = [];
     const {code: exit} = await pipeline.run(storage, pipeline.dailyArgs(storage, {mode: 'prepare', job: code}), line => lines.push(line));
@@ -771,12 +793,24 @@ if (firstCopy) app.whenReady().then(() => {
     // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
     migrate.run(storage, log).then(moved => { if (moved.length) window?.webContents.send('moved', moved); });
     syncCv();
-    // Keep working while my Mac is off: the GitHub repo's runs (and the one in progress) in Recent activity.
-    const syncCloudRuns = async () => {
-      try { cloudRunning = (await cloudRuns.sync(storage))?.running || null; } catch (error) { log(`GitHub runs not read: ${error.message}`); }
-      setTimeout(syncCloudRuns, storage.settings().cloud?.repo ? 15000 : 60000);
+    // Recent activity from Notion ⏱️ Search runs (every run's row, wherever it ran), every 15 s.
+    let notionTimer;
+    const readRuns = async () => {
+      clearTimeout(notionTimer);
+      try { notionRuns = await runHistory.list(storage); } catch (error) { log(`Run history not read from Notion: ${error.message}`); }
+      notionTimer = setTimeout(readRuns, 15000);
     };
-    syncCloudRuns();
+    readRuns();
+    // A job sent to GitHub: "Starting on GitHub…" until its row appears (it's read again sooner than usual).
+    github.onDispatch(({workflow, inputs}) => {
+      const mode = workflow === 'mail.yml' ? 'mail' : workflow === 'scout.yml' ? 'scout' : inputs.mode || 'scheduled';
+      const kind = {scheduled: 'search', run: 'search'}[mode] || mode;
+      pendingCloud.push({id: Date.now(), mode, kind, live: true, where: 'github', trigger: 'you', startedAt: new Date().toISOString(), step: 'Starting on GitHub…'});
+      setTimeout(readRuns, 20000);
+    });
+    // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched.
+    if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
+      error => log(`GitHub repo not updated: ${error.message}`));
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };
     backupIfDue();
     setInterval(backupIfDue, 6 * 3600 * 1000);
