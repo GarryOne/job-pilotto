@@ -22,7 +22,7 @@ Usage:
 """
 import argparse
 from datetime import datetime, timedelta, timezone
-from html import escape, unescape
+from html import escape
 import json
 import os
 import re
@@ -225,6 +225,17 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
 EMOJI = {'Confirmation received': '📬', REPLY: '💬', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•'}
 
 
+SHORT_KIND = {'Confirmation received': 'Application received'}
+
+
+def _short(stats, kind, row, extra=''):
+    """One short plain line per recorded update, for the desktop app ("❌ Rejected · Grafana Labs — SRE")."""
+    if stats is not None:
+        job = re.sub(r'\s*\|\s*Remote\s*$', '', _field(row, 'Job'))[:70]
+        stats.setdefault('updates', []).append(
+            f"{EMOJI.get(kind, '•')} {SHORT_KIND.get(kind, kind)} · {_field(row, 'Company')} — {job}{extra}")
+
+
 def _label(row):
     return f"{escape(_field(row, 'Company'))} — {escape(_field(row, 'Job'))[:60]}"
 
@@ -264,6 +275,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             when = _when(result['interview_at'] or '')
             extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''
             lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
+            _short(stats, result['kind'], row, extra)
     return lines, len(emails)
 
 
@@ -334,6 +346,7 @@ def calendar_pass(tracker, google, client, model, apps, index, state, stats, now
                              index, start.isoformat(), now)
             if changed:
                 lines.append(f"🗓 {_label(row)}: {escape(event.get('summary', ''))[:80]} · {start.astimezone(TZ):%a %d %b %H:%M}")
+                _short(stats, 'Interview scheduled', row, f" · {start.astimezone(TZ):%a %d %b %H:%M}")
         notes += reminders(tracker, row, event, start, end, state, now)
     return lines, notes
 
@@ -396,10 +409,10 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     for note in notes:
         if send:
             send(note)
-    if lines and not dry_run:  # plain text for the desktop app's activity panel
+    if (stats or {}).get('updates') and not dry_run:  # one short line each, for the desktop app's activity panel
         print('Updates:')
-        for line in lines:
-            print(unescape(re.sub(r'<[^>]+>', '', line)))
+        for line in stats['updates']:
+            print(line)
     usd = (stats or {}).get('usd', 0.0)
     return f'Mail: {count} new email(s) classified, {len(lines)} update(s), {len(notes)} reminder(s) (${usd:.3f})'
 

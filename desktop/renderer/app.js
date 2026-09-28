@@ -233,6 +233,12 @@ function renderActivity(data) {
       return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
+  // The full log stays folded unless the task is running or went wrong (then it's what you want to see).
+  const failed = run && !run.live && (!run.ok || run.off);
+  if (run && $('activity-log').dataset.for !== String(run.id)) {
+    $('activity-log').dataset.for = String(run.id);
+    $('activity-log').open = !!run.live || !!failed;
+  }
   const log = $('log');
   const text = lines.join('\n') || 'Nothing to show yet.';
   if (log.textContent !== text) {
@@ -258,11 +264,16 @@ function refreshActivity() {
   if (activityTimer) return;
   activityTimer = setTimeout(async () => { activityTimer = null; renderActivity(await window.pilot.runs()); }, 250);
 }
-$('activity-toggle').addEventListener('click', () => {
-  const open = $('activity-panel').hidden;
+function openActivity(open) {
   show($('activity-panel'), open);
   $('activity-toggle').setAttribute('aria-expanded', open);
   if (open) $('log').scrollTop = $('log').scrollHeight;
+}
+$('activity-toggle').addEventListener('click', () => openActivity($('activity-panel').hidden));
+// Close the card with Escape or a click outside it, like a popover.
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
+document.addEventListener('mousedown', event => {
+  if (!$('activity-panel').hidden && !$('activity').contains(event.target)) openActivity(false);
 });
 
 let wasRunning = false;

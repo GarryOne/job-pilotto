@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import io
 import json
 import sys
@@ -125,6 +126,15 @@ class MailTests(unittest.TestCase):
         # Next run: the email is in the state file, so it isn't fetched or classified again.
         summary, sent = self.run_mail(tracker, google, [])
         self.assertIn('0 new email(s)', summary)
+
+    def test_the_desktop_app_gets_one_short_line_per_update(self):
+        apps = [app('p1', 'Grafana Labs', 'Staff Software Engineer - Databases SRE | Sweden | Remote')]
+        tracker, google = FakeTracker(apps), FakeGoogle([email('m1', 'Your application for Grafana Labs')])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.run_mail(tracker, google, [[result(0, 0, 'Rejected', 'Rejected for Staff Software Engineer position')]])
+        self.assertEqual(out.getvalue().splitlines(),
+                         ['Updates:', '❌ Rejected · Grafana Labs — Staff Software Engineer - Databases SRE | Sweden'])
 
     def test_hand_logged_twin_is_linked_not_duplicated(self):
         apps = [app('p1', 'Canonical', 'Site Reliability / Gitops Engineer')]

@@ -8,6 +8,7 @@ import json
 import os
 import random
 import re
+import sys
 
 from . import digest, features, scout, store, telegram
 from . import doctor
@@ -185,6 +186,18 @@ def apply_switches(args):
         args.insight = False
     if features.disabled('telegram'):
         args.send = False
+
+
+def plural(n, word):
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def save_run(run):
+    """Duration and cost, then the summary of the latest crawl the desktop app's activity bar reads."""
+    run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
+    run['usd'] = round(cron_runs.total_usd(run), 4)
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
 
 
 def main():
@@ -427,9 +440,13 @@ def main():
     REPORTS.mkdir(parents=True, exist_ok=True)
     (REPORTS / 'daily-latest.txt').write_text(text + '\n', encoding='utf-8')
     (REPORTS / 'daily-latest.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
-    print(text)
+    if sys.stdout.isatty():  # the Telegram HTML is a preview for a terminal; the app's log gets a summary line
+        print(text)
     if not args.send:
-        print('\nPreview only. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send.')
+        print(f"\nDigest ready: {plural(len(shown_ids), 'job')}, {new_count} new. Telegram isn't connected, so nothing "
+              'was sent (terminal: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send).')
+        if args.mode in ('scheduled', 'run', 'today'):
+            save_run(run)  # the desktop app's activity bar shows its counts
         return 0
     token, chat_id = telegram.credentials()
     if args.mode == 'scheduled' and not new_count:
@@ -464,11 +481,7 @@ def main():
             print(f'Warning: insight skipped: {type(error).__name__}: {error}')
             run['warnings'].append(f'insight skipped: {type(error).__name__}')
     if args.mode in ('scheduled', 'run', 'today'):
-        run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        run['usd'] = round(cron_runs.total_usd(run), 4)
-        # The desktop app's Runs screen reads this summary of the latest crawl.
-        REPORTS.mkdir(parents=True, exist_ok=True)
-        (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
+        save_run(run)
         # Only sending runs are logged to Notion, so local previews don't fill the table.
         if tracker:
             url = cron_runs.log_run(tracker, run)
