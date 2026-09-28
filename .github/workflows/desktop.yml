@@ -135,6 +135,17 @@ jobs:
         run: |
           npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null
           npm run build:win -- -c.buildVersion="${{ github.run_number }}"
+      - name: Smoke test the installed app (install, bundled Python, Credential Manager, three screens)
+        working-directory: desktop
+        run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke
+      - name: Keep the Windows screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-screens-${{ needs.build.outputs.version }}
+          path: desktop/smoke
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Add to the release
         working-directory: desktop
         env:
