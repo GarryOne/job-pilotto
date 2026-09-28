@@ -18,6 +18,7 @@ import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
 import * as reset from './lib/reset.js';
+import * as cvChange from './lib/cv-change.js';
 import * as notionOAuth from './lib/notion-oauth.js';
 import * as contactDetails from './lib/contact.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
@@ -225,10 +226,19 @@ function handlers() {
   ipcMain.handle('chooseCv', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Choose your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
-    fs.copyFileSync(picked.filePaths[0], storage.path('cv.pdf'));
-    storage.saveSettings({cvName: path.basename(picked.filePaths[0])});
-    return path.basename(picked.filePaths[0]);
+    return cvChange.replace(storage, picked.filePaths[0], path.basename(picked.filePaths[0])).name;
   });
+  // After setup, a replaced CV: its effects (Strategy → "What changes with this CV"). See lib/cv-change.js.
+  ipcMain.handle('cvChange', () => ({...(storage.settings().cvChange || {}), name: storage.settings().cvName,
+    comparable: fs.existsSync(storage.path(cvChange.PREVIOUS)), base: !!cvlib.baseCv(storage)}));
+  ipcMain.handle('cvReview', async () => {
+    try { return {ok: true, ...await cvChange.review(storage, storage.secret('ANTHROPIC_API_KEY'))}; }
+    catch (error) { return {ok: false, error: error.message}; }
+  });
+  ipcMain.handle('cvApply', async (_, accepted) => {
+    try { return {ok: true, ...await cvChange.apply(storage, accepted)}; } catch (error) { return {ok: false, error: error.message}; }
+  });
+  ipcMain.handle('cvChangeDone', () => { storage.saveSettings({cvChange: null}); return true; });
   ipcMain.handle('draftStrategy', async (_, answers) => {
     storage.saveSettings({questionnaire: answers});
     const kb = Math.round(fs.statSync(storage.path('cv.pdf')).size / 1024);

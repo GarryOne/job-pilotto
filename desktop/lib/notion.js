@@ -216,14 +216,14 @@ export const pageUrl = id => `https://www.notion.so/${String(id).replace(/-/g, '
 
 // ---------- text blocks of a page (the standard answers' ❓ lines, the 🧠 Form knowledge bullets) ----------
 const plainOf = block => (block[block.type]?.rich_text || []).map(t => t.plain_text).join('');
-// Every block with text, in page order, down to toggles and nested lists (2 levels): [{id, type, text}].
+// Every block with text, in page order, down to toggles and nested lists (2 levels): [{id, type, text, parent}].
 export async function textBlocks(token, pageId, fetcher, depth = 0) {
   const found = [];
   let cursor;
   do {
     const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
     for (const block of page.results) {
-      if (block[block.type]?.rich_text) found.push({id: block.id, type: block.type, text: plainOf(block)});
+      if (block[block.type]?.rich_text) found.push({id: block.id, type: block.type, text: plainOf(block), parent: pageId});
       if (block.has_children && depth < 2 && !['child_page', 'child_database'].includes(block.type)) {
         found.push(...await textBlocks(token, block.id, fetcher, depth + 1));
       }

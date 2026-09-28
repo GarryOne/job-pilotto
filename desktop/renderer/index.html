@@ -404,6 +404,8 @@
       <header class="view-head"><div><h1>Strategy</h1><p class="muted">What jobs are scored against, and your standard answers. Edit freely.</p></div>
         <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button></div></header>
       <p class="message" id="strategy-message"></p>
+      <div class="stale-draft" id="cv-changed" hidden><span id="cv-changed-text"></span>
+        <button class="secondary" id="cv-changed-open">Review what changes</button></div>
       <div id="strategy-notion" class="callout"><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
         <div class="inline spaced"><button class="secondary" id="replace-cv">Replace CV…</button><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
       <div id="cv-card" class="callout cv">
@@ -635,6 +637,26 @@
   </ul>
   <label class="radio"><input type="checkbox" id="replace-ok"><span>I understand: replace my strategy</span></label>
   <div class="actions"><button class="secondary" id="replace-cancel">Cancel</button><button class="danger-solid" id="replace-go" disabled>Replace my strategy</button></div>
+</dialog>
+
+<!-- A replaced CV after setup: what follows it (lib/cv-change.js) -->
+<dialog id="cv-dialog" class="save-dialog">
+  <h2>📄 What changes with your new CV</h2>
+  <p class="muted small" id="cv-dialog-name"></p>
+  <ul class="impact">
+    <li class="good"><b>Done:</b> new applications upload this CV (the extension and Apply with Claude).</li>
+    <li><b>Your Profile in Notion:</b> <span id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</span>
+      <div class="inline spaced"><button class="secondary" id="cv-compare">Compare with my Profile (~5¢)</button></div>
+      <div id="cv-suggestions" class="cv-suggestions"></div>
+      <div class="inline spaced" id="cv-apply-row" hidden><button class="primary" id="cv-apply">Apply selected to my Profile</button></div>
+      <p class="message" id="cv-review-message"></p></li>
+    <li id="cv-base-row"><b>CV for tailoring:</b> <span id="cv-base-text"></span>
+      <div class="inline spaced" id="cv-base-actions" hidden><button class="secondary" id="cv-base-read">Read the new CV (~5¢)</button></div></li>
+    <li id="cv-kits-row" hidden><b>Kits not sent yet</b> were drafted with the previous Profile. Redraft the ones you still want, after applying Profile changes:
+      <div id="cv-kits" class="cv-kits"></div></li>
+    <li class="good"><b>Not changed:</b> your searches and preferences, job matches and their scores, and applications already sent (they keep the CV you sent).</li>
+  </ul>
+  <div class="actions"><button class="secondary" id="cv-later">Later</button><button class="primary" id="cv-done">Done</button></div>
 </dialog>
 
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->
