@@ -17,7 +17,7 @@ const SCHEMA = {
 };
 
 // A fake Notion holding databases (their columns) and pages.
-function fakeWorkspace(databases) {
+function fakeWorkspace(databases, choices = {}) {
   const calls = [];
   let next = 1;
   const fetcher = async (url, init = {}) => {
@@ -26,7 +26,11 @@ function fakeWorkspace(databases) {
     calls.push(`${init.method} ${route}`);
     let data = {};
     if (init.method === 'GET' && route.startsWith('pages/')) data = {parent: {page_id: 'root'}};
-    else if (init.method === 'GET' && route.startsWith('databases/')) data = {properties: Object.fromEntries([...databases[route.split('/')[1]]].map(n => [n, {}]))};
+    else if (init.method === 'GET' && route.startsWith('databases/')) {
+      const id = route.split('/')[1];
+      data = {properties: Object.fromEntries([...databases[id]].map(n => [n, choices[`${id}/${n}`]
+        ? {type: 'select', select: {options: choices[`${id}/${n}`].map(label => ({id: `id-${label}`, name: label}))}} : {}]))};
+    }
     else if (init.method === 'POST' && route === 'databases') {
       const id = `db${next++}`;
       databases[id] = new Set(Object.keys(body.properties));
@@ -34,6 +38,7 @@ function fakeWorkspace(databases) {
     } else if (init.method === 'PATCH' && route.startsWith('databases/')) {
       const id = route.split('/')[1];
       for (const [name, prop] of Object.entries(body.properties)) {
+        if (prop.select && databases[id].has(name)) { choices[`${id}/${name}`] = prop.select.options.map(o => o.name); continue; }
         if (prop.name) { databases[id].delete(name); databases[id].add(prop.name); continue; }
         databases[id].add(name);
         if (prop.relation?.type === 'dual_property') databases[prop.relation.database_id].add('Related to Events (Application)');
@@ -57,6 +62,20 @@ test('a workspace missing a column, a database and a page gets them from the sch
   const again = await repair('ntn_x', fixed.ids, SCHEMA, fetcher);
   assert.deepEqual([again.created, again.columns], [[], []]);
   assert.ok(!calls.some(call => call.startsWith('DELETE')));  // never deletes anything
+});
+
+test('an existing select column gets the choices the schema added, keeping its own', async () => {
+  const databases = {apps: new Set(['Job', 'Stage', 'Applied on'])};
+  const choices = {'apps/Stage': ['Saved', 'Applied']};  // "Recruiter lead" is new in the schema
+  const {calls, fetcher} = fakeWorkspace(databases, choices);
+  const schema = {databases: {APPS: {title: 'Applications', columns: {Job: {type: 'title'}, 'Applied on': {type: 'date'},
+    Stage: {type: 'select', options: [{name: 'Applied', color: 'blue'}, {name: 'Recruiter lead', color: 'purple'}]}}}}, pages: {}};
+  const fixed = await repair('ntn_x', {APPS: 'apps', NOTION_PROFILE_PAGE_ID: 'profile'}, schema, fetcher);
+  assert.deepEqual(fixed.columns, ['Applications: Stage → Recruiter lead']);
+  assert.deepEqual(choices['apps/Stage'], ['Saved', 'Applied', 'Recruiter lead']);  // "Saved" (not in the schema) kept
+  const again = await repair('ntn_x', fixed.ids, schema, fetcher);
+  assert.deepEqual(again.columns, []);
+  assert.ok(!calls.some(call => call.startsWith('DELETE')));
 });
 
 test('the committed schema (once snapshotted) covers every column the app requires', () => {

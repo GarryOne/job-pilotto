@@ -39,10 +39,11 @@ export async function repair(token, ids, schema = load(), fetcher, root = null) 
   };
 
   // Databases the workspace lacks: created with their plain columns (the rest follow in the passes below).
-  const have = {};
+  const have = {}, existing = {};
   for (const [env, db] of Object.entries(schema.databases)) {
     if (out.ids[env]) {
-      have[env] = new Set(Object.keys((await api('GET', `databases/${out.ids[env]}`)).properties || {}));
+      existing[env] = (await api('GET', `databases/${out.ids[env]}`)).properties || {};
+      have[env] = new Set(Object.keys(existing[env]));
       continue;
     }
     const properties = Object.fromEntries(Object.entries(db.columns).filter(([, c]) => PASSES[0](c.type)).map(([name, c]) => [name, apiProperty(c)]));
@@ -78,6 +79,20 @@ export async function repair(token, ids, schema = load(), fetcher, root = null) 
         have[env].add(name);
         out.columns.push(`${db.title}: ${name}`);
       }
+    }
+  }
+
+  // Missing choices in existing select columns (e.g. a new Stage): Notion refuses a filter on a choice it
+  // doesn't have. The column's current choices are sent back as they are, so none is lost or recoloured.
+  for (const [env, db] of Object.entries(schema.databases)) {
+    for (const [name, column] of Object.entries(db.columns)) {
+      const current = existing[env]?.[name]?.[column.type]?.options;
+      if (!['select', 'multi_select'].includes(column.type) || !current) continue;
+      const missing = (column.options || []).filter(option => !current.some(o => o.name === option.name));
+      if (!missing.length) continue;
+      await api('PATCH', `databases/${out.ids[env]}`, {properties: {[name]: {[column.type]: {options: [
+        ...current.map(({id, name: label}) => ({id, name: label})), ...missing.map(({name: label, color}) => ({name: label, color}))]}}}});
+      out.columns.push(...missing.map(option => `${db.title}: ${name} → ${option.name}`));
     }
   }
 
