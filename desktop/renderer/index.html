@@ -268,11 +268,11 @@
     </div>
 
     <div class="view" data-view="interviews" hidden>
-      <header class="view-head">
-        <div><h1>Interviews</h1><p class="muted">Record or add a call → transcript with speakers, on this Mac → save it to Notion under its job.</p></div>
+      <header class="view-head jobs-head">
+        <div><h1>Interviews</h1><p class="muted subtitle" title="The transcript is made on this Mac, then saved to Notion under its job">Record, transcribe and review every interview in one place.</p></div>
         <div class="head-actions">
-          <button class="secondary" id="iv-add">Add a recording or transcript…</button>
-          <button class="primary" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded">● Record a call</button>
+          <button class="secondary with-icon" id="iv-add" title="An audio or video file, or a transcript you already have"><i data-icon="upload"></i><span>Import recording</span></button>
+          <button class="primary with-icon" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded"><i data-icon="mic"></i><span>Record interview</span></button>
         </div>
       </header>
       <section class="card iv-recorder" id="iv-recorder" hidden>
@@ -287,14 +287,16 @@
           <button class="secondary small-btn" id="iv-permission-restart">Restart</button>
           <button class="link" id="iv-mic-only" title="For an interview in person or on speakers">Mic only</button></span>
       </section>
-      <section class="notice consent" id="iv-consent-box">
-        <span title="Recording a conversation without everyone's consent is against the law in Switzerland (Art. 179ter of the Criminal Code) and many other places. The same goes for recordings you add. If anyone says no, take notes instead.">⚠️ <b>Ask everyone before recording</b>: it's illegal without their consent (CH Art. 179<sup>ter</sup>).</span>
+      <section class="consent-card" id="iv-consent-box">
+        <span class="consent-icon"><i data-icon="shield"></i></span>
+        <div title="Recording a conversation without everyone's consent is against the law in Switzerland (Art. 179ter of the Criminal Code) and many other places. The same goes for recordings you add. If anyone says no, take notes instead.">
+          <b>Recording consent required</b><span>Ask everyone before recording. Swiss law requires their consent (Art. 179<sup>ter</sup>); ticked again for every call.</span></div>
         <label class="consent-check"><input type="checkbox" id="iv-consent"> Everyone agreed</label>
       </section>
       <p class="message" id="iv-message"></p>
 
       <section id="iv-drafts-block" hidden>
-        <h2 class="iv-heading">On this Mac, not saved yet</h2>
+        <div class="iv-section-head"><h2>Local recordings</h2><span class="q-count" id="iv-unsaved"></span></div>
         <div class="iv-list" id="iv-drafts"></div>
       </section>
 
@@ -333,11 +335,20 @@
       </section>
 
       <section>
-        <div class="iv-heading-row"><h2 class="iv-heading">In your Notion 🎤 Interviews</h2>
-          <div class="inline"><button class="link" id="iv-refresh">Refresh</button><button class="link" id="iv-recordings">Recordings in Finder</button></div></div>
-        <div class="table-wrap">
-          <table class="jobs iv-table">
-            <thead><tr><th>Date</th><th>Interview</th><th>Job</th><th>Review</th><th></th></tr></thead>
+        <div class="iv-section-head spread">
+          <div><h2>Interview library</h2><p class="muted small">Saved to Notion 🎤 Interviews</p></div>
+          <div class="head-actions">
+            <button class="secondary with-icon" id="iv-refresh"><i data-icon="refresh"></i><span>Refresh</span></button>
+            <button class="secondary with-icon" id="iv-recordings" title="The recordings kept on this Mac"><i data-icon="folder"></i><span>Open recordings folder</span></button>
+          </div>
+        </div>
+        <div class="toolbar iv-toolbar">
+          <label class="search-box"><i data-icon="search"></i><input id="iv-filter" type="search" placeholder="Search interviews" aria-label="Search interviews"></label>
+          <select id="iv-outcome" aria-label="Outcome"><option value="">All outcomes</option><option value="positive">Positive</option><option value="neutral">Neutral</option><option value="negative">Negative</option><option value="none">Not reviewed</option></select>
+        </div>
+        <div class="iv-lib-wrap">
+          <table class="iv-lib">
+            <thead><tr><th>Date</th><th>Interview</th><th>Location</th><th>Outcome</th><th>Actions</th></tr></thead>
             <tbody id="iv-saved"></tbody>
           </table>
         </div>

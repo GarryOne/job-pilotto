@@ -264,12 +264,7 @@ details.questions > p { margin: 0 0 6px; }
 .rec-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--bad); animation: pulse 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
 .iv-timer { font: 600 15px ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
-.iv-heading { font-size: 15px; margin: 18px 0 8px; }
-.iv-heading-row { display: flex; justify-content: space-between; align-items: baseline; }
-.iv-heading-row .inline { gap: 16px; }
 .iv-list { display: grid; gap: 8px; margin-bottom: 8px; }
-.iv-draft { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
-.iv-draft b { flex: 1; }
 .iv-draft.open { border-color: var(--signal); }
 .iv-editor-head { display: flex; gap: 8px; }
 .iv-editor-head input { font-weight: 600; font-size: 16px; }
@@ -277,11 +272,6 @@ details.questions > p { margin: 0 0 6px; }
 .iv-speakers { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-bottom: 4px; }
 .iv-speakers label { margin: 0; font-weight: 400; font-size: 12px; color: var(--muted); }
 .iv-speakers input { margin-top: 2px; }
-.iv-table select { min-width: 220px; font-size: 13px; padding: 4px 8px; }
-.review-tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--sky); white-space: nowrap; }
-.review-tag.positive { background: #e3f4ea; color: var(--good); }
-.review-tag.neutral { background: #fdf3dc; color: var(--warn); }
-.review-tag.negative { background: #fbe6e4; color: var(--bad); }
 .callout.cv { background: color-mix(in srgb, #0e7c7b 10%, transparent); }
 .callout.cv .cv-line { font-size: 14px; } .callout.cv #cv-state { color: var(--muted, #6b7a8c); }
 .callout.cv .message:empty { display: none; }
@@ -450,3 +440,60 @@ button.tag { cursor: pointer; }
 .question .message:empty { display: none; }
 .question input { font-size: 12.5px; padding: 5px 8px; }
 .question button { font-size: 12px; padding: 5px 10px; }
+
+/* ---------- Interviews (redesign): consent card, local recordings, interview library ---------- */
+.consent-card { display: flex; align-items: center; gap: 12px; background: #fff8ec; border: 1px solid #f4e2c2; border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 14px; }
+.consent-icon { color: #9a6200; display: grid; }
+.consent-icon .icon { width: 22px; height: 22px; }
+.consent-card > div { flex: 1; min-width: 0; display: grid; gap: 1px; cursor: help; }
+.consent-card b { font-size: 13px; }
+.consent-card span { font-size: 12px; color: var(--muted); }
+.consent-card .consent-check { font-size: 12.5px; font-weight: 500; }
+.consent-card .consent-check input { width: 16px; height: 16px; }
+.iv-section-head { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; }
+.iv-section-head h2 { font-size: 16px; margin: 0; }
+.iv-section-head p { margin: 0; }
+.iv-section-head.spread { justify-content: space-between; align-items: flex-end; }
+.iv-list { display: grid; gap: 8px; margin-bottom: 4px; }
+.iv-draft { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.iv-draft.open { border-color: var(--signal); }
+.iv-tile { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; background: var(--signal-soft); color: var(--signal); flex: none; }
+.iv-tile .icon { width: 19px; height: 19px; }
+.iv-draft-text { min-width: 0; display: grid; gap: 2px; }
+.iv-draft-text b { font-size: 13.5px; }
+.iv-draft .pill-dot { margin-right: auto; }
+.iv-main { min-width: 7.5em; padding: 7px 12px; font-size: 12.5px; border-radius: 7px; }
+/* A status with a coloured dot: Ready, Transcribing, Positive, Neutral… */
+.pill-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 99px;
+  background: var(--sky); color: var(--muted); white-space: nowrap; }
+.pill-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill-dot.ok, .pill-dot.positive { background: #e3f4ea; color: var(--good); }
+.pill-dot.neutral { background: #fdf3dc; color: var(--warn); }
+.pill-dot.negative, .pill-dot.bad { background: #fbe6e4; color: var(--bad); }
+.pill-dot.busy { background: var(--signal-soft); color: #a3470f; }
+.iv-toolbar .search-box { flex: 0 1 340px; }
+.iv-lib-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+table.iv-lib { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.iv-lib th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  padding: 8px 14px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+.iv-lib th:last-child { width: 1%; }
+.iv-lib td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.iv-lib tr:last-child td { border-bottom: 0; }
+.iv-lib tr:hover td { background: #fbfcfd; }
+.iv-date { white-space: nowrap; color: var(--ink); }
+.iv-who { display: flex; align-items: center; gap: 10px; }
+.iv-who b { font-size: 13px; }
+.iv-who .muted { font-size: 12px; line-height: 1.35; }
+.iv-where { color: var(--ink); }
+.iv-picker { display: grid; gap: 4px; margin-top: 6px; }
+.iv-picker select, .iv-picker input { font-size: 12px; padding: 4px 8px; }
+#iv-empty { padding: 16px; }
+#iv-message:empty { display: none; }
+/* The transcript editor at the same scale as the rest of the page. */
+.iv-editor { padding: 12px 14px; }
+.iv-editor-head input { font-size: 14px; padding: 6px 10px; }
+.iv-editor h3, .iv-editor label { font-size: 12px; }
+.iv-editor input, .iv-editor select { font-size: 12.5px; padding: 6px 9px; }
+.iv-editor textarea { font-size: 12px; }
+.iv-editor button { font-size: 12.5px; padding: 7px 12px; }

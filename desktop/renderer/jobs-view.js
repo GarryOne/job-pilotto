@@ -51,6 +51,13 @@ export function workMode(text) {
   return {kind, label};
 }
 
+// Place and mode on one line, without saying the mode twice ("Remote (Europe)" + Remote reads "Remote (Europe)").
+export function placeAndMode(location, mode) {
+  const {kind, label} = workMode(mode);
+  const said = kind && MODES.find(([k]) => k === kind)[2].test(location || '');
+  return [location, mode && !said ? label : ''].filter(Boolean).join(' · ');
+}
+
 // Fit ring colour band.
 export const band = fit => (fit == null ? 'none' : fit >= 70 ? 'high' : fit >= 50 ? 'mid' : 'low');
 

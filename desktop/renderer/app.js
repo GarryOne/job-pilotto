@@ -1,6 +1,6 @@
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {ago, avatar, band, matchLabel, sorted, stats, tags, workMode} from './jobs-view.js';
+import {ago, avatar, band, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
@@ -506,7 +506,7 @@ function renderJobs() {
     const smallBadge = el('span', 'logo', small.initials);
     smallBadge.style.setProperty('--hue', small.hue);
     meta.append(smallBadge, el('b', '', job.company));
-    for (const part of [job.location, job.work_mode && workMode(job.work_mode).label, ago(job.first_seen_at)].filter(Boolean)) {
+    for (const part of [placeAndMode(job.location, job.work_mode), ago(job.first_seen_at)].filter(Boolean)) {
       meta.append(el('span', 'sep', '·'), el('span', '', part));
     }
     role.append(meta);
@@ -1171,45 +1171,52 @@ async function loadInterviews() {
   loadSaved();
 }
 
-// A delete button that asks once more: the first click changes its label, a second within 4 s deletes.
-function confirmButton(label, ask, onConfirm, disabled = false) {
-  const button = Object.assign(document.createElement('button'), {className: 'ghost danger', textContent: label, disabled});
-  let armed = null;
-  button.addEventListener('click', async () => {
-    if (!armed) {
-      button.textContent = ask;
-      armed = setTimeout(() => { armed = null; button.textContent = label; }, 4000);
-      return;
-    }
-    clearTimeout(armed);
-    button.disabled = true;
-    await onConfirm();
-  });
-  return button;
-}
-
 function renderDrafts(drafts) {
   show($('iv-drafts-block'), drafts.length > 0);
+  $('iv-unsaved').textContent = `${drafts.length} unsaved`;
+  // Status: words for the meta line, and a pill.
   const STATUS = {new: 'Not transcribed', recording: 'Recording…', transcribing: 'Transcribing…', stopped: 'Stopped: transcribe again',
     failed: 'Failed', ready: 'Transcript ready'};
+  const PILL = {ready: ['ok', 'Ready'], transcribing: ['busy', 'Transcribing'], recording: ['busy', 'Recording'], failed: ['bad', 'Failed']};
   $('iv-drafts').replaceChildren(...drafts.map(draft => {
-    const row = Object.assign(document.createElement('div'), {className: `iv-draft${draft.id === ivOpen ? ' open' : ''}`});
+    const busy = draft.status === 'recording' || draft.status === 'transcribing';
+    const row = el('div', `iv-draft${draft.id === ivOpen ? ' open' : ''}`);
+    const tile = el('span', 'iv-tile');
+    tile.append(icon(draft.kind === 'audio' ? 'mic' : 'file'));
+    const text = el('div', 'iv-draft-text');
     const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
-    row.append(Object.assign(document.createElement('b'), {textContent: draft.title}),
-      Object.assign(document.createElement('span'), {className: 'muted small', textContent: `${when} · ${STATUS[draft.status] || draft.status}`}));
-    if (draft.pageUrl) {  // the transcript is already in Notion; Save writes the edits there
-      const link = Object.assign(document.createElement('a'), {href: '#', className: 'small', textContent: 'In Notion ↗'});
-      link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(draft.pageUrl); });
-      row.append(link);
+    const meta = el('div', 'muted small');
+    const parts = [when, draft.seconds ? `${Math.max(1, Math.round(draft.seconds / 60))} min` : '', STATUS[draft.status] || draft.status,
+      draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);
+    meta.textContent = parts.join('  ·  ');
+    text.append(el('b', '', draft.title), meta);
+    const [tone, label] = PILL[draft.status] || ['', STATUS[draft.status] || draft.status];
+    const pill = el('span', `pill-dot ${tone}`, label);
+    // The next step for this draft: transcribe it, or review the transcript and save it.
+    const needsTranscript = draft.kind === 'audio' && ['new', 'stopped', 'failed'].includes(draft.status);
+    const main = Object.assign(el('button', 'primary iv-main', draft.status === 'ready' ? 'Review & save' : needsTranscript ? 'Transcribe' : 'Open'),
+      {disabled: busy && draft.id !== ivOpen});
+    main.addEventListener('click', () => openDraft(draft.id));
+    const menu = [{label: 'Open', run: () => openDraft(draft.id)}];
+    if (draft.pageUrl) menu.push({label: '↗ Transcript in Notion', run: () => window.pilot.openExternal(draft.pageUrl)});
+    menu.push({label: osText('Show in Finder'), run: () => iv.recordings(), title: 'The recordings kept on this Mac'});
+    if (!busy) {
+      menu.push('-', {label: draft.pageId ? 'Delete here and in Notion' : 'Delete recording', danger: true, run: async () => {
+        if (!confirm(draft.pageId ? `Delete "${draft.title}" on this Mac and in Notion?` : `Delete "${draft.title}" and its recording?`)) return;
+        await iv.discard(draft.id);
+        if (ivOpen === draft.id) { ivOpen = null; show($('iv-editor'), false); }
+        renderDrafts(await iv.drafts());
+      }});
     }
-    const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
-    open.addEventListener('click', () => openDraft(draft.id));
-    const remove = confirmButton('Delete', draft.pageId ? 'Delete it here and in Notion?' : 'Delete recording?', async () => {
-      await iv.discard(draft.id);
-      if (ivOpen === draft.id) { ivOpen = null; show($('iv-editor'), false); }
-      renderDrafts(await iv.drafts());
-    }, draft.status === 'recording' || draft.status === 'transcribing');
-    row.append(open, remove);
+    const more = Object.assign(el('button', 'secondary more'), {title: 'More: open, show in Finder, delete'});
+    more.setAttribute('aria-label', 'More actions');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.append(icon('more'));
+    more.addEventListener('click', () => openRowMenu(more, menu));
+    const actions = el('div', 'row-actions');
+    actions.append(main, more);
+    row.append(tile, text, pill, actions);
     return row;
   }));
 }
@@ -1329,20 +1336,44 @@ $('iv-discard').addEventListener('click', async () => {
 
 // Saved interviews, from Notion. Changing the job updates the row's Application there.
 const reviewing = new Set();
+const OUTCOME = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative'};
 async function loadSaved() {
   const result = await iv.saved();
-  if (!result.ok) { $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
+  if (!result.ok) { ivSavedRows = []; $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
   ivSavedRows = result.interviews;
-  show($('iv-empty'), ivSavedRows.length === 0);
-  $('iv-empty').textContent = 'No interviews in Notion yet.';
-  $('iv-saved').replaceChildren(...ivSavedRows.map(row => {
+  renderSaved();
+}
+function renderSaved() {
+  closeRowMenu();
+  const text = $('iv-filter').value.trim().toLowerCase(), outcome = $('iv-outcome').value;
+  const rows = ivSavedRows.filter(row => {
+    const job = row.application[0] ? jobForPage(row.application[0]) : null;
+    const words = `${row.title} ${row.round || ''} ${row.next_step || ''} ${job?.title || ''} ${job?.company || ''}`.toLowerCase();
+    return (!text || words.includes(text)) && (!outcome || (outcome === 'none' ? !row.overall : row.overall === outcome));
+  });
+  show($('iv-empty'), rows.length === 0);
+  $('iv-empty').textContent = ivSavedRows.length ? 'No interview matches this filter.' : 'No interviews in Notion yet.';
+  $('iv-saved').replaceChildren(...rows.map(row => {
     const tr = document.createElement('tr');
     const cell = (...children) => { const td = document.createElement('td'); td.append(...children); tr.append(td); return td; };
-    cell(row.date || '');
-    const title = cell(Object.assign(document.createElement('b'), {textContent: row.title}));
-    if (row.next_step) title.append(Object.assign(document.createElement('div'), {className: 'reason', textContent: `Next: ${row.next_step}`}));
-    const select = document.createElement('select');
     const job = row.application[0] ? jobForPage(row.application[0]) : null;
+    cell(row.date ? new Date(`${row.date}T12:00:00`).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) : '').className = 'iv-date';
+
+    // Interview: company badge, the job (or the interview's own title), company · round, next step.
+    const who = el('div', 'iv-who');
+    const logo = avatar(job?.company || row.title);
+    const badge = el('span', 'logo', logo.initials);
+    badge.style.setProperty('--hue', logo.hue);
+    const lines = el('div', '');
+    lines.append(el('b', '', job ? job.title : row.title));
+    const sub = [job?.company, row.round].filter(Boolean).join(' · ') || (job ? '' : 'No job linked');
+    if (sub) lines.append(el('div', 'muted small', sub));
+    lines.append(el('div', 'muted small', row.next_step ? `Next: ${row.next_step}` : 'Next step not stated'));
+    who.append(badge, lines);
+    // Change job…: the job picker, shown on the row when asked for from the menu.
+    const picker = el('div', 'iv-picker');
+    picker.hidden = true;
+    const select = document.createElement('select');
     jobOptions(select, job?.url || '', row.application[0] && !job ? 'Linked in Notion (job not in this list)' : 'No job linked');
     if (row.application[0] && !job) select.value = '';
     const pasted = Object.assign(document.createElement('input'), {type: 'url', placeholder: 'https://… then Enter', hidden: true});
@@ -1352,8 +1383,8 @@ async function loadSaved() {
       const done = await iv.link(row.id, url);
       select.disabled = pasted.disabled = false;
       message('iv-message', done.ok ? `"${row.title}" is now ${url ? 'linked to that job' : 'not linked to a job'} in Notion.` : done.error, done.ok ? 'ok' : 'error');
-      if (done.ok && url && !allJobs.some(job => job.url === url && job.notion_url)) {
-        try { allJobs = (await window.pilot.jobs()).jobs; } catch {}  // it was just added to Applications
+      if (done.ok) {
+        if (url && !allJobs.some(j => j.url === url && j.notion_url)) { try { allJobs = (await window.pilot.jobs()).jobs; } catch {} }  // just added to Applications
         loadSaved();
       }
     };
@@ -1362,31 +1393,50 @@ async function loadSaved() {
       if (select.value === PASTE) pasted.focus(); else relink(select.value);
     });
     pasted.addEventListener('change', () => { if (/^https?:\/\//.test(pasted.value.trim())) relink(pasted.value.trim()); });
-    cell(select, pasted);
-    cell(row.overall ? Object.assign(document.createElement('span'), {className: `review-tag ${row.overall}`, textContent: `${row.overall}${row.round ? ` · ${row.round}` : ''}`})
-      : reviewing.has(row.id) ? Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'Reviewing…'})
-        : Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'Not reviewed'}));
-    const actions = Object.assign(document.createElement('div'), {className: 'row-actions'});
-    if (!row.overall) {
-      const review = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Review', disabled: reviewing.has(row.id),
+    picker.append(select, pasted);
+    cell(who, picker);
+
+    cell(job ? placeAndMode(job.location, job.work_mode) || '–' : '–').className = 'iv-where';
+    cell(row.overall ? el('span', `pill-dot ${row.overall}`, `${OUTCOME[row.overall] || row.overall}`)
+      : el('span', `pill-dot${reviewing.has(row.id) ? ' busy' : ''}`, reviewing.has(row.id) ? 'Reviewing…' : 'Not reviewed'));
+
+    // Actions: open the review (or get one), then the rest in ⋯.
+    const actions = el('div', 'row-actions');
+    let main;
+    if (row.overall) {
+      main = el('button', 'secondary iv-main', 'Open review');
+      main.title = 'The review and transcript, in Notion';
+      main.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
+    } else {
+      main = Object.assign(el('button', 'secondary iv-main', reviewing.has(row.id) ? 'Reviewing…' : 'Review'), {disabled: reviewing.has(row.id),
         title: 'Claude reviews it question by question (about $0.05); the review is added to the Notion page'});
-      review.addEventListener('click', () => reviewRow(row.id));
-      actions.append(review);
+      main.addEventListener('click', () => reviewRow(row.id));
     }
-    const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
-    open.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
-    const remove = confirmButton('Delete', 'Sure?', async () => {
-      const done = await iv.remove(row.id);
-      message('iv-message', done.ok ? osText(`Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`)
-        : done.error, done.ok ? 'ok' : 'error');
-      loadSaved();
-    });
-    remove.title = osText("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac");
-    actions.append(open, remove);
+    const menu = [
+      {label: '↗ Open in Notion', run: event => window.pilot.openNotion(row.url, event.metaKey)},
+      {label: 'Change job…', run: () => { picker.hidden = false; select.focus(); }, title: 'Link this interview to another job (updates Notion)'},
+      '-',
+      {label: 'Delete', danger: true, title: osText("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac"), run: async () => {
+        if (!confirm(osText(`Delete "${row.title}"? It goes to Notion's trash (30 days) and its recording is removed from this Mac.`))) return;
+        const done = await iv.remove(row.id);
+        message('iv-message', done.ok ? osText(`Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`)
+          : done.error, done.ok ? 'ok' : 'error');
+        loadSaved();
+      }},
+    ];
+    const more = Object.assign(el('button', 'secondary more'), {title: 'More: open in Notion, change job, delete'});
+    more.setAttribute('aria-label', 'More actions');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.append(icon('more'));
+    more.addEventListener('click', () => openRowMenu(more, menu));
+    actions.append(main, more);
     cell(actions);
     return tr;
   }));
 }
+$('iv-filter').addEventListener('input', renderSaved);
+$('iv-outcome').addEventListener('change', renderSaved);
 
 async function reviewRow(pageId) {
   if (!state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get reviews.', 'error'); return; }

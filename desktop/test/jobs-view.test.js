@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ago, avatar, band, matchLabel, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
+import {ago, avatar, band, matchLabel, placeAndMode, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
+
+test('place and mode on one line say the mode once', () => {
+  assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
+  assert.equal(placeAndMode('Germany (Remote)', 'Remote (stated)'), 'Germany (Remote)');
+  assert.equal(placeAndMode('Zurich', 'Hybrid'), 'Zurich · Hybrid');
+  assert.equal(placeAndMode('', 'On-site'), 'On-site');
+  assert.equal(placeAndMode('Bern', ''), 'Bern');
+});
 
 test('compact list: match label and age', () => {
   assert.deepEqual([matchLabel(78), matchLabel(62), matchLabel(30), matchLabel(null)], ['Strong match', 'Good match', 'Weak match', 'Not scored']);
