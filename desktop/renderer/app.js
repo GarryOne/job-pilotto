@@ -1819,8 +1819,26 @@ $('iv-discard').addEventListener('click', async () => {
 const reviewing = new Set();
 const OUTCOME = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative'};
 const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
+// While the library loads from Notion (like the Jobs list): a spinner in the empty table the first time;
+// afterwards the rows stay and the subtitle says it's refreshing.
+const IV_SAVED_TO = 'Saved to Notion 🎤 Interviews';
+function showSavedLoading() {
+  show($('iv-empty'), false);
+  if (ivSavedRows.length) { $('iv-lib-stats').textContent = 'Refreshing from Notion…'; return; }
+  const box = el('div', 'list-loading');
+  box.append(el('span', 'spinner'), el('div', '', 'Loading your interviews from Notion…'),
+    el('div', 'muted small', 'Interviews and their applications, usually a few seconds'));
+  const td = Object.assign(document.createElement('td'), {colSpan: 5});
+  td.append(box);
+  const tr = document.createElement('tr');
+  tr.append(td);
+  $('iv-saved').replaceChildren(tr);
+  $('iv-lib-stats').textContent = 'Loading from Notion…';
+}
 async function loadSaved() {
-  const result = await iv.saved();
+  showSavedLoading();
+  const result = await iv.saved().catch(error => ({ok: false, error: String(error?.message || error)}));
+  $('iv-lib-stats').textContent = IV_SAVED_TO;
   if (!result.ok) { ivSavedRows = []; $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
   ivSavedRows = result.interviews;
   renderSaved();
