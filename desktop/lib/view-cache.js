@@ -14,9 +14,13 @@ export function remember(storage, name, result) {
   }
   return result;
 }
-// {at, result} of the last good read of this workspace, or null.
+// Off for now (owner, 28 Sep 2026): screens load fresh every time. Turn it back on with "viewCache": true in the
+// app's settings.json. Reads are still saved meanwhile, so it works at once when turned on.
+export const enabled = storage => storage.settings().viewCache === true;
+
+// {at, result} of the last good read of this workspace, or null (also when the view cache is off).
 export function recall(storage, name) {
-  if (!NAMES.includes(name)) return null;
+  if (!NAMES.includes(name) || !enabled(storage)) return null;
   try {
     const saved = JSON.parse(storage.readText(file(name)));
     return saved.workspace === workspace(storage) ? {at: saved.at, result: saved.result} : null;

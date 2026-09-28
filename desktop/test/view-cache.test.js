@@ -9,7 +9,7 @@ import * as viewCache from '../lib/view-cache.js';
 
 const storage = () => {
   const s = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cache-')), {encrypt: v => v, decrypt: v => v});
-  s.saveSettings({notionIds: {NOTION_APPLICATIONS_DB: 'ws-1'}});
+  s.saveSettings({notionIds: {NOTION_APPLICATIONS_DB: 'ws-1'}, viewCache: true});
   return s;
 };
 
@@ -37,4 +37,13 @@ test('saved screens live in their own folder, not Chromium\'s Cache (same name o
   viewCache.remember(s, 'focus', {ok: true, focus: {}});
   assert.ok(fs.existsSync(s.path('view-cache/focus.json')));
   assert.ok(!fs.existsSync(s.path('cache')));
+});
+
+test('while the view cache is off, screens load fresh (nothing handed back), but reads are still saved', () => {
+  const s = storage();
+  s.saveSettings({viewCache: false});
+  viewCache.remember(s, 'jobs', {jobs: [], total: 0});
+  assert.equal(viewCache.recall(s, 'jobs'), null);
+  s.saveSettings({viewCache: true});
+  assert.equal(viewCache.recall(s, 'jobs').result.total, 0);
 });
