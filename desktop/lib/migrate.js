@@ -25,6 +25,14 @@ export const STEPS = [
     storage.saveSettings({notionIds: fixed.ids});
     return true;
   }},
+  // "Reached via" on leads tracked before the column existed (from their Notes), once.
+  {name: 'reached via', run: async storage => {
+    if (storage.settings().reachedViaFilled) return false;
+    const {code} = await pipeline.run(storage, ['src.ai.opportunity', 'backfill']);
+    if (code !== 0) throw new Error('could not fill Reached via');
+    storage.saveSettings({reachedViaFilled: true});
+    return true;
+  }},
   // Profile and standard answers: Notion pages since setup; the local copies are leftovers.
   {name: 'profile copies', run: async storage => {
     if (!storage.readText('profile.md') && !storage.readText('answers.md')) return false;

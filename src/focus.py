@@ -119,8 +119,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
         label = f"{company} — {_field(row, 'Job')[:70]}"
         if last and last['kind'] in NEEDS_ANSWER:
-            link = _gmail(last['source_id']) or (_field(row, 'Job URL') if 'linkedin.com/messaging' in _field(row, 'Job URL') else '')
-            where = 'on LinkedIn' if 'linkedin' in link else 'by email' if link else ''
+            job_url = _field(row, 'Job URL')
+            link = _gmail(last['source_id']) or (job_url if re.search(r'mail\.google\.com|linkedin\.com/messaging', job_url) else '')
+            reached = _field(row, 'Reached via') or ('LinkedIn' if 'linkedin' in link else 'Email' if 'mail.google' in link else '')
+            where = {'Email': 'by email', 'LinkedIn': 'on LinkedIn', 'Phone': 'by phone'}.get(reached, '')
             when = _ago(last['at'], now) if last['at'] else ''
             if last['kind'] == 'Offer':
                 items.append(_item(1, 'offer', '🎉', f'Answer the offer: {label}', f'Offer {when}. {last["note"][:140]}', row,
@@ -129,9 +131,13 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
                 items.append(_item(1, 'book', '📅', f'Book the call: {label}', f'They asked you to pick a time ({when}). {last["note"][:140]}',
                                    row, link, 'Open the email' if 'mail.google' in link else 'Open', done=True))
             else:
-                what = 'Recruiter pitch' if last['kind'] == 'Recruiter lead' else 'They wrote'
+                if last['kind'] == 'Recruiter lead':  # the facts that decide the answer, not the event's note
+                    facts = ' · '.join(p for p in (_field(row, 'Salary'), _field(row, 'Location'), _field(row, 'Contact').split(' · ')[0]) if p)
+                    detail = f'Recruiter pitch {when}{f" ({reached})" if reached else ""}. {facts}'
+                else:
+                    detail = f'They wrote {when}. {last["note"][:140]}'
                 items.append(_item(1, 'reply', '💬', f'Reply {where}: {label}'.replace('Reply : ', 'Reply: '),
-                                   f'{what} {when}. {last["note"][:140]}', row, link,
+                                   detail, row, link,
                                    'Open the email' if 'mail.google' in link else 'Open on LinkedIn' if 'linkedin' in link else '', done=True))
             continue
         coming = _when(_field(row, 'Next interview'))

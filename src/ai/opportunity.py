@@ -34,6 +34,7 @@ LEAD_STAGE = 'Recruiter lead'
 HEADING = '🤝 Recruiter message'
 MIN_TEXT = 40  # shorter than this isn't a recruiter's message (e.g. a date after /add)
 WORK_MODES = ('On-site', 'Hybrid', 'Remote')
+REACHED_VIA = ('Email', 'LinkedIn', 'Phone', 'Other')
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -124,17 +125,41 @@ def properties(lead, url, stage, source, origin='Recruiter message'):
         'Channel': {'select': {'name': 'Direct' if lead.get('in_house') else 'Agency'}},
         'Via': _text(via), 'Contact': _text(contact(lead)), 'Recruiter': {'checkbox': not lead.get('in_house')},
         'Notes': _text('. '.join(notes)), 'Source': {'select': {'name': source}},
+        # Where the recruiter reached you: where to answer (Focus says "Reply by email / on LinkedIn").
+        'Reached via': {'select': {'name': lead.get('platform') if lead.get('platform') in REACHED_VIA else 'Other'}},
     }
     if lead.get('work_mode') in WORK_MODES:
         props['Work mode'] = {'select': {'name': lead['work_mode']}}
     return props
 
 
+def same_pitch(tracker, lead):
+    """An open lead for the same role from the same recruiter (email) or agency: the pitch pasted after the Gmail check
+    found it, or the other way round. None when there's none (or it can't be checked)."""
+    words = lambda value: ' '.join(re.findall(r'[a-z0-9]+', (value or '').lower()))
+    role, email, agency = words(title(lead)), (lead.get('recruiter_email') or '').lower(), words(lead.get('recruiter_company'))
+    try:
+        rows = tracker.query_database(tracker.database_id, {'or': [
+            {'property': 'Stage', 'select': {'equals': stage}} for stage in (LEAD_STAGE, 'Screening')]})
+    except Exception:  # noqa: BLE001
+        return None
+    for row in rows:
+        props = row.get('properties', {})
+        text = lambda name: ''.join(t.get('plain_text', '') for t in (props.get(name) or {}).get('rich_text') or (props.get(name) or {}).get('title') or [])
+        if words(text('Job')) != role:
+            continue
+        if (email and email in text('Contact').lower()) or (agency and words(text('Via')) == agency):
+            return row
+    return None
+
+
 def track(tracker, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note='', seed=None, url=None, extra_blocks=()):
     """The Applications row, the page body (the message) and the events. Returns (row, one-line summary);
     row is None when the message is already tracked."""
+    if gmail_id and lead.get('platform') not in ('LinkedIn',):
+        lead = {**lead, 'platform': 'Email'}  # found in Gmail: an email (LinkedIn's notification emails stay LinkedIn)
     url = url or lead_url(lead, text, gmail_id, seed)
-    if tracker.find(url):
+    if tracker.find(url) or same_pitch(tracker, lead):
         return None, f'Already tracked: {label(lead)}'
     talking = talking or bool(lead.get('owner_agreed'))
     stage = 'Screening' if talking else LEAD_STAGE
@@ -177,16 +202,38 @@ def add_from_text(tracker, text, *, client=None, model=DEFAULT_MODEL, source='Ma
     return track(tracker, lead, text, source=source, event_source=event_source, talking=talking)[1]
 
 
+def backfill_reached(tracker):
+    """Leads tracked before the "Reached via" column: filled from their Notes ("Recruiter message (Email)"), or
+    Email when the lead is a Gmail message. Returns how many rows were filled."""
+    filled = 0
+    for row in tracker.query_database(tracker.database_id):
+        props = row['properties']
+        if 'Reached via' not in props or ((props['Reached via'] or {}).get('select') or {}).get('name'):
+            continue
+        notes = ''.join(t.get('plain_text', '') for t in (props.get('Notes') or {}).get('rich_text') or [])
+        url = (props.get('Job URL') or {}).get('url') or ''
+        found = re.search(r'\((Email|LinkedIn|Phone|Other)\)', notes)
+        value = found.group(1) if found else 'Email' if 'mail.google.com' in url else 'LinkedIn' if 'linkedin.com/messaging' in url else ''
+        if value:
+            tracker.update_page(row['id'], {'Reached via': {'select': {'name': value}}})
+            filled += 1
+    return filled
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
     add = sub.add_parser('add', help="track a recruiter's message (from a file, or stdin)")
     add.add_argument('--text-file', help='the message; default: stdin')
     add.add_argument('--talking', action='store_true', help="you've already replied yes: Stage Screening")
+    sub.add_parser('backfill', help='fill "Reached via" on leads tracked before the column existed')
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+    if args.command == 'backfill':
+        print(f'Reached via filled on {backfill_reached(tracker)} lead(s)')
+        return 0
     text = open(args.text_file, encoding='utf-8').read() if args.text_file else sys.stdin.read()
     try:
         print('🤝 ' + add_from_text(tracker, text, talking=args.talking))

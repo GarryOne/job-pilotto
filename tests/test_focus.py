@@ -46,6 +46,16 @@ class FocusTests(unittest.TestCase):
         self.assertIn('1 kit ready (Grafana Labs…)', result['items'][2]['detail'])
         self.assertNotIn('Laelaps AI', [c for _, c in kinds])  # answered: a Replied event came after
 
+    def test_a_recruiter_pitch_links_to_its_email_and_shows_the_facts(self):
+        lead = row('a', '', 'Senior DevOps Engineer', stage='Recruiter lead', applied=None, Via='AG Talent',
+                   Salary='€70–90k + equity', Location='Remote (Europe)', Contact='Arjun Gillard · a@agtalent.co.uk',
+                   Reached_via={'type': 'select', 'select': {'name': 'Email'}})
+        lead['properties']['Job URL']['url'] = 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5'
+        item = focus.build([lead], [event('a', 'Recruiter lead', '2026-09-28T14:17:00Z', 'Recruiter message: …')], now=NOW)['items'][0]
+        self.assertEqual(item['title'], 'Reply by email: AG Talent — Senior DevOps Engineer')
+        self.assertEqual(item['link'], 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5')
+        self.assertEqual(item['detail'], 'Recruiter pitch today (Email). €70–90k + equity · Remote (Europe) · Arjun Gillard')
+
     def test_a_booking_invite_and_an_offer(self):
         rows = [row('a', 'Acme', 'SRE', stage='Screening'), row('b', 'Zeta', 'SRE', stage='Offer')]
         events = [event('a', 'Reply received', '2026-09-28T08:00:00Z', 'Pick a time that works for you'),

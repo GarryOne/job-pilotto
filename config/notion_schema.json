@@ -368,6 +368,27 @@
         },
         "Rejection lesson": {
           "type": "rich_text"
+        },
+        "Reached via": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Email",
+              "color": "blue"
+            },
+            {
+              "name": "LinkedIn",
+              "color": "purple"
+            },
+            {
+              "name": "Phone",
+              "color": "green"
+            },
+            {
+              "name": "Other",
+              "color": "gray"
+            }
+          ]
         }
       }
     },

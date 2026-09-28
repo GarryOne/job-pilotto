@@ -87,6 +87,32 @@ class OpportunityTests(unittest.TestCase):
         self.assertTrue(again.startswith('Already tracked'))
         self.assertEqual(len([p for p in tracker.created if 'Stage' in p]), 1)
 
+    def test_where_the_recruiter_reached_you_is_kept(self):
+        tracker = Tracker()
+        opportunity.add_from_text(tracker, CHAT_PITCH, client=Client(CHAT_LEAD))
+        self.assertEqual(tracker.created[0]['Reached via'], {'select': {'name': 'LinkedIn'}})
+
+    def test_the_same_pitch_from_gmail_and_pasted_is_one_lead(self):
+        emailed = app('g1', '', 'Senior DevOps Engineer', stage='Recruiter lead', contact='Alex Morgan · alex@example-talent.test')
+
+        class Seen(Tracker):
+            def query_database(self, database_id, filter_=None):
+                return [emailed] if filter_ and 'or' in filter_ else super().query_database(database_id, filter_)
+        tracker = Seen()
+        line = opportunity.add_from_text(tracker, EMAIL_PITCH, client=Client(EMAIL_LEAD))
+        self.assertTrue(line.startswith('Already tracked'))
+        self.assertEqual(tracker.created, [])
+
+    def test_older_leads_get_reached_via_from_their_notes(self):
+        old = app('o1', '', 'SRE', stage='Recruiter lead')
+        old['properties'].update({'Notes': {'type': 'rich_text', 'rich_text': [{'plain_text': 'Recruiter message (LinkedIn). Client: x'}]},
+                                  'Reached via': {'type': 'select', 'select': None}})
+        done = app('o2', '', 'SRE', stage='Recruiter lead')
+        done['properties']['Reached via'] = {'type': 'select', 'select': {'name': 'Email'}}
+        tracker = Tracker([old, done])
+        self.assertEqual(opportunity.backfill_reached(tracker), 1)
+        self.assertEqual(tracker.updates, [('o1', {'Reached via': {'select': {'name': 'LinkedIn'}}})])
+
     def test_a_conversation_where_the_owner_said_yes_starts_at_screening(self):
         tracker = Tracker()
         line = opportunity.add_from_text(tracker, CHAT_PITCH, client=Client(CHAT_LEAD))
