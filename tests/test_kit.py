@@ -74,10 +74,21 @@ class FakeTracker:
 class KitTests(unittest.TestCase):
     def test_reads_greenhouse_questions_without_personal_fields(self):
         questions = kit.form_questions(URL, opener)
-        self.assertEqual([q['field'] for q in questions], ['question_1', 'question_2', 'gender'])
+        self.assertEqual([q['field'] for q in questions], ['question_1', 'question_2', 'gender', 'country'])
         self.assertEqual(questions[1]['options'], ['Yes', 'No'])
         self.assertEqual(questions[2]['kind'], 'Demographic')
         self.assertEqual(kit.form_questions('https://jobs.lever.co/acme/1', opener), [])
+
+    def test_covers_what_greenhouse_keeps_outside_its_question_list(self):
+        # The education section is a flag, Hispanic/Latino comes with Race, and Country is on every new form: the kit
+        # drafts them too, so the extension fills them without asking Claude at fill time.
+        data = {'questions': [], 'education': 'education_optional',
+                'compliance': [{'questions': [{'label': 'Race', 'required': False, 'fields': [{'name': 'race', 'type': 'multi_value_single_select', 'values': []}]}]}]}
+        opener_with = lambda request, timeout=20: io.BytesIO(json.dumps(data).encode())
+        fields = [q['field'] for q in kit.form_questions(URL, opener_with)]
+        self.assertEqual(fields, ['race', 'school--0', 'degree--0', 'discipline--0', 'hispanic_ethnicity', 'country'])
+        data['education'] = None
+        self.assertNotIn('school--0', [q['field'] for q in kit.form_questions(URL, opener_with)])
 
     def test_select_answer_outside_options_needs_review(self):
         questions = kit.form_questions(URL, opener)

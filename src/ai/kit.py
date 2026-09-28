@@ -138,6 +138,19 @@ def form_questions(url, opener=None):
                     'type': field.get('type', ''), 'kind': kind,
                     'options': [v.get('label', '') for v in field.get('values') or []],
                 })
+    # What Greenhouse keeps outside its question list, so the kit covers it too and the form fills without asking Claude
+    # at fill time: the education section (a flag, not questions; the form's fields are school--0, degree--0,
+    # discipline--0, searchable lists), the Hispanic/Latino question that comes with Race, and Country.
+    if data.get('education') in ('education_optional', 'education_required'):
+        required = data['education'] == 'education_required'
+        for field, label in (('school--0', 'School (your highest degree)'), ('degree--0', 'Degree'), ('discipline--0', 'Discipline')):
+            questions.append({'field': field, 'label': label, 'required': required, 'type': 'education', 'kind': 'Education', 'options': []})
+    if any(q['field'] == 'race' for q in questions) and not any(q['field'] == 'hispanic_ethnicity' for q in questions):
+        questions.append({'field': 'hispanic_ethnicity', 'label': 'Are you Hispanic/Latino?', 'required': False, 'type': 'multi_value_single_select',
+                          'kind': 'Demographic', 'options': ['Yes', 'No', 'Decline to self identify']})
+    if not any(q['field'] == 'country' for q in questions):
+        questions.append({'field': 'country', 'label': 'Country (where you live now)', 'required': False, 'type': 'country',
+                          'kind': 'Contact', 'options': []})
     return questions
 
 
