@@ -46,7 +46,8 @@ h3 { font: 600 1.05rem/1.3 var(--sans); letter-spacing: -.01em; }
 p { margin: 0; }
 .lede { font-size: 1.14rem; line-height: 1.65; color: var(--muted); max-width: 60ch; }
 .eyebrow { display: inline-flex; align-items: center; gap: 12px; font: 500 .72rem/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
-.eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--signal); }
+.eyebrow::before { content: ""; flex: none; width: 28px; height: 1px; background: var(--signal); }
+@media (max-width: 420px) { .eyebrow { font-size: .66rem; letter-spacing: .1em; } }
 .new { font: 500 .62rem var(--mono); letter-spacing: .12em; text-transform: uppercase; background: var(--signal-soft); color: var(--signal); padding: 3px 7px; border-radius: 999px; vertical-align: 2px; }
 
 /* Buttons */
@@ -68,7 +69,9 @@ p { margin: 0; }
 .topnav .links { display: flex; gap: 28px; margin-left: auto; font-size: .93rem; color: var(--muted); }
 .topnav .links a { text-decoration: none; transition: color .15s ease; }
 .topnav .links a:hover, .topnav .links a[aria-current] { color: var(--ink); }
-@media (max-width: 800px) { .topnav .links { display: none; } .topnav .btn { margin-left: auto; } }
+.topnav .gh { display: inline-flex; color: var(--muted); margin-left: -6px; transition: color .15s ease; }
+.topnav .gh:hover { color: var(--ink); }
+@media (max-width: 800px) { .topnav .links, .topnav .gh { display: none; } .topnav .btn { margin-left: auto; } }
 
 /* Hero */
 .hero { display: grid; grid-template-columns: 1fr 1.08fr; gap: 64px; align-items: center; padding-block: 72px 112px; }
@@ -205,7 +208,8 @@ section.block { padding-block: 120px; border-top: 1px solid var(--line); }
 @media (max-width: 1000px) { .clickflow { grid-template-columns: repeat(3, 1fr); } .clickflow li:nth-child(3)::after { display: none; } }
 @media (max-width: 560px) { .clickflow { grid-template-columns: 1fr; } .clickflow li::after { display: none; } }
 
-/* Screens, on warm backdrops like product shots */
+/* Screens: the demo in a Mac window on a warm stage, like a product shot */
+.stage { padding: clamp(16px, 4vw, 44px); border-radius: 22px; background: linear-gradient(145deg, #f7b384, #ef8f58 55%, #e9a27a); }
 /* The demo in a Mac window (drawn here, so it stays sharp at any size): title bar, traffic lights, soft shadow. */
 .mac-window { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--surface); box-shadow: var(--shadow-lg); }
 .mac-bar { position: relative; display: flex; align-items: center; height: 38px; padding: 0 14px; background: linear-gradient(#f4ecf5, #ebe1ee);
@@ -223,23 +227,6 @@ section.block { padding-block: 120px; border-top: 1px solid var(--line); }
 .alt-download svg { color: #0078d4; flex: none; }
 .alt-download em { font: 600 .68rem var(--mono); font-style: normal; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
   border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
-.shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 36px; }
-.shots figure { margin: 0; display: grid; gap: 14px; align-content: start; }
-.shots .mac-window img { width: 100%; height: auto; display: block; }
-.mac-window.is-small .mac-bar { height: 26px; padding: 0 10px; }
-.mac-window.is-small .mac-dots { gap: 6px; }
-.mac-window.is-small .mac-dots i { width: 9px; height: 9px; }
-.mac-window.is-small .mac-title { font-size: .68rem; }
-.shots figure > img { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface); }
-.shots figure.tall { background: linear-gradient(150deg, #f3c9a8, #eaa177); border-radius: 18px; padding: 28px 28px 18px; }
-.shots figure.tall:nth-of-type(4) { background: var(--navy) radial-gradient(rgb(255 255 255 / .14) 1px, transparent 1.4px) 0 0 / 14px 14px; }
-.shots figure.tall img { max-height: 460px; width: auto; max-width: 100%; justify-self: center; box-shadow: var(--shadow-lg); }
-.shots figure.tall figcaption { color: #3d2a1c; }
-.shots figure.tall:nth-of-type(4) figcaption, .shots figure.tall:nth-of-type(4) figcaption b { color: #dfe7f0; }
-.shots figcaption { color: var(--muted); font-size: .92rem; }
-.shots figcaption b { color: var(--ink); font-weight: 600; }
-.shots-note { color: var(--muted); font-size: .82rem; margin-top: 18px; }
-@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
 
 /* What it can access */
 .access-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
@@ -373,6 +360,9 @@ table.compare { width: 100%; min-width: 820px; border-collapse: collapse; font-s
 .car-frame { height: 300px; display: grid; place-items: center; padding: 22px; border-radius: 16px; border: 1px solid var(--line);
   background: linear-gradient(150deg, var(--raised), var(--paper)); overflow: hidden; }
 .car-frame img { max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 10px; box-shadow: var(--shadow-lg); background: var(--surface); }
+/* Frames take turns: warm, navy dots, paper. */
+.car-item:nth-child(3n+1) .car-frame { background: linear-gradient(150deg, #f3c9a8, #eaa177); border-color: transparent; }
+.car-item:nth-child(3n+2) .car-frame { background: #132439 radial-gradient(rgb(255 255 255 / .14) 1px, transparent 1.4px) 0 0 / 14px 14px; border-color: transparent; }
 .car-item figcaption { color: var(--muted); font-size: .92rem; line-height: 1.45; }
 .car-item figcaption b { color: var(--ink); font-weight: 600; }
 /* Wide, short close-ups: show them at a readable size, cropped on the right with a fade. */
