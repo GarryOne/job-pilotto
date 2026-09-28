@@ -47,7 +47,7 @@ def total_tokens(run):
 def status(run):
     if run.get('warnings') or run.get('feed_errors'):
         return 'Warnings'
-    if run.get('mode') == 'mail':
+    if run.get('mode') in ('mail', 'rejection'):
         return 'OK' if run.get('updates') else 'Quiet'
     return 'OK' if run.get('new') or run.get('changed') else 'Quiet'
 
@@ -67,6 +67,9 @@ def report_lines(run):
     """The mini-report: a headline, then what stood out, most useful first."""
     if run.get('mode') == 'mail':
         return mail_lines(run)
+    if run.get('mode') == 'rejection':  # its AI cost is kept under "insight" (a review of your own search)
+        return [f"Rejection review: {len(run.get('updates') or [])} application(s); AI cost ${total_usd(run):.3f}."] + \
+            list(run.get('updates') or []) + [f'Warning: {w}' for w in run.get('warnings', [])]
     new, changed = run.get('new', 0), run.get('changed', 0)
     feeds, errors = run.get('feeds', 0), run.get('feed_errors', 0)
     cost = total_usd(run)

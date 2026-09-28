@@ -79,7 +79,8 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None):
             # Only Notion's fields: a field the list needs is a Notion column (config/notion_schema.json), never cache-only.
             job = {'url': url, 'title': item.get('title'), 'company': item.get('company'), 'location': item.get('location'),
                    'work_mode': item.get('work_mode'), 'first_seen_at': item.get('first_seen', '')}
-            rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url')))
+            rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url'),
+                            rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or ''))
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:
                 fit = fits.get(job['id'])

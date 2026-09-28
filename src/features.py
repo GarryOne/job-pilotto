@@ -39,6 +39,8 @@ FEATURES = (
             'SERPAPI_API_KEY from serpapi.com (free plan: 250 searches/month)'),
     Feature('transcribe', 'Interview recordings -> transcript with speakers (on this machine)', (), 'free',
             'pip install -r requirements-transcribe.txt (bundled in the Mac app); models download once (~520 MB)'),
+    Feature('rejection_review', 'Why each rejection happened (after the Gmail check, or on demand)',
+            ('ANTHROPIC_API_KEY', 'NOTION_TOKEN'), 'paid', 'on with the AI key and Notion (Claude Sonnet 5, a few cents each)'),
     Feature('mail', 'Gmail + Calendar reading (application news, recruiter leads)', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', 'ANTHROPIC_API_KEY'), 'paid',
             'python3 -m src.sources.google auth --github (the shared Job Pilotto app: one browser consent); '
             'own Google app: python3 -m src.sources.google setup; README → Gmail and Calendar'),

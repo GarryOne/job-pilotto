@@ -892,6 +892,8 @@ function renderJobs() {
       onClick: event => window.pilot.openNotion(job.notion_url, event.metaKey)}));
     if (job.tailored && job.code) chips.append(tag('📄 Tailored CV', {title: 'Your CV tailored to this job, with the changes highlighted',
       onClick: () => window.pilot.openTailoredCv(job.code)}));
+    if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected (on its Notion page)',
+      onClick: event => job.notion_url && window.pilot.openNotion(job.notion_url, event.metaKey)}));
     if (busyNotes.has(job.url)) chips.append(tag(busyNotes.get(job.url), {busy: true}));
     if (chips.childElementCount) role.append(chips);
 
@@ -1005,6 +1007,17 @@ function renderJobs() {
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
+        })});
+    }
+    if (job.stage === 'Rejected') {
+      // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
+      // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.
+      menu.push({label: job.rejection ? '↻ Review the rejection again' : '🔎 Why was I rejected?',
+        title: 'Claude reviews this application: presentation, hard skills, soft skills, or not on you (~20 s, a few cents)',
+        run: () => background('🔎 Reviewing the rejection…', async () => {
+          const result = await window.pilot.reviewRejection(job.url);
+          toastMessage(result.ok ? 'Rejection reviewed' : 'Review failed', result.text);
+          if (result.ok) loadJobs();
         })});
     }
     if (job.code) {

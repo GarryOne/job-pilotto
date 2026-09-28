@@ -528,6 +528,12 @@ function handlers() {
     return storage.saveSettings(allowed);
   });
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
+  // A rejected job's menu → Why was I rejected? (also runs by itself after the Gmail check logs a rejection).
+  ipcMain.handle('reviewRejection', async (_, url) => {
+    if (DEMO) return {ok: true, text: 'Reviewed (demo): nothing was written.'};
+    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'The review needs your Anthropic API key (Settings).'};
+    try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
+  });
   ipcMain.handle('apply', async (_, options) => options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));

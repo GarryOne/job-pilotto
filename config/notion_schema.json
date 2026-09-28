@@ -340,6 +340,34 @@
         },
         "Tailored CV": {
           "type": "files"
+        },
+        "Rejection reason": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Presentation",
+              "color": "orange"
+            },
+            {
+              "name": "Hard skills",
+              "color": "red"
+            },
+            {
+              "name": "Soft skills",
+              "color": "pink"
+            },
+            {
+              "name": "Not a fit (not on you)",
+              "color": "gray"
+            },
+            {
+              "name": "Unclear",
+              "color": "default"
+            }
+          ]
+        },
+        "Rejection lesson": {
+          "type": "rich_text"
         }
       }
     },

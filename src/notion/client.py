@@ -118,7 +118,8 @@ class Tracker:
                                          'location': text(props.get('Location')), 'work_mode': select(props.get('Work mode')) or '',
                                          'fit': (props.get('Fit score') or {}).get('number'), 'reason': '',
                                          'match_status': None, 'first_seen': page.get('created_time', '')})
-            row.update(stage=select(props.get('Stage')), next_step=text(props.get('Next step')), notion_url=page.get('url') or '')
+            row.update(stage=select(props.get('Stage')), next_step=text(props.get('Next step')), notion_url=page.get('url') or '',
+                       rejection=select(props.get('Rejection reason')) or '', rejection_lesson=text(props.get('Rejection lesson')))
         return list(found.values())
 
     def hidden_urls(self):

@@ -286,7 +286,7 @@ def _label(row):
     return f"{escape(_who(row))} — {escape(_field(row, 'Job'))[:60]}"
 
 
-def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None):
+def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None, rejected=None):
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
     ids = [i for i in google.search(query(apps, days), limit=60) if i not in seen and i not in index[0]]
@@ -339,7 +339,39 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''
             lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
             _short(stats, result['kind'], row, extra)
+            if changed == 'Rejected' and rejected is not None:
+                rejected.append((row, email))
     return lines, len(emails)
+
+
+def review_rejections(tracker, client, rejected, stats, backfill=2):
+    """Why each new rejection happened (rejection.review, Sonnet 5), then up to `backfill` older rejections
+    without a review. Lines for Telegram; a failed review is logged and retried next time (it stays pending)."""
+    from ..features import disabled
+    from . import rejection
+    if disabled('rejection_review'):
+        return []
+    lines, done, profile = [], set(), None
+    todo = [(row, f"Subject: {email['subject']}\n\n{email['body']}") for row, email in rejected]
+    try:
+        todo += [(row, '') for row in rejection.pending(tracker, backfill) if row['id'] not in {r['id'] for r, _ in rejected}]
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: rejected applications not listed: {type(error).__name__}: {error}', file=sys.stderr)
+    for row, email_text in todo:
+        if row['id'] in done:
+            continue
+        done.add(row['id'])
+        row['properties']['Stage'] = {'type': 'select', 'select': {'name': 'Rejected'}}
+        try:
+            profile = tracker.page_text() if profile is None else profile
+            _, summary = rejection.review(tracker, row, email_text=email_text, client=client, stats=stats, profile=profile)
+        except Exception as error:  # noqa: BLE001 — the Gmail check's own updates are already saved
+            print(f'Warning: rejection review failed for {_label(row)}: {type(error).__name__}: {error}', file=sys.stderr)
+            continue
+        lines.append(escape(summary))
+        if stats is not None:
+            stats.setdefault('updates', []).append(summary[:200])
+    return lines
 
 
 TRACKABLE = ('Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer')
@@ -516,7 +548,8 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now)
+    rejected = []
+    lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected)
     if stats is not None:
         stats.update(pending=count, done=count)
     notes = []
@@ -525,6 +558,7 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         lines += cal_lines
     if not dry_run:
         save_state(state, state_path)
+        lines += review_rejections(tracker, client, rejected, stats)
     if send and lines:
         send('📧 <b>Job emails and calendar</b>\n' + '\n'.join(lines))
     for note in notes:
