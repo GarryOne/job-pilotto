@@ -624,5 +624,5 @@ details.manual { margin-top: 18px; }
 /* Step 5: values edit in place */
 .review .doc-view .editable { cursor: text; border-radius: 6px; }
 .review .doc-view .editable:hover { outline: 1px dashed var(--line); outline-offset: 2px; }
-.review .doc-view [contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
+.review .doc-view .editable[contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
 .review .doc-view li.ask, .review .doc-view p.ask { background: #fff4e5; }

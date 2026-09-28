@@ -502,6 +502,10 @@ function markdownView(markdown, edit) {
         if (keep && text.trim() !== raw.trim()) save(text.trim() || '❓');
         else renderDocs();
       };
+      // The "to answer" colour follows the text as it's typed, not only after saving.
+      const mark = () => element.classList.toggle('ask', element.textContent.includes('❓'));
+      mark();
+      element.addEventListener('input', mark);
       element.addEventListener('keydown', event => {
         if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); finish(true); }
         if (event.key === 'Escape') { event.preventDefault(); finish(false); }
