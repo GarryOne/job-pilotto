@@ -242,7 +242,24 @@ const KIND = {search: {icon: '🔎', name: 'New jobs check'}, mail: {icon: '📧
   action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
   add: {icon: '➕', name: 'Tracked application'}, rejection: {icon: '🔍', name: 'Rejection review'}};
 const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
-const WHO = {schedule: 'scheduled', you: 'started by you', first: 'first search'};
+const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
+// A run's status pill (Recent activity): running, queued, failed, completed with warnings, completed.
+function runStatus(run, warned) {
+  if (run.live) return ['Running', 'info', {dot: true}];
+  if (run.waiting) return ['Queued', 'neutral'];
+  if (!run.ok || run.off) return ['Failed', 'bad'];
+  return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
+}
+// Lines of a run's log that are warnings (Notion busy, a step skipped…), each once.
+const runWarnings = lines => [...new Set(lines.filter(line => /^Warning|\b429\b|Too Many Requests|skipped|failed/i.test(line))
+  .map(line => line.replace(/^Warning:\s*/i, '').slice(0, 180)))];
+// The warnings in one plain sentence (the list is one click away).
+function warningSummary(warnings) {
+  if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
+    return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';
+  }
+  return warnings[0] || '';
+}
 // A Recent activity row's label: gray "Queued" while it waits, gray "Scheduled" for the schedule's runs,
 // green "Started by you" for the ones you started.
 function runBadge(run) {
@@ -322,10 +339,10 @@ function renderActivity(data) {
     $('activity-title').textContent = kindOf(running) === 'search' ? `Checking for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
       : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
     $('activity-step').textContent = searchPhase(running.step) || running.step || 'Starting…';
-    $('activity-open').textContent = 'View progress ↑';
+    barLabel();
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
-    $('activity-open').textContent = 'Details ▴';
+    barLabel();
     $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last new jobs check' : 'Last new jobs check had problems') : 'No new jobs check yet';
     $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
       (lastSearch.ok ? '' : ' · click to see why') : '';
@@ -351,12 +368,14 @@ function renderActivity(data) {
     button.classList.toggle('current', run.live ? !shown : shown ? run.id === shown.id : run === last && !running);
     button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
-    // Status circle (✓ / ! / spinner), what ran, when and what it found, who started it.
-    button.append(el('span', 'run-status'), el('span', 'run-kind', `${kind.icon} ${kind.name}`),
-      el('span', 'muted run-what', run.live ? 'Running now' : run.waiting
-        ? `Waiting · starts after ${run.after}`
-        : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))}`),
-      pill(...runBadge(run)));
+    // Status circle, its icon, what ran and (under it) when, what it found and who started it; its status pill.
+    const warned = !run.live && !run.waiting && run.ok && !run.off && runWarnings(run.log || []).length > 0;
+    if (warned) button.dataset.state = 'warn';
+    const words = el('span', 'run-words');
+    words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
+      ? `Waiting · starts after ${run.after}`
+      : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))} · ${WHO[run.trigger] || run.trigger}`));
+    button.append(el('span', 'run-status'), el('span', 'run-icon', kind.icon), words, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;
@@ -366,19 +385,15 @@ function renderActivity(data) {
   // How often: from Settings → How often (GitHub does it when Always on is on).
   const cloud = !!state?.settings?.cloud?.repo;
   // A card per scheduled task: what, which day, and the time in large type (or why there's none).
-  const slot = (glyph, name, at, none) => {
-    const card = el('div', 'ap-slot');
-    const words = el('div', '');
+  const slot = (name, at, none) => {
     const due = at && at <= Date.now();
-    words.append(el('b', '', name), el('small', 'muted', at ? (due ? 'at the next check' : new Date(at).toLocaleDateString([], {weekday: 'short'})) : none));
-    card.append(tile(glyph, 'info'), words, el('span', 'ap-time', at ? (due ? 'Due now' : hhmm(at)) : ''));
-    return card;
+    const item = el('span', 'ap-slot');
+    item.append(el('span', 'muted', name), el('b', '', at ? (due ? 'due now' : `${new Date(at).toLocaleDateString([], {weekday: 'short'})} ${hhmm(at)}`) : none));
+    return item;
   };
-  $('activity-schedule').replaceChildren(...[
-    cloud ? el('p', 'muted small', osText('☁️ Runs in your GitHub repo, even with the Mac off')) : null,
-    slot('search', 'Next new jobs check', nextSearchAt, cloud ? 'In the cloud' : 'Only when you ask'),
-    slot('mail', 'Next Gmail check', nextMailAt, cloud ? 'In the cloud' : 'Off'),
-  ].filter(Boolean));
+  $('activity-schedule').replaceChildren(slot('Next new jobs check', nextSearchAt, cloud ? 'in the cloud' : 'only when you ask'),
+    slot('Next Gmail check', nextMailAt, cloud ? 'in the cloud' : 'off'),
+    ...(cloud ? [el('span', 'muted small', osText('☁️ runs in your GitHub repo'))] : []));
 
   // The selected run (or the live / latest one): what it did, its phases, and its full log. A run read from
   // Notion brings its result and log from its page the first time it's shown.
@@ -391,8 +406,19 @@ function renderActivity(data) {
   const lines = shown ? shown.log || [] : liveLines || last?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;
   const where = run?.where === 'github' ? ' · ☁️ on GitHub' : run?.where === 'elsewhere' ? ' · elsewhere' : '';
-  $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name} · ${run.step || 'running now'}${where}` :
-    `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} · ${capital(outcome(run))}${where}`;
+  const detailWarnings = runWarnings(lines);
+  const status = !run ? '' : run.live ? 'Running' : run.waiting ? 'Queued' : !run.ok || run.off ? 'Failed'
+    : detailWarnings.length ? 'Completed with warnings' : 'Completed';
+  $('activity-icon').textContent = kind?.icon || '';
+  $('activity-selected').textContent = !run ? 'Nothing has run yet' : `${kind.name} · ${status}`;
+  const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
+  $('activity-sub').textContent = !run ? '' : [run.live ? (searchPhase(run.step) || 'starting') : capital(outcome(run)),
+    checkedCount && `${checkedCount} companies checked`,
+    run.live ? `started ${hhmm(Date.parse(run.startedAt))}` : `finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`].filter(Boolean).join(' · ') + where;
+  // A search that found new jobs: straight to them (newest first).
+  const found = !run?.live && kindOf(run) === 'search' ? run?.new || 0 : 0;
+  show($('activity-go'), found > 0);
+  $('activity-go').textContent = `View new job${found === 1 ? '' : 's'} →`;
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
   show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Always on)
@@ -413,13 +439,16 @@ function renderActivity(data) {
   $('activity-message').textContent = !run?.live && run?.message || '';
   show($('activity-message'), !run?.live && !!run?.message);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it.
-  const warnings = [...new Set(lines.filter(line => /^Warning|\b429\b|Too Many Requests|skipped|failed/i.test(line))
-    .map(line => line.replace(/^Warning:\s*/i, '').slice(0, 180)))];
+  const warnings = detailWarnings;
   show($('activity-warnings'), warnings.length > 0);
   if (warnings.length) {
-    $('activity-warnings-title').textContent = run?.live ? `${KIND[kindOf(run)]?.name || 'Task'} running with warnings` : 'Finished with warnings';
-    $('activity-warnings-list').replaceChildren(...warnings.slice(0, 5).map(text => el('li', '', text)),
-      ...(warnings.length > 5 ? [el('li', 'muted', `+ ${warnings.length - 5} more in the technical log`)] : []));
+    $('activity-warnings-title').textContent = run?.live ? 'Running with warnings' : 'Completed with warnings';
+    $('activity-warnings-summary').textContent = warningSummary(warnings);
+    const listShown = !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id);
+    $('activity-warnings-list').dataset.for = String(run?.id);
+    show($('activity-warnings-list'), listShown);
+    $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${warnings.length} detail${warnings.length === 1 ? '' : 's'}`;
+    $('activity-warnings-list').replaceChildren(...warnings.map(text => el('li', '', text)));
   }
   // The full log stays folded (the stages come first); open by itself only when the task went wrong.
   const failed = run && !run.live && (!run.ok || run.off);
@@ -427,7 +456,7 @@ function renderActivity(data) {
     $('activity-log').dataset.for = String(run.id);
     $('activity-log').open = !!failed;
   }
-  $('log-count').textContent = lines.length ? `(${plural(lines.length, 'line')})` : '';
+  $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
   const log = $('log');
   const text = lines.join('\n') || 'Nothing to show yet.';
   if (log.textContent !== text) {
@@ -470,15 +499,32 @@ function refreshActivity() {
   if (activityTimer) return;
   activityTimer = setTimeout(async () => { activityTimer = null; renderActivity(await window.pilot.runs()); }, 250);
 }
+// The bar's action: hide the open panel, watch what's running, or see the details.
+function barLabel() {
+  $('activity-open').textContent = !$('activity-panel').hidden ? 'Hide activity ⌄' : lastActivity?.running ? 'View progress ↑' : 'Details ▴';
+}
 function openActivity(open) {
   show($('activity-panel'), open);
   show($('activity-backdrop'), open);  // dims the page, so the card stands apart from what's behind it
   $('activity').classList.toggle('open', open);
   $('activity-toggle').setAttribute('aria-expanded', open);
   if (open) $('log').scrollTop = $('log').scrollHeight;
+  barLabel();
 }
 $('activity-toggle').addEventListener('click', () => openActivity($('activity-panel').hidden));
 $('activity-close').addEventListener('click', () => openActivity(false));
+$('activity-warnings-more').addEventListener('click', () => {
+  const open = $('activity-warnings-list').hidden;
+  show($('activity-warnings-list'), open);
+  $('activity-warnings-more').textContent = open ? 'Hide details' : `View ${$('activity-warnings-list').children.length} details`;
+});
+$('activity-go').addEventListener('click', () => {
+  openActivity(false);
+  openView('jobs');
+  $('sort-by').value = 'newest';  // the new ones first
+  renderJobs();
+});
+$('activity-all').addEventListener('click', event => window.pilot.openNotion(state?.notion?.NOTION_CRON_RUNS_DB, event.metaKey));
 $('activity-backdrop').addEventListener('click', () => openActivity(false));
 $('activity-manage').addEventListener('click', event => {
   event.preventDefault();

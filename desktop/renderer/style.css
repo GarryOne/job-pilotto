@@ -943,3 +943,60 @@ main { min-width: 0; }
 #ss-question .rich-list li { margin: 2px 0; }
 #ss-question code { font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--surface); padding: 0 4px; border-radius: var(--r-sm); }
 .ss-chips { align-items: center; }
+
+/* ---------- Recent activity, redesigned (owner's mockup, 28 Sep 2026): the list on the left, the selected run on the
+   right (header + actions, warnings in one sentence, stages card, folded technical log, schedule line). Overrides the
+   older rules above. */
+.activity-panel { padding: 0; max-height: min(78vh, 680px); overflow: hidden; display: flex; }
+.activity-panel .ap-grid { display: grid; grid-template-columns: minmax(300px, 34%) minmax(0, 1fr); width: 100%; min-height: 0; }
+.activity-panel .ap-list { display: flex; flex-direction: column; min-height: 0; padding: var(--sp-4) var(--sp-3) var(--sp-3);
+  border-right: 1px solid var(--line); overflow: auto; }
+.activity-panel .ap-head { margin: 0 0 var(--sp-3) var(--sp-2); }
+.activity-panel .ap-head h3 { font-size: var(--fs-lg); }
+.activity-panel .activity-recent { display: flex; flex-direction: column; gap: 0; margin: 0; }
+.activity-panel .recent-row { grid-template-columns: 18px 28px minmax(0, 1fr) auto; gap: var(--sp-3); padding: var(--sp-3);
+  border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 0; font-size: var(--fs-md); }
+.activity-panel .recent-row.current { background: var(--info-soft); border-color: var(--info-line); border-radius: var(--r-md); }
+.activity-panel .recent-row[data-state="warn"] .run-status { background: var(--warn-bright); }
+.activity-panel .recent-row[data-state="warn"] .run-status::after { content: '!'; }
+.activity-panel .run-status { width: 18px; height: 18px; font-size: var(--fs-xs); }
+.activity-panel .run-icon { font-size: var(--fs-lg); text-align: center; }
+.activity-panel .run-words { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.activity-panel .run-kind { font-weight: 600; }
+.activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-panel .ap-all { align-self: center; margin-top: var(--sp-3); }
+
+.activity-panel .ap-detail { border: 0; border-radius: 0; background: none; padding: var(--sp-4) var(--sp-5) var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-3); overflow: auto; min-height: 0; }
+.activity-panel .ap-detail-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.activity-panel .ap-detail-icon { font-size: var(--fs-xl); width: 40px; height: 40px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--surface-2); flex: none; }
+.activity-panel .ap-detail-title { flex: 1; min-width: 0; }
+.activity-panel .ap-detail-title h3 { margin: 0; font-size: var(--fs-xl); }
+.activity-panel .ap-detail-title p { margin: var(--sp-1) 0 0; }
+.activity-panel .ap-detail-actions { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
+.activity-panel .ap-detail-actions .activity-notion { margin: 0; }
+.activity-panel .activity-warnings { margin: 0; }
+.activity-panel .activity-warnings p { margin: var(--sp-1) 0; }
+.activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; }
+.activity-panel .ap-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.activity-panel .activity-phases.ap-card { padding: var(--sp-2) var(--sp-4); margin: 0; gap: 0; }
+.activity-panel .activity-phases li { padding: var(--sp-3) 0; font-weight: 600; }
+.activity-panel .activity-phases li + li { border-top: 1px solid var(--line); }
+.activity-panel .activity-phases li.done::before { content: '✓'; display: inline-grid; place-items: center; width: 22px; height: 22px;
+  margin-right: var(--sp-3); border-radius: 50%; background: var(--good-bright); color: var(--on-accent); font-size: var(--fs-xs); }
+.activity-panel .activity-phases li.todo { font-weight: 400; }
+.activity-panel .activity-log.ap-card { padding: 0; }
+.activity-panel .activity-log summary { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
+  margin: 0; color: var(--ink); font-size: var(--fs-md); list-style: none; }
+.activity-panel .activity-log summary::-webkit-details-marker { display: none; }
+.activity-panel .activity-log summary::after { content: '⌄'; margin-left: auto; color: var(--muted); }
+.activity-panel .activity-log[open] summary::after { content: '⌃'; }
+.activity-panel .activity-log .log { margin: 0 var(--sp-3) var(--sp-3); max-height: 260px; }
+.activity-panel .ap-foot { display: flex; align-items: center; gap: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--line);
+  font-size: var(--fs-sm); flex-wrap: wrap; }
+.activity-panel .ap-foot-icon { color: var(--muted); display: inline-flex; }
+.activity-panel .ap-schedule-line { display: flex; gap: var(--sp-4); flex: 1; flex-wrap: wrap; }
+.activity-panel .ap-slot { display: inline-flex; gap: var(--sp-2); border: 0; padding: 0; background: none; }
+.activity-panel .ap-slot + .ap-slot { padding-left: var(--sp-4); border-left: 1px solid var(--line); }
+@media (max-width: 1180px) { .activity-panel .ap-grid { grid-template-columns: minmax(0, 1fr); } .activity-panel .ap-list { border-right: 0; } }
