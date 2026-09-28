@@ -49,15 +49,66 @@ Write:
 
 // The draft streams in, in schema order; progress is how much of it has arrived and which part is being
 // written. The expected length starts at a typical draft and then follows this user's last one.
-export const TYPICAL_DRAFT_CHARS = 40000;
 const PARTS = [['"summary"', 'Writing the summary'], ['"profile_markdown"', 'Writing your Profile'],
   ['"answers_markdown"', 'Writing your standard answers'], ['"open_questions"', 'Listing what to check'],
   ['"search"', 'Choosing search settings'], ['"preferences"', 'Setting filters']];
 
-export function progress(text, expected = TYPICAL_DRAFT_CHARS) {
+// The bar: 0-10% while Claude reads the CV (main.js ticks it by time), then each part of the answer has its
+// share, in the fixed order Claude writes them; inside a part, its length so far against its usual length
+// (learned from the user's last draft: settings.draftSections).
+export const SECTIONS = [['summary', 3, 400], ['profile_markdown', 40, 15000], ['answers_markdown', 22, 9000],
+  ['open_questions', 3, 500], ['search', 17, 3500], ['preferences', 3, 300], ['contact', 2, 300]];
+export const READING = 10;
+export function sectionLengths(text) {
+  const at = SECTIONS.map(([key]) => text.indexOf(`"${key}"`));
+  return Object.fromEntries(SECTIONS.map(([key], i) => [key, at[i] < 0 ? 0 : (at.slice(i + 1).find(n => n > at[i]) ?? text.length) - at[i]]));
+}
+export function progress(text, typical = {}) {
   let part = 'Reading your CV';
   for (const [key, label] of PARTS) if (text.includes(key)) part = label;
-  return {part, percent: Math.min(97, Math.round(text.length / expected * 100)), chars: text.length};
+  const lengths = sectionLengths(text);
+  let percent = text.length ? READING : 0;
+  for (const [key, share, usual] of SECTIONS) {
+    if (!lengths[key]) break;
+    percent += share * Math.min(1, lengths[key] / (typical[key] || usual));
+  }
+  return {part, percent: Math.min(99, Math.round(percent)), chars: text.length, notes: notes(text)};
+}
+
+// What Claude has written so far, as short lines for the screen ("Profile: Hard constraints", "Roles: site
+// reliability, platform engineer"), read from the JSON it streams. Only finished pieces are shown.
+const unescape = s => s.replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\u00e9/g, 'é').trim();
+export function notes(text) {
+  const out = [];
+  const region = (key, next) => {
+    const start = text.indexOf(`"${key}"`);
+    if (start < 0) return null;
+    const end = next.map(k => text.indexOf(`"${k}"`, start + 1)).filter(i => i > 0).sort((a, b) => a - b)[0];
+    return {body: text.slice(start, end ?? text.length), done: end !== undefined};
+  };
+  const summary = text.match(/"summary"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (summary) out.push(`Summary: ${unescape(summary[1]).slice(0, 140)}`);
+  for (const [key, label, next] of [['profile_markdown', 'Profile', ['answers_markdown']], ['answers_markdown', 'Standard answers', ['open_questions', 'search']]]) {
+    const piece = region(key, next);
+    if (!piece) continue;
+    const headings = [...piece.body.matchAll(/(?:\\n|: ?")#{1,3} ([^\\"]{2,70})(?=\\n)/g)].map(m => m[1].trim());
+    for (const heading of headings) out.push(`${label}: ${heading}`);
+    if (piece.done) out.push(`${label} written`);
+  }
+  const questions = text.match(/"open_questions"\s*:\s*\[((?:[^\]"]|"(?:[^"\\]|\\.)*")*)\]/);
+  if (questions) out.push(`Things for you to check: ${(questions[1].match(/"(?:[^"\\]|\\.)*"/g) || []).length}`);
+  const list = key => {
+    const m = text.match(new RegExp(`"${key}"\\s*:\\s*\\[((?:[^\\]"]|"(?:[^"\\\\]|\\\\.)*")*)\\]`));
+    return m ? (m[1].match(/"((?:[^"\\]|\\.)*)"/g) || []).map(s => s.slice(1, -1).replace(/\\\\b/g, '').replace(/\\\\/g, '').replace(/\[[a-z]([^\]])\]/g, '$1')) : null;
+  };
+  const roles = list('role_keywords');
+  if (roles) out.push(`Roles to look for: ${roles.slice(0, 6).join(', ')}${roles.length > 6 ? '…' : ''}`);
+  const places = list('top_tier');
+  if (places) out.push(`Best places: ${places.slice(0, 5).join(', ')}${places.length > 5 ? '…' : ''}`);
+  const languages = list('disqualifying_languages');
+  if (languages) out.push(languages.length ? `Jobs requiring ${languages.join(', ')} will be hidden` : 'No language filter');
+  if (/"contact"\s*:\s*\{[^}]*"email"\s*:\s*"[^"]+"/.test(text)) out.push('Contact details found in your CV');
+  return out;
 }
 
 export async function draft(storage, answers, apiKey, client = null, onProgress = null) {
@@ -75,10 +126,10 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
     output_config: {format: {type: 'json_schema', schema: DRAFT_SCHEMA}},
   };
   let response;
-  const expected = storage.settings().draftChars || TYPICAL_DRAFT_CHARS;
+  const typical = storage.settings().draftSections || {};
   if (onProgress && anthropic.messages.stream) {
     const stream = anthropic.messages.stream(request);
-    stream.on('text', (_, snapshot) => onProgress(progress(snapshot, expected)));
+    stream.on('text', (_, snapshot) => onProgress(progress(snapshot, typical)));
     response = await stream.finalMessage();
   } else {
     response = await anthropic.messages.create(request);
@@ -87,7 +138,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
   const text = response.content.find(block => block.type === 'text').text;
   const result = JSON.parse(text);
-  storage.saveSettings({draftChars: text.length});  // the next estimate follows this draft
+  storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
   result.usd = Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
   return result;

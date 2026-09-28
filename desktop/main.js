@@ -229,8 +229,21 @@ function handlers() {
   });
   ipcMain.handle('draftStrategy', async (_, answers) => {
     storage.saveSettings({questionnaire: answers});
-    const draft = await strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
-      progress => window?.webContents.send('draftProgress', progress));
+    const kb = Math.round(fs.statSync(storage.path('cv.pdf')).size / 1024);
+    const send = progress => window?.webContents.send('draftProgress', progress);
+    const sent = `Sent your CV (${kb} KB) and your answers to Claude (${strategy.MODEL})`;
+    // Before Claude writes anything it reads the CV (about 25 s): the bar moves by time, up to 10%.
+    const started = Date.now();
+    let writing = false;
+    const reading = setInterval(() => !writing && send({part: 'Claude is reading your CV', notes: [sent, 'Claude is reading your CV…'],
+      percent: Math.min(strategy.READING - 1, Math.round((Date.now() - started) / 25000 * strategy.READING))}), 1000);
+    send({part: 'Sending your CV to Claude', percent: 0, notes: [sent]});
+    let draft;
+    try {
+      draft = await strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
+        progress => { writing = true; send({...progress, notes: [sent, 'Claude read your CV', ...progress.notes]}); });
+    } finally { clearInterval(reading); }
+    send({part: 'Checking the draft', percent: 99, notes: ['Checking the draft (valid settings, nothing missing)…']});
     // Kept so reopening the wizard shows it again instead of paying for a new draft.
     storage.writeText('draft.json', JSON.stringify({answers, draft, at: new Date().toISOString()}));
     return draft;

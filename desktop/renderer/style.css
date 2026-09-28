@@ -560,3 +560,10 @@ details.manual { margin-top: 18px; }
 .subsetting { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .subsetting h4 { margin: 0 0 4px; }
 .extra > button { white-space: nowrap; flex-shrink: 0; }
+
+/* Wizard → strategy: what Claude is doing, line by line */
+.draft-feed { list-style: none; padding: 0; margin: 12px 0 4px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); max-width: 720px; }
+.draft-feed li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-feed li.done::before { content: '✓'; color: var(--teal); font-weight: 700; display: inline-block; width: 20px; }
+.draft-feed li.now { color: var(--ink); font-weight: 600; }
+.draft-feed li.now::before { content: '●'; color: var(--signal); display: inline-block; width: 20px; animation: pulse 1.2s ease-in-out infinite; }

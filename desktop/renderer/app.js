@@ -130,9 +130,13 @@ window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage
   }
 });
 
-window.pilot.onDraftProgress(({part, percent}) => {
+// What's happening, line by line: finished pieces ✓, the one being written last.
+window.pilot.onDraftProgress(({part, percent, notes = []}) => {
+  $('draft-feed').replaceChildren(...notes.slice(-9).map((note, i, shown) => Object.assign(document.createElement('li'),
+    {className: i === shown.length - 1 ? 'now' : 'done', textContent: note})));
   $('draft-part').textContent = part;
-  $('draft-percent').textContent = `${percent}%`;
+  if (percent == null) return;
+  $('draft-percent').textContent = percent ? `${percent}%` : '';
   $('draft-bar').style.width = `${Math.max(2, percent)}%`;
 });
 

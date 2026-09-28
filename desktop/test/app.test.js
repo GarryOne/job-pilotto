@@ -157,15 +157,20 @@ test('strategy draft streams: progress names the part being written and grows to
   const parts = [...new Set(seen.map(p => p.part))];
   assert.deepEqual(parts.slice(0, 3), ['Writing the summary', 'Writing your Profile', 'Writing your standard answers']);
   assert.ok(seen.every((p, i) => i === 0 || p.percent >= seen[i - 1].percent));
-  assert.ok(seen.every(p => p.percent <= 97));
-  assert.equal(storage.settings().draftChars, text.length);  // the next draft's estimate
+  assert.ok(seen.every(p => p.percent <= 99));
+  assert.equal(storage.settings().draftSections.profile_markdown, strategy.sectionLengths(text).profile_markdown);  // the next draft's bar
 });
 
-test('draft progress: part from the latest field, percent against the expected length', () => {
-  assert.deepEqual(strategy.progress('', 1000), {part: 'Reading your CV', percent: 0, chars: 0});
-  assert.equal(strategy.progress('{"summary":"x","profile_markdown":"' + 'y'.repeat(460), 1000).percent, 50);
-  assert.equal(strategy.progress('{"summary":"x","profile_markdown":"y","answers_markdown":"z', 1000).part, 'Writing your standard answers');
-  assert.equal(strategy.progress('x'.repeat(5000), 1000).percent, 97);
+test('draft progress: 10% once Claude starts writing, then each part by its share, in order', () => {
+  assert.deepEqual(strategy.progress('', {}), {part: 'Reading your CV', percent: 0, chars: 0, notes: []});
+  const summary = '{"summary":"' + 'x'.repeat(400) + '",';
+  assert.equal(strategy.progress(summary, {}).percent, 13);  // reading 10 + summary 3
+  assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(7480), {}).percent, 33);  // + half of the Profile's 40
+  const typical = {profile_markdown: 7500};  // this user's Profile is usually shorter: learned from the last draft
+  assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(7480), typical).percent, 53);
+  assert.equal(strategy.progress('{"summary":"x","profile_markdown":"y","answers_markdown":"z', {}).part, 'Writing your standard answers');
+  assert.ok(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(99999) + '","answers_markdown":"' + 'z'.repeat(99999)
+    + '","open_questions":[],"search":{' + 'q'.repeat(9999) + '},"preferences":{' + 'p'.repeat(999) + '},"contact":{' + 'c'.repeat(999), {}).percent <= 99);
 });
 
 test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, () => {
@@ -429,4 +434,17 @@ test('every Settings card is closed before the next one starts (an unclosed card
     if (/class="setting[ "]/.test(tag[0])) assert.equal(depth, 2, `${tag[0]} is nested inside another card`);
   }
   assert.equal(depth, 0, 'the Settings view\'s divs are balanced');
+});
+
+test('while the strategy is drafted, the screen lists what Claude has finished so far', async () => {
+  const {notes} = await import('../lib/strategy.js');
+  const full = JSON.stringify({summary: 'Senior SRE roles in Zurich.', profile_markdown: '# Hard constraints\n- EU citizen\n# Compensation\n- CHF 150k',
+    answers_markdown: '# Eligibility\n- No sponsorship', open_questions: ['Notice period?'],
+    search: {role_keywords: ['site reliability', '\\bsre\\b'], locations: {top_tier: ['z[uü]rich'], country_wide: [], abroad: []}},
+    preferences: {disqualifying_languages: ['German']}, contact: {email: 'a@b.c'}});
+  const early = notes(full.slice(0, full.indexOf('"answers_markdown"') + 25));
+  assert.deepEqual(early, ['Summary: Senior SRE roles in Zurich.', 'Profile: Hard constraints', 'Profile: Compensation', 'Profile written']);
+  const all = notes(full);
+  for (const line of ['Standard answers: Eligibility', 'Things for you to check: 1', 'Roles to look for: site reliability, sre',
+    'Best places: zürich', 'Jobs requiring German will be hidden', 'Contact details found in your CV']) assert.ok(all.includes(line), line);
 });
