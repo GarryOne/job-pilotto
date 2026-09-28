@@ -14,6 +14,23 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 
+## Data ownership: Notion is the source of truth (one copy of everything)
+Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
+- **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
+  profile/answers, open questions, contact details, learned form notes, search settings, transcripts.
+  The code reads it from Notion; it never keeps a second editable copy.
+- **The Mac / runner** — only keys (encrypted), large files (CVs, recordings) and caches that can be
+  deleted and rebuilt from Notion or a crawl (`jobs.sqlite`, `config/*.json` as the cache of ⚙️ Search
+  settings, `runs.json`). A cache is refreshed *from* Notion; writes go to Notion first, and if Notion
+  refuses, nothing changes locally and the user is told.
+- No new "local fallback" copies of user data. A feature that needs a new database, column or page adds it
+  to Notion *and* to `config/notion_schema.json` (`tools/notion_schema.py snapshot`), so every workspace can
+  be rebuilt and repaired (`desktop/lib/schema.js`).
+- Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only
+  after Notion confirmed it has it) and a test.
+- Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever
+  started it, so users see what happened in Notion without the app having to show it.
+
 ## Layout
 - Python package `src/` (run with `python -m src <daily|scout|discover|feeds|enrich>`): `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite; `scout.py` source scout; `paths.py` repo paths; `features.py` optional-feature registry and the `JOB_PILOTTO_DISABLE` switch (only the crawl + digest core is required; new features must be optional, on when their keys exist, and listed there).
 - `src/sources/` (`ats.py` feed adapters, `feeds.py` employer-feed crawl, `boards.py` jobs.ch/TechTree), `src/ai/` (`enrich.py` stage 1 Haiku 4.5, `score.py` stage 2 Sonnet 5, `kit.py` application kit Sonnet 5 on 📝 Prepare or auto-drafted, `apply_batch.py` queues kits into the ChatGPT/Codex desktop app, `insights.py` daily insight + Monday weekly report: code stats + Sonnet 5 → Telegram and 💡 Insights, `interviews.py` recording/transcript/notes → 🎤 Interviews rows (the app saves transcripts there, linked to the job; Notion is the database) and their review, `transcribe.py` local audio → transcript with speakers (optional add-on `requirements-transcribe.txt`: sherpa-onnx with Silero VAD, Parakeet-TDT v2 English, pyannote + 3D-Speaker ERes2Net), `mail.py` Gmail + Calendar → events/Stage/Next interview/prep messages; client in `src/sources/google.py`), `src/notion/` (`client.py` Notion API, `matches.py` Job Matches sync, `ledger.py` application record frozen at Applied + 📈 Application Events outcome history + scheduled sync/no-response rule, `funnel.py` funnel conversion + step to improve → 🎯 Pipeline page, no AI).

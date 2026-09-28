@@ -64,6 +64,23 @@ decides that through their own permission settings.
   running (Haiku extraction, Sonnet scoring, Sonnet kit drafting) — a fourth or a big re-run needs
   the owner's sign-off first.
 
+## Data ownership: Notion is the source of truth (one copy of everything)
+Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
+- **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
+  profile/answers, open questions, contact details, learned form notes, search settings, transcripts.
+  The code reads it from Notion; it never keeps a second editable copy.
+- **The Mac / runner** — only keys (encrypted), large files (CVs, recordings) and caches that can be
+  deleted and rebuilt from Notion or a crawl (`jobs.sqlite`, `config/*.json` as the cache of ⚙️ Search
+  settings, `runs.json`). A cache is refreshed *from* Notion; writes go to Notion first, and if Notion
+  refuses, nothing changes locally and the user is told.
+- No new "local fallback" copies of user data. A feature that needs a new database, column or page adds it
+  to Notion *and* to `config/notion_schema.json` (`tools/notion_schema.py snapshot`), so every workspace can
+  be rebuilt and repaired (`desktop/lib/schema.js`).
+- Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only
+  after Notion confirmed it has it) and a test.
+- Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever
+  started it, so users see what happened in Notion without the app having to show it.
+
 ## Working with git: one worktree per task
 
 Several agents (Claude, Codex, …) work on this repo at the same time, all pushing to `main`. To keep
