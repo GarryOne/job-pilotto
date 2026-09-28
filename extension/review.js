@@ -129,11 +129,16 @@
     .bar { height: 6px; border-radius: 999px; background: #e7ecf2; overflow: hidden; margin-top: 6px; }
     .bar i { display: block; height: 100%; width: 0; background: var(--signal-2); border-radius: 999px; transition: width .3s; }
     .ready .bar i { background: var(--good); }
-    .primary { width: 100%; padding: 10px; border-radius: 10px; background: var(--signal); color: #fff; font-weight: 650; }
+    .primary { width: 100%; padding: 10px; border-radius: 10px; background: var(--signal); color: #fff; font-weight: 650;
+      display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; }
     .primary:hover { background: #c44a08; }
     .primary:disabled { opacity: .6; cursor: default; }
-    .step { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
-    .step::before { content: ''; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--signal); animation: spin .8s linear infinite; flex: none; }
+    .primary .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Working: the button itself says what's happening, at full colour, with a white spinner. */
+    .primary.is-busy, .primary.is-busy:disabled { opacity: 1; cursor: progress; background: var(--signal); font-weight: 600; font-size: 12.5px; }
+    .primary .spin { display: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff; animation: spin .8s linear infinite; flex: none; }
+    .primary.is-busy .spin { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .note { padding: 9px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
     .note button { margin-top: 6px; background: transparent; color: var(--signal); font-weight: 650; padding: 0; }
@@ -157,7 +162,7 @@
         <div class="job" hidden><div class="job-title"></div><div class="job-meta"></div></div>
         <div class="claude" hidden><i>🤖</i><span></span></div>
         <div class="progress"><div class="progress-line"><b></b><span></span></div><div class="bar"><i></i></div></div>
-        <div class="fill-box"><button class="primary fill">Fill this form</button><div class="step" hidden></div></div>
+        <div class="fill-box"><button class="primary fill"><i class="spin"></i><span class="label">Fill this form</span></button></div>
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="left" hidden><h4>Left for you</h4><div class="list"></div></div>
         <div class="actions">
@@ -233,16 +238,35 @@
   }
 
   // ---- actions ----
+  // What the fill is doing, shown in the button. A fill started elsewhere (Claude's session, the popup) sends steps but
+  // no end: the button comes back a few seconds after its last step.
+  let stepTimer = null, filledOnce = false;
+  function showStep(text) {
+    const button = $('.fill');
+    button.classList.add('is-busy');
+    button.setAttribute('aria-busy', 'true');
+    button.title = text;
+    $('.fill .label').textContent = text;
+    clearTimeout(stepTimer);
+    if (!filling) stepTimer = setTimeout(endStep, 6000);
+  }
+  function endStep() {
+    clearTimeout(stepTimer);
+    const button = $('.fill');
+    button.classList.remove('is-busy');
+    button.removeAttribute('aria-busy');
+    button.title = '';
+    $('.fill .label').textContent = filledOnce ? 'Fill again' : 'Fill this form';
+  }
   async function fill(force = false) {
     filling = true;
     $('.note').hidden = true;
-    $('.step').hidden = false;
-    $('.step').textContent = 'Reading the form…';
+    showStep('Reading the form…');
     render();
     const result = await send({type: 'panelFill', url: session?.url || job?.url || location.href, force}).catch(error => ({ok: false, error: error.message}));
     filling = false;
-    $('.step').hidden = true;
-    $('.fill').textContent = 'Fill again';
+    filledOnce = true;
+    endStep();
     if (result?.ineligible) note(`Not filled: ${result.note}`, true);
     else if (!result?.ok) note(`Couldn't fill: ${result?.error || 'try again'}`);
     if (result?.coverLetter && job) job.coverLetter ||= result.coverLetter;
@@ -271,7 +295,7 @@
   chrome.runtime.onMessage.addListener((message, _, reply) => {
     if (message?.type !== 'panelStep') return false;
     if (!host.isConnected) { reply({shown: false}); return false; }
-    if (message.text) { $('.step').hidden = false; $('.step').textContent = message.text; if (!open) setOpen(true); }
+    if (message.text) { showStep(message.text); if (!open) setOpen(true); }
     reply({shown: true});
     return false;
   });

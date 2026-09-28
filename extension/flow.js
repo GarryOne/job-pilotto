@@ -252,7 +252,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   }
   // With a kit: the questions it doesn't cover, answered by Claude now that the rest is already on the page.
   if (later.length && useAI) {
-    onStep(`Filled. Claude is answering ${later.length} question${later.length === 1 ? '' : 's'} the kit doesn't cover…`);
+    onStep(`Claude is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`);
     try {
       const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
       ai = await api(config, '/extension/answer', {method: 'POST',
