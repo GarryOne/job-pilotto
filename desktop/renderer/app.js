@@ -934,6 +934,7 @@ $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 function settingsPage(name) {
+  remembered('settingsPage', name);
   if (name === 'profile') openProfile();
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
@@ -1081,7 +1082,14 @@ function renderDiagnostics({on, detail}) {
 }
 
 // ---------- app ----------
+// The page (and Settings section) open now, kept for a reload (⌘R): the app comes back where it was.
+// sessionStorage: survives a reload of this window, not a restart of the app (that opens Focus as before).
+const remembered = (key, value) => {
+  try { if (value === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, value); } catch {}
+  return null;
+};
 function openView(name) {
+  remembered('view', name);
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
@@ -2329,7 +2337,19 @@ window.pilot.lastReset().then(done => {
 
 // ---------- start ----------
 // Notion is required (it's where Job Pilotto keeps your data): set up without it -> the Notion step first.
-if (state.settings.setupDone && state.notion) { show($('app')); loadJobs(); openView('focus'); } else {
+if (state.settings.setupDone && state.notion) {
+  show($('app'));
+  loadJobs();
+  // After a reload (⌘R), the page and Settings section it was on, once all the code below has loaded (every page's
+  // state is declared by then); else Focus.
+  const view = remembered('view'), section = remembered('settingsPage');
+  if (view && view !== 'focus' && document.querySelector(`.view[data-view="${view}"]`)) {
+    setTimeout(() => {
+      openView(view);
+      if (view === 'settings' && section && document.querySelector(`[data-settings-page="${section}"]`)) settingsPage(section);
+    }, 0);
+  } else openView('focus');
+} else {
   show($('wizard'));
   const resume = state.settings.setupDone ? 'notion' : state.settings.wizardStep || 'welcome';
   if (resume === 'draft') toDraft(); else goStep(resume);
