@@ -27,4 +27,5 @@ contextBridge.exposeInMainWorld('pilot', {
   cloudConnect: call('cloudConnect'), cloudOff: call('cloudOff'),
   openExternal: call('openExternal'), openNotion: call('openNotion'), showFolder: call('showFolder'), extensionInfo: call('extensionInfo'),
   onLog: callback => ipcRenderer.on('log', (_, line) => callback(line)),
+  onMoved: callback => ipcRenderer.on('moved', (_, steps) => callback(steps)),
 });

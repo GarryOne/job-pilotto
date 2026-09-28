@@ -686,6 +686,8 @@ $('filter-status').addEventListener('change', renderJobs);
 $('filter-text').addEventListener('input', renderJobs);
 
 // ---------- questions to answer once ----------
+// The start-up move to Notion can finish after the first read: read them again then.
+window.pilot.onMoved(steps => { if (steps.includes('open questions')) loadQuestions(); });
 async function loadQuestions() {
   const {list, error} = await window.pilot.openQuestions();
   // Collapsed by default (the count shows on its heading); shown whenever there's something to answer or a read failed.

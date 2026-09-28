@@ -536,7 +536,9 @@ if (firstCopy) app.whenReady().then(() => {
   }
   createWindow();
   if (!DEMO) {
-    migrate.run(storage, log);  // user data left on this Mac -> Notion (source of truth), once
+    // User data left on this Mac -> Notion (source of truth), once. It runs while the window loads, so the
+    // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
+    migrate.run(storage, log).then(moved => { if (moved.length) window?.webContents.send('moved', moved); });
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts, and one with the result when it's done.
