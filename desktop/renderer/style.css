@@ -725,8 +725,8 @@ main { min-width: 0; }
 .with-glyph .icon { width: 18px; height: 18px; color: var(--signal); }
 .focus-status { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .spinner.small { width: 14px; height: 14px; border-width: 2px; }
-.focus-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
-.focus-item { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--line); border-left: 4px solid var(--line);
+.focus-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.focus-item { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-left: 4px solid var(--line);
   border-radius: var(--r-md); background: var(--surface); }
 .focus-item.tone-bad { border-left-color: var(--bad); }
 .focus-item.tone-warn { border-left-color: var(--warn); }
@@ -735,12 +735,19 @@ main { min-width: 0; }
 .focus-round { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); }
 .focus-round .icon { width: 18px; height: 18px; }
 .focus-round.tone-warn { background: var(--warn-soft); color: var(--warn); }
-.focus-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.focus-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.focus-top { display: flex; align-items: center; gap: var(--sp-2); max-width: 100%; min-width: 0; }
+.focus-top .focus-headline { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focus-top .ui-pill { font-size: var(--fs-xs); flex: none; }
+.focus-list .focus-round { width: 32px; height: 32px; }
+.focus-list .focus-round .icon { width: 16px; height: 16px; }
+.focus-list .focus-actions button { padding: 5px 12px; font-size: var(--fs-sm); }
+.focus-list .focus-actions .ui-more { padding: 5px 8px; }
 .focus-headline { font-weight: 600; font-size: var(--fs-base); color: var(--ink); }
 .focus-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
 .focus-meta .sep { opacity: .6; }
 .focus-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
-.focus-insight-box { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4); border-radius: var(--r-md);
+.focus-insight-box { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--r-md);
   background: var(--warn-soft); border-left: 4px solid var(--warn); }
 .focus-progress-big { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .focus-progress-big b { font-size: var(--fs-display); line-height: 1; }

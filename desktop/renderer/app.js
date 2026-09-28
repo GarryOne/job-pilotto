@@ -2454,7 +2454,9 @@ function focusCard(item) {
   const body = el('div', 'focus-body');
   const meta = el('div', 'focus-meta muted small');
   (item.meta || []).forEach((part, i) => { if (i) meta.append(el('span', 'sep', '·')); meta.append(el('span', '', part)); });
-  body.append(pill(item.badge || '', item.tone || 'neutral', {dot: true}), el('div', 'focus-headline', item.headline || item.title), meta);
+  const top = el('div', 'focus-top');  // the headline and its badge on one line: a compact row
+  top.append(el('span', 'focus-headline', item.headline || item.title), pill(item.badge || '', item.tone || 'neutral', {dot: true}));
+  body.append(top, meta);
   body.title = item.detail || '';
   const actions = el('div', 'focus-actions');
   if (item.link) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
