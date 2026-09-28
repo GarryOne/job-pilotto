@@ -4,60 +4,29 @@
 <meta charset="utf-8">
 <title>Job Pilotto</title>
 <style>
-  :root { --ink: #182537; --muted: #5b6b80; --line: #dae1e9; --blue: #165bba; --green: #1f7a4d; --amber: #9a6200; --bg: #f7f9fc; --signal: #d9540b; }
+  :root { --ink: #182537; --muted: #5b6b80; --line: #e2e8f0; --signal: #d9540b; --good: #1f9d55; }
   * { box-sizing: border-box; }
-  body { width: 370px; margin: 0; font: 13px/1.45 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
-  header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #132439; color: white; }
-  header b { font-size: 14px; }
+  body { width: 300px; margin: 0; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--ink); background: #fff; }
+  header { display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: #132439; color: #fff; }
+  header img { border-radius: 5px; }
   header a { margin-left: auto; color: #b9c8dc; font-size: 12px; text-decoration: none; }
-  html, body { overflow-x: hidden; }
-  /* minmax(0, 1fr): long, unwrapped job titles ellipsize instead of widening the popup past the header. */
-  main { padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-  .title { font-weight: 600; font-size: 14px; }
-  .muted { color: var(--muted); }
-  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #eaf1fb; color: var(--blue); font-size: 12px; }
-  button { width: 100%; padding: 9px; border: 0; border-radius: 8px; font: 600 13px system-ui, sans-serif; cursor: pointer; }
-  button.primary { background: var(--signal); color: white; }
-  button.secondary { background: white; color: var(--ink); border: 1px solid var(--line); }
-  button.small { width: auto; flex: none; white-space: nowrap; padding: 5px 10px; font-size: 12px; }
-  button:disabled { opacity: .55; cursor: default; }
-  .actions { display: grid; gap: 6px; }
-  ul { margin: 6px 0 0; padding-left: 18px; }
-  li { margin: 2px 0; }
-  .ok { color: var(--green); }
-  .warn { color: var(--amber); }
-  .note { font-size: 12px; color: var(--muted); }
-  [hidden] { display: none !important; }
-  .brand { display: inline-flex; align-items: center; gap: 6px; } .brand img { border-radius: 5px; }
-  .busy { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); }
-  .busy::before { content: ""; flex: none; width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--line);
-    border-top-color: var(--signal); animation: spin .8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  header a:hover { color: #fff; }
+  main { padding: 14px; display: grid; gap: 10px; }
+  p { margin: 0; color: var(--muted); }
+  button { width: 100%; padding: 10px; border: 0; border-radius: 10px; background: var(--signal); color: #fff; font: 650 13px system-ui, sans-serif; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .status.on::before { background: var(--good); }
 </style>
 </head>
 <body>
-<header><b class="brand"><img src="icons/icon-48.png" alt="" width="22" height="22">Job Pilotto</b><a href="#" id="settings">Settings</a></header>
+<header><img src="icons/icon-48.png" alt="" width="22" height="22"><b>Job Pilotto</b><a href="#" id="settings">Settings</a></header>
 <main>
-  <div id="status" class="card muted" hidden></div>
-  <section id="job" class="card" hidden>
-    <div class="title" id="job-title"></div>
-    <div class="muted" id="job-company"></div>
-    <div style="margin-top:6px"><span class="pill" id="job-stage"></span> <span class="muted" id="job-answers"></span></div>
-  </section>
-  <section id="actions" class="actions" hidden>
-    <button class="primary" id="fill">Fill this form</button>
-    <button class="secondary" id="copy-letter" hidden>Copy cover letter</button>
-    <button class="secondary" id="applied" hidden>I submitted it: mark Applied</button>
-  </section>
-  <section id="ineligible" class="card warn" hidden>
-    <div id="ineligible-note"></div>
-    <button class="secondary" id="fill-anyway" style="margin-top:8px">Fill anyway</button>
-  </section>
-  <section id="result" class="card" hidden></section>
-  <a id="run-log" class="note" href="#" hidden>📋 Open this fill's record in Notion (field by field)</a>
-  <p class="note">Job Pilotto never clicks Submit: review every field, then submit yourself.</p>
+  <p>Everything happens in the panel at the bottom right of an application form: what's left, Fill, and I submitted it.</p>
+  <button id="show">Show the panel on this page</button>
+  <div class="status" id="status">Checking the connection…</div>
 </main>
-<script src="popup.js" type="module"></script>
+<script type="module" src="popup.js"></script>
 </body>
 </html>

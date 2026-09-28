@@ -5,27 +5,25 @@ filling, the page shows *Unlock for my review*; you check every field, unlock, a
 
 ## What it does
 
-1. On an application page, click the ✈️ icon.
-2. **Fill this form** fills it the best way, like an Apply with Claude session: the job's drafted kit first,
-   then Claude answers only the questions the kit doesn't cover (from your Notion Profile and Application
-   Answers; about USD 0.03–0.06 when it's needed, nothing when the kit covers every question). It fills text
-   fields, radio buttons, non-legal checkboxes and selects, attaches your CV, and shows what's left.
-3. **Eligibility check:** without a kit, if the posting rules you out (location, work permit, language),
-   nothing is filled; the popup says why and offers **Fill anyway**.
-4. **Searchable dropdowns** (Greenhouse) only open for a real click, so they're highlighted with
-   "Click to choose: …". Click one; the extension picks the answer in the menu your click opened.
-5. **Which job next** is the desktop app's: the extension is about the form in front of you.
-6. **Parallel filling from the desktop app:** **Apply to jobs… → In Chrome** opens N jobs as tabs
-   (each link ends in `#jobpilotto-fill`); the background worker fills every such tab by itself as
-   it loads, side by side, and each shows its own "still yours to do" panel. Needs the one-time
-   permission on job sites.
-8. After you submit, **I submitted it: mark Applied** updates Notion (Telegram confirms).
-9. **The ring** (bottom right of every application form): how many required fields are still empty, green
-   with ✓ *Ready* when none is. Click it for the list; click an item to go to that field. With the app open it
-   keeps the app's session page in step: agreements you tick here are ticked off there, and the app's
-   *Open the form to tick it* scrolls here to that field. Read only: it never types, ticks or clicks anything.
+Everything happens in **the panel**, bottom right of every application form (the toolbar icon only points to it).
 
-Multi-page forms: click Next on the page, then Fill again.
+- **Collapsed:** a pill with a progress ring: *3 left*, or a green *Ready to submit* when every required field is
+  filled. Click it to open the panel.
+- **Open:** the job (title, company, stage), what Claude is doing on it when an Apply with Claude session works on
+  this form, the progress (*12 of 15 required fields filled*), **Fill this form**, what's **left for you** (click
+  one: the page scrolls to it; ⚖️ marks agreements only you may tick), and **I submitted it**, **Copy cover
+  letter**, **Open in Job Pilotto**.
+- **Fill this form** fills it the best way, like an Apply with Claude session: the job's drafted kit first, then
+  Claude answers only the questions the kit doesn't cover (about USD 0.03–0.06 when needed, nothing when the kit
+  covers every question). Text fields, radios, non-legal checkboxes, selects, searchable dropdowns and your CV.
+  Without a kit, a posting that rules you out isn't filled unless you choose **Fill anyway**.
+- **App first:** the job, its session and the form's state are shared with the Job Pilotto app both ways. Ticks
+  you make here are ticked off on the app's session page; its *Show it in the form* scrolls here. Without the app
+  (not open, or your own Worker) the panel still shows what's left and fills through your connection.
+- **Never submits:** the panel reads the form and scrolls to fields; filling goes through the extension's fill,
+  which never clicks Submit. Which job to apply to next is the desktop app's.
+- **Up to date by itself:** an older copy in Chrome reloads itself from the app's folder, and joins the forms
+  already open without reloading them.
 
 ## Privacy
 

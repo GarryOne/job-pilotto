@@ -1,6 +1,6 @@
 // The background worker: tabs the app opens to fill (#jobpilotto-fill), Apply with Claude's hand-off, the ring's
 // messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
-import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, pair, settings} from './flow.js';
+import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 
 async function note(tabId, text) {
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
@@ -59,6 +59,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 // A progress panel on the page while a tab fills itself (the popup is closed then).
 async function progress(tabId, text) {
+  // The page's panel (review.js) shows it when it's there; the floating box is for pages without one.
+  const shown = await chrome.tabs.sendMessage(tabId, {type: 'panelStep', text}).catch(() => null);
+  if (shown?.shown) return;
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
     let box = document.getElementById('jobpilotto-progress');
     if (!message) { box?.remove(); return; }
@@ -173,6 +176,39 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     handOff(sender.tab, String(message.job || ''), String(message.ticket || ''));
     reply({ok: true});
     return false;
+  }
+  // The panel (review.js). App first: its job, its session and the state of the form, shared both ways. Without the
+  // app (not open, or your own Worker) the panel still shows the form's progress and fills through your Worker.
+  if (message?.type === 'panelJob' && sender.tab) {
+    (async () => {
+      const config = await settings();
+      const app = !config.workerUrl || config.workerUrl.startsWith('http://127.0.0.1');
+      try {
+        const data = await api(config, `/extension/kit?url=${encodeURIComponent(message.url || sender.tab.url)}`);
+        return {connected: true, app, job: data.job || null, answers: data.kit?.answers?.length || 0, coverLetter: data.kit?.cover_letter || ''};
+      } catch (error) {
+        return {connected: error.status === 404, app, job: null, answers: 0, coverLetter: '', why: error.status ? '' : (app ? NO_APP : error.message)};
+      }
+    })().then(reply, () => reply({connected: false}));
+    return true;
+  }
+  if (message?.type === 'panelFill' && sender.tab) {
+    const url = String(message.url || sender.tab.url).split('#')[0];
+    started.add(sender.tab.id);
+    forgetAI(sender.tab).then(() => fillOpenedTab(sender.tab, url, !!message.force)).then(result => reply({
+      ok: !result?.error, error: result?.error || '', ineligible: !!result?.ineligible, note: result?.note || '',
+      filled: result?.filled || 0, todo: (result?.todo || []).slice(0, 20), coverLetter: result?.coverLetter || ''}));
+    return true;
+  }
+  if (message?.type === 'panelApplied' && sender.tab) {
+    settings().then(config => api(config, '/extension/applied', {method: 'POST', body: JSON.stringify({url: message.url || sender.tab.url})}))
+      .then(data => reply({ok: true, message: data.message || 'Marked Applied'}), error => reply({ok: false, error: error.message}));
+    return true;
+  }
+  if (message?.type === 'panelOpenApp') {
+    settings().then(config => api(config, '/extension/open', {method: 'POST', body: JSON.stringify({session: message.session})}))
+      .then(data => reply({ok: !!data.ok}), () => reply({ok: false}));
+    return true;
   }
   // The form page's ring (review.js): what's left there, to the app's session page; back: what to watch and show.
   if (message?.type === 'review' && sender.tab) {

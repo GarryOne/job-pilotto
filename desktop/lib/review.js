@@ -44,7 +44,7 @@ export function delivered(id, ms = 7000) {
 export function report(sessions, payload, now = Date.now()) {
   const page = {url: String(payload?.url || ''), title: String(payload?.title || '')};
   const session = matchSession(sessions, page);
-  if (!session) return {matched: null, watch: [], commands: []};
+  if (!session) return {matched: null, session: null, watch: [], commands: []};
   const states = {};
   for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
   const state = {id: session.id, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states};
@@ -53,6 +53,9 @@ export function report(sessions, payload, now = Date.now()) {
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);
   if (due.length) { for (const done of waiting.get(session.id) || []) done(); waiting.delete(session.id); }
-  return {matched: session.id, watch: watches.get(session.id) || [], commands: due.map(({focus}) => ({focus}))};
+  // The panel's header: which job this is and what Claude is doing on it (no answers, no personal data).
+  const about = {id: session.id, url: session.url, title: session.title || '', company: session.company || '', status: session.status,
+    note: session.note || '', live: session.live ?? !session.endedAt};
+  return {matched: session.id, session: about, watch: watches.get(session.id) || [], commands: due.map(({focus}) => ({focus}))};
 }
 export const _reset = () => { watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests

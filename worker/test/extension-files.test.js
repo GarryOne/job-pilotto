@@ -87,14 +87,15 @@ test('the Submit guard can be loaded twice on a page (a second fill) without thr
   assert.equal(window.__jobPilottoGuardActive, false);
 });
 
-test('the ring (review.js) is read only: it never types, ticks, clicks or submits anything in the form', () => {
+test('the panel (review.js) is read only: it never types, ticks, clicks or submits anything in the form', () => {
   const ring = read('extension/review.js');
   // Only its own ring and panel get click handlers; the form's fields are scrolled to, outlined and focused.
   assert.doesNotMatch(ring, /\.click\(\)|\.checked\s*=[^=]|\.value\s*=[^=]|dispatchEvent|\.submit\(|requestSubmit/);
   assert.match(ring, /attachShadow/);
   // It talks to the app only through the extension's background worker, never from the page's origin.
   assert.doesNotMatch(ring, /fetch\(|XMLHttpRequest/);
-  assert.match(ring, /chrome\.runtime\.sendMessage\(\{type: 'review'/);
+  assert.match(ring, /const send = message => \(chrome\.runtime\?\.id \? chrome\.runtime\.sendMessage\(message\)/);
+  assert.match(ring, /send\(\{type: 'review', payload\}\)/);
 });
 
 test('an out-of-date extension in Chrome loads the new copy by itself, and joins the forms already open', () => {

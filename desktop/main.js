@@ -949,6 +949,15 @@ if (firstCopy) app.whenReady().then(() => {
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  server.setOpenHandler(id => {
+    if (!terminals.get(id)) return false;
+    if (!window || window.isDestroyed()) createWindow();
+    window.show();
+    window.focus();
+    app.focus({steal: true});
+    toWindow('session', 'open', {id});
+    return true;
+  });
   review.setReporter(state => toWindow('review', state));
   server.setSessionReporter((id, info) => {
     const {session, needsYou} = terminals.report(id, info);
