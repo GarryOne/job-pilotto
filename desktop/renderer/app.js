@@ -3407,8 +3407,8 @@ function renderNextStep(item) {
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (review) {
     actions.push(sessionButton('Open filled form', 'primary', async () => {
-      const went = await window.pilot.showBrowser(item.url, sessionCompany(item));
-      if (went === 'chrome') toastMessage('Form tab not found', 'Chrome is in front, but no open tab matches this job. Look for the tab Claude used.');
+      const went = await window.pilot.showBrowser(item.url, sessionCompany(item), item.id);
+      if (went === 'chrome') toastMessage('Form tab not found', 'No open form answered. Look for the tab Claude used in Chrome.');
     }, 'link'));
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     else if (item.resumable) actions.push(resume('secondary'));

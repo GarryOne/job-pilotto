@@ -71,7 +71,8 @@
     target.style.outline = '3px solid #f07014';
     target.style.outlineOffset = '4px';
     setTimeout(() => { target.style.outline = outline; target.style.outlineOffset = offset; }, 3500);
-    if (!['checkbox', 'radio', 'file'].includes(el.type)) el.focus({preventScroll: true});
+    // The cursor goes into text fields only: a dropdown would open its menu, a box would look ticked-by-us.
+    if (!['checkbox', 'radio', 'file'].includes(el.type) && el.getAttribute('role') !== 'combobox' && el.tagName !== 'SELECT') el.focus({preventScroll: true});
   }
 
   // ---- the panel (its own shadow root: the page's styles can't touch it, it can't touch the page) ----
@@ -281,9 +282,12 @@
       session = reply?.session || null;
       const before = JSON.stringify(watch);
       watch = Array.isArray(reply?.watch) ? reply.watch : [];
+      // The app asked to see this form (and maybe one field): this tab comes forward, then the field.
       for (const command of reply?.commands || []) {
-        const field = find(command.focus, state.list);
-        if (field) { if (!open) setOpen(true); flash(field.el); }
+        send({type: 'panelShowTab'}).catch(() => {});
+        if (!open) setOpen(true);
+        const field = command.focus && find(command.focus, state.list);
+        if (field) flash(field.el);
       }
       // The job once per page (and again when a session matched): title, stage, kit, cover letter.
       const wanted = session?.url || location.href;
@@ -302,6 +306,6 @@
   document.addEventListener('input', soon, true);
   document.addEventListener('change', soon, true);
   new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
-  const tick = setInterval(sync, 4000);
+  const tick = setInterval(sync, 2000);
   sync();
 })();

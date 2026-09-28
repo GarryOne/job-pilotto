@@ -66,7 +66,9 @@ export async function listTabs() {
   try { return JSON.parse(await jxa(LIST)) || []; } catch { return []; }
 }
 
-// Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'.
+// Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'. The posting
+// opens only when Chrome isn't running: on most job sites the posting's link IS the form, so opening it while Chrome
+// runs would add a second, empty copy of the form next to the filled one.
 export async function openFormTab({url, company}, openExternal) {
   if (process.platform !== 'darwin') { await openExternal(url); return 'posting'; }
   try {
@@ -77,7 +79,7 @@ export async function openFormTab({url, company}, openExternal) {
     await jxa("Application('Google Chrome').activate()");
     return 'chrome';
   } catch {
-    // No permission to control Chrome (or no Chrome): at least bring it forward, else open the posting.
-    try { await jxa("Application('Google Chrome').activate()"); return 'chrome'; } catch { await openExternal(url); return 'posting'; }
+    // No permission to control Chrome: at least bring it forward (never a new copy of the form).
+    try { await jxa("Application('Google Chrome').activate()"); return 'chrome'; } catch { return 'chrome'; }
   }
 }

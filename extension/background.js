@@ -205,6 +205,13 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       .then(data => reply({ok: true, message: data.message || 'Marked Applied'}), error => reply({ok: false, error: error.message}));
     return true;
   }
+  // The app asked to see this form: its tab and window come forward (the extension knows the tab; no Mac scripting).
+  if (message?.type === 'panelShowTab' && sender.tab) {
+    chrome.tabs.update(sender.tab.id, {active: true})
+      .then(() => chrome.windows.update(sender.tab.windowId, {focused: true}))
+      .then(() => reply({ok: true}), () => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'panelOpenApp') {
     settings().then(config => api(config, '/extension/open', {method: 'POST', body: JSON.stringify({session: message.session})}))
       .then(data => reply({ok: !!data.ok}), () => reply({ok: false}));

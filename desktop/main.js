@@ -721,10 +721,16 @@ function handlers() {
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   ipcMain.handle('reviewWatch', (_, id, items) => review.setWatch(String(id), items));
-  ipcMain.handle('reviewFocus', async (_, id, label, url, company) => {
+  // The extension first: the form page takes the request, brings its own tab forward and scrolls to the field (no
+  // macOS permission needed, never the wrong tab). Only when no page answers does the app look for the tab itself.
+  const showForm = async (id, label, url, company) => {
     review.queueFocus(String(id), String(label || ''));
-    const went = await openFormTab({url, company}, shell.openExternal);
-    const taken = await review.delivered(String(id));
+    const taken = await review.delivered(String(id), 8000);
+    const went = taken ? 'tab' : await openFormTab({url, company}, shell.openExternal);
+    return {taken, went};
+  };
+  ipcMain.handle('reviewFocus', async (_, id, label, url, company) => {
+    const {taken, went} = await showForm(id, label, url, company);
     const seen = server.extensionSeen(), latest = server.latestExtension();
     return {went, taken, extension: seen?.version || '', latest, outdated: !!(seen?.version && latest && seen.version !== latest)};
   });
@@ -837,7 +843,8 @@ function handlers() {
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
-  ipcMain.handle('showBrowser', (_, url, company) => openFormTab({url, company}, shell.openExternal));
+  // "Open filled form": the session's form tab through the extension (an empty label: bring it forward, no scroll).
+  ipcMain.handle('showBrowser', async (_, url, company, id) => (id ? (await showForm(id, '', url, company)).went : openFormTab({url, company}, shell.openExternal)));
   // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
   // browser. ⌘-click opens the app's own Notion window instead (its own sign-in, kept between restarts).
   ipcMain.handle('openNotion', (_, url, inWindow) => {
