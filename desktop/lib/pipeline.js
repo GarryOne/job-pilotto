@@ -163,20 +163,28 @@ export function mailArgs(storage, now = Date.now()) {
   const days = Math.min(14, Math.max(2, Math.ceil(since) + 1));
   return ['src.ai.mail', '--days', String(days), ...(telegram ? ['--send'] : []), '--log-run'];
 }
+// A check that ended normally (exit 0, so a GitHub run isn't marked crashed) without reading the mail: why, or null.
+export function mailProblem(stdout) {
+  if (/^Mail check skipped: the Anthropic API spend limit/m.test(stdout)) return 'not checked: the Anthropic API spend limit was reached';
+  if (/The Google sign-in for Gmail and Calendar has expired/.test(stdout)) return 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)';
+  return null;
+}
 export function checkMail(storage, onLine, trigger = 'you') {
-  let off = false;
+  let off = false, problem = null;
   return tracked(storage, 'mail', trigger, onLine, async tee => {
     const {code, stdout} = await run(storage, mailArgs(storage), tee, triggerEnv(trigger));
     off = /Gmail \+ Calendar is off/.test(stdout);
+    problem = code === 0 ? mailProblem(stdout) : null;
     // lastMailAt paces the schedule (a failed or "not connected" check waits for the next time too);
-    // lastMailOkAt sets how far back the next check looks.
+    // lastMailOkAt sets how far back the next check looks: only a check that read the mail moves it.
     const at = new Date().toISOString();
-    storage.saveSettings({lastMailAt: at, ...(code === 0 && !off ? {lastMailOkAt: at} : {})});
-    return {ok: code === 0};
+    const ok = code === 0 && !problem;
+    storage.saveSettings({lastMailAt: at, ...(ok && !off ? {lastMailOkAt: at} : {})});
+    return {ok};
   }, (record, log) => {
     const start = log.indexOf('Updates:');
     const updates = start < 0 ? [] : log.slice(start + 1).filter(line => /^\S/.test(line) && !/^Mail: /.test(line));
-    return {off, updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
+    return {off, problem, updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
   });
 }
 

@@ -461,3 +461,11 @@ test('an edited cell or line goes back into its markdown line; the rest is untou
   assert.equal(replaceLine('❓ Not provided', 'Decline to self-identify'), 'Decline to self-identify');
   assert.equal(withLine('# A\n| k | v |\n- x', 1, '| k | w |'), '# A\n| k | w |\n- x');
 });
+
+test('a Gmail check that exited normally but read nothing is a failure with its reason', async () => {
+  const {mailProblem} = await import('../lib/pipeline.js');
+  assert.equal(mailProblem('Cronjob run logged: https://x\nMail check skipped: the Anthropic API spend limit is reached (Error code: 400)'),
+    'not checked: the Anthropic API spend limit was reached');
+  assert.match(mailProblem('⚠️ The Google sign-in for Gmail and Calendar has expired (…)'), /Google sign-in expired/);
+  assert.equal(mailProblem('Mail: 12 emails read, 2 updates\nUpdates:\nGrafana: Rejected'), null);
+});

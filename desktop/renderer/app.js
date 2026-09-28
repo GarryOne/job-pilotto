@@ -225,6 +225,7 @@ const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 function outcome(run) {
   if (kindOf(run) === 'mail') {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
+    if (run.problem) return run.problem;
     if (!run.ok) return 'had problems';
     return run.updates?.length ? plural(run.updates.length, 'application update') : 'nothing new';
   }

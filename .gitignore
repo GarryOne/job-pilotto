@@ -9,3 +9,6 @@ reports/
 .wrangler/
 # The shared Google app client: added at build time from the GOOGLE_SHARED_CLIENT_JSON secret.
 config/google_oauth_client.json
+
+# also a symlink to a shared install (worktrees): never committed
+node_modules
