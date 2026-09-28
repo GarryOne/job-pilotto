@@ -399,11 +399,17 @@ function handlers() {
     try { return await pipeline.addApplied(storage, url, when, log); } catch (error) { return {ok: false, text: error.message}; }
   });
   // Jobs → Recruiter message: a recruiter lead read by Claude, waited for so the list shows it.
-  ipcMain.handle('addLead', async (_, text, talking = false) => {
+  ipcMain.handle('addLead', async (_, text, talking = false, image = null, target = '') => {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
     if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: recruiter leads are tracked there.'};
-    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'Reading a recruiter message needs your Anthropic API key (Settings).'};
-    try { return await pipeline.addLead(storage, String(text || ''), !!talking, log); } catch (error) { return {ok: false, text: error.message}; }
+    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'Reading a message or screenshot needs your Anthropic API key (Settings).'};
+    // A screenshot goes to a temporary file for the run (then to Notion, on the job's page), and is deleted after.
+    const ext = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'}[image?.type];
+    const file = ext ? path.join(app.getPath('temp'), `job-pilotto-shot-${Date.now()}${ext}`) : '';
+    try {
+      if (file) fs.writeFileSync(file, Buffer.from(String(image.data), 'base64'));
+      return await pipeline.addLead(storage, String(text || ''), !!talking, log, {file, target: String(target || '')});
+    } catch (error) { return {ok: false, text: error.message}; } finally { if (file) fs.rmSync(file, {force: true}); }
   });
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
   // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.

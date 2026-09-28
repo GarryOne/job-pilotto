@@ -291,7 +291,7 @@
       <div class="list-bar">
         <div class="list-left"><span id="jobs-count"></span>
           <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
-          <button class="link" id="lead-open" title="A recruiter wrote to you on LinkedIn, WhatsApp…? Track the role">+ Recruiter message…</button></div>
+          <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log message or screenshot…</button></div>
         <div class="density" role="group" aria-label="List density">
           <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
         </div>
@@ -703,17 +703,23 @@
 </dialog>
 <dialog id="lead-dialog">
   <form method="dialog">
-    <h2>🤝 Recruiter message</h2>
-    <p class="muted small">Paste what a recruiter sent you (LinkedIn, WhatsApp, an email). Claude reads the role, company, salary and
-      recruiter, and it goes to your Notion Applications as a recruiter lead, with the message on its page. Their later emails are tracked
-      like any application. Recruiter emails in Gmail are picked up by themselves.</p>
-    <label for="lead-text">Their message</label>
-    <textarea id="lead-text" rows="8" placeholder="Hi, I'm looking for a remote SRE for… 120–220K EUR…"></textarea>
-    <label class="radio"><input type="checkbox" id="lead-talking"><span>I've already said yes (Stage: Screening)</span></label>
+    <h2>📥 Log a message or screenshot</h2>
+    <p class="muted small">A recruiter's pitch, a reply, an interview time, a rejection… from LinkedIn, Gmail or WhatsApp. Claude reads it,
+      finds the job it's about and updates it in Notion, or adds it (a recruiter's pitch becomes a recruiter lead). The message and the
+      screenshot are kept on the job's page. Emails in Gmail are picked up by themselves.</p>
+    <label for="lead-text">The message, or paste a screenshot (⌘V) or drop one here</label>
+    <textarea id="lead-text" rows="6" placeholder="Paste the text, or a screenshot…"></textarea>
+    <div class="shot-preview" id="lead-shot-box" hidden>
+      <img id="lead-shot" alt="Screenshot to log">
+      <button type="button" class="link" id="lead-shot-remove">Remove screenshot</button>
+    </div>
+    <label for="lead-target">Which job?</label>
+    <select id="lead-target"></select>
+    <label class="radio"><input type="checkbox" id="lead-talking"><span>I've already said yes to the recruiter (Stage: Screening)</span></label>
     <p class="message" id="lead-message"></p>
     <div class="actions">
       <button class="ghost" value="cancel" formnovalidate>Close</button>
-      <button class="primary" id="lead-go" value="default">Track it</button>
+      <button class="primary" id="lead-go" value="default">Log it</button>
     </div>
   </form>
 </dialog>

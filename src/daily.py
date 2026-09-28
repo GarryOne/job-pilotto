@@ -12,7 +12,7 @@ import sys
 
 from . import digest, features, scout, store, telegram
 from . import doctor
-from .ai import budget, cost, enrich, insights, interviews, kit, opportunity, score
+from .ai import budget, cost, enrich, inbox, insights, interviews, kit, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
@@ -233,6 +233,8 @@ def main():
     parser.add_argument('--interview', help='interview mode: review this 🎤 Interviews row (saved from the app)')
     parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes; add mode: the date applied, '
                              'or (without --job) the recruiter\'s message')
+    parser.add_argument('--target', default='', help="add mode without --job: 'new', or the URL of the job it's about "
+                                                      '(default: Claude decides)')
     parser.add_argument('--log-run', action='store_true',
                         help='log this run to Notion ⏰ Search runs even without --send (the desktop app always does)')
     parser.add_argument('--insight', action='store_true',
@@ -268,14 +270,23 @@ def main():
                 telegram.send(message, *credentials)
         return 0
     if args.mode == 'add' and not args.job:
-        # /add <recruiter's message> (no job link), or a message forwarded to the bot: a recruiter lead.
+        # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
+        # the job it's about is updated, or created (src/ai/inbox.py).
         if not tracker:
             raise SystemExit('--mode add requires NOTION_TOKEN')
         run = new_cron_run('add')
         run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
         try:
-            reply = '🤝 ' + escape(opportunity.add_from_text(tracker, args.note or '', source='Telegram', event_source='Telegram',
-                                                            talking=args.action == 'talking', stats=run['mail']))
+            image = None
+            if args.file and Path(args.file).is_file():
+                image = inbox.load_image(args.file)
+            elif args.file:  # a photo or image file sent to the bot
+                name, data = interviews.download(telegram.credentials()[0], args.file)
+                image = (name, data, inbox.MEDIA.get(Path(name).suffix.lower(), 'image/jpeg'))
+            source = 'Telegram' if args.send else 'Manual'
+            reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
+                                     event_source='Telegram' if args.send else 'CLI',
+                                     talking=args.action == 'talking', stats=run['mail'], target=args.target))
             run['mail'].update(pending=1, done=1)
             queue_mail_check()
         except ValueError as error:

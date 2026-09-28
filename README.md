@@ -127,10 +127,13 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   weak answers and what to practise. Recordings are transcribed with speakers first (see below).
 - 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… on or before 23 Sep`:
   title, company and location come from the posting page.
-- 🤝 **A recruiter wrote to you?** Emails are picked up by the Gmail check. For LinkedIn, WhatsApp and the rest,
-  `/add` followed by their message (or forward it to the bot, or Jobs → **+ Recruiter message…** in the app):
-  Claude reads the role, employer (or hidden client), salary and recruiter into a **Recruiter lead** in
-  Applications, with the message on its page (Stage Screening if you already said yes).
+- 📥 **Log anything: a message or a screenshot.** A recruiter's pitch, a reply, an interview time, a rejection
+  from LinkedIn, Gmail or WhatsApp: send the screenshot to the bot (or forward the message, or `/add` its text),
+  or Jobs → **+ Log message or screenshot…** in the app (⌘V a screenshot; "Which job?" lets you pick it).
+  Claude Haiku 4.5 reads it with the list of your jobs and **updates the job it's about, or adds it**: a new
+  recruiter pitch becomes a **Recruiter lead** (Screening if you already said yes). The same pitch pasted twice
+  stays one job; sales pitches and other non-job messages are refused. The message and screenshot go on the
+  job's Notion page (`src/ai/inbox.py`, about USD 0.005–0.01 each).
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update
   your applications by themselves; the evening before an interview you get a prep message.
 - ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.

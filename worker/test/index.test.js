@@ -303,7 +303,7 @@ test('/add with a recruiter message, or a forwarded message, dispatches a recrui
   let calls = mockFetch({ '/dispatches': { status: 204 } });
   await sendMessage({ text: `/add ${pitch}` });
   assert.deepEqual(calls[0].body.inputs, { mode: 'add', note: pitch });
-  assert.match(calls[1].body.text, /recruiter/);
+  assert.match(calls[1].body.text, /Notion/);
   calls = mockFetch({ '/dispatches': { status: 204 } });
   await sendMessage({ text: `/add https://jobs.example/1 ${pitch}` });  // a link inside a message is still a message
   assert.deepEqual(calls[0].body.inputs, { mode: 'add', note: `https://jobs.example/1 ${pitch}` });
@@ -313,6 +313,19 @@ test('/add with a recruiter message, or a forwarded message, dispatches a recrui
   calls = mockFetch();
   await sendMessage({ text: 'ok', forward_origin: { type: 'hidden_user', sender_user_name: 'X' } });  // too short: not a pitch
   assert.ok(!calls.some((call) => /dispatches/.test(call.url)));
+});
+
+test('a screenshot (photo or image file) dispatches it with its caption; other files stay interviews', async () => {
+  let calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ photo: [{ file_id: 'small', file_size: 900 }, { file_id: 'big', file_size: 90000 }], caption: 'recruiter on LinkedIn' });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'add', file: 'big', note: 'recruiter on LinkedIn' });
+  assert.match(calls[1].body.text, /screenshot/);
+  calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ document: { file_id: 'D1', file_name: 'Screenshot 2026-09-28.png', mime_type: 'image/png', file_size: 5000 } });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'add', file: 'D1', note: '' });
+  calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ document: { file_id: 'T1', file_name: 'call.txt', file_size: 5000 } });
+  assert.equal(calls[0].body.inputs.mode, 'interview');
 });
 
 test('/mail dispatches the Gmail and Calendar workflow', async () => {

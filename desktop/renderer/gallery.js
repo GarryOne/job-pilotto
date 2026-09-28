@@ -56,3 +56,12 @@ section('Tags', 'tag(text, {title, onClick, busy})', row(
   tag('📄 Tailored CV', {onClick: () => {}}), tag('✂️ Tailoring CV…', {busy: true})));
 
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
+
+section('Screenshot preview', '.shot-preview: a pasted image before it is sent', (() => {
+  const box = el('div', 'shot-preview');
+  const img = el('img');
+  img.alt = 'Screenshot';
+  img.src = 'logo.png';
+  box.append(img, el('button', 'link', 'Remove screenshot'));
+  return box;
+})());

@@ -17,7 +17,7 @@ const HELP = [
   '/insight — one insight about your search now (~1 min)',
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
   '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… on or before 23 Sep',
-  '🤝 A recruiter wrote to you (LinkedIn, WhatsApp…)? /add followed by their message, or forward it here: it becomes a recruiter lead in Notion. Recruiter emails are picked up by the Gmail check',
+  '📥 A recruiter wrote, an employer replied, you applied somewhere? Send me a screenshot (LinkedIn, Gmail, WhatsApp…), forward the message, or /add followed by its text: I find the job it\'s about and update it, or add it. Emails are picked up by the Gmail check',
   '/mail — check Gmail and Calendar for application news now (also runs 3 times a day)',
   '🎤 After an interview: send the recording (only if everyone on the call agreed to it; a voice note, audio or video up to 20 MB) or the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
@@ -426,7 +426,21 @@ export async function handleAdd(env, text) {
 
 export async function handleLead(env, text) {
   await dispatch(env, { mode: 'add', note: text.slice(0, 6000) });
-  return '🤝 Reading the recruiter\'s message; the lead is in Notion in about a minute.';
+  return '📥 Reading it; the job it\'s about is updated (or added) in Notion in about a minute.';
+}
+
+// A screenshot (a photo, or an image sent as a file): LinkedIn, Gmail, WhatsApp… -> the job it's about.
+const IMAGE_TYPES = /\.(png|jpe?g|webp|gif)$/i;
+export function screenshot(message) {
+  if (message.photo?.length) return message.photo[message.photo.length - 1];  // the largest size
+  const doc = message.document;
+  return doc && (/^image\//.test(doc.mime_type || '') || IMAGE_TYPES.test(doc.file_name || '')) ? doc : null;
+}
+export async function handleScreenshot(env, message) {
+  const image = screenshot(message);
+  if ((image.file_size || 0) > MAX_FILE) return '⚠️ That image is over 20 MB. Send a smaller screenshot.';
+  await dispatch(env, { mode: 'add', file: image.file_id, note: (message.caption || '').slice(0, 2000) });
+  return '📥 Reading the screenshot; the job it\'s about is updated (or added) in Notion in about a minute.';
 }
 
 // A message forwarded from someone else (a recruiter), long enough to be a pitch.
@@ -439,6 +453,10 @@ export async function handleUpdate(env, update) {
   // Only the owner's private chat may control the bot; ignore everyone else silently.
   if (!message || String(message.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
   try {
+    if (screenshot(message)) {
+      await reply(env, await handleScreenshot(env, message));
+      return;
+    }
     if (forwarded(message)) {
       const origin = message.forward_origin?.sender_user_name || message.forward_sender_name
         || [message.forward_from?.first_name, message.forward_from?.last_name].filter(Boolean).join(' ');

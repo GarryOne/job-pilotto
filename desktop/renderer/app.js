@@ -1082,24 +1082,59 @@ $('applied-go').addEventListener('click', async event => {
   loadJobs();
 });
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
+let leadShot = null;  // {name, type, data (base64)} of a pasted or dropped screenshot
+function setLeadShot(file) {
+  if (!file || !/^image\//.test(file.type)) return false;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const url = String(reader.result);
+    leadShot = {name: file.name || 'screenshot.png', type: file.type, data: url.slice(url.indexOf(',') + 1)};
+    $('lead-shot').src = url;
+    $('lead-shot-box').hidden = false;
+  };
+  reader.readAsDataURL(file);
+  return true;
+}
+function clearLeadShot() { leadShot = null; $('lead-shot').removeAttribute('src'); $('lead-shot-box').hidden = true; }
+// Which job?: Claude decides (default), a new job, or one of the applications in Notion.
+function leadTargets() {
+  const tracked = allJobs.filter(job => job.stage && !['Dismissed', 'Closed'].includes(job.stage))
+    .sort((a, b) => `${a.company} ${a.title}`.localeCompare(`${b.company} ${b.title}`));
+  const option = (value, text) => { const o = document.createElement('option'); o.value = value; o.textContent = text; return o; };
+  const group = document.createElement('optgroup');
+  group.label = 'Your applications';
+  tracked.forEach(job => group.append(option(job.url, `${job.company || '—'} · ${job.title} (${job.stage})`)));
+  $('lead-target').replaceChildren(option('', 'Let Claude decide (recommended)'), option('new', 'A new job'), ...(tracked.length ? [group] : []));
+}
 $('lead-open').addEventListener('click', () => {
   message('lead-message', '');
   $('lead-go').disabled = false;
+  leadTargets();
   $('lead-dialog').showModal();
   $('lead-text').focus();
 });
+$('lead-dialog').addEventListener('paste', event => {
+  const file = [...(event.clipboardData?.files || [])].find(f => /^image\//.test(f.type));
+  if (file && setLeadShot(file)) event.preventDefault();
+});
+$('lead-dialog').addEventListener('dragover', event => event.preventDefault());
+$('lead-dialog').addEventListener('drop', event => {
+  const file = [...(event.dataTransfer?.files || [])].find(f => /^image\//.test(f.type));
+  if (file) { event.preventDefault(); setLeadShot(file); }
+});
+$('lead-shot-remove').addEventListener('click', clearLeadShot);
 $('lead-go').addEventListener('click', async event => {
   event.preventDefault();
   const text = $('lead-text').value.trim();
-  if (text.length < 40) { message('lead-message', "Paste the recruiter's whole message (the role, company, salary…).", 'error'); return; }
+  if (!leadShot && text.length < 40) { message('lead-message', 'Paste the whole message, or a screenshot of it.', 'error'); return; }
   $('lead-go').disabled = true;
-  message('lead-message', 'Claude is reading it and adding it to Notion…', 'waiting');
-  const result = await window.pilot.addLead(text, $('lead-talking').checked);
+  message('lead-message', 'Claude is reading it and updating Notion…', 'waiting');
+  const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShot, $('lead-target').value);
   $('lead-go').disabled = false;
   message('lead-message', result.text, result.ok ? 'ok' : 'error');
   if (!result.ok) return;
-  $('lead-text').value = ''; $('lead-talking').checked = false;
-  $('filter-status').value = 'all';  // a lead is Saved, or Applied once you're talking: show both
+  $('lead-text').value = ''; $('lead-talking').checked = false; clearLeadShot();
+  $('filter-status').value = 'all';  // it may be saved (a lead) or applied: show both
   loadJobs();
 });
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.

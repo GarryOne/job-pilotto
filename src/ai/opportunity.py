@@ -78,14 +78,14 @@ def extract(client, model, text, sender='', stats=None):
     return json.loads(next(b.text for b in response.content if b.type == 'text'))
 
 
-def lead_url(lead, text, gmail_id=''):
+def lead_url(lead, text, gmail_id='', seed=None):
     """The row's Job URL (the Applications key): the posting if the message links one, else the Gmail message,
     else a stable link derived from the message text (the same message pasted twice stays one row)."""
     if lead.get('job_url', '').startswith(('http://', 'https://')):
         return lead['job_url']
     if gmail_id:
         return f'https://mail.google.com/mail/u/0/#all/{gmail_id}'
-    digest = hashlib.sha256(re.sub(r'\s+', ' ', text).strip().lower().encode()).hexdigest()[:16]
+    digest = seed or hashlib.sha256(re.sub(r'\s+', ' ', text).strip().lower().encode()).hexdigest()[:16]
     if lead.get('platform') == 'LinkedIn':
         return f'https://www.linkedin.com/messaging/#jp-{digest}'
     return f'https://www.jobpilotto.workers.dev/lead#{digest}'
@@ -106,9 +106,9 @@ def label(lead):
     return ' — '.join(p for p in (title(lead), who) if p) + (f' via {via}' if via and via != who else '')
 
 
-def properties(lead, url, stage, source):
+def properties(lead, url, stage, source, origin='Recruiter message'):
     via = '' if lead.get('in_house') else lead.get('recruiter_company', '')
-    notes = [f"Recruiter message ({lead.get('platform') or 'Other'})"]
+    notes = [f"{origin} ({lead.get('platform') or 'Other'})"]
     if lead.get('client'):
         notes.append(f"Client: {lead['client']}")
     if lead.get('contract'):
@@ -130,10 +130,10 @@ def properties(lead, url, stage, source):
     return props
 
 
-def track(tracker, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note=''):
+def track(tracker, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note='', seed=None, url=None, extra_blocks=()):
     """The Applications row, the page body (the message) and the events. Returns (row, one-line summary);
     row is None when the message is already tracked."""
-    url = lead_url(lead, text, gmail_id)
+    url = url or lead_url(lead, text, gmail_id, seed)
     if tracker.find(url):
         return None, f'Already tracked: {label(lead)}'
     talking = talking or bool(lead.get('owner_agreed'))
@@ -144,8 +144,10 @@ def track(tracker, lead, text, *, source, event_source, talking=False, at=None, 
                         ('Job', {'title': [{'plain_text': title(lead)}]}), ('Job URL', {'url': url})):
         known.setdefault(name, value)
     blocks = [_block('paragraph', part) for part in re.split(r'\n\s*\n', text.strip())[:90] if part.strip()]
+    blocks += list(extra_blocks)  # e.g. the screenshot it was read from
     try:
-        tracker.replace_after_heading(row['id'], HEADING, blocks)
+        if blocks:
+            tracker.replace_after_heading(row['id'], HEADING, blocks)
     except Exception as error:  # noqa: BLE001 — the row is what matters; the body is a convenience
         print(f'Warning: message not copied to the page: {type(error).__name__}: {error}', file=sys.stderr)
     at = at or datetime.now(timezone.utc).isoformat(timespec='seconds')

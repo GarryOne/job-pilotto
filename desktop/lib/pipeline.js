@@ -98,10 +98,11 @@ export async function addApplied(storage, url, when = '', onLine = () => {}) {
   return {ok: code === 0 && !text.startsWith('⚠️'), text: text || 'Could not add it (see the activity log)'};
 }
 
-// A recruiter's message (LinkedIn, WhatsApp, an email): Claude reads it into a recruiter lead in Notion Applications
-// (Stage Recruiter lead, or Screening when you're already talking), like /add <message> in Telegram.
-export async function addLead(storage, text, talking = false, onLine = () => {}) {
-  const {code, stdout} = await run(storage, dailyArgs(storage, {mode: 'add', note: text, talking}), onLine);
+// A pasted message or screenshot (LinkedIn, Gmail, WhatsApp): Claude finds the job it's about and updates it in Notion,
+// or adds it (src/ai/inbox.py), like /add <message> or a screenshot sent to the bot. file: the screenshot's path;
+// target: '' (Claude decides), 'new', or a job URL.
+export async function addLead(storage, text, talking = false, onLine = () => {}, {file = '', target = ''} = {}) {
+  const {code, stdout} = await run(storage, dailyArgs(storage, {mode: 'add', note: text, talking, file, target}), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const plain = line.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;/g, "'");
   return {ok: code === 0 && !plain.startsWith('⚠️'), text: plain || 'Could not add it (see the activity log)'};
@@ -124,6 +125,7 @@ export function dailyArgs(storage, inputs = {}) {
   const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : []), '--log-run'];
   if (inputs.job) args.push('--job', String(inputs.job), '--action', String(inputs.action || 'applied'));
   if (inputs.talking) args.push('--action', 'talking');
+  if (inputs.target) args.push('--target', String(inputs.target));
   if (inputs.page) args.push('--page', String(inputs.page));
   if (inputs.seed) args.push('--seed', String(inputs.seed));
   if (inputs.file) args.push('--file', String(inputs.file));

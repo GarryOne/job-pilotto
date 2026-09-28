@@ -176,20 +176,5 @@ class MailOutreachTests(unittest.TestCase):
         self.assertEqual(len(filters), 2)
 
 
-class DailyAddTests(unittest.TestCase):
-    def test_add_mode_without_a_job_link_tracks_the_message_as_a_lead(self):
-        from src import daily
-        tracker = Tracker()
-        argv = ['daily', '--mode', 'add', '--action', 'talking', '--note', EMAIL_PITCH]
-        with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
-                mock.patch.object(opportunity, 'extract', lambda *a, **k: EMAIL_LEAD), \
-                mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
-                mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda: None)}), \
-                mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
-            self.assertEqual(daily.main(), 0)
-        self.assertEqual(tracker.created[0]['Stage'], {'select': {'name': 'Screening'}})
-        self.assertIn('🤝 Tracked recruiter lead', printed.call_args_list[-1].args[0])
-
-
 if __name__ == '__main__':
     unittest.main()

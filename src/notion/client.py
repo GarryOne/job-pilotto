@@ -119,7 +119,8 @@ class Tracker:
                                          'fit': (props.get('Fit score') or {}).get('number'), 'reason': '',
                                          'match_status': None, 'first_seen': page.get('created_time', '')})
             row.update(stage=select(props.get('Stage')), next_step=text(props.get('Next step')), notion_url=page.get('url') or '',
-                       rejection=select(props.get('Rejection reason')) or '', rejection_lesson=text(props.get('Rejection lesson')))
+                       rejection=select(props.get('Rejection reason')) or '', rejection_lesson=text(props.get('Rejection lesson')),
+                       via=text(props.get('Via')), contact=text(props.get('Contact')))
         return list(found.values())
 
     def hidden_urls(self):
@@ -226,6 +227,25 @@ class Tracker:
 
     def update_page(self, page_id, properties):
         return self._request('PATCH', f'pages/{page_id}', {'properties': properties})
+
+    def append_blocks(self, page_id, blocks):
+        return self._request('PATCH', f'blocks/{page_id}/children', {'children': blocks})
+
+    def upload_file(self, name, data, content_type):
+        """Upload bytes to Notion (≤ 5 MB on the free plan); returns the file upload id, for a file/image block."""
+        created = self._request('POST', 'file_uploads', {'filename': name, 'content_type': content_type})
+        boundary = f'jobpilotto{os.urandom(8).hex()}'
+        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{name}"\r\n'
+                f'Content-Type: {content_type}\r\n\r\n').encode() + data + f'\r\n--{boundary}--\r\n'.encode()
+        request = urllib.request.Request(
+            f"https://api.notion.com/v1/file_uploads/{created['id']}/send", method='POST', data=body,
+            headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': NOTION_VERSION,
+                     'Content-Type': f'multipart/form-data; boundary={boundary}'})
+        with self.opener(request, timeout=60) as response:
+            sent = json.load(response)
+        if sent.get('status') != 'uploaded':
+            raise RuntimeError(sent.get('message') or 'Notion upload failed')
+        return created['id']
 
     def replace_section(self, page_id, heading_text, block):
         """Replace the top-level block whose text starts with heading_text (or append one) on a page."""
