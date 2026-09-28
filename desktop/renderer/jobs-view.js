@@ -26,8 +26,23 @@ export function stats(jobs, total, now = Date.now()) {
   };
 }
 
+// Applications, by their Notion Stage: ended (rejected, withdrawn, no answer) or still in play (active).
+const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
+const TALKING = new Set(['Screening', 'Interview scheduled', 'Interviewing', 'Offer']);
+const APPLICATION = {
+  applied: job => job.status === 'applied',
+  active: job => job.status === 'applied' && !ENDED.has(job.stage),
+  interviews: job => job.status === 'applied' && TALKING.has(job.stage),
+  rejected: job => job.status === 'applied' && job.stage === 'Rejected',
+};
+// The application counters: applied in total, still active, interviewing, rejected.
+export function applicationStats(jobs) {
+  return Object.fromEntries(Object.entries(APPLICATION).map(([kind, test]) => [kind, jobs.filter(test).length]));
+}
+
 // Clicking a counter shows the jobs it counts: high fit, new this week, or one job per company (its best fit).
 export function byStat(jobs, kind, now = Date.now()) {
+  if (APPLICATION[kind]) return jobs.filter(APPLICATION[kind]);
   if (kind === 'high') return jobs.filter(job => job.fit >= 70);
   if (kind === 'week') return jobs.filter(job => now - Date.parse(job.first_seen_at) <= WEEK);
   if (kind === 'companies') {

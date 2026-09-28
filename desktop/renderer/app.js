@@ -1,7 +1,7 @@
 import {replaceCell, replaceLine, withLine} from './markdown-edit.js';
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {ago, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
+import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 
@@ -16,7 +16,7 @@ let state = await window.pilot.state();
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
-let statFilter = null;  // the counter clicked above the list: 'high', 'week', 'companies' or null
+let statFilter = null;  // the counter clicked above the list: 'applied', 'active', 'interviews', 'rejected', 'high', 'week', 'companies' or null
 
 // ---------- helpers ----------
 function show(element, visible = true) { element.hidden = !visible; }
@@ -974,7 +974,7 @@ function renderJobs() {
     row.append(fit, role, company, place, status, box);
     body.append(row);
   }
-  const statLabel = {high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
+  const statLabel = {applied: 'applied', active: 'active applications', interviews: 'interviews', rejected: 'rejected', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
   $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}` + (statLabel ? ` · ${statLabel}` : '');
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
   show($('jobs-empty'), rows.length === 0);
@@ -1085,6 +1085,8 @@ async function loadJobs() {
     $('stat-high').textContent = count.high;
     $('stat-week').textContent = count.week;
     $('stat-companies').textContent = count.companies;
+    const applications = applicationStats(allJobs);
+    for (const kind of Object.keys(applications)) $(`stat-${kind}`).textContent = applications[kind];
   } catch (error) {
     $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }

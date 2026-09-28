@@ -42,6 +42,14 @@ class NotionListTests(unittest.TestCase):
         cache.assert_called_once_with(mock.ANY, 7, 'saved')
         self.assertTrue(rows['https://a/new']['unsynced'])
 
+    def test_rows_carry_the_stage_and_applications_survive_the_limit(self):
+        with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=([], [])), \
+                mock.patch.object(desktop.score, 'load', return_value={}):
+            result = desktop.jobs(sqlite3.connect(':memory:'), limit=1, notion_jobs=[
+                notion('https://a/top', fit=90), notion('https://a/low', fit=20), notion('https://a/rej', fit=10, stage='Rejected')])
+        self.assertEqual([(r['url'], r['stage']) for r in result['jobs']], [('https://a/top', ''), ('https://a/rej', 'Rejected')])
+        self.assertEqual(result['total'], 3)
+
 
 if __name__ == '__main__':
     unittest.main()

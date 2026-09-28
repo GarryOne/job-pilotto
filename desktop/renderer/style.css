@@ -313,6 +313,8 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .stat { font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
 .stat:hover { border-color: color-mix(in srgb, var(--tone) 45%, var(--line)); }
 .stat[aria-pressed="true"] { border-color: var(--tone); box-shadow: 0 0 0 1px var(--tone); }
+.stat.signal { --tint: var(--signal-soft); --tone: var(--signal); }
+.stat.red { --tint: var(--bad-soft); --tone: var(--bad); }
 .stat.green { --tint: var(--good-soft); --tone: var(--good); }
 .stat.sky { --tint: var(--info-soft); --tone: var(--info); }
 .stat.violet { --tint: var(--violet-soft); --tone: var(--violet); }

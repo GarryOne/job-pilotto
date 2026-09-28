@@ -60,6 +60,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None):
                 'posted_at': job.get('posted_at') or '', 'first_seen_at': job.get('first_seen_at') or '',
                 'status': status, 'fit': fit, 'reason': reason or '', 'rank': digest.rank_score(job) if job.get('id') else 0,
                 'notion_url': page or '',  # the job's Applications page: kit, verdict, notes
+                'stage': stage or '',  # the Applications Stage (Applied, Interviewing, Rejected…): the app's application counters
                 # A kit writes Next step (Kit ready / Not eligible); the stage can stay Saved if the job was starred first.
                 'kit': _kit(stage, step or ''),
                 'ineligible': step[len(NOT_ELIGIBLE):] if (step or '').startswith(NOT_ELIGIBLE) else '', **extra}
@@ -99,7 +100,9 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None):
             rows.append(row(job, fit.get('score') if fit else None, (fit.get('summary') or fit.get('reason')) if fit else '',
                             job.get('application_status') or 'unreviewed', stage, step, page))
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
-    return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
+    # Every application stays in the list, however low its fit, so the app's application counters are complete.
+    kept = rows[:limit] + [r for r in rows[limit:] if r['status'] == 'applied']
+    return {'jobs': kept, 'total': len(rows), 'filtered': len(blocked)}
 
 
 def posting(db, code):
