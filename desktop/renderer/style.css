@@ -74,6 +74,10 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 details textarea { margin-top: 8px; }
 .extra { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-top: 10px; }
 .extra p { color: var(--muted); margin: 0; }
+.extra-stack { align-items: flex-start; }
+.prereqs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.prereqs li { color: var(--muted); }
+.prereqs li.done { color: var(--good); }
 
 /* App */
 .app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; }

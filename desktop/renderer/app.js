@@ -893,6 +893,29 @@ $('contact-cv-replace').addEventListener('click', async () => {
   if (name) { state = await window.pilot.state(); showContact(); message('contact-message', `CV replaced: ${name}`, 'ok'); }
 });
 
+// ---------- Apply with Claude: what only the user can install (wizard, Optional extras) ----------
+async function showClaudePrereqs() {
+  const found = await window.pilot.claudePrereqs().catch(() => null);
+  if (!found) return;
+  const link = (href, text) => Object.assign(document.createElement('a'), {href, target: '_blank', textContent: text});
+  const items = [
+    [found.claude, 'Claude Code installed', link('https://claude.com/claude-code', 'Install Claude Code')],
+    [found.signedIn, 'Signed in to Claude Code with your Claude account', document.createTextNode(
+      found.windows ? 'Open PowerShell, run claude, then /login' : 'Open Terminal, run claude, then /login')],
+    ...(found.windows ? [[found.git, 'Git for Windows installed (Claude Code needs it)', link('https://git-scm.com/downloads/win', 'Install Git for Windows')]] : []),
+    [null, 'Claude in Chrome extension added and signed in', link('https://chromewebstore.google.com/search/Claude', 'Get it from the Chrome Web Store')],
+  ];
+  $('claude-prereqs').replaceChildren(...items.map(([done, text, action]) => {
+    const li = document.createElement('li');
+    li.className = done ? 'done' : '';
+    li.append(`${done ? '✓' : done === false ? '○' : '•'} ${text}`);
+    if (!done) li.append(' · ', action);
+    return li;
+  }));
+}
+$('claude-prereqs-check').addEventListener('click', showClaudePrereqs);
+showClaudePrereqs();
+
 // ---------- Chrome extension: connected? (it checks in every 30 s) ----------
 async function showExtensionStatus() {
   const seen = await window.pilot.extensionSeen();

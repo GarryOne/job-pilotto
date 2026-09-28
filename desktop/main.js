@@ -369,6 +369,7 @@ function handlers() {
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
   ipcMain.handle('applyWithClaude', (_, url) => apply.claudeOne(storage, url));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
+  ipcMain.handle('claudePrereqs', () => apply.claudePrereqs());
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
   // The token lives in the Keychain, where the Python side (src/sources/google.py) reads it.
   ipcMain.handle('googleStatus', async () => {

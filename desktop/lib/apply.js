@@ -50,6 +50,24 @@ export function claudeBinary(env = process.env, exists = fs.existsSync, platform
   return dirs.flatMap(dir => names.map(name => p.join(dir, name))).find(file => exists(file)) || '';
 }
 
+// Git for Windows: Claude Code on Windows runs its commands in its bash. Where the installer puts it, or
+// where CLAUDE_CODE_GIT_BASH_PATH says.
+export function gitBash(env = process.env, exists = fs.existsSync) {
+  return [env.CLAUDE_CODE_GIT_BASH_PATH, env.ProgramFiles && path.win32.join(env.ProgramFiles, 'Git', 'bin', 'bash.exe'),
+    env.LOCALAPPDATA && path.win32.join(env.LOCALAPPDATA, 'Programs', 'Git', 'bin', 'bash.exe')].filter(Boolean).find(file => exists(file)) || '';
+}
+
+// Signed in to Claude Code: its settings file names the Claude account after `claude` → /login.
+export function claudeSignedIn(home = os.homedir(), read = fs.readFileSync) {
+  try { return !!JSON.parse(read(path.join(home, '.claude.json'), 'utf8')).oauthAccount; } catch { return false; }
+}
+
+// What Apply with Claude needs that only the user can set up, for the wizard's checklist (the Claude in
+// Chrome extension can't be seen from here, so it's a link only).
+export function claudePrereqs(platform = process.platform, {binary = claudeBinary, signedIn = claudeSignedIn, bash = gitBash} = {}) {
+  return {claude: !!binary(), signedIn: signedIn(), git: platform === 'win32' ? !!bash() : null, windows: platform === 'win32'};
+}
+
 // Apply with Claude works when Claude Code is installed and Notion holds the kits. Its sessions run in the
 // Mac's Terminal (tools/apply-batch-claude.sh), so not on Windows yet.
 export function claudeReady(storage, binary = claudeBinary, platform = process.platform) {

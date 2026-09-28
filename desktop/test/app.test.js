@@ -366,3 +366,15 @@ test('Windows wording: the PC, File Explorer, Ctrl, its own encryption; the Mac 
   assert.equal(osText('(⌘-click: in a window)', 'win32'), '(Ctrl-click: in a window)');
   assert.equal(osText('Show in Finder, this Mac', 'darwin'), 'Show in Finder, this Mac');
 });
+
+test('Apply with Claude checklist: Claude Code found and signed in, Git for Windows only on Windows', () => {
+  const signedIn = apply.claudeSignedIn('/home/x', () => JSON.stringify({oauthAccount: {emailAddress: 'a@b.c'}}));
+  assert.equal(signedIn, true);
+  assert.equal(apply.claudeSignedIn('/home/x', () => { throw new Error('no file'); }), false);
+  assert.deepEqual(apply.claudePrereqs('darwin', {binary: () => '/usr/local/bin/claude', signedIn: () => false, bash: () => ''}),
+    {claude: true, signedIn: false, git: null, windows: false});
+  assert.equal(apply.claudePrereqs('win32', {binary: () => '', signedIn: () => true, bash: () => 'C:\\Program Files\\Git\\bin\\bash.exe'}).git, true);
+  const bash = 'C:\\Program Files\\Git\\bin\\bash.exe';
+  assert.equal(apply.gitBash({ProgramFiles: 'C:\\Program Files'}, file => file === bash), bash);
+  assert.equal(apply.gitBash({}, () => true), '');
+});
