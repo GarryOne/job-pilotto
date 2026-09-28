@@ -51,12 +51,15 @@ const FRAMES = [
   {name: 'interviews', js: `(async () => { ${view('interviews')} await new Promise(r => setTimeout(r, 700));
     document.querySelector('.iv-draft button').click(); await new Promise(r => setTimeout(r, 700));
     document.querySelector('main').scrollTop = 0; })()`},
+  {name: 'strategy', js: view('strategy')},
+  {name: 'settings', js: view('settings')},
   {name: 'schedule', js: view('settings', `document.getElementById('setting-schedule').scrollIntoView()`)},
+  {name: 'claude', js: view('settings', `document.getElementById('setting-claude').scrollIntoView()`)},
   {name: 'cloud', js: view('settings', `document.getElementById('setting-cloud').scrollIntoView()`)},
 ];
 // On the page: the stills; in the video: the setup, then the app in use.
 const STILLS = ['wizard-goals', 'wizard-strategy', 'jobs', 'interviews', 'schedule'];
-const VIDEO = ['welcome', 'wizard-ai', 'wizard-notion', 'wizard-cv', 'wizard-goals', 'wizard-strategy', 'wizard-extras', 'jobs', 'interviews', 'schedule', 'cloud'];
+const VIDEO = FRAMES.map(frame => frame.name);  // every screen, in order: the setup, then the app
 
 const frames = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-frames-'));
 fs.mkdirSync(out, {recursive: true});
@@ -75,8 +78,8 @@ for (const frame of FRAMES) {
 }
 for (const name of STILLS) fs.copyFileSync(path.join(frames, `${name}.png`), path.join(out, `${name}.png`));
 
-// The walkthrough: each screen for 2.6 s with 0.5 s cross-fades, H.264 so every browser plays it.
-const hold = 2.6, fade = 0.5;
+// The walkthrough: each screen for 1 s with quick 0.25 s cross-fades (many screens), H.264 so every browser plays it.
+const hold = 1, fade = 0.25;
 const inputs = VIDEO.flatMap(name => ['-loop', '1', '-t', String(hold + fade), '-i', path.join(frames, `${name}.png`)]);
 let chain = '', last = '[0:v]';
 for (let i = 1; i < VIDEO.length; i++) {
