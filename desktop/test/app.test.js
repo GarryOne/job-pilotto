@@ -479,3 +479,28 @@ test('the Focus page state exists before the start-up code opens Focus', async (
     assert.ok(source.indexOf(name) >= 0 && source.indexOf(name) < startup, `${name} is declared after the start-up code uses it`);
   }
 });
+
+test('Rebuild from CV: changes grouped by what they trigger, contact edits ignored, location changes tie search and Profile', async () => {
+  const {rebuildGroups, save} = await import('../lib/strategy.js');
+  const current = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich']}}, preferences: {excluded_companies: ['Sonar']},
+    profile: '# Goals\n- SRE\n# Contact\n- Phone: 1', answers: '# Eligibility\n- EU citizen'};
+  const draft = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich', 'basel']}}, preferences: {excluded_companies: ['Sonar']},
+    profile_markdown: '# Goals\n- SRE, platform\n# Contact\n- Phone: 2', answers_markdown: '# Eligibility\n- EU citizen'};
+  const groups = rebuildGroups(current, draft, {scored: 120, kits: 5});
+  assert.deepEqual(groups.map(group => group.id), ['search', 'profile']);  // no filter or answer changes; contact ignored
+  assert.deepEqual(groups[0].changes, ['Top cities: +basel']);
+  assert.equal(groups[0].linked, 'profile');
+  assert.equal(groups[1].linked, 'search');
+  assert.deepEqual(groups[1].changes, ['~ Goals']);
+  assert.equal(groups[1].cost, '≈ $1.80');
+  assert.match(groups[1].impact, /Re-scores 120 jobs over the next 2 searches; 5 unsent kits/);
+  // A contact-only change isn't a Profile change for scoring.
+  assert.deepEqual(rebuildGroups(current, {...draft, search: current.search, profile_markdown: '# Goals\n- SRE\n# Contact\n- Phone: 9'}), []);
+  // Saving only the search criteria leaves the preferences file untouched.
+  const storage = tempStorage();
+  storage.writeText('config/search.json', '{"role_keywords":["old"]}');
+  storage.writeText('config/preferences.json', '{"excluded_companies":["Keep"]}');
+  save(storage, {search: {role_keywords: ['new']}, preferences: null});
+  assert.deepEqual(JSON.parse(storage.readText('config/search.json')).role_keywords, ['new']);
+  assert.deepEqual(JSON.parse(storage.readText('config/preferences.json')), {excluded_companies: ['Keep']});
+});

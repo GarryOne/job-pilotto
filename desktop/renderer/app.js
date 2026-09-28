@@ -795,7 +795,7 @@ for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answer
 }
 $('goals-next').addEventListener('click', toDraft);
 $('draft-again').addEventListener('click', buildDraft);
-async function saveDraft() {
+async function saveDraft(parts = null) {
   for (const key of Object.keys(saveState)) delete saveState[key];
   document.querySelectorAll('#save-steps li').forEach(li => { li.className = ''; const count = li.querySelector('.count'); if (count) count.textContent = ''; });
   $('save-bar').style.width = '3%';
@@ -806,7 +806,7 @@ async function saveDraft() {
   show(document.querySelector('[data-save-step="snapshot"]'), replacing);
   if (!replacing) saveState.snapshot = 1;  // nothing to keep on a first setup
   if (!$('save-dialog').open) $('save-dialog').showModal();
-  const result = await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value});
+  const result = await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value}, parts);
   if (!result.ok) {
     $('save-title').textContent = 'Not saved to Notion yet';
     message('save-message', osText(`${result.error} Your strategy is kept on this computer: try again.`), 'error');
@@ -823,15 +823,46 @@ async function saveDraft() {
     else goStep('extras');
   }, 900);
 }
-// First setup: save straight away. Setup done before: say what a new strategy replaces, and ask.
-$('draft-save').addEventListener('click', () => {
-  if (!state.settings.setupDone) { saveDraft(); return; }
-  $('replace-when').textContent = new Date().toLocaleString('en-GB', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
-  $('replace-jobs').textContent = allJobs.length ? `Your ${allJobs.length} open job matches` : 'Your open job matches';
-  $('replace-ok').checked = false; $('replace-go').disabled = true;
+// First setup: save straight away. Setup done before (Rebuild from CV): review what changes, grouped by what each
+// change triggers (lib/strategy.js rebuildGroups), with the impact and AI cost; only the ticked groups are saved.
+$('draft-save').addEventListener('click', () => { if (state.settings.setupDone) openRebuildReview(); else saveDraft(); });
+async function openRebuildReview() {
+  $('rebuild-groups').replaceChildren(el('p', 'message waiting', 'Comparing the draft with your current strategy…'));
+  $('rebuild-total').textContent = '';
+  $('replace-go').disabled = true;
   $('replace-dialog').showModal();
-});
-$('replace-ok').addEventListener('change', () => { $('replace-go').disabled = !$('replace-ok').checked; });
+  const current = {...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value};
+  const result = await window.pilot.rebuildImpact(current);
+  if (!result.ok) { $('rebuild-groups').replaceChildren(el('p', 'message error', result.error)); return; }
+  if (!result.groups.length) { $('rebuild-groups').replaceChildren(el('p', 'muted', 'This draft changes nothing in your current strategy.')); return; }
+  const boxes = {};
+  const update = () => {
+    const picked = result.groups.filter(group => boxes[group.id].checked);
+    $('replace-go').disabled = !picked.length;
+    const usd = picked.map(group => Number((group.cost.match(/\$([\d.]+)/) || [])[1] || 0)).reduce((a, b) => a + b, 0);
+    $('rebuild-total').textContent = picked.length ? `Applying ${picked.length} of ${result.groups.length}: ${usd ? `≈ $${usd.toFixed(2)} of AI re-scoring, spread over the next searches` : 'no AI cost'}.` : 'Nothing selected.';
+  };
+  $('rebuild-groups').replaceChildren(...result.groups.map(group => {
+    const box = el('label', 'review-group');
+    box.dataset.group = group.id;
+    const check = Object.assign(document.createElement('input'), {type: 'checkbox', checked: true});
+    boxes[group.id] = check;
+    const text = el('span', 'review-text');
+    const head = el('span', 'review-head');
+    head.append(el('b', '', group.title), pill(group.cost, group.cost.startsWith('≈') ? 'warn' : 'neutral'));
+    const list = el('ul', 'review-changes');
+    list.append(...group.changes.slice(0, 8).map(change => el('li', '', change)), ...(group.changes.length > 8 ? [el('li', 'muted', `+ ${group.changes.length - 8} more`)] : []));
+    text.append(head, list, el('span', 'muted small', group.impact));
+    if (group.linked) text.append(el('span', 'small review-linked', 'Locations and remote rules changed: applied to the search and the Profile together, so the crawl and the fit score agree.'));
+    box.append(check, text);
+    check.addEventListener('change', () => {
+      if (group.linked && boxes[group.linked]) boxes[group.linked].checked = check.checked;  // one atomic change
+      update();
+    });
+    return box;
+  }));
+  update();
+}
 // Every dialog: a click on the dimmed backdrop closes it like Esc (a dialog that blocks Esc, e.g. while saving,
 // blocks this too). Pressed and released outside, so selecting text in a field and letting go outside doesn't close it.
 let pressedOutside = null;
@@ -849,7 +880,11 @@ document.addEventListener('click', event => {
   if (dialog.dispatchEvent(new Event('cancel', {cancelable: true}))) dialog.close();
 });
 $('replace-cancel').addEventListener('click', () => $('replace-dialog').close());
-$('replace-go').addEventListener('click', () => { $('replace-dialog').close(); saveDraft(); });
+$('replace-go').addEventListener('click', event => {
+  event.preventDefault();
+  $('replace-dialog').close();
+  saveDraft([...$('rebuild-groups').querySelectorAll('.review-group')].filter(row => row.querySelector('input').checked).map(row => row.dataset.group));
+});
 $('save-retry').addEventListener('click', saveDraft);
 $('save-close').addEventListener('click', () => $('save-dialog').close());
 $('save-dialog').addEventListener('cancel', event => { if (!$('save-close').hidden) return; event.preventDefault(); });  // no Esc while saving
@@ -1025,7 +1060,7 @@ function renderDiagnostics({on, detail}) {
 function openView(name) {
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
-  if (name === 'strategy') { loadStrategy(); loadCvSetting(); showCvChanged(); }
+  if (name === 'strategy') { loadStrategy(); showCvChanged(); }
   if (name === 'settings') {
     settingsPage('overview');
     $('automation-save').disabled = true;
@@ -2002,12 +2037,17 @@ document.querySelectorAll('[data-command]').forEach(button => button.addEventLis
   refreshActivity();  // it's queued (or running) by now: its row shows at once
   answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
 }));
+// Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
+// the fit scores) is offered, never applied by itself.
 $('replace-cv').addEventListener('click', async () => {
   const name = await window.pilot.chooseCv();
   if (!name) return;
-  message('strategy-message', `CV replaced: ${name}.`, 'ok');
-  openCvChange();
+  state = await window.pilot.state();
+  $('contact-cv').textContent = name;
+  message('strategy-message', `CV replaced: ${name}. New applications use it now. Review what it changes in your strategy when you're ready.`, 'ok');
+  showCvChanged();
 });
+$('strategy-cv-review').addEventListener('click', openCvChange);
 
 // ---------- a replaced CV: what follows it (suggested Profile edits, tailoring base, unsent kits), never a rebuild ----------
 let cvSuggestions = [];
@@ -2015,9 +2055,18 @@ async function showCvChanged() {
   const change = await window.pilot.cvChange();
   $('cv-changed-text').textContent = `Your CV changed${change.at ? ` on ${new Date(change.at).toLocaleDateString()}` : ''}: review what it changes.`;
   show($('cv-changed'), !!change.at);
+  show($('strategy-cv-changed'), !!change.at);
 }
 async function openCvChange() {
   const change = await window.pilot.cvChange();
+  // What applying Profile edits costs: every scored job is re-scored over the next searches.
+  $('cv-impact').textContent = '';
+  window.pilot.strategyData().then(data => {
+    if (!data?.ok || !data.scored) return;
+    const searches = Math.max(1, Math.ceil(data.scored / 60));
+    $('cv-impact').textContent = `Applying Profile edits re-scores ${data.scored} jobs over the next ${searches} search${searches === 1 ? '' : 'es'} ` +
+      `(≈ $${(data.scored * 0.015).toFixed(2)})${data.counts?.kits ? `; ${data.counts.kits} unsent kits were drafted with the old Profile` : ''}.`;
+  }).catch(() => {});
   $('cv-dialog-name').textContent = `${change.previous ? `${change.previous} → ` : ''}${change.name || 'your CV'}`;
   $('cv-suggestions').replaceChildren();
   show($('cv-apply-row'), false);

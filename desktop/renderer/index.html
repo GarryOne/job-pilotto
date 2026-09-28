@@ -465,6 +465,9 @@
         <div class="head-actions"><span class="synced" id="strategy-synced"></span>
           <button class="secondary" id="strategy-redo">↻ Rebuild from CV…</button>
           <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button></div></header>
+      <div class="alert tone-info settings-alert" id="strategy-cv-changed" hidden><i data-icon="info"></i>
+        <div><strong>Your CV changed</strong><p>New applications already use it. Review what it changes in your Profile before anything is re-scored.</p></div>
+        <button class="primary" id="strategy-cv-review">Review what changes</button></div>
       <div class="strategy-grid">
         <div class="strategy-main">
           <article class="summary-card">
@@ -900,17 +903,19 @@
 
 <!-- Apply dialog -->
 <!-- Replacing a strategy after setup: what happens, then an explicit confirmation -->
-<dialog id="replace-dialog" class="save-dialog danger">
-  <h2>⚠️ Replace your strategy?</h2>
-  <ul class="impact">
-    <li class="bad"><b>Replaced:</b> your Profile, standard answers and search settings in Notion, by this draft (including anything you edited there by hand).</li>
-    <li class="good"><b>Kept first:</b> a copy of the current ones, as the Notion page “🗂 Previous strategy — <span id="replace-when"></span>”.</li>
-    <li><b>Job matches:</b> nothing is deleted. <span id="replace-jobs"></span> are re-scored against the new Profile over the next searches
-      (AI cost); jobs that no longer fit drop down or out of your list.</li>
-    <li class="good"><b>Applications and their history:</b> unchanged.</li>
-  </ul>
-  <label class="radio"><input type="checkbox" id="replace-ok"><span>I understand: replace my strategy</span></label>
-  <div class="actions"><button class="secondary" id="replace-cancel">Cancel</button><button class="danger-solid" id="replace-go" disabled>Replace my strategy</button></div>
+<dialog id="replace-dialog" class="save-dialog panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2>Review what this rebuild changes</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
+    <p class="dialog-lead">Tick what to apply. Nothing changes until you do; a copy of your current strategy is kept in Notion first
+      (“🗂 Previous strategy”). Applications and their history are never changed.</p>
+    <div class="review-groups" id="rebuild-groups"><p class="message waiting">Comparing the draft with your current strategy…</p></div>
+    <p class="muted small" id="rebuild-total"></p>
+    <div class="dialog-foot">
+      <button class="ghost" id="replace-cancel" value="cancel" formnovalidate>Cancel</button>
+      <button class="primary" id="replace-go" value="default" disabled>Apply selected</button>
+    </div>
+  </form>
 </dialog>
 
 <!-- A replaced CV after setup: what follows it (lib/cv-change.js) -->
@@ -923,6 +928,7 @@
       <div class="inline spaced"><button class="secondary" id="cv-compare">Compare with my Profile (~5¢)</button></div>
       <div id="cv-suggestions" class="cv-suggestions"></div>
       <div class="inline spaced" id="cv-apply-row" hidden><button class="primary" id="cv-apply">Apply selected to my Profile</button></div>
+      <p class="muted small" id="cv-impact"></p>
       <p class="message" id="cv-review-message"></p></li>
     <li id="cv-base-row"><b>CV for tailoring:</b> <span id="cv-base-text"></span>
       <div class="inline spaced" id="cv-base-actions" hidden><button class="secondary" id="cv-base-read">Read the new CV (~5¢)</button></div></li>

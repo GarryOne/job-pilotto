@@ -314,7 +314,20 @@ function handlers() {
   });
   // One save at a time: a second click while Notion is being written joins the running save.
   let saving = null;
-  ipcMain.handle('saveStrategy', (_, draft) => {
+  // Rebuild from CV (setup done before): what the draft changes, grouped, with each group's impact and AI cost.
+  ipcMain.handle('rebuildImpact', async (_, draft) => {
+    try {
+      const readJson = name => { try { return JSON.parse(storage.readText(`config/${name}`) || '{}'); } catch { return {}; } };
+      const [{profile, answers}, facts] = await Promise.all([strategy.profileTexts(storage),
+        pipeline.run(storage, ['src.desktop', 'strategy']).then(({stdout}) => JSON.parse(stdout.trim().split('\n').pop())).catch(() => ({counts: {}}))]);
+      const groups = strategy.rebuildGroups({search: readJson('search.json'), preferences: readJson('preferences.json'), profile, answers},
+        draft, {scored: facts.scored || 0, kits: facts.counts?.kits || 0});
+      return {ok: true, groups};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
+  // parts: the review's accepted groups (search, filters, profile, answers); null = everything (first setup).
+  ipcMain.handle('saveStrategy', (_, draft, parts = null) => {
+    const take = part => !parts || parts.includes(part);
     saving ||= (async () => {
       // Notion is required: the Profile, standard answers and contact details live only there.
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
@@ -330,7 +343,8 @@ function handlers() {
       }
       // The daily target asked in the wizard goes on ⚙️ Search settings with the rest.
       const perDay = storage.settings().questionnaire?.applications_per_day;
-      strategy.save(storage, {...draft, preferences: {...draft.preferences, daily_applications_target: strategy.clampTarget(perDay)}});
+      strategy.save(storage, {search: take('search') ? draft.search : null,
+        preferences: !parts ? {...draft.preferences, daily_applications_target: strategy.clampTarget(perDay)} : take('filters') ? draft.preferences : null});
       step('local', {finished: true});
       const report = page => (done, total) => step(page, {done, total});
       // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.
@@ -338,14 +352,14 @@ function handlers() {
       const merged = {...known, ...Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value))};
       const profile = draft.profile_markdown.trim() + (Object.keys(merged).length ? `\n\n${contactDetails.markdown(merged)}\n` : '\n');
       step('profile');
-      await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('profile'));
+      if (take('profile')) await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('profile'));
       step('profile', {finished: true});
       step('answers');
-      await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('answers'));
+      if (take('answers')) await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('answers'));
       step('answers', {finished: true});
       strategy.dropLocalCopies(storage);  // Notion has them now
       step('search');
-      await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      if (take('search') || take('filters')) await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       step('search', {finished: true});
       storage.saveSettings({setupDone: true});
       syncCv();  // the CV to the Profile page (Notion keeps every version)

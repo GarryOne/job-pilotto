@@ -292,3 +292,13 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .answer-item summary .link { grid-row: 1; grid-column: 2; }
 .answer-text { white-space: pre-line; background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); margin: var(--sp-3) 0 0; }
 @media (max-width: 1180px) { .strategy-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* A review of grouped changes: checkbox, title + cost, the changes, the impact (Rebuild from CV). */
+.review-groups { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-4); max-height: 55vh; overflow: auto; }
+.review-group { display: flex !important; gap: var(--sp-3); align-items: flex-start; padding: var(--sp-4); margin: 0 !important;
+  border: 1px solid var(--line); border-radius: var(--r-md); font-weight: 400 !important; cursor: pointer; }
+.review-group input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.review-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.review-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.review-changes { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); }
+.review-linked { color: var(--info); }
