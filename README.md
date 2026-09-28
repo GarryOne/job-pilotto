@@ -252,9 +252,11 @@ doesn't.
   changes for next week. The full report (with the numbers) is a page in 💡 Insights; Telegram
   gets the summary and a link. About USD 0.04 a week.
 - 🎙️ **Interview transcription** (the app's **Interviews** page, `src/ai/transcribe.py`): free, on your Mac.
-  - **In:** record the call in the app, or add a recording (`.m4a`, `.mp3`, `.webm`, video…).
+  - **In:** record the call in the app (your mic + the call's audio via [AudioTee](https://github.com/makeusabrew/audiotee),
+    macOS permission **System Audio Recording Only**), or add a recording (`.m4a`, `.mp3`, `.webm`, video…).
   - **Out:** a transcript with **who said what**; your own voice is labelled **You**.
-  - **Saved to Notion** 🎤 Interviews, linked to the job you pick (relink any time). Only the audio stays on the Mac.
+  - **Saved to Notion** 🎤 Interviews, linked to any job you pick or paste (added to Applications if new; relink any time).
+  - **Delete** a draft, or a saved row (Notion trash, 30 days) with its recording. Only the audio stays on the Mac.
   - **Open source**, run with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): Parakeet-TDT v2 (English) +
     pyannote 3.0 / 3D-Speaker for speakers. ~1 min per 10 min of audio on an M1; models (~520 MB) download once.
   - **Phone:** send a voice note to the bot; it's transcribed the same way in GitHub Actions.

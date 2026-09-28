@@ -254,3 +254,7 @@ td:has(.badge-ineligible) { display: table-cell; }
 .small-btn { padding: 4px 10px; font-size: 12px; }
 .consent-check { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .consent-check input { width: auto; margin: 0; }
+.iv-meter { width: 90px; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.iv-meter span { display: block; height: 100%; width: 0; background: var(--teal); transition: width .15s linear; }
+button.danger { color: var(--bad); }
+button.danger:hover { background: #fbe6e4; }

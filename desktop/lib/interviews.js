@@ -85,18 +85,26 @@ export function appendRecording(storage, id, bytes) {
   fs.appendFileSync(path.join(folder(storage, id), get(storage, id).file), Buffer.from(bytes));
 }
 
-export function stopRecording(storage, id, seconds) {
+// extra: {micStartedAt} (ms), and for the call's audio {callFile, callStartedAt} (lib/calltap.js).
+export function stopRecording(storage, id, seconds, extra = {}) {
   recording.delete(id);
-  return update(storage, id, {status: 'new', seconds: Math.round(seconds || 0)});
+  const allowed = Object.fromEntries(Object.entries(extra || {}).filter(([key]) => ['micStartedAt', 'callFile', 'callStartedAt'].includes(key)));
+  return update(storage, id, {status: 'new', seconds: Math.round(seconds || 0), ...allowed});
 }
 
 // A draft is dropped after it's saved to Notion; its recording (if any) moves to recordings/.
-export function discard(storage, id, {keepRecording = false} = {}) {
+// Recordings kept after saving are named "<title> <draft id> [<Notion page tag>]…", so deleting the Notion row
+// can delete them too.
+const pageTag = pageId => `[${String(pageId || '').replace(/-/g, '').slice(0, 8)}]`;
+export function discard(storage, id, {keepRecording = false, pageId = null} = {}) {
   const meta = get(storage, id);
   if (keepRecording && meta?.kind === 'audio') {
-    const target = storage.path(path.join('recordings', `${(meta.title || id).replace(/[^\w ,.-]+/g, '_')} ${id.slice(0, 8)}.${extension(meta.file)}`));
+    const tag = pageId ? ` ${pageTag(pageId)}` : '';
+    const target = storage.path(path.join('recordings', `${(meta.title || id).replace(/[^\w ,.-]+/g, '_')} ${id.slice(0, 8)}${tag}.${extension(meta.file)}`));
     fs.mkdirSync(path.dirname(target), {recursive: true});
     fs.renameSync(path.join(folder(storage, id), meta.file), target);
+    const call = meta.callFile && path.join(folder(storage, id), meta.callFile);
+    if (call && fs.existsSync(call)) fs.renameSync(call, target.replace(/\.[^.]+$/, ' (call audio, 16 kHz s16le).pcm'));
   }
   fs.rmSync(folder(storage, id), {recursive: true, force: true});
 }
@@ -142,8 +150,11 @@ export function transcribe(storage, id, {speakers: count = 0} = {}, onProgress =
   const out = path.join(folder(storage, id), 'transcript.txt');
   fs.rmSync(out, {force: true});
   const errors = [];
+  const call = meta.callFile && path.join(folder(storage, id), meta.callFile);
+  const withCall = call && fs.existsSync(call) && fs.statSync(call).size > 0
+    ? ['--call', call, '--call-offset', String(Math.max(-60, Math.min(60, ((meta.callStartedAt || 0) - (meta.micStartedAt || meta.callStartedAt || 0)) / 1000)))] : [];
   const task = run(storage, ['src.ai.transcribe', path.join(folder(storage, id), meta.file), '--out', out,
-    '--speakers', String(Number(count) || 0)], line => {
+    '--speakers', String(Number(count) || 0), ...withCall], line => {
     const step = progressOf(line);
     if (step) onProgress({id, ...step});
     else if (line.trim()) errors.push(line.trim());
@@ -180,8 +191,23 @@ export async function save(storage, id, run = pipeline.run) {
   const file = path.join(folder(storage, id), 'transcript.txt');
   const result = await notionCall(storage, ['save', file, '--title', meta.title || 'Interview',
     '--input', meta.kind === 'audio' ? 'Recording' : 'Transcript', ...(meta.jobUrl ? ['--job', meta.jobUrl] : [])], run);
-  if (result.ok) discard(storage, id, {keepRecording: true});
+  if (result.ok) discard(storage, id, {keepRecording: true, pageId: result.id});
   return result;
+}
+
+// Delete a saved interview: the Notion row goes to Notion's trash (restorable for 30 days) and the
+// recordings kept on this Mac for it are deleted.
+export async function remove(storage, pageId, run = pipeline.run) {
+  const result = await notionCall(storage, ['delete', pageId], run);
+  if (!result.ok) return result;
+  const dir = storage.path('recordings');
+  let removed = 0;
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      if (name.includes(pageTag(pageId))) { fs.rmSync(path.join(dir, name), {force: true}); removed += 1; }
+    }
+  } catch {}
+  return {ok: true, removed};
 }
 
 // Claude's review of a saved row (question by question), written into that Notion page.

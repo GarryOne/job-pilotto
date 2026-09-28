@@ -828,11 +828,17 @@ const linkable = () => allJobs.filter(job => job.notion_url);   // jobs with a N
 const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
 const jobForPage = pageId => allJobs.find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
 
+// Every job in the list (applied and tracked ones first); one not in Applications yet is added there on save.
+const PASTE = '__paste__';
 function jobOptions(select, chosenUrl, emptyLabel) {
-  const jobs = linkable().sort((a, b) => (b.status === 'applied') - (a.status === 'applied') || a.company.localeCompare(b.company));
+  const rank = job => (job.status === 'applied' ? 0 : job.notion_url ? 1 : 2);
+  const jobs = allJobs.filter(job => job.url && job.status !== 'dismissed')
+    .sort((a, b) => rank(a) - rank(b) || a.company.localeCompare(b.company));
   select.replaceChildren(new Option(emptyLabel, ''), ...jobs.map(job => new Option(jobName(job), job.url, false, job.url === chosenUrl)));
   if (chosenUrl && !jobs.some(job => job.url === chosenUrl)) select.append(new Option(chosenUrl, chosenUrl, false, true));
+  select.append(new Option('Paste a job link…', PASTE));
 }
+const jobUrlOf = (select, input) => (select.value === PASTE ? (/^https?:\/\//.test(input.value.trim()) ? input.value.trim() : '') : select.value);
 
 // Which macOS permission is missing, with a button to its System Settings page and one to restart
 // (macOS applies Screen & System Audio Recording only after the app restarts).
@@ -845,6 +851,12 @@ async function showPermission(noCallAudio = false) {
   if (access.microphone === 'denied' || access.microphone === 'restricted') {
     permissionKind = 'microphone';
     text = `🎙️ <b>Allow the microphone</b>: Privacy &amp; Security → Microphone → ${who}, then restart.`;
+  } else if (await iv.tapAvailable()) {
+    // AudioTee: only "System Audio Recording Only" is needed; shown when a recording hears no call audio.
+    if (noCallAudio) {
+      permissionKind = 'screen';
+      text = `🔊 <b>No call audio yet</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → <b>System Audio Recording Only</b> → ${who}, then restart.`;
+    }
   } else if (access.screen !== 'granted' || noCallAudio) {
     permissionKind = 'screen';
     text = `🔊 <b>Allow the call's audio</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → <b>top list</b> (not "System Audio Recording Only") → ${who}, then restart.`;
@@ -862,6 +874,23 @@ async function loadInterviews() {
   loadSaved();
 }
 
+// A delete button that asks once more: the first click changes its label, a second within 4 s deletes.
+function confirmButton(label, ask, onConfirm, disabled = false) {
+  const button = Object.assign(document.createElement('button'), {className: 'ghost danger', textContent: label, disabled});
+  let armed = null;
+  button.addEventListener('click', async () => {
+    if (!armed) {
+      button.textContent = ask;
+      armed = setTimeout(() => { armed = null; button.textContent = label; }, 4000);
+      return;
+    }
+    clearTimeout(armed);
+    button.disabled = true;
+    await onConfirm();
+  });
+  return button;
+}
+
 function renderDrafts(drafts) {
   show($('iv-drafts-block'), drafts.length > 0);
   const STATUS = {new: 'Not transcribed', recording: 'Recording…', transcribing: 'Transcribing…', stopped: 'Stopped: transcribe again',
@@ -873,7 +902,12 @@ function renderDrafts(drafts) {
       Object.assign(document.createElement('span'), {className: 'muted small', textContent: `${when} · ${STATUS[draft.status] || draft.status}`}));
     const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
     open.addEventListener('click', () => openDraft(draft.id));
-    row.append(open);
+    const remove = confirmButton('Delete', 'Delete recording?', async () => {
+      await iv.discard(draft.id);
+      if (ivOpen === draft.id) { ivOpen = null; show($('iv-editor'), false); }
+      renderDrafts(await iv.drafts());
+    }, draft.status === 'recording' || draft.status === 'transcribing');
+    row.append(open, remove);
     return row;
   }));
 }
@@ -892,6 +926,8 @@ async function openDraft(id) {
   if (draft.status === 'ready') {
     $('iv-text').value = await iv.transcript(id);
     jobOptions($('iv-job'), draft.jobUrl, 'Let Claude find the job when reviewing');
+    show($('iv-job-url'), false);
+    $('iv-job-url').value = '';
     renderSpeakers();
   }
   renderDrafts(await iv.drafts());
@@ -921,12 +957,16 @@ let draftTimer;
 function saveOpenDraft() {
   if (!ivOpen) return Promise.resolve();
   clearTimeout(draftTimer);
-  return iv.saveDraft(ivOpen, {title: $('iv-title').value, jobUrl: $('iv-job').value,
+  return iv.saveDraft(ivOpen, {title: $('iv-title').value, jobUrl: jobUrlOf($('iv-job'), $('iv-job-url')),
     ...($('iv-ready').hidden ? {} : {text: $('iv-text').value})});
 }
 $('iv-title').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(saveOpenDraft, 600); });
 $('iv-text').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(() => { saveOpenDraft(); renderSpeakers(); }, 800); });
-$('iv-job').addEventListener('change', saveOpenDraft);
+$('iv-job').addEventListener('change', () => {
+  show($('iv-job-url'), $('iv-job').value === PASTE);
+  if ($('iv-job').value === PASTE) $('iv-job-url').focus(); else saveOpenDraft();
+});
+$('iv-job-url').addEventListener('change', saveOpenDraft);
 $('iv-close').addEventListener('click', async () => { await saveOpenDraft(); ivOpen = null; show($('iv-editor'), false); renderDrafts(await iv.drafts()); });
 
 $('iv-transcribe-go').addEventListener('click', async () => {
@@ -1003,13 +1043,24 @@ async function loadSaved() {
     const job = row.application[0] ? jobForPage(row.application[0]) : null;
     jobOptions(select, job?.url || '', row.application[0] && !job ? 'Linked in Notion (job not in this list)' : 'No job linked');
     if (row.application[0] && !job) select.value = '';
-    select.addEventListener('change', async () => {
-      select.disabled = true;
-      const done = await iv.link(row.id, select.value);
-      select.disabled = false;
-      message('iv-message', done.ok ? `Linked "${row.title}" ${select.value ? 'to the job' : 'to no job'} in Notion.` : done.error, done.ok ? 'ok' : 'error');
+    const pasted = Object.assign(document.createElement('input'), {type: 'url', placeholder: 'https://… then Enter', hidden: true});
+    const relink = async url => {
+      select.disabled = pasted.disabled = true;
+      message('iv-message', 'Linking in Notion…');
+      const done = await iv.link(row.id, url);
+      select.disabled = pasted.disabled = false;
+      message('iv-message', done.ok ? `"${row.title}" is now ${url ? 'linked to that job' : 'not linked to a job'} in Notion.` : done.error, done.ok ? 'ok' : 'error');
+      if (done.ok && url && !allJobs.some(job => job.url === url && job.notion_url)) {
+        try { allJobs = (await window.pilot.jobs()).jobs; } catch {}  // it was just added to Applications
+        loadSaved();
+      }
+    };
+    select.addEventListener('change', () => {
+      show(pasted, select.value === PASTE);
+      if (select.value === PASTE) pasted.focus(); else relink(select.value);
     });
-    cell(select);
+    pasted.addEventListener('change', () => { if (/^https?:\/\//.test(pasted.value.trim())) relink(pasted.value.trim()); });
+    cell(select, pasted);
     cell(row.overall ? Object.assign(document.createElement('span'), {className: `review-tag ${row.overall}`, textContent: `${row.overall}${row.round ? ` · ${row.round}` : ''}`})
       : reviewing.has(row.id) ? Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'Reviewing…'})
         : Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'Not reviewed'}));
@@ -1022,7 +1073,14 @@ async function loadSaved() {
     }
     const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
     open.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
-    actions.append(open);
+    const remove = confirmButton('Delete', 'Sure?', async () => {
+      const done = await iv.remove(row.id);
+      message('iv-message', done.ok ? `Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`
+        : done.error, done.ok ? 'ok' : 'error');
+      loadSaved();
+    });
+    remove.title = "Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac";
+    actions.append(open, remove);
     cell(actions);
     return tr;
   }));
@@ -1062,13 +1120,17 @@ async function callAudio() {
 $('iv-record').addEventListener('click', () => startRecording(false));
 $('iv-mic-only').addEventListener('click', () => startRecording(true));
 
+let levelListener = null;
+window.pilot.onCallLevel(level => levelListener?.(level));
+
 async function startRecording(micOnly) {
   message('iv-message', '');
   if (!$('iv-consent').checked) { message('iv-message', 'First ask everyone on the call and tick the consent box.', 'error'); return; }
   if (recorder) return;
   $('iv-record').disabled = true;
   let call = null;
-  if (!micOnly) {
+  const tap = !micOnly && await iv.tapAvailable();  // the call's audio through AudioTee, no screen capture
+  if (!micOnly && !tap) {
     message('iv-message', 'Connecting to the call\'s audio…');
     call = await callAudio();
     if (!call) {
@@ -1108,8 +1170,33 @@ async function startRecording(micOnly) {
     destination.channelCount = 1;
     mono(mic).connect(destination);
   }
-  const id = await iv.recordStart({stereo: !!call});
+  const id = await iv.recordStart({stereo: !!call || tap});
+  if (tap) {
+    const tapped = await iv.tapStart(id);
+    if (!tapped.ok) {
+      mic.getTracks().forEach(t => t.stop());
+      context.close();
+      await iv.recordStop(id, 0);
+      await iv.discard(id);
+      message('iv-message', `Not recording: the call's audio couldn't start (${tapped.error}). Try again, or choose Mic only.`, 'error');
+      $('iv-record').disabled = !$('iv-consent').checked;
+      return;
+    }
+  }
   const media = new MediaRecorder(destination.stream, {mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: call ? 96000 : 48000});
+  // AudioTee's level: the meter moves when the other people speak; flat for 20 s = likely no permission.
+  let heard = false;
+  const quiet = tap ? setTimeout(() => {
+    if (!heard && recorder === media) {
+      $('iv-sources').textContent = 'No call audio heard yet.';
+      showPermission(true);
+    }
+  }, 20000) : null;
+  levelListener = ({id: tapped, level}) => {
+    if (tapped !== id) return;
+    if (level > 0.02 && !heard) { heard = true; $('iv-sources').textContent = 'Your microphone and the call\'s audio'; show($('iv-permission'), false); }
+    $('iv-meter-bar').style.width = `${Math.min(100, Math.round(Math.sqrt(level) * 140))}%`;
+  };
   const started = Date.now();
   let writing = Promise.resolve();
   media.ondataavailable = event => {
@@ -1124,7 +1211,9 @@ async function startRecording(micOnly) {
     await writing;
     [mic, call].filter(Boolean).forEach(stream => stream.getTracks().forEach(track => track.stop()));
     context.close();
-    await iv.recordStop(id, (Date.now() - started) / 1000);
+    clearTimeout(quiet);
+    levelListener = null;
+    await iv.recordStop(id, (Date.now() - started) / 1000, {micStartedAt});
     recorder = null;
     show($('iv-recorder'), false);
     $('iv-consent').checked = false;
@@ -1132,10 +1221,13 @@ async function startRecording(micOnly) {
     openDraft(id);
   };
   media.start(5000);  // a chunk every 5 s goes to disk
+  const micStartedAt = Date.now();
   recorder = media;
   $('iv-record').disabled = true;
   $('iv-timer').textContent = '00:00';
-  $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' : 'Your microphone only (as you chose)';
+  $('iv-sources').textContent = call ? 'Your microphone and the call\'s audio' : tap ? 'Listening for the call\'s audio…' : 'Your microphone only (as you chose)';
+  show($('iv-meter'), tap);
+  $('iv-meter-bar').style.width = '0';
   show($('iv-permission'), false);
   show($('iv-recorder'));
 }

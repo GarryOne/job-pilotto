@@ -111,6 +111,26 @@ def load_audio(path):
     return channels.mean(axis=0), channels
 
 
+def load_raw(path):
+    """AudioTee's output (the app's call audio): raw 16-bit little-endian mono PCM at 16 kHz."""
+    import numpy as np
+    return np.fromfile(str(path), dtype='<i2').astype(np.float32) / 32768.0
+
+
+def load_pair(mic_path, call_path, offset=0.0):
+    """(mono, channels) from the app's two recordings: your microphone (left) and the call's audio (right,
+    captured by AudioTee). offset = seconds the call recording started after the microphone one."""
+    import numpy as np
+    mic, _ = load_audio(mic_path)
+    call = load_raw(call_path) if str(call_path).endswith('.pcm') else load_audio(call_path)[0]
+    shift = int(round(offset * RATE))
+    call = np.concatenate([np.zeros(shift, np.float32), call]) if shift > 0 else call[-shift:]
+    length = max(len(mic), len(call))
+    channels = np.zeros((2, length), np.float32)
+    channels[0, :len(mic)], channels[1, :len(call)] = mic, call
+    return np.clip(channels.sum(axis=0), -1, 1), channels
+
+
 def find_you(channels, segments, ratio=4.0):
     """The speaker index heard mostly on the microphone channel (left) and hardly in the call (right),
     or None. A normal stereo file has both channels alike, so nobody passes the ratio."""
@@ -213,6 +233,25 @@ def assign(words, segments):
     return out
 
 
+YOU = -1  # speaker index for "You" in channel-based labelling
+
+
+def by_channel(words, channels, call_segments, window=0.4, ratio=3.0):
+    """With your microphone and the call's audio recorded apart (the app's AudioTee recordings), a word
+    loud on the microphone and quiet in the call is yours; the others go to the interviewer speaking then,
+    from diarizing the call's audio alone. More reliable than clustering every voice together."""
+    import numpy as np
+    labelled = []
+    for time, word in words:
+        a, b = int(time * RATE), int((time + window) * RATE)
+        mic, call = (float(np.mean(np.square(c[a:b]))) if b > a and a < c.shape[0] else 0.0 for c in channels)
+        if mic > ratio * call and mic > 1e-6:
+            labelled.append((time, YOU, word))
+        else:
+            labelled.append(assign([(time, word)], call_segments)[0])
+    return labelled
+
+
 def turns(labelled, you=None):
     """[(start, speaker, text)]: consecutive words of one speaker joined. Speakers are renumbered 1, 2, ...
     in the order they first speak, so "Speaker 1" is whoever opened the call; `you` (a diarization index)
@@ -237,12 +276,13 @@ def render(turn_list, names=None):
     return '\n'.join(f'[{clock(t)}] {names.get(s, f"Speaker {s}")}: {text}' for t, s, text in turn_list)
 
 
-def transcribe(path, speakers=0, models=None, threads=None):
-    """Speaker-labelled transcript text of one recording."""
+def transcribe(path, speakers=0, models=None, threads=None, call=None, call_offset=0.0):
+    """Speaker-labelled transcript text of one recording (plus, from the app, the call's audio recorded
+    separately: `call`, starting `call_offset` seconds after `path`)."""
     threads = threads or max(1, min(8, (os.cpu_count() or 4) - 2))
     models = models or ensure_models()
     progress('decode', 0)
-    samples, channels = load_audio(path)
+    samples, channels = load_pair(path, call, call_offset) if call else load_audio(path)
     if len(samples) < RATE:
         raise ValueError(f'{Path(path).name}: less than a second of audio')
     progress('decode', 100)
@@ -250,6 +290,9 @@ def transcribe(path, speakers=0, models=None, threads=None):
     if not pieces:
         raise ValueError(f'{Path(path).name}: no speech found')
     words = recognize(pieces, models['asr'].parent, threads)
+    if call:  # the other people only: one fewer voice to cluster, and yours comes from the microphone
+        segments = diarize(channels[1], models['segmentation'], models['embedding'], max(0, speakers - 1), threads)
+        return render(turns(by_channel(words, channels, segments), YOU))
     segments = diarize(samples, models['segmentation'], models['embedding'], speakers, threads)
     return render(turns(assign(words, segments), find_you(channels, segments)))
 
@@ -259,12 +302,14 @@ def main(argv=None):
     parser.add_argument('audio', type=Path)
     parser.add_argument('--speakers', type=int, default=0, help='number of people on the call, if known (0 = detect)')
     parser.add_argument('--out', type=Path, help='write the transcript here (default: print it)')
+    parser.add_argument('--call', type=Path, help="the call's audio recorded separately (AudioTee .pcm or any audio file)")
+    parser.add_argument('--call-offset', type=float, default=0.0, help='seconds the call recording started after the main one')
     parser.add_argument('--download-only', action='store_true', help='fetch the models and stop')
     args = parser.parse_args(argv)
     if args.download_only:
         ensure_models()
         return 0
-    text = transcribe(args.audio, args.speakers)
+    text = transcribe(args.audio, args.speakers, call=args.call, call_offset=args.call_offset)
     if args.out:
         args.out.write_text(text + '\n', encoding='utf-8')
         print(args.out)

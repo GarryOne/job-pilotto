@@ -26,6 +26,15 @@ if (process.argv.includes('--app')) {
   for (const item of ['src', 'config', 'tools', 'extension', 'templates', 'requirements.txt', 'requirements-transcribe.txt']) copy(item, path.join(pilot, item));
   for (const doc of ['notion-profile-template.md', 'job-pilotto-guide.md']) copy(`docs/${doc}`, path.join(pilot, 'docs', doc));
   if (keepPython) { fs.renameSync(path.join(keepPython, 'python'), python); fs.rmSync(keepPython, {recursive: true}); }
+  // AudioTee (scripts/audiotee.sh): the call's audio recorder, at pilot/bin/audiotee in the app.
+  const audiotee = path.join(desktop, 'build', 'bin', 'audiotee');
+  if (fs.existsSync(audiotee)) {
+    fs.mkdirSync(path.join(pilot, 'bin'), {recursive: true});
+    fs.copyFileSync(audiotee, path.join(pilot, 'bin', 'audiotee'));
+    fs.chmodSync(path.join(pilot, 'bin', 'audiotee'), 0o755);
+    const license = `${audiotee}.LICENSE`;
+    if (fs.existsSync(license)) fs.copyFileSync(license, path.join(pilot, 'bin', 'audiotee.LICENSE'));
+  } else console.log('AudioTee not built (scripts/audiotee.sh): the app records the call through screen capture');
   console.log(`Staged ${pilot}`);
   // Which build this is, for the About box and the sidebar: CI's run number (the release's build N) and commit.
   let commit = (process.env.GITHUB_SHA || '').slice(0, 7);

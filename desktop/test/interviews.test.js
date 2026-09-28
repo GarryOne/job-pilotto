@@ -30,7 +30,8 @@ test('a recording is written chunk by chunk, transcribed with progress, saved to
   const id = interviews.startRecording(storage, {stereo: true}, new Date('2026-09-28T10:00:00Z'));
   interviews.appendRecording(storage, id, new Uint8Array([1, 2]));
   interviews.appendRecording(storage, id, new Uint8Array([3]));
-  interviews.stopRecording(storage, id, 61.4);
+  fs.writeFileSync(storage.path(`interviews/${id}/call.pcm`), Buffer.alloc(8));
+  interviews.stopRecording(storage, id, 61.4, {micStartedAt: 1000, callStartedAt: 1250, callFile: 'call.pcm', stereo: 'no'});
   assert.throws(() => interviews.appendRecording(storage, id, new Uint8Array([4])), /Not recording/);
   const draft = interviews.get(storage, id);
   assert.deepEqual([draft.status, draft.seconds, draft.stereo], ['new', 61, true]);
@@ -48,7 +49,9 @@ test('a recording is written chunk by chunk, transcribed with progress, saved to
   };
   const done = await interviews.transcribe(storage, id, {speakers: 2}, step => steps.push(step), run);
   assert.equal(done.status, 'ready');
-  assert.deepEqual(calls[0].slice(-4), ['--out', storage.path(`interviews/${id}/transcript.txt`), '--speakers', '2']);
+  assert.deepEqual(calls[0].slice(-8), ['--out', storage.path(`interviews/${id}/transcript.txt`), '--speakers', '2',
+    '--call', storage.path(`interviews/${id}/call.pcm`), '--call-offset', '0.25']);
+  assert.equal(interviews.get(storage, id).stereo, true);  // only known fields are taken from the window
   assert.equal(steps[0].percent, 70);
 
   interviews.saveDraft(storage, id, {title: 'Grafana, round 1', jobUrl: 'https://jobs.test/1', text: interviews.renameSpeaker(TEXT, 'Speaker 1', 'Manager')});
@@ -58,8 +61,21 @@ test('a recording is written chunk by chunk, transcribed with progress, saved to
   assert.deepEqual(calls[1].slice(3), ['--title', 'Grafana, round 1', '--input', 'Recording', '--job', 'https://jobs.test/1']);
   assert.deepEqual(interviews.drafts(storage), []);
   const kept = fs.readdirSync(storage.path('recordings'));
-  assert.equal(kept.length, 1);
-  assert.match(kept[0], /^Grafana, round 1 \d{8}\.webm$/);
+  assert.equal(kept.length, 2);
+  assert.ok(kept.some(name => /^Grafana, round 1 \d{8} \[page1\]\.webm$/.test(name)));
+  assert.ok(kept.some(name => name.endsWith('(call audio, 16 kHz s16le).pcm')));
+});
+
+test('deleting a saved interview trashes the Notion row and its recordings on the Mac', async () => {
+  const storage = tempStorage();
+  fs.mkdirSync(storage.path('recordings'));
+  fs.writeFileSync(storage.path('recordings/Call 20260928 [abcd1234].webm'), 'x');
+  fs.writeFileSync(storage.path('recordings/Other 20260928 [ffff0000].webm'), 'x');
+  let args;
+  const result = await interviews.remove(storage, 'abcd1234-5678', async (_s, a) => { args = a; return {code: 0, stdout: '{"ok": true}'}; });
+  assert.deepEqual(args, ['src.ai.interviews', 'delete', 'abcd1234-5678']);
+  assert.deepEqual(result, {ok: true, removed: 1});
+  assert.deepEqual(fs.readdirSync(storage.path('recordings')), ['Other 20260928 [ffff0000].webm']);
 });
 
 test('a failed Notion save keeps the draft; a missing add-on says how to install it', async () => {

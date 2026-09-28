@@ -54,6 +54,9 @@ jobs:
         run: |
           if [ -n "$CLIENT" ]; then printf '%s' "$CLIENT" > config/google_oauth_client.json
           else echo "::notice::GOOGLE_SHARED_CLIENT_JSON is not set; the app will ask users for their own Google app."; fi
+      - name: Build AudioTee (the call's audio, Core Audio taps)
+        working-directory: desktop
+        run: scripts/audiotee.sh && test -x build/bin/audiotee
       - name: Bundle Python
         working-directory: desktop
         env:

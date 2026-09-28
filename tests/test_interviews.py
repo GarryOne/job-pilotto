@@ -119,6 +119,9 @@ class NotionPages(FakeTracker):
                 return {'id': page_id, 'properties': {k: dict(v, type=next(iter(v))) | ({'title': rich(v['title'][0]['text']['content'])}
                                                                                        if 'title' in v else {}) for k, v in props.items()}}
             return next(a for a in self.apps if a['id'] == page_id)
+        if method == 'PATCH' and path.startswith('pages/') and body.get('archived'):
+            self.archived = getattr(self, 'archived', []) + [path.split('/')[1]]
+            return {}
         if method == 'PATCH' and path.startswith('pages/'):
             page = self.pages[path.split('/')[1]]
             page['properties'].update(body['properties'])
@@ -310,7 +313,18 @@ class InterviewTests(unittest.TestCase):
         self.assertNotIn('Overall', created['properties'])  # not reviewed: no AI was used
         self.assertEqual(interviews.saved_transcript(tracker, page['id']), SPOKEN)
         self.assertEqual(interviews.listing(tracker)[0]['application'], ['g-1'])
-        with self.assertRaisesRegex(ValueError, 'No application'):
+        # A job not in Applications yet is added there first (an interview means you applied), then linked.
+        added = []
+
+        def add(tracker_, url, **kwargs):
+            added.append((url, kwargs['approx']))
+            tracker_.apps.append(app('n-1', 'Newco', 'Applied', '2026-09-26') | {'properties': dict(
+                app('n-1', 'Newco', 'Applied', '2026-09-26')['properties'], **{'Job URL': {'type': 'url', 'url': url}})})
+        with mock.patch('src.notion.ledger.add_application', side_effect=add):
+            interviews.save(tracker, SPOKEN, 'Newco call', job_url='https://jobs.test/newco', now=NOW)
+        self.assertEqual(added, [('https://jobs.test/newco', True)])
+        self.assertEqual(tracker.requests[-1]['properties']['Application'], {'relation': [{'id': 'n-1'}]})
+        with mock.patch('src.notion.ledger.add_application'), self.assertRaisesRegex(ValueError, 'Could not add'):
             interviews.save(tracker, SPOKEN, 'x', job_url='https://x.test/nope')
 
         client = FakeClient()
@@ -325,7 +339,7 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(kinds[0], 'paragraph')  # the review took the placeholder's place, above the transcript
         self.assertEqual(kinds[-1], 'heading_3')
         self.assertNotIn(interviews.PLACEHOLDER, str(tracker.blocks[page['id']]))
-        self.assertEqual(len(tracker.requests), 1)  # no second row
+        self.assertEqual(len(tracker.requests), 2)  # the review added no row (2 = the two saves above)
         self.assertEqual(tracker.updates, [('g-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
 
     def test_linking_a_saved_interview_to_another_job(self):
@@ -336,6 +350,22 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(tracker.updates[-1], (page['id'], {'Application': {'relation': [{'id': 's-1'}]}}))
         interviews.link(tracker, page['id'])
         self.assertEqual(tracker.updates[-1], (page['id'], {'Application': {'relation': []}}))
+        interviews.delete(tracker, page['id'])
+        self.assertTrue(tracker.pages[page['id']]['properties'] is not None and tracker.archived == [page['id']])
+
+    def test_the_app_reviews_without_telegram(self):
+        from src import daily
+        argv = ['daily', '--mode', 'interview', '--interview', 'iv-1']
+        env = {k: v for k, v in daily.os.environ.items() if k not in ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID')}
+        with mock.patch.object(sys, 'argv', argv), mock.patch.dict(daily.os.environ, env, clear=True), \
+                mock.patch.object(daily.telegram, 'keychain_token', return_value=None), \
+                mock.patch.object(daily.notion.Tracker, 'from_env', return_value=FakeTracker([])), \
+                mock.patch.object(daily, 'log_ai_run'), \
+                mock.patch.object(daily.interviews, 'run', return_value='Interview analysed (x) https://n.test/1') as run, \
+                mock.patch('sys.stdout', io.StringIO()):
+            self.assertEqual(daily.main(), 0)
+        self.assertEqual(run.call_args.kwargs['page_id'], 'iv-1')
+        self.assertIsNone(run.call_args.kwargs['send'])
 
     def test_stats_for_insights(self):
         rows = [{'properties': {'Topics': text('Kubernetes; Postgres'), 'Weak topics': text('Postgres'),

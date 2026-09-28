@@ -263,6 +263,20 @@ def read_input(file_id, token, opener, speakers=0):
     return name, clean(text), False
 
 
+def application_for(tracker, job_url):
+    """The Applications row for a job the owner picked; a job not tracked yet is added (an interview means
+    they applied; the date is marked approximate)."""
+    app = by_url(tracker, [], job_url)
+    if app:
+        return app
+    from ..notion.ledger import add_application
+    add_application(tracker, job_url.strip(), approx=True, source=os.getenv('JOB_PILOTTO_SOURCE') or 'Manual')
+    app = by_url(tracker, [], job_url)
+    if not app:
+        raise ValueError(f'Could not add {job_url} to your Applications')
+    return app
+
+
 def by_url(tracker, apps, job_url):
     """The application with this Job URL: among the candidates, else any stage (the owner chose it)."""
     same = lambda row: (plain(row['properties'].get('Job URL')) or '').strip() == job_url.strip()
@@ -300,7 +314,7 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     truncated = len(transcript) > MAX_CHARS
     transcript = transcript[:MAX_CHARS]
     apps = candidates(tracker)
-    chosen = by_url(tracker, apps, job_url) if job_url else None
+    chosen = (by_url(tracker, apps, job_url) or application_for(tracker, job_url)) if job_url else None
     if saved and not chosen and linked:
         chosen = next((row for row in apps if row['id'] == linked[0]), None) or tracker._request('GET', f'pages/{linked[0]}')
     if chosen and chosen not in apps:
@@ -341,9 +355,7 @@ def save(tracker, transcript, title, *, job_url=None, source='Recording', now=No
         raise ValueError('Too little text to save')
     props = {'Interview': {'title': [{'text': {'content': (title or 'Interview')[:200]}}]},
              'Date': {'date': {'start': now.date().isoformat()}}, 'Input': {'select': {'name': source}}}
-    app = by_url(tracker, [], job_url) if job_url else None
-    if job_url and not app:
-        raise ValueError(f'No application in Notion has the job URL {job_url}')
+    app = application_for(tracker, job_url) if job_url else None
     if app:
         props['Application'] = {'relation': [{'id': app['id']}]}
     return tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': props,
@@ -371,11 +383,14 @@ def add_review(tracker, page_id, blocks):
 
 def link(tracker, page_id, job_url=None):
     """Set (or with no job_url, clear) the application a 🎤 Interviews row belongs to."""
-    app = by_url(tracker, [], job_url) if job_url else None
-    if job_url and not app:
-        raise ValueError(f'No application in Notion has the job URL {job_url}')
+    app = application_for(tracker, job_url) if job_url else None
     tracker.update_page(page_id, {'Application': {'relation': [{'id': app['id']}] if app else []}})
     return app['id'] if app else None
+
+
+def delete(tracker, page_id):
+    """Move a 🎤 Interviews row to Notion's trash (restorable there for 30 days)."""
+    tracker._request('PATCH', f'pages/{page_id}', {'archived': True})
 
 
 def listing(tracker, limit=100):
@@ -403,6 +418,8 @@ def main(argv=None):
     saving.add_argument('--title', default='')
     saving.add_argument('--job', help='job URL of the application it belongs to')
     saving.add_argument('--input', default='Recording', choices=('Recording', 'Transcript', 'Notes'))
+    deleting = sub.add_parser('delete', help="move a row to Notion's trash")
+    deleting.add_argument('page')
     linking = sub.add_parser('link', help="set a row's application (no --job: clear it)")
     linking.add_argument('page')
     linking.add_argument('--job')
@@ -417,6 +434,9 @@ def main(argv=None):
         elif args.command == 'save':
             page = save(tracker, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input)
             out = {'ok': True, 'id': page['id'], 'url': page.get('url', '')}
+        elif args.command == 'delete':
+            delete(tracker, args.page)
+            out = {'ok': True}
         else:
             out = {'ok': True, 'application': link(tracker, args.page, args.job)}
     except ValueError as error:

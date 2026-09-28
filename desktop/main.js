@@ -7,6 +7,7 @@ import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
 import * as interviews from './lib/interviews.js';
+import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
 import {startSchedule} from './lib/schedule.js';
 import * as telegram from './lib/telegram.js';
@@ -297,7 +298,26 @@ function handlers() {
   });
   ipcMain.handle('ivRecordStart', (_, options) => interviews.startRecording(storage, options));
   ipcMain.handle('ivRecordChunk', (_, id, bytes) => { interviews.appendRecording(storage, id, bytes); return true; });
-  ipcMain.handle('ivRecordStop', (_, id, seconds) => interviews.stopRecording(storage, id, seconds));
+  ipcMain.handle('ivRecordStop', async (_, id, seconds, extra) => {
+    const tap = await calltap.stop(id);
+    return interviews.stopRecording(storage, id, seconds, {...extra, ...(tap ? {callFile: 'call.pcm', callStartedAt: tap.startedAt} : {})});
+  });
+  // The call's audio through AudioTee (Core Audio taps, macOS 14.2+; "System Audio Recording Only" permission).
+  const tapReady = () => !DEMO && !!calltap.binary() && Number(process.getSystemVersion().split('.')[0]) >= 14
+    && !(process.getSystemVersion().startsWith('14.') && Number(process.getSystemVersion().split('.')[1] || 0) < 2);
+  ipcMain.handle('ivTapAvailable', () => tapReady());
+  ipcMain.handle('ivTapStart', async (_, id) => {
+    try {
+      const file = path.join(storage.path('interviews'), String(id).replace(/[^\w-]/g, ''), 'call.pcm');
+      let last = 0;
+      const {startedAt} = await calltap.start(id, file, level => {
+        if (Date.now() - last > 200) { last = Date.now(); window?.webContents.send('ivLevel', {id, level}); }
+      });
+      return {ok: true, startedAt};
+    } catch (error) {
+      return {ok: false, error: error.message};
+    }
+  });
   ipcMain.handle('ivTranscribe', async (_, id, options) => {
     const meta = await interviews.transcribe(storage, id, options, step => window?.webContents.send('ivProgress', step));
     if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: name the speakers, pick the job, save it to Notion.`);
@@ -308,6 +328,7 @@ function handlers() {
   ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
   ipcMain.handle('ivReview', (_, pageId) => interviews.review(storage, pageId));
+  ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
   // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
   // In development (npm start) macOS may list the terminal that started the app instead of Electron.
   ipcMain.handle('mediaAccess', () => (DEMO ? {microphone: 'granted', screen: 'granted', dev: false} : {microphone: systemPreferences.getMediaAccessStatus('microphone'),

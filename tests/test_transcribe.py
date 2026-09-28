@@ -50,6 +50,32 @@ class TranscribeTests(unittest.TestCase):
         self.assertIsNone(transcribe.find_you(same, segments))
         self.assertIsNone(transcribe.find_you(None, segments))
 
+    @unittest.skipUnless(numpy, 'numpy not installed')
+    def test_the_call_audio_is_lined_up_with_the_microphone(self):
+        with tempfile.TemporaryDirectory() as folder:
+            call = Path(folder) / 'call.pcm'
+            (numpy.ones(transcribe.RATE, numpy.int16) * 16384).astype('<i2').tofile(call)
+            mic = numpy.full(transcribe.RATE * 2, 0.25, numpy.float32)
+            with mock.patch.object(transcribe, 'load_audio', return_value=(mic, None)):
+                mono, channels = transcribe.load_pair('mic.webm', call, offset=0.5)
+        self.assertEqual(channels.shape, (2, transcribe.RATE * 2))
+        half = transcribe.RATE // 2
+        self.assertEqual((channels[1, half - 1], channels[1, half]), (0.0, 0.5))  # the call starts 0.5 s in
+        self.assertAlmostEqual(float(mono[half]), 0.75)
+
+    @unittest.skipUnless(numpy, 'numpy not installed')
+    def test_words_on_the_microphone_are_yours_the_rest_go_to_the_interviewer_then(self):
+        rate = transcribe.RATE
+        mic, call = numpy.zeros(rate * 6, numpy.float32), numpy.zeros(rate * 6, numpy.float32)
+        call[:rate * 2] = 0.2; mic[:rate * 2] = 0.02          # interviewer A (a little echo on the mic)
+        mic[rate * 2:rate * 4] = 0.3                          # you
+        call[rate * 4:] = 0.2                                 # interviewer B
+        words = [(0.5, 'Why'), (2.5, 'Because'), (4.5, 'And')]
+        labelled = transcribe.by_channel(words, numpy.stack([mic, call]), [(0, 2, 0), (4, 6, 1)])
+        self.assertEqual([s for _, s, _ in labelled], [0, transcribe.YOU, 1])
+        text = transcribe.render(transcribe.turns(labelled, transcribe.YOU))
+        self.assertEqual(text.splitlines()[1], '[00:00:02] You: Because')
+
     def test_models_download_once(self):
         def archive(url):  # each release archive holds its model folder
             data = io.BytesIO()
