@@ -7,7 +7,7 @@ sends a ranked digest to Telegram. Applications are tracked in Notion. **It neve
 application on your behalf** — drafting and filling can be automated; clicking Submit always stays
 with you.
 
-**Not a developer?** Use the free [Mac app](#mac-app): a guided setup in about ten minutes, no
+**Not a developer?** Use the free [Mac app](#mac-app) (Windows beta too): a guided setup in about ten minutes, no
 terminal, with a Chrome extension that fills the forms. Website:
 [www.jobpilotto.workers.dev](https://www.jobpilotto.workers.dev/)
 ([how it works](https://www.jobpilotto.workers.dev/#how),
@@ -172,24 +172,41 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 
 <a id="mac-app"></a>
 
-### 🖥️ The Mac app
-- 🧭 **Guided setup, no terminal**: AI key, your copy of the Notion workspace (found and connected by
-  itself), your CV, and what you're looking for in plain words; Claude drafts your search strategy
-  (roles, places, board searches, hidden languages) for you to edit. Every step is saved as you go.
-- 📋 **Jobs**: every open job with its fit score and reason, links to its kit and posting in Notion,
-  and one main button per job: **Prepare** (draft the kit) → **Apply with Claude** (recommended, see
-  below) or **Fill in Chrome** (the extension fills the form) → **Opened in Chrome**. Without Claude
-  Code the button is simply **Apply** (the extension). A ⛔ badge shows the kit's eligibility verdict on hover.
-- ✍️ **Answer once**: questions a form asked that your answers don't cover yet, listed once; your
-  answer goes to your standard answers in Notion and every later form uses it.
-- 🎙️ **Interviews**: record a call (after ticking that everyone agreed) or add a recording → a transcript
-  with speakers, made on the Mac → name them, pick the job → **Save to Notion** (optionally **Review**). [More](#-learning-from-your-applications).
-- ⏱️ **How often**: per job (search, kits, insights, new employers, mail), in your time zone.
-- ☁️ **Always on** (runs on GitHub, even when your Mac is off): sign in with GitHub (a GitHub App with access to one
-  repository only) and the app sets up your own private repository with the schedules, secrets and
-  settings; searches then run there even with the Mac off.
-- 🔔 **Notifications**: kit ready, form filled, application marked applied (an in-window toast when
-  macOS blocks them). Keys are encrypted with your Mac's Keychain; data stays in your folder and Notion.
+### 🖥️ The Mac app (and Windows, beta)
+- 🧭 **Guided setup, no terminal**: AI key, **Connect with Notion** (the app builds every database in an empty
+  page), your CV, and what you're looking for in plain words; Claude drafts your search strategy for you to review
+  in place. Every step is saved as you go, and reopening setup is a safe review.
+- 🎯 **Focus** (the app opens on it): a ranked to-do list from Notion (reply to a recruiter, review a filled form,
+  apply to the next role), your **daily target** (applications per day, default 30, stored in ⚙️ Search settings)
+  with progress and reminders at the times you pick, the latest insight, and your **funnel** (Prepared → Applied →
+  Human reply → Screening → Interviews → Offer, with the step to improve). No AI, no cost.
+- 📋 **Jobs**: built from Notion (Job Matches + Applications), counters that filter the list (high fit, new this
+  week; applied, active, interviews, rejected), find a job by its pasted link, and one main button per job:
+  **Prepare** (draft the kit) → **Apply with Claude** (recommended, see below) or **Fill in Chrome** (the extension).
+  **Apply to N** starts several at once. A ⛔ badge shows the kit's eligibility verdict on hover.
+- 📥 **Everything that reaches you, tracked**: **+ Applied elsewhere…** (link + date; it gets the same AI facts and fit
+  score as a found job), **Recruiter message** (a recruiter's email, LinkedIn message or call → a Recruiter lead with
+  "Reached via" Email / LinkedIn / Phone, one lead per pitch) and **Log message or screenshot** (⌘V; the job it's
+  about is updated, or added). LinkedIn pages are never fetched: you paste the text.
+- 🔍 **Rejection review**: one verdict per rejection (Presentation / Hard skills / Soft skills / Not on you), after
+  each Gmail check or from the job's menu.
+- ✍️ **Answer once**: questions a form asked that your answers don't cover yet, listed once; your answer goes to
+  your standard answers in Notion and every later form uses it.
+- 🎙️ **Interviews**: record a call (after ticking that everyone agreed) or add a recording → a transcript with
+  speakers, made on the Mac → name them, pick the job → **Save to Notion** (optionally **Review**). [More](#-learning-from-your-applications).
+- ⏱️ **Recent activity**: every run (new jobs check, Gmail check, kit, insight, report…), wherever it ran (this Mac,
+  your GitHub repo, a Telegram button): queued → running → its result and technical log, from Notion's ⏱️ Search runs.
+  A bar at the bottom of every screen says what's running and what's next. **⌘K** (Ctrl+K) runs any command by name.
+- ☁️ **Always on / off**: on, background jobs run in your own private GitHub repository even when the Mac is off (a
+  GitHub App with access to that one repository), and Telegram buttons work through a bot the app deploys to your own
+  Cloudflare account; off, they run on this Mac. **How often** is set per job, in your time zone.
+- 💾 **Your data**: Notion holds one copy of everything (the app repairs a workspace from `config/notion_schema.json`);
+  the Mac keeps only keys, large files and caches. Settings → Data & backup: **Export** (one `.tar.gz`, optionally
+  with a Notion copy), **Import**, **Reset** (a fresh start archives the old Notion page, never deletes it) and a
+  **weekly automatic backup** (iCloud Drive or Documents, last 4, no keys).
+- 🔔 **Notifications** for every finished job, wherever it ran (an in-window toast when macOS blocks them). Quitting
+  while something runs asks first; the queue is saved and resumes at the next start. Keys are encrypted with your
+  Mac's Keychain (Windows: its Credential Manager).
 
 <a id="apply-with-claude"></a>
 
@@ -197,15 +214,23 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 Many postings don't end in a form: jobs.ch's Apply leads to the employer's careers site, which has its
 own **Apply now**, then a sign-in page, then several form pages. The extension stops there; Claude
 doesn't.
-- 🖱️ **One button** on a job in the Mac app (or "Apply to jobs…" for several) starts a Claude Code
-  session in Terminal that drives your Chrome with Claude in Chrome, from the posting to the last form page.
+- 🖱️ **One button** on a job in the Mac app (or **Apply to N** for several, side by side) starts a Claude Code
+  session **inside the app** that drives your Chrome with Claude in Chrome, from the posting to the last form page.
+- 🖥️ **A session page per application**: its live terminal, the step it's on and for how long, and when it's done,
+  **What Claude needs from you** (a question it couldn't answer, with its suggested answer: **Fill it in**, or tick
+  to save it to your standard answers; a legal box to tick; a judgement call with its recommended action, one click)
+  and **What happened** (what it filled, problems first, the form audit). **Open filled form** switches Chrome to
+  that form's tab.
+- ♻️ **Survives a restart**: sessions are saved with their screen, come back when the app starts, and resume in the
+  same Claude conversation. The app asks before quitting with sessions running, and at start about applications a
+  crash left open.
 - 🔑 **Creates the employer account** when a site asks for one, with your details from the CV. The
   password is generated straight into your Mac's Keychain (`job-pilotto.<site>.password`) and pasted
   from the clipboard: it never appears in the session, the logs or Notion. Next time it signs in with it.
 - 📧 **Confirms the account itself**: reads the confirmation email's code or link from Gmail
   (read-only, connected in Settings → Gmail and Calendar).
 - 🙋 **Asks you only for what it must not do**: the CAPTCHA and the terms boxes. You get a notification,
-  one line in Terminal says what to tick, and it carries on.
+  the session page says what to tick, and it carries on.
 - 🛡️ **Never presses Submit.** It stops on the review page; you read it and submit.
 - ⚡ **Teams up with the extension**: on a form the extension knows, Claude hands it over for the fast fill
   (kit answers, details, CV, dropdowns in seconds), then fills only what's left. Needs the app open (it
