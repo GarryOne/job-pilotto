@@ -263,15 +263,20 @@
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
     if (!el || attention.has(field)) return;
     const target = isCombo(el) ? comboControl(el) : el;
-    target.style.outline = '3px solid #f59e0b';
-    target.style.outlineOffset = '2px';
-    const tag = Object.assign(document.createElement('div'), {className: 'job-pilotto-attention', textContent: '✍️ Written by AI: read it before submitting'});
-    tag.style.cssText = 'margin-top:4px;font:600 12px system-ui,sans-serif;color:#b45309';
-    target.parentElement.insertBefore(tag, target.nextSibling);
+    // Only the bottom edge of the field's own box turns amber (no rectangle, no caption): the box is the first of the
+    // field and its wrappers that has a border, else the field itself.
+    let frame = target;
+    for (let box = target, i = 0; box && i < 4; box = box.parentElement, i++)
+      if (parseFloat(getComputedStyle(box).borderBottomWidth) > 0) { frame = box; break; }
+    const before = {width: frame.style.borderBottomWidth, color: frame.style.borderBottomColor, style: frame.style.borderBottomStyle, title: el.title};
+    Object.assign(frame.style, {borderBottomWidth: '3px', borderBottomColor: '#f59e0b', borderBottomStyle: 'solid'});
+    el.title = 'Written by AI: read it before submitting';
+    el.setAttribute('data-jobpilotto-ai', '');
     attention.set(field, clean(label).slice(0, 120));
     const clear = event => {
       if (!event.isTrusted) return;
-      target.style.outline = ''; tag.remove(); attention.delete(field);
+      Object.assign(frame.style, {borderBottomWidth: before.width, borderBottomColor: before.color, borderBottomStyle: before.style});
+      el.title = before.title; el.removeAttribute('data-jobpilotto-ai'); attention.delete(field);
       el.removeEventListener('input', clear);
     };
     el.addEventListener('input', clear);

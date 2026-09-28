@@ -51,8 +51,9 @@
       const key = grouped ? `group:${question(el)}` : el.type === 'radio' ? `radio:${el.name}` : el;
       const filled = el.type === 'file' ? !!el.files?.length : el.getAttribute('role') === 'combobox' ? comboFilled(el)
         : ['checkbox', 'radio'].includes(el.type) ? el.checked : !!String(el.value || '').trim();
-      const entry = groups.get(key) || {el, label: question(el), required: false, filled: false};
+      const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false};
       entry.required ||= required(el);
+      entry.ai ||= el.hasAttribute('data-jobpilotto-ai');
       entry.filled ||= filled;
       groups.set(key, entry);
     }
@@ -181,7 +182,8 @@
   function render(list = fields()) {
     if (list.length < MIN_FIELDS) { host.remove(); return null; }
     if (!host.isConnected) document.documentElement.append(host);
-    const needed = list.filter(f => f.required);
+    // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
+    const needed = list.filter(f => f.required || f.ai);
     shown = needed.filter(f => !f.filled);
     const total = needed.length, left = shown.length, ready = total > 0 && left === 0;
     const done = total ? Math.round(100 * (total - left) / total) : 0;
