@@ -4,7 +4,7 @@
 // (it holds the connection's secret) and keeps it 10 minutes; the app collects it once with the session id.
 import crypto from 'node:crypto';
 
-export const SITE = process.env.JOB_PILOTTO_SITE || 'https://job-pilotto-site.sre-watch-bot.workers.dev';
+export const SITE = process.env.JOB_PILOTTO_SITE || 'https://www.jobpilotto.workers.dev';
 
 let current = null;  // one sign-in at a time; a new click cancels the previous wait
 export function cancel() { if (current) current.cancelled = true; }

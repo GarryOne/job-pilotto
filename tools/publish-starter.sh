@@ -9,7 +9,7 @@ work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 if ! gh repo view "$repo" >/dev/null 2>&1; then
   gh repo create "$repo" --public --description "Starter for your private Job Pilotto repository: use this template, keep it private." >/dev/null
 fi
-gh repo edit "$repo" --template --homepage "https://job-pilotto-site.sre-watch-bot.workers.dev" >/dev/null
+gh repo edit "$repo" --template --homepage "https://www.jobpilotto.workers.dev" >/dev/null
 git clone -q "https://github.com/$repo.git" "$work/repo" 2>/dev/null || git init -q -b main "$work/repo"
 cd "$work/repo"
 rm -rf .github && mkdir -p .github/workflows

@@ -13,7 +13,7 @@ export function reportToken(storage) {
   catch { return ''; }
 }
 
-export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://sre-job-pilotto-bot.sre-watch-bot.workers.dev/report/fill-failure';
+export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://sre-job-pilotto-bot.jobpilotto.workers.dev/report/fill-failure';
 export const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
   'answer given, but the field did not take it'];
 const key = label => String(label || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();

@@ -1,7 +1,7 @@
 name: site
 
 # Deploys the landing page (site/public) to Cloudflare when it changes on main.
-# Live at https://job-pilotto-site.sre-watch-bot.workers.dev (Workers static assets, free).
+# Live at https://www.jobpilotto.workers.dev (Workers static assets, free).
 # Secrets: CLOUDFLARE_API_TOKEN (template "Edit Cloudflare Workers"), CLOUDFLARE_ACCOUNT_ID.
 on:
   push:
