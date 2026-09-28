@@ -237,7 +237,8 @@
         </select></label>
       </div>
       <div class="list-bar">
-        <span id="jobs-count"></span>
+        <div class="list-left"><span id="jobs-count"></span>
+          <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button></div>
         <div class="density" role="group" aria-label="List density">
           <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
         </div>
@@ -259,10 +260,6 @@
         <button class="action" data-command="mail"><b>📧 Check Gmail</b><span>Confirmations, replies, interviews (if connected)</span></button>
         <button class="action" data-command="scout"><b>🔎 Find new employers</b><span>Check candidate companies for job feeds</span></button>
         <button class="action" data-command="status"><b>🩺 Status</b><span>When the last search ran</span></button>
-      </div>
-      <div class="setting">
-        <div><h3>📥 An application you made elsewhere</h3><p class="muted small">Paste the job link; add when you applied if it wasn't today (e.g. "on 23 Sep" or "on or before 23 Sep").</p></div>
-        <div class="inline"><input id="add-url" type="url" placeholder="https://…"><input id="add-date" placeholder="today" class="narrow"><button class="secondary" id="add-go">Add</button></div>
       </div>
       <pre class="answer" id="command-answer" hidden></pre>
     </div>
@@ -530,6 +527,22 @@
 </section>
 
 <!-- Apply dialog -->
+<dialog id="applied-dialog">
+  <form method="dialog">
+    <h2>📥 Applied elsewhere</h2>
+    <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your Notion Applications
+      as Applied, shows here under Applied, and Gmail replies about it are tracked like any other application.</p>
+    <label for="applied-url">Job link</label>
+    <input id="applied-url" type="url" placeholder="https://…" required>
+    <label for="applied-when">When you applied</label>
+    <input id="applied-when" placeholder="today — or e.g. 23 Sep, on or before 23 Sep">
+    <p class="message" id="applied-message"></p>
+    <div class="actions">
+      <button class="ghost" value="cancel" formnovalidate>Close</button>
+      <button class="primary" id="applied-go" value="default">Track it</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="apply-dialog">
   <form method="dialog" id="apply-form">
     <h2>Apply to jobs</h2>

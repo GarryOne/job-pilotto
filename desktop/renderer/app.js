@@ -672,6 +672,27 @@ function renderJobs() {
     : text || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
 $('sort-by').addEventListener('change', renderJobs);
+// Applied elsewhere: tracked in Notion like /add, then shown in the list as Applied.
+$('applied-open').addEventListener('click', () => {
+  message('applied-message', '');
+  $('applied-go').disabled = false;
+  $('applied-dialog').showModal();
+  $('applied-url').focus();
+});
+$('applied-go').addEventListener('click', async event => {
+  event.preventDefault();
+  const url = $('applied-url').value.trim();
+  if (!/^https?:\/\//.test(url)) { message('applied-message', 'Paste the job link (it starts with https://).', 'error'); return; }
+  $('applied-go').disabled = true;
+  message('applied-message', 'Reading the posting and adding it to Notion…', 'waiting');
+  const result = await window.pilot.addApplied(url, $('applied-when').value.trim());
+  $('applied-go').disabled = false;
+  message('applied-message', result.text, result.ok ? 'ok' : 'error');
+  if (!result.ok) return;
+  $('applied-url').value = ''; $('applied-when').value = '';
+  $('filter-status').value = 'applied';  // show it where it now is
+  loadJobs();
+});
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
 function setDensity(value) {
   const compact = value === 'compact';
@@ -1076,13 +1097,6 @@ document.querySelectorAll('[data-command]').forEach(button => button.addEventLis
   button.disabled = false;
   answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
 }));
-$('add-go').addEventListener('click', async () => {
-  const url = $('add-url').value.trim();
-  if (!/^https?:\/\//.test(url)) { answer('Paste the job link first (it starts with https://).'); return; }
-  const result = await window.pilot.command('add', `${url} ${$('add-date').value.trim()}`.trim());
-  answer(result.text);
-  $('add-url').value = ''; $('add-date').value = '';
-});
 $('replace-cv').addEventListener('click', async () => {
   const name = await window.pilot.chooseCv();
   if (name) message('strategy-message', `CV replaced: ${name}. Use "Rebuild from CV…" to redraft your strategy from it.`, 'ok');

@@ -89,6 +89,15 @@ export async function jobs(storage) {
   return JSON.parse(stdout.trim().split('\n').pop());
 }
 
+// A job applied to elsewhere: Applications row (Applied, with the date), the event, the frozen record, a Gmail
+// check, and the job in the Jobs list as Applied. Waits for it, so the list can refresh; returns its one line.
+export async function addApplied(storage, url, when = '', onLine = () => {}) {
+  const {code, stdout} = await run(storage, dailyArgs(storage, {mode: 'add', job: url, note: when}), onLine);
+  const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
+  const text = line.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+  return {ok: code === 0 && !text.startsWith('⚠️'), text: text || 'Could not add it (see the activity log)'};
+}
+
 // One job's posting (title, company, description), for tailoring the CV to it.
 export async function posting(storage, code) {
   const {code: exit, stdout} = await run(storage, ['src.desktop', 'posting', code]);

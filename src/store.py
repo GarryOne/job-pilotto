@@ -119,6 +119,21 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
     return job_id, status
 
 
+def track_applied(db, url, meta, now=None):
+    """A job applied to outside Job Pilotto (/add, the app's Applied elsewhere), in the jobs list as Applied.
+    A job a search already found keeps its crawled details; only its status changes. Returns the job id."""
+    row = db.execute("SELECT id FROM jobs WHERE canonical_key=? OR url=?", (f'url:{url}', url)).fetchone()
+    if row:
+        job_id = row['id']
+    else:
+        job_id, _ = upsert_job(db, {'url': url, 'title': meta.get('title') or url, 'company': meta.get('company'),
+                                    'location': meta.get('location') or '', 'date_posted': meta.get('date_posted'),
+                                    'description': meta.get('description')},
+                               'Applied elsewhere', source_url=url, source_kind='manual', now=now)
+    set_application_status(db, job_id, 'applied')  # commits
+    return job_id
+
+
 def import_watch_report(db, report):
     statuses = []
     for job in report.get('jobs', []):

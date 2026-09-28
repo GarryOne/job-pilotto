@@ -19,6 +19,22 @@ class CanonicalStoreTests(unittest.TestCase):
                 job_store.set_application_status(db, row['id'], 'saved')
                 self.assertEqual(job_store.digest_jobs(db)[0]['application_status'], 'saved')
 
+    def test_applied_elsewhere_joins_the_jobs_list_as_applied(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                # Not found by any search: added from the posting's details.
+                job_store.track_applied(db, 'https://jobs.lever.co/acme/1', {'title': 'SRE', 'company': 'Acme', 'location': 'Bern'})
+                row = job_store.digest_jobs(db)[0]
+                self.assertEqual((row['title'], row['company'], row['location'], row['application_status']),
+                                 ('SRE', 'Acme', 'Bern', 'applied'))
+                # Found by a search already: keeps the crawled details, only the status changes.
+                job_store.import_watch_report(db, {'jobs': [{'company': 'Example', 'id': '2', 'title': 'Platform Engineer',
+                                                              'url': 'https://example.test/2'}]})
+                job_store.track_applied(db, 'https://example.test/2', {'title': 'Other title', 'company': 'Other'})
+                crawled = [j for j in job_store.digest_jobs(db) if j['url'] == 'https://example.test/2']
+                self.assertEqual([(j['title'], j['company'], j['application_status']) for j in crawled],
+                                 [('Platform Engineer', 'Example', 'applied')])
+
     def test_invalid_application_status_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

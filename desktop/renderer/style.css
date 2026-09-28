@@ -497,3 +497,7 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .iv-editor input, .iv-editor select { font-size: 12.5px; padding: 6px 9px; }
 .iv-editor textarea { font-size: 12px; }
 .iv-editor button { font-size: 12.5px; padding: 7px 12px; }
+.list-left { display: flex; align-items: baseline; gap: 14px; }
+#applied-open { font-size: 12.5px; }
+#applied-dialog label { font-size: 12.5px; }
+#applied-dialog input { font-size: 13px; }

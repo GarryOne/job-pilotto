@@ -272,8 +272,13 @@ def main():
             raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
         try:
             applied, approx = ledger.parse_applied(args.note)
+            meta = ledger.page_meta(args.job)
+            meta['company'] = ledger.company_for(tracker, args.job, meta)
             reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
-                                                          source='Telegram'))
+                                                          source='Telegram', meta=meta))
+            # The app's Jobs list shows it too, as Applied (the local cache of the Applications row just written).
+            with store.connect(args.db) as db:
+                store.track_applied(db, args.job, meta)
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
