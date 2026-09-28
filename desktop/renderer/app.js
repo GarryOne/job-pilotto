@@ -3555,7 +3555,7 @@ function emptyRow(label, item) {
   body.append(el('div', '', `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
   actions.append(smallButton('Show it in the form', 'primary', () => showInForm(item, label)));
   body.append(actions);
-  li.append(el('span', 'ss-need-icon', '○'), body);
+  li.append(el('span', 'ss-need-glyph', '✏️'), body);
   return li;
 }
 window.pilot.onReview(state => {
