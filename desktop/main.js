@@ -21,6 +21,7 @@ import * as sessionRuns from './lib/session-runs.js';
 import {listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
+import {logTo} from './lib/log.js';
 import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
@@ -951,6 +952,7 @@ if (firstCopy) app.whenReady().then(() => {
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
+  logTo(path.join(app.getPath('userData'), 'logs'));
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   reset.adoptKeys(storage);  // keys that came with an import: stored encrypted, plain file deleted
   pipeline.ensureConfig(storage);

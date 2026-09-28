@@ -8,6 +8,8 @@ from datetime import date
 import hashlib
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
@@ -52,8 +54,8 @@ def _rich(items):
 
 
 class Tracker:
-    def __init__(self, token, database_id=DEFAULT_DATABASE_ID, opener=urllib.request.urlopen):
-        self.token, self.database_id, self.opener = token, database_id, opener
+    def __init__(self, token, database_id=DEFAULT_DATABASE_ID, opener=urllib.request.urlopen, sleep=time.sleep):
+        self.token, self.database_id, self.opener, self.sleep = token, database_id, opener, sleep
 
     @classmethod
     def from_env(cls):
@@ -63,14 +65,29 @@ class Tracker:
             return None
         return cls(token, os.getenv('NOTION_APPLICATIONS_DB') or DEFAULT_DATABASE_ID) if token else None
 
+    # Notion answers 429 when a workspace gets more than ~3 requests a second, and 502/503/504 when it's briefly
+    # down: wait (its Retry-After, else 0.5, 1, 2, 4 s) and try again rather than fail the run on a busy moment.
+    RETRY_STATUS = {429, 502, 503, 504}
+    RETRIES = 4
+
     def _request(self, method, path, body=None):
-        request = urllib.request.Request(
-            f'https://api.notion.com/v1/{path}', method=method,
-            data=json.dumps(body).encode() if body is not None else None,
-            headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': NOTION_VERSION,
-                     'Content-Type': 'application/json'})
-        with self.opener(request, timeout=20) as response:
-            return json.load(response)
+        for attempt in range(self.RETRIES + 1):
+            request = urllib.request.Request(
+                f'https://api.notion.com/v1/{path}', method=method,
+                data=json.dumps(body).encode() if body is not None else None,
+                headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': NOTION_VERSION,
+                         'Content-Type': 'application/json'})
+            try:
+                with self.opener(request, timeout=20) as response:
+                    return json.load(response)
+            except urllib.error.HTTPError as error:
+                if error.code not in self.RETRY_STATUS or attempt == self.RETRIES:
+                    raise
+                try:
+                    wait = float(error.headers.get('Retry-After') or 0) if error.headers else 0
+                except ValueError:
+                    wait = 0
+                self.sleep(min(wait if wait > 0 else 0.5 * 2 ** attempt, 10))
 
     def _query(self, filter_=None, database_id=None):
         body, pages = {'page_size': 100}, []

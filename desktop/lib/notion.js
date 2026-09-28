@@ -3,20 +3,37 @@
 // the pipeline needs, and writes pages (the drafted Profile and standard answers).
 import fs from 'node:fs';
 import path from 'node:path';
+import {log} from './log.js';
 import {REPO} from './pipeline.js';
 
 const API = 'https://api.notion.com/v1/';
 export const TEMPLATE = JSON.parse(fs.readFileSync(path.join(REPO, 'config', 'notion_template.json'), 'utf8'));
 
-export async function call(token, method, route, body, fetcher = globalThis.fetch) {
-  const response = await fetcher(API + route, {
-    method,
-    headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
-    ...(body ? {body: JSON.stringify(body)} : {}),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(data.message || `Notion ${response.status}`), {status: response.status});
-  return data;
+// Notion answers 429 when a workspace sends more than ~3 requests a second (the app often reads several things at
+// once) and 502/503/504 when it's briefly down: wait (its Retry-After, else 0.5, 1, 2, 4 s) and try again, so a busy
+// moment never fails an unrelated read (it once left a form without your name). retries: 0 for callers that
+// throttle and retry themselves (the export).
+const RETRY = new Set([429, 502, 503, 504]);
+let sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+export function useSleep(fn) { sleep = fn; }  // for tests
+export async function call(token, method, route, body, fetcher = globalThis.fetch, {retries = 4} = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetcher(API + route, {
+      method,
+      headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
+      ...(body ? {body: JSON.stringify(body)} : {}),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return data;
+    if (RETRY.has(response.status) && attempt < retries) {
+      const after = Number(response.headers?.get?.('retry-after'));
+      const wait = Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 500 * 2 ** attempt, 10_000);
+      log('notion', `${response.status} on ${method} ${route.split('?')[0]}: retry ${attempt + 1}/${retries} in ${wait} ms`);
+      await sleep(wait);
+      continue;
+    }
+    throw Object.assign(new Error(data.message || `Notion ${response.status}`), {status: response.status});
+  }
 }
 
 // Titles compared without emoji, punctuation spacing or case: "💠 Applications — Job Tracker" = "Applications — Job Tracker".
@@ -341,7 +358,7 @@ export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {},
   const api = async (method, route, body) => {
     for (let attempt = 1; ; attempt++) {
       await turn();
-      try { return await call(token, method, route, body, fetcher); } catch (error) {
+      try { return await call(token, method, route, body, fetcher, {retries: 0}); } catch (error) {
         if (attempt >= 6 || !(error.status === 429 || error.status >= 500)) throw error;
         await sleep(1000 * attempt);
       }

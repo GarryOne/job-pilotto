@@ -14,6 +14,7 @@ import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
+import {log} from './log.js';
 import * as reports from './reports.js';
 
 export const PORT = 47111;
@@ -98,7 +99,18 @@ async function learnFromRun(storage, run, job) {
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
 // the extension asks for them each time it fills a form (GET /extension/me with its token), so it keeps no copy.
 // With the job page's URL (?url=), a CV tailored to that job is sent instead of the base one (same file name).
-const contactOf = storage => contactDetails.read(storage).catch(() => ({}));
+// Your details from Notion; when Notion can't be read, the last ones it gave (a cache, rebuilt at the next good
+// read) and the reason, never a silent empty answer: that left a form without your name, reported as "no answer".
+let lastContact = null;
+async function contactOf(storage) {
+  try {
+    const contact = await contactDetails.read(storage);
+    if (Object.keys(contact).length) lastContact = contact;
+    return {contact, contactSource: 'notion', contactError: Object.keys(contact).length ? null : 'the 📇 Contact details section of your Notion Profile is empty'};
+  } catch (error) {
+    return {contact: lastContact || {}, contactSource: lastContact ? 'last read (Notion failed)' : 'none', contactError: `Notion: ${error.message}`};
+  }
+}
 
 export async function me(storage, url = '') {
   const settings = storage.settings();
@@ -111,7 +123,10 @@ export async function me(storage, url = '') {
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
   const direct = (await knowledge.notes(storage).catch(() => [])).filter(n => n.value && ['answer', 'option'].includes(n.kind))
     .map(({block, ...note}) => note);
-  return {contact: await contactOf(storage), resume, knowledge: direct};
+  const details = await contactOf(storage);
+  log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
+    {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, ...(details.contactError ? {error: details.contactError} : {})});
+  return {...details, resume, knowledge: direct};
 }
 
 // Desktop notifications for what happens in Chrome (set by main.js): the fill starting and finishing,

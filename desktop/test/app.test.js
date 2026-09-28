@@ -193,6 +193,8 @@ test('the extension gets the base CV from the app; contact details and notes nee
   const server = await import('../lib/server.js');
   const me = await server.me(storage);
   assert.deepEqual(me.contact, {});  // without Notion there is nowhere to read them from
+  assert.match(me.contactError, /Notion/);  // and it says why, instead of an empty answer that looks like "no details"
+  assert.equal(me.contactSource, 'none');
   assert.equal(me.resume.name, 'CV_Ada.pdf');
   assert.equal(Buffer.from(me.resume.data, 'base64').toString(), '%PDF-1.4 fake');
   assert.ok(strategy.DRAFT_SCHEMA.required.includes('contact'));

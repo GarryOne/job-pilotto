@@ -117,6 +117,8 @@ function prefetch(config, url) {
     me: api(config, `/extension/me?url=${encodeURIComponent(url)}`)};
   entry.kit.catch(() => early.delete(url));
   entry.me.catch(() => early.delete(url));
+  // Details that came with an error (Notion failed) aren't kept: the next Fill asks the app again.
+  entry.me.then(me => { if (me?.contactError) early.delete(url); }, () => {});
   early.set(url, entry);
   return entry;
 }

@@ -208,12 +208,20 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     if (note) { answers.push({field: field.field, value: note.value, source: 'form knowledge', question: field.label}); answered.add(field.field); }
   }
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
-  debug.details = {fields: Object.keys(me?.contact || {}), cv: me?.resume?.name || null, tailoredCv: !!me?.resume?.tailored};
+  debug.details = {fields: Object.keys(me?.contact || {}), source: me?.contactSource || null, cv: me?.resume?.name || null, tailoredCv: !!me?.resume?.tailored};
+  if (me?.contactError) debug.errors.push(`your details: ${me.contactError}`);
   const letter = coverLetter || ai?.cover_letter || '';
   const summary = await inPage(tab.id, (list, profile, resume, letter, consents) => window.__jobPilottoExtensionFill(list, profile, resume, letter, consents),
     [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null, letter, config.acceptConsents === true]);
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
   step('filled the page');
+  // Your details couldn't be read (Notion failed and there was no earlier copy): say so on the fields it left,
+  // not "no answer", and in the panel, so Fill again is the obvious next step.
+  if (me?.contactError && !Object.keys(me.contact || {}).length && summary) {
+    const why = `your details couldn't be read (${me.contactError}): Fill again in a minute`;
+    for (const row of summary.trace || []) if (row.reason === 'no answer in the kit, Profile or your details' && /name|e-?mail|phone|country|city|location/i.test(row.label)) row.reason = why;
+    summary.todo = [`Your name and email weren't filled: ${why}`, ...(summary.todo || [])];
+  }
   const clickDropdowns = config.clickDropdowns !== false;  // on unless turned off in Settings
   if (!clickDropdowns && await armedLeft()) {
     // Say why they're left, and how to have them chosen automatically.
