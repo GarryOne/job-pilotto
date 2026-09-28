@@ -1120,6 +1120,7 @@ const remembered = (key, value) => {
 };
 function openView(name) {
   remembered('view', name);
+  setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
@@ -3138,7 +3139,9 @@ function sessionLogo(item) {
 }
 function renderDock() {
   const live = sessionList.filter(item => !item.endedAt || item.status === 'done');
-  show($('sessions-dock'), sessionList.length > 0);
+  // Not on the sessions page itself (it lists them all): the tray would only repeat what's on screen.
+  const onSessionsPage = !document.querySelector('.view[data-view="sessions"]')?.hidden;
+  show($('sessions-dock'), sessionList.length > 0 && !onSessionsPage);
   if (!sessionList.length) return;
   const running = sessionList.filter(item => !item.endedAt).length, waiting = sessionList.filter(item => item.status === 'input').length;
   $('sd-summary').replaceChildren(pill([`${running} running`, waiting && `${waiting} need${waiting === 1 ? 's' : ''} your input`].filter(Boolean).join(' · '), waiting ? 'warn' : 'info'));
