@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ago, avatar, band, matchLabel, placeAndMode, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
+import {ago, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -38,6 +38,21 @@ test('the counters: total, high fit, new this week, unique companies', () => {
   ];
   assert.deepEqual(stats(jobs, 214, now), {total: 214, high: 2, week: 2, companies: 2});
   assert.equal(stats(jobs, undefined, now).total, 4);
+});
+
+test('clicking a counter shows the jobs it counts', () => {
+  const now = Date.parse('2026-09-28T12:00:00Z');
+  const jobs = [
+    {fit: 60, company: 'Acme', first_seen_at: '2026-09-27'},
+    {fit: 80, company: 'acme ', first_seen_at: '2026-09-01'},
+    {fit: null, company: 'Globex', first_seen_at: '2026-09-22'},
+    {fit: 90, company: '', first_seen_at: ''},
+  ];
+  assert.deepEqual(byStat(jobs, 'high', now), [jobs[1], jobs[3]]);
+  assert.deepEqual(byStat(jobs, 'week', now), [jobs[0], jobs[2]]);
+  assert.deepEqual(byStat(jobs, 'companies', now), [jobs[1], jobs[2]]);  // Acme's best fit, list order kept
+  assert.equal(byStat(jobs, null, now), jobs);
+  assert.equal(byStat(jobs, 'companies').length, stats(jobs).companies);
 });
 
 test('sorting keeps the engine order for best match; newest and company reorder a copy', () => {

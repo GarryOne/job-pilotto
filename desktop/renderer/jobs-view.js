@@ -26,6 +26,22 @@ export function stats(jobs, total, now = Date.now()) {
   };
 }
 
+// Clicking a counter shows the jobs it counts: high fit, new this week, or one job per company (its best fit).
+export function byStat(jobs, kind, now = Date.now()) {
+  if (kind === 'high') return jobs.filter(job => job.fit >= 70);
+  if (kind === 'week') return jobs.filter(job => now - Date.parse(job.first_seen_at) <= WEEK);
+  if (kind === 'companies') {
+    const best = new Map();
+    for (const job of jobs) {
+      const key = (job.company || '').trim().toLowerCase();
+      if (key && (!best.has(key) || (job.fit ?? -1) > (best.get(key).fit ?? -1))) best.set(key, job);
+    }
+    const keep = new Set(best.values());
+    return jobs.filter(job => keep.has(job));
+  }
+  return jobs;
+}
+
 // The list order: best match (as the engine ranked it), newest first, or by company.
 export function sorted(jobs, by) {
   const list = [...jobs];

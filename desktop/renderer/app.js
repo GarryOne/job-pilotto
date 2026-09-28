@@ -1,7 +1,7 @@
 import {replaceCell, replaceLine, withLine} from './markdown-edit.js';
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {ago, avatar, band, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
+import {ago, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 
@@ -16,6 +16,7 @@ let state = await window.pilot.state();
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
+let statFilter = null;  // the counter clicked above the list: 'high', 'week', 'companies' or null
 
 // ---------- helpers ----------
 function show(element, visible = true) { element.hidden = !visible; }
@@ -798,7 +799,7 @@ function renderJobs() {
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
-  const rows = sorted(allJobs.filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+  const rows = sorted(byStat(allJobs, statFilter).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
     matches(job, text)), $('sort-by').value);
   const body = $('jobs-body');
   body.replaceChildren();
@@ -973,13 +974,24 @@ function renderJobs() {
     row.append(fit, role, company, place, status, box);
     body.append(row);
   }
-  $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}`;
+  const statLabel = {high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
+  $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}` + (statLabel ? ` · ${statLabel}` : '');
+  document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
   show($('jobs-empty'), rows.length === 0);
   $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
-    : text || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
+    : text || statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
 $('sort-by').addEventListener('change', renderJobs);
+// The counters filter the list to the jobs they count, whatever their status (so the list matches the number);
+// clicking the active one again, or Total matches, shows every job.
+document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('click', () => {
+  const kind = card.dataset.stat;
+  statFilter = kind === 'total' || kind === statFilter ? null : kind;
+  $('filter-status').value = 'all';
+  if (kind === 'companies' && statFilter) $('sort-by').value = 'company';
+  renderJobs();
+}));
 // Applied elsewhere: tracked in Notion like /add, then shown in the list as Applied.
 $('applied-open').addEventListener('click', () => {
   message('applied-message', '');
