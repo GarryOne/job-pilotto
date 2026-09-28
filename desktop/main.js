@@ -371,9 +371,11 @@ function handlers() {
     return storage.saveSettings(allowed);
   });
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
-  ipcMain.handle('apply', (_, options) => apply.start(storage, options));
+  ipcMain.handle('apply', async (_, options) => options?.mode === 'agents' && !(await claudeConsent())
+    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
-  ipcMain.handle('applyWithClaude', (_, url) => apply.claudeOne(storage, url));
+  ipcMain.handle('applyWithClaude', async (_, url) => (await claudeConsent())
+    ? apply.claudeOne(storage, url) : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', () => apply.claudePrereqs());
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
@@ -492,6 +494,21 @@ app.on('second-instance', () => {
   window?.show();
   window?.focus();
 });
+
+// Apply with Claude sessions run without asking before each action (--permission-mode bypassPermissions), so the
+// user agrees once, knowing what that means; the answer is kept in settings.
+async function claudeConsent() {
+  if (storage.settings().claudeConsent) return true;
+  const {response} = await dialog.showMessageBox(window, {type: 'warning', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1,
+    message: 'Let Claude work without asking before each step?',
+    detail: 'Apply with Claude opens a Claude Code window per job that browses, signs up on the employer\'s site and fills the form ' +
+      'without asking you to approve each action, so it can work on its own. It never clicks Submit: you review and submit yourself. ' +
+      'Any other command it decides to run also runs without asking, so watch its window while it works.\n\n' +
+      'It uses your own Claude account and plan. You can turn this off in Settings.'});
+  if (response !== 0) return false;
+  storage.saveSettings({claudeConsent: new Date().toISOString()});
+  return true;
+}
 
 // Screen capture needs a permission only on the Mac; Windows lets any app capture the screen and its audio.
 function mediaAccess(type) {

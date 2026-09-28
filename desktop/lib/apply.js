@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as pipeline from './pipeline.js';
+import * as session from './claude-session.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
@@ -68,11 +69,11 @@ export function claudePrereqs(platform = process.platform, {binary = claudeBinar
   return {claude: !!binary(), signedIn: signedIn(), git: platform === 'win32' ? !!bash() : null, windows: platform === 'win32'};
 }
 
-// Apply with Claude works when Claude Code is installed and Notion holds the kits. Its sessions run in the
-// Mac's Terminal (tools/apply-batch-claude.sh), so not on Windows yet.
-export function claudeReady(storage, binary = claudeBinary, platform = process.platform) {
-  if (platform === 'win32') return {ok: false, error: 'Apply with Claude is Mac-only for now. Use Fill in Chrome.'};
+// Apply with Claude works when Claude Code is installed (with Git for Windows there) and Notion holds the kits.
+// Sessions start from lib/claude-session.js: Terminal on the Mac, a console window on Windows.
+export function claudeReady(storage, binary = claudeBinary, platform = process.platform, bash = gitBash) {
   if (!binary()) return {ok: false, error: 'Apply with Claude needs Claude Code: install it from claude.com/claude-code, or use Fill in Chrome.'};
+  if (platform === 'win32' && !bash()) return {ok: false, error: 'Apply with Claude on Windows needs Git for Windows (git-scm.com), which Claude Code uses. Or use Fill in Chrome.'};
   if (!storage.secret('NOTION_TOKEN')) return {ok: false, error: 'Apply with Claude reads the kit from Notion. Connect Notion in Settings first, or use Fill in Chrome.'};
   return {ok: true};
 }
@@ -84,27 +85,33 @@ export async function hasKit(storage, url, run = pipeline.run) {
   return code === 0 ? {ok: true} : {ok: false, error: `No application kit for this job yet: press Prepare first. ${lines.slice(-1)[0] || ''}`.trim()};
 }
 
-// One job, from its row: a Claude session in Terminal takes it from the posting to a filled form.
-export async function claudeOne(storage, url, open = spawn, binary = claudeBinary, kit = hasKit) {
+// The N best jobs with a kit that aren't started yet (Kit ready, or Saved with a kit), from Notion.
+export async function nextWithKits(storage, n, run = pipeline.run) {
+  const {code, stdout} = await run(storage, ['src.ai.apply_batch', '--next', String(n)]);
+  return code === 0 ? stdout.split(/\r?\n/).map(line => line.trim()).filter(line => /^https?:\/\//.test(line)) : [];
+}
+
+// One job, from its row: a Claude session in its own window takes it from the posting to a filled form.
+export async function claudeOne(storage, url, launch = session.launch, binary = claudeBinary, kit = hasKit) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   const ready = claudeReady(storage, binary);
   if (!ready.ok) return ready;
   const drafted = await kit(storage, url);
   if (!drafted.ok) return drafted;
-  open(path.join(pipeline.REPO, 'tools', 'apply-batch-claude.sh'), [url.split('#')[0]],
-    {cwd: pipeline.REPO, env: pipeline.pipelineEnv(storage), detached: true, stdio: 'ignore'}).unref();
+  await launch(storage, [url.split('#')[0]], {claude: binary()});
   return {ok: true};
 }
 
-export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs) {
+export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits) {
   n = Math.max(1, Math.min(10, Number(n) || 1));
   if (mode === 'agents') {
     const ready = claudeReady(storage);
     if (!ready.ok) return ready;
-    const child = open(path.join(pipeline.REPO, 'tools', 'apply-batch-claude.sh'), ['--max', String(n)],
-      {cwd: pipeline.REPO, env: pipeline.pipelineEnv(storage), detached: true, stdio: 'ignore'});
-    child.unref();
-    return {ok: true, message: `Starting ${n} Claude session(s) in Terminal, one per job. Each reads sign-up emails itself, asks you in its window for a CAPTCHA, and stops before Submit for your review.`};
+    const urls = await next(storage, n);
+    if (!urls.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
+    launch(storage, urls, {claude: claudeBinary()}).catch(() => {});  // windows open a few seconds apart
+    n = urls.length;
+    return {ok: true, message: `Starting ${n} Claude session(s), one window per job. Each reads sign-up emails itself, asks you in its window for a CAPTCHA, and stops before Submit for your review.`};
   }
   const {jobs} = await list(storage);
   const chosen = pick(jobs, n);

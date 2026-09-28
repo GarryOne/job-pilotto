@@ -577,7 +577,7 @@ function renderJobs() {
         const started = claudeStarted.has(pageKey(job.url));
         const claude = Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
           disabled: started,
-          title: started ? 'A Claude session is filling this one in Terminal: answer it there' :
+          title: started ? 'A Claude session is filling this one in its window: answer it there' :
             'Recommended. Claude opens the posting in Chrome, follows Apply to the employer\'s site, creates an account there ' +
             'if it asks (password saved in your Keychain) and fills every page from your kit. You solve CAPTCHAs, tick the terms and submit.'});
         claude.addEventListener('click', async () => {
@@ -847,6 +847,7 @@ async function loadSettings() {
   showSchedule();
   showContact();
   $('share-reports').checked = !!state.settings.shareFillReports;
+  $('claude-consent').checked = !!state.settings.claudeConsent;
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';
@@ -1122,6 +1123,9 @@ function toastMessage(title, body, hint) {
 
 // Help improve Job Pilotto (opt-in anonymous form reports).
 $('share-reports').addEventListener('change', async () => { state.settings = await window.pilot.saveSettings({shareFillReports: $('share-reports').checked}); });
+$('claude-consent').addEventListener('change', async () => {
+  state.settings = await window.pilot.saveSettings({claudeConsent: $('claude-consent').checked ? new Date().toISOString() : null});
+});
 
 // ---------- interviews: drafts on this Mac, saved ones in Notion 🎤 Interviews ----------
 const iv = window.pilot.interviews;

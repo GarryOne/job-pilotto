@@ -293,22 +293,44 @@ test('fill reports: mechanical failures only, form structure only, each site + f
   assert.equal(await reports.send(storage, run, fetcher), null);  // already reported for this site
 });
 
-test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then starts one Terminal session for the job', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, async () => {
+test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then starts one session for the job', async () => {
   const storage = tempStorage();
-  const calls = [];
-  const open = (...args) => { calls.push(args); return {unref() {}}; };
+  const launched = [];
+  const launch = async (_, urls, options) => { launched.push([urls, options]); return urls.length; };
   const found = () => '/usr/local/bin/claude';
   const kit = async () => ({ok: true});
   const url = 'https://www.jobs.ch/en/vacancies/detail/1/';
-  assert.match((await apply.claudeOne(storage, url, open, () => '', kit)).error, /Claude Code/);
-  assert.match((await apply.claudeOne(storage, url, open, found, kit)).error, /Notion/);
+  assert.match((await apply.claudeOne(storage, url, launch, () => '', kit)).error, /Claude Code/);
+  assert.match((await apply.claudeOne(storage, url, launch, found, kit)).error, /Notion/);
   storage.setSecret('NOTION_TOKEN', 'ntn_test');
-  assert.equal((await apply.claudeOne(storage, '', open, found, kit)).ok, false);
-  assert.match((await apply.claudeOne(storage, url, open, found, async () => ({ok: false, error: 'No application kit'}))).error, /kit/);
-  assert.equal(calls.length, 0);
-  assert.deepEqual(await apply.claudeOne(storage, `${url}#top`, open, found, kit), {ok: true});
-  assert.match(calls[0][0], /tools\/apply-batch-claude\.sh$/);
-  assert.deepEqual(calls[0][1], [url]);
+  assert.equal((await apply.claudeOne(storage, '', launch, found, kit)).ok, false);
+  assert.match((await apply.claudeOne(storage, url, launch, found, async () => ({ok: false, error: 'No application kit'}))).error, /kit/);
+  assert.equal(launched.length, 0);
+  assert.deepEqual(await apply.claudeOne(storage, `${url}#top`, launch, found, kit), {ok: true});
+  assert.deepEqual(launched[0], [[url], {claude: '/usr/local/bin/claude'}]);
+  assert.match(apply.claudeReady(storage, found, 'win32', () => '').error, /Git for Windows/);
+  assert.equal(apply.claudeReady(storage, found, 'win32', () => 'C:\\Git\\bin\\bash.exe').ok, true);
+});
+
+test('Apply to N with Claude: the best N jobs with a kit, one session each; none says Prepare', async () => {
+  const storage = tempStorage();
+  storage.setSecret('NOTION_TOKEN', 'ntn_test');
+  const launched = [];
+  const launch = async (_, urls) => { launched.push(urls); };
+  const two = async () => ['https://a/1', 'https://b/2'];
+  const binary = apply.claudeBinary() ? null : 'skip';
+  if (binary) return;  // no Claude Code on this machine: claudeReady stops first
+  const result = await apply.start(storage, {n: 3, mode: 'agents'}, null, null, launch, two);
+  assert.equal(result.ok, true);
+  assert.deepEqual(launched[0], ['https://a/1', 'https://b/2']);
+  assert.match(result.message, /Starting 2 Claude/);
+  assert.match((await apply.start(storage, {n: 3, mode: 'agents'}, null, null, launch, async () => [])).error, /Prepare/);
+});
+
+test('the next jobs with a kit come from apply_batch --next, links only', async () => {
+  const run = async (_, args) => ({code: 0, stdout: `Loading…\r\nhttps://a/1\r\nhttps://b/2\n`, args});
+  assert.deepEqual(await apply.nextWithKits({}, 2, run), ['https://a/1', 'https://b/2']);
+  assert.deepEqual(await apply.nextWithKits({}, 2, async () => ({code: 1, stdout: 'https://a/1'})), []);
 });
 
 test('the kit check asks Notion through apply_batch --has-kit and says to Prepare when there is none', async () => {

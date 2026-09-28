@@ -388,6 +388,12 @@
             send that form's <b>structure</b> (site, field labels, types, options) so it gets fixed. Never your answers or personal details.</p></div>
         <label class="radio"><input type="checkbox" id="share-reports"><span>Send anonymous form reports</span></label>
       </div>
+      <div class="setting" id="setting-claude">
+        <div><h3>🤖 Apply with Claude</h3>
+          <p class="muted small">Its Claude Code windows work without asking before each step, so they can run on their own.
+            They never click Submit; any other command runs without asking, so watch the window while it works.</p></div>
+        <label class="radio"><input type="checkbox" id="claude-consent"><span>Let Claude work without asking before each step</span></label>
+      </div>
       <div class="setting" id="setting-automation">
         <div><h3>⏰ Automatic searches</h3><p class="muted small" id="last-search"></p></div>
         <label class="radio"><input type="checkbox" id="auto-search"><span>Search on the schedule below while Job Pilotto is open</span></label>
@@ -524,7 +530,7 @@
     <fieldset>
       <legend>How to fill them</legend>
       <label class="radio"><input type="radio" name="apply-mode" value="agents">
-        <span><b>Apply with Claude</b> <span class="badge-recommended">Recommended</span><br><span class="muted">One Claude session per job in Terminal, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
+        <span><b>Apply with Claude</b> <span class="badge-recommended">Recommended</span><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
       <label class="radio"><input type="radio" name="apply-mode" value="chrome">
         <span><b>Fill in Chrome with the extension</b><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
     </fieldset>

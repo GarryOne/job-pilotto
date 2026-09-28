@@ -25,6 +25,8 @@ if (process.argv.includes('--app')) {
   fs.mkdirSync(pilot, {recursive: true});
   for (const item of ['src', 'config', 'tools', 'extension', 'templates', 'requirements.txt', 'requirements-transcribe.txt']) copy(item, path.join(pilot, item));
   for (const doc of ['notion-profile-template.md', 'job-pilotto-guide.md']) copy(`docs/${doc}`, path.join(pilot, 'docs', doc));
+  // The skill Apply with Claude sessions follow: they start in this folder, where Claude Code finds .claude/skills.
+  copy('.claude/skills/apply-to-job', path.join(pilot, '.claude', 'skills', 'apply-to-job'));
   if (keepPython) { fs.renameSync(path.join(keepPython, 'python'), python); fs.rmSync(keepPython, {recursive: true}); }
   // AudioTee (scripts/audiotee.sh): the call's audio recorder, at pilot/bin/audiotee in the app.
   const audiotee = path.join(desktop, 'build', 'bin', 'audiotee');
