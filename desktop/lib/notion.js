@@ -331,13 +331,27 @@ export async function archiveWorkspace(token, ids, when, fetcher) {
 // Your data); onProgress({pages, rows}) as it goes. Notion allows ~3 requests a second: waits when told to.
 export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {}, sleep = ms => new Promise(r => setTimeout(r, ms))} = {}) {
   const count = {pages: 0, rows: 0};
+  // Notion allows ~3 requests a second: requests start 1/3 s apart, and up to 3 rows are read at once.
+  let next = 0;
+  const turn = async () => {
+    const now = Date.now(), start = Math.max(now, next);
+    next = start + 340;
+    if (start > now) await sleep(start - now);
+  };
   const api = async (method, route, body) => {
     for (let attempt = 1; ; attempt++) {
+      await turn();
       try { return await call(token, method, route, body, fetcher); } catch (error) {
         if (attempt >= 6 || !(error.status === 429 || error.status >= 500)) throw error;
         await sleep(1000 * attempt);
       }
     }
+  };
+  const pool = async (items, work, size = 3) => {
+    let index = 0;
+    await Promise.all(Array.from({length: Math.min(size, items.length)}, async () => {
+      while (index < items.length) await work(items[index++]);
+    }));
   };
   const all = async (method, route, body = {}) => {
     const found = [];
@@ -357,6 +371,8 @@ export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {},
       if (block.type === 'child_database') {
         block.database = await api('GET', `databases/${block.id}`).catch(() => null);  // a linked view: not ours to read
         if (block.database) block.rows = await rows(block.id);
+      } else if (block.type === 'child_page' && ARCHIVED.test(block.child_page?.title || '')) {
+        block.skipped = 'archived';  // an archived Job Pilotto page (e.g. a parked build): not part of this workspace
       } else if (block.has_children) {
         if (block.type === 'child_page') { count.pages += 1; onProgress({...count}); }
         block.children = await tree(block.id);
@@ -366,11 +382,11 @@ export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {},
   };
   const rows = async databaseId => {
     const found = await all('POST', `databases/${databaseId}/query`);
-    for (const row of found) {
+    await pool(found, async row => {
       row.blocks = await tree(row.id);
       count.rows += 1;
       onProgress({...count});
-    }
+    });
     return found;
   };
   const root = await workspaceRoot(token, ids, fetcher);

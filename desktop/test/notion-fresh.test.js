@@ -38,7 +38,8 @@ function workspace({oldTitle = 'Job Pilotto', rows = 2} = {}) {
     if (route.startsWith('pages/')) return reply(items.find(i => `pages/${i.id}` === route));
     if (route === 'blocks/old/children') {
       if (!throttled) { throttled = true; return {ok: false, status: 429, json: async () => ({message: 'rate limited'})}; }
-      return reply({results: [{id: 'dbx', type: 'child_database', has_children: false}, {id: 'sub', type: 'child_page', has_children: true}], has_more: false});
+      return reply({results: [{id: 'dbx', type: 'child_database', has_children: false}, {id: 'sub', type: 'child_page', has_children: true, child_page: {title: 'Notes'}},
+        {id: 'parked', type: 'child_page', has_children: true, child_page: {title: 'Wizard build (archived 28 Sep 2026)'}}], has_more: false});
     }
     if (route === 'blocks/sub/children') return reply({results: [{id: 'p1', type: 'paragraph', has_children: false}], has_more: false});
     if (/^blocks\/row\d\/children$/.test(route)) return reply({results: [{id: 'note', type: 'paragraph', has_children: false}], has_more: false});
@@ -76,10 +77,12 @@ test('the Notion copy holds sub-pages, databases with rows and their contents, a
   const ids = (await notion.discover('t', w.fetcher)).ids;
   const seen = [], waits = [];
   const copy = await notion.dumpWorkspace('t', ids, {fetcher: w.fetcher, onProgress: count => seen.push(count), sleep: async ms => waits.push(ms)});
-  assert.deepEqual(waits, [1000]);
+  assert.ok(waits.includes(1000));  // the 429 was retried after a second
   assert.equal(copy.rows, 3);
   assert.equal(copy.pages, 1);
-  const [db, sub] = copy.blocks;
+  const [db, sub, parked] = copy.blocks;
+  assert.equal(parked.skipped, 'archived');  // an archived page isn't copied
+  assert.equal(parked.children, undefined);
   assert.equal(db.database.id, 'dbx');
   assert.equal(db.rows[2].blocks[0].id, 'note');
   assert.equal(sub.children[0].id, 'p1');
