@@ -18,6 +18,7 @@
 // leaves a blank or garbled screen. A headless terminal (the mirror) follows each session at its real size, and
 // snapshot() serializes it: what a real terminal shows now. The saved record keeps that screen too.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 let Headless = null;  // {Terminal, SerializeAddon}; without it the log falls back to the raw output
@@ -177,7 +178,31 @@ function save() {
 }
 // At start: the saved sessions come back without a process. Working ones (their process died with the app) are
 // shown as stopped; older than KEEP_DAYS are dropped. Returns how many came back.
-export function restore(now = Date.now()) {
+// The Claude Code transcript of a session that didn't keep its path (sessions from before the path was saved): the
+// one whose first prompt names this session's instructions file (prompt_<id>.txt). Only recent transcripts are
+// looked at, and only their start is read. '' when none is found.
+export function findTranscript(id, {root = path.join(os.homedir(), '.claude', 'projects'), now = Date.now(), days = KEEP_DAYS} = {}) {
+  const wanted = `prompt_${id}.txt`;
+  let dirs = [];
+  try { dirs = fs.readdirSync(root, {withFileTypes: true}).filter(d => d.isDirectory()).map(d => path.join(root, d.name)); } catch { return ''; }
+  for (const dir of dirs) {
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(name => name.endsWith('.jsonl')).map(name => path.join(dir, name)); } catch { continue; }
+    for (const file of files) {
+      try {
+        if (now - fs.statSync(file).mtimeMs > days * 86400_000) continue;
+        const handle = fs.openSync(file, 'r');
+        const head = Buffer.alloc(65536);
+        const read = fs.readSync(handle, head, 0, head.length, 0);
+        fs.closeSync(handle);
+        if (head.toString('utf8', 0, read).includes(wanted)) return file;
+      } catch { /* unreadable: skip it */ }
+    }
+  }
+  return '';
+}
+
+export function restore(now = Date.now(), {find = findTranscript} = {}) {
   if (!saveFile) return 0;
   let records = [];
   try { records = JSON.parse(fs.readFileSync(saveFile, 'utf8')); } catch { return 0; }
@@ -185,6 +210,8 @@ export function restore(now = Date.now()) {
     if (!record?.id || sessions.has(record.id) || now - Date.parse(record.startedAt) > KEEP_DAYS * 86400_000) continue;
     const {savedAt, screen, ...session} = record;
     // Its last message read again: a Stop that came before the message reached the transcript saved an older one.
+    // A session that didn't keep its transcript's path gets it found first (by its instructions file's name).
+    if (!session.transcript && session.status !== 'running' && session.question) session.transcript = find(session.id, {now}) || '';
     if (session.transcript && session.status !== 'running' && session.question) session.question = lastAssistantText(session.transcript) || session.question;
     // Its screen comes back as it was (older records have only the output's tail: the best that can be shown).
     session.mirror = newMirror(session.cols || 120, session.rows || 32, screen || session.output || '');

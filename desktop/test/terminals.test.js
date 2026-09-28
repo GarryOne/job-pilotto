@@ -240,3 +240,25 @@ test('sessions left by the last run are asked about once: at start, not again, a
   assert.equal(terminals.get('b2').askAtStart, false);
   terminals._reset();
 });
+
+test('a restored session without its transcript\'s path gets it found by its instructions file, and its last message re-read', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-projects-'));
+  fs.mkdirSync(path.join(root, 'repo'));
+  const said = text => JSON.stringify({type: 'assistant', message: {content: [{type: 'text', text}]}});
+  fs.writeFileSync(path.join(root, 'repo', 'other.jsonl'), JSON.stringify({type: 'user', message: {content: 'Read the file /tmp/x/prompt_zz999999.txt and do exactly what it says.'}}));
+  const mine = path.join(root, 'repo', 'mine.jsonl');
+  fs.writeFileSync(mine, [JSON.stringify({type: 'user', message: {content: 'Read the file /tmp/x/prompt_12e25e4e.txt and do exactly what it says.'}}),
+    said('Race is set. Checking the resume shows as attached.'), said('The form is filled.\n\n- **Needs you:**\n  - ❓ **Maths at high school?** Suggested: "Cannot recall"')].join('\n'));
+  assert.equal(terminals.findTranscript('12e25e4e', {root}), mine);
+  assert.equal(terminals.findTranscript('00000000', {root}), '');
+  assert.equal(terminals.findTranscript('12e25e4e', {root, now: Date.now() + 30 * 86400_000}), '');  // older than two weeks: not looked at
+
+  const file = tempFile();
+  fs.writeFileSync(file, JSON.stringify([{id: '12e25e4e', url: 'https://jobs.test/c', status: 'input', startedAt: new Date().toISOString(),
+    question: 'Race is set. Checking the resume shows as attached.', output: ''}]));
+  terminals._reset();
+  terminals.persist(file);
+  terminals.restore(Date.now(), {find: id => terminals.findTranscript(id, {root})});
+  assert.match(terminals.get('12e25e4e').question, /^The form is filled\.\n\n- \*\*Needs you:\*\*/);
+  terminals._reset();
+});
