@@ -411,18 +411,23 @@
     </div>
 
     <div class="view" data-view="actions" hidden>
-      <header class="view-head"><div><h1>Actions</h1><p class="muted" id="actions-note">Everything the Telegram bot can do. Results appear here and, when Telegram is connected, in your chat.</p></div></header>
+      <header class="view-head"><div><h1>Actions</h1><p class="muted" id="actions-note">Everything the Telegram bot can do. When Telegram is connected, results go to your chat too.</p></div></header>
+      <h2 class="action-section">Run now <span class="muted small">In the background: Recent activity opens and shows it running, then its result</span></h2>
       <div class="action-grid">
         <button class="action" data-command="run"><b>🔄 Search now</b><span>Find and score new jobs; the digest follows</span></button>
         <button class="action" data-command="today"><b>📋 Send today's list</b><span>Your current best matches, ranked</span></button>
-        <button class="action" data-command="applied"><b>📨 My applications</b><span>Every application and its stage, in Jobs</span></button>
-        <button class="action" data-command="saved"><b>⭐ Saved jobs</b><span>Jobs you saved for later, in Jobs</span></button>
         <button class="action" data-command="insight"><b>💡 An insight now</b><span>One finding about your search</span></button>
         <button class="action" data-command="weekly"><b>📊 Weekly report</b><span>Replies, applications, market, focus</span></button>
         <button class="action" data-command="mail"><b>📧 Check Gmail</b><span>Confirmations, replies, interviews (if connected)</span></button>
         <button class="action" data-command="scout"><b>🔎 Find new employers</b><span>Check candidate companies for job feeds</span></button>
-        <button class="action" data-command="status"><b>🩺 Status</b><span>When the last search ran</span></button>
       </div>
+      <h2 class="action-section">Look up <span class="muted small">Instant, right here</span></h2>
+      <div class="action-grid">
+        <button class="action" data-command="applied"><b>📨 My applications</b><span>Every application and its stage, in Jobs</span></button>
+        <button class="action" data-command="saved"><b>⭐ Saved jobs</b><span>Jobs you saved for later, in Jobs</span></button>
+        <button class="action" data-command="status"><b>🩺 Status</b><span>What ran, what runs next</span></button>
+      </div>
+      <section class="card status-card" id="status-card" hidden></section>
       <pre class="answer" id="command-answer" hidden></pre>
     </div>
 
@@ -951,6 +956,7 @@
       </div>
       <div class="ap-detail">
         <p class="activity-selected"><span id="activity-selected"></span> <a href="#" class="activity-notion" id="activity-notion" hidden>Open in Notion ↗</a> <a href="#" class="activity-notion" id="activity-github" hidden>Open on GitHub ↗</a></p>
+        <div class="activity-result" id="activity-result" hidden></div>
         <ol class="activity-phases" id="activity-phases"></ol>
         <pre class="activity-message" id="activity-message" hidden></pre>
         <details class="activity-log" id="activity-log"><summary>Technical log <span class="muted" id="log-count"></span></summary><pre id="log" class="log"></pre></details>

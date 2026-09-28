@@ -305,6 +305,7 @@ def main():
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
+        run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
         log_ai_run(tracker, run, args)
         print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
@@ -341,6 +342,7 @@ def main():
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
+        run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
         log_ai_run(tracker, run, args)
         print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
@@ -356,8 +358,10 @@ def main():
         run = new_cron_run('interview')
         run['interview'] = {}
         try:
-            print(interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender,
-                                 stats=run['interview'], job_url=args.job, page_id=args.interview))
+            result = interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender,
+                                    stats=run['interview'], job_url=args.job, page_id=args.interview)
+            run['headline'] = result.split(' https://')[0]
+            print(result)
             run['interview'].update(pending=1, done=1)
             log_ai_run(tracker, run, args)
         except ValueError as error:  # the owner sent something that can't be analysed: say why
@@ -385,7 +389,8 @@ def main():
             run['insight'] = {}
             try:
                 run['headline'] = make(db, tracker, send=sender, stats=run['insight'],
-                                       **({'force': True} if args.mode == 'insight' else {}))
+                                       **({'force': True} if args.mode == 'insight' else {})) or \
+                    ('No new insight: nothing worth saying today' if args.mode == 'insight' else 'Weekly report: nothing to report')
                 print(run['headline'])
                 log_ai_run(tracker, run, args)
             except Exception as error:

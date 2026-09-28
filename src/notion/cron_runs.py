@@ -82,12 +82,19 @@ def mail_lines(run):
     return lines
 
 
+# One-off jobs (not crawls): their name when they finish without a result line of their own.
+ONE_OFF = {'add': 'Tracked application', 'insight': 'Insight', 'weekly': 'Weekly report', 'interview': 'Interview review',
+           'prepare': 'Application kit', 'apply': 'Marked applied', 'scout': 'Find employers'}
+
+
 def report_lines(run):
     """The mini-report: a headline, then what stood out, most useful first."""
     if run.get('headline'):  # a one-off job (insight, weekly report, find employers…) says what it did
         return [f"{run['headline']} (AI cost ${total_usd(run):.3f})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
     if run.get('mode') == 'mail':
         return mail_lines(run)
+    if run.get('mode') in ONE_OFF:  # a one-off job without a result line: say which job, never a crawl's summary
+        return [f"{ONE_OFF[run['mode']]} done (AI cost ${total_usd(run):.3f})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
     if run.get('mode') == 'rejection':  # its AI cost is kept under "insight" (a review of your own search)
         return [f"Rejection review: {len(run.get('updates') or [])} application(s); AI cost ${total_usd(run):.3f}."] + \
             list(run.get('updates') or []) + [f'Warning: {w}' for w in run.get('warnings', [])]

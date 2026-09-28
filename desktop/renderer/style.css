@@ -509,7 +509,7 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .recent-row[data-state="queued"] .run-status { background: transparent; border: 2px dashed var(--line-strong); }
 .recent-row[data-state="queued"] { cursor: default; }
 .recent-row[data-state="busy"] .run-status { background: transparent; border: 2px solid var(--signal-line); border-top-color: var(--signal); animation: spin .8s linear infinite; }
-.run-kind { font-weight: 600; white-space: nowrap; }
+.run-kind { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ap-detail { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px 4px; background: var(--surface-2); }
 .ap-detail .activity-selected { margin: 0 0 8px; font-size: var(--fs-md); }
 .ap-detail .activity-log summary { font-size: var(--fs-sm); color: var(--ink); }
@@ -917,3 +917,11 @@ main { min-width: 0; }
 .sd-state { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .sd-words .focus-headline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-state .ui-pill { flex: none; }
+
+/* Actions: two sections (background tasks, instant look-ups) and the Status card */
+.action-section { display: flex; align-items: baseline; gap: var(--sp-3); font-size: var(--fs-lg); margin: var(--sp-4) 0 var(--sp-2); }
+.status-card { max-width: 640px; }
+.status-card h2 { font-size: var(--fs-lg); margin: 0 0 var(--sp-3); }
+.status-row { display: grid; grid-template-columns: 24px 160px 1fr; align-items: baseline; gap: var(--sp-2); padding: var(--sp-1) 0; }
+.status-card .link { display: inline-block; margin-top: var(--sp-3); text-decoration: none; }
+.activity-result { white-space: pre-wrap; margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); max-height: 30vh; overflow: auto; }

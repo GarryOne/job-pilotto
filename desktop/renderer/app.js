@@ -26,6 +26,7 @@ let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockO
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
+let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let statFilter = null;  // the counter clicked above the list: 'applied', 'active', 'interviews', 'rejected', 'high', 'week', 'companies' or null
 
 // ---------- helpers ----------
@@ -235,6 +236,7 @@ function runBadge(run) {
 const runBadgeWhere = run => (run.where === 'github' ? ' · ☁️ GitHub' : '');
 let logLines = [];      // the running task's lines, live
 let idleSeen = true;    // nothing was running at the last check: the next log line starts a new task
+const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 let selectedRun = null; // id of the past run picked in "Recent activity"; null = the latest
 let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
@@ -271,7 +273,13 @@ function showAwaitedResult(runs) {
   if (!run) return;
   awaitedRun = null;
   const kind = KIND[kindOf(run)];
-  const show = message => answer(`${kind.icon} ${kind.name}: ${message ? `\n\n${message}` : capital(outcome(run))}`);
+  const show = message => {
+    const text = `${kind.icon} ${kind.name}: ${message ? `\n\n${message}` : capital(outcome(run))}`;
+    if ($('activity-panel').hidden) { answer(text); return; }
+    runResults.set(run.id, message || capital(outcome(run)));  // shown under the run in Recent activity
+    selectedRun = run.id;
+    renderActivity(lastActivity);
+  };
   if (run.message || !run.pageId) show(run.message);
   else window.pilot.runDetail(run.pageId).then(detail => show(detail.message), () => show(null));  // on its Notion page
 }
@@ -367,6 +375,9 @@ function renderActivity(data) {
   $('activity-notion').dataset.url = run?.notionUrl || '';
   show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Always on)
   $('activity-github').dataset.url = run?.url || '';
+  const result = run && !run.live ? runResults.get(run.id) || '' : '';
+  $('activity-result').textContent = result;
+  show($('activity-result'), !!result);
   const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
   const live = !!run?.live;
@@ -1346,9 +1357,14 @@ function renderJobs() {
   const statLabel = {applied: 'applied', active: 'active applications', interviews: 'interviews', rejected: 'rejected', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
   $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}` + (statLabel ? ` · ${statLabel}` : '');
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
+  if (jobsLoading && !allJobs.length) { show($('jobs-empty'), false); showLoading(); return; }  // still loading, not empty
   show($('jobs-empty'), rows.length === 0);
+  const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
+    applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
+    dismissed: 'No dismissed jobs.'};
   $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
+    : !text && !statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
 $('sort-by').addEventListener('change', renderJobs);
@@ -1542,6 +1558,7 @@ function showLoading() {
 async function loadJobs() {
   loadQuestions();
   showLoading();
+  jobsLoading = true;
   claudeReady = (await window.pilot.claudeReady().catch(() => ({ok: false}))).ok;
   try {
     const data = await window.pilot.jobs();
@@ -1560,6 +1577,7 @@ async function loadJobs() {
   } catch (error) {
     $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }
+  jobsLoading = false;
   renderJobs();
 }
 
@@ -2095,10 +2113,11 @@ document.querySelectorAll('[data-command]').forEach(button => button.addEventLis
     awaitedRun = {kind: COMMAND_KIND[command], since: Date.now() - 2000};
     refreshActivity();
   }
+  if (command === 'status') { showStatusCard(); return; }
   button.disabled = true;
   const result = await window.pilot.command(command);
   button.disabled = false;
-  if (task) refreshActivity();  // it's queued (or running) by now: its row shows at once
+  if (task) { refreshActivity(); show($('command-answer'), false); return; }  // its row, then its result, show in Recent activity
   answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
 }));
 // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
@@ -3118,3 +3137,30 @@ window.pilot.onSession((event, payload) => {
   refreshSessions().then(() => { if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs(); });
 });
 refreshSessions();
+
+// Status: what's running, the last and next search, the last and next Gmail check, as a small card.
+async function showStatusCard() {
+  const data = await window.pilot.runs();
+  const {running, runs, nextSearchAt, nextMailAt} = data;
+  const lastSearch = runs.find(run => kindOf(run) === 'search'), lastMail = runs.find(run => kindOf(run) === 'mail');
+  const when = at => (at <= Date.now() ? 'due now' : `${new Date(at).toLocaleDateString([], {weekday: 'short'})} ${hhmm(at)}`);
+  const rows = [
+    running && ['▶️', 'Running now', `${KIND[kindOf(running)].icon} ${KIND[kindOf(running)].name} · ${running.step || 'starting'}`],
+    ['🔎', 'Last search', lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${capital(outcome(lastSearch))}` : 'none yet'],
+    ['⏭', 'Next search', nextSearchAt ? when(nextSearchAt) : 'only when you ask'],
+    ['📧', 'Last Gmail check', lastMail ? `${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${capital(outcome(lastMail))}` : 'none yet'],
+    ['⏭', 'Next Gmail check', nextMailAt ? when(nextMailAt) : 'off'],
+  ].filter(Boolean);
+  const card = $('status-card');
+  card.replaceChildren(el('h2', '', '🩺 Status'), ...rows.map(([glyph, label, value]) => {
+    const row = el('div', 'status-row');
+    row.append(el('span', 'status-glyph', glyph), el('span', 'muted', label), el('b', '', value));
+    return row;
+  }));
+  const more = Object.assign(el('a', 'link small', 'See Recent activity →'), {href: '#'});
+  more.addEventListener('click', event => { event.preventDefault(); openActivity(true); });
+  card.append(more);
+  show(card);
+  show($('command-answer'), false);
+  card.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
