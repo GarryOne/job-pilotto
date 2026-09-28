@@ -1,5 +1,5 @@
 // The component gallery: every token and component, built with the same code the screens use.
-import {icon} from './icons.js';
+import {fillIcons, icon} from './icons.js';
 import {el, moreButton, pill, tag, tile, TONES} from './components.js';
 
 const root = document.getElementById('gallery');
@@ -57,11 +57,22 @@ section('Tags', 'tag(text, {title, onClick, busy})', row(
 
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
 
-section('Screenshot preview', '.shot-preview: a pasted image before it is sent', (() => {
-  const box = el('div', 'shot-preview');
-  const img = el('img');
-  img.alt = 'Screenshot';
-  img.src = 'logo.png';
-  box.append(img, el('button', 'link', 'Remove screenshot'));
+section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row', (() => {
+  const box = el('div');
+  box.innerHTML = `<div class="composer"><textarea rows="2" placeholder="Paste a message here…"></textarea>
+    <div class="composer-tools"><button class="tool"><i data-icon="paperclip"></i>Add screenshot</button>
+    <button class="tool"><i data-icon="image"></i>Paste image</button></div></div>
+    <div class="attachment"><img src="logo.png" alt=""><span class="attachment-name">screenshot.png</span><button class="soft-button">Remove</button></div>
+    <div class="select-search" style="margin-top: var(--sp-3)"><i data-icon="search"></i><select><option>Find the right job automatically</option></select></div>
+    <label class="check-row" style="margin-top: var(--sp-3)"><input type="checkbox"><span><span>I agreed to speak with the recruiter</span>
+    <span class="muted small">Move the job to Screening</span></span></label>`;
+  fillIcons(box);
   return box;
 })());
+
+section('Alerts', '.alert.tone-warn | tone-good | tone-info | tone-bad: icon, title, text, optional link', row(...['warn', 'good', 'info', 'bad'].map(tone => {
+  const box = el('div', `alert tone-${tone}`);
+  box.innerHTML = `<i data-icon="info"></i><div><strong>${tone === 'warn' ? 'No job activity found' : 'Logged'}</strong><p>One line of detail.</p></div>`;
+  fillIcons(box);
+  return box;
+})));

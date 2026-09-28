@@ -291,7 +291,7 @@
       <div class="list-bar">
         <div class="list-left"><span id="jobs-count"></span>
           <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
-          <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log message or screenshot…</button></div>
+          <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log job activity…</button></div>
         <div class="density" role="group" aria-label="List density">
           <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
         </div>
@@ -712,25 +712,41 @@
     </div>
   </form>
 </dialog>
-<dialog id="lead-dialog">
+<dialog id="lead-dialog" class="panel-dialog">
   <form method="dialog">
-    <h2>📥 Log a message or screenshot</h2>
-    <p class="muted small">A recruiter's pitch, a reply, an interview time, a rejection… from LinkedIn, Gmail or WhatsApp. Claude reads it,
-      finds the job it's about and updates it in Notion, or adds it (a recruiter's pitch becomes a recruiter lead). The message and the
-      screenshot are kept on the job's page. Emails in Gmail are picked up by themselves.</p>
-    <label for="lead-text">The message, or paste a screenshot (⌘V) or drop one here</label>
-    <textarea id="lead-text" rows="6" placeholder="Paste the text, or a screenshot…"></textarea>
-    <div class="shot-preview" id="lead-shot-box" hidden>
-      <img id="lead-shot" alt="Screenshot to log">
-      <button type="button" class="link" id="lead-shot-remove">Remove screenshot</button>
+    <div class="dialog-head">
+      <span class="dialog-icon"><i data-icon="inbox"></i></span>
+      <h2>Log job activity</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
-    <label for="lead-target">Which job?</label>
-    <select id="lead-target"></select>
-    <label class="radio"><input type="checkbox" id="lead-talking"><span>I've already said yes to the recruiter (Stage: Screening)</span></label>
+    <p class="dialog-lead">Paste a recruiter message or add a screenshot.<span class="muted small">Gmail messages are imported automatically.</span></p>
+    <label for="lead-text">Message or screenshot</label>
+    <div class="composer" id="lead-composer">
+      <textarea id="lead-text" rows="5" placeholder="Paste a message here…"></textarea>
+      <div class="composer-tools">
+        <button type="button" class="tool" id="lead-shot-add"><i data-icon="paperclip"></i>Add screenshot</button>
+        <button type="button" class="tool" id="lead-shot-paste"><i data-icon="image"></i>Paste image</button>
+        <input type="file" id="lead-shot-file" accept="image/*" hidden>
+      </div>
+    </div>
+    <div class="attachment" id="lead-shot-box" hidden>
+      <img id="lead-shot" alt="Screenshot to log">
+      <span class="attachment-name" id="lead-shot-name"></span>
+      <button type="button" class="soft-button" id="lead-shot-remove">Remove</button>
+    </div>
+    <label for="lead-target">Link to job</label>
+    <div class="select-search"><i data-icon="search"></i><select id="lead-target"></select></div>
+    <label class="check-row"><input type="checkbox" id="lead-talking">
+      <span><span>I agreed to speak with the recruiter</span><span class="muted small">Move the job to Screening</span></span></label>
     <p class="message" id="lead-message"></p>
-    <div class="actions">
-      <button class="ghost" value="cancel" formnovalidate>Close</button>
-      <button class="primary" id="lead-go" value="default">Log it</button>
+    <div class="alert" id="lead-result" hidden>
+      <i data-icon="info"></i>
+      <div><strong id="lead-result-title"></strong><p id="lead-result-text"></p>
+        <button type="button" class="link" id="lead-result-pick" hidden>Choose a job manually</button></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="primary" id="lead-go" value="default">Log activity</button>
     </div>
   </form>
 </dialog>

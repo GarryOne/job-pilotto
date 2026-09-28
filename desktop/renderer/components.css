@@ -43,6 +43,61 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 
 @media (prefers-reduced-motion: reduce) { .ui-tag.is-busy { animation: none; } }
 
-/* A pasted screenshot shown before it's sent (e.g. Jobs → Log message or screenshot). */
-.shot-preview { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
-.shot-preview img { max-width: 100%; max-height: 16rem; border: 1px solid var(--line); border-radius: var(--r-md); }
+/* Dialog with a header (icon, title, ✕), a lead line and a footer bar (e.g. Jobs → Log job activity). */
+.panel-dialog { width: min(560px, 92vw); padding: var(--sp-6) var(--sp-6) 0; }
+.panel-dialog label { display: block; font-weight: 600; font-size: var(--fs-md); margin: var(--sp-4) 0 var(--sp-2); }
+.dialog-head { display: flex; align-items: center; gap: var(--sp-3); }
+.dialog-head h2 { flex: 1; margin: 0; font-size: var(--fs-xl); }
+.dialog-icon { color: var(--signal); display: inline-flex; }
+.dialog-icon svg { width: 26px; height: 26px; }
+.icon-button { background: none; border: 0; padding: var(--sp-1); color: var(--muted); border-radius: var(--r-sm); cursor: pointer; display: inline-flex; }
+.icon-button:hover { background: var(--surface-2); color: var(--ink); }
+.dialog-lead { margin: var(--sp-2) 0 0; color: var(--ink-2); font-size: var(--fs-md); }
+.dialog-lead .small { display: block; margin-top: var(--sp-1); }
+.dialog-foot { display: flex; justify-content: flex-end; gap: var(--sp-3); margin: var(--sp-5) calc(-1 * var(--sp-6)) 0;
+  padding: var(--sp-4) var(--sp-6); border-top: 1px solid var(--line); background: var(--surface-2);
+  border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+/* A text box with a tool row inside it (attach / paste). */
+.composer { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
+.composer:focus-within { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
+.composer.is-drop { border-color: var(--signal); background: var(--signal-soft); }
+.composer textarea { display: block; width: 100%; border: 0; outline: 0; resize: vertical; background: transparent;
+  padding: var(--sp-3) var(--sp-4); box-sizing: border-box; }
+.composer-tools { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4) var(--sp-3); }
+.composer-tools .tool + .tool { border-left: 1px solid var(--line); padding-left: var(--sp-3); }
+.tool { display: inline-flex; align-items: center; gap: var(--sp-2); background: none; border: 0; color: var(--ink-2);
+  font-size: var(--fs-md); cursor: pointer; padding: var(--sp-1) 0; }
+.tool:hover { color: var(--signal-ink); }
+.tool svg { width: 18px; height: 18px; }
+
+/* An attached file: thumbnail, name, remove. */
+.attachment { display: flex; align-items: center; gap: var(--sp-4); margin-top: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.attachment img { width: 64px; height: 64px; object-fit: cover; object-position: top; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--surface); }
+.attachment-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soft-button { background: var(--signal-soft); color: var(--signal-ink); border: 0; border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-4); font-weight: 600; cursor: pointer; }
+.soft-button:hover { background: var(--signal-line); }
+
+/* A select with a search icon in front. */
+.select-search { position: relative; }
+.select-search > svg { position: absolute; left: var(--sp-4); top: 50%; transform: translateY(-50%); width: 18px; height: 18px;
+  color: var(--muted); pointer-events: none; }
+.select-search select { width: 100%; padding-left: calc(var(--sp-4) * 2 + 18px); }
+
+/* A checkbox with a title and a hint under it. */
+.check-row { display: flex !important; align-items: flex-start; gap: var(--sp-3); font-weight: 400 !important; cursor: pointer; }
+.check-row input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.check-row > span { display: flex; flex-direction: column; gap: 2px; }
+
+/* A result box: icon, bold title, text, optional action. Tones: tone-warn (default), tone-good, tone-bad, tone-info. */
+:where(.alert) { --tone: var(--warn); --tone-soft: var(--warn-soft); }  /* default tone; tone-… classes win */
+.alert { display: flex; gap: var(--sp-3); margin-top: var(--sp-4);
+  padding: var(--sp-4); border-radius: var(--r-md); background: var(--tone-soft); border: 1px solid var(--warn-line); }
+.alert.tone-good { border-color: color-mix(in srgb, var(--good) 25%, transparent); }
+.alert.tone-bad { border-color: var(--bad-line); }
+.alert > svg { flex: none; width: 22px; height: 22px; color: var(--tone); }
+.alert p { margin: var(--sp-1) 0 0; color: var(--ink-2); }
+.alert .link { margin-top: var(--sp-1); padding: 0; text-decoration: underline; }

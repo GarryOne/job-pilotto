@@ -1147,21 +1147,29 @@ $('applied-go').addEventListener('click', async event => {
   loadJobs();
 });
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
-let leadShot = null;  // {name, type, data (base64)} of a pasted or dropped screenshot
-function setLeadShot(file) {
+let leadShot = null;  // {name, type, data (base64)} of the attached screenshot
+function setLeadShot(shot) {
+  leadShot = shot;
+  $('lead-shot').src = `data:${shot.type};base64,${shot.data}`;
+  $('lead-shot-name').textContent = shot.name;
+  $('lead-shot-box').hidden = false;
+}
+function readShot(file) {  // a File from paste, drop or the picker
   if (!file || !/^image\//.test(file.type)) return false;
   const reader = new FileReader();
-  reader.onload = () => {
-    const url = String(reader.result);
-    leadShot = {name: file.name || 'screenshot.png', type: file.type, data: url.slice(url.indexOf(',') + 1)};
-    $('lead-shot').src = url;
-    $('lead-shot-box').hidden = false;
-  };
+  reader.onload = () => { const url = String(reader.result); setLeadShot({name: file.name || 'screenshot.png', type: file.type, data: url.slice(url.indexOf(',') + 1)}); };
   reader.readAsDataURL(file);
   return true;
 }
-function clearLeadShot() { leadShot = null; $('lead-shot').removeAttribute('src'); $('lead-shot-box').hidden = true; }
-// Which job?: Claude decides (default), a new job, or one of the applications in Notion.
+function clearLeadShot() { leadShot = null; $('lead-shot').removeAttribute('src'); $('lead-shot-box').hidden = true; $('lead-shot-file').value = ''; }
+function leadResult(tone, title, text, pick = false) {
+  $('lead-result').hidden = !title;
+  $('lead-result').className = `alert tone-${tone}`;
+  $('lead-result-title').textContent = title || '';
+  $('lead-result-text').textContent = text || '';
+  $('lead-result-pick').hidden = !pick;
+}
+// Link to job: found automatically (default), a new job, or one of the applications in Notion.
 function leadTargets() {
   const tracked = allJobs.filter(job => job.stage && !['Dismissed', 'Closed'].includes(job.stage))
     .sort((a, b) => `${a.company} ${a.title}`.localeCompare(`${b.company} ${b.title}`));
@@ -1169,35 +1177,55 @@ function leadTargets() {
   const group = document.createElement('optgroup');
   group.label = 'Your applications';
   tracked.forEach(job => group.append(option(job.url, `${job.company || '—'} · ${job.title} (${job.stage})`)));
-  $('lead-target').replaceChildren(option('', 'Let Claude decide (recommended)'), option('new', 'A new job'), ...(tracked.length ? [group] : []));
+  $('lead-target').replaceChildren(option('', 'Find the right job automatically'), option('new', 'A new job'), ...(tracked.length ? [group] : []));
 }
 $('lead-open').addEventListener('click', () => {
   message('lead-message', '');
+  leadResult('', '');
   $('lead-go').disabled = false;
   leadTargets();
   $('lead-dialog').showModal();
   $('lead-text').focus();
 });
+$('lead-shot-add').addEventListener('click', () => $('lead-shot-file').click());
+$('lead-shot-file').addEventListener('change', () => readShot($('lead-shot-file').files[0]));
+$('lead-shot-paste').addEventListener('click', async () => {
+  const shot = await window.pilot.clipboardImage();
+  if (shot) setLeadShot(shot); else leadResult('info', 'No image on the clipboard', 'Copy a screenshot first (⇧⌘4, then Ctrl-click to copy it), or use Add screenshot.');
+});
 $('lead-dialog').addEventListener('paste', event => {
   const file = [...(event.clipboardData?.files || [])].find(f => /^image\//.test(f.type));
-  if (file && setLeadShot(file)) event.preventDefault();
+  if (file && readShot(file)) event.preventDefault();
 });
-$('lead-dialog').addEventListener('dragover', event => event.preventDefault());
-$('lead-dialog').addEventListener('drop', event => {
+$('lead-composer').addEventListener('dragover', event => { event.preventDefault(); $('lead-composer').classList.add('is-drop'); });
+$('lead-composer').addEventListener('dragleave', () => $('lead-composer').classList.remove('is-drop'));
+$('lead-composer').addEventListener('drop', event => {
+  $('lead-composer').classList.remove('is-drop');
   const file = [...(event.dataTransfer?.files || [])].find(f => /^image\//.test(f.type));
-  if (file) { event.preventDefault(); setLeadShot(file); }
+  if (file) { event.preventDefault(); readShot(file); }
 });
 $('lead-shot-remove').addEventListener('click', clearLeadShot);
+$('lead-result-pick').addEventListener('click', () => { $('lead-target').focus(); $('lead-target').showPicker?.(); });
 $('lead-go').addEventListener('click', async event => {
   event.preventDefault();
   const text = $('lead-text').value.trim();
-  if (!leadShot && text.length < 40) { message('lead-message', 'Paste the whole message, or a screenshot of it.', 'error'); return; }
+  leadResult('', '');
+  if (!leadShot && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
   $('lead-go').disabled = true;
   message('lead-message', 'Claude is reading it and updating Notion…', 'waiting');
   const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShot, $('lead-target').value);
   $('lead-go').disabled = false;
-  message('lead-message', result.text, result.ok ? 'ok' : 'error');
-  if (!result.ok) return;
+  message('lead-message', '');
+  const said = result.text.replace(/^\S+\s/, '');  // without the leading emoji
+  if (!result.ok) {
+    const notJob = /doesn't look like a message about a job/.test(said);
+    const unsure = /can't tell which company and role/.test(said);
+    leadResult('warn', notJob ? 'No job activity found' : unsure ? 'Which job is it?' : "Couldn't log it",
+      notJob ? 'This looks like something other than a job (e.g. a services pitch), so nothing was added.' : said, notJob || unsure);
+    return;
+  }
+  leadResult(/^ℹ️/.test(result.text) ? 'info' : 'good', /^ℹ️/.test(result.text) ? 'Nothing new' : 'Logged', said);
+  if (/^ℹ️/.test(result.text)) return;
   $('lead-text').value = ''; $('lead-talking').checked = false; clearLeadShot();
   $('filter-status').value = 'all';  // it may be saved (a lead) or applied: show both
   loadJobs();

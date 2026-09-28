@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -400,6 +400,11 @@ function handlers() {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
     if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: applications are tracked there.'};
     try { return await pipeline.addApplied(storage, url, when, log, details || {}); } catch (error) { return {ok: false, text: error.message}; }
+  });
+  // Jobs → Log job activity → Paste image: the clipboard's image as PNG, or null.
+  ipcMain.handle('clipboardImage', () => {
+    const image = clipboard.readImage();
+    return image.isEmpty() ? null : {name: 'pasted-screenshot.png', type: 'image/png', data: image.toPNG().toString('base64')};
   });
   // Jobs → Recruiter message: a recruiter lead read by Claude, waited for so the list shows it.
   ipcMain.handle('addLead', async (_, text, talking = false, image = null, target = '') => {
