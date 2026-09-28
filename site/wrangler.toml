@@ -17,4 +17,4 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # The session tokens live 10 minutes in the WAITLIST namespace under "notion:<hash>".
 [vars]
 GITHUB_REPO = "GarryOne/job-pilotto"   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
-NOTION_CLIENT_ID = ""
+NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
