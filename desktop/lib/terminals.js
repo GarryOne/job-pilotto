@@ -65,6 +65,8 @@ export async function available() {
 const isLive = s => !!s.term && !s.endedAt;
 const publicView = s => ({id: s.id, url: s.url, title: s.title, company: s.company, status: s.status, note: s.note,
   live: isLive(s), resumable: !!s.claudeId && !isLive(s),
+  // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
+  askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
@@ -119,6 +121,7 @@ export async function resume(id, launch) {
   session.output = (session.output + '\r\n\x1b[2m— resumed —\x1b[0m\r\n').slice(-OUTPUT_LIMIT);
   session.endedAt = null;
   session.exitCode = null;
+  session.restored = false;
   if (session.status === 'ended' || session.status === 'failed') Object.assign(session, {status: 'running', note: 'Resuming…', needsYouSince: null});
   listener('update', publicView(session));
   save();
@@ -129,7 +132,7 @@ export async function resume(id, launch) {
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
-  claudeId: s.claudeId || '', transcript: s.transcript || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
+  claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
   screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
@@ -162,9 +165,14 @@ export function restore(now = Date.now()) {
     // Its screen comes back as it was (older records have only the output's tail: the best that can be shown).
     session.mirror = newMirror(session.cols || 120, session.rows || 32, screen || session.output || '');
     if (session.status === 'running') Object.assign(session, {status: 'ended', note: 'Stopped when the app closed', endedAt: savedAt || new Date(now).toISOString()});
-    sessions.set(session.id, {...session, term: null});
+    sessions.set(session.id, {...session, term: null, restored: true});
   }
   return sessions.size;
+}
+// You were asked (at start) what to do with these: not again.
+export function markAsked(ids) {
+  for (const id of ids) { const session = sessions.get(id); if (session) session.asked = true; }
+  saveNow();
 }
 // The app is quitting: save what each session was doing, then end their processes without changing that.
 export function shutdown() {

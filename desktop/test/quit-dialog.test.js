@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
+import {leftOpen, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
 
 const label = session => session.company;
 const sessions = names => names.map(company => ({company}));
@@ -35,4 +35,14 @@ test('removing a session whose job is still Applying asks whether it was submitt
   assert.equal(dialog.message, 'Did you submit the application to N26?');
   assert.match(dialog.detail, /Yes: it is marked Applied in Notion\.\nNo: it goes back to Kit ready/);
   assert.deepEqual(dialog.buttons, ['Yes, I submitted it', 'No, not submitted', 'Cancel']);
+});
+
+test('at start: sessions left open are listed and there are three ways on, the reset explained as not submitted', () => {
+  const dialog = leftOpen(sessions(['N26', 'Canonical']), label);
+  assert.equal(dialog.message, '2 applications were left open');
+  assert.match(dialog.detail, /^•  N26\n•  Canonical\n\nJob Pilotto closed while they were in progress, and they are still marked Applying in Notion\. What now\?/);
+  assert.match(dialog.detail, /Keep: they stay in Application sessions; press Resume Claude/);
+  assert.match(dialog.detail, /Reset: not submitted\. They go back to Kit ready \(the forms stay in Chrome\)/);
+  assert.deepEqual(dialog.buttons, ['Keep them', 'Go through them one by one', 'Reset them all']);
+  assert.equal(leftOpen(sessions(['N26']), label).message, 'An application was left open');
 });

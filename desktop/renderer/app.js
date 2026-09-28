@@ -35,6 +35,7 @@ for (const line of document.querySelectorAll('[data-version]')) line.textContent
 let draft = null;
 let allJobs = [];
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
+let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
 let statFilter = null;  // the counter clicked above the list: 'applied', 'waiting', 'interviews', 'closed', 'high', 'week', 'companies', 'stuck' or null
 
 // ---------- helpers ----------
@@ -1669,8 +1670,10 @@ function showLoading() {
   $('jobs-body').replaceChildren(box);
   $('jobs-stats').textContent = 'Loading from Notion…';
 }
+let freshJobs = false;
 async function loadJobs() {
   loadQuestions();
+  freshJobs = false;
   showLoading();
   jobsLoading = true;
   claudeReady = (await window.pilot.claudeReady().catch(() => ({ok: false}))).ok;
@@ -1680,12 +1683,32 @@ async function loadJobs() {
       const saved = await window.pilot.cached('jobs');
       if (saved?.result?.jobs) { showJobsData(saved.result); jobsLoading = false; renderJobs(); $('jobs-stats').textContent += ` · saved ${savedAgo(saved.at)}, updating…`; jobsLoading = true; }
     }
-    showJobsData(await window.pilot.jobs());
+    const fresh = await window.pilot.jobs();
+    showJobsData(fresh);
+    freshJobs = !fresh.stale;  // from Notion now, not the cache: safe to ask about what's still Applying
   } catch (error) {
     $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }
   jobsLoading = false;
   renderJobs();
+  if (freshJobs) askAboutLeftOpen();
+}
+// Once per launch, on fresh data: sessions left open by the last run whose jobs are still Applying. Keep them, go
+// through them one by one (the "Did you submit?" question), or reset them all to Kit ready.
+async function askAboutLeftOpen() {
+  if (leftOpenAsked || jobsLoading || !allJobs.length) return;
+  await refreshSessions();
+  const open = sessionList.filter(item => item.askAtStart && sessionJob(item).stage === 'Applying');
+  leftOpenAsked = true;
+  if (!open.length) return;
+  const answer = await window.pilot.sessionsLeftOpen(open.map(item => item.id));
+  if (answer?.choice === 'each') for (const item of open) await removeSession(item);
+  if (answer?.choice === 'reset') {
+    for (const url of answer.reset || []) { const job = allJobs.find(entry => pageKey(entry.url) === pageKey(url)); if (job) job.stage = 'Kit ready'; }
+    if (answer.failed?.length) toastMessage('Not all reset', `${answer.failed.length} could not be reset in Notion (${answer.failed[0].error || 'try again'}). They stay in the list.`);
+    await refreshSessions();
+    renderJobs();
+  }
 }
 function showJobsData(data) {
   {

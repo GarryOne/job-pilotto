@@ -7,6 +7,19 @@ export function submitted(company) {
   };
 }
 
+// At start: sessions left open by a closed, killed or crashed app whose jobs are still Applying. Three ways on.
+export function leftOpen(sessions, label) {
+  const one = sessions.length === 1;
+  return {
+    message: one ? 'An application was left open' : `${sessions.length} applications were left open`,
+    detail: `${sessionLines(sessions, label).join('\n')}\n\nJob Pilotto closed while ${one ? 'it was' : 'they were'} in progress, and ${one ? 'it is' : 'they are'} still marked Applying in Notion. What now?\n\n` +
+      `Keep: ${one ? 'it stays' : 'they stay'} in Application sessions; press Resume Claude to carry on.\n` +
+      'One by one: I ask you about each: did you submit it?\n' +
+      `Reset: not submitted. ${one ? 'It goes' : 'They go'} back to Kit ready (the forms stay in Chrome).`,
+    buttons: ['Keep them', 'Go through them one by one', 'Reset them all'],
+  };
+}
+
 // The words of the "you're quitting while something works" dialogs (native macOS/Windows dialogs: a title, a few
 // lines, buttons). Short, one line per thing that would stop, and what happens to it.
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;

@@ -216,3 +216,27 @@ test('a Stop reported before the last message reached the transcript: the messag
   assert.equal(terminals.get('race').question, '');
   terminals.remove('race');
 });
+
+test('sessions left by the last run are asked about once: at start, not again, and not once resumed', async () => {
+  const file = tempFile();
+  terminals._reset();
+  terminals.persist(file);
+  terminals.usePty(fakePty().loader);
+  await terminals.start({id: 'a1', url: 'https://jobs.test/a', claudeId: 'conv-a', file: 'claude', env: {}});
+  await terminals.start({id: 'b2', url: 'https://jobs.test/b', claudeId: 'conv-b', file: 'claude', env: {}});
+  assert.equal(terminals.get('a1').askAtStart, false);  // running now: nothing to ask
+  terminals.shutdown();
+  terminals._reset();
+  terminals.persist(file);
+  terminals.restore();
+  assert.deepEqual(terminals.list().map(s => [s.id, s.askAtStart]), [['a1', true], ['b2', true]]);
+  terminals.markAsked(['a1']);  // answered (kept, or asked one by one)
+  terminals._reset();
+  terminals.persist(file);  // next launch
+  terminals.restore();
+  assert.deepEqual(terminals.list().map(s => [s.id, s.askAtStart]), [['a1', false], ['b2', true]]);  // a1 is not asked again
+  terminals.usePty(fakePty().loader);
+  await terminals.resume('b2', {file: 'claude', args: [], cwd: '/repo', env: {}});
+  assert.equal(terminals.get('b2').askAtStart, false);
+  terminals._reset();
+});

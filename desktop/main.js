@@ -698,6 +698,22 @@ function handlers() {
     terminals.remove(String(id));
     return {ok: true, submitted: response === 0};
   });
+  // At start: sessions left open (the app closed, or was killed) whose jobs are still Applying. Keep, ask one by one, or reset.
+  ipcMain.handle('sessionsLeftOpen', async (_, ids) => {
+    const found = (Array.isArray(ids) ? ids : []).map(id => terminals.get(String(id))).filter(Boolean);
+    if (!found.length) return {choice: 'keep'};
+    const {message, detail, buttons} = quitDialog.leftOpen(found, session => session.company || terminals.label(session));
+    const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
+      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 0, message, detail});
+    terminals.markAsked(found.map(session => session.id));
+    if (response !== 2) return {choice: response === 1 ? 'each' : 'keep'};
+    const reset = [], failed = [];
+    for (const session of found) {
+      const result = DEMO ? {ok: true} : await pipeline.unapply(storage, session.url).catch(error => ({ok: false, error: error.message}));
+      if (result.ok) { terminals.remove(session.id); reset.push(session.url); } else failed.push({url: session.url, error: result.error});
+    }
+    return {choice: 'reset', reset, failed};
+  });
   ipcMain.handle('unapplyJob', (_, url) => pipeline.unapply(storage, String(url)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
