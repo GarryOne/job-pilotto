@@ -436,7 +436,7 @@ $('activity-manage').addEventListener('click', event => {
   event.preventDefault();
   openActivity(false);
   openView('settings');
-  setTimeout(() => $('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'}), 150);
+  openSetting('schedule');
 });
 // Close the card with Escape or a click outside it, like a popover.
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
@@ -856,7 +856,7 @@ document.querySelectorAll('[data-goto-settings]').forEach(button => button.addEv
   await finishSetup();
   openView('settings');
   show($('back-to-setup'));
-  $(`setting-${button.dataset.gotoSettings}`).scrollIntoView({behavior: 'smooth'});
+  openSetting(button.dataset.gotoSettings);
 }));
 async function finishSetup() {
   state.settings = await window.pilot.saveSettings({setupDone: true});
@@ -872,12 +872,147 @@ $('back-to-setup-close').addEventListener('click', () => show($('back-to-setup')
 // Back through the wizard with everything already filled in (keys, Notion, CV, answers, the last draft).
 $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
 
+// ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
+function settingsPage(name) {
+  document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
+  document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
+}
+// One Settings card (setting-<id>): its sub-page, then scrolled to. Used by every link into Settings.
+function openSetting(id) {
+  const card = $(`setting-${id}`);
+  if (!card) return;
+  settingsPage(card.closest('[data-settings-page]')?.dataset.settingsPage || 'overview');
+  if (card.classList.contains('conn-panel')) document.querySelectorAll('.conn-panel').forEach(panel => show(panel, panel === card));
+  setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
+}
+document.addEventListener('click', event => {
+  const go = event.target.closest('[data-settings-go]');
+  if (go) { settingsPage(go.dataset.settingsGo); document.querySelector('main')?.scrollTo(0, 0); }
+});
+$('ov-backups').addEventListener('click', () => window.pilot.showBackups());
+
+// Connections status, shared by Overview (cards + alert), Connections (Connected / Available + alert) and the
+// dot on Connections. required: counted for the alert and the dot (Google Jobs is an optional extra).
+const SERVICES = [
+  {id: 'ai', name: 'Anthropic', icon: 'bot', what: 'AI for scoring and application kits', required: true,
+    why: 'Reading jobs, fit scores and application kits need your AI key.'},
+  {id: 'notion', name: 'Notion', icon: 'layers', what: 'Job search workspace', required: true,
+    why: 'Your jobs, applications and profile live in your Notion.'},
+  {id: 'google', name: 'Gmail & Calendar', icon: 'mail', what: 'Read-only access', required: true,
+    why: 'Replies, interviews and recruiter emails are tracked from Gmail.'},
+  {id: 'extension', name: 'Chrome extension', icon: 'puzzle', what: 'Application form filling', required: true,
+    why: 'It fills application forms with your details and CV.'},
+  {id: 'telegram', name: 'Telegram', icon: 'send', what: 'Digests and reminders', required: true,
+    why: 'Daily digests and reminders need a bot connection.'},
+  {id: 'serpapi', name: 'Google Jobs (SerpApi)', icon: 'search', what: 'Additional job results', connect: 'Add key'},
+];
+async function serviceStatus() {
+  const [google, seen] = await Promise.all([window.pilot.googleStatus().catch(() => ({})), window.pilot.extensionSeen().catch(() => null)]);
+  const extensionOn = !!seen && Date.now() - seen.at < 90 * 1000;
+  const on = {ai: !!state.secrets.ANTHROPIC_API_KEY, notion: !!state.secrets.NOTION_TOKEN, serpapi: !!state.secrets.SERPAPI_API_KEY,
+    telegram: !!(state.secrets.TELEGRAM_BOT_TOKEN && state.settings.telegramChatId), google: !!google.connected, extension: extensionOn};
+  const detail = {google: google.connected && google.email, extension: extensionOn && seen.version && `v${seen.version}`,
+    telegram: on.telegram && state.settings.telegramBot && `@${state.settings.telegramBot}`};
+  return {on, detail, missing: SERVICES.find(service => service.required && !on[service.id]) || null};
+}
+function stateLine(on, detail = '') {
+  const line = el('span', `service-state${on ? ' is-on' : ''}`);
+  line.append(icon(on ? 'check' : 'info'), on ? `Connected${detail ? ` · ${detail}` : ''}` : 'Not connected');
+  return line;
+}
+function showAlert(prefix, missing) {
+  show($(`${prefix}-alert`), !!missing);
+  if (!missing) return;
+  $(`${prefix}-alert-title`).textContent = prefix === 'ov' ? `Finish connecting ${missing.name}` : `${missing.name} is not connected`;
+  $(`${prefix}-alert-text`).textContent = missing.why;
+  $(`${prefix}-alert-go`).textContent = prefix === 'ov' ? `Connect ${missing.name}` : `Set up ${missing.name}`;
+  $(`${prefix}-alert-go`).onclick = () => openSetting(missing.id);
+}
+async function renderConnections(status) {
+  const {on, detail, missing} = status || await serviceStatus();
+  show($('connections-dot'), !!missing);
+  showAlert('conn', missing);
+  const card = service => {
+    const box = el('div', 'service-card is-row');
+    const text = el('span', 'service-text');
+    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id]), el('span', 'muted small', service.what));
+    const button = el('button', on[service.id] ? 'secondary' : 'secondary is-signal', on[service.id] ? 'Manage' : service.connect || 'Connect');
+    button.addEventListener('click', () => openSetting(service.id));
+    box.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text, button);
+    return box;
+  };
+  $('conn-on').replaceChildren(...SERVICES.filter(service => on[service.id]).map(card));
+  $('conn-off').replaceChildren(...SERVICES.filter(service => !on[service.id]).map(card));
+  show($('conn-off-head'), SERVICES.some(service => !on[service.id]));
+}
+async function renderOverview() {
+  const [status, backup, contact] = await Promise.all([serviceStatus(), window.pilot.backupStatus().catch(() => ({})),
+    window.pilot.contact().catch(() => ({}))]);
+  const {on, detail, missing} = status;
+  renderConnections(status);
+  renderDiagnostics(status);
+  showAlert('ov', missing);
+  $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
+    const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
+    const text = el('span');
+    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id]));
+    card.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text);
+    card.addEventListener('click', () => openSetting(service.id));
+    return card;
+  }));
+  $('ov-cv').textContent = state.settings.cvName || 'None yet';
+  const needed = {first_name: 'first name', last_name: 'last name', email: 'email', phone: 'phone'};
+  const gaps = Object.keys(needed).filter(key => !contact?.[key]).map(key => needed[key]);
+  const line = el('span', `service-state${gaps.length ? '' : ' is-on'}`);
+  line.append(icon(gaps.length ? 'info' : 'check'), gaps.length ? `Missing: ${gaps.join(', ')}` : 'Complete');
+  $('ov-contact').replaceChildren(line);
+  const chosen = kind => document.querySelector(`[data-schedule="${kind}"]`)?.selectedOptions[0]?.textContent || '';
+  $('ov-search').textContent = chosen('search');
+  $('ov-kits').textContent = chosen('kits');
+  $('ov-cloud').textContent = state.settings.cloud?.repo ? `On — GitHub ${state.settings.cloud.repo}` : 'Off — runs while the app is open';
+  $('ov-backup').textContent = backup.at ? new Date(backup.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
+}
+
+// Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
+$('cv-preview').addEventListener('click', () => window.pilot.viewBaseCv());
+document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { $('contact-save').disabled = false; }));
+$('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
+// Automation: run mode (this Mac while open, or Always on in GitHub); both segments lead to the Always on card.
+function showRunMode() {
+  const repo = state.settings.cloud?.repo;
+  document.querySelectorAll('[data-run-mode]').forEach(button => button.classList.toggle('is-active', (button.dataset.runMode === 'cloud') === !!repo));
+  $('run-mode-text').textContent = repo ? `Runs in your GitHub repository ${repo}, even with your Mac off.`
+    : 'Scheduled tasks run on this Mac while Job Pilotto is open.';
+  $('run-mode-more').textContent = repo ? 'Manage Always on' : 'Learn about Always on';
+  $('tz-note').textContent = `Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
+}
+document.querySelectorAll('[data-run-mode]').forEach(button => button.addEventListener('click', () => openSetting('cloud')));
+$('run-mode-more').addEventListener('click', () => openSetting('cloud'));
+// Data & backup and Advanced: explainers and the reset options open on demand; Diagnostics shows live status.
+$('reports-how').addEventListener('click', () => { $('reports-how-text').hidden = !$('reports-how-text').hidden; });
+$('reset-review').addEventListener('click', () => { $('reset-options').hidden = !$('reset-options').hidden; });
+$('diag-troubleshoot').addEventListener('click', () => {
+  settingsPage('connections');
+  const help = document.querySelector('[data-settings-page="connections"] .troubleshoot');
+  help.open = true;
+  setTimeout(() => help.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
+});
+function renderDiagnostics({on, detail}) {
+  const version = document.querySelector('[data-version]')?.textContent?.trim();
+  $('diag-app').replaceChildren(stateLine(true, version));
+  $('diag-app').firstChild.lastChild.textContent = `Running${version ? ` · ${version}` : ''}`;
+  $('diag-ext').replaceChildren(stateLine(on.extension, detail.extension));
+  $('diag-search').textContent = $('last-search').textContent;
+}
+
 // ---------- app ----------
 function openView(name) {
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   if (name === 'strategy') { loadStrategy(); loadCvSetting(); showCvChanged(); }
   if (name === 'settings') {
+    settingsPage('overview');
+    $('automation-save').disabled = $('contact-save').disabled = true;
     loadSettings();
     window.pilot.dailyTarget().then(setting => { $('set-target').value = setting.target; $('set-remind').checked = setting.reminders; });
   }
@@ -1463,12 +1598,13 @@ async function loadSettings() {
   $('auto-search').checked = state.settings.autoSearch !== false;
   $('open-login').checked = !!state.settings.openAtLogin;
   $('last-search').textContent = state.settings.lastSearchAt
-    ? `Last search: ${new Date(state.settings.lastSearchAt).toLocaleString()}${state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
-    : 'No search yet.';
+    ? `${new Date(state.settings.lastSearchAt).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})}${state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
+    : 'No search yet';
   if (state.settings.telegramBot && state.secrets.TELEGRAM_BOT_TOKEN) {
     const line = document.querySelector('[data-secret="TELEGRAM_BOT_TOKEN"]');
     line.textContent = `✓ Connected to @${state.settings.telegramBot}`;
   }
+  renderOverview().catch(() => {});
 }
 $('set-telegram-save').addEventListener('click', async () => {
   const value = $('set-telegram').value.trim();
@@ -1487,12 +1623,18 @@ function showContact() {
   window.pilot.contact().then(contact => {
     document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
   }).catch(error => message('contact-message', `Couldn't read them from Notion: ${error.message}`, 'error'));
-  $('contact-cv').textContent = state.settings.cvName ? `now: ${state.settings.cvName}` : 'none yet';
+  $('contact-cv').textContent = state.settings.cvName || 'None yet';
 }
 $('contact-save').addEventListener('click', async () => {
+  const field = name => document.querySelector(`[data-contact="${name}"]`);
+  // Full name isn't shown: forms that ask for it get first + last.
+  const first = field('first_name').value.trim(), last = field('last_name').value.trim();
+  if (first && last) field('full_name').value = `${first} ${last}`;
   const contact = Object.fromEntries([...document.querySelectorAll('[data-contact]')]
     .map(input => [input.dataset.contact, input.value.trim()]).filter(([, value]) => value));
+  $('contact-save').disabled = true;
   const result = await window.pilot.saveContact(contact);
+  if (!result.ok) $('contact-save').disabled = false;
   message('contact-message', result.ok ? (state.notion ? 'Saved in your Notion Profile ✓ The extension uses these from the next form it fills.'
     : 'Saved ✓ The extension uses these from the next form it fills.') : result.error, result.ok ? 'ok' : 'error');
 });
@@ -1533,7 +1675,11 @@ async function showExtensionStatus() {
   $('ext-status').className = `status-line ${on ? 'on' : ''}`;
   $('ext-setup').open = !on;
 }
-setInterval(() => { if (!document.querySelector('.view[data-view="settings"]').hidden) showExtensionStatus(); }, 10000);
+setInterval(() => {
+  if (document.querySelector('.view[data-view="settings"]').hidden) return;
+  showExtensionStatus();
+  if (!document.querySelector('[data-settings-page="overview"]').hidden) renderOverview().catch(() => {});
+}, 10000);
 
 // ---------- how often each job runs ----------
 const SCHEDULE_DEFAULTS = {search: 4, kits: 0, insights: 'daily', scout: 'daily', mail: 3};
@@ -1541,21 +1687,31 @@ function showSchedule() {
   const schedule = {...SCHEDULE_DEFAULTS, ...(state.settings.schedule || {})};
   document.querySelectorAll('[data-schedule]').forEach(select => { select.value = String(schedule[select.dataset.schedule]); });
 }
-document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', async () => {
+// Automation: the schedules, the daily target and reminders are saved together with Save changes (enabled once
+// something changed); with Always on, the GitHub repo is updated to the new schedule too.
+const automationChanged = () => { $('automation-save').disabled = false; message('schedule-message', ''); };
+document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', automationChanged));
+$('automation-save').addEventListener('click', async () => {
+  $('automation-save').disabled = true;
   const schedule = {...SCHEDULE_DEFAULTS, ...(state.settings.schedule || {})};
-  const value = select.value;
-  schedule[select.dataset.schedule] = /^\d+$/.test(value) ? Number(value) : value;
-  await window.pilot.saveSettings({schedule});
+  document.querySelectorAll('[data-schedule]').forEach(select => {
+    schedule[select.dataset.schedule] = /^\d+$/.test(select.value) ? Number(select.value) : select.value;
+  });
+  await window.pilot.saveSettings({schedule, focusReminders: $('set-remind').checked});
+  $('focus-remind').checked = $('set-remind').checked;
+  if (!(await saveDailyTarget($('set-target')))) { $('automation-save').disabled = false; return; }
   state = await window.pilot.state();
   if (!state.settings.cloud?.repo) { message('schedule-message', 'Saved ✓', 'ok'); return; }
   message('schedule-message', `Updating ${state.settings.cloud.repo}…`);
   const result = await window.pilot.cloudConnect();
   message('schedule-message', result.ok ? `Saved ✓ ${result.repo} follows the new schedule.` : result.error, result.ok ? 'ok' : 'error');
-}));
+  if (!result.ok) $('automation-save').disabled = false;
+});
 
 // ---------- Always on: runs in the user's private GitHub repo, even with the Mac off ----------
 function showCloud() {
   const cloud = state.settings.cloud;
+  showRunMode();
   $('cloud-status').textContent = cloud?.repo
     ? osText(`✓ On: running from ${cloud.repo} on the schedule above, even with the Mac off.`) : 'Off: jobs run on this Mac while the app is open.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
@@ -1840,7 +1996,8 @@ $('import-data').addEventListener('click', async () => {
 async function showBackup() {
   const status = await window.pilot.backupStatus();
   const where = status.folder.includes('CloudDocs') ? 'iCloud Drive → Job Pilotto Backups' : 'Documents → Job Pilotto Backups';
-  $('backup-status').textContent = `· ${status.at ? `last ${new Date(status.at).toLocaleString()}` : 'none yet'} · ${where}`;
+  $('backup-last').textContent = status.at ? new Date(status.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
+  $('backup-where').textContent = where.replace(' → ', ' / ');
 }
 showBackup();
 $('backup-now').addEventListener('click', async () => {
@@ -2547,7 +2704,7 @@ $('focus-edit-target').addEventListener('click', event => { event.preventDefault
 $('focus-edit-reminders').addEventListener('click', event => {
   event.preventDefault();
   openView('settings');
-  document.getElementById('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+  openSetting('schedule');
 });
 // The target is a line of ⚙️ Search settings in Notion; changing it here (or in Settings) writes it there.
 async function saveDailyTarget(input) {
@@ -2562,11 +2719,12 @@ $('focus-refresh').addEventListener('click', loadFocus);
 $('focus-target').addEventListener('change', async () => {
   if (await saveDailyTarget($('focus-target'))) { show($('focus-target-row'), false); loadFocus(); }
 });
-$('set-target').addEventListener('change', () => saveDailyTarget($('set-target')));
-for (const id of ['focus-remind', 'set-remind']) $(id).addEventListener('change', async () => {
-  const on = $(id).checked;
+$('set-target').addEventListener('input', automationChanged);
+$('set-remind').addEventListener('change', automationChanged);
+$('focus-remind').addEventListener('change', async () => {  // the Focus page saves at once; Settings with Save changes
+  const on = $('focus-remind').checked;
   await window.pilot.saveSettings({focusReminders: on});
-  for (const other of ['focus-remind', 'set-remind']) $(other).checked = on;
+  $('set-remind').checked = on;
   state = await window.pilot.state();
 });
 

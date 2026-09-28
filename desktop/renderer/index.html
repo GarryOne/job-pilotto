@@ -480,93 +480,145 @@
         <button class="secondary small-btn" id="back-to-setup-go">← Back to setup</button>
         <button class="link" id="back-to-setup-close" title="Hide">✕</button>
       </div>
-      <header class="view-head"><div><h1>Settings</h1><p class="muted">Keys are encrypted with your Mac's Keychain and never leave this Mac, except to the service they belong to.</p></div>
-        <button class="secondary" id="rerun-setup">Run setup again</button></header>
-      <div class="setting" id="setting-ai">
-        <div><h3>Anthropic (AI)</h3><p class="muted status-line" data-secret="ANTHROPIC_API_KEY"></p></div>
-        <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
-      </div>
-      <div class="setting" id="setting-extension">
-        <div><h3>🧩 Chrome extension</h3>
-          <p class="status-line" id="ext-status"></p>
-          <details id="ext-setup" open><summary class="small">Install, reinstall or troubleshoot</summary>
-          <ol class="howto small">
-            <li>Chrome → <code>chrome://extensions</code> → turn on <b>Developer mode</b>.</li>
-            <li><b>Load unpacked</b> → choose the folder this button opens: <button class="link" id="open-extension-folder">Show extension folder</button></li>
-            <li>The Job Pilotto settings page opens by itself and connects to this app. Keep the app open while you apply; your details and CV come from here (Settings → Your details).</li>
-            <li>Pin it: click the puzzle piece 🧩 at the top right of Chrome → the pin 📌 next to <b>Job Pilotto</b>. Its orange ✈ button then sits in the toolbar.</li>
-          </ol>
-          <p class="muted small">Settings page didn't open or didn't connect? 🧩 → ⋮ next to Job Pilotto → <b>Options</b> → <b>Connect to the Job Pilotto app</b>, or paste these:</p>
-        <div class="kv"><span>Connection URL</span><code id="ext-url"></code><button class="link" data-copy="ext-url">Copy</button></div>
-        <div class="kv"><span>Token</span><code id="ext-token"></code><button class="link" data-copy="ext-token">Copy</button></div>
-        </details>
+      <header class="view-head"><div><h1>Settings</h1><p class="muted">Manage your profile, automations and connections.</p></div>
+        <button class="ghost" id="rerun-setup">Run setup again</button></header>
+      <div class="settings-layout">
+        <nav class="settings-nav" aria-label="Settings sections">
+          <button data-settings-go="overview" class="is-active"><i data-icon="columns"></i>Overview</button>
+          <button data-settings-go="profile"><i data-icon="user"></i>Application profile</button>
+          <button data-settings-go="automation"><i data-icon="clock"></i>Automation</button>
+          <button data-settings-go="connections"><i data-icon="link"></i>Connections<span class="nav-dot" id="connections-dot" hidden></span></button>
+          <button data-settings-go="data"><i data-icon="database"></i>Data &amp; backup</button>
+          <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
+        </nav>
+        <div class="settings-pages">
+        <div class="settings-page" data-settings-page="overview">
+          <div class="alert tone-warn settings-alert" id="ov-alert" hidden>
+            <i data-icon="info"></i>
+            <div><strong id="ov-alert-title"></strong><p id="ov-alert-text"></p></div>
+            <button class="primary" id="ov-alert-go"></button>
+          </div>
+          <div class="settings-page-head"><h2>Your setup</h2><p class="muted">Connected services and extension status.</p></div>
+          <div class="service-grid" id="ov-services"></div>
+          <div class="summary-grid">
+            <article class="summary-card">
+              <div class="summary-head"><i data-icon="user"></i><h3>Application profile</h3></div>
+              <p class="muted">Your CV and contact details for tailored applications.</p>
+              <dl class="summary-rows"><dt>CV</dt><dd id="ov-cv"></dd><dt>Contact details</dt><dd id="ov-contact"></dd></dl>
+              <button class="arrow-link" data-settings-go="profile">Edit profile</button>
+            </article>
+            <article class="summary-card">
+              <div class="summary-head"><i data-icon="clock"></i><h3>Automation</h3></div>
+              <p class="muted">Your job search schedule and automation settings.</p>
+              <dl class="summary-rows"><dt>Job search</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
+                <dt>Always on</dt><dd id="ov-cloud"></dd></dl>
+              <button class="arrow-link" data-settings-go="automation">Manage automation</button>
+            </article>
+            <article class="summary-card is-wide">
+              <div class="summary-head"><i data-icon="database"></i><h3>Data &amp; backup</h3></div>
+              <p class="muted">Your data, exports and automatic backups.</p>
+              <div class="summary-line"><dl class="summary-rows"><dt>Last backup</dt><dd id="ov-backup"></dd></dl>
+                <button class="secondary" id="ov-backups">View backups</button></div>
+            </article>
+          </div>
         </div>
-      </div>
-      <div class="setting" id="setting-reports">
-        <div><h3>🛠️ Help improve Job Pilotto</h3>
-          <p class="muted small">When the extension can't operate a form field (an unusual dropdown, a field that won't take the answer),
-            send that form's <b>structure</b> (site, field labels, types, options) so it gets fixed. Never your answers or personal details.</p></div>
-        <label class="radio"><input type="checkbox" id="share-reports"><span>Send anonymous form reports</span></label>
-      </div>
-      <div class="setting" id="setting-claude">
-        <div><h3>🤖 Apply with Claude</h3>
-          <p class="muted small">Its Claude Code windows work without asking before each step, so they can run on their own.
-            They never click Submit; any other command runs without asking, so watch the window while it works.</p></div>
-        <label class="radio"><input type="checkbox" id="claude-consent"><span>Let Claude work without asking before each step</span></label>
-      </div>
-      <div class="setting" id="setting-automation">
-        <div><h3>⏰ Automatic searches</h3><p class="muted small" id="last-search"></p></div>
-        <label class="radio"><input type="checkbox" id="auto-search"><span>Search on the schedule below while Job Pilotto is open</span></label>
-        <label class="radio"><input type="checkbox" id="open-login"><span>Open Job Pilotto when I log in to my Mac</span></label>
-      </div>
-      <div class="setting" id="setting-contact">
-        <div><h3>🪪 Your details for application forms</h3>
-          <p class="muted small">What the Chrome extension types into forms, with your CV (<span id="contact-cv"></span>). Read from your CV when your strategy was drafted; edit anything here.</p></div>
-        <div class="contact-grid">
-          <label>First name<input data-contact="first_name" type="text"></label>
-          <label>Last name<input data-contact="last_name" type="text"></label>
-          <label>Full name<input data-contact="full_name" type="text"></label>
-          <label>Email<input data-contact="email" type="email"></label>
-          <label>Phone<input data-contact="phone" type="tel"></label>
-          <label>City<input data-contact="location" type="text"></label>
-          <label>LinkedIn URL<input data-contact="linkedin" type="url"></label>
-          <label>GitHub URL<input data-contact="github" type="url"></label>
-          <label>Website<input data-contact="website" type="url"></label>
+        <div class="settings-page" data-settings-page="profile" hidden>
+          <div class="settings-page-head"><h2>Application profile</h2><p class="muted">The information used to prepare and fill applications.</p></div>
+          <div class="setting cv-card" id="setting-cv">
+            <span class="file-tile"><i data-icon="file"></i></span>
+            <div class="cv-card-text"><span class="small muted">Current CV</span><b id="contact-cv">None yet</b>
+              <span class="small muted">Used for application kits and form filling.</span></div>
+            <button class="secondary with-icon" id="cv-preview"><i data-icon="eye"></i><span>Preview</span></button>
+            <button class="primary" id="contact-cv-replace">Replace CV</button>
+          </div>
+          <div class="setting panel" id="setting-contact">
+            <div class="summary-head"><i data-icon="user"></i><h3>Contact details</h3></div>
+            <p class="muted panel-lead">Your personal details for application forms.</p>
+            <div class="form-grid cols-2">
+              <label>First name<input data-contact="first_name" type="text"></label>
+              <label>Last name<input data-contact="last_name" type="text"></label>
+              <label>Email<input data-contact="email" type="email"></label>
+              <label>Phone<input data-contact="phone" type="tel"></label>
+              <label class="span-all">Location<input data-contact="location" type="text" placeholder="e.g. Geneva, Switzerland"></label>
+              <input data-contact="full_name" type="hidden">
+            </div>
+          </div>
+          <div class="setting panel" id="setting-links">
+            <div class="summary-head"><i data-icon="link"></i><h3>Professional links</h3></div>
+            <p class="muted panel-lead">Links to your online profiles, automatically included where relevant.</p>
+            <div class="form-grid cols-3">
+              <label>LinkedIn<input data-contact="linkedin" type="url" placeholder="https://www.linkedin.com/in/…"></label>
+              <label>GitHub<input data-contact="github" type="url" placeholder="https://github.com/…"></label>
+              <label>Website<input data-contact="website" type="url" placeholder="https://…"></label>
+            </div>
+            <div class="panel-foot"><p class="message" id="contact-message"></p><button class="primary" id="contact-save" disabled>Save changes</button></div>
+          </div>
+          <div class="setting panel" id="setting-claude">
+            <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
+            <p class="muted panel-lead">Let Claude help you complete application forms (Apply with Claude).</p>
+            <div class="switch-line">
+              <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-consent"><span></span></span>
+                <span><span>Allow Claude to continue through application steps</span><span class="muted small">Submission always remains your decision.</span></span></label>
+              <button class="arrow-link" id="claude-how">How this works</button>
+            </div>
+            <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
+              They never click Submit; any other command runs without asking, so watch the window while it works.</p>
+          </div>
         </div>
-        <div class="inline"><button class="secondary" id="contact-save">Save</button><button class="link" id="contact-cv-replace">Replace CV…</button></div>
-        <p class="message" id="contact-message"></p>
-      </div>
-      <div class="setting" id="setting-schedule">
-        <div><h3>⏱️ How often</h3><p class="muted small">Times are in your time zone. With Always on, GitHub follows this schedule; otherwise the app does, while it's open.</p></div>
-        <div class="schedule">
-          <label><span>🔎 Search for new jobs <small>crawl, AI scoring, Telegram digest</small></span>
-            <select data-schedule="search">
-              <option value="1">every hour</option><option value="2">every 2 hours</option><option value="3">every 3 hours</option>
-              <option value="4">every 4 hours</option><option value="6">every 6 hours</option><option value="8">every 8 hours</option>
-              <option value="12">twice a day</option><option value="24">once a day (07:30)</option><option value="0">only when I ask</option></select></label>
-          <label><span>📝 Draft application kits <small>cover letter and form answers for the best new matches; uses your AI key</small></span>
-            <select data-schedule="kits">
-              <option value="0">only when I ask (📝 Prepare)</option><option value="1">for the best new match, each search</option>
-              <option value="3">for the 3 best new matches, each search</option><option value="5">for the 5 best new matches, each search</option></select></label>
-          <label><span>💡 Insights <small>what's working and what to change</small></span>
-            <select data-schedule="insights">
-              <option value="daily">every morning, weekly report on Mondays</option><option value="off">off</option></select></label>
-          <label><span>🧭 Find new employers <small>adds job feeds from new companies</small></span>
-            <select data-schedule="scout">
-              <option value="daily">every day (08:15)</option><option value="weekly">every Monday (08:15)</option><option value="off">off</option></select></label>
-          <label><span>🎯 Applications a day <small>your target: Focus counts toward it (saved on ⚙️ Search settings in Notion)</small></span>
-            <input type="number" id="set-target" min="1" max="200" step="1"></label>
-          <label><span>🔔 Focus reminders <small>11:00, 15:00 and 19:00 when someone waits for an answer or you're behind the target</small></span>
-            <input type="checkbox" id="set-remind"></label>
-          <label><span>📧 Check Gmail and Calendar <small>replies, interviews, reminders; needs Google connected</small></span>
-            <select data-schedule="mail">
-              <option value="1">once a day (08:00)</option><option value="3">3 times a day (07, 12, 18)</option>
-              <option value="6">6 times a day (every 3 hours from 07:00)</option><option value="0">off</option></select></label>
-        </div>
-        <p class="message" id="schedule-message"></p>
-      </div>
-      <div class="setting" id="setting-cloud">
-        <div><h3>☁️ Always on</h3><p class="muted small">Runs on GitHub, even when your Mac is off.</p><p class="muted status-line" id="cloud-status"></p>
+        <div class="settings-page" data-settings-page="automation" hidden>
+          <div class="settings-page-head has-action"><div><h2>Automation</h2><p class="muted">Choose what runs, when, and where.</p></div>
+            <button class="primary" id="automation-save" disabled>Save changes</button></div>
+          <div class="setting panel run-mode" id="setting-automation">
+            <div class="run-mode-main">
+              <h3>Run mode</h3>
+              <div class="segmented" role="group" aria-label="Run mode">
+                <button data-run-mode="local">While app is open</button><button data-run-mode="cloud">Always on</button>
+              </div>
+              <p class="muted" id="run-mode-text"></p>
+              <button class="arrow-link" id="run-mode-more">Learn about Always on</button>
+              <label class="check-row"><input type="checkbox" id="auto-search"><span><span>Search on the schedule while Job Pilotto is open</span></span></label>
+              <label class="check-row"><input type="checkbox" id="open-login"><span><span>Open Job Pilotto when I log in to my Mac</span></span></label>
+            </div>
+            <div class="run-mode-side"><span class="muted">Last search</span><b id="last-search">No search yet</b></div>
+          </div>
+          <div class="setting panel" id="setting-schedule">
+            <h3>Schedules</h3>
+            <div class="task-table">
+              <div class="task-row is-head"><span>Task</span><span>Frequency</span></div>
+              <label class="task-row"><span><b>Search for new jobs</b><small>Crawl, AI scoring, Telegram digest</small></span>
+                <select data-schedule="search">
+                  <option value="1">Every hour</option><option value="2">Every 2 hours</option><option value="3">Every 3 hours</option>
+                  <option value="4">Every 4 hours</option><option value="6">Every 6 hours</option><option value="8">Every 8 hours</option>
+                  <option value="12">Twice a day</option><option value="24">Once a day (07:30)</option><option value="0">Only when I ask</option></select></label>
+              <label class="task-row"><span><b>Draft application kits</b><small>Cover letter and form answers for the best new matches; uses your AI key</small></span>
+                <select data-schedule="kits">
+                  <option value="0">On demand</option><option value="1">Best new match, each search</option>
+                  <option value="3">3 best new matches, each search</option><option value="5">5 best new matches, each search</option></select></label>
+              <label class="task-row"><span><b>Find new employers</b><small>Add job feeds from new companies</small></span>
+                <select data-schedule="scout">
+                  <option value="daily">Daily at 08:15</option><option value="weekly">Mondays at 08:15</option><option value="off">Off</option></select></label>
+              <label class="task-row"><span><b>Insights</b><small>What's working and what to change; weekly report on Mondays</small></span>
+                <select data-schedule="insights">
+                  <option value="daily">Every morning</option><option value="off">Off</option></select></label>
+              <label class="task-row"><span><b>Check Gmail &amp; Calendar</b><small>Replies, interviews, reminders; needs Google connected</small></span>
+                <select data-schedule="mail">
+                  <option value="1">Once daily (08:00)</option><option value="3">3 times daily</option>
+                  <option value="6">6 times daily</option><option value="0">Off</option></select></label>
+            </div>
+            <p class="message" id="schedule-message"></p>
+          </div>
+          <div class="setting panel" id="setting-focus">
+            <h3>Focus &amp; reminders</h3>
+            <div class="focus-settings">
+              <label class="inline-field">Daily application target<input type="number" id="set-target" min="1" max="200" step="1"></label>
+              <div class="switch-row"><span class="switch"><input type="checkbox" id="set-remind" aria-label="Focus reminders"><span></span></span>
+                <span><span>Focus reminders</span><span class="muted small">Remind me when someone waits for an answer or I'm behind the target.</span></span></div>
+              <div><span class="muted small">Reminder times</span><div class="chips"><span class="time-chip">11:00</span><span class="time-chip">15:00</span><span class="time-chip">19:00</span></div>
+                <span class="muted small" id="tz-note"></span></div>
+            </div>
+          </div>
+          <div class="setting" id="setting-cloud">
+        <div><h3>Always on</h3><p class="muted small">Runs on GitHub, even when your Mac is off.</p><p class="muted status-line" id="cloud-status"></p>
           <p class="muted small" id="cloud-howto">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
             above (searches, application kits, insights, new sources, mail) and sends results to Telegram and Notion, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
             Your keys are stored there as encrypted secrets.</p></div>
@@ -596,7 +648,31 @@
           <p class="message" id="tg-cloud-message"></p>
         </div>
       </div>
-      <div class="setting" id="setting-telegram">
+        </div>
+        <div class="settings-page" data-settings-page="connections" hidden>
+          <div class="settings-page-head"><h2>Connections</h2><p class="muted">Manage the services Job Pilotto uses.</p></div>
+          <div class="alert tone-warn settings-alert" id="conn-alert" hidden>
+            <i data-icon="info"></i>
+            <div><strong id="conn-alert-title"></strong><p id="conn-alert-text"></p></div>
+            <button class="primary" id="conn-alert-go"></button>
+          </div>
+          <div class="settings-page-head"><h2>Connected</h2><p class="muted">Services you're currently using.</p></div>
+          <div class="service-grid is-rows" id="conn-on"></div>
+          <div class="settings-page-head" id="conn-off-head"><h2>Available</h2><p class="muted">Additional services you can connect.</p></div>
+          <div class="service-grid is-rows" id="conn-off"></div>
+
+      <div class="setting conn-panel" id="setting-ai" hidden>
+        <div><h3>Anthropic (AI)</h3><p class="muted status-line" data-secret="ANTHROPIC_API_KEY"></p></div>
+        <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
+      </div>
+      <div class="setting conn-panel" id="setting-notion" hidden>
+        <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
+          <p class="muted small">Your Job Pilotto workspace. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+        <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
+        
+        <p class="message" id="set-notion-message"></p>
+      </div>
+      <div class="setting conn-panel" id="setting-telegram" hidden>
         <div><h3>💬 Telegram</h3><p class="muted status-line" data-secret="TELEGRAM_BOT_TOKEN"></p>
           <ol class="howto small">
             <li>In Telegram, open <a href="#" data-link="https://t.me/BotFather">@BotFather</a> → <b>/newbot</b> → pick a name and a username ending in "bot" → copy the token it gives you.</li>
@@ -605,55 +681,135 @@
         <div class="inline"><input type="password" id="set-telegram" placeholder="123456789:AA…"><button class="secondary" id="set-telegram-save">Connect</button></div>
         <p class="message" id="telegram-message"></p>
       </div>
-      <div class="setting" id="setting-notion">
-        <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small">Your Job Pilotto workspace. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
-        <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
-        <details class="manual"><summary class="small">Advanced: use your own connection token</summary>
-          <p class="muted small">For a workspace that doesn't allow outside connections: create one in <a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>, give it your Job Pilotto page, paste its token.</p>
-          <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div></details>
-        <p class="message" id="set-notion-message"></p>
-      </div>
-      <div class="setting" id="setting-google">
+      <div class="setting conn-panel" id="setting-google" hidden>
         <div><h3>📧 Gmail and Calendar</h3><p class="muted status-line" id="google-status">Checking…</p>
           <p class="muted small">Read-only. Tracks replies and interviews, and lets Apply with Claude read a sign-up's confirmation email. Nothing is ever sent or changed.</p></div>
         <div class="inline"><button class="secondary" id="google-connect">Connect Google</button></div>
         <p class="message" id="google-message"></p>
       </div>
-      <div class="setting" id="setting-serpapi">
+      <div class="setting conn-panel" id="setting-extension" hidden>
+        <div><h3>🧩 Chrome extension</h3>
+          <p class="status-line" id="ext-status"></p>
+          <details id="ext-setup" open><summary class="small">Install, reinstall or troubleshoot</summary>
+          <ol class="howto small">
+            <li>Chrome → <code>chrome://extensions</code> → turn on <b>Developer mode</b>.</li>
+            <li><b>Load unpacked</b> → choose the folder this button opens: <button class="link" id="open-extension-folder">Show extension folder</button></li>
+            <li>The Job Pilotto settings page opens by itself and connects to this app. Keep the app open while you apply; your details and CV come from here (Settings → Your details).</li>
+            <li>Pin it: click the puzzle piece 🧩 at the top right of Chrome → the pin 📌 next to <b>Job Pilotto</b>. Its orange ✈ button then sits in the toolbar.</li>
+          </ol>
+          <p class="muted small">Settings page didn't open or didn't connect? 🧩 → ⋮ next to Job Pilotto → <b>Options</b> → <b>Connect to the Job Pilotto app</b>, or paste these:</p>
+        
+        
+        </details>
+        </div>
+      </div>
+      <div class="setting conn-panel" id="setting-serpapi" hidden>
         <div><h3>🔎 Google Jobs (SerpApi)</h3><p class="muted status-line" data-secret="SERPAPI_API_KEY"></p>
           <p class="muted small">Free plan at <a href="#" data-link="https://serpapi.com/users/sign_up">serpapi.com</a>: 250 searches a month.</p></div>
         <div class="inline"><input type="password" id="set-serpapi" placeholder="SerpApi key"><button class="secondary" id="set-serpapi-save">Save</button></div>
       </div>
-      <div class="setting">
-        <div><h3>Your data</h3><p class="muted small" id="data-folder"></p></div>
-        <div class="inline"><button class="secondary" id="open-data">Show in Finder</button><button class="ghost" id="rerun-wizard">Run setup again</button></div>
-        <div><p class="small muted"><b>Export</b> saves this computer's Job Pilotto data in one file (settings, CV and tailored CVs, recordings,
-          interview drafts, job list, run history), to keep or move to another computer. <b>Import</b> replaces the data here with such a file
-          (the current data is kept as a backup). Your Notion workspace stays in Notion, whatever you choose here.</p></div>
-        <label class="radio"><input type="checkbox" id="export-notion"><span>Include a copy of my Notion data (every page, database and row, as JSON):
-          to keep, or to move to another Notion account. Takes a few minutes for a big workspace. Import doesn't use it.</span></label>
-        <label class="radio"><input type="checkbox" id="export-keys"><span>Include my keys (AI, Notion, Telegram, GitHub). They're then in the file in plain text: keep it private.</span></label>
-        <div class="inline"><button class="secondary" id="export-data">Export…</button><button class="secondary" id="import-data">Import…</button></div>
-        <p class="message" id="data-message"></p>
-        <div><p class="small"><b>🛟 Automatic backup</b> <span class="muted" id="backup-status"></span></p>
-          <p class="small muted">Your CV and tailored CVs are also kept in Notion. Call recordings and the rest of this computer's data are
-            backed up once a week (never your keys), the last 4 kept.</p></div>
-        <div class="inline"><button class="secondary" id="backup-now">Back up now</button><button class="link" id="backup-show">Show backups</button></div>
-      </div>
-      <div class="setting danger-zone" id="setting-reset">
-        <div><h3>⚠️ Danger zone: reset Job Pilotto on this computer</h3>
-          <p class="small"><b>Removed from this computer:</b> your AI, Notion, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
-            interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
-          <p class="small muted"><b>Not changed:</b> your Notion workspace and everything in it (unless you tick "fresh Notion workspace" below), your Gmail sign-in, your GitHub repo. The Chrome extension
-            has to be connected again.</p></div>
-        <label class="radio"><input type="checkbox" id="reset-backup" checked><span>Keep a backup of this data (moved to a folder next to it; recommended)</span></label>
+          <p class="muted small keychain-note"><i data-icon="shield"></i>Credentials are stored in your Mac’s Keychain and never leave this Mac, except to the service they belong to.</p>
+          <details class="troubleshoot"><summary>Connection troubleshooting</summary>
+            <ul class="small">
+              <li><b>Notion</b> says it lost access: Manage → <b>Reconnect with Notion</b> and pick your Job Pilotto page again.</li>
+              <li><b>Gmail</b> shows "Sign-in expired": Manage → <b>Reconnect</b>.</li>
+              <li><b>Telegram</b> doesn't answer: open your bot, press <b>Start</b>, then Manage → paste the token again → <b>Connect</b>.</li>
+              <li><b>Chrome extension</b> not connected: open Chrome (it checks in every 30 seconds), or Manage → follow the install steps.</li>
+              <li>An AI key was rejected: create a new one at console.anthropic.com and paste it under Anthropic → Manage.</li>
+            </ul>
+          </details>
+        </div>
+        <div class="settings-page" data-settings-page="data" hidden>
+          <div class="settings-page-head"><h2>Data &amp; backup</h2><p class="muted">Keep a copy of your work and manage local data.</p></div>
+          <div class="setting panel" id="setting-backup">
+            <div class="panel-top">
+              <div class="summary-head"><i data-icon="database"></i><h3>Automatic backup</h3><span class="ui-pill tone-good" id="backup-on">On</span></div>
+              <div class="panel-actions"><button class="secondary" id="backup-now">Back up now</button><button class="arrow-link" id="backup-show">View backups</button></div>
+            </div>
+            <p class="muted panel-lead">Your CV and tailored CVs are also kept in Notion. Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
+            <div class="fact-row"><div><span class="muted">Last backup</span><b id="backup-last">None yet</b></div>
+              <div><span class="muted">Location</span><b id="backup-where"></b></div></div>
+          </div>
+          <div class="setting panel" id="setting-data">
+            <div class="summary-head"><i data-icon="refresh"></i><h3>Move your data</h3></div>
+            <p class="muted panel-lead">Save a copy of your data or restore from an existing export. Your Notion workspace stays in Notion either way.</p>
+            <div class="choice-grid">
+              <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
+                <div><b>Export</b><p class="muted small">Save a copy of settings, CVs, recordings, job list and history.</p>
+                  <button class="secondary" id="export-data">Export data</button></div></div>
+              <div class="choice-card"><span class="file-tile"><i data-icon="folder"></i></span>
+                <div><b>Import</b><p class="muted small">Restore from a Job Pilotto export. Current data is backed up first.</p>
+                  <button class="secondary" id="import-data">Import data</button></div></div>
+            </div>
+            <details class="troubleshoot"><summary>Export options</summary>
+              <label class="check-row"><input type="checkbox" id="export-notion"><span><span>Include a copy of my Notion data</span>
+                <span class="muted small">Every page, database and row, as JSON: to keep, or to move to another Notion account. Takes a few minutes for a big workspace.</span></span></label>
+              <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, Notion, Telegram, GitHub)</span>
+                <span class="muted small">They're then in the file in plain text: keep it private.</span></span></label>
+            </details>
+            <p class="message" id="data-message"></p>
+          </div>
+          <div class="setting panel" id="setting-files">
+            <div class="summary-head"><i data-icon="folder"></i><h3>Local files</h3></div>
+            <p class="muted panel-lead">The folder where Job Pilotto stores your data on this computer.</p>
+            <div class="path-line"><code id="data-folder"></code><button class="secondary" id="open-data">Show in Finder</button></div>
+          </div>
+          <div class="setting panel" id="setting-reports">
+            <div class="summary-head"><i data-icon="shield"></i><h3>Privacy</h3></div>
+            <div class="switch-line">
+              <label class="switch-row"><span class="switch"><input type="checkbox" id="share-reports"><span></span></span>
+                <span><span>Send anonymous form reports</span><span class="muted small">Form structure only; never your answers.</span></span></label>
+              <button class="arrow-link" id="reports-how">What is shared?</button>
+            </div>
+            <p class="muted small" id="reports-how-text" hidden>When the extension can't operate a form field (an unusual dropdown, a field that won't take the answer),
+              that form's <b>structure</b> is sent (site, field labels, types, options) so it gets fixed. Never your answers or personal details.</p>
+          </div>
+        </div>
+        <div class="settings-page" data-settings-page="advanced" hidden>
+          <div class="settings-page-head"><h2>Advanced</h2><p class="muted">Troubleshooting and setup controls.</p></div>
+          <div class="setting panel" id="setting-diagnostics">
+            <div class="panel-top"><div class="summary-head"><i data-icon="settings"></i><h3>Diagnostics</h3></div>
+              <button class="secondary" id="diag-troubleshoot">Open troubleshooting</button></div>
+            <p class="muted panel-lead">Check how Job Pilotto and the extension are working.</p>
+            <dl class="summary-rows is-lined"><dt>App status</dt><dd id="diag-app"></dd><dt>Chrome extension</dt><dd id="diag-ext"></dd>
+              <dt>Last search</dt><dd id="diag-search"></dd></dl>
+          </div>
+          <div class="setting panel" id="setting-setup">
+            <div class="panel-top"><div class="summary-head"><i data-icon="settings"></i><h3>Setup</h3></div>
+              <button class="secondary" id="rerun-wizard">Run setup again</button></div>
+            <p class="muted panel-lead">Review connections and initial preferences without clearing your data.</p>
+          </div>
+          <details class="setting panel dev-options" id="setting-developer">
+            <summary><span class="summary-head"><i data-icon="bot"></i><h3>Developer options</h3></span>
+              <span class="muted">Manual tokens and connection details.</span></summary>
+            <h4>Notion: your own connection token</h4>
+            <div>
+          <p class="muted small">For a workspace that doesn't allow outside connections: create one in <a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>, give it your Job Pilotto page, paste its token.</p>
+          <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div></div>
+            <h4>Chrome extension: manual connection</h4>
+            <p class="muted small">If its settings page didn't connect: 🧩 → ⋮ next to Job Pilotto → <b>Options</b> → paste these.</p>
+            <div class="kv"><span>Connection URL</span><code id="ext-url"></code><button class="link" data-copy="ext-url">Copy</button></div><div class="kv"><span>Token</span><code id="ext-token"></code><button class="link" data-copy="ext-token">Copy</button></div>
+          </details>
+          <div class="setting danger-zone" id="setting-reset">
+            <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Reset Job Pilotto on this Mac</h3></div>
+              <button class="danger-outline" id="reset-review">Review reset options</button></div>
+            <p class="small">Removes local settings and files. Your Notion workspace is kept unless you choose to start fresh.</p>
+            <div id="reset-options" hidden>
+              <p class="small"><b>Removed from this computer:</b> your AI, Notion, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
+                interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
+              <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your Gmail sign-in, your GitHub repo.
+                The Chrome extension has to be connected again.</p>
+              <label class="radio"><input type="checkbox" id="reset-backup" checked><span>Keep a backup of this data (moved to a folder next to it; recommended)</span></label>
         <label class="radio"><input type="checkbox" id="reset-notion"><span><b>Also start a fresh Notion workspace</b> (a new job search, or
           someone else using this computer): your Job Pilotto page is renamed "… (archived <span id="reset-notion-day"></span>)" and
           kept, nothing in it is deleted; the setup builds a new workspace. Leave it off to reconnect to the same workspace.</span></label>
         <div class="inline"><input type="text" id="reset-confirm" placeholder='Type RESET to confirm' autocomplete="off">
           <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
         <p class="message" id="reset-message"></p>
+            </div>
+          </div>
+        </div>
+        </div>
       </div>
     </div>
   </main>

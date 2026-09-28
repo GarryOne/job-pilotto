@@ -101,3 +101,135 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .alert > svg { flex: none; width: 22px; height: 22px; color: var(--tone); }
 .alert p { margin: var(--sp-1) 0 0; color: var(--ink-2); }
 .alert .link { margin-top: var(--sp-1); padding: 0; text-decoration: underline; }
+
+/* A page with its own section list on the left (e.g. Settings): .settings-layout > .settings-nav + .settings-pages. */
+.settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+.settings-nav { display: flex; flex-direction: column; gap: var(--sp-1); position: sticky; top: var(--sp-4); }
+.settings-nav button { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 0;
+  border-left: 3px solid transparent; border-radius: var(--r-md); background: none; color: var(--ink-2);
+  font-size: var(--fs-md); text-align: left; cursor: pointer; }
+.settings-nav button:hover { background: var(--surface-2); color: var(--ink); }
+.settings-nav button.is-active { background: var(--signal-soft); color: var(--signal-ink); border-left-color: var(--signal); font-weight: 600; }
+.settings-nav svg { width: 18px; height: 18px; flex: none; }
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn-bright); margin-left: auto; }
+.settings-page-head { margin: var(--sp-5) 0 var(--sp-3); }
+.settings-page-head:first-child { margin-top: 0; }
+.settings-page-head h2 { margin: 0; font-size: var(--fs-lg); }
+.settings-page-head p { margin: var(--sp-1) 0 0; }
+.settings-alert { align-items: center; margin: 0 0 var(--sp-2); }
+.settings-alert > div { flex: 1; }
+
+/* Service status cards: logo tile, name, ✓ Connected / ! Not connected. Clickable. */
+.service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-3); }
+.service-card { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.service-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
+.service-card b { display: block; font-size: var(--fs-md); }
+.service-state { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--warn); }
+.service-state.is-on { color: var(--good); }
+.service-state svg { width: 16px; height: 16px; }
+
+/* Summary cards: icon + title, a line, label/value rows, an arrow link or a button. */
+.summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-5); }
+.summary-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-5); }
+.summary-card.is-wide { grid-column: 1 / -1; }
+.summary-head { display: flex; align-items: center; gap: var(--sp-3); }
+.summary-head h3 { margin: 0; font-size: var(--fs-lg); }
+.summary-head svg { width: 22px; height: 22px; color: var(--ink-2); }
+.summary-card > p { margin: var(--sp-2) 0 var(--sp-4); padding-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.summary-rows { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: var(--sp-3) var(--sp-4); margin: 0 0 var(--sp-4); }
+.summary-rows dt { font-weight: 600; color: var(--ink-2); font-size: var(--fs-md); }
+.summary-rows dd { margin: 0; font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; }
+.summary-line { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+.summary-line .summary-rows { margin: 0; }
+.arrow-link { background: none; border: 0; padding: 0; color: var(--signal-ink); font-weight: 600; font-size: var(--fs-md); cursor: pointer; }
+.arrow-link::after { content: " →"; }
+.arrow-link:hover { text-decoration: underline; }
+@media (max-width: 1180px) { .summary-grid { grid-template-columns: minmax(0, 1fr); } .settings-layout { grid-template-columns: 180px minmax(0, 1fr); } }
+
+/* Settings panels (a .setting card, roomier): head row with actions, lead line, footers. */
+.setting.panel { padding: var(--sp-5); gap: var(--sp-3); }
+.panel-lead { margin: 0; }
+.panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+.panel-actions { display: flex; align-items: center; gap: var(--sp-4); }
+.panel-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-4); }
+.panel-foot .message { margin: 0; flex: 1; }
+.settings-page-head.has-action { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); }
+button.danger-outline { background: var(--surface); color: var(--bad); border: 1px solid var(--bad-line); }
+button.danger-outline:hover { border-color: var(--bad); }
+button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signal-line); }
+
+/* The current CV: file tile, name, actions. */
+.cv-card { display: flex !important; align-items: center; gap: var(--sp-4); padding: var(--sp-5); }
+.cv-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cv-card-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-tile { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
+  border-radius: var(--r-md); background: var(--signal-soft); color: var(--signal-ink); }
+.file-tile svg { width: 22px; height: 22px; }
+
+/* Forms in a grid of 2 or 3 columns; .span-all takes the whole row. */
+.form-grid { display: grid; gap: var(--sp-3) var(--sp-4); }
+.form-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-grid .span-all { grid-column: 1 / -1; }
+.form-grid label { display: flex; flex-direction: column; gap: var(--sp-1); font-weight: 600; font-size: var(--fs-md); }
+.form-grid input { font-weight: 400; }
+
+/* A switch with a title and hint, and an optional link on the right. */
+.switch-line { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+.switch-row { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; }
+.switch-row > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+
+/* Run mode: segmented choice + text on the left, a fact on the right. */
+.run-mode { display: grid !important; grid-template-columns: minmax(0, 1fr) 220px; gap: var(--sp-5) !important; }
+.run-mode-main { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); }
+.run-mode-main h3 { margin: 0; }
+.run-mode-main p { margin: 0; }
+.run-mode-side { display: flex; flex-direction: column; justify-content: center; gap: var(--sp-1); padding-left: var(--sp-5); border-left: 1px solid var(--line); }
+.run-mode-side b { font-size: var(--fs-lg); }
+.segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r-md); overflow: hidden; }
+.segmented button { border: 0; background: var(--surface); padding: var(--sp-2) var(--sp-6); font-weight: 600; color: var(--ink); cursor: pointer; border-radius: 0; }
+.segmented button.is-active { background: var(--signal-soft); color: var(--signal-ink); box-shadow: inset 0 0 0 1px var(--signal); }
+
+/* A table of tasks: name + hint on the left, its control on the right. */
+.task-table { display: flex; flex-direction: column; }
+.task-row { display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: center; gap: var(--sp-4);
+  padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+.task-row.is-head { font-size: var(--fs-sm); color: var(--muted); padding-top: 0; border-top: 0; }
+.task-row > span:first-child { display: flex; flex-direction: column; gap: 2px; }
+.task-row small { color: var(--muted); font-size: var(--fs-sm); }
+.task-row select { width: 100%; }
+
+/* Focus & reminders: three columns split by rules; time chips. */
+.focus-settings { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-5); align-items: start; }
+.focus-settings > * + * { padding-left: var(--sp-5); border-left: 1px solid var(--line); }
+.inline-field { display: flex; align-items: center; gap: var(--sp-3); }
+.inline-field input { width: 90px; }
+.chips { display: flex; gap: var(--sp-2); margin: var(--sp-1) 0; }
+.time-chip { border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+
+/* Connections: cards in rows with a text block and a button. */
+.service-grid.is-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.service-card.is-row { cursor: default; align-items: flex-start; }
+.service-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.keychain-note { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-5); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.keychain-note svg { width: 16px; height: 16px; }
+.troubleshoot { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); background: var(--surface); }
+.troubleshoot summary { cursor: pointer; font-weight: 600; }
+.troubleshoot ul { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.troubleshoot .check-row { margin-top: var(--sp-3); }
+
+/* Data & backup: two facts side by side, two choice cards, a path with a button. */
+.fact-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.fact-row > div { display: flex; flex-direction: column; gap: var(--sp-1); }
+.fact-row > div + div { padding-left: var(--sp-5); border-left: 1px solid var(--line); }
+.choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.choice-card { display: flex; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--r-md); }
+.choice-card p { margin: var(--sp-1) 0 var(--sp-3); }
+.path-line { display: flex; align-items: center; gap: var(--sp-3); }
+.path-line code { flex: 1; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.summary-rows.is-lined { grid-template-columns: 200px minmax(0, 1fr); gap: 0; margin: 0; }
+.summary-rows.is-lined dt, .summary-rows.is-lined dd { padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+.dev-options summary { display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer; }
+.dev-options[open] summary { margin-bottom: var(--sp-3); }
+.dev-options h4 { margin: var(--sp-3) 0 var(--sp-1); }
