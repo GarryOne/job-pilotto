@@ -11,8 +11,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import crypto from 'node:crypto';
+
 import * as pipeline from './pipeline.js';
-import {issueTicket} from './server.js';
+import {issueTicket, PORT} from './server.js';
+import * as terminals from './terminals.js';
 
 // What a session gets from the app on top of the user's own environment: Notion, Telegram and the app's
 // folders. Never ANTHROPIC_API_KEY: Claude Code runs on the user's own Claude login, not their API key.
@@ -138,3 +141,38 @@ export async function launch(storage, urls, {claude, platform = process.platform
   }
   return index;
 }
+
+// In the app (the default when the terminal module loads): each session runs in a pseudo-terminal the app owns
+// (terminals.js), shown as a card in the window's session dock and as a full terminal on a click. Hooks and
+// tools/notify.sh report its state (JOB_PILOTTO_SESSION names it). Resolves with the sessions started.
+export async function launchInApp(storage, urls, {claude, platform = process.platform, pipelineRun = pipeline.run,
+  ticket = issueTicket, gap = GAP_MS, term = terminals, port = PORT, details = {}} = {}) {
+  const repo = pipeline.REPO;
+  const shim = pythonShim(storage, pipeline.python(), platform);
+  const env = sessionEnv(storage, process.env, platform, shim);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jobpilotto-'));
+  const started = [];
+  for (const [index, url] of urls.entries()) {
+    if (index && gap) await new Promise(resolve => setTimeout(resolve, gap));
+    await pipelineRun(storage, ['src.ai.apply_batch', '--mark-applying', url]).catch(() => {});
+    const id = crypto.randomUUID().slice(0, 8);
+    const auditFile = path.join(dir, `audit_${id}.json`).replaceAll('\\', '/');
+    const promptFile = path.join(dir, `prompt_${id}.txt`);
+    const settingsFile = path.join(dir, `settings_${id}.json`);
+    fs.writeFileSync(promptFile, prompt(url, {ticket: ticket(url), auditFile}), {mode: 0o600});
+    fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
+    const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile];
+    const {file, args} = platform === 'win32'
+      // cmd.exe runs claude.cmd; the instructions stay in their file (cmd can't quote a long argument reliably).
+      ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`]}
+      : {file: claude, args: [...flags, fs.readFileSync(promptFile, 'utf8')]};
+    started.push(await term.start({id, url, file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}, ...(details[url] || {})}));
+    if (platform !== 'win32') {
+      run(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [url], {env, detached: true, stdio: 'ignore'});
+    }
+  }
+  // The prompt, settings and audit files: kept for the sessions' first minutes, then removed.
+  setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
+  return started;
+}
+const run = (command, args, options) => spawn(command, args, options).unref();

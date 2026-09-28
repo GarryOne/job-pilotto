@@ -18,6 +18,11 @@ let state = await window.pilot.state();
 let focusLoading = null, focusShown = false;
 const FOCUS_WHEN = {1: ['Now', 'bad'], 2: ['Soon', 'warn'], 3: ['Today', 'info'], 4: ['When you can', 'neutral']};
 let outdatedShown = false;
+// Application sessions (Apply with Claude in the app): declared before start-up code renders the job list.
+const SESSION_STATE = {running: ['Applying', 'info'], input: ['Needs your input', 'warn'], done: ['Form filled', 'good'],
+  ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
+const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
+let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockOpen = true, sessionExpanded = false;
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
@@ -1140,7 +1145,8 @@ function renderJobs() {
     ring.append(el('span', '', job.fit ?? '–'));
     fit.append(ring, el('span', 'fit-label', matchLabel(job.fit)));
     fit.title = job.fit == null ? 'Not scored yet (needs the AI key)' : 'Fit with your profile, out of 100';
-    const {label: statusLabel, tone: statusTone} = statusPill(job);
+    const live = sessionFor(job.url);
+    const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
 
     const role = el('div', 'role');
     const titleLine = el('div', 'title-line');
@@ -1219,23 +1225,32 @@ function renderJobs() {
       if (claudeReady) {
         // Recommended: a Claude session drives Chrome from the posting through the employer's site
         // (its own Apply buttons, sign-up, every page) to a filled form; it asks you for CAPTCHAs.
-        const started = claudeStarted.has(pageKey(job.url));
-        const claude = Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
+        const live = sessionFor(job.url);
+        if (live) {
+          // A session inside the app: Continue when it waits for you, else View session.
+          const open = el('button', `row-main ${live.status === 'input' ? 'state-apply' : 'state-opened'}`, live.status === 'input' ? 'Continue' : 'View session');
+          open.title = live.note || 'Open this Claude session';
+          open.addEventListener('click', () => openSession(live.id));
+          box.append(open);
+          menu.push({label: '🧩 Fill in Chrome', run: () => fillInChrome()});
+        }
+        const started = !live && claudeStarted.has(pageKey(job.url));
+        const claude = live ? null : Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
           disabled: started,
           title: started ? 'A Claude session is filling this one in its window: answer it there' :
             'Recommended. Claude opens the posting in Chrome, follows Apply to the employer\'s site, creates an account there ' +
             'if it asks (password saved in your Keychain) and fills every page from your kit. You solve CAPTCHAs, tick the terms and submit.'});
-        claude.addEventListener('click', async () => {
+        if (claude) claude.addEventListener('click', async () => {
           claude.disabled = true;
-          const result = await window.pilot.applyWithClaude(job.url);
-          if (result.ok) { claudeStarted.add(pageKey(job.url)); renderJobs(); return; }
+          const result = await window.pilot.applyWithClaude(job.url, {title: job.title, company: job.company, location: job.location, workMode: job.work_mode});
+          if (result.ok) { claudeStarted.add(pageKey(job.url)); if (result.session) await refreshSessions(); renderJobs(); return; }
           claude.disabled = false;
           claude.title = result.error;
           // The list said there was a kit but Notion has none (removed or redrafting): show Prepare again.
           if (/kit/i.test(result.error || '')) { claude.textContent = 'Prepare first'; loadJobs(); } else claude.textContent = 'Not ready';
         });
-        box.append(claude);
-        menu.push({label: opened ? '🧩 Fill in Chrome again' : '🧩 Fill in Chrome', run: () => fillInChrome(),
+        if (claude) box.append(claude);
+        if (claude) menu.push({label: opened ? '🧩 Fill in Chrome again' : '🧩 Fill in Chrome', run: () => fillInChrome(),
           title: 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
       } else {
         const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened in Chrome ↻' : 'Apply'), {
@@ -2903,3 +2918,154 @@ window.addEventListener('pilot-outdated', () => {
   const toast = toastMessage('Job Pilotto was updated', 'Restart it to finish the update: some buttons won\'t work until then. Click here to restart.');
   if (toast) toast.onclick = () => window.pilot.interviews.relaunch();
 });
+
+// ---------- Application sessions: Apply with Claude inside the app (lib/terminals.js) ----------
+// A dock of cards above the activity bar (one per session) and a session page with the live terminal (xterm.js),
+// Claude's question when it waits for you, quick answers and a message box. Sessions report their state through
+// Claude Code hooks; the app notifies you when one needs you.
+function sessionFor(url) {
+  const key = pageKey(url || '');
+  return sessionList.filter(item => pageKey(item.url) === key).pop() || null;
+}
+const sessionJob = item => allJobs.find(job => pageKey(job.url) === pageKey(item.url)) || {};
+const sessionTitle = item => item.title || sessionJob(item).title || 'Application';
+const sessionCompany = item => item.company || sessionJob(item).company || new URL(item.url || 'https://job').hostname.replace(/^www\./, '');
+async function refreshSessions() {
+  sessionList = await window.pilot.sessions().catch(() => []);
+  renderDock();
+  if (!document.querySelector('.view[data-view="sessions"]').hidden) renderSessionPage();
+}
+function sessionLogo(item) {
+  const {initials, hue} = avatar(sessionCompany(item));
+  const badge = el('span', 'logo', initials);
+  badge.style.setProperty('--hue', hue);
+  return badge;
+}
+function renderDock() {
+  const live = sessionList.filter(item => !item.endedAt || item.status === 'done');
+  show($('sessions-dock'), sessionList.length > 0);
+  if (!sessionList.length) return;
+  const running = sessionList.filter(item => !item.endedAt).length, waiting = sessionList.filter(item => item.status === 'input').length;
+  $('sd-summary').replaceChildren(pill([`${running} running`, waiting && `${waiting} need${waiting === 1 ? 's' : ''} your input`].filter(Boolean).join(' · '), waiting ? 'warn' : 'info'));
+  $('sd-toggle').setAttribute('aria-expanded', dockOpen);
+  $('sessions-dock').classList.toggle('is-closed', !dockOpen);
+  const order = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
+  const shown = [...(live.length ? live : sessionList)].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5)).slice(0, 3);
+  $('sd-cards').replaceChildren(...shown.map(item => {
+    const [label, tone] = SESSION_STATE[item.status] || SESSION_STATE.ended;
+    const card = el('div', `sd-card tone-${tone}`);
+    const words = el('div', 'sd-words');
+    const title = el('b', 'focus-headline', `${sessionCompany(item)} · ${sessionTitle(item)}`);
+    title.title = title.textContent;
+    const state = el('div', 'sd-state');  // the badge, then what it's doing (or asking), on one line under the title
+    const note = el('span', 'muted small sd-note', item.question && item.status === 'input' ? item.question.split('\n').pop() : item.note || '');
+    note.title = note.textContent;
+    state.append(pill(label, tone, {dot: item.status === 'running'}), note);
+    words.append(title, state);
+    const action = el('button', item.status === 'input' ? 'primary' : 'secondary', item.status === 'input' ? 'Respond' : item.status === 'done' ? 'Review' : 'Open session');
+    action.addEventListener('click', () => openSession(item.id));
+    card.append(sessionLogo(item), words, action);  // stop / open posting: on the session page (⋯), keeping cards compact
+    return card;
+  }));
+}
+function sessionMenu(item) {
+  const menu = [{label: '↗ Open posting', run: () => window.pilot.openExternal(item.url)}];
+  if (!item.endedAt) menu.push({label: '⏹ Stop session', danger: true, run: () => window.pilot.sessionStop(item.id)});
+  else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
+  return menu;
+}
+$('sd-toggle').addEventListener('click', () => { dockOpen = !dockOpen; renderDock(); });
+$('sd-all').addEventListener('click', event => { event.preventDefault(); openSession(openSessionId || sessionList[0]?.id); });
+$('ss-crumb-all').addEventListener('click', event => { event.preventDefault(); openSession(openSessionId || sessionList[0]?.id); });
+document.querySelectorAll('.crumbs [data-go]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); openView(link.dataset.go); }));
+$('ss-new').addEventListener('click', () => openView('jobs'));
+
+async function openSession(id) {
+  if (!id) return;
+  openSessionId = id;
+  openView('sessions');
+  await refreshSessions();
+  await attachTerminal(id);
+}
+function renderSessionPage() {
+  const item = sessionList.find(entry => entry.id === openSessionId) || sessionList[0];
+  show($('ss-list-empty'), !sessionList.length);
+  $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
+    const [label, tone] = SESSION_STATE[entry.status] || SESSION_STATE.ended;
+    const li = el('li', `ss-row${entry.id === item?.id ? ' is-current' : ''}${entry.status === 'input' ? ' is-waiting' : ''}`);
+    const words = el('div', 'ss-row-words');
+    words.append(el('b', '', sessionCompany(entry)), el('span', 'small', sessionTitle(entry)), pill(label, tone, {dot: true}));
+    li.append(sessionLogo(entry), words, el('span', 'muted small', clockTime(entry.startedAt)));
+    li.addEventListener('click', () => openSession(entry.id));
+    return li;
+  }));
+  if (!item) return;
+  const [label, tone] = SESSION_STATE[item.status] || SESSION_STATE.ended;
+  $('ss-crumb').textContent = sessionCompany(item);
+  $('ss-title').textContent = `${sessionCompany(item)} · ${sessionTitle(item)}`;
+  $('ss-status').replaceChildren(pill(label, tone));
+  $('ss-pause').disabled = !!item.endedAt;
+  $('ss-more').replaceChildren(moreButton(sessionMenu(item), 'More'));
+  const job = sessionJob(item);
+  const head = el('div', 'ss-job-card');
+  const place = el('span', 'muted', [item.location || job.location, item.workMode || job.work_mode].filter(Boolean).join(' · '));
+  const view = Object.assign(el('a', 'link small', 'View job ↗'), {href: '#'});
+  view.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(item.url); });
+  head.append(sessionLogo(item), el('b', '', `${sessionCompany(item)} · ${sessionTitle(item)}`), place, view);
+  $('ss-job').replaceChildren(head);
+  show($('ss-decision'), item.status === 'input');
+  $('ss-question').textContent = item.question || item.note || 'Claude is waiting for your reply.';
+  $('ss-live-state').replaceChildren(pill(item.status === 'input' ? 'Waiting for your response' : item.endedAt ? label : 'Working', tone, {dot: true}));
+  $('ss-input').disabled = !!item.endedAt;
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+async function attachTerminal(id) {
+  const {Terminal} = await import('../node_modules/@xterm/xterm/lib/xterm.mjs');
+  const {FitAddon} = await import('../node_modules/@xterm/addon-fit/lib/addon-fit.mjs');
+  if (!xterm) {
+    xterm = new Terminal({fontFamily: cssVar('--font-mono'), fontSize: 13, cursorBlink: true, convertEol: false, scrollback: 5000,
+      theme: {background: cssVar('--navy'), foreground: cssVar('--on-navy'), cursor: cssVar('--signal'), selectionBackground: cssVar('--navy-active')}});
+    xtermFit = new FitAddon();
+    xterm.loadAddon(xtermFit);
+    xterm.open($('ss-terminal'));
+    xterm.onData(data => openSessionId && window.pilot.sessionWrite(openSessionId, data));
+    new ResizeObserver(() => fitTerminal()).observe($('ss-terminal'));
+  }
+  xterm.reset();
+  xterm.write(await window.pilot.sessionOutput(id));
+  fitTerminal();
+  xterm.focus();
+}
+function fitTerminal() {
+  if (!xterm || document.querySelector('.view[data-view="sessions"]').hidden) return;
+  try { xtermFit.fit(); } catch { return; }
+  if (openSessionId) window.pilot.sessionResize(openSessionId, xterm.cols, xterm.rows);
+}
+// Typing a reply: the text, then Enter (Claude Code sends a message on Return).
+function say(text) {
+  if (!openSessionId || !text.trim()) return;
+  window.pilot.sessionWrite(openSessionId, text.trim());
+  setTimeout(() => window.pilot.sessionWrite(openSessionId, '\r'), 60);
+  xterm?.focus();
+}
+$('ss-compose').addEventListener('submit', event => { event.preventDefault(); say($('ss-input').value); $('ss-input').value = ''; });
+document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
+$('ss-ask').addEventListener('click', () => $('ss-input').focus());
+$('ss-pause').addEventListener('click', () => openSessionId && window.pilot.sessionWrite(openSessionId, '\x1b'));  // Esc interrupts Claude
+$('ss-copy').addEventListener('click', async () => {
+  const text = (await window.pilot.sessionOutput(openSessionId)).replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
+  await navigator.clipboard.writeText(text);
+  toastMessage('Log copied', 'The session\'s output is on the clipboard.');
+});
+$('ss-expand').addEventListener('click', () => {
+  sessionExpanded = !sessionExpanded;
+  document.querySelector('.view[data-view="sessions"]').classList.toggle('is-expanded', sessionExpanded);
+  $('ss-expand').textContent = sessionExpanded ? 'Collapse' : 'Expand';
+  setTimeout(fitTerminal, 50);
+});
+window.pilot.onSession((event, payload) => {
+  if (event === 'data') { if (payload.id === openSessionId) xterm?.write(payload.data); return; }
+  if (event === 'open') { openSession(payload.id); return; }
+  refreshSessions().then(() => { if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs(); });
+});
+refreshSessions();

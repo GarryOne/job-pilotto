@@ -146,6 +146,11 @@ export function checkTicket(ticket, job, now = Date.now()) {
   return !!entry && entry.expires > now && entry.job === pageKey(job);
 }
 
+// In-app Claude sessions (terminals.js) report their state here: the Claude Code hooks (JSON on stdin, with a
+// "message" for Notification) and tools/notify.sh (form field "message"). Local programs only, as for tickets.
+let sessionReporter = () => {};
+export function setSessionReporter(fn) { sessionReporter = fn; }
+
 export function start(storage, onError = () => {}) {
   const server = http.createServer(async (req, res) => {
     try {
@@ -164,6 +169,17 @@ export function start(storage, onError = () => {}) {
         const job = (() => { try { return JSON.parse(body?.toString() || '{}').job; } catch { return ''; } })();
         res.writeHead(local && job ? 200 : 403, {'Content-Type': 'application/json'});
         res.end(JSON.stringify(local && job ? {ticket: issueTicket(job)} : {error: 'Not allowed'}));
+        return;
+      }
+      if (req.url.startsWith('/claude/session?')) {
+        const local = req.method === 'POST' && req.headers['x-job-pilotto'] === 'launcher' && !req.headers.origin;
+        const query = new URL(req.url, 'http://127.0.0.1').searchParams;
+        const text = body?.toString() || '';
+        const payload = (() => { try { return JSON.parse(text); } catch { return {message: new URLSearchParams(text).get('message') || ''}; } })();
+        if (local) sessionReporter(query.get('id') || '', {event: query.get('event') || '', message: String(payload.message || '').slice(0, 300),
+          transcript: typeof payload.transcript_path === 'string' ? payload.transcript_path : ''});
+        res.writeHead(local ? 200 : 403, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({ok: local}));
         return;
       }
       if (req.url === '/claude/notify') {

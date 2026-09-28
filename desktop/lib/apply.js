@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import * as pipeline from './pipeline.js';
 import * as session from './claude-session.js';
+import * as terminals from './terminals.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
@@ -92,12 +93,22 @@ export async function nextWithKits(storage, n, run = pipeline.run) {
 }
 
 // One job, from its row: a Claude session in its own window takes it from the posting to a filled form.
-export async function claudeOne(storage, url, launch = session.launch, binary = claudeBinary, kit = hasKit) {
+// Sessions run inside the app unless Settings says Terminal windows, or the terminal module can't load.
+export async function inApp(storage, available = terminals.available) {
+  return storage.settings().sessionsInApp !== false && await available();
+}
+
+export async function claudeOne(storage, url, launch = session.launch, binary = claudeBinary, kit = hasKit, details = null) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   const ready = claudeReady(storage, binary);
   if (!ready.ok) return ready;
   const drafted = await kit(storage, url);
   if (!drafted.ok) return drafted;
+  // A launcher passed in (tests, the Terminal fallback) is used as given; the app's default is the in-app terminal.
+  if (launch === session.launch && await inApp(storage)) {
+    const [started] = await session.launchInApp(storage, [url.split('#')[0]], {claude: binary(), details: details ? {[url.split('#')[0]]: details} : {}});
+    return {ok: true, session: started};
+  }
   await launch(storage, [url.split('#')[0]], {claude: binary()});
   return {ok: true};
 }
@@ -109,9 +120,12 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
     if (!ready.ok) return ready;
     const urls = await next(storage, n);
     if (!urls.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
-    launch(storage, urls, {claude: claudeBinary()}).catch(() => {});  // windows open a few seconds apart
+    const here = launch === session.launch && await inApp(storage);
+    (here ? session.launchInApp(storage, urls, {claude: claudeBinary()}) : launch(storage, urls, {claude: claudeBinary()})).catch(() => {});
     n = urls.length;
-    return {ok: true, message: `Starting ${n} Claude session(s), one window per job. Each reads sign-up emails itself, asks you in its window for a CAPTCHA, and stops before Submit for your review.`};
+    return {ok: true, inApp: here, message: here
+      ? `Starting ${n} Claude session(s) in the app, a few seconds apart. Each shows in Application sessions at the bottom; you're notified when one needs you. It stops before Submit for your review.`
+      : `Starting ${n} Claude session(s), one window per job. Each reads sign-up emails itself, asks you in its window for a CAPTCHA, and stops before Submit for your review.`};
   }
   const {jobs} = await list(storage);
   const chosen = pick(jobs, n);

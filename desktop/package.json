@@ -23,6 +23,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
+    "@lydell/node-pty": "^1.2.0-beta.15",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "libsodium-wrappers": "^0.7.16"
   },
   "description": "Job Pilotto: finds jobs that fit you, drafts your answers and fills forms; you submit.",
@@ -49,7 +52,9 @@
         "to": "pilot"
       }
     ],
-    "asarUnpack": [],
+    "asarUnpack": [
+      "node_modules/@lydell/**"
+    ],
     "mac": {
       "target": [
         {

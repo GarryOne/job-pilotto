@@ -10,6 +10,13 @@ here="$(cd "$(dirname "$0")" && pwd)"
 id="$(printf '%s' "${url%%\?*}" | sed -E 's#/+$##; s#.*/##')"
 board="$(printf '%s' "$url" | sed -E 's#https?://[^/]+/([^/?]+).*#\1#')"
 case "$url" in *amazon.jobs*) board=amazon; id="$(printf '%s' "$url" | sed -E 's#.*/jobs/([0-9]+).*#\1#')" ;; esac
+# A session running inside the Job Pilotto app (JOB_PILOTTO_SESSION): the app shows it on the session's card and
+# notifies you itself when it needs you.
+if [ -n "${JOB_PILOTTO_SESSION:-}" ]; then
+  curl -s -m 3 -X POST -H 'X-Job-Pilotto: launcher' --data-urlencode "message=$message" \
+    "http://127.0.0.1:47111/claude/session?id=$JOB_PILOTTO_SESSION&event=note" >/dev/null 2>&1
+  exit 0
+fi
 # Off macOS (Windows, in Git Bash): the Job Pilotto app shows the notification, when it's running.
 if ! command -v osascript >/dev/null; then
   curl -s -m 3 -X POST -H 'X-Job-Pilotto: launcher' --data-urlencode "job=$board job $id" \

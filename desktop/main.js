@@ -14,6 +14,7 @@ import {nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
+import * as terminals from './lib/terminals.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
@@ -629,8 +630,21 @@ function handlers() {
   ipcMain.handle('apply', async (_, options) => options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
-  ipcMain.handle('applyWithClaude', async (_, url) => (await claudeConsent())
-    ? apply.claudeOne(storage, url) : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
+  ipcMain.handle('applyWithClaude', async (_, url, details = null) => (await claudeConsent())
+    ? apply.claudeOne(storage, url, undefined, undefined, undefined, details)
+    : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
+  // Apply with Claude sessions inside the app (lib/terminals.js): the dock, the session page and its terminal.
+  // Demo mode: fictional sessions (demo/sessions.json) for screenshots; nothing runs.
+  const demoSessions = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'sessions.json'), 'utf8'));
+  ipcMain.handle('sessions', () => (DEMO ? demoSessions() : terminals.list()));
+  ipcMain.handle('sessionOutput', (_, id) => (DEMO
+    ? '\x1b[2m19:10:02\x1b[0m \x1b[32m✓\x1b[0m Loaded the kit, Profile and answers from Notion\r\n\x1b[2m19:10:06\x1b[0m \x1b[32m✓\x1b[0m Opened the posting in Chrome\r\n' +
+      '\x1b[2m19:10:09\x1b[0m \x1b[33m!\x1b[0m Location: San Francisco, CA · On-site\r\n\x1b[2m19:10:11\x1b[0m \x1b[35m⏸\x1b[0m Paused before opening the form. Waiting for your reply…\r\n\r\n\x1b[1m>\x1b[0m '
+    : terminals.output(String(id))));
+  ipcMain.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
+  ipcMain.handle('sessionResize', (_, id, cols, rows) => terminals.resize(String(id), Number(cols), Number(rows)));
+  ipcMain.handle('sessionStop', (_, id) => terminals.stop(String(id)));
+  ipcMain.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', () => apply.claudePrereqs());
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
@@ -837,6 +851,11 @@ if (firstCopy) app.whenReady().then(() => {
       : `Chrome extension connection failed: ${error.message}`));
   }
   createWindow();
+  terminals.onChange((event, payload) => window?.webContents.send('session', event, payload));
+  server.setSessionReporter((id, info) => {
+    const {session, needsYou} = terminals.report(id, info);
+    if (session && needsYou) sessionNeedsYou(session);
+  });
   if (!DEMO) {
     // User data left on this Mac -> Notion (source of truth), once. It runs while the window loads, so the
     // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
@@ -911,6 +930,23 @@ function resumeQueue() {
       jobs.map(job => pipeline.taskName(job.kind)).join(', '));
   }
 }
+
+// A Claude session waits for you: a notification (a click opens that session in the app) and a Telegram message.
+function sessionNeedsYou(session) {
+  const what = terminals.label(session);
+  const text = (session.question || session.note || 'Claude needs your input').replace(/\s+/g, ' ').slice(0, 220);
+  if (!process.env.JOB_PILOTTO_SMOKE && Notification.isSupported()) {
+    const note = new Notification({title: `Needs your input · ${what}`, body: text});
+    note.on('click', () => { window?.show(); window?.focus(); window?.webContents.send('session', 'open', {id: session.id}); });
+    note.show();
+  }
+  window?.webContents.send('toast', {title: `Needs your input · ${what}`, body: text});
+  const token = storage.secret('TELEGRAM_BOT_TOKEN'), chat = storage.settings().telegramChatId;
+  if (token && chat) telegram.api(token, 'sendMessage', {chat_id: chat, text: `🧭 Needs your input · ${what}\n${text}\n\nAnswer it in Job Pilotto → Application sessions.`})
+    .catch(error => log(`Telegram: ${error.message}`));
+}
+// Sessions still running when the app quits end with it (a Claude session can't outlive its terminal).
+app.on('will-quit', () => { for (const session of terminals.running()) terminals.stop(session.id); });
 
 // Quitting while something runs or waits: ask. "Quit when done" closes the app once the queue is empty;
 // "Quit now" stops the running job cleanly and keeps the queue for next time (resumeQueue).

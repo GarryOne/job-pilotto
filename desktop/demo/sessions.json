@@ -1,0 +1,9 @@
+[
+  {"id": "d1", "url": "https://jobs.example/northwind/platform", "title": "Platform Engineer", "company": "Northwind AI", "status": "input",
+   "note": "Waiting for your reply", "question": "This role says on-site in San Francisco. Your profile prefers Zurich or remote. Continue anyway, or skip this role?",
+   "location": "San Francisco, CA", "workMode": "On-site", "startedAt": "2026-09-28T17:10:00Z"},
+  {"id": "d2", "url": "https://jobs.example/acme/sre", "title": "SRE", "company": "Acme Robotics", "status": "running", "note": "Filling started",
+   "location": "London, UK", "workMode": "Remote", "startedAt": "2026-09-28T16:24:00Z"},
+  {"id": "d3", "url": "https://jobs.example/example-labs/sre", "title": "SRE", "company": "Example Labs", "status": "done",
+   "note": "Form filled — review it in Chrome and Submit", "startedAt": "2026-09-28T14:02:00Z", "endedAt": "2026-09-28T14:20:00Z"}
+]

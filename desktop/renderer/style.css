@@ -73,7 +73,7 @@ details textarea { margin-top: 8px; }
 .prereqs li.done { color: var(--good); }
 
 /* App */
-.app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; }
+.app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: minmax(0, 1fr) auto auto; height: 100vh; }
 .app > .sidebar { grid-row: 1 / -1; }
 .sidebar { background: var(--navy); padding: 28px 14px; display: flex; flex-direction: column; gap: 4px; -webkit-app-region: drag; }
 .sidebar .brand { color: var(--on-accent); padding-left: 8px; }
@@ -805,3 +805,115 @@ main { min-width: 0; }
   .funnel-step { flex: 1 1 30%; }
 }
 .focus-card-head .link { text-decoration: none; }
+
+/* Application sessions: the dock above the activity bar */
+.sessions-dock { grid-column: 2; border-top: 1px solid var(--line); background: var(--surface); padding: var(--sp-2) var(--sp-4) var(--sp-3); box-shadow: var(--shadow-sm); }
+.sessions-dock.is-closed { padding-bottom: var(--sp-2); }
+.sessions-dock.is-closed .sd-cards { display: none; }
+.sd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.sd-toggle { display: flex; align-items: center; gap: var(--sp-2); background: none; border: 0; padding: var(--sp-1) 0; color: var(--ink); }
+.sd-glyph { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--navy); color: var(--on-navy);
+  font: 700 var(--fs-xs) var(--font-mono); }
+.sd-chevron { color: var(--muted); transition: transform .2s var(--ease); }
+.sessions-dock.is-closed .sd-chevron { transform: rotate(180deg); }
+.sd-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-2); }
+.sd-card { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); min-width: 0; }
+.sd-card.tone-warn { background: var(--warn-soft); border-color: var(--warn-line); }
+.sd-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sd-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-card button:not(.ui-more) { padding: 5px 12px; font-size: var(--fs-sm); }
+.sd-card .ui-more { padding: 5px 8px; }
+.small-button { padding: 5px 12px; font-size: var(--fs-sm); }
+@media (max-width: 1180px) { .sd-cards { grid-template-columns: 1fr; } }
+
+/* The session page: sessions on the left; the job, Claude's question, the live terminal and the message box */
+.crumbs { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); margin-bottom: var(--sp-2); }
+.crumbs a { color: var(--info); text-decoration: none; }
+.ss-title { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.ss-title h1 { margin: 0; }
+.ss-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.ss-grid .card { margin: 0; }
+.ss-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ss-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; }
+.ss-row:hover { background: var(--surface-2); }
+.ss-row.is-current { background: var(--signal-soft); border-color: var(--signal-line); }
+.ss-row-words { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.ss-main { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ss-job-card { display: flex; align-items: center; gap: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); }
+.ss-job-card b { font-size: var(--fs-lg); }
+.ss-job-card .link { margin-left: auto; text-decoration: none; }
+.ss-decision { display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.ss-decision-body { flex: 1; min-width: 0; }
+.ss-decision-body p { margin: var(--sp-1) 0 var(--sp-3); color: var(--ink-2); white-space: pre-wrap; max-height: 9em; overflow: auto; }
+.ss-decision-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ss-live-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.ss-live-actions { display: flex; gap: var(--sp-2); }
+.ss-terminal { height: 48vh; min-height: 260px; background: var(--navy); border-radius: var(--r-md); padding: var(--sp-2); overflow: hidden; }
+.view[data-view="sessions"].is-expanded .ss-terminal { height: 72vh; }
+.view[data-view="sessions"].is-expanded .ss-list-card { display: none; }
+.view[data-view="sessions"].is-expanded .ss-grid { grid-template-columns: minmax(0, 1fr); }
+.ss-compose { display: flex; gap: var(--sp-2); }
+.ss-compose input { flex: 1; }
+.ss-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.ss-safe { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--info-soft); }
+.ss-safe .icon { width: 16px; height: 16px; color: var(--info); }
+@media (max-width: 1180px) { .ss-grid { grid-template-columns: 1fr; } }
+
+/* Application sessions: the dock above the activity bar */
+.sessions-dock { border-top: 1px solid var(--line); background: var(--surface); padding: var(--sp-2) var(--sp-4) var(--sp-3); box-shadow: var(--shadow-sm); }
+.sessions-dock.is-closed { padding-bottom: var(--sp-2); }
+.sessions-dock.is-closed .sd-cards { display: none; }
+.sd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.sd-toggle { display: flex; align-items: center; gap: var(--sp-2); background: none; border: 0; padding: var(--sp-1) 0; color: var(--ink); }
+.sd-glyph { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--navy); color: var(--on-navy);
+  font: 700 var(--fs-xs) var(--font-mono); }
+.sd-chevron { color: var(--muted); transition: transform .2s var(--ease); }
+.sessions-dock.is-closed .sd-chevron { transform: rotate(180deg); }
+.sd-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); margin-top: var(--sp-2); }
+.sd-card { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); min-width: 0; }
+.sd-card.tone-warn { background: var(--warn-soft); border-color: var(--warn-line); }
+.sd-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sd-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-card button:not(.ui-more) { padding: 5px 12px; font-size: var(--fs-sm); }
+.sd-card .ui-more { padding: 5px 8px; }
+.small-button { padding: 5px 12px; font-size: var(--fs-sm); }
+@media (max-width: 1180px) { .sd-cards { grid-template-columns: 1fr; } }
+
+/* The session page: sessions on the left; the job, Claude's question, the live terminal and the message box */
+.crumbs { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); margin-bottom: var(--sp-2); }
+.crumbs a { color: var(--info); text-decoration: none; }
+.ss-title { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.ss-title h1 { margin: 0; }
+.ss-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.ss-grid .card { margin: 0; }
+.ss-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ss-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2); border-radius: var(--r-md); cursor: pointer; border: 1px solid transparent; }
+.ss-row:hover { background: var(--surface-2); }
+.ss-row.is-current { background: var(--signal-soft); border-color: var(--signal-line); }
+.ss-row-words { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.ss-main { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ss-job-card { display: flex; align-items: center; gap: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); }
+.ss-job-card b { font-size: var(--fs-lg); }
+.ss-job-card .link { margin-left: auto; text-decoration: none; }
+.ss-decision { display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.ss-decision-body { flex: 1; min-width: 0; }
+.ss-decision-body p { margin: var(--sp-1) 0 var(--sp-3); color: var(--ink-2); white-space: pre-wrap; max-height: 9em; overflow: auto; }
+.ss-decision-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ss-live-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.ss-live-actions { display: flex; gap: var(--sp-2); }
+.ss-terminal { height: 48vh; min-height: 260px; background: var(--navy); border-radius: var(--r-md); padding: var(--sp-2); overflow: hidden; }
+.view[data-view="sessions"].is-expanded .ss-terminal { height: 72vh; }
+.view[data-view="sessions"].is-expanded .ss-list-card { display: none; }
+.view[data-view="sessions"].is-expanded .ss-grid { grid-template-columns: minmax(0, 1fr); }
+.ss-compose { display: flex; gap: var(--sp-2); }
+.ss-compose input { flex: 1; }
+.ss-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.ss-safe { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--info-soft); }
+.ss-safe .icon { width: 16px; height: 16px; color: var(--info); }
+@media (max-width: 1180px) { .ss-grid { grid-template-columns: 1fr; } }
+.app > .activity { grid-column: 2; }
+.sd-words .focus-top { flex-direction: column; align-items: flex-start; gap: 2px; }
+.sd-words .focus-headline { max-width: 100%; }
+.sd-state { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.sd-words .focus-headline { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-state .ui-pill { flex: none; }

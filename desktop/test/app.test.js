@@ -504,3 +504,12 @@ test('Rebuild from CV: changes grouped by what they trigger, contact edits ignor
   assert.deepEqual(JSON.parse(storage.readText('config/search.json')).role_keywords, ['new']);
   assert.deepEqual(JSON.parse(storage.readText('config/preferences.json')), {excluded_companies: ['Keep']});
 });
+
+test('the sessions state exists before the start-up code renders the job list', async () => {
+  const {readFileSync} = await import('node:fs');
+  const source = readFileSync(new URL('../renderer/app.js', import.meta.url), 'utf8');
+  const startup = source.indexOf("openView('focus')");
+  for (const name of ['const SESSION_STATE', 'const SESSION_PILL', 'let sessionList']) {
+    assert.ok(source.indexOf(name) >= 0 && source.indexOf(name) < startup, `${name} is declared after the start-up code uses it`);
+  }
+});

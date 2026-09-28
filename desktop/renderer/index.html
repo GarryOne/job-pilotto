@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
 <title>Job Pilotto</title>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
 <!-- First run: the setup wizard -->
@@ -352,6 +353,58 @@
             <p id="focus-summary"></p>
           </section>
         </aside>
+      </div>
+    </div>
+
+    <div class="view" data-view="sessions" hidden>
+      <nav class="crumbs small"><a href="#" data-go="jobs">Jobs</a><span>/</span><a href="#" id="ss-crumb-all">Application sessions</a><span>/</span><b id="ss-crumb"></b></nav>
+      <header class="view-head">
+        <div class="ss-title"><h1 id="ss-title">Application sessions</h1><span id="ss-status"></span></div>
+        <div class="head-actions">
+          <button class="secondary with-icon" id="ss-pause" title="Interrupt Claude (Esc); then type what to do instead"><span>⏸ Pause</span></button>
+          <span id="ss-more"></span>
+        </div>
+      </header>
+      <div class="ss-grid">
+        <section class="card ss-list-card">
+          <div class="focus-card-head"><h2>Sessions</h2><button class="secondary small-button" id="ss-new" title="Start Apply with Claude from the Jobs list">+ New session</button></div>
+          <ol class="ss-list" id="ss-list"></ol>
+          <p class="muted small" id="ss-list-empty" hidden>No sessions yet. On a job, press Apply with Claude.</p>
+        </section>
+        <section class="card ss-main" id="ss-main">
+          <div class="ss-job" id="ss-job"></div>
+          <div class="ss-decision" id="ss-decision" hidden>
+            <span class="focus-round tone-warn"><i data-icon="alert"></i></span>
+            <div class="ss-decision-body">
+              <b>Claude is waiting for you</b>
+              <p id="ss-question"></p>
+              <div class="ss-decision-actions">
+                <button class="primary" data-say="Continue.">Continue</button>
+                <button class="secondary" data-say="Skip this role: close its tab and finish without filling anything.">Skip this role</button>
+                <button class="link with-icon" id="ss-ask"><i data-icon="chat"></i><span>Answer in your own words</span></button>
+              </div>
+            </div>
+          </div>
+          <div class="ss-live-head">
+            <div class="with-glyph"><b>Live session</b><span id="ss-live-state"></span></div>
+            <div class="ss-live-actions">
+              <button class="secondary small-button" id="ss-copy">Copy log</button>
+              <button class="secondary small-button" id="ss-expand">Expand</button>
+            </div>
+          </div>
+          <div class="ss-terminal" id="ss-terminal"></div>
+          <form class="ss-compose" id="ss-compose">
+            <input id="ss-input" placeholder="Message Claude, e.g. “the CAPTCHA is done, carry on”" autocomplete="off">
+            <button class="primary with-icon" type="submit"><i data-icon="send"></i><span>Send</span></button>
+          </form>
+          <div class="ss-chips">
+            <button class="ui-tag is-action" data-say="Explain in one or two lines what you are doing now and why.">Explain this step</button>
+            <button class="ui-tag is-action" data-say="Continue.">Continue</button>
+            <button class="ui-tag is-action" data-say="Skip this role: close its tab and finish without filling anything.">Skip this role</button>
+            <button class="ui-tag is-action" data-say="Stop here. Leave the form as it is for me to finish.">I'll finish it myself</button>
+          </div>
+          <p class="ss-safe muted small"><i data-icon="shield"></i>Job Pilotto never submits an application without your review.</p>
+        </section>
       </div>
     </div>
 
@@ -868,6 +921,13 @@
   </main>
 
   <!-- Always visible: what's running now (your searches and scheduled ones), or the last and next search. -->
+  <section class="sessions-dock" id="sessions-dock" hidden>
+    <div class="sd-head">
+      <button class="sd-toggle" id="sd-toggle" aria-expanded="true"><span class="sd-glyph">&gt;_</span><b>Application sessions</b><span id="sd-summary"></span><span class="sd-chevron">⌃</span></button>
+      <a href="#" class="link small" id="sd-all">View all →</a>
+    </div>
+    <div class="sd-cards" id="sd-cards"></div>
+  </section>
   <footer class="activity" id="activity">
     <div class="activity-backdrop" id="activity-backdrop" hidden></div>
     <div class="activity-panel" id="activity-panel" hidden role="dialog" aria-labelledby="activity-heading">
