@@ -35,6 +35,17 @@ const APPLICATION = {
   interviews: job => job.status === 'applied' && TALKING.has(job.stage),
   rejected: job => job.status === 'applied' && job.stage === 'Rejected',
 };
+// A job's status pill: its own status, except that an application shows where it stands in Notion (its Stage),
+// e.g. Rejected rather than Applied.
+const STATUS = {unreviewed: ['New', 'info'], saved: ['Saved', 'signal'], applied: ['Applied', 'good'], dismissed: ['Dismissed', 'neutral']};
+const STAGE_TONE = {Rejected: 'bad', Withdrawn: 'neutral', 'No response': 'neutral', Offer: 'good'};
+export function statusPill(job) {
+  if (job.status === 'applied' && job.stage && job.stage !== 'Applied') {
+    return {label: job.stage, tone: STAGE_TONE[job.stage] || (TALKING.has(job.stage) ? 'info' : 'good')};
+  }
+  const [label, tone] = STATUS[job.status] || [job.status, 'neutral'];
+  return {label, tone};
+}
 // The application counters: applied in total, still active, interviewing, rejected.
 export function applicationStats(jobs) {
   return Object.fromEntries(Object.entries(APPLICATION).map(([kind, test]) => [kind, jobs.filter(test).length]));

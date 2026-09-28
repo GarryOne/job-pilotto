@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
+import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -86,4 +86,12 @@ test('work-mode chip: one word for a known mode, the source wording otherwise', 
   assert.deepEqual(workMode('Hybrid'), {kind: 'hybrid', label: 'Hybrid'});
   assert.deepEqual(workMode('On site'), {kind: 'onsite', label: 'On-site'});
   assert.deepEqual(workMode('Flexible'), {kind: '', label: 'Flexible'});
+});
+
+test('an application shows its Notion Stage, e.g. Rejected rather than Applied', () => {
+  assert.deepEqual(statusPill({status: 'applied', stage: 'Rejected'}), {label: 'Rejected', tone: 'bad'});
+  assert.deepEqual(statusPill({status: 'applied', stage: 'Interviewing'}), {label: 'Interviewing', tone: 'info'});
+  assert.deepEqual(statusPill({status: 'applied', stage: 'Applied'}), {label: 'Applied', tone: 'good'});
+  assert.deepEqual(statusPill({status: 'applied'}), {label: 'Applied', tone: 'good'});
+  assert.deepEqual(statusPill({status: 'unreviewed'}), {label: 'New', tone: 'info'});
 });

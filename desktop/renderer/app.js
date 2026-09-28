@@ -1,7 +1,7 @@
 import {replaceCell, replaceLine, withLine} from './markdown-edit.js';
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
+import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 
@@ -791,7 +791,6 @@ const claudeStarted = new Set();
 const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
 // Pill tones: where a job stands, and how it's worked.
-const STATUS_TONE = {unreviewed: 'info', saved: 'signal', applied: 'good', dismissed: 'neutral'};
 const MODE_TONE = {remote: 'good', hybrid: 'info'};
 // Work in progress on a job (redrafting its kit, tailoring its CV), shown on its row while the menu is closed.
 const busyNotes = new Map();
@@ -815,13 +814,13 @@ function renderJobs() {
     ring.append(el('span', '', job.fit ?? '–'));
     fit.append(ring, el('span', 'fit-label', matchLabel(job.fit)));
     fit.title = job.fit == null ? 'Not scored yet (needs the AI key)' : 'Fit with your profile, out of 100';
-    const statusLabel = {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status;
+    const {label: statusLabel, tone: statusTone} = statusPill(job);
 
     const role = el('div', 'role');
     const titleLine = el('div', 'title-line');
     const link = Object.assign(el('a', '', job.title), {href: '#', title: 'Open the posting'});
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
-    titleLine.append(link, Object.assign(pill(statusLabel, STATUS_TONE[job.status]), {className: `ui-pill tone-${STATUS_TONE[job.status] || 'neutral'} status-inline`}));
+    titleLine.append(link, Object.assign(pill(statusLabel, statusTone), {className: `ui-pill tone-${statusTone} status-inline`}));
     role.append(titleLine);
     // Compact list: company · place · mode · age on one line, in place of those columns.
     const meta = el('div', 'meta');
@@ -862,7 +861,7 @@ function renderJobs() {
     }
 
     const status = el('div', 'status-cell');
-    status.append(pill(statusLabel, STATUS_TONE[job.status]));
+    status.append(pill(statusLabel, statusTone));
     // The kit's eligibility verdict: a badge, with the reason on hover.
     if (job.ineligible) {
       const verdict = Object.assign(pill('⛔ Not eligible', 'bad'), {tabIndex: 0});
