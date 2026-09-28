@@ -40,6 +40,7 @@ const APPLICATION = {
 const STATUS = {unreviewed: ['New', 'info'], saved: ['Saved', 'signal'], applied: ['Applied', 'good'], dismissed: ['Dismissed', 'neutral']};
 const STAGE_TONE = {Rejected: 'bad', Withdrawn: 'neutral', 'No response': 'neutral', Offer: 'good'};
 export function statusPill(job) {
+  if (job.stage === 'Recruiter lead') return {label: 'Recruiter lead', tone: 'signal'};
   if (job.status === 'applied' && job.stage && job.stage !== 'Applied') {
     return {label: job.stage, tone: STAGE_TONE[job.stage] || (TALKING.has(job.stage) ? 'info' : 'good')};
   }

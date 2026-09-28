@@ -289,7 +289,8 @@
       </div>
       <div class="list-bar">
         <div class="list-left"><span id="jobs-count"></span>
-          <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button></div>
+          <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
+          <button class="link" id="lead-open" title="A recruiter wrote to you on LinkedIn, WhatsApp…? Track the role">+ Recruiter message…</button></div>
         <div class="density" role="group" aria-label="List density">
           <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
         </div>
@@ -696,6 +697,22 @@
     <div class="actions">
       <button class="ghost" value="cancel" formnovalidate>Close</button>
       <button class="primary" id="applied-go" value="default">Track it</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="lead-dialog">
+  <form method="dialog">
+    <h2>🤝 Recruiter message</h2>
+    <p class="muted small">Paste what a recruiter sent you (LinkedIn, WhatsApp, an email). Claude reads the role, company, salary and
+      recruiter, and it goes to your Notion Applications as a recruiter lead, with the message on its page. Their later emails are tracked
+      like any application. Recruiter emails in Gmail are picked up by themselves.</p>
+    <label for="lead-text">Their message</label>
+    <textarea id="lead-text" rows="8" placeholder="Hi, I'm looking for a remote SRE for… 120–220K EUR…"></textarea>
+    <label class="radio"><input type="checkbox" id="lead-talking"><span>I've already said yes (Stage: Screening)</span></label>
+    <p class="message" id="lead-message"></p>
+    <div class="actions">
+      <button class="ghost" value="cancel" formnovalidate>Close</button>
+      <button class="primary" id="lead-go" value="default">Track it</button>
     </div>
   </form>
 </dialog>

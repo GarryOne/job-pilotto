@@ -12,7 +12,7 @@ import sys
 
 from . import digest, features, scout, store, telegram
 from . import doctor
-from .ai import budget, cost, enrich, insights, interviews, kit, score
+from .ai import budget, cost, enrich, insights, interviews, kit, opportunity, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
@@ -219,8 +219,8 @@ def main():
                              'apply: mark --job as applied in Notion; prepare: draft its application kit')
     parser.add_argument('--job', help='job code from /apply_<code>, for --mode apply or prepare; '
                                       'interview mode: the job URL the interview belongs to')
-    parser.add_argument('--action', choices=sorted(ACTIONS), default='applied',
-                        help='for --mode apply: applied, saved or dismissed')
+    parser.add_argument('--action', choices=sorted(ACTIONS) + ['talking'], default='applied',
+                        help='for --mode apply: applied, saved or dismissed; for a recruiter lead (--mode add, no --job): talking')
     parser.add_argument('--score-max', type=int, default=0,
                         help='AI stage 2: score up to N eligible jobs against the Notion Profile (0 = off)')
     parser.add_argument('--enrich-max', type=int, default=0,
@@ -231,7 +231,8 @@ def main():
                         help='minimum fit score to qualify for an automatic kit')
     parser.add_argument('--file', help='interview mode: Telegram file id, or a local path, of the recording or transcript')
     parser.add_argument('--interview', help='interview mode: review this 🎤 Interviews row (saved from the app)')
-    parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes')
+    parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes; add mode: the date applied, '
+                             'or (without --job) the recruiter\'s message')
     parser.add_argument('--log-run', action='store_true',
                         help='log this run to Notion ⏰ Search runs even without --send (the desktop app always does)')
     parser.add_argument('--insight', action='store_true',
@@ -266,9 +267,27 @@ def main():
             for message in messages:
                 telegram.send(message, *credentials)
         return 0
+    if args.mode == 'add' and not args.job:
+        # /add <recruiter's message> (no job link), or a message forwarded to the bot: a recruiter lead.
+        if not tracker:
+            raise SystemExit('--mode add requires NOTION_TOKEN')
+        run = new_cron_run('add')
+        run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
+        try:
+            reply = '🤝 ' + escape(opportunity.add_from_text(tracker, args.note or '', source='Telegram', event_source='Telegram',
+                                                            talking=args.action == 'talking', stats=run['mail']))
+            run['mail'].update(pending=1, done=1)
+            queue_mail_check()
+        except ValueError as error:
+            reply = f'⚠️ {escape(str(error))}'
+        log_ai_run(tracker, run, args)
+        print(reply)
+        if args.send:
+            telegram.send(reply, *telegram.credentials())
+        return 0
     if args.mode == 'add':
         # /add <job URL> [date]: track an application made outside Job Pilotto.
-        if not args.job or not tracker:
+        if not tracker:
             raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
         try:
             applied, approx = ledger.parse_applied(args.note)

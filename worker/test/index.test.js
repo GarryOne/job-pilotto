@@ -298,6 +298,23 @@ test('/add dispatches the job URL and the date words', async () => {
   assert.match(calls[0].body.text, /followed by the job URL/);
 });
 
+test('/add with a recruiter message, or a forwarded message, dispatches a recruiter lead', async () => {
+  const pitch = "Hi Sam, I'm looking for a remote SRE for Acme Robotics. 120-220K EUR, 1 day every other month in Vienna.";
+  let calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ text: `/add ${pitch}` });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'add', note: pitch });
+  assert.match(calls[1].body.text, /recruiter/);
+  calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ text: `/add https://jobs.example/1 ${pitch}` });  // a link inside a message is still a message
+  assert.deepEqual(calls[0].body.inputs, { mode: 'add', note: `https://jobs.example/1 ${pitch}` });
+  calls = mockFetch({ '/dispatches': { status: 204 } });
+  await sendMessage({ text: pitch, forward_origin: { type: 'hidden_user', sender_user_name: 'Jordan Lee' } });
+  assert.deepEqual(calls[0].body.inputs, { mode: 'add', note: `From: Jordan Lee\n\n${pitch}` });
+  calls = mockFetch();
+  await sendMessage({ text: 'ok', forward_origin: { type: 'hidden_user', sender_user_name: 'X' } });  // too short: not a pitch
+  assert.ok(!calls.some((call) => /dispatches/.test(call.url)));
+});
+
 test('/mail dispatches the Gmail and Calendar workflow', async () => {
   const calls = mockFetch({ '/dispatches': { status: 204 } });
   await send('/mail');

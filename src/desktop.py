@@ -24,7 +24,7 @@ STATUSES = ('unreviewed', 'saved', 'applied', 'dismissed')
 def stage_status(stage):
     if not stage or stage == 'Kit ready':
         return 'unreviewed'
-    if stage == 'Saved':
+    if stage in ('Saved', 'Recruiter lead'):  # a recruiter's pitch you haven't answered yet: worth a look, not applied
         return 'saved'
     if stage in ('Dismissed', 'Closed'):
         return 'dismissed'

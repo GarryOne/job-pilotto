@@ -127,6 +127,10 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   weak answers and what to practise. Recordings are transcribed with speakers first (see below).
 - 📥 **Applied elsewhere?** `/add <job URL> [date]` tracks it too, e.g. `/add https://… on or before 23 Sep`:
   title, company and location come from the posting page.
+- 🤝 **A recruiter wrote to you?** Emails are picked up by the Gmail check. For LinkedIn, WhatsApp and the rest,
+  `/add` followed by their message (or forward it to the bot, or Jobs → **+ Recruiter message…** in the app):
+  Claude reads the role, employer (or hidden client), salary and recruiter into a **Recruiter lead** in
+  Applications, with the message on its page (Stage Screening if you already said yes).
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update
   your applications by themselves; the evening before an interview you get a prep message.
 - ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
@@ -281,7 +285,9 @@ doesn't.
   naming a tracked company) is classified by Claude Haiku 4.5 (about USD 0.002 per email) and matched
   to its application: confirmations, replies, interview invites, rejections and offers become dated
   📈 Application Events (never twice: each keeps its Gmail message id), Stage moves forward and Next
-  interview is filled. Calendar events belonging to an application (company, platform, or a contact's
+  interview is filled. A recruiter pitching a new role (their email, or LinkedIn's "new message" email) becomes a
+  recruiter lead (`src/ai/opportunity.py`: Stage Recruiter lead, Channel Agency, Via = agency, Contact = recruiter,
+  one more Haiku call), and their follow-ups match it like any application. Calendar events belonging to an application (company, platform, or a contact's
   email among the attendees) do the same; the evening before and the morning of an interview you get a
   prep message (time, link, who, topics you answered weakly before), and afterwards a nudge to send the
   transcript. Nothing in Gmail or Calendar is ever changed. Setup below.

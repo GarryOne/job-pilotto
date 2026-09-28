@@ -17,6 +17,7 @@ const HELP = [
   '/insight — one insight about your search now (~1 min)',
   '/weekly — the weekly report now (~1 min); it also arrives every Monday morning',
   '/add <job URL> [date] — track an application you made elsewhere, e.g. /add https://… on or before 23 Sep',
+  '🤝 A recruiter wrote to you (LinkedIn, WhatsApp…)? /add followed by their message, or forward it here: it becomes a recruiter lead in Notion. Recruiter emails are picked up by the Gmail check',
   '/mail — check Gmail and Calendar for application news now (also runs 3 times a day)',
   '🎤 After an interview: send the recording (only if everyone on the call agreed to it; a voice note, audio or video up to 20 MB) or the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
@@ -27,7 +28,7 @@ const HELP = [
 const STAGE_EMOJI = {
   Saved: '⭐', Applied: '📨', 'Confirmation received': '📬', Screening: '📞',
   'Interview scheduled': '🗓', Interviewing: '🎤', Offer: '🎉', Rejected: '❌',
-  Withdrawn: '↩️', 'No response': '💤',
+  Withdrawn: '↩️', 'No response': '💤', 'Recruiter lead': '🤝',
 };
 
 export function escapeHtml(value) {
@@ -407,12 +408,30 @@ export async function handleInterview(env, message) {
 }
 
 // /add <job URL> [date]: track an application made outside Job Pilotto; the rest of the line is its date.
+// /add <a recruiter's message> (or a message forwarded to the bot): a recruiter lead, read by Claude (add mode, no job).
+const LEAD_MIN = 40;
 export async function handleAdd(env, text) {
-  const match = /(https?:\/\/\S+)\s*(.*)$/s.exec(text || '');
-  if (!match) return '📥 Send /add followed by the job URL, and optionally when you applied: /add https://… on or before 23 Sep';
-  await dispatch(env, { mode: 'add', job: match[1], note: match[2].trim().slice(0, 100) });
-  return '📥 Adding it to your applications; the confirmation arrives in about a minute.';
+  const body = (text || '').replace(/^\/add(@\w+)?/i, '').trim();
+  const match = /^(https?:\/\/\S+)\s*(.*)$/s.exec(body);
+  if (match && match[2].trim().length <= LEAD_MIN) {
+    await dispatch(env, { mode: 'add', job: match[1], note: match[2].trim().slice(0, 100) });
+    return '📥 Adding it to your applications; the confirmation arrives in about a minute.';
+  }
+  if (body.length < LEAD_MIN) {
+    return '📥 Send /add followed by the job URL, and optionally when you applied: /add https://… on or before 23 Sep\n'
+      + '🤝 Or /add followed by a recruiter\'s whole message (or forward it to me) to track it as a recruiter lead.';
+  }
+  return handleLead(env, body);
 }
+
+export async function handleLead(env, text) {
+  await dispatch(env, { mode: 'add', note: text.slice(0, 6000) });
+  return '🤝 Reading the recruiter\'s message; the lead is in Notion in about a minute.';
+}
+
+// A message forwarded from someone else (a recruiter), long enough to be a pitch.
+const forwarded = (message) => !!(message.forward_origin || message.forward_from || message.forward_sender_name)
+  && (message.text || message.caption || '').trim().length >= LEAD_MIN;
 
 export async function handleUpdate(env, update) {
   if (update.callback_query) return handleButton(env, update.callback_query);
@@ -420,6 +439,12 @@ export async function handleUpdate(env, update) {
   // Only the owner's private chat may control the bot; ignore everyone else silently.
   if (!message || String(message.chat?.id) !== String(env.OWNER_CHAT_ID)) return;
   try {
+    if (forwarded(message)) {
+      const origin = message.forward_origin?.sender_user_name || message.forward_sender_name
+        || [message.forward_from?.first_name, message.forward_from?.last_name].filter(Boolean).join(' ');
+      await reply(env, await handleLead(env, `${origin ? `From: ${origin}\n\n` : ''}${message.text || message.caption}`));
+      return;
+    }
     if (parseCommand(message.text)?.name === 'add') {
       await reply(env, await handleAdd(env, message.text));
       return;

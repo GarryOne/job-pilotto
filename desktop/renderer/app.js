@@ -1015,6 +1015,27 @@ $('applied-go').addEventListener('click', async event => {
   $('filter-status').value = 'applied';  // show it where it now is
   loadJobs();
 });
+// A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
+$('lead-open').addEventListener('click', () => {
+  message('lead-message', '');
+  $('lead-go').disabled = false;
+  $('lead-dialog').showModal();
+  $('lead-text').focus();
+});
+$('lead-go').addEventListener('click', async event => {
+  event.preventDefault();
+  const text = $('lead-text').value.trim();
+  if (text.length < 40) { message('lead-message', "Paste the recruiter's whole message (the role, company, salary…).", 'error'); return; }
+  $('lead-go').disabled = true;
+  message('lead-message', 'Claude is reading it and adding it to Notion…', 'waiting');
+  const result = await window.pilot.addLead(text, $('lead-talking').checked);
+  $('lead-go').disabled = false;
+  message('lead-message', result.text, result.ok ? 'ok' : 'error');
+  if (!result.ok) return;
+  $('lead-text').value = ''; $('lead-talking').checked = false;
+  $('filter-status').value = 'all';  // a lead is Saved, or Applied once you're talking: show both
+  loadJobs();
+});
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
 function setDensity(value) {
   const compact = value === 'compact';

@@ -81,6 +81,9 @@ test('Telegram actions run the same pipeline command as the GitHub workflow', ()
     ['src', 'daily', '--mode', 'apply', '--send', '--log-run', '--job', 'ab12cd34', '--action', 'saved']);
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'more', seed: 7, page: 2}),
     ['src', 'daily', '--mode', 'more', '--send', '--log-run', '--page', '2', '--seed', '7']);
+  // A recruiter's message: add mode without a job; already talking -> Screening.
+  assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'add', note: 'Hi, a remote SRE role…', talking: true}),
+    ['src', 'daily', '--mode', 'add', '--send', '--log-run', '--action', 'talking', '--note', 'Hi, a remote SRE role…']);
 });
 
 test('pairing waits for Start in a private chat, then greets the user', async () => {

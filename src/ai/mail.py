@@ -6,7 +6,9 @@ Each run (3 times a day by default, and 5 minutes after an application is marked
 1. **Gmail**: searches recent mail from applicant-tracking systems, recruiter platforms and booking
    tools, plus mail naming a tracked company or role. Claude Haiku 4.5 classifies each new email
    (confirmation, reply, interview scheduled, rejection, offer, or not about an application) and
-   matches it to an application. Matches become 📈 Application Events at the email's own time
+   matches it to an application. A recruiter pitching a new role ("Recruiter outreach") becomes a tracked
+   recruiter lead (src/ai/opportunity.py: Applications row at Stage Recruiter lead, the message in its page,
+   a Telegram line); their follow-ups then match it like any application. Matches become 📈 Application Events at the email's own time
    (Source Gmail, Source ID = message id, so an email is never logged twice), move Stage forward
    (never back), and fill Next interview when a time is stated. An event logged by hand for the same
    application, kind and day is linked to the email instead of duplicated.
@@ -34,7 +36,7 @@ from ..notion import client as notion, cron_runs
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
-from . import cost
+from . import cost, opportunity
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
@@ -45,10 +47,13 @@ SENDER_DOMAINS = ('greenhouse.io', 'greenhouse-mail.io', 'lever.co', 'ashbyhq.co
                   'join.com', 'bamboohr.com', 'jobvite.com', 'icims.com', 'techtree.dev', 'cal.com', 'calendly.com',
                   'goodtime.io', 'devskiller.com', 'thomas.co', 'hackerrank.com', 'codility.com', 'coderpad.io')
 SUBJECT_WORDS = ('application', 'applying', 'applied', 'interview', 'candidacy', 'your candidature', 'next steps',
-                 'screening', 'offer')
-KINDS = ['Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', 'Other']
+                 'screening', 'offer', 'opportunity', 'role', 'position', 'hiring')
+# LinkedIn's own notification emails for a new message or InMail (the owner's mail, not LinkedIn scraping).
+LINKEDIN_SENDERS = ('messages-noreply@linkedin.com', 'inmail-hit-reply@linkedin.com')
+OUTREACH = 'Recruiter outreach'
+KINDS = ['Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', OUTREACH, 'Other']
 # Stage order for "forward only": an email never moves an application back.
-RANK = {stage: i for i, stage in enumerate(('Applied', 'No response', 'Confirmation received', 'Screening',
+RANK = {stage: i for i, stage in enumerate((opportunity.LEAD_STAGE, 'Applied', 'No response', 'Confirmation received', 'Screening',
                                             'Interview scheduled', 'Interviewing', 'Offer'))}
 TERMINAL = {'Rejected', 'Withdrawn', 'Offer'}
 BATCH = 8
@@ -71,8 +76,9 @@ SCHEMA = {
 }
 
 SYSTEM = """You sort the job-search emails (and calendar events) of the owner of Job Pilotto. For each item:
-- relevant: true only when it is about one of the owner's own applications or hiring processes. Job alerts, \
-newsletters, marketing, "jobs you may like" and other people's mail are not relevant.
+- relevant: true only when it is about one of the owner's own applications or hiring processes, or a recruiter or \
+hiring person writes to the owner personally about a specific role. Automated job alerts, newsletters, marketing, \
+"jobs you may like" and other people's mail are not relevant.
 - application: the index of the matching application from the list, or -1 if none fits. When the owner applied \
 to several roles at one company, pick the one whose title the item names; if it names none, pick -1 unless only \
 one role at that company is open. Recruiter platforms (e.g. TechTree) may hide the employer: match on the \
@@ -81,6 +87,9 @@ platform ("Via") and role title.
 person or process answered without a time being fixed yet: an invitation to book or pick a slot, an assessment \
 or test link, a recruiter's message. "Interview scheduled" = a specific call or interview was booked for a stated \
 time (the booking confirmation or calendar invite itself). "Rejected" = not moving forward. "Offer" = an offer. \
+\
+"Recruiter outreach" = a recruiter or hiring person pitches the owner a role that isn't in the list (a first \
+message, or LinkedIn's notification of one); a follow-up about a role already in the list is "Reply received". \
 "Other" = relevant but none of these: reminders or "starting soon" notices for a call already booked, "still open" \
 nudges, transcripts or recordings of a call, security codes, logistics.
 - interview_at: only when a specific time is stated; ISO 8601 with offset (assume Europe/Zurich if none is given).
@@ -112,7 +121,7 @@ def save_state(state, path=STATE_FILE):
 def applications(tracker):
     """Applications that emails and events can belong to, oldest first (stable indexes)."""
     rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES]})
+        {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES + (opportunity.LEAD_STAGE,)]})
     return sorted(rows, key=lambda r: (plain(r['properties'].get('Applied on')) or '', r['id']))
 
 
@@ -123,13 +132,26 @@ def _field(row, name):
 def query(apps, days):
     """One Gmail search: known senders, application-ish subjects, or a tracked company's name."""
     names = {n for r in apps for n in (_field(r, 'Company'), _field(r, 'Via')) if n and len(n) > 2 and len(n) < 40}
-    terms = [f'from:{d}' for d in SENDER_DOMAINS] + [f'subject:"{w}"' for w in SUBJECT_WORDS] + [f'"{n}"' for n in sorted(names)]
+    terms = ([f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'subject:"{w}"' for w in SUBJECT_WORDS + role_words()]
+             + [f'"{n}"' for n in sorted(names)])
     return f'newer_than:{days}d -in:chats -in:spam -in:trash {{{" ".join(terms)}}}'
 
 
+def role_words():
+    """The user's own job-board searches ("site reliability engineer", "devops"): a recruiter's subject line
+    usually names the role."""
+    from ..paths import load_search_config
+    try:
+        queries = load_search_config().get('jobs_board_search_queries') or []
+    except (OSError, ValueError):
+        return ()
+    return tuple(q for q in queries if isinstance(q, str) and 2 < len(q) < 40 and '"' not in q)
+
+
 def listing(apps):
-    return '\n'.join(f"{i}. {_field(r, 'Company')} — {_field(r, 'Job')} (stage {_field(r, 'Stage')}"
-                     f"{', via ' + _field(r, 'Via') if _field(r, 'Via') else ''}, applied {_field(r, 'Applied on') or '?'})"
+    return '\n'.join(f"{i}. {_field(r, 'Company') or '(employer not named)'} — {_field(r, 'Job')} (stage {_field(r, 'Stage')}"
+                     f"{', via ' + _field(r, 'Via') if _field(r, 'Via') else ''}"
+                     f"{', recruiter ' + _field(r, 'Contact') if _field(r, 'Contact') else ''}, applied {_field(r, 'Applied on') or '?'})"
                      for i, r in enumerate(apps))
 
 
@@ -230,7 +252,7 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
     return stage or kind
 
 
-EMOJI = {'Confirmation received': '📬', REPLY: '💬', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•'}
+EMOJI = {'Confirmation received': '📬', REPLY: '💬', OUTREACH: '🤝', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•'}
 
 
 SHORT_KIND = {'Confirmation received': 'Application received'}
@@ -241,11 +263,16 @@ def _short(stats, kind, row, extra=''):
     if stats is not None:
         job = re.sub(r'\s*\|\s*Remote\s*$', '', _field(row, 'Job'))[:70]
         stats.setdefault('updates', []).append(
-            f"{EMOJI.get(kind, '•')} {SHORT_KIND.get(kind, kind)} · {_field(row, 'Company')} — {job}{extra}")
+            f"{EMOJI.get(kind, '•')} {SHORT_KIND.get(kind, kind)} · {_who(row)} — {job}{extra}")
+
+
+def _who(row):
+    """The employer, or for a recruiter lead with a hidden one, the agency."""
+    return _field(row, 'Company') or _field(row, 'Via') or _field(row, 'Contact').split(' · ')[0] or '?'
 
 
 def _label(row):
-    return f"{escape(_field(row, 'Company'))} — {escape(_field(row, 'Job'))[:60]}"
+    return f"{escape(_who(row))} — {escape(_field(row, 'Job'))[:60]}"
 
 
 def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None):
@@ -271,6 +298,11 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                          "for an interview review.")
         if not result.get('relevant') or result.get('kind') == 'Other':
             continue
+        if result.get('kind') == OUTREACH:
+            if not row:
+                lines += new_lead(tracker, client, model, email, apps, stats)
+                continue
+            result['kind'] = REPLY  # the same recruiter again, about a role already tracked
         if not row and not _about_tracked(apps, f"{result['company']} {email['from']} {email['subject']}"):
             lines.append(f"📧 {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
                          " — not tracked yet; /add its job URL to follow it.")
@@ -292,6 +324,29 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
             _short(stats, result['kind'], row, extra)
     return lines, len(emails)
+
+
+def new_lead(tracker, client, model, email, apps, stats):
+    """A recruiter's pitch -> a tracked recruiter lead (opportunity.track); lines for Telegram."""
+    text = f"Subject: {email['subject']}\n\n{email['body']}"
+    try:
+        lead = opportunity.extract(client, model, text, sender=email['from'], stats=stats)
+    except Exception as error:  # noqa: BLE001 — one unreadable email must not stop the check
+        print(f"Warning: recruiter email {email['id']} not read: {type(error).__name__}: {error}", file=sys.stderr)
+        return []
+    if not lead.get('is_opportunity'):
+        return []
+    row, _ = opportunity.track(tracker, lead, text, source='Gmail', event_source='Gmail', at=email['date'],
+                               gmail_id=email['id'], note=f"Recruiter email: \"{email['subject'][:120]}\"")
+    if not row:
+        return []
+    apps.append(row)  # a second email in this batch about the same role matches it
+    if stats is not None:
+        stats.setdefault('updates', []).append(f"🤝 Recruiter lead · {opportunity.label(lead)}"[:140])
+    link = (f"\n<a href=\"{escape(row['url'], quote=True)}\">In Notion</a> — set Stage to Screening once you reply"
+            if row.get('url') else '')
+    return [f"🤝 New recruiter lead: <b>{escape(opportunity.label(lead))}</b>"
+            + (f" · {escape(lead['salary'])}" if lead.get('salary') else '') + link]
 
 
 def _contact_names(row):

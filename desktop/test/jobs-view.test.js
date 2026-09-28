@@ -94,4 +94,5 @@ test('an application shows its Notion Stage, e.g. Rejected rather than Applied',
   assert.deepEqual(statusPill({status: 'applied', stage: 'Applied'}), {label: 'Applied', tone: 'good'});
   assert.deepEqual(statusPill({status: 'applied'}), {label: 'Applied', tone: 'good'});
   assert.deepEqual(statusPill({status: 'unreviewed'}), {label: 'New', tone: 'info'});
+  assert.deepEqual(statusPill({status: 'saved', stage: 'Recruiter lead'}), {label: 'Recruiter lead', tone: 'signal'});
 });
