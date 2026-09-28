@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'worker/src/report.js'   # the site serves the app's form reports with it
       - '.github/workflows/site.yml'
   workflow_dispatch:
 

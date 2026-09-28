@@ -16,4 +16,5 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # Connect with Notion (Notion public connection "Job Pilotto"). The secret: npx wrangler@4 secret put NOTION_CLIENT_SECRET
 # The session tokens live 10 minutes in the WAITLIST namespace under "notion:<hash>".
 [vars]
+GITHUB_REPO = "GarryOne/job-pilotto"   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
 NOTION_CLIENT_ID = ""

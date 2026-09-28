@@ -3,6 +3,7 @@
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
 import * as notion from './notion.js';
+import {handleReport} from '../../worker/src/report.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PER_HOUR = 10;  // sign-ups accepted from one address per hour
@@ -35,9 +36,21 @@ export async function waitlist(request, env) {
   return json(200, {ok: true});
 }
 
+// Form-structure reports from every Job Pilotto app (desktop/lib/reports.js; worker/src/report.js checks them):
+// they start the public repo's intake workflow. Secrets GITHUB_TOKEN (dispatch) and REPORT_TOKEN (the owner's
+// app, trusted); GITHUB_REPO in wrangler.toml.
+export async function dispatch(env, inputs, workflow, fetcher = fetch) {
+  const response = await fetcher(`https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${workflow}/dispatches`, {
+    method: 'POST', body: JSON.stringify({ref: 'main', inputs}),
+    headers: {Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'job-pilotto-site',
+      'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'}});
+  if (response.status !== 204) throw new Error(`GitHub dispatch failed: ${response.status}`);
+}
+
 export default {
   async fetch(request, env) {
     const {pathname} = new URL(request.url);
+    if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/api/waitlist') return waitlist(request, env);
     if (pathname === '/api/notion/start') return notion.start(request, env);
     if (pathname === notion.CALLBACK) return notion.callback(request, env);
