@@ -44,5 +44,12 @@ export function avatar(company) {
   return {initials, hue: HUES[hash % HUES.length]};
 }
 
+// The work-mode chip: one word for the mode the source names ("Remote (stated)" reads Remote), else its own wording.
+const MODES = [['remote', 'Remote', /remote/i], ['hybrid', 'Hybrid', /hybrid/i], ['onsite', 'On-site', /on.?site/i]];
+export function workMode(text) {
+  const [kind, label] = MODES.find(([, , pattern]) => pattern.test(text || '')) || ['', String(text || '')];
+  return {kind, label};
+}
+
 // Fit ring colour band.
 export const band = fit => (fit == null ? 'none' : fit >= 70 ? 'high' : fit >= 50 ? 'mid' : 'low');

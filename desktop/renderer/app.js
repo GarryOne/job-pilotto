@@ -1,6 +1,6 @@
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {avatar, band, sorted, stats, tags} from './jobs-view.js';
+import {avatar, band, sorted, stats, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
@@ -521,7 +521,8 @@ function renderJobs() {
     if (job.location) { const line = el('div', 'place-line'); line.append(icon('pin'), el('span', '', job.location)); place.append(line); }
     if (job.work_mode) {
       const line = el('div', 'place-line');
-      line.append(icon('globe'), el('span', `mode ${job.work_mode.toLowerCase().replace(/[^a-z]/g, '')}`, job.work_mode));
+      const mode = workMode(job.work_mode);
+      line.append(icon('globe'), Object.assign(el('span', `mode ${mode.kind}`, mode.label), {title: job.work_mode}));
       place.append(line);
     }
 

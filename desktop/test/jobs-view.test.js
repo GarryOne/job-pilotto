@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {avatar, band, sorted, stats, tags} from '../renderer/jobs-view.js';
+import {avatar, band, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
 
 test('tags come from the title and fit summary, at most four, no false "Go"', () => {
   assert.deepEqual(tags({title: 'Senior SRE', reason: 'Kubernetes on AWS, OpenTelemetry rollout'}), ['SRE', 'OpenTelemetry', 'Kubernetes', 'AWS']);
@@ -35,4 +35,11 @@ test('company badges: initials and a stable colour; fit bands', () => {
   assert.equal(avatar('').initials, '?');
   assert.equal(avatar('Acme').hue, avatar('Acme').hue);
   assert.deepEqual([band(null), band(85), band(70), band(55), band(10)], ['none', 'high', 'high', 'mid', 'low']);
+});
+
+test('work-mode chip: one word for a known mode, the source wording otherwise', () => {
+  assert.deepEqual(workMode('Remote (stated)'), {kind: 'remote', label: 'Remote'});
+  assert.deepEqual(workMode('Hybrid'), {kind: 'hybrid', label: 'Hybrid'});
+  assert.deepEqual(workMode('On site'), {kind: 'onsite', label: 'On-site'});
+  assert.deepEqual(workMode('Flexible'), {kind: '', label: 'Flexible'});
 });

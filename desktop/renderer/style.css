@@ -339,7 +339,7 @@ button.with-icon .icon { width: 17px; height: 17px; }
 .toolbar select { width: 170px; padding-top: 11px; padding-bottom: 11px; border-color: var(--line); border-radius: 10px; }
 
 /* The list: a header row, then one card per job, on one shared grid */
-.job-list-head, .job-row { display: grid; grid-template-columns: 54px minmax(0, 2.3fr) minmax(0, 1fr) minmax(0, 1.15fr) 92px 176px; gap: 14px; align-items: start; }
+.job-list-head, .job-row { display: grid; grid-template-columns: 54px minmax(0, 2fr) minmax(0, 1.25fr) minmax(0, 1.15fr) 80px 200px; gap: 16px; align-items: start; }
 .job-list-head { padding: 0 16px 8px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .job-list { display: grid; gap: 10px; }
 .job-row { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; transition: border-color .15s, box-shadow .15s; }
@@ -362,13 +362,14 @@ button.tag { cursor: pointer; }
 .link-tag:hover { border-color: var(--signal); }
 .busy-note { background: #fff; color: var(--muted); border-style: dashed; animation: pulse 1.2s ease-in-out infinite; }
 .company { display: flex; align-items: center; gap: 10px; min-height: 34px; }
-.company .name { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
+.company .name { font-weight: 600; font-size: 14.5px; line-height: 1.25; min-width: 0; overflow-wrap: break-word; }
 .logo { --hue: 200; width: 34px; height: 34px; flex: none; border-radius: 8px; display: grid; place-items: center; font: 700 13px -apple-system, sans-serif;
   color: hsl(var(--hue) 65% 36%); background: hsl(var(--hue) 70% 94%); border: 1px solid hsl(var(--hue) 50% 86%); }
 .place { display: grid; gap: 6px; padding-top: 6px; font-size: 13.5px; }
-.place-line { display: flex; align-items: center; gap: 8px; }
-.place-line .icon { width: 16px; height: 16px; color: var(--muted); }
-.mode { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--sky); color: var(--muted); }
+.place-line { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.place-line .icon { width: 16px; height: 16px; color: var(--muted); margin-top: 2px; }
+.mode { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--sky); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .mode.remote { background: #e3f4ea; color: var(--good); }
 .mode.hybrid { background: #e8f0fb; color: #2563b0; }
 .status-cell { padding-top: 6px; display: grid; justify-items: start; gap: 6px; }
@@ -377,7 +378,7 @@ button.tag { cursor: pointer; }
 .status.dismissed { color: var(--muted); }
 .badge-ineligible { margin-top: 0; }
 .row-actions { flex-wrap: nowrap; gap: 8px; padding-top: 2px; justify-content: flex-end; }
-.row-actions .row-main { width: 8.6em; padding: 10px 8px; font-size: 14px; }
+.row-actions .row-main { width: 10.8em; padding: 10px 8px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
 .row-actions .state-prepare { background: var(--signal); color: #fff; border-color: var(--signal); }
 .row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
 .more { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; color: var(--ink); }
