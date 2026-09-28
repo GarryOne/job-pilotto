@@ -12,12 +12,16 @@ Before each crawl (`python -m src daily|discover|scout|feeds`) the page is read 
 config/search.json and config/preferences.json, which are only a cache of it (the code reads those files).
 A heading that's missing keeps the cached value; a heading with no bullets means "none".
 
-Matching entries (roles, titles, skills, places, regions, discovery words) are whole words, case- and
-accent-insensitive: "zürich" also matches "Zurich". An entry written /like this/ is a regular expression,
-for the rare case plain words aren't enough.
+Matching entries (roles, titles, skills, places, regions, discovery words) match anywhere in the text, any
+case, with or without accents, exactly like the cached regex fragments: "entwickler" also matches
+"Softwareentwickler", "zürich" also matches "Zurich". "In quotes" means a whole word only ("sre" does not
+match "Srebrenica"). /Like this/ is a regular expression. Rendering and parsing are exact inverses, so the
+page never changes what a search matches. Pages written before this format (no "Format 2" in the intro)
+treated every plain entry as a whole word; they are still read that way until `upgrade` rewrites them.
 
     python -m src.notion.search_settings render   # the page as markdown, from the cached files (to create it)
     python -m src.notion.search_settings sync     # Notion page -> cached files (what __main__ runs)
+    python -m src.notion.search_settings upgrade  # an older page -> this format (prints the new page, or nothing)
 """
 import json
 import os
@@ -28,8 +32,10 @@ from ..paths import CONFIG
 
 PAGE_ID = os.getenv('NOTION_SEARCH_SETTINGS_PAGE', '')
 TITLE = '⚙️ Search settings'
+FORMAT = 'Format 2'
 INTRO = ('What Job Pilotto looks for. Edit freely: one entry per bullet; the next search uses your changes. '
-         'Words match whole words, any case, with or without accents. Write /…/ for a regular expression.')
+         'A word matches anywhere, any case, with or without accents ("entwickler" also finds "Softwareentwickler"). '
+         '"In quotes" = whole word only. /…/ = a regular expression. ' + FORMAT + '.')
 
 # (heading, file, path in that file, kind): 'match' entries become regex fragments; 'text' are used as written;
 # 'number' is one number; 'place' is "Location · language" for Google Jobs.
@@ -49,21 +55,41 @@ SECTIONS = [
     ('Google Jobs searches', 'search', ('google_jobs', 'queries'), 'text'),
     ('Google Jobs places', 'search', ('google_jobs', 'locations'), 'place'),
 ]
-ACCENTS = {'u': 'ü', 'o': 'ö', 'a': 'ä', 'e': 'é'}
+ACCENTS = {'u': 'ü', 'o': 'ö', 'a': 'ä'}  # Swiss German umlauts: "zürich" also finds "Zurich"
 META = set('\\^$.|?*+()[]{}')
 
 
-def readable(fragment):
-    """A regex fragment as a plain entry when it is just words ("\\bsre\\b" -> "sre", "z[uü]rich" -> "zürich"),
-    else as /fragment/."""
-    plain = fragment.replace('\\b', '')  # whole words are the default
+def _accents_to_plain(text):
     for base, accent in ACCENTS.items():
-        plain = plain.replace(f'[{base}{accent}]', accent).replace(f'[{accent}{base}]', accent)
-    return plain if not META & set(plain) else f'/{fragment}/'
+        text = text.replace(f'[{base}{accent}]', accent).replace(f'[{accent}{base}]', accent)
+    return text
 
 
-def fragment(entry):
-    """A plain entry as a whole-word, accent-insensitive regex fragment; /…/ entries as written."""
+def readable(fragment):
+    """A regex fragment as the page shows it, exactly reversible by fragment():
+    "site reliability" -> site reliability, "z[uü]rich" -> zürich, "\\bsre\\b" -> "sre", else /fragment/."""
+    whole = re.fullmatch(r'\\b(.+)\\b', fragment)
+    inner = _accents_to_plain(whole.group(1) if whole else fragment)
+    if META & set(inner) or '"' in inner or inner != inner.strip() or not inner:
+        return f'/{fragment}/'
+    entry = f'"{inner}"' if whole else inner
+    return entry if fragment_of(entry) == fragment else f'/{fragment}/'
+
+
+def fragment_of(entry):
+    """Page entry -> regex fragment: plain = anywhere; "quoted" = whole word; /…/ = as written."""
+    entry = entry.strip()
+    if len(entry) > 2 and entry.startswith('/') and entry.endswith('/'):
+        return entry[1:-1]
+    quoted = len(entry) > 2 and entry.startswith('"') and entry.endswith('"')
+    text = ''.join('\\' + c if c in META else c for c in (entry[1:-1] if quoted else entry))
+    for base, accent in ACCENTS.items():
+        text = text.replace(accent, f'[{base}{accent}]')
+    return rf'\b{text}\b' if quoted else text
+
+
+def fragment_v1(entry):
+    """How pages without "Format 2" were read: a plain entry was a whole word."""
     entry = entry.strip()
     if len(entry) > 2 and entry.startswith('/') and entry.endswith('/'):
         return entry[1:-1]
@@ -73,6 +99,15 @@ def fragment(entry):
     start = r'\b' if re.match(r'\w', entry) else ''
     end = r'\b' if re.search(r'\w$', entry) else ''
     return f'{start}{text}{end}'
+
+
+fragment = fragment_of
+
+
+def readable_v1(fragment):
+    """How the first page format showed a fragment (every plain entry read as a whole word)."""
+    plain = _accents_to_plain(fragment.replace('\\b', ''))
+    return plain if not META & set(plain) else f'/{fragment}/'
 
 
 def _get(data, path):
@@ -92,10 +127,11 @@ def load_cached():
     return {'search': read('search'), 'preferences': read('preferences')}
 
 
-def render(files=None):
+def render(files=None, show=None, intro=None):
     """The page body as markdown (headings and bullets), from the cached settings."""
     files = files or load_cached()
-    out = [INTRO, '']
+    show = show or readable
+    out = [intro or INTRO, '']
     for heading, name, path, kind in SECTIONS:
         value = _get(files[name], path)
         if value is None:
@@ -106,13 +142,15 @@ def render(files=None):
         elif kind == 'place':
             out += [f"- {p['location']} · {p.get('language', '')}".rstrip(' ·') for p in value]
         else:
-            out += [f'- {readable(v) if kind == "match" else v}' for v in value]
+            out += [f'- {show(v) if kind == "match" else v}' for v in value]
         out.append('')
     return '\n'.join(out).strip() + '\n'
 
 
-def parse(text):
-    """Page text (as Tracker.page_text gives it: "## Heading" and "- entry" lines) -> {(file, path): value}."""
+def parse(text, to_fragment=None):
+    """Page text (as Tracker.page_text gives it: "## Heading" and "- entry" lines) -> {(file, path): value}.
+    A page without "Format 2" is read with the older whole-word rule, so its meaning never changes silently."""
+    to_fragment = to_fragment or (fragment_of if FORMAT in text else fragment_v1)
     by_heading = {heading.lower(): (name, path, kind) for heading, name, path, kind in SECTIONS}
     found, current = {}, None
     for line in text.splitlines():
@@ -138,7 +176,7 @@ def parse(text):
                 places.append({'location': location.strip(), **({'language': language.strip()} if language.strip() else {})})
             values[(name, path)] = places
         elif kind == 'match':
-            values[(name, path)] = [fragment(entry) for entry in entries]
+            values[(name, path)] = [to_fragment(entry) for entry in entries]
         else:
             values[(name, path)] = entries
     return values
@@ -164,10 +202,34 @@ def sync(tracker=None, page_id=PAGE_ID):
         tracker = Tracker.from_env()
     if not tracker:
         return False
-    values = parse(tracker.page_text(page_id))
+    text = tracker.page_text(page_id)
+    if FORMAT not in text:  # first format: wait for `upgrade` (the app runs it) so no meaning changes silently
+        print('Search settings: the Notion page is in the older format; using the last copy until the app updates it.')
+        return False
+    values = parse(text)
     if values:
         apply(values)
     return bool(values)
+
+
+def upgrade(tracker=None, page_id=PAGE_ID):
+    """A page in the first format -> the new page text (None when it's already current). Unedited (it still
+    shows exactly what the cache holds): rebuilt from the cache, so every entry keeps its exact meaning.
+    Edited: the edits are taken as they were read (whole words), written to the cache, then re-rendered."""
+    if not page_id:
+        return None
+    if tracker is None:
+        from .client import Tracker
+        tracker = Tracker.from_env()
+    text = tracker.page_text(page_id)
+    if FORMAT in text:
+        return None
+    cached = load_cached()
+    as_shown = parse(render(cached, show=readable_v1, intro='(first format)'), fragment_v1)
+    on_page = parse(text, fragment_v1)
+    if on_page != {key: value for key, value in as_shown.items() if key in on_page}:
+        cached = apply(on_page, cached)
+    return render(cached)
 
 
 def sync_quietly():
@@ -181,6 +243,8 @@ def main(argv=None):
     command = (argv or sys.argv[1:] or ['render'])[0]
     if command == 'render':
         sys.stdout.write(render())
+    elif command == 'upgrade':
+        sys.stdout.write(upgrade() or '')
     elif command == 'sync':
         print('Search settings read from Notion.' if sync() else 'No Notion search settings page; nothing to read.')
     return 0

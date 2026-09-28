@@ -30,6 +30,17 @@ export const STEPS = [
     if (storage.settings().notionIds?.NOTION_SEARCH_SETTINGS_PAGE) return false;
     return !!await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
   }},
+  // A Search settings page in the first format (plain entry = whole word) -> the exact format; untouched
+  // pages are rebuilt from the cache (same meaning as before), edits are kept (src/notion/search_settings.py).
+  {name: 'search settings format', run: async storage => {
+    const page = storage.settings().notionIds?.NOTION_SEARCH_SETTINGS_PAGE;
+    if (!page) return false;
+    const {code, stdout} = await pipeline.run(storage, ['src.notion.search_settings', 'upgrade']);
+    if (code !== 0) throw new Error('could not read the Search settings page');
+    if (!stdout.trim()) return false;
+    await notion.writePage(storage.secret('NOTION_TOKEN'), page, stdout);
+    return true;
+  }},
   // Open questions -> ❓ lines of the standard answers page (skipping ones already there).
   {name: 'open questions', run: async (storage, fetcher) => {
     const open = storage.settings().openQuestions;
