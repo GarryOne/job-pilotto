@@ -127,16 +127,56 @@ export function serial(task) {
 
 // Find new jobs: job boards, then employer feeds + Google Jobs, AI facts and fit scores (with a key),
 // and the Telegram digest (when connected). mode 'scheduled' sends only when there's something new.
-// Past runs for the Runs screen (newest first, last 50): when, why, what came out, and the log.
+// Past runs for the activity bar (newest first, last 50): what (kind: 'search' when absent, or 'mail'),
+// when, why, what came out, and the log.
 export const RUN_HISTORY = 50;
 export function runs(storage) { try { return JSON.parse(storage.readText('runs.json')) || []; } catch { return []; } }
 let current = null;
 export const running = () => current;
 
 export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
+  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode), record => {
+    let summary = {};
+    try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
+    const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
+    return fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
+      scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {};
+  });
+}
+
+// Gmail and Calendar check (src/ai/mail.py): confirmations, replies, rejections and interviews -> Notion.
+// `updates` = what it recorded (the lines it prints under "Updates:"), shown in the app and the notification.
+export function mailArgs(storage, now = Date.now()) {
+  const settings = storage.settings();
+  const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && settings.telegramChatId);
+  // Look back far enough to cover the time since the last check (the Mac may have been off), 2 to 14 days.
+  const since = settings.lastMailOkAt ? (now - Date.parse(settings.lastMailOkAt)) / 86400000 : 0;
+  const days = Math.min(14, Math.max(2, Math.ceil(since) + 1));
+  return ['src.ai.mail', '--days', String(days), ...(telegram ? ['--send'] : [])];
+}
+export function checkMail(storage, onLine, trigger = 'you') {
+  let off = false;
+  return tracked(storage, 'mail', trigger, onLine, async tee => {
+    const {code, stdout} = await run(storage, mailArgs(storage), tee);
+    off = /Gmail \+ Calendar is off/.test(stdout);
+    // lastMailAt paces the schedule (a failed or "not connected" check waits for the next time too);
+    // lastMailOkAt sets how far back the next check looks.
+    const at = new Date().toISOString();
+    storage.saveSettings({lastMailAt: at, ...(code === 0 && !off ? {lastMailOkAt: at} : {})});
+    return {ok: code === 0};
+  }, (record, log) => {
+    const start = log.indexOf('Updates:');
+    const updates = start < 0 ? [] : log.slice(start + 1).filter(line => /^\S/.test(line) && !/^Mail: /.test(line));
+    return {off, updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
+  });
+}
+
+// One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
+// runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
+function tracked(storage, kind, trigger, onLine, work, summarize) {
   return serial(async () => {
     const log = [];
-    const record = {id: Date.now(), trigger, startedAt: new Date().toISOString()};
+    const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
     current = {...record, step: 'Starting'};
     const tee = line => {
       log.push(line);
@@ -145,16 +185,11 @@ export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
     };
     let ok = false;
     try {
-      ok = (await searchOnce(storage, tee, mode)).ok;
+      ok = (await work(tee)).ok;
     } catch (error) {
-      tee(`Search failed: ${error.message}`);
+      tee(`${kind === 'mail' ? 'Gmail check' : 'Search'} failed: ${error.message}`);
     } finally {
-      let summary = {};
-      try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
-      const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
-      Object.assign(record, {endedAt: new Date().toISOString(), ok, log: log.slice(-400),
-        ...(fresh ? {found: summary.jobs ?? null, new: summary.new ?? 0, changed: summary.changed ?? 0,
-          scored: summary.score?.done ?? summary.score?.scored ?? null, usd: summary.usd ?? 0, warnings: summary.warnings || []} : {})});
+      Object.assign(record, {endedAt: new Date().toISOString(), ok, log: log.slice(-400), ...summarize(record, log)});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
     }

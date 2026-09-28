@@ -1,5 +1,5 @@
 // Searches on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
-import {cadence} from './cadence.js';
+import {cadence, MAIL_HOURS} from './cadence.js';
 
 export const EVERY_HOURS = 4;  // default; the user picks it in Settings → How often
 
@@ -19,16 +19,42 @@ export function due(settings, now = Date.now()) {
   return next != null && now >= next;
 }
 
-// soon() is called a minute before a scheduled search starts (for the "starting soon" notification).
-export function startSchedule(storage, search, powerMonitor, {soon = () => {}, headsUp = HEADS_UP_MS, firstCheck = 30 * 1000} = {}) {
+// The next Gmail check (ms): the first of the chosen times of day (Settings → How often, this Mac's time
+// zone) after the last check; in the past = due now. The first one runs soon after setup. null when off
+// or when the cloud does it.
+export function nextMailAt(settings, now = Date.now()) {
+  if (!settings.setupDone || settings.cloud?.repo) return null;
+  const hours = MAIL_HOURS[cadence(settings).mail];
+  if (!hours) return null;
+  const last = settings.lastMailAt ? Date.parse(settings.lastMailAt) : 0;
+  const slots = [];
+  for (let day = -1; day <= 2; day++) {
+    for (const hour of hours) {
+      const at = new Date(now);
+      at.setDate(at.getDate() + day);
+      at.setHours(hour, 0, 0, 0);
+      slots.push(at.getTime());
+    }
+  }
+  return slots.sort((a, b) => a - b).find(at => at > last);
+}
+export const mailDue = (settings, now = Date.now()) => { const next = nextMailAt(settings, now); return next != null && now >= next; };
+
+// Every 10 minutes (and after waking): a due search, announced by soon() a minute before it starts;
+// otherwise a due Gmail check (quick, so no announcement; the app notifies when it finds something).
+export function startSchedule(storage, {search, mail = async () => {}}, powerMonitor,
+  {soon = () => {}, headsUp = HEADS_UP_MS, firstCheck = 30 * 1000} = {}) {
   let busy = false;
   const check = async () => {
-    if (busy || !due(storage.settings())) return;
+    if (busy) return;
     busy = true;
     try {
-      soon();
-      await new Promise(resolve => setTimeout(resolve, headsUp));
-      if (due(storage.settings())) await search();  // skipped if the user searched meanwhile or switched it off
+      if (due(storage.settings())) {
+        soon();
+        await new Promise(resolve => setTimeout(resolve, headsUp));
+        if (due(storage.settings())) await search();  // skipped if the user searched meanwhile or switched it off
+      }
+      if (mailDue(storage.settings())) await mail();
     } finally { busy = false; }
   };
   const timer = setInterval(check, 10 * 60 * 1000);

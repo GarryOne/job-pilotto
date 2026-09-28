@@ -44,9 +44,12 @@ export async function pair(token, seconds = 120, fetcher) {
 // Inputs from a button or command -> the pipeline, in the background (Telegram gets its reply now).
 export function localDispatch(storage, onLine = () => {}) {
   return async (inputs, workflow) => {
+    if (workflow === 'mail.yml') {  // tracked like a scheduled check, so the activity bar shows it
+      pipeline.checkMail(storage, onLine, 'you').catch(error => onLine(`Gmail check failed: ${error.message}`));
+      return;
+    }
     let args;
-    if (workflow === 'mail.yml') args = ['src.ai.mail', '--send', '--days', String(inputs.days || 2)];
-    else if (workflow === 'scout.yml') args = ['src', 'scout', '--send', '--batch', String(inputs.batch || 15)];
+    if (workflow === 'scout.yml') args = ['src', 'scout', '--send', '--batch', String(inputs.batch || 15)];
     else args = pipeline.dailyArgs(storage, inputs);
     const crawl = ['scheduled', 'run'].includes(inputs.mode);
     const task = () => pipeline.run(storage, args, onLine);

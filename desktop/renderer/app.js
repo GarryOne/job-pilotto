@@ -125,10 +125,11 @@ const duration = (a, b) => { const s = Math.round((Date.parse(b) - Date.parse(a)
 async function showSearchStatus() {
   const {running, lastSearchAt, runs} = await window.pilot.runs();
   const line = $('search-status');
-  line.classList.toggle('busy', !!running);
-  if (running) { line.textContent = `Searching now (${TRIGGER[running.trigger] || running.trigger}): ${running.step}`; return; }
+  const searching = running && (running.kind || 'search') === 'search';
+  line.classList.toggle('busy', !!searching);
+  if (searching) { line.textContent = `Searching now (${TRIGGER[running.trigger] || running.trigger}): ${running.step}`; return; }
   if (!lastSearchAt) { line.textContent = 'No search yet.'; return; }
-  const last = runs[0];
+  const last = runs.find(run => (run.kind || 'search') === 'search');
   line.textContent = `Last search ${clockTime(lastSearchAt)}${last?.new != null ? ` · ${last.new} new` : ''}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
 }
 
@@ -138,41 +139,99 @@ const PHASES = [
   {match: /^Searching job boards/, label: 'Job boards (jobs.ch, TechTree)'},
   {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
 ];
-let logLines = [];  // this session's live log; when empty, the panel shows the last run's saved log
+const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}};
+const kindOf = run => run?.kind || 'search';
+const WHO = {schedule: 'scheduled', you: 'started by you', first: 'first search'};
+let logLines = [];      // the running task's lines, live
+let idleSeen = true;    // nothing was running at the last check: the next log line starts a new task
+let selectedRun = null; // id of the past run picked in "Recent activity"; null = the latest
+let lastActivity = null;
 function phaseIndex(lines) {
   let index = -1;
   lines.forEach(line => PHASES.forEach((phase, i) => { if (phase.match.test(line)) index = i; }));
   return index;
 }
-function renderActivity({running, runs, nextSearchAt}) {
+const hhmm = ms => new Date(ms).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// One line on what a finished run did.
+function outcome(run) {
+  if (kindOf(run) === 'mail') {
+    if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
+    if (!run.ok) return 'had problems';
+    return run.updates?.length ? plural(run.updates.length, 'application update') : 'nothing new';
+  }
+  if (!run.ok) return 'had problems';
+  return run.new != null ? plural(run.new, 'new job') : 'done';
+}
+function renderActivity(data) {
+  lastActivity = data;
+  const {running, runs, nextSearchAt, nextMailAt} = data;
+  if (!running) idleSeen = true;
   const last = runs[0];
-  const lines = logLines.length || running ? logLines : (last?.log || []);
-  const state = running ? 'busy' : last && !last.ok ? 'error' : last ? 'ok' : 'idle';
-  $('activity').dataset.state = state;
-  const checked = lines.filter(line => /^Checked: /.test(line)).length;
-  const next = nextSearchAt ? `Next search ${clockTime(new Date(nextSearchAt).toISOString())}` : 'Searches only when you ask';
+  const lastSearch = runs.find(run => kindOf(run) === 'search');
+  const lastMail = runs.find(run => kindOf(run) === 'mail');
+  $('activity').dataset.state = running ? 'busy' : last && (!last.ok || last.off) ? 'error' : last ? 'ok' : 'idle';
+  const liveLines = running ? logLines : null;
+  const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
+  const mailNote = lastMail ? `📧 Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
+    : nextMailAt ? `📧 First Gmail check ${hhmm(nextMailAt)}` : '';
   if (running) {
-    const who = running.trigger === 'schedule' ? 'Scheduled search' : running.trigger === 'first' ? 'First search' : 'Search you started';
-    $('activity-title').textContent = `${who} running`;
+    const kind = KIND[kindOf(running)];
+    $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger})`;
     $('activity-step').textContent = running.step || 'Starting…';
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
-  } else if (last) {
-    $('activity-title').textContent = last.ok ? 'Last search done' : 'Last search had problems';
-    $('activity-step').textContent = `${clockTime(last.endedAt || last.startedAt)}${last.new != null ? ` · ${last.new} new job${last.new === 1 ? '' : 's'}` : ''}` +
-      (last.ok ? '' : ' · click to see why');
-    $('activity-meta').textContent = next;
+  } else if (lastSearch || lastMail) {
+    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last search done' : 'Last search had problems') : 'No search yet';
+    $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
+      (lastSearch.ok ? '' : ' · click to see why') : '';
+    $('activity-meta').textContent = [mailNote, nextSearchAt && `Next search ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
     $('activity-title').textContent = 'No search yet';
     $('activity-step').textContent = 'Click "Find new jobs" to start one.';
-    $('activity-meta').textContent = next;
+    $('activity-meta').textContent = mailNote;
   }
-  // Phase checklist: done ✓, now ●, later ○.
-  const at = phaseIndex(lines);
-  $('activity-phases').replaceChildren(...PHASES.map((phase, i) => {
-    const status = i < at || (i === at && !running) ? 'done' : i === at ? 'now' : 'todo';
-    return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
+
+  // Recent activity: newest first; click one to see its log below.
+  const shown = runs.find(run => run.id === selectedRun) || null;
+  $('activity-recent').replaceChildren(...(running ? [{...running, live: true}] : []).concat(runs.slice(0, 8)).map(run => {
+    const item = document.createElement('li');
+    const button = Object.assign(document.createElement('button'), {type: 'button', className: 'recent-row'});
+    button.classList.toggle('current', run.live ? !shown : shown ? run.id === shown.id : run === last && !running);
+    button.dataset.state = run.live ? 'busy' : run.ok && !run.off ? 'ok' : 'error';
+    const kind = KIND[kindOf(run)];
+    button.append(Object.assign(document.createElement('span'), {className: 'activity-dot'}),
+      Object.assign(document.createElement('span'), {textContent: `${kind.icon} ${kind.name}`}),
+      Object.assign(document.createElement('span'), {className: 'muted', textContent: run.live ? 'running now' : `${clockTime(run.endedAt || run.startedAt)} · ${outcome(run)}`}),
+      Object.assign(document.createElement('small'), {className: 'muted', textContent: WHO[run.trigger] || run.trigger}));
+    button.addEventListener('click', () => { selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
+    item.append(button);
+    return item;
   }));
-  show($('activity-phases'), at >= 0);
+  if (!runs.length && !running) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted', textContent: 'Nothing has run yet.'}));
+
+  // How often: from Settings → How often (the cloud does it when "Keep working while my Mac is off" is on).
+  const cloud = !!state?.settings?.cloud?.repo;
+  $('activity-schedule').replaceChildren(...[
+    cloud ? '☁️ Runs in your GitHub repo, even with the Mac off' : null,
+    `🔎 Next search: ${nextSearchAt ? clockTime(new Date(nextSearchAt).toISOString()) : cloud ? 'in the cloud' : 'only when you ask'}`,
+    `📧 Next Gmail check: ${nextMailAt ? clockTime(new Date(nextMailAt).toISOString()) : cloud ? 'in the cloud' : 'off'}`,
+  ].filter(Boolean).map(text => Object.assign(document.createElement('li'), {textContent: text})));
+
+  // The selected run (or the live / latest one): what it did, its phases, and its full log.
+  const run = shown || (running ? {...running, live: true} : last);
+  const lines = shown ? shown.log || [] : liveLines || last?.log || [];
+  const kind = run ? KIND[kindOf(run)] : null;
+  $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name}, running now` :
+    `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} (${WHO[run.trigger] || run.trigger}) · ${outcome(run)}`;
+  const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
+  const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
+  const live = !!run?.live;
+  $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
+    : PHASES.map((phase, i) => {
+      const status = i < at || (i === at && !live) ? 'done' : i === at ? 'now' : 'todo';
+      return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
+    })));
+  show($('activity-phases'), updates.length > 0 || at >= 0);
   const log = $('log');
   const text = lines.join('\n') || 'Nothing to show yet.';
   if (log.textContent !== text) {
@@ -181,6 +240,17 @@ function renderActivity({running, runs, nextSearchAt}) {
     if (atBottom) log.scrollTop = log.scrollHeight;  // follow new lines unless the user scrolled up to read
   }
 }
+$('check-mail').addEventListener('click', async () => {
+  $('check-mail').disabled = true;
+  selectedRun = null;
+  try {
+    const result = await window.pilot.checkMail();
+    if (result.cloud) toastMessage('Gmail check started in your GitHub repo', 'Results arrive in Notion and Telegram in a few minutes.');
+  } finally {
+    $('check-mail').disabled = false;
+    refreshActivity();
+  }
+});
 // Re-render soon (log lines arrive in bursts; one read of the run state per burst).
 let activityTimer = null;
 function refreshActivity() {
@@ -528,17 +598,16 @@ async function loadJobs() {
 }
 
 window.pilot.onLog(line => {
-  if (/^Searching job boards/.test(line)) logLines = [];  // a new search starts a fresh log
+  if (idleSeen || /^Searching job boards/.test(line)) { logLines = []; idleSeen = false; selectedRun = null; }
   logLines.push(line);
   refreshActivity();
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
   $('refresh').textContent = 'Searching…';
-  logLines = [];
+  selectedRun = null;
   try {
-    const result = await window.pilot.refresh();
-    logLines.push('', result.ok ? 'Done.' : 'Finished with problems; see above.');
+    await window.pilot.refresh();
   } finally {
     $('refresh').disabled = false;
     $('refresh').textContent = 'Find new jobs';
@@ -871,7 +940,9 @@ if (state.settings.setupDone) { show($('app')); loadJobs(); } else {
 }
 
 // In-window notifications (when macOS blocks system ones).
-window.pilot.onToast(({title, body, hint}) => {
+window.pilot.onToast(toastMessage);
+function toastMessage(title, body, hint) {
+  if (typeof title === 'object') ({title, body, hint} = title);
   const toast = Object.assign(document.createElement('div'), {className: 'toast'});
   toast.append(Object.assign(document.createElement('b'), {textContent: title}), Object.assign(document.createElement('span'), {textContent: body}));
   if (hint) toast.append(Object.assign(document.createElement('small'), {textContent:
@@ -879,7 +950,7 @@ window.pilot.onToast(({title, body, hint}) => {
   toast.addEventListener('click', () => toast.remove());
   $('toasts').append(toast);
   setTimeout(() => toast.remove(), hint ? 20000 : 8000);
-});
+}
 
 // Help improve Job Pilotto (opt-in anonymous form reports).
 $('share-reports').addEventListener('change', async () => { state.settings = await window.pilot.saveSettings({shareFillReports: $('share-reports').checked}); });

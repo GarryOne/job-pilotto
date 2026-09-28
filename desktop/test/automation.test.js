@@ -5,7 +5,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {handleUpdate} from '../shared/worker/index.js';
 import * as pipeline from '../lib/pipeline.js';
-import {due, nextAt, startSchedule} from '../lib/schedule.js';
+import {due, mailDue, nextAt, nextMailAt, startSchedule} from '../lib/schedule.js';
 import {createStorage} from '../lib/storage.js';
 import * as telegram from '../lib/telegram.js';
 
@@ -27,11 +27,46 @@ test('the next search time shows in the activity bar, and a scheduled search is 
   assert.equal(nextAt({setupDone: true, lastSearchAt: new Date(last).toISOString()}), last + 4 * HOUR);
   assert.equal(nextAt({setupDone: true, lastSearchAt: new Date(last).toISOString(), cloud: {repo: 'a/b'}}), null);
   const events = [];
-  const storage = {settings: () => ({setupDone: true, lastSearchAt: new Date(Date.now() - 5 * HOUR).toISOString()})};
-  const schedule = startSchedule(storage, async () => events.push('search'), null, {soon: () => events.push('soon'), headsUp: 0, firstCheck: 0});
+  const settings = {setupDone: true, lastSearchAt: new Date(Date.now() - 5 * HOUR).toISOString()};
+  const storage = {settings: () => settings};
+  const schedule = startSchedule(storage, {
+    search: async () => { events.push('search'); settings.lastSearchAt = new Date().toISOString(); },
+    mail: async () => { events.push('mail'); settings.lastMailAt = new Date().toISOString(); },
+  }, null, {soon: () => events.push('soon'), headsUp: 0, firstCheck: 0});
   await new Promise(resolve => setTimeout(resolve, 50));
   schedule.stop();
-  assert.deepEqual(events, ['soon', 'search']);
+  assert.deepEqual(events, ['soon', 'search', 'mail']);  // no Gmail check yet: the first one runs right away
+});
+
+test('the app checks Gmail at the chosen times of day while it is open, unless the cloud does it or it is off', () => {
+  const at = (day, hour, minute = 0) => new Date(2026, 8, day, hour, minute).getTime();  // local time, like the setting
+  const base = {setupDone: true};
+  // 3 times a day (default): 07, 12, 18. Last check 12:05 -> next 18:00; due from then on.
+  const checked = {...base, lastMailAt: new Date(at(28, 12, 5)).toISOString()};
+  assert.equal(nextMailAt(checked, at(28, 13)), at(28, 18));
+  assert.equal(mailDue(checked, at(28, 17, 59)), false);
+  assert.equal(mailDue(checked, at(28, 18, 1)), true);
+  // After the Mac was off overnight: the missed 18:00 is due at once.
+  assert.equal(mailDue(checked, at(29, 8)), true);
+  // Once a day: 08:00.
+  assert.equal(nextMailAt({...checked, schedule: {mail: 1}}, at(28, 13)), at(29, 8));
+  assert.equal(mailDue(base, at(28, 13)), true);  // never checked: soon after setup
+  assert.equal(nextMailAt({...base, schedule: {mail: 0}}, at(28, 13)), null);
+  assert.equal(nextMailAt({...base, cloud: {repo: 'a/b'}}, at(28, 13)), null);
+  assert.equal(nextMailAt({setupDone: false}, at(28, 13)), null);
+});
+
+test('a Gmail check looks back far enough to cover the time since the last good check', () => {
+  const storage = tempStorage();
+  assert.deepEqual(pipeline.mailArgs(storage), ['src.ai.mail', '--days', '2']);
+  const now = Date.parse('2026-09-28T12:00:00Z');
+  storage.saveSettings({lastMailOkAt: '2026-09-23T12:00:00Z'});
+  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '6']);
+  storage.saveSettings({lastMailOkAt: '2026-08-01T12:00:00Z'});
+  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '14']);
+  storage.setSecret('TELEGRAM_BOT_TOKEN', '1:abc');
+  storage.saveSettings({telegramChatId: '42', lastMailOkAt: '2026-09-28T07:00:00Z'});
+  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '2', '--send']);
 });
 
 test('Telegram actions run the same pipeline command as the GitHub workflow', () => {

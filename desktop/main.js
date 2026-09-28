@@ -9,7 +9,7 @@ import * as github from './lib/github.js';
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
-import {nextAt, startSchedule} from './lib/schedule.js';
+import {nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
@@ -220,7 +220,11 @@ function handlers() {
     return true;
   });
   ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running(),
-    lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings())}));
+    lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings()),
+    nextMailAt: nextMailAt(storage.settings())}));
+  ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
+    ? github.cloudDispatch(storage, log)({}, 'mail.yml').then(() => ({ok: true, cloud: true}))
+    : pipeline.checkMail(storage, log, 'you').then(({ok, run}) => ({ok, run}))));
   // Right after setup: the first search, so the Jobs screen fills while the user watches.
   ipcMain.handle('firstSearch', () => (storage.settings().lastSearchAt || pipeline.running() ? {ok: true, skipped: true}
     : pipeline.refresh(storage, log, 'run', 'first')));
@@ -515,12 +519,21 @@ if (firstCopy) app.whenReady().then(() => {
   if (!DEMO) {
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
-    // A notification a minute before it starts, and one with the result when it's done.
-    startSchedule(storage, async () => {
-      const {ok, run} = await pipeline.refresh(storage, log, 'scheduled', 'schedule');
-      notify(ok ? 'Scheduled search done' : 'Scheduled search had problems',
-        ok ? (run.new ? `${run.new} new job${run.new === 1 ? '' : 's'} found.` : 'No new jobs this time.')
-          : 'Open Job Pilotto and click the activity bar to see what happened.');
+    // Searches: a notification a minute before one starts, and one with the result when it's done.
+    // Gmail checks: a notification only when they recorded something (a reply, rejection, interview…).
+    startSchedule(storage, {
+      search: async () => {
+        const {ok, run} = await pipeline.refresh(storage, log, 'scheduled', 'schedule');
+        notify(ok ? 'Scheduled search done' : 'Scheduled search had problems',
+          ok ? (run.new ? `${run.new} new job${run.new === 1 ? '' : 's'} found.` : 'No new jobs this time.')
+            : 'Open Job Pilotto and click the activity bar to see what happened.');
+      },
+      mail: async () => {
+        const {ok, run} = await pipeline.checkMail(storage, log, 'schedule');
+        if (!ok) notify('Gmail check had problems', 'Open Job Pilotto and click the activity bar to see what happened.');
+        else if (run.updates?.length) notify(`Gmail: ${run.updates.length} application update${run.updates.length === 1 ? '' : 's'}`,
+          run.updates.slice(0, 3).join('\n'));
+      },
     }, powerMonitor, {soon: () => notify('Job search starting in 1 minute', 'Your scheduled search for new jobs is about to run.')});
   }
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });

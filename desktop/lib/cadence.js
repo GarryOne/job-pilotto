@@ -9,7 +9,7 @@ export const CHOICES = {
   scout: ['daily', 'weekly', 'off'],
   mail: [1, 3, 6, 0],                       // times a day; 0 = off
 };
-const MAIL_HOURS = {1: [8], 3: [7, 12, 18], 6: [7, 10, 13, 16, 19, 22]};
+export const MAIL_HOURS = {1: [8], 3: [7, 12, 18], 6: [7, 10, 13, 16, 19, 22]};
 
 export function cadence(settings = {}) {
   return {...DEFAULTS, ...(settings.schedule || {})};

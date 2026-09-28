@@ -22,7 +22,7 @@ Usage:
 """
 import argparse
 from datetime import datetime, timedelta, timezone
-from html import escape
+from html import escape, unescape
 import json
 import os
 import re
@@ -396,6 +396,10 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     for note in notes:
         if send:
             send(note)
+    if lines and not dry_run:  # plain text for the desktop app's activity panel
+        print('Updates:')
+        for line in lines:
+            print(unescape(re.sub(r'<[^>]+>', '', line)))
     usd = (stats or {}).get('usd', 0.0)
     return f'Mail: {count} new email(s) classified, {len(lines)} update(s), {len(notes)} reminder(s) (${usd:.3f})'
 

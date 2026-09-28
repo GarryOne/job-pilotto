@@ -471,6 +471,18 @@
   <!-- Always visible: what's running now (your searches and scheduled ones), or the last and next search. -->
   <footer class="activity" id="activity">
     <div class="activity-panel" id="activity-panel" hidden>
+      <div class="activity-cols">
+        <div>
+          <h4>Recent activity</h4>
+          <ul class="activity-recent" id="activity-recent"></ul>
+        </div>
+        <div>
+          <h4>Schedule <small class="muted">(Settings → How often)</small></h4>
+          <ul class="activity-schedule" id="activity-schedule"></ul>
+          <button class="secondary small-btn" id="check-mail">📧 Check Gmail now</button>
+        </div>
+      </div>
+      <p class="activity-selected" id="activity-selected"></p>
       <ol class="activity-phases" id="activity-phases"></ol>
       <pre id="log" class="log"></pre>
     </div>
