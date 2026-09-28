@@ -187,11 +187,11 @@
 <section id="app" class="app" hidden>
   <nav class="sidebar">
     <div class="brand"><img class="mark" src="logo.png" alt="">Job Pilotto</div>
-    <button class="nav active" data-view="jobs">Jobs</button>
-    <button class="nav" data-view="interviews">Interviews</button>
-    <button class="nav" data-view="actions">Actions</button>
-    <button class="nav" data-view="strategy">Strategy</button>
-    <button class="nav" data-view="settings">Settings</button>
+    <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs</button>
+    <button class="nav" data-view="interviews"><i data-icon="calendar"></i>Interviews</button>
+    <button class="nav" data-view="actions"><i data-icon="check"></i>Actions</button>
+    <button class="nav" data-view="strategy"><i data-icon="target"></i>Strategy</button>
+    <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
     <div class="notion-links" id="notion-links" hidden>
       <p class="nav-group">In your Notion</p>
     </div>
@@ -201,32 +201,38 @@
 
   <main>
     <div class="view" data-view="jobs">
-      <header class="view-head">
-        <div><h1>Jobs</h1><p class="muted" id="jobs-stats">Loading…</p><p class="search-status" id="search-status"></p></div>
+      <header class="view-head jobs-head">
+        <div><h1>Job matches</h1><p class="muted subtitle" id="jobs-stats">Loading…</p></div>
         <div class="head-actions">
-          <button class="secondary" id="refresh">Find new jobs</button>
-          <button class="primary" id="apply-open">Apply to jobs…</button>
+          <div class="last-search" id="search-status"><span class="dot"></span><div><b>No search yet</b><small></small></div></div>
+          <button class="secondary with-icon" id="refresh"><i data-icon="search"></i><span>Run new search</span></button>
+          <button class="primary with-icon" id="apply-open"><i data-icon="send"></i><span>Apply to jobs…</span></button>
         </div>
       </header>
+      <div class="stat-cards">
+        <div class="stat blue"><span class="stat-icon"><i data-icon="file"></i></span><div><b id="stat-total">–</b><span>Total matches</span></div></div>
+        <div class="stat green"><span class="stat-icon"><i data-icon="target"></i></span><div><b id="stat-high">–</b><span>High fit (70+)</span></div></div>
+        <div class="stat sky"><span class="stat-icon"><i data-icon="bookmark"></i></span><div><b id="stat-week">–</b><span>New this week</span></div></div>
+        <div class="stat violet"><span class="stat-icon"><i data-icon="building"></i></span><div><b id="stat-companies">–</b><span>Unique companies</span></div></div>
+      </div>
       <section class="card questions" id="questions" hidden>
         <h3>✍️ Answer once, used in every application</h3>
         <p class="muted small">Forms asked these and nothing in your profile or standard answers covered them. Your answer is added to your
           Notion standard answers; redraft a job's kit (↻) to use it there.</p>
         <div id="questions-list"></div>
       </section>
-      <div class="filters">
+      <div class="toolbar">
+        <label class="search-box"><i data-icon="search"></i><input id="filter-text" type="search" placeholder="Search jobs, companies or places, or paste a job link" aria-label="Search jobs"></label>
         <select id="filter-status" aria-label="Show">
-          <option value="open">To review</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="dismissed">Dismissed</option><option value="all">All</option>
+          <option value="open">To review</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="dismissed">Dismissed</option><option value="all">All jobs</option>
         </select>
-        <input id="filter-text" type="search" placeholder="Filter by title, company or place, or paste a job link">
+        <label class="sort-box"><i data-icon="sort"></i><select id="sort-by" aria-label="Sort by">
+          <option value="best">Best match</option><option value="newest">Newest</option><option value="company">Company A–Z</option>
+        </select></label>
       </div>
-      <div class="table-wrap">
-        <table class="jobs">
-          <thead><tr><th>Fit</th><th>Role</th><th>Company</th><th>Place</th><th>Status</th><th></th></tr></thead>
-          <tbody id="jobs-body"></tbody>
-        </table>
-      </div>
-      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Find new jobs</b>; the first search takes a few minutes.</p>
+      <div class="job-list-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span></span></div>
+      <div class="job-list" id="jobs-body"></div>
+      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.</p>
     </div>
 
     <div class="view" data-view="actions" hidden>

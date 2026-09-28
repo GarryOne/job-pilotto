@@ -1,9 +1,12 @@
 import {looksLikeLink, matches} from './filter.js';
+import {icon, fillIcons} from './icons.js';
+import {avatar, band, sorted, stats, tags} from './jobs-view.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
 const $ = id => document.getElementById(id);
 const STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras'];
+fillIcons();
 let state = await window.pilot.state();
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
@@ -124,13 +127,15 @@ const duration = (a, b) => { const s = Math.round((Date.parse(b) - Date.parse(a)
 // The line under "Jobs": what's happening now, or when the last search ran.
 async function showSearchStatus() {
   const {running, lastSearchAt, runs} = await window.pilot.runs();
-  const line = $('search-status');
+  const box = $('search-status');
+  const [title, detail] = [box.querySelector('b'), box.querySelector('small')];
   const searching = running && (running.kind || 'search') === 'search';
-  line.classList.toggle('busy', !!searching);
-  if (searching) { line.textContent = `Searching now (${TRIGGER[running.trigger] || running.trigger}): ${running.step}`; return; }
-  if (!lastSearchAt) { line.textContent = 'No search yet.'; return; }
+  box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
+  if (searching) { title.textContent = `Searching now · ${TRIGGER[running.trigger] || running.trigger}`; detail.textContent = running.step; return; }
+  if (!lastSearchAt) { title.textContent = 'No search yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
-  line.textContent = `Last search ${clockTime(lastSearchAt)}${last?.new != null ? ` · ${last.new} new` : ''}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
+  title.textContent = 'Last search done';
+  detail.textContent = `${clockTime(lastSearchAt)}${last?.new != null ? ` · ${last.new} new` : ''}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
 }
 
 // ---------- activity bar (bottom of every screen) ----------
@@ -425,105 +430,119 @@ let claudeReady = false;
 const claudeStarted = new Set();
 const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
+// The ⋯ menu of a job row: one floating list, closed by Esc, a click outside, scrolling, or picking an item.
+const rowMenu = Object.assign(document.createElement('div'), {className: 'row-menu', hidden: true, role: 'menu'});
+document.body.append(rowMenu);
+function closeRowMenu() {
+  rowMenu.hidden = true;
+  document.querySelector('.more[aria-expanded="true"]')?.setAttribute('aria-expanded', 'false');
+}
+function openRowMenu(anchor, items) {
+  const wasOpen = anchor.getAttribute('aria-expanded') === 'true';
+  closeRowMenu();
+  if (wasOpen) return;
+  rowMenu.replaceChildren(...items.map(item => {
+    if (item === '-') return document.createElement('hr');
+    const button = Object.assign(document.createElement('button'), {textContent: item.label, title: item.title || '', className: item.danger ? 'danger' : ''});
+    button.setAttribute('role', 'menuitem');
+    button.addEventListener('click', event => { closeRowMenu(); item.run(event); });
+    return button;
+  }));
+  rowMenu.hidden = false;
+  anchor.setAttribute('aria-expanded', 'true');
+  const box = anchor.getBoundingClientRect();
+  const below = box.bottom + 6 + rowMenu.offsetHeight <= window.innerHeight;
+  rowMenu.style.top = `${Math.max(8, below ? box.bottom + 6 : box.top - rowMenu.offsetHeight - 6)}px`;
+  rowMenu.style.left = `${Math.max(8, box.right - rowMenu.offsetWidth)}px`;
+  rowMenu.querySelector('button')?.focus();
+}
+document.addEventListener('click', event => { if (!rowMenu.hidden && !event.target.closest('.row-menu, .more')) closeRowMenu(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeRowMenu(); });
+document.querySelector('main').addEventListener('scroll', closeRowMenu);
+
+const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? {className} : {}, text != null ? {textContent: text} : {});
+// Work in progress on a job (redrafting its kit, tailoring its CV), shown on its row while the menu is closed.
+const busyNotes = new Map();
+
 function renderJobs() {
+  closeRowMenu();
   const filter = $('filter-status').value;
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
-  const rows = allJobs.filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
-    matches(job, text));
+  const rows = sorted(allJobs.filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+    matches(job, text)), $('sort-by').value);
   const body = $('jobs-body');
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
-    const tr = document.createElement('tr');
-    const fit = document.createElement('td');
-    const badge = Object.assign(document.createElement('span'), {className: 'fit', textContent: job.fit ?? '–'});
-    if (job.fit >= 70) badge.classList.add('high'); else if (job.fit >= 50) badge.classList.add('mid');
-    badge.title = job.fit == null ? 'Not scored yet (needs the AI key)' : 'Fit with your profile, out of 100';
-    fit.append(badge);
-    const role = document.createElement('td');
-    role.className = 'role';
-    const link = Object.assign(document.createElement('a'), {href: '#', textContent: job.title});
+    const row = el('article', 'job-row');
+    // Fit: a ring filled to the score.
+    const fit = el('div', `fit-ring ${band(job.fit)}`);
+    fit.style.setProperty('--p', job.fit ?? 0);
+    fit.append(el('span', '', job.fit ?? '–'));
+    fit.title = job.fit == null ? 'Not scored yet (needs the AI key)' : 'Fit with your profile, out of 100';
+
+    const role = el('div', 'role');
+    const link = Object.assign(el('a', '', job.title), {href: '#', title: 'Open the posting'});
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
     role.append(link);
-    if (job.reason) role.append(Object.assign(document.createElement('div'), {className: 'reason', textContent: job.reason}));
-    // Open the job: its kit (answers, cover letter, verdict) on its Notion page, or the posting.
-    const links = Object.assign(document.createElement('div'), {className: 'job-links'});
-    const addLink = (label, open, title) => {
-      const a = Object.assign(document.createElement('a'), {href: '#', textContent: label, title});
-      a.addEventListener('click', event => { event.preventDefault(); open(event); });
-      links.append(a);
-    };
-    if (job.notion_url) addLink(job.kit ? '📝 Kit' : '🗂 Notion', event => window.pilot.openNotion(job.notion_url, event.metaKey),
-      job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion');
-    addLink('↗ Posting', () => window.pilot.openExternal(job.url), 'The job posting');
-    if (job.kit && job.code) {
-      // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
-      addLink('↻ Redraft', async event => {
-        const a = event.target;
-        if (a.dataset.busy) return;
-        a.dataset.busy = '1';
-        a.textContent = '↻ Redrafting…';
-        const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
-        delete a.dataset.busy;
-        a.textContent = result.ok ? '↻ Redraft' : '↻ Retry redraft';
-        if (result.ok) loadJobs();
-      }, 'Draft the kit again from your current Profile and standard answers (~20 s)');
+    if (job.reason) role.append(el('div', 'reason', job.reason));
+    const chips = el('div', 'tags');
+    for (const tag of tags(job)) chips.append(el('span', 'tag', tag));
+    if (job.kit && job.notion_url) {
+      const kit = Object.assign(el('button', 'tag link-tag', '📝 Kit'), {title: 'Application kit: form answers, cover letter, eligibility (in Notion)'});
+      kit.addEventListener('click', event => window.pilot.openNotion(job.notion_url, event.metaKey));
+      chips.append(kit);
     }
-    if (job.code) {
-      // A CV tailored to this posting (reworded, reordered bullets from your own CV; the extension uploads it here).
-      if (job.tailored) addLink('📄 Tailored CV', () => window.pilot.openTailoredCv(job.code), 'Your CV tailored to this job, with the changes highlighted');
-      addLink(job.tailored ? '↻ Re-tailor' : '✂️ Tailor CV', async event => {
-        const a = event.target;
-        if (a.dataset.busy) return;
-        a.dataset.busy = '1';
-        const label = a.textContent;
-        a.textContent = '✂️ Tailoring…';
-        a.classList.add('busy-link');
-        const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
-        delete a.dataset.busy;
-        a.classList.remove('busy-link');
-        a.textContent = result.ok ? label : '✂️ Retry tailoring';
-        if (!result.ok) a.title = result.error;
-        if (result.ok) { job.tailored = true; renderJobs(); }
-      }, 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, ~10–15¢)');
+    if (job.tailored && job.code) {
+      const cv = Object.assign(el('button', 'tag link-tag', '📄 Tailored CV'), {title: 'Your CV tailored to this job, with the changes highlighted'});
+      cv.addEventListener('click', () => window.pilot.openTailoredCv(job.code));
+      chips.append(cv);
     }
-    role.append(links);
-    const company = Object.assign(document.createElement('td'), {textContent: job.company});
-    const place = Object.assign(document.createElement('td'), {textContent: job.location});
-    const status = document.createElement('td');
-    status.append(Object.assign(document.createElement('span'), {className: `status ${job.status}`,
-      textContent: {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status}));
+    if (busyNotes.has(job.url)) chips.append(el('span', 'tag busy-note', busyNotes.get(job.url)));
+    if (chips.childElementCount) role.append(chips);
+
+    const company = el('div', 'company');
+    const logo = avatar(job.company);
+    const badge = el('span', 'logo', logo.initials);
+    badge.style.setProperty('--hue', logo.hue);
+    company.append(badge, el('span', 'name', job.company));
+
+    const place = el('div', 'place');
+    if (job.location) { const line = el('div', 'place-line'); line.append(icon('pin'), el('span', '', job.location)); place.append(line); }
+    if (job.work_mode) {
+      const line = el('div', 'place-line');
+      line.append(icon('globe'), el('span', `mode ${job.work_mode.toLowerCase().replace(/[^a-z]/g, '')}`, job.work_mode));
+      place.append(line);
+    }
+
+    const status = el('div', 'status-cell');
+    status.append(el('span', `status ${job.status}`, {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status));
     // The kit's eligibility verdict: a badge, with the reason on hover.
-    if (job.ineligible) status.append(Object.assign(document.createElement('span'), {className: 'badge-ineligible tip', textContent: '⛔ Not eligible',
-      tabIndex: 0}));
-    status.lastChild?.classList.contains('badge-ineligible') && (status.lastChild.dataset.tip = job.ineligible);
-    const actions = document.createElement('td');
-    const box = Object.assign(document.createElement('div'), {className: 'row-actions'});
-    // Actions read as verbs (the Status column shows where a job stands): no check marks that look like a state.
-    const action = (label, next, title) => {
-      const button = Object.assign(document.createElement('button'), {className: 'secondary', textContent: label, title});
-      button.addEventListener('click', async () => { await window.pilot.setStatus(job.url, next); job.status = next; renderJobs(); });
-      box.append(button);
+    if (job.ineligible) {
+      const verdict = Object.assign(el('span', 'badge-ineligible tip', '⛔ Not eligible'), {tabIndex: 0});
+      verdict.dataset.tip = job.ineligible;
+      status.append(verdict);
+    }
+
+    const box = el('div', 'row-actions');
+    const menu = [];
+    const setStatus = next => async () => { await window.pilot.setStatus(job.url, next); job.status = next; renderJobs(); };
+    // Chrome opens the job's form and the extension fills it at once from the kit.
+    const fillInChrome = async button => {
+      const result = await window.pilot.applyOne(job.url);
+      if (result.ok) { openedInChrome.add(pageKey(job.url)); renderJobs(); } else if (button) button.textContent = 'No link';
+      else toastMessage('Could not open the job', 'It has no link.');
     };
     if (job.status !== 'applied' && job.url && job.kit) {
-      // The kit already answered this form: Chrome opens it and the extension fills it at once.
       // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
       const opened = openedInChrome.has(pageKey(job.url));
-      const fill = Object.assign(document.createElement('button'), {
-        className: claudeReady ? `secondary${opened ? ' state-opened' : ''}` : `row-main ${opened ? 'state-opened' : 'state-apply'}`,
-        textContent: opened ? 'Opened in Chrome ↻' : claudeReady ? 'Fill in Chrome' : 'Apply',
-        title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
-      fill.addEventListener('click', async () => {
-        const result = await window.pilot.applyOne(job.url);
-        if (result.ok) { openedInChrome.add(pageKey(job.url)); renderJobs(); } else fill.textContent = 'No link';
-      });
       if (claudeReady) {
         // Recommended: a Claude session drives Chrome from the posting through the employer's site
         // (its own Apply buttons, sign-up, every page) to a filled form; it asks you for CAPTCHAs.
         const started = claudeStarted.has(pageKey(job.url));
-        const claude = Object.assign(document.createElement('button'), {className: `row-main ${started ? 'state-opened' : 'state-apply'}`,
-          textContent: started ? 'Claude is applying' : 'Apply with Claude', disabled: started,
+        const claude = Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
+          disabled: started,
           title: started ? 'A Claude session is filling this one in Terminal: answer it there' :
             'Recommended. Claude opens the posting in Chrome, follows Apply to the employer\'s site, creates an account there ' +
             'if it asks (password saved in your Keychain) and fills every page from your kit. You solve CAPTCHAs, tick the terms and submit.'});
@@ -537,11 +556,17 @@ function renderJobs() {
           if (/kit/i.test(result.error || '')) { claude.textContent = 'Prepare first'; loadJobs(); } else claude.textContent = 'Not ready';
         });
         box.append(claude);
+        menu.push({label: opened ? '🧩 Fill in Chrome again' : '🧩 Fill in Chrome', run: () => fillInChrome(),
+          title: 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
+      } else {
+        const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened in Chrome ↻' : 'Apply'), {
+          title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
+        fill.addEventListener('click', () => fillInChrome(fill));
+        box.append(fill);
       }
-      box.append(fill);
     } else if (job.status !== 'applied' && job.url && job.code) {
       // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).
-      const prepare = Object.assign(document.createElement('button'), {className: 'row-main state-prepare', textContent: 'Prepare',
+      const prepare = Object.assign(el('button', 'row-main state-prepare', 'Prepare'), {
         title: 'Draft the application kit (form answers and cover letter) in your Notion; then Apply'});
       prepare.addEventListener('click', async () => {
         prepare.disabled = true;
@@ -554,18 +579,56 @@ function renderJobs() {
       });
       box.append(prepare);
     }
-    if (job.status !== 'saved') action('Save', 'saved', 'Keep this job on your list');
-    if (job.status !== 'applied') action('Mark applied', 'applied', 'You applied to this job: track it in Applications');
-    if (job.status !== 'dismissed') action('Dismiss', 'dismissed', 'Not interested: hide this job');
-    actions.append(box);
-    tr.append(fit, role, company, place, status, actions);
-    body.append(tr);
+
+    // Long work started from the menu: a note on the row until it's done.
+    const background = async (note, work) => {
+      if (busyNotes.has(job.url)) return;
+      busyNotes.set(job.url, note);
+      renderJobs();
+      try { await work(); } finally { busyNotes.delete(job.url); renderJobs(); }
+    };
+    if (job.notion_url) menu.push({label: job.kit ? '📝 Open kit in Notion' : '🗂 Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
+      title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});
+    menu.push({label: '↗ Open posting', run: () => window.pilot.openExternal(job.url), title: 'The job posting'});
+    if (job.kit && job.code) {
+      // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
+      menu.push({label: '↻ Redraft kit', title: 'Draft the kit again from your current Profile and standard answers (~20 s)', run: () =>
+        background('↻ Redrafting kit…', async () => {
+          const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
+          if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
+        })});
+    }
+    if (job.code) {
+      // A CV tailored to this posting (reworded, reordered bullets from your own CV; the extension uploads it here).
+      menu.push({label: job.tailored ? '↻ Re-tailor CV' : '✂️ Tailor CV',
+        title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, ~10–15¢)',
+        run: () => background('✂️ Tailoring CV…', async () => {
+          const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
+          if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
+        })});
+    }
+    // Actions read as verbs (the Status column shows where a job stands).
+    menu.push('-');
+    if (job.status !== 'saved') menu.push({label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
+    if (job.status !== 'applied') menu.push({label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
+    if (job.status !== 'dismissed') menu.push({label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
+    const more = Object.assign(el('button', 'secondary more'), {title: 'More: save, dismiss, kit, posting, tailor CV'});
+    more.setAttribute('aria-label', 'More actions');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.append(icon('more'));
+    more.addEventListener('click', () => openRowMenu(more, menu));
+    box.append(more);
+
+    row.append(fit, role, company, place, status, box);
+    body.append(row);
   }
   show($('jobs-empty'), rows.length === 0);
-  $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Find new jobs</b>; the first search takes a few minutes.'
+  $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : text || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
+$('sort-by').addEventListener('change', renderJobs);
 $('filter-status').addEventListener('change', renderJobs);
 $('filter-text').addEventListener('input', renderJobs);
 
@@ -601,8 +664,13 @@ async function loadJobs() {
     const data = await window.pilot.jobs();
     allJobs = data.jobs;
     const scored = allJobs.filter(job => job.fit != null).length;
-    $('jobs-stats').textContent = `${data.total} open · ${scored} scored · ${allJobs.filter(j => j.fit >= 70).length} strong matches` +
-      (data.filtered ? ` · ${data.filtered} hidden (language or company)` : '');
+    const count = stats(allJobs, data.total);
+    $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` + (data.filtered ? ` · ${data.filtered} hidden` : '');
+    $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
+    $('stat-total').textContent = count.total;
+    $('stat-high').textContent = count.high;
+    $('stat-week').textContent = count.week;
+    $('stat-companies').textContent = count.companies;
   } catch (error) {
     $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }
@@ -616,13 +684,13 @@ window.pilot.onLog(line => {
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
-  $('refresh').textContent = 'Searching…';
+  $('refresh').querySelector('span').textContent = 'Searching…';
   selectedRun = null;
   try {
     await window.pilot.refresh();
   } finally {
     $('refresh').disabled = false;
-    $('refresh').textContent = 'Find new jobs';
+    $('refresh').querySelector('span').textContent = 'Run new search';
     loadJobs();
     refreshActivity();
   }
@@ -657,18 +725,19 @@ $('open-answers').addEventListener('click', event => window.pilot.openNotion(sta
 $('open-workspace').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_MATCHES_DB, event.metaKey));
 
 // Sidebar: the Notion pages, most used first. Click opens them in the app's Notion window; ⌘-click in the browser.
-const NOTION_LINKS = [['NOTION_MATCHES_DB', '🎯 Job matches'], ['NOTION_APPLICATIONS_DB', '💠 Applications'],
-  ['NOTION_EVENTS_DB', '📈 Replies & events'], ['NOTION_INTERVIEWS_DB', '🎤 Interviews'], ['NOTION_INSIGHTS_DB', '💡 Insights'],
-  ['NOTION_PIPELINE_PAGE', '📊 Pipeline'], ['NOTION_PROFILE_PAGE_ID', '👤 Profile'], ['NOTION_ANSWERS_PAGE_ID', '📝 Standard answers'],
-  ['NOTION_EMPLOYERS_DB', '🌍 Employers'], ['NOTION_CRON_RUNS_DB', '⏱️ Search runs'], ['NOTION_AGENT_RUNS_DB', '🤖 Form fills']];
+const NOTION_LINKS = [['NOTION_MATCHES_DB', 'Job matches', 'target'], ['NOTION_APPLICATIONS_DB', 'Applications', 'layers'],
+  ['NOTION_EVENTS_DB', 'Replies & events', 'mail'], ['NOTION_INTERVIEWS_DB', 'Interviews', 'mic'], ['NOTION_INSIGHTS_DB', 'Insights', 'chart'],
+  ['NOTION_PIPELINE_PAGE', 'Pipeline', 'columns'], ['NOTION_PROFILE_PAGE_ID', 'Profile', 'user'], ['NOTION_ANSWERS_PAGE_ID', 'Standard answers', 'file'],
+  ['NOTION_EMPLOYERS_DB', 'Employers', 'building'], ['NOTION_CRON_RUNS_DB', 'Search runs', 'search'], ['NOTION_AGENT_RUNS_DB', 'Form fills', 'bot']];
 function renderNotionLinks() {
   const box = $('notion-links');
   box.querySelectorAll('.notion-link').forEach(link => link.remove());
   const links = NOTION_LINKS.filter(([env]) => state.notion?.[env]);
   show(box, links.length > 0);
-  for (const [env, label] of links) {
+  for (const [env, label, glyph] of links) {
     const link = Object.assign(document.createElement('button'), {className: 'notion-link', textContent: label,
       title: `${state.notionTitles?.[env] || label}: opens in Notion (⌘-click: in a Job Pilotto window)`});
+    link.prepend(icon(glyph));
     link.addEventListener('click', event => window.pilot.openNotion(state.notion[env], event.metaKey));
     box.append(link);
   }
