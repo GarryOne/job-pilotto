@@ -3220,11 +3220,13 @@ function sessionMenu(item) {
   else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
   return menu;
 }
-// The tray's header row opens the sessions page (like View all); its ⌃ collapses; a card opens its session.
-$('sd-toggle').addEventListener('click', event => { event.stopPropagation(); dockOpen = !dockOpen; renderDock(); });
+// The tray's header: its title and counts open the sessions page (like View all); anywhere else in the row
+// (the empty space, ⌃) collapses or expands it; a card opens its own session.
 document.querySelector('.sd-head').addEventListener('click', event => {
-  if (event.target.closest('#sd-toggle, #sd-all')) return;
-  openSession(openSessionId || sessionList[0]?.id);
+  if (event.target.closest('#sd-all')) return;
+  if (event.target.closest('.sd-link')) { openSession(openSessionId || sessionList[0]?.id); return; }
+  dockOpen = !dockOpen;
+  renderDock();
 });
 $('sd-all').addEventListener('click', event => { event.preventDefault(); openSession(openSessionId || sessionList[0]?.id); });
 $('ss-crumb-all').addEventListener('click', event => { event.preventDefault(); openSession(openSessionId || sessionList[0]?.id); });

@@ -1009,7 +1009,8 @@ main { min-width: 0; }
 
 /* Application sessions tray: the header row is one big link to the sessions page; ⌃ is its own small button. */
 .sd-head { cursor: pointer; border-radius: var(--r-md); }
-.sd-head:hover .sd-title b { text-decoration: underline; }
+.sd-link { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.sd-link:hover b { text-decoration: underline; }
 .sd-title { display: flex; align-items: center; gap: var(--sp-2); }
 .sd-toggle { padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); cursor: pointer; }
 .sd-toggle:hover { background: var(--surface); }
