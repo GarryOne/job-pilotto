@@ -14,6 +14,13 @@ def page(pid, url, status='Open', scored='2026-09-25', edited='2026-09-25T10:00:
 
 
 class DedupeTests(unittest.TestCase):
+    def test_links_told_apart_only_by_their_fragment_stay_apart(self):
+        from src.notion.dedupe import normalize_url
+        one, two = 'https://mail.google.com/mail/u/0/#all/1a0e4cf9ed538616', 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5'
+        self.assertNotEqual(normalize_url(one), normalize_url(two))
+        self.assertNotEqual(normalize_url('https://www.linkedin.com/messaging/#jp-aa11'), normalize_url('https://www.linkedin.com/messaging/#jp-bb22'))
+        self.assertEqual(normalize_url('https://boards.example.com/jobs/1#apply'), normalize_url('https://boards.example.com/jobs/1/'))
+
     def test_same_job_whatever_the_url_form(self):
         a = dedupe.normalize_url('https://Jobs.example.com/job/42/?utm_source=x&gh_src=y&lang=en')
         self.assertEqual(a, dedupe.normalize_url('https://jobs.example.com/job/42?lang=en'))

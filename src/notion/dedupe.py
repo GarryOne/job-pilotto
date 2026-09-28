@@ -2,11 +2,15 @@
 trailing slash or the host's case) and keep the one with the most information; the others go to Notion's trash
 (restorable for 30 days). Used by the sync (it heals itself when it meets duplicates) and by
 tools/notion_dedupe.py (report first, then clean up)."""
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 TRACKING = ('utm_', 'gh_src', 'gh_jid_src', 'ref', 'source', 'src', 'lever-source', 'trk', 'fbclid', 'gclid')
 # Which row wins: the one that records a decision (Applied, Dismissed), then an open job, then the most recently scored.
 STATUS_RANK = {'Applied': 5, 'Dismissed': 4, 'Open': 3, 'Not seen': 2, 'Closed': 1}
+
+
+IDENTIFYING_FRAGMENT = re.compile(r'/|^jp-|[0-9a-f]{12,}', re.I)
 
 
 def normalize_url(url):
@@ -15,7 +19,10 @@ def normalize_url(url):
     if not parts.scheme:
         return (url or '').strip()
     query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not k.lower().startswith(TRACKING)]
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip('/') or '/', urlencode(sorted(query)), ''))
+    # A fragment is usually an in-page anchor (#apply), but some links are only told apart by it: an email
+    # (mail.google.com/…/#all/<id>), a recruiter lead (…#jp-<digest>), a hash-routed board (#/jobs/123).
+    fragment = parts.fragment if IDENTIFYING_FRAGMENT.search(parts.fragment) else ''
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip('/') or '/', urlencode(sorted(query)), fragment))
 
 
 def _url(page):
