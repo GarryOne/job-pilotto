@@ -346,9 +346,11 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
 PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Job Pilotto app.'
 
 
-def save(tracker, transcript, title, *, job_url=None, source='Recording', now=None):
+def save(tracker, transcript, title, *, job_url=None, source='Recording', now=None, page_id=None):
     """A transcript as a 🎤 Interviews row, without AI: title, date, Input, the chosen job, and the
-    transcript in the page (a placeholder marks where the review goes). Returns the created page."""
+    transcript in the page (a placeholder marks where the review goes). Returns the created page.
+    With page_id (the row the app created as soon as the transcript was ready), that row is updated instead:
+    title, job, and the transcript toggle replaced by the edited one (speakers named)."""
     now = now or datetime.now(timezone.utc)
     transcript = transcript.strip()[:MAX_CHARS]
     if len(transcript) < 40:
@@ -358,6 +360,17 @@ def save(tracker, transcript, title, *, job_url=None, source='Recording', now=No
     app = application_for(tracker, job_url) if job_url else None
     if app:
         props['Application'] = {'relation': [{'id': app['id']}]}
+    if page_id:
+        props.pop('Date')  # the day it was first saved stays
+        if not app:
+            props['Application'] = {'relation': []}
+        page = tracker._request('PATCH', f'pages/{page_id}', {'properties': props})
+        for block in tracker._children(page_id):
+            body = block.get(block['type'], {})
+            if block['type'] == 'heading_3' and plain({'type': 'rich_text', 'rich_text': body.get('rich_text', [])}) == 'Transcript':
+                tracker._request('DELETE', f"blocks/{block['id']}")
+        tracker._request('PATCH', f'blocks/{page_id}/children', {'children': [transcript_toggle(transcript)]})
+        return page
     return tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': props,
                                               'children': [_block('paragraph', PLACEHOLDER), transcript_toggle(transcript)]})
 
@@ -418,6 +431,7 @@ def main(argv=None):
     saving.add_argument('--title', default='')
     saving.add_argument('--job', help='job URL of the application it belongs to')
     saving.add_argument('--input', default='Recording', choices=('Recording', 'Transcript', 'Notes'))
+    saving.add_argument('--page', help='update this row (created when the transcript was ready) instead of adding one')
     deleting = sub.add_parser('delete', help="move a row to Notion's trash")
     deleting.add_argument('page')
     linking = sub.add_parser('link', help="set a row's application (no --job: clear it)")
@@ -432,7 +446,8 @@ def main(argv=None):
         if args.command == 'list':
             out = {'ok': True, 'interviews': listing(tracker)}
         elif args.command == 'save':
-            page = save(tracker, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input)
+            page = save(tracker, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input,
+                        page_id=args.page)
             out = {'ok': True, 'id': page['id'], 'url': page.get('url', '')}
         elif args.command == 'delete':
             delete(tracker, args.page)

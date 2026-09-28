@@ -1,8 +1,9 @@
-// Interviews page. Notion 🎤 Interviews is the database: every saved interview is a row there (transcript
-// in the page, the job as its Application), listed, relinked and reviewed through src/ai/interviews.py.
-// This Mac only keeps drafts: a recording or file being transcribed, and its transcript until it's saved
-// (<data folder>/interviews/<id>/: meta.json, the audio, transcript.txt). Recordings are kept in
-// <data folder>/recordings after saving; transcription is local and free (src/ai/transcribe.py).
+// Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
+// page, the job as its Application), listed, relinked and reviewed through src/ai/interviews.py. A transcript
+// goes to Notion as soon as it's ready (meta.pageId); naming the speakers, the title and the job are edited in
+// the app and written to that same row by Save. This Mac keeps the recordings (large files: <data
+// folder>/recordings after saving) and the draft being edited (<data folder>/interviews/<id>/: meta.json, the
+// audio, transcript.txt). Transcription is local and free (src/ai/transcribe.py).
 import fs from 'node:fs';
 import path from 'node:path';
 import * as pipeline from './pipeline.js';
@@ -158,8 +159,11 @@ export function transcribe(storage, id, {speakers: count = 0} = {}, onProgress =
     const step = progressOf(line);
     if (step) onProgress({id, ...step});
     else if (line.trim()) errors.push(line.trim());
-  }).then(({code}) => {
-    if (code === 0 && fs.existsSync(out)) return update(storage, id, {status: 'ready'});
+  }).then(async ({code}) => {
+    if (code === 0 && fs.existsSync(out)) {
+      update(storage, id, {status: 'ready'});
+      return (await toNotion(storage, id, run).catch(() => null)) || get(storage, id);
+    }
     const reason = errors.filter(line => /Error|No module/.test(line)).pop() || errors.pop() || 'Transcription failed';
     return update(storage, id, {status: 'failed', error: /No module named '(sherpa_onnx|av|numpy)'/.test(reason)
       ? 'The transcription add-on is missing: pip install -r requirements-transcribe.txt' : reason});
@@ -183,16 +187,42 @@ export function link(storage, pageId, jobUrl, run = pipeline.run) {
   return notionCall(storage, ['link', pageId, ...(jobUrl ? ['--job', jobUrl] : [])], run);
 }
 
-// Save a draft's transcript as a 🎤 Interviews row (no AI), then drop the draft.
+// The draft's transcript -> its 🎤 Interviews row (created the first time, updated after that); no AI.
+export async function toNotion(storage, id, run = pipeline.run) {
+  const meta = get(storage, id);
+  const text = transcript(storage, id);
+  if (!meta || text.trim().length < 40) return null;
+  const file = path.join(folder(storage, id), 'transcript.txt');
+  const result = await notionCall(storage, ['save', file, '--title', meta.title || 'Interview',
+    '--input', meta.kind === 'audio' ? 'Recording' : 'Transcript', ...(meta.jobUrl ? ['--job', meta.jobUrl] : []),
+    ...(meta.pageId ? ['--page', meta.pageId] : [])], run);
+  if (!result.ok) return null;
+  return update(storage, id, {pageId: result.id || meta.pageId, pageUrl: result.url || meta.pageUrl || ''});
+}
+
+// Save: the edited transcript, title and job go to the draft's Notion row (created now if it has none yet),
+// then the draft is dropped (its recording stays on this Mac, tagged with the row).
 export async function save(storage, id, run = pipeline.run) {
   const meta = get(storage, id);
   const text = transcript(storage, id);
   if (!meta || text.trim().length < 40) return {ok: false, error: 'There is no transcript to save yet'};
   const file = path.join(folder(storage, id), 'transcript.txt');
   const result = await notionCall(storage, ['save', file, '--title', meta.title || 'Interview',
-    '--input', meta.kind === 'audio' ? 'Recording' : 'Transcript', ...(meta.jobUrl ? ['--job', meta.jobUrl] : [])], run);
-  if (result.ok) discard(storage, id, {keepRecording: true, pageId: result.id});
+    '--input', meta.kind === 'audio' ? 'Recording' : 'Transcript', ...(meta.jobUrl ? ['--job', meta.jobUrl] : []),
+    ...(meta.pageId ? ['--page', meta.pageId] : [])], run);
+  if (result.ok) discard(storage, id, {keepRecording: true, pageId: result.id || meta.pageId});
   return result;
+}
+
+// Discard a draft: with its row already in Notion, the row goes to Notion's trash too (restorable 30 days).
+export async function drop(storage, id, run = pipeline.run) {
+  const meta = get(storage, id);
+  if (meta?.pageId) {
+    const result = await notionCall(storage, ['delete', meta.pageId], run);
+    if (!result.ok) return result;
+  }
+  discard(storage, id);
+  return {ok: true};
 }
 
 // Delete a saved interview: the Notion row goes to Notion's trash (restorable for 30 days) and the

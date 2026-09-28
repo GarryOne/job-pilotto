@@ -309,7 +309,10 @@ function handlers() {
     const picked = await dialog.showOpenDialog(window, {title: 'Choose an interview recording or transcript',
       filters: [{name: 'Recording or transcript', extensions: [...interviews.AUDIO, ...interviews.TEXT]}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
-    try { return interviews.add(storage, picked.filePaths[0]); } catch (error) { return {error: error.message}; }
+    let draft;
+    try { draft = interviews.add(storage, picked.filePaths[0]); } catch (error) { return {error: error.message}; }
+    // A transcript file is ready at once: it goes to Notion now, like a finished transcription.
+    return draft.status === 'ready' ? (await interviews.toNotion(storage, draft.id).catch(() => null)) || draft : draft;
   });
   ipcMain.handle('ivRecordStart', (_, options) => interviews.startRecording(storage, options));
   ipcMain.handle('ivRecordChunk', (_, id, bytes) => { interviews.appendRecording(storage, id, bytes); return true; });
@@ -335,11 +338,11 @@ function handlers() {
   });
   ipcMain.handle('ivTranscribe', async (_, id, options) => {
     const meta = await interviews.transcribe(storage, id, options, step => window?.webContents.send('ivProgress', step));
-    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: name the speakers, pick the job, save it to Notion.`);
+    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`);
     return meta;
   });
   ipcMain.handle('ivSaveDraft', (_, id, patch) => (DEMO ? true : interviews.saveDraft(storage, id, patch)));
-  ipcMain.handle('ivDiscard', (_, id) => { interviews.discard(storage, id); return true; });
+  ipcMain.handle('ivDiscard', async (_, id) => (DEMO ? (interviews.discard(storage, id), true) : (await interviews.drop(storage, id)).ok));
   ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
   ipcMain.handle('ivReview', (_, pageId) => interviews.review(storage, pageId));

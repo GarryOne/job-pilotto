@@ -342,6 +342,19 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(len(tracker.requests), 2)  # the review added no row (2 = the two saves above)
         self.assertEqual(tracker.updates, [('g-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
 
+    def test_the_row_made_when_the_transcript_was_ready_is_updated_by_save_not_duplicated(self):
+        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20')])
+        first = interviews.save(tracker, SPOKEN, 'Interview 28 Sep 10:00', now=NOW)  # right after transcription
+        named = SPOKEN.replace('Speaker 1', 'Anna (recruiter)')
+        interviews.save(tracker, named, 'Grafana, round 1', job_url='https://x.test/g-1', page_id=first['id'], now=NOW)
+        self.assertEqual(len(tracker.pages), 1)
+        row = tracker.pages[first['id']]['properties']
+        self.assertEqual(row['Interview']['title'][0]['text']['content'], 'Grafana, round 1')
+        self.assertEqual(row['Application'], {'relation': [{'id': 'g-1'}]})
+        toggles = [b for b in tracker.blocks[first['id']] if b['type'] == 'heading_3']
+        self.assertEqual(len(toggles), 1)  # the old transcript was replaced, not kept next to the new one
+        self.assertEqual(''.join(c['paragraph']['rich_text'][0]['text']['content'] for c in toggles[0]['children']), named.strip())
+
     def test_linking_a_saved_interview_to_another_job(self):
         tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Sonar', 'Saved', '')])
         page = interviews.save(tracker, SPOKEN, 'Call', now=NOW)
@@ -372,7 +385,9 @@ class InterviewTests(unittest.TestCase):
                                 'Overall': {'type': 'select', 'select': {'name': 'positive'}}}},
                 {'properties': {'Topics': text('Postgres'), 'Weak topics': text('Postgres'),
                                 'Overall': {'type': 'select', 'select': {'name': 'neutral'}}}}]
-        stats = interviews.stats_for_insights(FakeTracker(rows))
+        # Distinct ids: without credentials (CI) every database id is '' and the fake would answer with events.
+        with mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'interviews-db'):
+            stats = interviews.stats_for_insights(FakeTracker(rows))
         self.assertEqual(stats['topics_asked'], {'Postgres': 2, 'Kubernetes': 1})
         self.assertEqual(stats['topics_answered_weakly'], {'Postgres': 2})
         self.assertEqual(stats['overall'], {'positive': 1, 'neutral': 1, 'negative': 0})

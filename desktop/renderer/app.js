@@ -1175,9 +1175,14 @@ function renderDrafts(drafts) {
     const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
     row.append(Object.assign(document.createElement('b'), {textContent: draft.title}),
       Object.assign(document.createElement('span'), {className: 'muted small', textContent: `${when} · ${STATUS[draft.status] || draft.status}`}));
+    if (draft.pageUrl) {  // the transcript is already in Notion; Save writes the edits there
+      const link = Object.assign(document.createElement('a'), {href: '#', className: 'small', textContent: 'In Notion ↗'});
+      link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(draft.pageUrl); });
+      row.append(link);
+    }
     const open = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Open'});
     open.addEventListener('click', () => openDraft(draft.id));
-    const remove = confirmButton('Delete', 'Delete recording?', async () => {
+    const remove = confirmButton('Delete', draft.pageId ? 'Delete it here and in Notion?' : 'Delete recording?', async () => {
       await iv.discard(draft.id);
       if (ivOpen === draft.id) { ivOpen = null; show($('iv-editor'), false); }
       renderDrafts(await iv.drafts());

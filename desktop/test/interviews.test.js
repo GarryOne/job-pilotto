@@ -53,17 +53,33 @@ test('a recording is written chunk by chunk, transcribed with progress, saved to
     '--call', storage.path(`interviews/${id}/call.pcm`), '--call-offset', '0.25']);
   assert.equal(interviews.get(storage, id).stereo, true);  // only known fields are taken from the window
   assert.equal(steps[0].percent, 70);
+  // The transcript went to Notion as soon as it was ready: the draft knows its row.
+  assert.deepEqual(calls[1].slice(0, 2), ['src.ai.interviews', 'save']);
+  assert.deepEqual([done.pageId, done.pageUrl], ['page-1', 'https://notion.test/page-1']);
 
   interviews.saveDraft(storage, id, {title: 'Grafana, round 1', jobUrl: 'https://jobs.test/1', text: interviews.renameSpeaker(TEXT, 'Speaker 1', 'Manager')});
   const saved = await interviews.save(storage, id, run);
   assert.deepEqual(saved, {ok: true, id: 'page-1', url: 'https://notion.test/page-1'});
-  assert.deepEqual(calls[1].slice(0, 2), ['src.ai.interviews', 'save']);
-  assert.deepEqual(calls[1].slice(3), ['--title', 'Grafana, round 1', '--input', 'Recording', '--job', 'https://jobs.test/1']);
+  // Save wrote the edits to that same row (--page), not a second one.
+  assert.deepEqual(calls[2].slice(3), ['--title', 'Grafana, round 1', '--input', 'Recording', '--job', 'https://jobs.test/1', '--page', 'page-1']);
   assert.deepEqual(interviews.drafts(storage), []);
   const kept = fs.readdirSync(storage.path('recordings'));
   assert.equal(kept.length, 2);
   assert.ok(kept.some(name => /^Grafana, round 1 \d{8} \[page1\]\.webm$/.test(name)));
   assert.ok(kept.some(name => name.endsWith('(call audio, 16 kHz s16le).pcm')));
+});
+
+test('deleting a draft whose transcript is already in Notion trashes that row too', async () => {
+  const storage = tempStorage();
+  const source = path.join(storage.dir, 'call.txt');
+  fs.writeFileSync(source, TEXT);
+  const draft = interviews.add(storage, source);
+  const calls = [];
+  const run = async (_s, args) => { calls.push(args); return {code: 0, stdout: '{"ok": true, "id": "page-9", "url": "https://notion.test/9"}'}; };
+  assert.equal((await interviews.toNotion(storage, draft.id, run)).pageId, 'page-9');
+  assert.deepEqual(await interviews.drop(storage, draft.id, run), {ok: true});
+  assert.deepEqual(calls[1], ['src.ai.interviews', 'delete', 'page-9']);
+  assert.deepEqual(interviews.drafts(storage), []);
 });
 
 test('deleting a saved interview trashes the Notion row and its recordings on the Mac', async () => {
