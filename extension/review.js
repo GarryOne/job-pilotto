@@ -277,6 +277,7 @@
     busy = true;
     try {
       const payload = {url: location.href, title: document.title, left: state.left, total: state.total,
+        missing: state.list.filter(f => f.required && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});
       session = reply?.session || null;

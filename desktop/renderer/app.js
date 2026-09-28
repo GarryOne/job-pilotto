@@ -3440,9 +3440,10 @@ function renderNextStep(item) {
   // (what it filled, the problems it hit, its audit). Its other report sections join what happened.
   const sorted = sortChecks(checks), mine = sortChecks(forYou, {forYou: true});
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
-  show($('ss-needs-card'), needs.length > 0);
+  const empty = emptyFields(item, needs);
+  show($('ss-needs-card'), needs.length + empty.length > 0);
   $('ss-needs-title').textContent = review ? 'What Claude needs from you' : 'What Claude flagged';
-  $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))));
+  $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))), ...empty.map(label => emptyRow(label, item)));
   watchAgreements(item, needs.filter(need => need.kind === 'agree'));
   applyFormStates(item);
   showFormState(item);
@@ -3539,9 +3540,29 @@ function applyFormStates(item) {
   }
   showFormState(item);
 }
+// Required fields the form page says are still empty and Claude's message didn't list: the app finds them itself.
+const fieldKey = text => String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function emptyFields(item, needs) {
+  const listed = needs.map(need => fieldKey(agreeLabel(need))).filter(Boolean);
+  return (reviewStates.get(item.id)?.missing || []).filter(label => {
+    const key = fieldKey(label);
+    return key && !listed.some(l => l.includes(key) || key.includes(l));
+  });
+}
+function emptyRow(label, item) {
+  const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
+  li.dataset.empty = label;
+  body.append(el('div', '', `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
+  actions.append(smallButton('Show it in the form', 'primary', () => showInForm(item, label)));
+  body.append(actions);
+  li.append(el('span', 'ss-need-icon', '○'), body);
+  return li;
+}
 window.pilot.onReview(state => {
+  const changed = JSON.stringify(reviewStates.get(state.id)?.missing || []) !== JSON.stringify(state.missing || []);
   reviewStates.set(state.id, state);
   const item = sessionList.find(entry => entry.id === state.id);
+  if (changed && item && openSessionId === state.id) renderSessionPage();
   if (item && openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) applyFormStates(item);
 });
 // A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to fix it.
