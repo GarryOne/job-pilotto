@@ -47,6 +47,9 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   (recording/transcribing, Apply with Claude, form filling, Google sign-in) or an instant answer runs locally.
 
 ## Desktop UI: one design system
+- **Before building or changing any screen, read the skill `ui-look-and-feel`** (`.claude/skills/ui-look-and-feel/SKILL.md`):
+  the reference screenshots (`desktop/docs/ui/`, refreshed with `npm run ui-shots`), the page and card patterns the
+  owner approved, and how to render your change in demo mode and look at it before saying it's done.
 - Values live in `desktop/renderer/tokens.css` only: colours, corner radii (`--r-sm|md|lg|pill`), the type scale
   (`--fs-…`), fonts, spacing (`--sp-…`), shadows. Screens use `var(--…)`. `desktop/test/design.test.js` fails on a
   raw colour, radius, font size or font family anywhere else, so a new one-off value can't reach `main`.

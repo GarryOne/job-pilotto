@@ -97,3 +97,7 @@ them from colliding in one checkout:
 - Never force-push `main`, and never use a bare `git stash`/`stash pop`: the stash stack is shared
   across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
+
+## Desktop UI
+Before building or changing a screen in `desktop/renderer`, read `.claude/skills/ui-look-and-feel/SKILL.md` (patterns, reference
+screenshots in `desktop/docs/ui/`, and how to render the change in demo mode to check it).
