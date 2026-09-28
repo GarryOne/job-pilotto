@@ -386,8 +386,31 @@ def _from_email(tracker, apps, result, email, stats, lines):
             and words(_field(r, 'Job')) and (words(role) in words(_field(r, 'Job')) or words(_field(r, 'Job')) in words(role))]
     if same:
         return same[0]
-    url = f'https://mail.google.com/mail/u/0/#all/{email["id"]}'
     applied = (email['date'] or '')[:10]
+    # The role may be on the list before it was applied to (Saved, Kit ready…) and applied to without marking it:
+    # that row becomes the application, so the job keeps its posting, kit and fit instead of getting a twin.
+    try:
+        earlier = [r for r in tracker.query_database(tracker.database_id, {'property': 'Company', 'rich_text': {'equals': company}})
+                   if words(_field(r, 'Job')) and (words(role) in words(_field(r, 'Job')) or words(_field(r, 'Job')) in words(role))]
+    except Exception:  # noqa: BLE001 — then a new row, as before
+        earlier = []
+    if earlier:
+        row = earlier[0]
+        before = _field(row, 'Stage') or 'on your list'
+        changes = {'Stage': {'select': {'name': 'Applied'}}, 'Date approximate': {'checkbox': True}}
+        if applied and not _field(row, 'Applied on'):
+            changes['Applied on'] = {'date': {'start': applied}}
+        tracker.update_page(row['id'], changes)
+        for name, value in changes.items():
+            row['properties'][name] = {'type': next(iter(value)), **value}
+        add_event(tracker, row, 'Applied', 'Gmail', at=applied or None,
+                  note=f'Applied without marking it; found in the email "{email["subject"][:120]}" (date is an upper bound)')
+        apps.append(row)
+        lines.append(f"➕ {_label(row)}: marked applied from this email (it was {escape(before)}).")
+        if stats is not None:
+            stats.setdefault('updates', []).append(f"➕ Marked applied · {company} — {role[:70]}")
+        return row
+    url = f'https://mail.google.com/mail/u/0/#all/{email["id"]}'
     props = {'Job': {'title': [{'text': {'content': role[:200]}}]}, 'Company': {'rich_text': [{'text': {'content': company[:200]}}]},
              'Job URL': {'url': url}, 'Stage': {'select': {'name': 'Applied'}}, 'Source': {'select': {'name': 'Gmail'}},
              'Date approximate': {'checkbox': True},

@@ -224,6 +224,27 @@ class MailTests(unittest.TestCase):
         self.assertIn({'Stage': {'select': {'name': 'Rejected'}}}, [u for _, u in tracker.updates])
         self.assertIn('➕ Tracked · Grafana Labs — Staff SRE | Spain | Remote', stats['updates'])
 
+    def test_a_role_on_the_list_but_never_marked_applied_becomes_the_application(self):
+        kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Kit ready', applied='')
+
+        class Tracker(FakeTracker):
+            def query_database(self, database_id, filter_=None):
+                if filter_ and filter_.get('property') == 'Company':
+                    return [kit_ready]
+                return super().query_database(database_id, filter_)
+        tracker, stats = Tracker([app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote')]), {}
+        google = FakeGoogle([email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}), \
+                mock.patch('src.ai.mail.review_rejections', lambda *a, **k: []):
+            mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Rejected'), 'company': 'Grafana Labs',
+                                                          'role': 'Staff SRE | Spain | Remote'}]]),
+                     days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats=stats)
+        self.assertEqual([p for p in tracker.created if 'Stage' in p], [])  # no twin
+        self.assertEqual(tracker.updates[0], ('k1', {'Stage': {'select': {'name': 'Applied'}}, 'Date approximate': {'checkbox': True},
+                                                     'Applied on': {'date': {'start': '2026-09-26'}}}))
+        self.assertIn(('k1', {'Stage': {'select': {'name': 'Rejected'}}}), tracker.updates)
+        self.assertIn('➕ Marked applied · Grafana Labs — Staff SRE | Spain | Remote', stats['updates'])
+
     def test_a_placeholder_plain_part_falls_back_to_the_html(self):
         encode = lambda text: base64.urlsafe_b64encode(text.encode()).decode()
         payload = {'mimeType': 'multipart/alternative', 'parts': [
