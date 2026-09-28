@@ -233,3 +233,61 @@ export async function appendHeading(token, pageId, text, fetcher) {
     heading_2: {rich_text: [{type: 'text', text: {content: text}}]}}]}, fetcher);
   return page.results?.[0]?.id;
 }
+
+// ---------- keeping the current strategy before it's replaced ----------
+const TEXT_TYPES = new Set(['paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item',
+  'to_do', 'toggle', 'quote', 'callout', 'code']);
+const plainRich = items => (items || []).map(item => ({type: 'text', text: {content: item.plain_text || '', ...(item.href ? {link: {url: item.href}} : {})},
+  annotations: item.annotations}));
+async function childrenOf(token, id, fetcher) {
+  const found = [];
+  let cursor;
+  do {
+    const page = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+    found.push(...page.results);
+    cursor = page.has_more ? page.next_cursor : null;
+  } while (cursor);
+  return found;
+}
+// A page's blocks as blocks that can be created elsewhere (text, lists, tables, dividers; nested ones included).
+async function copyable(token, id, fetcher, depth = 0) {
+  const out = [];
+  for (const block of await childrenOf(token, id, fetcher)) {
+    const body = block[block.type] || {};
+    if (TEXT_TYPES.has(block.type)) {
+      const copy = {rich_text: plainRich(body.rich_text)};
+      for (const key of ['checked', 'language', 'is_toggleable']) if (key in body) copy[key] = body[key];
+      if (block.has_children && depth < 2) copy.children = await copyable(token, block.id, fetcher, depth + 1);
+      out.push({object: 'block', type: block.type, [block.type]: copy});
+    } else if (block.type === 'divider') {
+      out.push({object: 'block', type: 'divider', divider: {}});
+    } else if (block.type === 'table') {
+      const rows = (await childrenOf(token, block.id, fetcher)).map(row => ({object: 'block', type: 'table_row',
+        table_row: {cells: row.table_row.cells.map(plainRich)}}));
+      out.push({object: 'block', type: 'table', table: {table_width: body.table_width, has_column_header: body.has_column_header,
+        has_row_header: body.has_row_header, children: rows}});
+    }
+  }
+  return out;
+}
+// "🗂 Previous strategy — <when>" next to the Profile: the current Profile, standard answers and search
+// settings, copied before a new strategy replaces them. Returns the new page's id.
+export async function snapshotStrategy(token, ids, when, fetcher) {
+  const beside = await call(token, 'GET', `pages/${ids.NOTION_PROFILE_PAGE_ID}`, null, fetcher);
+  const parent = beside.parent?.page_id;
+  if (!parent) throw new Error('The Profile page has no parent page to keep the copy next to');
+  const heading = text => ({object: 'block', type: 'heading_1', heading_1: {rich_text: [{type: 'text', text: {content: text}}]}});
+  const page = await call(token, 'POST', 'pages', {parent: {page_id: parent}, icon: {type: 'emoji', emoji: '🗂'},
+    properties: {title: {title: [{text: {content: `Previous strategy — ${when}`}}]}},
+    children: [{object: 'block', type: 'callout', callout: {icon: {type: 'emoji', emoji: '💡'}, rich_text: [{type: 'text', text: {content:
+      'Your strategy as it was before you replaced it in the Job Pilotto app. Nothing here is used; copy anything back you want to keep.'}}]}}]}, fetcher);
+  for (const [label, id] of [['Profile', ids.NOTION_PROFILE_PAGE_ID], ['Standard answers', ids.NOTION_ANSWERS_PAGE_ID],
+    ['Search settings', ids.NOTION_SEARCH_SETTINGS_PAGE]]) {
+    if (!id) continue;
+    const blocks = [heading(label), ...await copyable(token, id, fetcher)];
+    for (let i = 0; i < blocks.length; i += 100) {
+      await call(token, 'PATCH', `blocks/${page.id}/children`, {children: blocks.slice(i, i + 100)}, fetcher);
+    }
+  }
+  return page.id.replace(/-/g, '');
+}

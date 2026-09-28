@@ -625,3 +625,14 @@ details.manual { margin-top: 18px; }
 .back-to-setup { position: sticky; top: -28px; z-index: 4; display: flex; align-items: center; gap: 12px; background: var(--signal-soft);
   border: 1px solid var(--signal-line); border-radius: var(--r-md); padding: 10px 14px; margin: -8px 0 16px; font-size: var(--fs-base); }
 .back-to-setup span { flex: 1; }
+
+/* Setup reopened after it was done: a review; replacing the strategy is confirmed */
+.review-mode { display: flex; gap: var(--sp-2); align-items: flex-start; background: var(--teal-soft); border: 1px solid var(--teal-line);
+  border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-5); font-size: var(--fs-base); color: var(--ink); max-width: 1100px; }
+.stale-draft { display: flex; align-items: center; gap: var(--sp-3); background: var(--warn-soft); border: 1px solid var(--warn-line);
+  border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); margin: var(--sp-3) 0; font-size: var(--fs-base); }
+.stale-draft span { flex: 1; }
+.save-dialog.danger h2 { color: var(--bad); }
+.save-dialog .impact { padding-left: 18px; display: grid; gap: var(--sp-2); font-size: var(--fs-base); margin: var(--sp-4) 0; }
+.save-dialog .impact li.bad b { color: var(--bad); }
+.save-dialog .impact li.good b { color: var(--good); }

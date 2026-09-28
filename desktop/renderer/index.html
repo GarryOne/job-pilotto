@@ -28,6 +28,8 @@
   </aside>
 
   <div class="step-body">
+    <div class="review-mode" id="review-mode" hidden>🔒 <span><b>Your setup is done.</b> You're looking at it: nothing changes here unless you replace your
+      strategy at step 5, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</span></div>
     <div class="step" data-step="welcome">
       <span class="eyebrow">Check-in · about 5 minutes</span>
       <h1>Let's set up your job search</h1>
@@ -157,6 +159,8 @@
         <p class="fine" id="draft-time">Claude reads your CV and writes your Profile, standard answers and search settings. This usually takes 1 to 2 minutes.</p>
       </div>
       <div id="draft-error" class="message error" hidden></div>
+      <div class="stale-draft" id="draft-stale" hidden><span id="draft-stale-text"></span>
+        <button class="secondary small-btn" id="draft-redraft">Redraft</button></div>
       <div id="draft-view" class="review" hidden>
         <section class="card overview">
           <div class="card-head"><div><h2>Your search strategy</h2><p class="muted" id="draft-summary"></p></div>
@@ -614,11 +618,26 @@
 </section>
 
 <!-- Apply dialog -->
+<!-- Replacing a strategy after setup: what happens, then an explicit confirmation -->
+<dialog id="replace-dialog" class="save-dialog danger">
+  <h2>⚠️ Replace your strategy?</h2>
+  <ul class="impact">
+    <li class="bad"><b>Replaced:</b> your Profile, standard answers and search settings in Notion, by this draft (including anything you edited there by hand).</li>
+    <li class="good"><b>Kept first:</b> a copy of the current ones, as the Notion page “🗂 Previous strategy — <span id="replace-when"></span>”.</li>
+    <li><b>Job matches:</b> nothing is deleted. <span id="replace-jobs"></span> are re-scored against the new Profile over the next searches
+      (AI cost); jobs that no longer fit drop down or out of your list.</li>
+    <li class="good"><b>Applications and their history:</b> unchanged.</li>
+  </ul>
+  <label class="radio"><input type="checkbox" id="replace-ok"><span>I understand: replace my strategy</span></label>
+  <div class="actions"><button class="secondary" id="replace-cancel">Cancel</button><button class="danger-solid" id="replace-go" disabled>Replace my strategy</button></div>
+</dialog>
+
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->
 <dialog id="save-dialog" class="save-dialog">
   <h2 id="save-title">Saving your strategy to Notion</h2>
   <p class="muted small">Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
   <ol class="save-steps" id="save-steps">
+    <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy in Notion</li>
     <li data-save-step="local">Saving your search settings on this computer</li>
     <li data-save-step="profile">Writing your Profile to Notion <span class="count"></span></li>
     <li data-save-step="answers">Writing your standard answers to Notion <span class="count"></span></li>

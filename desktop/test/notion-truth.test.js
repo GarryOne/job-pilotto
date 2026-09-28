@@ -81,3 +81,34 @@ test('search settings become a readable Notion page next to the Profile, created
   assert.deepEqual(calls, ['create ⚙️ Search settings beside profile', 'src.notion.search_settings render', 'write settings-page: - sre',
     'src.notion.search_settings render', 'write settings-page: - sre']);
 });
+
+test('replacing a strategy keeps the current Profile, answers and search settings in a "Previous strategy" page first', async () => {
+  const {snapshotStrategy} = await import('../lib/notion.js');
+  const pages = {profile: [{type: 'heading_2', text: 'Hard constraints'}, {type: 'table', rows: [['Constraint', 'Value'], ['Countries', 'Switzerland']]}],
+    answers: [{type: 'bulleted_list_item', text: 'Pronouns — He/him'}], settings: [{type: 'paragraph', text: 'Roles: sre'}]};
+  const made = [];
+  const rich = text => [{plain_text: text, annotations: {}}];
+  const fetcher = async (url, init = {}) => {
+    const route = url.replace('https://api.notion.com/v1/', '').split('?')[0];
+    const body = init.body ? JSON.parse(init.body) : {};
+    let data = {};
+    if (init.method === 'GET' && route === 'pages/profile') data = {parent: {page_id: 'root'}};
+    else if (init.method === 'POST' && route === 'pages') { made.push({title: body.properties.title.title[0].text.content, blocks: []}); data = {id: 'snap-1'}; }
+    else if (init.method === 'PATCH' && route === 'blocks/snap-1/children') made[0].blocks.push(...body.children);
+    else if (init.method === 'GET' && route.endsWith('/children')) {
+      const id = route.split('/')[1];
+      if (id.startsWith('table-')) data = {results: pages.profile[1].rows.map(cells => ({type: 'table_row', table_row: {cells: cells.map(rich)}}))};
+      else data = {results: (pages[id] || []).map((b, i) => b.type === 'table'
+        ? {id: `table-${i}`, type: 'table', table: {table_width: 2, has_column_header: true}, has_children: true}
+        : {id: `${id}-${i}`, type: b.type, [b.type]: {rich_text: rich(b.text)}, has_children: false})};
+      data.has_more = false;
+    }
+    return {ok: true, json: async () => data};
+  };
+  const id = await snapshotStrategy('ntn_x', {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers', NOTION_SEARCH_SETTINGS_PAGE: 'settings'}, '28 Sep 2026, 15:02', fetcher);
+  assert.equal(id, 'snap1');
+  assert.equal(made[0].title, 'Previous strategy — 28 Sep 2026, 15:02');
+  const types = made[0].blocks.map(b => b.type);
+  assert.deepEqual(types, ['heading_1', 'heading_2', 'table', 'heading_1', 'bulleted_list_item', 'heading_1', 'paragraph']);
+  assert.deepEqual(made[0].blocks[2].table.children[1].table_row.cells.map(c => c[0].text.content), ['Countries', 'Switzerland']);
+});

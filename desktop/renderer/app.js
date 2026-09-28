@@ -49,6 +49,8 @@ function goStep(name) {
     li.classList.toggle('jump', !!state.settings.setupDone || i < index);
   });
   show($('wizard-exit'), !!state.settings.setupDone);
+  show($('review-mode'), !!state.settings.setupDone);  // setup done before: this is a review, not a redo
+  $('draft-save').textContent = state.settings.setupDone ? 'Replace my strategy…' : 'Save strategy & continue';
   if (name === 'cv') refreshCv();
 }
 // Finished steps (or any step once setup was done before) can be opened from the sidebar.
@@ -153,7 +155,7 @@ window.pilot.onDraftProgress(({part, percent, notes = []}) => {
 });
 
 // The save window: a step is ● while it runs (with blocks written), ✓ when it's done; the bar sums them.
-const SAVE_STEPS = {local: 5, profile: 50, answers: 30, search: 15};
+const SAVE_STEPS = {snapshot: 15, local: 5, profile: 40, answers: 25, search: 15};
 const saveState = {};
 window.pilot.onSaveProgress(({step, done, total, finished}) => {
   saveState[step] = finished ? 1 : total ? done / total : saveState[step] || 0;
@@ -667,16 +669,21 @@ function renderDraft() {
   $('draft-save').disabled = false;
 }
 // Same answers as the cached draft: show it again (no new Claude call). Changed answers or "Draft again": redraft.
+// The saved draft is shown again (no new Claude call) unless it's out of date: answers or CV changed. During the
+// first setup an out-of-date draft is redrafted; once setup is done, the user decides (Redraft), nothing automatic.
 async function toDraft() {
   const cached = await window.pilot.cachedDraft();
-  if (cached && JSON.stringify(cached.answers) === JSON.stringify(currentAnswers())) {
-    draft = cached.draft;
-    goStep('draft');
-    renderDraft();
-    return;
-  }
-  buildDraft();
+  const answersChanged = cached && JSON.stringify(cached.answers) !== JSON.stringify(currentAnswers());
+  const stale = cached && (answersChanged || cached.cvChanged);
+  if (!cached || (stale && !state.settings.setupDone)) { buildDraft(); return; }
+  draft = cached.draft;
+  goStep('draft');
+  renderDraft();
+  $('draft-stale-text').textContent = cached.cvChanged ? 'Your CV changed since this strategy was drafted.'
+    : answersChanged ? 'Your answers changed since this strategy was drafted.' : '';
+  show($('draft-stale'), !!stale);
 }
+$('draft-redraft').addEventListener('click', () => { show($('draft-stale'), false); buildDraft(); });
 for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answers', 'answers_markdown']]) {
   $(id).addEventListener('input', () => { draft[field] = $(id).value; draftChanged([field]); });
 }
@@ -689,6 +696,9 @@ async function saveDraft() {
   $('save-title').textContent = 'Saving your strategy to Notion';
   message('save-message', '');
   show($('save-close'), false); show($('save-retry'), false);
+  const replacing = !!state.settings.setupDone;
+  show(document.querySelector('[data-save-step="snapshot"]'), replacing);
+  if (!replacing) saveState.snapshot = 1;  // nothing to keep on a first setup
   if (!$('save-dialog').open) $('save-dialog').showModal();
   const result = await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value});
   if (!result.ok) {
@@ -700,9 +710,24 @@ async function saveDraft() {
   $('save-title').textContent = 'Saved to Notion ✓';
   $('save-bar').style.width = '100%';
   state = await window.pilot.state();
-  setTimeout(() => { $('save-dialog').close(); goStep('extras'); }, 900);
+  // A replaced strategy: back to the app; the first setup: on to the last step.
+  setTimeout(() => {
+    $('save-dialog').close();
+    if (replacing) { show($('wizard'), false); show($('app')); loadJobs(); toastMessage('Strategy replaced ✓', 'The previous one is kept in Notion as “🗂 Previous strategy”.'); }
+    else goStep('extras');
+  }, 900);
 }
-$('draft-save').addEventListener('click', saveDraft);
+// First setup: save straight away. Setup done before: say what a new strategy replaces, and ask.
+$('draft-save').addEventListener('click', () => {
+  if (!state.settings.setupDone) { saveDraft(); return; }
+  $('replace-when').textContent = new Date().toLocaleString('en-GB', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+  $('replace-jobs').textContent = allJobs.length ? `Your ${allJobs.length} open job matches` : 'Your open job matches';
+  $('replace-ok').checked = false; $('replace-go').disabled = true;
+  $('replace-dialog').showModal();
+});
+$('replace-ok').addEventListener('change', () => { $('replace-go').disabled = !$('replace-ok').checked; });
+$('replace-cancel').addEventListener('click', () => $('replace-dialog').close());
+$('replace-go').addEventListener('click', () => { $('replace-dialog').close(); saveDraft(); });
 $('save-retry').addEventListener('click', saveDraft);
 $('save-close').addEventListener('click', () => $('save-dialog').close());
 $('save-dialog').addEventListener('cancel', event => { if (!$('save-close').hidden) return; event.preventDefault(); });  // no Esc while saving

@@ -247,10 +247,14 @@ function handlers() {
     } finally { clearInterval(reading); }
     send({part: 'Checking the draft', percent: 99, notes: ['Checking the draft (valid settings, nothing missing)…']});
     // Kept so reopening the wizard shows it again instead of paying for a new draft.
-    storage.writeText('draft.json', JSON.stringify({answers, draft, at: new Date().toISOString()}));
+    storage.writeText('draft.json', JSON.stringify({answers, draft, cv: cvFingerprint(), at: new Date().toISOString()}));
     return draft;
   });
-  ipcMain.handle('cachedDraft', () => { try { return JSON.parse(storage.readText('draft.json')); } catch { return null; } });
+  // The saved draft, and whether it was made from the CV there is now (a replaced CV makes it out of date).
+  const cvFingerprint = () => { try { const stat = fs.statSync(storage.path('cv.pdf')); return `${stat.size}-${Math.round(stat.mtimeMs)}`; } catch { return ''; } };
+  ipcMain.handle('cachedDraft', () => {
+    try { const cached = JSON.parse(storage.readText('draft.json')); return {...cached, cvChanged: !!cached.cv && cached.cv !== cvFingerprint()}; } catch { return null; }
+  });
   ipcMain.handle('cacheDraftEdits', (_, edits) => {
     try {
       const cached = JSON.parse(storage.readText('draft.json'));
@@ -267,6 +271,13 @@ function handlers() {
       if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {ok: false, error: 'Connect Notion first: your strategy is saved there.'};
       // Progress for the save window: each step starts, advances (blocks written) and finishes.
       const step = (name, extra = {}) => window?.webContents.send('saveProgress', {step: name, ...extra});
+      // Replacing a strategy that was set up before: keep a copy of the current one in Notion first.
+      if (storage.settings().setupDone) {
+        step('snapshot');
+        const when = new Date().toLocaleString('en-GB', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+        await notion.snapshotStrategy(token, ids, when);
+        step('snapshot', {finished: true});
+      }
       strategy.save(storage, draft);
       step('local', {finished: true});
       const report = page => (done, total) => step(page, {done, total});
