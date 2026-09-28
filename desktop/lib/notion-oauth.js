@@ -23,7 +23,7 @@ export async function connect(openExternal, {fetcher = globalThis.fetch, sleep =
       const response = await fetcher(`${site}/api/notion/token`, {method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({session})});
       data = await response.json();
-      if (response.status === 503) return {ok: false, error: 'Connect with Notion isn\'t available yet. Use "Paste a token instead" below.'};
+      if (response.status === 503) return {ok: false, error: 'Connect with Notion isn\'t available yet. Use "Having trouble? Use a token instead" below.'};
     } catch { continue; }  // offline for a moment: keep waiting
     if (data.ok) return data;
   }

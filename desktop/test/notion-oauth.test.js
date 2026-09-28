@@ -21,7 +21,7 @@ test('Connect with Notion: opens the website with a random session, waits for ap
 
 test('not set up on the website, or no answer: a clear message', async () => {
   const unavailable = async () => ({status: 503, json: async () => ({ok: false})});
-  assert.match((await oauth.connect(() => {}, {fetcher: unavailable, sleep: async () => {}})).error, /Paste a token instead/);
+  assert.match((await oauth.connect(() => {}, {fetcher: unavailable, sleep: async () => {}})).error, /Use a token instead/);
   const pending = async () => ({status: 200, json: async () => ({ok: false, pending: true})});
   assert.match((await oauth.connect(() => {}, {fetcher: pending, sleep: async () => {}, every: 1000, timeout: 3000})).error, /5 minutes/);
 });

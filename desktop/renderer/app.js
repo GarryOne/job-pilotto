@@ -92,7 +92,9 @@ $('notion-oauth').addEventListener('click', async () => {
   message('notion-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
   const result = await window.pilot.notionOAuth();
   $('notion-oauth').disabled = false;
-  if (!result.ok && !result.titles) { message('notion-message', result.error || 'Not connected.', 'error'); if (/Paste a token/.test(result.error || '')) $('notion-manual').open = true; return; }
+  // It didn't work: now offer the token way (hidden until then; Connect with Notion is enough for nearly everyone).
+  if (!result.ok && !result.titles) { message('notion-message', result.error || 'Not connected.', 'error'); show($('notion-manual')); return; }
+  if (!result.ok) show($('notion-manual'));
   showNotionResult(result);
 });
 $('notion-connect').addEventListener('click', async () => {
@@ -1349,6 +1351,14 @@ $('google-connect').addEventListener('click', async () => {
   $('google-connect').disabled = false;
   message('google-message', result.ok ? 'Connected ✓' : result.error, result.ok ? 'ok' : 'error');
   showGoogle();
+});
+$('set-notion-oauth').addEventListener('click', async () => {
+  $('set-notion-oauth').disabled = true;
+  message('set-notion-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
+  const result = await window.pilot.notionOAuth();
+  $('set-notion-oauth').disabled = false;
+  message('set-notion-message', result.ok ? 'Reconnected ✓' : result.error || 'Not connected.', result.ok ? 'ok' : 'error');
+  if (result.ok) { state = await window.pilot.state(); loadSettings(); }
 });
 $('set-notion-save').addEventListener('click', async () => {
   const value = $('set-notion').value.trim();

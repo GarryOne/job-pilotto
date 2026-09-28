@@ -77,8 +77,8 @@
       </div>
       <div id="notion-found" class="found" hidden></div>
       <p class="message" id="notion-message"></p>
-      <details class="manual" id="notion-manual">
-        <summary>Paste a token instead</summary>
+      <details class="manual" id="notion-manual" hidden>
+        <summary>Having trouble? Use a token instead</summary>
         <ol class="howto">
           <li><b>Make a page for it:</b> in Notion's sidebar, <b>+</b> (new page) → name it <b>Job Pilotto</b> and leave it empty. Job Pilotto builds everything inside it when you connect. (Or copy <button class="link" id="notion-template">the Job Pilotto template</button> → <b>Duplicate</b>; missing parts are added the same way.)</li>
           <li><b>Create a connection:</b> open <a href="#" data-link="https://www.notion.so/profile/integrations">Notion's Developer tools</a> → <b>Connections</b> → <b>New connection</b> → name it "Job Pilotto", keep <b>API token</b> → <b>Create connection</b> → copy the token (starts with <code>ntn_</code>).</li>
@@ -538,8 +538,12 @@
       </div>
       <div class="setting" id="setting-notion">
         <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small">Your Job Pilotto workspace. To reconnect, paste your connection's API token again (<a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>).</p></div>
-        <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div>
+          <p class="muted small">Your Job Pilotto workspace. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+        <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
+        <details class="manual"><summary class="small">Advanced: use your own connection token</summary>
+          <p class="muted small">For a workspace that doesn't allow outside connections: create one in <a href="#" data-link="https://www.notion.so/profile/integrations">Developer tools → Connections</a>, give it your Job Pilotto page, paste its token.</p>
+          <div class="inline"><input type="password" id="set-notion" placeholder="ntn_…"><button class="secondary" id="set-notion-save">Save</button></div></details>
+        <p class="message" id="set-notion-message"></p>
       </div>
       <div class="setting" id="setting-google">
         <div><h3>📧 Gmail and Calendar</h3><p class="muted status-line" id="google-status">Checking…</p>
