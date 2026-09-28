@@ -213,6 +213,13 @@ const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name:
   action: {icon: '⚡', name: 'Telegram action'}};
 const kindOf = run => run?.kind || 'search';
 const WHO = {schedule: 'scheduled', you: 'started by you', first: 'first search'};
+// A Recent activity row's label: gray "Queued" while it waits, gray "Scheduled" for the schedule's runs,
+// green "Started by you" for the ones you started.
+function runBadge(run) {
+  if (run.waiting) return ['Queued', 'neutral'];
+  if (run.trigger === 'schedule') return ['Scheduled', 'neutral'];
+  return [capital(WHO[run.trigger] || run.trigger), run.trigger === 'you' ? 'good' : 'neutral'];
+}
 let logLines = [];      // the running task's lines, live
 let idleSeen = true;    // nothing was running at the last check: the next log line starts a new task
 let selectedRun = null; // id of the past run picked in "Recent activity"; null = the latest
@@ -284,9 +291,12 @@ function renderActivity(data) {
 
   // Recent activity: newest first; click one to see its log below.
   const shown = runs.find(run => run.id === selectedRun) || null;
-  // Waiting behind the running task (a second action clicked meanwhile): listed at once, in the order they'll run.
-  const waiting = (data.queued || []).map(run => ({...run, waiting: true}));
-  const recent = (running ? [{...running, live: true}] : []).concat(waiting, runs.slice(0, 8));
+  // Newest on top: the queued ones (the latest queued first), then the running one, then the finished ones.
+  // Each queued one says what it waits for: the one queued before it, or the running task.
+  const queue = data.queued || [];
+  const waiting = queue.map((run, i) => ({...run, waiting: true,
+    after: i ? KIND[kindOf(queue[i - 1])].name : running ? KIND[kindOf(running)].name : 'the current task'})).reverse();
+  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, 8));
   $('activity-count').textContent = `${recent.length} recent`;
   $('activity-recent').replaceChildren(...recent.map(run => {
     const item = document.createElement('li');
@@ -297,9 +307,9 @@ function renderActivity(data) {
     // Status circle (✓ / ! / spinner), what ran, when and what it found, who started it.
     button.append(el('span', 'run-status'), el('span', 'run-kind', `${kind.icon} ${kind.name}`),
       el('span', 'muted run-what', run.live ? 'Running now' : run.waiting
-        ? `Queued · starts after ${running ? KIND[kindOf(running)].name : 'the current task'}`
+        ? `Waiting · starts after ${run.after}`
         : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))}`),
-      pill(capital(WHO[run.trigger] || run.trigger), run.trigger === 'you' ? 'good' : 'neutral'));
+      pill(...runBadge(run)));
     button.addEventListener('click', () => { if (run.waiting) return; selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;
