@@ -2382,12 +2382,46 @@ function focusButton(label, className, run) {
 function openLink(url, event) {
   if (/notion\.(so|com)\//.test(url)) window.pilot.openNotion(url, event?.metaKey); else window.pilot.openExternal(url);
 }
-// First load: a spinner where the list goes (like Jobs and Interviews); later the items stay while it refreshes.
+const bone = (className = '') => el('span', `skeleton ${className}`);  // a grey placeholder bar while loading
+// First load: skeleton cards (the page's shape, greyed); later the content stays while it refreshes.
+function focusSkeleton() {
+  $('focus-count-note').textContent = 'Checking replies, interviews and applications';
+  $('focus-list').replaceChildren(...[0, 1, 2].map(() => {
+    const li = el('li', 'focus-item is-loading');
+    const body = el('div', 'focus-body');
+    body.append(bone('w-20'), bone('w-60 tall'), bone('w-40'));
+    const actions = el('div', 'focus-actions');
+    actions.append(bone('button'), bone('button small'));
+    li.append(el('span', 'focus-round skeleton-round'), body, actions);
+    return li;
+  }));
+  $('focus-count').replaceChildren(bone('w-number tall'));
+  $('focus-pct').textContent = '';
+  $('focus-summary').replaceChildren(bone('w-80'), bone('w-60'));
+  const insight = el('div', 'focus-insight-box is-loading');
+  insight.append(el('span', 'focus-round skeleton-round'), (() => { const d = el('div', 'focus-body'); d.append(bone('w-60 tall'), bone('w-80')); return d; })());
+  $('focus-insight').replaceChildren(insight);
+  show($('focus-insight-card'));
+  $('funnel-steps').replaceChildren(...[0, 1, 2, 3, 4].map(() => {
+    const li = el('li', 'funnel-step is-loading');
+    li.append(bone('w-40'), bone('w-30 tall'), bone('w-80'));
+    return li;
+  }));
+  show($('focus-funnel'));
+  show($('focus-empty'), false);
+}
+function focusStatus(text, busy = false) {
+  $('focus-status').replaceChildren(...(busy ? [el('span', 'spinner small')] : []), document.createTextNode(text));
+}
+let focusUpdatedAt = 0;
+setInterval(() => {  // "Updated 3 min ago" stays true while the page is open
+  if (focusUpdatedAt && !focusLoading) focusStatus(`Updated ${ago(new Date(focusUpdatedAt).toISOString()) || 'just now'}`);
+}, 60000);
 function loadFocus() {
   focusLoading ||= loadFocusOnce().catch(error => {
     // Never a blank page: say what went wrong where the list goes.
-    $('focus-note').textContent = 'Focus could not load.';
-    const li = el('li', 'card muted');
+    focusStatus('Could not load');
+    const li = el('li', 'focus-item muted');
     li.textContent = /No handler registered/.test(String(error?.message))
       ? 'Job Pilotto was updated while it was open. Restart it to load Focus.'
       : `Focus could not load: ${error?.message || error}. Try Refresh.`;
@@ -2396,83 +2430,104 @@ function loadFocus() {
   return focusLoading;
 }
 async function loadFocusOnce() {
-  {
-    $('focus-refresh').disabled = true;
-    const setting = await window.pilot.dailyTarget();
-    $('focus-target').value = setting.target;
-    $('focus-remind').checked = setting.reminders;
-    if (focusShown) $('focus-note').textContent = 'Refreshing from Notion…';
-    else {
-      $('focus-note').textContent = 'Loading from Notion…';
-      $('focus-count').textContent = '…';
-      $('focus-of').textContent = `of ${setting.target} applications today`;
-      const box = el('div', 'list-loading');
-      box.append(el('span', 'spinner'), el('div', '', 'Working out what to do next…'),
-        el('div', 'muted small', 'Replies, interviews and today\'s applications, from your Notion. Usually a few seconds.'));
-      const li = el('li', 'card');
-      li.append(box);
-      $('focus-list').replaceChildren(li);
-      show($('focus-empty'), false);
-    }
-    const result = await window.pilot.focus();
-    if (!result.ok) {
-      $('focus-note').textContent = result.error || 'Could not read your Notion.';
-      if (!focusShown) $('focus-list').replaceChildren();
-      return;
-    }
-    renderFocus(result.focus);
+  $('focus-refresh').disabled = true;
+  focusStatus('Syncing your jobs…', true);
+  const setting = await window.pilot.dailyTarget();
+  $('focus-target').value = setting.target;
+  $('focus-remind').checked = setting.reminders;
+  $('focus-of').textContent = `/ ${setting.target} applications today`;
+  if (!focusShown) focusSkeleton();
+  const result = await window.pilot.focus();
+  if (!result.ok) {
+    focusStatus(result.error || 'Could not read your Notion.');
+    if (!focusShown) $('focus-list').replaceChildren();
+    return;
   }
+  renderFocus(result.focus);
+  focusUpdatedAt = Date.now();
+  focusStatus('Updated just now');
 }
-function renderFocus({items, today, funnel}) {
-  renderFunnel(funnel);
+function focusCard(item) {
+  const li = el('li', `focus-item tone-${item.tone || 'neutral'}`);
+  const round = el('span', 'focus-round');
+  round.append(icon(item.icon || 'check'));
+  const body = el('div', 'focus-body');
+  const meta = el('div', 'focus-meta muted small');
+  (item.meta || []).forEach((part, i) => { if (i) meta.append(el('span', 'sep', '·')); meta.append(el('span', '', part)); });
+  body.append(pill(item.badge || '', item.tone || 'neutral', {dot: true}), el('div', 'focus-headline', item.headline || item.title), meta);
+  body.title = item.detail || '';
+  const actions = el('div', 'focus-actions');
+  if (item.link) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
+  if (item.kind === 'apply') actions.append(focusButton('Browse jobs', 'primary', () => openView('jobs')));
+  if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
+  if (!item.link && ['reply', 'book', 'offer', 'prepare', 'nudge'].includes(item.kind) && item.notion_url) {
+    actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
+  }
+  if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', async event => {
+    event.currentTarget.disabled = true;
+    const done = await window.pilot.focusDone(item.page_id);
+    if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
+    loadFocus();
+  }));
+  const more = [];
+  if (item.notion_url) more.push({label: '🗂 Open in Notion', run: event => openLink(item.notion_url, event)});
+  if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({label: '↗ Open posting', run: () => window.pilot.openExternal(item.job_url)});
+  if (item.kind === 'apply') more.push({label: '🎯 Change the daily target', run: () => editTarget()});
+  if (item.detail) more.push({label: 'ℹ️ Details', run: () => toastMessage(item.headline || item.title, item.detail)});
+  if (more.length) actions.append(moreButton(more, 'More'));
+  li.append(round, body, actions);
+  return li;
+}
+function renderFocus({items, today, funnel, insight, summary}) {
   focusShown = true;
-  $('focus-note').textContent = 'What to do next, most important first. Read from your Notion.';
-  $('focus-count').textContent = String(today.applied);
-  $('focus-of').textContent = `of ${today.target} applications today`;
-  $('focus-target').value = today.target;
-  $('focus-bar').style.width = `${Math.min(100, Math.round(100 * today.applied / Math.max(today.target, 1)))}%`;
-  $('focus-list').replaceChildren(...items.map(item => {
-    const li = el('li', `card focus-item is-p${item.priority}`);
-    const [when, tone] = FOCUS_WHEN[item.priority] || FOCUS_WHEN[4];
-    const body = el('div', 'focus-body');
-    body.append(el('div', 'focus-title', `${item.emoji} ${item.title}`), el('p', 'muted focus-detail', item.detail));
-    const actions = el('div', 'focus-actions');
-    actions.append(pill(when, tone));
-    if (item.link) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
-    if (item.kind === 'apply') {
-      actions.append(focusButton('Go to jobs', 'primary', () => openView('jobs')));
-      // The target in the title is yours to set: jump to it, ready to type.
-      actions.append(focusButton('Change target', 'link', () => {
-        const input = $('focus-target');
-        input.scrollIntoView({behavior: 'smooth', block: 'center'});
-        input.focus();
-        input.select();
-      }));
-    }
-    if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
-    if (item.notion_url) actions.append(focusButton('Open in Notion', 'secondary', event => openLink(item.notion_url, event)));
-    if (item.done && item.page_id) actions.append(focusButton('Done', 'ghost', async event => {
-      event.currentTarget.disabled = true;
-      const done = await window.pilot.focusDone(item.page_id);
-      if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
-      loadFocus();
-    }));
-    li.append(body, actions);
-    return li;
-  }));
+  $('focus-count-note').replaceChildren(pill(`${items.length} action${items.length === 1 ? '' : 's'}`, 'neutral'));
+  $('focus-list').replaceChildren(...items.map(focusCard));
   show($('focus-empty'), !items.length);
+  const pct = Math.min(100, Math.round(100 * today.applied / Math.max(today.target, 1)));
+  $('focus-count').textContent = String(today.applied);
+  $('focus-of').textContent = `/ ${today.target} applications today`;
+  $('focus-target').value = today.target;
+  $('focus-bar').style.width = `${pct}%`;
+  $('focus-pct').textContent = `${pct}%`;
+  $('focus-summary').textContent = summary || '';
+  renderInsight(insight);
+  renderFunnel(funnel);
 }
-// The application funnel, compact: each step's count and its share of applications; the full view is in Notion.
+// The latest rejection lesson, as the page's one insight.
+function renderInsight(insight) {
+  show($('focus-insight-card'), !!insight);
+  if (!insight) return;
+  const box = el('div', 'focus-insight-box');
+  const round = el('span', 'focus-round tone-warn');
+  round.append(icon('alert'));
+  const body = el('div', 'focus-body');
+  body.append(el('div', 'focus-headline', insight.headline), el('div', 'muted small', `${insight.reason} · ${insight.detail}`));
+  body.title = insight.lesson || '';
+  box.append(round, body);
+  if (insight.notion_url) box.append(focusButton('Review rejection', 'secondary', event => openLink(insight.notion_url, event)));
+  $('focus-insight').replaceChildren(box);
+}
+// The application funnel: each step's count, a bar and its share of the first step; the full view is in Notion.
 function renderFunnel(funnel) {
-  show($('focus-funnel'), !!funnel?.steps?.length);
-  if (!funnel?.steps?.length) return;
-  $('funnel-steps').replaceChildren(...funnel.steps.map((step, i) => {
+  const steps = (funnel?.steps || []).slice(0, 5);
+  show($('focus-funnel'), steps.length > 0);
+  if (!steps.length) return;
+  const first = Math.max(steps[0].reached, 1);
+  const nodes = [];
+  steps.forEach((step, i) => {
+    if (i) nodes.push(Object.assign(el('li', 'funnel-arrow'), {ariaHidden: 'true'}));
+    if (i) nodes[nodes.length - 1].append(icon('chevron'));
+    const share = Math.round(100 * step.reached / first);
     const li = el('li', `funnel-step${funnel.improve?.step === step.step ? ' is-weak' : ''}`);
-    const share = i > 1 && step.of_applied != null ? `${Math.round(step.of_applied * 100)}%` : '';
-    li.append(el('b', 'funnel-count', String(step.reached)), el('span', 'funnel-name', step.step), el('span', 'muted small', share));
-    return li;
-  }));
-  $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step}. ${funnel.improve.advice}` : '';
+    const bar = el('div', 'funnel-bar');
+    const fill = el('span', '');
+    fill.style.width = `${Math.max(share, step.reached ? 4 : 0)}%`;
+    bar.append(fill);
+    li.append(el('span', 'funnel-name', step.step.replace(/^\S+\s/, '')), el('b', 'funnel-count', String(step.reached)), bar, el('span', 'muted small', `${share}%`));
+    nodes.push(li);
+  });
+  $('funnel-steps').replaceChildren(...nodes);
+  $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step.replace(/^\S+\s/, '')}. ${funnel.improve.advice}` : '';
   show($('funnel-improve'), !!funnel.improve);
   $('focus-funnel-notion').dataset.url = funnel.notion_url || '';
   show($('focus-funnel-notion'), !!funnel.notion_url);
@@ -2480,6 +2535,17 @@ function renderFunnel(funnel) {
 $('focus-funnel-notion').addEventListener('click', event => {
   event.preventDefault();
   if (event.currentTarget.dataset.url) window.pilot.openNotion(event.currentTarget.dataset.url, event.metaKey);
+});
+function editTarget() {
+  show($('focus-target-row'));
+  $('focus-target').focus();
+  $('focus-target').select();
+}
+$('focus-edit-target').addEventListener('click', event => { event.preventDefault(); editTarget(); });
+$('focus-edit-reminders').addEventListener('click', event => {
+  event.preventDefault();
+  openView('settings');
+  document.getElementById('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
 // The target is a line of ⚙️ Search settings in Notion; changing it here (or in Settings) writes it there.
 async function saveDailyTarget(input) {
@@ -2491,7 +2557,9 @@ async function saveDailyTarget(input) {
   return true;
 }
 $('focus-refresh').addEventListener('click', loadFocus);
-$('focus-target').addEventListener('change', async () => { if (await saveDailyTarget($('focus-target'))) loadFocus(); });
+$('focus-target').addEventListener('change', async () => {
+  if (await saveDailyTarget($('focus-target'))) { show($('focus-target-row'), false); loadFocus(); }
+});
 $('set-target').addEventListener('change', () => saveDailyTarget($('set-target')));
 for (const id of ['focus-remind', 'set-remind']) $(id).addEventListener('change', async () => {
   const on = $(id).checked;

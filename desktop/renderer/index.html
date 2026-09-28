@@ -305,27 +305,53 @@
     </div>
 
     <div class="view" data-view="focus" hidden>
-      <header class="view-head jobs-head">
-        <div><h1>Focus</h1><p class="muted subtitle" id="focus-note">What to do next, most important first. Read from your Notion.</p></div>
-        <div class="head-actions"><button class="secondary with-icon" id="focus-refresh"><i data-icon="refresh"></i><span>Refresh</span></button></div>
+      <header class="view-head">
+        <div><h1>Focus</h1><p class="muted subtitle">The next steps for your job search.</p></div>
+        <div class="head-actions">
+          <span class="focus-status muted small" id="focus-status"></span>
+          <button class="secondary with-icon" id="focus-refresh"><i data-icon="refresh"></i><span>Refresh</span></button>
+        </div>
       </header>
-      <section class="card focus-today">
-        <div class="focus-progress">
-          <div><b id="focus-count">–</b> <span class="muted" id="focus-of">applications today</span></div>
-          <div class="focus-bar" aria-hidden="true"><span id="focus-bar"></span></div>
+      <div class="focus-grid">
+        <div class="focus-main">
+          <section class="card">
+            <div class="focus-card-head"><h2>Up next</h2><span class="muted small" id="focus-count-note"></span></div>
+            <ol class="focus-list" id="focus-list"></ol>
+            <p class="empty" id="focus-empty" hidden>Nothing waits for you right now.</p>
+          </section>
+          <section class="card" id="focus-insight-card" hidden>
+            <div class="focus-card-head"><h2 class="with-glyph"><i data-icon="bulb"></i>Insight</h2></div>
+            <div class="focus-insight" id="focus-insight"></div>
+          </section>
+          <section class="card" id="focus-funnel" hidden>
+            <div class="focus-card-head"><h2 class="with-glyph"><i data-icon="chart"></i>Application funnel</h2>
+              <a href="#" class="link small" id="focus-funnel-notion">Open in Notion ↗</a></div>
+            <ol class="funnel-steps" id="funnel-steps"></ol>
+            <p class="muted small" id="funnel-improve" hidden></p>
+          </section>
         </div>
-        <div class="focus-settings">
-          <label class="focus-setting">Daily target <input type="number" id="focus-target" min="1" max="200" step="1"></label>
-          <label class="focus-setting is-check"><input type="checkbox" id="focus-remind"><span>Remind me at 11, 15 and 19 h</span></label>
-        </div>
-      </section>
-      <ol class="focus-list" id="focus-list"></ol>
-      <section class="card focus-funnel" id="focus-funnel" hidden>
-        <div class="focus-funnel-head"><b>📈 Your funnel</b><a href="#" class="link" id="focus-funnel-notion">Open in Notion ↗</a></div>
-        <ol class="funnel-steps" id="funnel-steps"></ol>
-        <p class="muted small" id="funnel-improve" hidden></p>
-      </section>
-      <p class="empty" id="focus-empty" hidden>Nothing waits for you right now.</p>
+        <aside class="focus-side">
+          <section class="card">
+            <div class="focus-card-head"><h2>Today's progress</h2><a href="#" class="link small" id="focus-edit-target">Edit target</a></div>
+            <div class="focus-progress-big"><b id="focus-count">–</b><span class="muted" id="focus-of">applications today</span></div>
+            <div class="focus-bar-row"><div class="focus-bar" aria-hidden="true"><span id="focus-bar"></span></div><span class="muted small" id="focus-pct"></span></div>
+            <label class="focus-target-edit" id="focus-target-row" hidden>Applications a day <input type="number" id="focus-target" min="1" max="200" step="1"></label>
+            <div class="focus-tip"><i data-icon="target"></i><span>A target, not a deadline. Consistency wins.</span></div>
+          </section>
+          <section class="card">
+            <div class="focus-card-head"><h2>Reminders</h2><a href="#" class="link small" id="focus-edit-reminders">Edit</a></div>
+            <div class="focus-reminder">
+              <span class="focus-round"><i data-icon="bell"></i></span>
+              <div><span class="muted small">Remind me at</span><b>11:00 · 15:00 · 19:00</b></div>
+              <label class="switch" title="Notifications and Telegram when someone waits for you or you're behind the target"><input type="checkbox" id="focus-remind"><span></span></label>
+            </div>
+          </section>
+          <section class="card focus-summary">
+            <h2 class="with-glyph"><i data-icon="file"></i>Your focus</h2>
+            <p id="focus-summary"></p>
+          </section>
+        </aside>
+      </div>
     </div>
 
     <div class="view" data-view="actions" hidden>

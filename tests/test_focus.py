@@ -45,6 +45,8 @@ class FocusTests(unittest.TestCase):
         self.assertIn('yesterday', reply['detail'])
         self.assertIn('1 kit ready (Grafana Labs…)', result['items'][2]['detail'])
         self.assertNotIn('Laelaps AI', [c for _, c in kinds])  # answered: a Replied event came after
+        self.assertEqual(result['summary'], 'Reply to recruiters first, then prepare for your interview.')
+        self.assertEqual(result['items'][2]['meta'], ['1 application kit ready to review', '0 of 30 today'])
 
     def test_a_recruiter_pitch_links_to_its_email_and_shows_the_facts(self):
         lead = row('a', '', 'Senior DevOps Engineer', stage='Recruiter lead', applied=None, Via='AG Talent',
@@ -55,6 +57,8 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(item['title'], 'Reply by email: AG Talent — Senior DevOps Engineer')
         self.assertEqual(item['link'], 'https://mail.google.com/mail/u/0/#all/1a0e86124ae7e2f5')
         self.assertEqual(item['detail'], 'Recruiter pitch today (Email). €70–90k + equity · Remote (Europe) · Arjun Gillard')
+        self.assertEqual((item['icon'], item['badge'], item['headline']), ('mail', 'Reply today', 'Reply to AG Talent recruiter'))
+        self.assertEqual(item['meta'], ['Senior DevOps Engineer', 'Email', '€70–90k + equity', 'Remote (Europe)'])
 
     def test_a_booking_invite_and_an_offer(self):
         rows = [row('a', 'Acme', 'SRE', stage='Screening'), row('b', 'Zeta', 'SRE', stage='Offer')]
@@ -87,9 +91,10 @@ class FocusTests(unittest.TestCase):
         rows = [row('a', 'Canonical', 'SRE', stage='Rejected', Rejection_lesson='Lead with Python.',
                     Rejection_reason={'type': 'select', 'select': {'name': 'Hard skills'}})]
         events = [event('a', 'Reply received', '2026-09-28T08:00:00Z')]
-        items = focus.build(rows, events, target=0, now=NOW)['items']
-        self.assertEqual([i['kind'] for i in items], ['learn'])
-        self.assertIn('Hard skills. Lead with Python.', items[0]['detail'])
+        result = focus.build(rows, events, target=0, now=NOW)
+        self.assertEqual(result['items'], [])
+        self.assertEqual((result['insight']['reason'], result['insight']['headline']), ('Hard skills', 'Lead with Python'))
+        self.assertEqual(result['summary'], "You're up to date. A good moment to apply to a few more jobs.")
 
     def test_the_funnel_counts_each_step_from_the_same_rows(self):
         rows = [row('a', 'A', 'x', stage='Rejected'), row('b', 'B', 'y', stage='Screening'), row('c', 'C', 'z', stage='Kit ready', applied=None)]

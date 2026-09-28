@@ -715,32 +715,86 @@ main { min-width: 0; }
 .activity-message { white-space: pre-wrap; font: inherit; font-size: var(--fs-sm); background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--r-md); padding: 10px 12px; margin: 8px 0; max-height: 220px; overflow-y: auto; }
 
-/* Focus: today's progress and the ranked to-do list */
-.focus-today { display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap; }
-.focus-progress { flex: 1; min-width: 220px; }
-.focus-progress b { font-size: var(--fs-xl); }
-.focus-bar { height: 8px; background: var(--bg); border-radius: var(--r-pill); margin-top: var(--sp-2); overflow: hidden; }
-.focus-bar span { display: block; height: 100%; width: 0; background: var(--signal); border-radius: var(--r-pill); transition: width .3s var(--ease); }
-.focus-settings { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
-.focus-setting { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); white-space: nowrap; margin: 0; }
-.focus-setting input[type=number] { width: 80px; }
-.focus-setting.is-check input { width: auto; margin: 0; }
-.focus-list .list-loading { padding: var(--sp-4) 0; }
-.focus-list { list-style: none; padding: 0; margin: 0; }
-.focus-item { display: flex; align-items: center; gap: var(--sp-4); border-left: 4px solid var(--line); }
-.focus-item.is-p1 { border-left-color: var(--bad); }
-.focus-item.is-p2 { border-left-color: var(--warn); }
-.focus-item.is-p3 { border-left-color: var(--info); }
-.focus-body { flex: 1; min-width: 0; }
-.focus-title { font-weight: 600; }
-.focus-detail { margin: var(--sp-1) 0 0; }
-.focus-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 1180px) { .focus-item { flex-direction: column; align-items: stretch; } .focus-actions { justify-content: flex-start; } }
-.focus-funnel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--sp-3); }
-.funnel-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2); }
-.funnel-step { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); padding: var(--sp-3) var(--sp-2);
-  background: var(--surface-2); border-radius: var(--r-md); text-align: center; }
+/* Focus: Up next, Insight and funnel on the left; progress, reminders and "Your focus" on the right */
+.focus-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--sp-4); align-items: start; }
+.focus-main, .focus-side { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.focus-grid .card { margin: 0; }
+.focus-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.focus-card-head h2, .focus-summary h2 { font-size: var(--fs-lg); margin: 0; }
+.with-glyph { display: flex; align-items: center; gap: var(--sp-2); }
+.with-glyph .icon { width: 18px; height: 18px; color: var(--signal); }
+.focus-status { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.spinner.small { width: 14px; height: 14px; border-width: 2px; }
+.focus-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.focus-item { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--line); border-left: 4px solid var(--line);
+  border-radius: var(--r-md); background: var(--surface); }
+.focus-item.tone-bad { border-left-color: var(--bad); }
+.focus-item.tone-warn { border-left-color: var(--warn); }
+.focus-item.tone-info { border-left-color: var(--info); }
+.focus-item.tone-good { border-left-color: var(--good); }
+.focus-round { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); }
+.focus-round .icon { width: 18px; height: 18px; }
+.focus-round.tone-warn { background: var(--warn-soft); color: var(--warn); }
+.focus-body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.focus-headline { font-weight: 600; font-size: var(--fs-base); color: var(--ink); }
+.focus-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+.focus-meta .sep { opacity: .6; }
+.focus-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.focus-insight-box { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4); border-radius: var(--r-md);
+  background: var(--warn-soft); border-left: 4px solid var(--warn); }
+.focus-progress-big { display: flex; align-items: baseline; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.focus-progress-big b { font-size: var(--fs-display); line-height: 1; }
+.focus-bar-row { display: flex; align-items: center; gap: var(--sp-3); }
+.focus-bar { flex: 1; height: 8px; background: var(--surface-2); border-radius: var(--r-pill); overflow: hidden; }
+.focus-bar span { display: block; height: 100%; width: 0; background: var(--info); border-radius: var(--r-pill); transition: width .3s var(--ease); }
+.focus-target-edit { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); color: var(--ink-2); }
+.focus-target-edit input { width: 80px; }
+.focus-tip { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4); padding: var(--sp-3); border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--muted); font-size: var(--fs-sm); }
+.focus-tip .icon { width: 18px; height: 18px; color: var(--info); flex: none; }
+.focus-reminder { display: flex; align-items: center; gap: var(--sp-3); }
+.focus-reminder > div { flex: 1; display: flex; flex-direction: column; }
+.focus-summary { background: var(--signal-soft); border-color: var(--signal-line); }
+.focus-summary p { margin: var(--sp-2) 0 0; color: var(--ink-2); }
+/* A switch: a checkbox drawn as a sliding toggle */
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; flex: none; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: var(--r-pill); background: var(--line-strong); transition: background .2s var(--ease); pointer-events: none; }
+.switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface);
+  box-shadow: var(--shadow-sm); transition: transform .2s var(--ease); }
+.switch input:checked + span { background: var(--info); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.switch input:focus-visible + span { outline: 2px solid var(--info-line); outline-offset: 2px; }
+/* Funnel: tiles with a bar and the share of the first step, chevrons between */
+.funnel-steps { list-style: none; padding: 0; margin: 0; display: flex; align-items: stretch; gap: var(--sp-1); }
+.funnel-step { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3); background: var(--surface-2); border-radius: var(--r-md); }
 .funnel-step.is-weak { background: var(--warn-soft); }
-.funnel-count { font-size: var(--fs-xl); }
 .funnel-name { font-size: var(--fs-sm); color: var(--ink-2); }
-@media (max-width: 1180px) { .funnel-steps { grid-template-columns: repeat(3, 1fr); } }
+.funnel-count { font-size: var(--fs-xl); line-height: 1.2; }
+.funnel-bar { height: 6px; background: var(--line); border-radius: var(--r-pill); overflow: hidden; }
+.funnel-bar span { display: block; height: 100%; background: var(--info); border-radius: var(--r-pill); }
+.funnel-arrow { display: grid; place-items: center; color: var(--muted); }
+.funnel-arrow .icon { width: 16px; height: 16px; }
+#funnel-improve { margin: var(--sp-3) 0 0; }
+/* Skeleton placeholders while Focus loads */
+.skeleton { display: block; height: 10px; border-radius: var(--r-pill); background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s var(--ease) infinite; }
+.skeleton.tall { height: 16px; }
+.skeleton.button { width: 120px; height: 36px; border-radius: var(--r-md); }
+.skeleton.button.small { width: 72px; }
+.skeleton.w-20 { width: 20%; } .skeleton.w-30 { width: 30%; } .skeleton.w-40 { width: 40%; } .skeleton.w-60 { width: 60%; } .skeleton.w-80 { width: 80%; }
+.skeleton.w-number { width: 48px; height: 36px; border-radius: var(--r-sm); display: inline-block; }
+.skeleton-round { background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.4s var(--ease) infinite; }
+.focus-item.is-loading, .funnel-step.is-loading, .focus-insight-box.is-loading { gap: var(--sp-3); }
+.focus-summary .skeleton + .skeleton { margin-top: var(--sp-2); }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton, .skeleton-round { animation: none; } }
+@media (max-width: 1180px) {
+  .focus-grid { grid-template-columns: 1fr; }
+  .focus-item { flex-wrap: wrap; }
+  .focus-actions { width: 100%; justify-content: flex-end; }
+  .funnel-steps { flex-wrap: wrap; }
+  .funnel-arrow { display: none; }
+  .funnel-step { flex: 1 1 30%; }
+}
+.focus-card-head .link { text-decoration: none; }

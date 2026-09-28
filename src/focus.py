@@ -67,11 +67,70 @@ def _gmail(source_id):
     return f'https://mail.google.com/mail/u/0/#all/{source_id}' if source_id and not source_id.startswith('cal:') else ''
 
 
-def _item(priority, kind, emoji, title, detail, row=None, link='', link_label='', done=False):
+def _item(priority, kind, emoji, title, detail, row=None, link='', link_label='', done=False, **extra):
+    field = lambda name: _field(row, name) if row else ''
     return {'priority': priority, 'kind': kind, 'emoji': emoji, 'title': title, 'detail': detail,
-            'company': _field(row, 'Company') if row else '', 'job': _field(row, 'Job') if row else '',
-            'job_url': _field(row, 'Job URL') if row else '', 'page_id': row['id'] if row else '',
-            'notion_url': (row or {}).get('url', ''), 'link': link, 'link_label': link_label, 'done': done}
+            'company': field('Company'), 'job': field('Job'), 'via': field('Via'), 'stage': field('Stage'),
+            'salary': field('Salary'), 'location': field('Location'), 'reached': field('Reached via'),
+            'job_url': field('Job URL'), 'page_id': row['id'] if row else '',
+            'notion_url': (row or {}).get('url', ''), 'link': link, 'link_label': link_label, 'done': done, **extra}
+
+
+def _short(text, limit=28):
+    text = re.sub(r'\s+', ' ', text or '').strip()
+    return text if len(text) <= limit else text[:limit - 1].rstrip(' ,·(') + '…'
+
+
+def present(item):
+    """The card's words (the app's Up next list): an icon, a badge, a short headline and a meta line."""
+    kind, who = item['kind'], item['company'] or item['via'] or 'the recruiter'
+    meta = []
+    if kind in ('reply', 'book', 'offer'):
+        reached = item['reached'] or ('LinkedIn' if 'linkedin' in item['link'] else 'Email' if 'mail.google' in item['link'] else '')
+        icon, badge, tone = {'reply': ('chat' if reached == 'LinkedIn' else 'mail' if reached == 'Email' else 'chat', 'Reply today', 'bad'),
+                             'book': ('calendar', 'Book the call', 'bad'), 'offer': ('target', 'Offer', 'good')}[kind]
+        headline = {'reply': f"Reply to {who} recruiter" if item.get('lead') else f'Reply to {who}',
+                    'book': f'Book a call with {who}', 'offer': f"Answer {who}'s offer"}[kind]
+        meta = [_short(item['job'], 40), reached, _short(item['salary']), _short(item['location'])]
+    elif kind == 'prepare':
+        at = _when(item.get('at', ''))
+        icon, badge, tone = 'mic', f"Interview {at.astimezone(TZ):%a %H:%M}" if at else 'Interview', 'bad' if item['priority'] == 1 else 'warn'
+        headline, meta = f'Prepare for {who}', [_short(item['job'], 40), 'posting, kit and weak topics']
+    elif kind == 'review':
+        icon, badge, tone = 'file', 'Review', 'warn'
+        headline, meta = f'Review your {who} interview', [_short(item['job'], 40), 'import the recording or transcript']
+    elif kind == 'nudge':
+        quiet = item.get('quiet', 0)
+        icon, badge, tone = 'send', 'Follow up', 'warn'
+        headline = f'Move {who} forward'
+        meta = [_short(item['job'], 40), item['stage'], f'no news for {quiet} days' if quiet >= QUIET_DAYS else 'nothing booked']
+    elif kind == 'apply':
+        done, left, kits = item.get('applied', 0), item.get('left', 0), item.get('kits', 0)
+        icon, badge, tone = 'briefcase', 'Next step', 'info'
+        headline = 'Apply to your next role' if not done else f'Apply to {left} more today'
+        meta = [f'{kits} application kit{"s" if kits != 1 else ""} ready to review' if kits else 'Prepare kits from your best matches',
+                f"{done} of {item.get('target', DEFAULT_TARGET)} today"]
+    else:  # waiting
+        icon, badge, tone = 'pulse', 'When you can', 'neutral'
+        headline, meta = item['title'], ['No human reply yet', 'follow up or let them go']
+    item.update(icon=icon, badge=badge, tone=tone, headline=headline, meta=[m for m in meta if m])
+    return item
+
+
+def summary(items):
+    """One sentence for "Your focus": the first two kinds of work, in order."""
+    phrases = {'offer': 'answer the offer', 'book': 'book the call you were invited to', 'reply': 'reply to recruiters',
+               'prepare': 'prepare for your interview', 'review': 'review your last interview', 'nudge': 'follow up where things went quiet',
+               'apply': 'review ready applications', 'waiting': 'follow up on applications waiting for a reply'}
+    order = []
+    for item in items:
+        phrase = phrases.get(item['kind'])
+        if phrase and phrase not in order:
+            order.append(phrase)
+    if not order:
+        return "You're up to date. A good moment to apply to a few more jobs."
+    text = order[0][0].upper() + order[0][1:]
+    return f'{text} first, then {order[1]}.' if len(order) > 1 else f'{text}.'
 
 
 def _events_by_app(events):
@@ -126,10 +185,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
             when = _ago(last['at'], now) if last['at'] else ''
             if last['kind'] == 'Offer':
                 items.append(_item(1, 'offer', '🎉', f'Answer the offer: {label}', f'Offer {when}. {last["note"][:140]}', row,
-                                   link, 'Open the email' if link else '', done=True))
+                                   link, 'Open email' if link else '', done=True))
             elif BOOKING.search(last['note']):
                 items.append(_item(1, 'book', '📅', f'Book the call: {label}', f'They asked you to pick a time ({when}). {last["note"][:140]}',
-                                   row, link, 'Open the email' if 'mail.google' in link else 'Open', done=True))
+                                   row, link, 'Open email' if 'mail.google' in link else 'Open', done=True))
             else:
                 if last['kind'] == 'Recruiter lead':  # the facts that decide the answer, not the event's note
                     facts = ' · '.join(p for p in (_field(row, 'Salary'), _field(row, 'Location'), _field(row, 'Contact').split(' · ')[0]) if p)
@@ -138,7 +197,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
                     detail = f'They wrote {when}. {last["note"][:140]}'
                 items.append(_item(1, 'reply', '💬', f'Reply {where}: {label}'.replace('Reply : ', 'Reply: '),
                                    detail, row, link,
-                                   'Open the email' if 'mail.google' in link else 'Open on LinkedIn' if 'linkedin' in link else '', done=True))
+                                   'Open email' if 'mail.google' in link else 'Open LinkedIn' if 'linkedin' in link else '', done=True,
+                                   lead=last['kind'] == 'Recruiter lead'))
             continue
         coming = _when(_field(row, 'Next interview'))
         if coming and coming > now:
@@ -146,7 +206,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
             if hours <= 14 * 24:
                 items.append(_item(1 if hours <= SOON_HOURS else 2, 'prepare', '🎤', f'Prepare: {label}',
                                    f"Interview {coming.astimezone(TZ):%a %d %b, %H:%M}. Read the posting and your kit, "
-                                   'and practise the topics you answered weakly before.', row))
+                                   'and practise the topics you answered weakly before.', row, at=coming.isoformat()))
                 continue
         if coming and now - timedelta(days=3) < coming <= now and interviewed.get(key, '') < coming.astimezone(TZ).date().isoformat():
             items.append(_item(2, 'review', '📝', f'Review the interview: {label}',
@@ -158,7 +218,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
             if quiet >= QUIET_DAYS or stage == 'Interview scheduled':
                 items.append(_item(2, 'nudge', '🤝', f'Move it forward: {label}',
                                    f"{stage}, nothing booked{f' and no news for {quiet} days' if quiet >= QUIET_DAYS else ''}. "
-                                   'Propose times for the next call, or ask where things stand.', row))
+                                   'Propose times for the next call, or ask where things stand.', row, quiet=quiet))
     done_today = _applied_today(rows, by_app, today)
     kits = sorted((r for r in rows if _field(r, 'Stage') == 'Kit ready'),
                   key=lambda r: -((r['properties'].get('Fit score') or {}).get('number') or 0))
@@ -168,13 +228,19 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
         items.append(_item(3, 'apply', '📨', f'Apply to {left} more job{"s" if left != 1 else ""} today',
                            f'{done_today} of {target} today.' + (f' {len(kits)} kit{"s" if len(kits) != 1 else ""} ready'
                                                                   f'{f" ({names}…)" if names else ""}.' if kits else
-                                                                  ' Prepare kits from your best matches (Jobs).')))
+                                                                  ' Prepare kits from your best matches (Jobs).'),
+                           applied=done_today, left=left, kits=len(kits), target=target))
+    # The latest rejection lesson (last 3 days) is the page's Insight, not a to-do.
     reviewed = [r for r in rows if _field(r, 'Stage') == 'Rejected' and _field(r, 'Rejection lesson')]
     recent = [r for r in reviewed if (_when(r.get('last_edited_time', '')) or now) > now - timedelta(days=3)]
+    insight = None
     if recent:
         row = max(recent, key=lambda r: r.get('last_edited_time', ''))
-        items.append(_item(4, 'learn', '🔎', f"Learn from the rejection: {_field(row, 'Company')} — {_field(row, 'Job')[:60]}",
-                           f"{_field(row, 'Rejection reason')}. {_field(row, 'Rejection lesson')[:220]}", row))
+        lesson = _field(row, 'Rejection lesson')
+        first = re.split(r'(?<=[.;])\s', lesson, maxsplit=1)[0].rstrip('.;')
+        insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 110),
+                   'detail': f"{_field(row, 'Company')} — {_field(row, 'Job')}", 'lesson': lesson,
+                   'notion_url': row.get('url', ''), 'page_id': row['id']}
     waiting = [r for r in rows if _field(r, 'Stage') in ('Applied', 'Confirmation received')
                and (applied := _when(_field(r, 'Applied on'))) and (now - applied).days >= WAITING_DAYS]
     if waiting:
@@ -183,8 +249,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
                            'on LinkedIn; let the rest go (they close as No response after 21 days).'))
     order = {'offer': 0, 'book': 1, 'reply': 2, 'prepare': 3, 'review': 4, 'nudge': 5, 'apply': 6, 'learn': 7, 'waiting': 8}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
+    items = [present(item) for item in items]
     return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits)},
-            'funnel': funnel(rows, events), 'generated_at': now.isoformat(timespec='seconds')}
+            'insight': insight, 'summary': summary(items), 'funnel': funnel(rows, events),
+            'generated_at': now.isoformat(timespec='seconds')}
 
 
 def funnel(rows, events):
