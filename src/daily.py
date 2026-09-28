@@ -3,7 +3,7 @@
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
-from html import escape, unescape
+from html import escape
 import json
 import os
 import random
@@ -142,7 +142,7 @@ def queue_mail_check(delay=5):
 
 def log_text(html):
     """A Telegram HTML reply as plain text for the terminal and the app's activity log (no tags, no &#x27;)."""
-    return unescape(re.sub(r'<[^>]+>', '', html))
+    return telegram.plain(html)
 
 
 def log_ai_run(tracker, run, args):

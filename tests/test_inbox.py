@@ -160,6 +160,12 @@ class DailyAddTests(unittest.TestCase):
             daily.log_ai_run(object(), run, SimpleNamespace(send=False, log_run=True))
         printed.assert_called_with('Cronjob run logged: https://notion.test/run-1')
 
+    def test_terminal_output_of_a_telegram_message_is_readable(self):
+        from src import telegram
+        self.assertEqual(telegram.plain('💡 <b>Seniority</b> &#x27;Staff&#x27; &amp; <a href="https://n.so/x">In Notion</a>'),
+                         "💡 Seniority 'Staff' & In Notion (https://n.so/x)")
+        self.assertEqual(telegram.plain('score < 50'), 'score < 50')
+
     def test_the_log_gets_plain_text_not_telegram_html(self):
         from src import daily
         self.assertEqual(daily.log_text("⚠️ That doesn&#x27;t look like <b>a job</b> &amp; so on"),

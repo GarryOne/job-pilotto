@@ -10,7 +10,7 @@ class ToAppTest(unittest.TestCase):
         out = io.StringIO()
         with redirect_stdout(out):
             telegram.to_app('💡 <b>Insight</b>', {'inline_keyboard': []})
-        self.assertEqual(out.getvalue(), '<<<message\n💡 <b>Insight</b>\nmessage>>>\n')
+        self.assertEqual(out.getvalue(), '<<<message\n💡 Insight\nmessage>>>\n')  # readable, not Telegram HTML
 
 
 if __name__ == '__main__':

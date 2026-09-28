@@ -1,6 +1,8 @@
 """Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
+import html
 import json
 import os
+import re
 import subprocess
 import urllib.parse
 import urllib.request
@@ -18,8 +20,19 @@ def credentials():
 APP_MESSAGE = ('<<<message', 'message>>>')
 
 
+TELEGRAM_TAG = re.compile(r'</?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler|span)(?:\s[^>]*)?>', re.I)
+LINK = re.compile(r'<a\s[^>]*href="([^"]*)"[^>]*>(.*?)</a>', re.I | re.S)
+
+
+def plain(text):
+    """A Telegram HTML message as readable text (the terminal, logs): Telegram's tags removed, a link as
+    "text (url)", entities such as &#x27; turned back into characters. Same rules as the app's readable()."""
+    text = LINK.sub(lambda m: f'{m[2]} ({m[1]})' if m[2] and m[2] != m[1] else m[1], str(text or ''))
+    return html.unescape(TELEGRAM_TAG.sub('', text))
+
+
 def to_app(text, reply_markup=None):
-    print(f'{APP_MESSAGE[0]}\n{text}\n{APP_MESSAGE[1]}')
+    print(f'{APP_MESSAGE[0]}\n{plain(text)}\n{APP_MESSAGE[1]}')
 
 
 def send(text, token, chat_id, reply_markup=None):

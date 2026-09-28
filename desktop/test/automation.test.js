@@ -181,3 +181,13 @@ test('without Telegram, a job\'s message is read from its output and the replies
     '💡 Looking at the market and your applications; the insight shows here in about a minute.');
   assert.equal(telegram.inApp('📋 Sending the current list in about a minute.'), "📋 Preparing today's list; it shows here in about a minute.");
 });
+
+test('Telegram HTML shows as readable text everywhere the app shows output', () => {
+  assert.equal(pipeline.readable("• Gap notes repeat &#x27;Staff level is a step above candidate&#x27;s title&#x27;"),
+    "• Gap notes repeat 'Staff level is a step above candidate's title'");
+  assert.equal(pipeline.readable('💡 <b>Insight · Seniority</b> &amp; <i>Confidence medium</i>'), '💡 Insight · Seniority & Confidence medium');
+  assert.equal(pipeline.readable('<a href="https://notion.so/x">In Notion</a>'), 'In Notion (https://notion.so/x)');
+  assert.equal(pipeline.readable('<<<message'), '<<<message');  // the app's own markers and a log's "<" stay
+  assert.equal(pipeline.readable('score < 50 → skip'), 'score < 50 → skip');
+  assert.equal(pipeline.appMessage(['<<<message', '<b>Seniority</b>', 'candidate&#x27;s title', 'message>>>']), "Seniority\ncandidate's title");
+});

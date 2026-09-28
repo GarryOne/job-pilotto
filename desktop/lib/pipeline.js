@@ -65,7 +65,22 @@ export function pipelineEnv(storage, parent = process.env) {
   return env;
 }
 
-// Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine.
+// Telegram HTML (the pipeline formats its messages for Telegram) as readable text, for every place the app shows
+// output: the live and saved logs, Recent activity, the Actions answer. Only Telegram's tags are removed (a log's
+// own "<" stays), a link keeps its address ("text (url)"), and entities such as &#x27; become their character.
+const TELEGRAM_TAG = /<\/?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler|span)(?:\s[^>]*)?>/gi;
+const NAMED = {amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' '};
+export function readable(text) {
+  return String(text ?? '')
+    .replace(/<a\s[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, (_, url, label) => (label && label !== url ? `${label} (${url})` : url))
+    .replace(TELEGRAM_TAG, '')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code) => code[0] === '#'
+      ? String.fromCodePoint(code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10))
+      : NAMED[code.toLowerCase()] ?? match);
+}
+
+// Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine (made readable).
+// stdout itself stays as printed, for the callers that parse it.
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
@@ -74,12 +89,12 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       buffer += chunk;
       const parts = buffer.split(/\r?\n/);  // Windows ends lines with \r\n
       buffer = parts.pop();
-      parts.filter(Boolean).forEach(onLine);
+      parts.filter(Boolean).map(readable).forEach(onLine);
     };
     child.stdout.on('data', data => { stdout += data; lines(String(data)); });
     child.stderr.on('data', data => lines(String(data)));
     child.on('error', reject);
-    child.on('close', code => { if (buffer) onLine(buffer); resolve({code, stdout}); });
+    child.on('close', code => { if (buffer) onLine(readable(buffer)); resolve({code, stdout}); });
   });
 }
 
@@ -96,7 +111,7 @@ export async function addApplied(storage, url, when = '', onLine = () => {}, det
   const inputs = {mode: 'add', job: url, note: when, jobTitle: details.title, jobCompany: details.company, jobText: details.text};
   const {code, stdout} = await run(storage, dailyArgs(storage, inputs), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
-  const text = line.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+  const text = readable(line);
   return {ok: code === 0 && !text.startsWith('⚠️'), text: text || 'Could not add it (see the activity log)'};
 }
 
@@ -106,7 +121,7 @@ export async function addApplied(storage, url, when = '', onLine = () => {}, det
 export async function addLead(storage, text, talking = false, onLine = () => {}, {file = '', target = ''} = {}) {
   const {code, stdout} = await run(storage, dailyArgs(storage, {mode: 'add', note: text, talking, file, target}), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
-  const plain = line.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;/g, "'");
+  const plain = readable(line);
   return {ok: code === 0 && !plain.startsWith('⚠️'), text: plain || 'Could not add it (see the activity log)'};
 }
 
@@ -235,13 +250,12 @@ export function task(storage, kind, args, onLine, trigger = 'you') {
 export function appMessage(log) {
   const end = log.lastIndexOf('message>>>'), start = log.lastIndexOf('<<<message', end);
   if (end < 0 || start < 0) return null;
-  const entities = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'"};
-  return log.slice(start + 1, end).join('\n').replace(/<[^>]+>/g, '').replace(/&(amp|lt|gt|quot|#39);/g, m => entities[m]).trim().slice(0, 6000) || null;
+  return readable(log.slice(start + 1, end).join('\n')).trim().slice(0, 6000) || null;
 }
 // The result line a task printed, made readable: "Insight sent: Skills — Go in 40% (0.012 USD)" -> "Skills — Go in 40%".
 export function taskSummary(kind, log) {
   const line = log.filter(entry => TASKS[kind]?.result.test(entry)).pop();
-  return line ? line.replace(/<[^>]+>/g, '').replace(/^(Insight sent|Weekly report sent|Insight): /, '')
+  return line ? readable(line).replace(/^(Insight sent|Weekly report sent|Insight): /, '')
     .replace(/^🔎 Source scout · /, '').replace(/\s*\([\d.]+ USD\)$/, '').trim() : null;
 }
 
