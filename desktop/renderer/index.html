@@ -577,6 +577,10 @@
         <label class="radio"><input type="checkbox" id="export-keys"><span>Include my keys (AI, Notion, Telegram, GitHub). They're then in the file in plain text: keep it private.</span></label>
         <div class="inline"><button class="secondary" id="export-data">Export…</button><button class="secondary" id="import-data">Import…</button></div>
         <p class="message" id="data-message"></p>
+        <div><p class="small"><b>🛟 Automatic backup</b> <span class="muted" id="backup-status"></span></p>
+          <p class="small muted">Your CV and tailored CVs are also kept in Notion. Call recordings and the rest of this computer's data are
+            backed up once a week (never your keys), the last 4 kept.</p></div>
+        <div class="inline"><button class="secondary" id="backup-now">Back up now</button><button class="link" id="backup-show">Show backups</button></div>
       </div>
       <div class="setting danger-zone" id="setting-reset">
         <div><h3>⚠️ Danger zone: reset Job Pilotto on this computer</h3>

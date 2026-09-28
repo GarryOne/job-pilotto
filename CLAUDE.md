@@ -19,10 +19,13 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
   profile/answers, open questions, contact details, learned form notes, search settings, transcripts.
   The code reads it from Notion; it never keeps a second editable copy.
-- **The Mac / runner** — only keys (encrypted), large files (CVs, recordings) and caches that can be
+- **The Mac / runner** — only keys (encrypted), large files and caches that can be
   deleted and rebuilt from Notion or a crawl (`jobs.sqlite`, `config/*.json` as the cache of ⚙️ Search
   settings, `runs.json`). A cache is refreshed *from* Notion; writes go to Notion first, and if Notion
   refuses, nothing changes locally and the user is told.
+- Files: the CV (every version, Profile → "📎 CV") and tailored CVs (Applications → "Tailored CV") are uploaded to
+  Notion too (`desktop/lib/files.js`, ≤ 5 MB on Notion's free plan). What's too big (call recordings) is only on
+  the Mac and in the weekly automatic backup (`desktop/lib/backup.js`: iCloud Drive or Documents, last 4, no keys).
 - Notion is required in the Desktop App (decided 28 Sep 2026): the setup can't finish without it, and a
   set-up app without a Notion connection opens the Notion step. There is no Mac-only mode.
 - No new "local fallback" copies of user data, and **no cache-only fields**: if a screen or command needs a

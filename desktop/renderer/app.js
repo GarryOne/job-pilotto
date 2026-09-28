@@ -1575,6 +1575,22 @@ $('import-data').addEventListener('click', async () => {
   if (result?.error) message('data-message', `Import failed: ${result.error}`, 'error');
 });
 
+// ---------- automatic backup of this computer's data (lib/backup.js) ----------
+async function showBackup() {
+  const status = await window.pilot.backupStatus();
+  const where = status.folder.includes('CloudDocs') ? 'iCloud Drive → Job Pilotto Backups' : 'Documents → Job Pilotto Backups';
+  $('backup-status').textContent = `· ${status.at ? `last ${new Date(status.at).toLocaleString()}` : 'none yet'} · ${where}`;
+}
+showBackup();
+$('backup-now').addEventListener('click', async () => {
+  $('backup-now').disabled = true;
+  const result = await window.pilot.backupNow();
+  $('backup-now').disabled = false;
+  message('data-message', result.ok ? `Backed up ✓ ${result.file}` : `Backup failed: ${result.error}`, result.ok ? 'ok' : 'error');
+  showBackup();
+});
+$('backup-show').addEventListener('click', () => window.pilot.showBackups());
+
 // ---------- danger zone: reset this computer's Job Pilotto data ----------
 $('reset-confirm').addEventListener('input', () => { $('reset-go').disabled = $('reset-confirm').value.trim() !== 'RESET'; });
 $('reset-go').addEventListener('click', async () => {

@@ -18,6 +18,8 @@ import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
 import * as reset from './lib/reset.js';
+import * as files from './lib/files.js';
+import * as backup from './lib/backup.js';
 import * as cvChange from './lib/cv-change.js';
 import * as notionOAuth from './lib/notion-oauth.js';
 import * as contactDetails from './lib/contact.js';
@@ -226,7 +228,9 @@ function handlers() {
   ipcMain.handle('chooseCv', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Choose your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
-    return cvChange.replace(storage, picked.filePaths[0], path.basename(picked.filePaths[0])).name;
+    const name = cvChange.replace(storage, picked.filePaths[0], path.basename(picked.filePaths[0])).name;
+    syncCv();  // this version to the Profile in Notion too
+    return name;
   });
   // After setup, a replaced CV: its effects (Strategy → "What changes with this CV"). See lib/cv-change.js.
   ipcMain.handle('cvChange', () => ({...(storage.settings().cvChange || {}), name: storage.settings().cvName,
@@ -306,6 +310,7 @@ function handlers() {
       await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       step('search', {finished: true});
       storage.saveSettings({setupDone: true});
+      syncCv();  // the CV to the Profile page (Notion keeps every version)
       return {ok: true};
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
@@ -471,6 +476,11 @@ function handlers() {
     return {ok: true};
   });
   ipcMain.handle('lastReset', () => resetDone);
+  // What lives only on this Mac: the weekly automatic backup (lib/backup.js), or now.
+  ipcMain.handle('backupNow', () => backupNow());
+  ipcMain.handle('showBackups', () => { fs.mkdirSync(backup.folder(), {recursive: true}); return shell.openPath(backup.folder()); });
+  ipcMain.handle('backupStatus', () => ({at: storage.settings().lastBackupAt || null, file: storage.settings().lastBackupFile || null,
+    folder: backup.folder()}));
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
   // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
   ipcMain.handle('exportProfile', async (_, {keys = false, notion: withNotion = false} = {}) => {
@@ -578,7 +588,14 @@ function handlers() {
       const record = {job: {code, title: job.title, company: job.company, url: job.url}, createdAt: new Date().toISOString(),
         model: cvlib.MODEL, usd: Math.round(cost * 100) / 100, changes: result.changes, warnings: applied.warnings, cv: applied.cv, review: applied.review, result};
       cvlib.save(storage, code, record, printed.pdf);
-      notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`);
+      // Notion too, on the job's Applications row (the PDF isn't only on this Mac); no row yet -> said below.
+      let inNotion = false;
+      try {
+        inNotion = await files.tailoredToApplication(storage.secret('NOTION_TOKEN'), storage.settings().notionIds?.NOTION_APPLICATIONS_DB,
+          job.url, cvlib.pdfPath(storage, code), `CV · ${job.company} · ${job.title}.pdf`.replace(/[/\\:]/g, '-'));
+      } catch (error) { console.error(`Tailored CV not saved to Notion: ${error.message}`); }
+      notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
+        + (inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'));
       openTailoredCv(code);
       return {ok: true, usd: record.usd};
     } catch (error) {
@@ -623,6 +640,16 @@ if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_P
 // A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
 // opens it; the app then starts like the first time (the setup wizard).
 let resetDone = null;
+// The CV in Notion (once per version) and the weekly backup of Mac-only files: failures are logged, never block.
+function syncCv() {
+  if (DEMO) return;
+  files.syncCv(storage).then(done => done.uploaded && console.log(`CV saved to your Notion Profile (${done.uploaded})`))
+    .catch(error => console.error(`CV not saved to Notion: ${error.message}`));
+}
+function backupNow() {
+  try { const done = backup.run(storage, {version: about?.label || ''}); console.log(`Backup saved: ${done.file}`); return {ok: true, ...done}; }
+  catch (error) { console.error(`Backup failed: ${error.message}`); return {ok: false, error: error.message}; }
+}
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); }
 
 // One copy per data folder: two would fight over the same files, Telegram bot and extension port.
@@ -702,6 +729,10 @@ if (firstCopy) app.whenReady().then(() => {
     // User data left on this Mac -> Notion (source of truth), once. It runs while the window loads, so the
     // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
     migrate.run(storage, log).then(moved => { if (moved.length) window?.webContents.send('moved', moved); });
+    syncCv();
+    const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };
+    backupIfDue();
+    setInterval(backupIfDue, 6 * 3600 * 1000);
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts, and one with the result when it's done.

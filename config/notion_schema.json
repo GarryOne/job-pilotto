@@ -329,6 +329,9 @@
               "color": "green"
             }
           ]
+        },
+        "Tailored CV": {
+          "type": "files"
         }
       }
     },
