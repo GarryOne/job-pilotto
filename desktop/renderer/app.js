@@ -2077,14 +2077,28 @@ $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show(
 
 // ---------- actions (every Telegram command) ----------
 function answer(text) { const box = $('command-answer'); show(box); box.textContent = text; box.scrollIntoView({behavior: 'smooth'}); }
+// Lists the app already shows: the Jobs list with that filter (the Telegram bot sends them as messages).
+const COMMAND_FILTER = {saved: 'saved', applied: 'applied'};
 document.querySelectorAll('[data-command]').forEach(button => button.addEventListener('click', async () => {
-  openActivity(true);  // feedback at once: what runs and its log, in Recent activity
+  const command = button.dataset.command;
+  if (COMMAND_FILTER[command]) {
+    openView('jobs');
+    $('filter-status').value = COMMAND_FILTER[command];
+    $('filter-status').dispatchEvent(new Event('change'));
+    return;
+  }
+  // Only a task that runs in the background opens Recent activity (its row and log); an instant answer
+  // (Status, Help) shows right here, not behind the panel.
+  const task = !!COMMAND_KIND[command];
+  if (task) {
+    openActivity(true);
+    awaitedRun = {kind: COMMAND_KIND[command], since: Date.now() - 2000};
+    refreshActivity();
+  }
   button.disabled = true;
-  if (COMMAND_KIND[button.dataset.command]) awaitedRun = {kind: COMMAND_KIND[button.dataset.command], since: Date.now() - 2000};
-  refreshActivity();
-  const result = await window.pilot.command(button.dataset.command);
+  const result = await window.pilot.command(command);
   button.disabled = false;
-  refreshActivity();  // it's queued (or running) by now: its row shows at once
+  if (task) refreshActivity();  // it's queued (or running) by now: its row shows at once
   answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
 }));
 // Replace CV: the new file is used for uploads at once; the review of what it changes in the Profile (and so in
