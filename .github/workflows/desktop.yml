@@ -156,8 +156,8 @@ jobs:
           gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
           gh release edit "desktop-v${VERSION}" --draft=false --latest
 
-  # The Windows build failed: publish the Mac release anyway. The website's Windows link (latest release)
-  # then 404s until a release with the .exe, so the warning below says so.
+  # The Windows build failed: publish the Mac release anyway, carrying over the last working Windows installer
+  # so the website's Windows link (latest release) keeps working until a Windows build passes again.
   mac-only:
     needs: [build, windows]
     if: always() && needs.build.result == 'success' && needs.windows.result != 'success'
@@ -168,5 +168,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          echo "::warning::Windows build failed; publishing desktop-v${VERSION} for Mac only (the Windows download link breaks until the next release)."
+          prev=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" \
+            -q '[.[] | select(.draft | not) | select(any(.assets[]; .name == "Job-Pilotto-windows-x64.exe"))][0].tag_name')
+          if [ -n "$prev" ]; then
+            gh release download "$prev" --repo "$GITHUB_REPOSITORY" -p Job-Pilotto-windows-x64.exe -D previous
+            gh release upload "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" previous/Job-Pilotto-windows-x64.exe
+            echo "::warning::Windows build failed; desktop-v${VERSION} carries the Windows installer from ${prev}."
+          else
+            echo "::warning::Windows build failed and no earlier release has a Windows installer."
+          fi
           gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --latest

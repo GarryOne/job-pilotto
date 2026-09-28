@@ -382,7 +382,7 @@ test('Windows: Chrome is chrome.exe itself (no shell), the bundled Python is pyt
   const npm = 'C:\\Users\\x\\AppData\\Roaming\\npm\\claude.cmd';
   assert.equal(apply.claudeBinary({PATH: 'C:\\Windows;C:\\Tools', USERPROFILE: 'C:\\Users\\x', APPDATA: 'C:\\Users\\x\\AppData\\Roaming'},
     file => file === npm, 'win32'), npm);
-  assert.equal(apply.claudeReady({}, () => npm, 'win32').ok, false);
+  assert.match(apply.claudeReady({}, () => npm, 'win32', () => '').error, /Git for Windows/);
 });
 
 test('Windows wording: the PC, File Explorer, Ctrl, its own encryption; the Mac keeps its words', async () => {

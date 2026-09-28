@@ -67,7 +67,7 @@ test('Mac: a Terminal window per job whose shell loads the session variables fro
   assert.equal(spawned[0].command, 'osascript');
   assert.match(spawned[0].args[1], /--permission-mode bypassPermissions/);
   const envFile = spawned[0].args[1].match(/\. '([^']+session_1\.env)'/)[1];
-  assert.equal(fs.statSync(envFile).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(envFile).mode & 0o777, 0o600);  // Windows has no Unix modes
   assert.match(fs.readFileSync(envFile, 'utf8'), /export NOTION_TOKEN='ntn_x'/);
   assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /ANTHROPIC_API_KEY/);
   assert.match(spawned[1].command, /tools\/wait-and-mark-applied\.sh$/);
