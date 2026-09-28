@@ -36,7 +36,13 @@
   }
   const required = el => el.required || el.getAttribute('aria-required') === 'true' ||
     /\*\s*$/.test(String(el.labels?.[0]?.textContent || el.closest('fieldset')?.querySelector('legend')?.textContent || '').trim());
-  const comboFilled = el => !!el.closest('[class*=container]')?.querySelector('[class*=single-value], [class*=multi-value]');
+  // A custom dropdown (react-select) shows its answer in a sibling of the input, not inside the input's own container:
+  // look in the control around it (input < input-container < value-container < control).
+  const comboFilled = el => {
+    for (let box = el.parentElement, i = 0; box && i < 4; box = box.parentElement, i++)
+      if (box.querySelector('[class*=single-value], [class*=multi-value]')) return true;
+    return false;
+  };
   function fields() {
     const groups = new Map();
     for (const el of document.querySelectorAll('input, textarea, select')) {
