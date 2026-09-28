@@ -197,7 +197,13 @@ in that file next time — keep evolving it.
    page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the description.
    A job board's page (jobs.ch, TechTree) or a careers page with only an Apply button: see
    "Reaching the form".
-3. **Map fields in one JS pass**: list `form input, textarea` with `id`, `type`, `role`,
+3. **Extension first (Apply with Claude)**: when the prompt carries a ticket and the page has
+   `<html data-jobpilotto-hook>`, fire `jobpilotto:fill` with `{job, ticket}` (the prompt has the exact
+   call) and wait for `data-jobpilotto-fill` to say `done` (or `error`: then fill yourself). The extension
+   fills kit answers, contact details, the CV and dropdowns in seconds; you audit and fill only its
+   `todo`. No hook after 5 s (site not allowed for the extension, app not running): fill yourself.
+   Once per page. Its ticket is checked by the app, so a page can't trigger it alone.
+3b. **Map fields in one JS pass**: list `form input, textarea` with `id`, `type`, `role`,
    `aria-required` and label text. Match kit answers by `field` (= element id; strip `[]`).
    **Keep the returned JSON compact** (short keys, truncate label text to ~60-80 chars, no
    whitespace/indentation) — a full unfiltered dump of a long Greenhouse form's fields can exceed
@@ -618,6 +624,8 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-09-28 · process · Apply with Claude hands known forms to the extension first (ticket from the
+  app, `jobpilotto:fill` event, result in `data-jobpilotto-fill`), then fills only what it left.
 - 2026-09-28 · process · Owner: the extension can't get past job board Apply → employer site →
   Apply now → sign-up (jobs.ch → a SuccessFactors career site). Apply with Claude (Desktop App row
   button, recommended) does it now: "Reaching the form" added; "never create accounts" replaced by

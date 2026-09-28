@@ -132,6 +132,23 @@ export const extensionSeen = () => seen;
 export const openTabs = () => [...tabs];
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
+// Apply with Claude → extension hand-off (extension/hook.js). The launcher (tools/apply-batch-claude.sh) asks
+// for a ticket per job (POST /claude/ticket, from this computer, with a header web pages can't send without a
+// CORS preflight this server never grants); the Claude session hands it to the extension on the form page, and
+// the extension checks it here (POST /extension/ticket, with its token) before filling. Valid for 3 hours.
+const tickets = new Map();
+const TICKET_HOURS = 3;
+export function issueTicket(job, now = Date.now()) {
+  for (const [key, entry] of tickets) if (entry.expires < now) tickets.delete(key);
+  const ticket = crypto.randomBytes(16).toString('hex');
+  tickets.set(ticket, {job: pageKey(job), expires: now + TICKET_HOURS * 3600 * 1000});
+  return ticket;
+}
+export function checkTicket(ticket, job, now = Date.now()) {
+  const entry = tickets.get(String(ticket || ''));
+  return !!entry && entry.expires > now && entry.job === pageKey(job);
+}
+
 export function start(storage, onError = () => {}) {
   const server = http.createServer(async (req, res) => {
     try {
@@ -142,6 +159,25 @@ export function start(storage, onError = () => {}) {
         const ours = req.headers.origin === `chrome-extension://${EXTENSION_ID}`;
         res.writeHead(ours ? 200 : 403, {'Content-Type': 'application/json', ...(ours ? {'Access-Control-Allow-Origin': req.headers.origin} : {})});
         res.end(JSON.stringify(ours ? {url: `http://127.0.0.1:${PORT}`, token: extensionToken(storage)} : {error: 'Only the Job Pilotto extension can pair'}));
+        return;
+      }
+      if (req.url === '/claude/ticket') {
+        // Only local programs: a browser page's request carries an Origin and can't add this header unasked.
+        const local = req.method === 'POST' && req.headers['x-job-pilotto'] === 'launcher' && !req.headers.origin;
+        const job = (() => { try { return JSON.parse(body?.toString() || '{}').job; } catch { return ''; } })();
+        res.writeHead(local && job ? 200 : 403, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify(local && job ? {ticket: issueTicket(job)} : {error: 'Not allowed'}));
+        return;
+      }
+      if (req.url === '/extension/ticket') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const authorised = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        const {ticket, job} = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        const ok = authorised && checkTicket(ticket, job);
+        res.writeHead(ok ? 200 : 403, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(ok ? {ok} : {ok: false, error: authorised ? 'Unknown or expired ticket' : 'Wrong token'}));
         return;
       }
       if (req.url === '/extension/tabs') {

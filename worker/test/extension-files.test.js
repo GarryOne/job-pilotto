@@ -56,3 +56,18 @@ test('consent boxes are recognised by whole words (Acknowledge, consents, certif
     'I certify that the information is true', 'Privacy Policy']) assert.ok(LEGAL.test(text), text);
   for (const text of ['How did you hear about us?', 'Current company', 'Terminal skills', 'Are you legally authorized to work in the country?']) assert.ok(!LEGAL.test(text), text);
 });
+
+test('Apply with Claude hand-off: hook only on the job sites (every site once allowed), ticket checked by the app before filling', () => {
+  const manifest = JSON.parse(read('extension/manifest.json'));
+  assert.deepEqual(manifest.content_scripts, [{matches: manifest.host_permissions, js: ['hook.js'], run_at: 'document_idle'}]);
+  const hook = read('extension/hook.js');
+  assert.match(hook, /addEventListener\('jobpilotto:fill'/);
+  assert.match(hook, /typeof request\?\.ticket !== 'string'/);
+  const background = read('extension/background.js');
+  const handOff = background.slice(background.indexOf('async function handOff'));
+  assert.ok(handOff.indexOf("'/extension/ticket'") > 0 && handOff.indexOf("'/extension/ticket'") < handOff.indexOf('fillOpenedTab('),
+    'the ticket is checked before any fill');
+  assert.match(background, /registerContentScripts\(\[\{id: 'hook-everywhere'/);
+  // The events a page can send carry no personal data, and the result written back holds only counts and field labels.
+  assert.doesNotMatch(handOff.slice(0, handOff.indexOf('const EVERY_SITE')), /contact|resume|profile/);
+});

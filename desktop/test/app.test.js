@@ -308,3 +308,14 @@ test('the Jobs filter finds a job by its pasted link, however it was copied', as
   assert.ok(!looksLikeLink('site reliability'));
   assert.ok(matches(job, ''));
 });
+
+test('Apply with Claude tickets: one job, three hours, unknown ones refused', async () => {
+  const server = await import('../lib/server.js');
+  const now = Date.parse('2026-09-28T10:00:00Z');
+  const ticket = server.issueTicket('https://boards.greenhouse.io/acme/jobs/1#jobpilotto-fill', now);
+  assert.match(ticket, /^[0-9a-f]{32}$/);
+  assert.equal(server.checkTicket(ticket, 'https://boards.greenhouse.io/acme/jobs/1/', now + 1000), true);
+  assert.equal(server.checkTicket(ticket, 'https://boards.greenhouse.io/acme/jobs/2', now), false);
+  assert.equal(server.checkTicket(ticket, 'https://boards.greenhouse.io/acme/jobs/1', now + 3 * 3600 * 1000 + 1), false);
+  assert.equal(server.checkTicket('guess', 'https://boards.greenhouse.io/acme/jobs/1', now), false);
+});

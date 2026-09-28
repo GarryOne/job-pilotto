@@ -198,6 +198,9 @@ doesn't.
 - 🙋 **Asks you only for what it must not do**: the CAPTCHA and the terms boxes. You get a notification,
   one line in Terminal says what to tick, and it carries on.
 - 🛡️ **Never presses Submit.** It stops on the review page; you read it and submit.
+- ⚡ **Teams up with the extension**: on a form the extension knows, Claude hands it over for the fast fill
+  (kit answers, details, CV, dropdowns in seconds), then fills only what's left. Needs the app open (it
+  issues a one-time ticket per job, so a web page can't trigger a fill by itself).
 - Needs Claude Code (your Claude plan) and Notion (where the kit lives). Minutes per job, versus seconds
   for the extension on a form that's right on the page.
 

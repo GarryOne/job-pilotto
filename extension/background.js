@@ -113,6 +113,7 @@ async function ineligibleNote(tabId, reason) {
   }}).catch(() => {});
 }
 
+// Returns what was done ({filled, todo, ineligible, note}) or {error}, for Apply with Claude's hand-off.
 async function fillOpenedTab(tab, url, force = false) {
   await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   chrome.action.setBadgeText({tabId: tab.id, text: '…'}).catch(() => {});  // the tab may already be closed
@@ -126,16 +127,57 @@ async function fillOpenedTab(tab, url, force = false) {
     await progress(tab.id, '');
     if (result.ineligible) await ineligibleNote(tab.id, result.note);
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
+    return result;
   } catch (error) {
     await progress(tab.id, '');
     await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
+    return {error: error.message};
   }
 }
+
+// Apply with Claude asked for a fill on this tab (hook.js): check its ticket with the app, fill, and write the
+// result on the page for the session to read. It then fills what's left, checks, and stops before Submit.
+async function handOff(tab, job, ticket) {
+  const state = value => chrome.scripting.executeScript({target: {tabId: tab.id}, args: [JSON.stringify(value)],
+    func: text => { document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
+  try {
+    const config = await settings();
+    const checked = await api(config, '/extension/ticket', {method: 'POST', body: JSON.stringify({ticket, job})});
+    if (!checked.ok) throw new Error('ticket not accepted');
+  } catch (error) {
+    await state({state: 'error', error: `not allowed: ${error.message}`});
+    return;
+  }
+  await state({state: 'running'});
+  started.add(tab.id);
+  const result = await fillOpenedTab(tab, job.split('#')[0], true);
+  await state(result?.error ? {state: 'error', error: result.error}
+    : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
+}
+
+// hook.js on every site too, once "Work on every job site" is allowed (the job sites have it from the manifest).
+const EVERY_SITE = {origins: ['https://*/*']};
+async function registerHookEverywhere() {
+  if (!(await chrome.permissions.contains(EVERY_SITE))) return;
+  const known = await chrome.scripting.getRegisteredContentScripts({ids: ['hook-everywhere']}).catch(() => []);
+  if (!known.length) {
+    await chrome.scripting.registerContentScripts([{id: 'hook-everywhere', matches: EVERY_SITE.origins, js: ['hook.js'],
+      runAt: 'document_idle'}]).catch(() => {});
+  }
+}
+chrome.permissions.onAdded.addListener(registerHookEverywhere);
+chrome.runtime.onStartup.addListener(registerHookEverywhere);
+registerHookEverywhere();
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   if (message?.type === 'fillAnyway' && sender.tab) {
     fillOpenedTab(sender.tab, sender.tab.url.replace(`#${FILL_MARK}`, ''), true);
+    reply({ok: true});
+    return false;
+  }
+  if (message?.type === 'claudeFill' && sender.tab) {
+    handOff(sender.tab, String(message.job || ''), String(message.ticket || ''));
     reply({ok: true});
     return false;
   }
