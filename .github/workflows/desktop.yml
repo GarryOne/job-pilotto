@@ -23,9 +23,11 @@ on:
 permissions:
   contents: write   # create the release
 
+# A release runs to the end (Mac, then the Windows installer), so the latest release always has both
+# downloads the website links to; newer pushes wait, and only the newest waiting one runs.
 concurrency:
   group: desktop-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:

@@ -77,6 +77,7 @@ p { margin: 0; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
 .cta { display: grid; gap: 8px; justify-items: center; }
 .cta-note { font: 400 .74rem var(--mono); color: var(--muted); }
+.cta-note a { color: inherit; text-underline-offset: 3px; }
 .hero-note { font-size: .9rem; color: var(--muted); max-width: 56ch; }
 .hero-note a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
 .maker { display: flex; align-items: center; gap: 12px; padding: 12px 18px 12px 12px; border: 1px solid var(--line); border-radius: 14px; max-width: 480px; background: var(--surface); font-size: .88rem; color: var(--muted); }

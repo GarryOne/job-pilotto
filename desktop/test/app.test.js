@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {fileURLToPath} from 'node:url';
 import * as apply from '../lib/apply.js';
 import * as pipeline from '../lib/pipeline.js';
 import * as strategy from '../lib/strategy.js';
@@ -58,7 +59,7 @@ test('agent sessions need Notion; Chrome opens the chosen jobs', async () => {
   assert.equal(spawned.length, 0);
 });
 
-test('Chrome mode marks each job link so the extension fills every tab by itself', async () => {
+test('Chrome mode marks each job link so the extension fills every tab by itself', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, async () => {
   const storage = tempStorage();
   const spawned = [];
   const fakeSpawn = (cmd, args) => { spawned.push([cmd, ...args]); return {unref() {}}; };
@@ -166,7 +167,7 @@ test('draft progress: part from the latest field, percent against the expected l
   assert.equal(strategy.progress('x'.repeat(5000), 1000).percent, 97);
 });
 
-test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', () => {
+test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, () => {
   const calls = [];
   const open = (...args) => { calls.push(args); return {unref() {}}; };
   assert.deepEqual(apply.openOne('https://jobs.lever.co/acme/1#top', open), {ok: true});
@@ -193,7 +194,7 @@ test('the strategy draft keeps the contact details it read from the CV; the exte
 test('the window scripts parse (a syntax error leaves the app window blank)', async () => {
   const {execFileSync} = await import('node:child_process');
   for (const file of ['renderer/app.js', 'preload.cjs', 'main.js']) {
-    execFileSync(process.execPath, ['--check', new URL(`../${file}`, import.meta.url).pathname]);
+    execFileSync(process.execPath, ['--check', fileURLToPath(new URL(`../${file}`, import.meta.url))]);
   }
 });
 
@@ -258,7 +259,7 @@ test('fill reports: mechanical failures only, form structure only, each site + f
   assert.equal(await reports.send(storage, run, fetcher), null);  // already reported for this site
 });
 
-test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then starts one Terminal session for the job', async () => {
+test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then starts one Terminal session for the job', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, async () => {
   const storage = tempStorage();
   const calls = [];
   const open = (...args) => { calls.push(args); return {unref() {}}; };
@@ -287,9 +288,9 @@ test('the kit check asks Notion through apply_batch --has-kit and says to Prepar
 });
 
 test('claude is found outside the shell PATH, where the installer puts it', () => {
-  const found = apply.claudeBinary({PATH: '/usr/bin'}, file => file === '/opt/homebrew/bin/claude');
+  const found = apply.claudeBinary({PATH: '/usr/bin'}, file => file === '/opt/homebrew/bin/claude', 'darwin');
   assert.equal(found, '/opt/homebrew/bin/claude');
-  assert.equal(apply.claudeBinary({PATH: ''}, () => false), '');
+  assert.equal(apply.claudeBinary({PATH: ''}, () => false, 'darwin'), '');
 });
 
 test('the Jobs filter finds a job by its pasted link, however it was copied', async () => {

@@ -1,0 +1,8 @@
+# LF everywhere, also in Windows checkouts: the app ships these files (workflow templates, scripts)
+# and edits the YAML by line.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.woff2 binary
+*.sqlite binary

@@ -43,6 +43,7 @@ export function crons(settings, offsetMinutes = -new Date().getTimezoneOffset())
 
 // The template's schedule set to `cron`, or removed (manual and bot-started runs still work).
 export function withSchedule(yaml, cron) {
+  yaml = yaml.replace(/\r\n/g, '\n');  // a Windows checkout may have given the template CRLF endings
   const block = /  schedule:\n    - cron: '[^']*'\n/;
   const schedule = cron ? `  schedule:\n    - cron: '${cron}'\n` : '';
   if (block.test(yaml)) return yaml.replace(block, schedule);
