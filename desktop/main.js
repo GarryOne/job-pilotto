@@ -6,6 +6,7 @@ import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
+import * as cloudRuns from './lib/cloud-runs.js';
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
@@ -27,6 +28,8 @@ import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 import * as telegramCloud from './lib/telegram-cloud.js';
+
+let cloudRunning = null;  // the run in progress in the user's GitHub repo (cloud-runs.js), for Recent activity
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
@@ -315,7 +318,7 @@ function handlers() {
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
   });
-  ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running(),
+  ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running() || cloudRunning,
     lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings()),
     nextMailAt: nextMailAt(storage.settings())}));
   ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
@@ -749,6 +752,12 @@ if (firstCopy) app.whenReady().then(() => {
     // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
     migrate.run(storage, log).then(moved => { if (moved.length) window?.webContents.send('moved', moved); });
     syncCv();
+    // Keep working while my Mac is off: the GitHub repo's runs (and the one in progress) in Recent activity.
+    const syncCloudRuns = async () => {
+      try { cloudRunning = (await cloudRuns.sync(storage))?.running || null; } catch (error) { log(`GitHub runs not read: ${error.message}`); }
+      setTimeout(syncCloudRuns, storage.settings().cloud?.repo ? 15000 : 60000);
+    };
+    syncCloudRuns();
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };
     backupIfDue();
     setInterval(backupIfDue, 6 * 3600 * 1000);

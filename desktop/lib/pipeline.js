@@ -151,6 +151,7 @@ export function serial(task) {
 // Past runs for the activity bar (newest first, last 50): what (kind: 'search' when absent, or 'mail'),
 // when, why, what came out, and the log.
 export const RUN_HISTORY = 50;
+export function saveRuns(storage, list) { storage.writeText('runs.json', JSON.stringify(list.slice(0, RUN_HISTORY))); }
 export function runs(storage) { try { return JSON.parse(storage.readText('runs.json')) || []; } catch { return []; } }
 let current = null;
 export const running = () => current;
@@ -193,14 +194,16 @@ export function checkMail(storage, onLine, trigger = 'you') {
     const ok = code === 0 && !problem;
     storage.saveSettings({lastMailAt: at, ...(ok && !off ? {lastMailOkAt: at} : {})});
     return {ok};
-  }, (record, log) => {
-    const start = log.indexOf('Updates:');
-    // The update lines sit between "Updates:" and the "Mail: …" summary; what follows (the run-log link) isn't one.
-    const after = start < 0 ? [] : log.slice(start + 1);
-    const end = after.findIndex(line => /^Mail: /.test(line));
-    const updates = (end < 0 ? after : after.slice(0, end)).filter(line => /^\S/.test(line) && !/^Cronjob run logged/.test(line));
-    return {off, problem, updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
-  });
+  }, (record, log) => ({...mailResult(log), off, problem}));
+}
+// What a Gmail check recorded and its "Mail: …" summary line (also read from GitHub runs' logs, cloud-runs.js).
+export function mailResult(log) {
+  const start = log.indexOf('Updates:');
+  // The update lines sit between "Updates:" and the "Mail: …" summary; what follows (the run-log link) isn't one.
+  const after = start < 0 ? [] : log.slice(start + 1);
+  const end = after.findIndex(line => /^Mail: /.test(line));
+  const updates = (end < 0 ? after : after.slice(0, end)).filter(line => /^\S/.test(line) && !/^Cronjob run logged/.test(line));
+  return {updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
 }
 
 // A one-off job the Actions page (or its Telegram command) starts: an insight, the weekly report, today's list,

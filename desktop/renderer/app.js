@@ -209,7 +209,8 @@ const PHASES = [
   {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
 ];
 const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
-  weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'}};
+  weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'},
+  action: {icon: '⚡', name: 'Telegram action'}};
 const kindOf = run => run?.kind || 'search';
 const WHO = {schedule: 'scheduled', you: 'started by you', first: 'first search'};
 let logLines = [];      // the running task's lines, live
@@ -325,6 +326,8 @@ function renderActivity(data) {
     `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} · ${capital(outcome(run))}`;
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
+  show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Keep working while my Mac is off)
+  $('activity-github').dataset.url = run?.url || '';
   const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
   const live = !!run?.live;
@@ -365,7 +368,7 @@ $('log').addEventListener('click', event => {
   if (/notion\.(so|com)\//.test(link.href)) window.pilot.openNotion(link.href, event.metaKey);
   else window.pilot.openExternal(link.href);
 });
-$('activity-notion').addEventListener('click', event => {
+for (const id of ['activity-notion', 'activity-github']) $(id).addEventListener('click', event => {
   event.preventDefault();
   if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
 });
@@ -409,6 +412,23 @@ document.addEventListener('mousedown', event => {
 });
 
 let wasRunning = false;
+// In-app notifications: a scheduled job starting, and any job ending (with its result); click one to see it.
+let announced = null;  // {running: id of the run announced as started, done: ids of finished runs already seen}
+function announceRuns({running, runs}) {
+  if (!announced) { announced = {running: running?.id ?? null, done: new Set(runs.map(run => run.id))}; return; }
+  const where = run => run.source === 'github' ? ' · on GitHub' : '';
+  if (running && running.id !== announced.running) {
+    announced.running = running.id;
+    const kind = KIND[kindOf(running)] || KIND.search;
+    if (running.trigger === 'schedule') toastMessage(`${kind.icon} ${kind.name} started`, `Scheduled${where(running)}`).onclick = () => openActivity(true);
+  }
+  for (const run of runs.filter(r => !announced.done.has(r.id))) {
+    announced.done.add(run.id);
+    const kind = KIND[kindOf(run)] || KIND.search;
+    const failed = !run.ok || run.off;
+    toastMessage(`${failed ? '⚠️' : '✅'} ${kind.name} ${failed ? 'had problems' : 'done'}`, `${capital(outcome(run))}${where(run)}`).onclick = () => openActivity(true);
+  }
+}
 setInterval(async () => {
   if ($('app').hidden) return;
   const runsNow = await window.pilot.runs();
@@ -418,6 +438,7 @@ setInterval(async () => {
   if (tabs.size !== openedInChrome.size || [...tabs].some(url => !openedInChrome.has(url))) { openedInChrome = tabs; renderJobs(); }
   if (wasRunning && !running) loadJobs();  // a search just finished: show its jobs
   wasRunning = !!running;
+  announceRuns(runsNow);
   showSearchStatus();
 }, 2000);
 
@@ -1785,6 +1806,7 @@ function toastMessage(title, body, hint) {
   toast.addEventListener('click', () => toast.remove());
   $('toasts').append(toast);
   setTimeout(() => toast.remove(), hint ? 20000 : 8000);
+  return toast;
 }
 
 // Help improve Job Pilotto (opt-in anonymous form reports).
