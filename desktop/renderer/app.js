@@ -505,7 +505,7 @@ function barLabel() {
 }
 function openActivity(open) {
   show($('activity-panel'), open);
-  show($('activity-backdrop'), open);  // dims the page, so the card stands apart from what's behind it
+  // No dimming and no click-outside close: the panel is part of the bottom bar, and the page stays usable while it's open.
   $('activity').classList.toggle('open', open);
   $('activity-toggle').setAttribute('aria-expanded', open);
   if (open) $('log').scrollTop = $('log').scrollHeight;
@@ -532,11 +532,8 @@ $('activity-manage').addEventListener('click', event => {
   openView('settings');
   openSetting('schedule');
 });
-// Close the card with Escape or a click outside it, like a popover.
+// Close it with Escape, its ✕, or the bar ("Hide activity").
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
-document.addEventListener('mousedown', event => {
-  if (!$('activity-panel').hidden && !$('activity').contains(event.target)) openActivity(false);
-});
 
 let wasRunning = false;
 // In-app notifications: a scheduled job starting, and any job ending (with its result); click one to see it.

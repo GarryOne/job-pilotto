@@ -1000,3 +1000,9 @@ main { min-width: 0; }
 .activity-panel .ap-slot { display: inline-flex; gap: var(--sp-2); border: 0; padding: 0; background: none; }
 .activity-panel .ap-slot + .ap-slot { padding-left: var(--sp-4); border-left: 1px solid var(--line); }
 @media (max-width: 1180px) { .activity-panel .ap-grid { grid-template-columns: minmax(0, 1fr); } .activity-panel .ap-list { border-right: 0; } }
+
+/* Recent activity opens out of the bottom bar: attached to it (no gap, a thin line where they meet), rounded only at
+   the top, shadow cast upward only, full width of the bar; the page isn't dimmed (it stays usable). */
+.activity-panel { left: 0; right: 0; bottom: 100%; border: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  border-radius: var(--r-lg) var(--r-lg) 0 0; box-shadow: 0 -14px 36px rgb(var(--shadow-rgb) / .16); }
+.activity-backdrop { display: none; }
