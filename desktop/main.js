@@ -437,6 +437,15 @@ function handlers() {
     if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: applications are tracked there.'};
     try { return await pipeline.addApplied(storage, url, when, log, details || {}); } catch (error) { return {ok: false, text: error.message}; }
   });
+  // Settings → Application profile → Standard answers (read from Notion) and the Strategy page's data.
+  ipcMain.handle('standardAnswers', async () => {
+    try { return {ok: true, groups: await questions.standardAnswers(storage)}; } catch (error) { return {ok: false, error: error.message}; }
+  });
+  ipcMain.handle('strategyData', async () => {
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
+    if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};
+    return {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())};
+  });
   // Jobs → Log job activity → Paste image: the clipboard's image as PNG, or null.
   ipcMain.handle('clipboardImage', () => {
     const image = clipboard.readImage();

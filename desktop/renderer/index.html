@@ -460,18 +460,40 @@
     </div>
 
     <div class="view" data-view="strategy" hidden>
-      <header class="view-head"><div><h1>Strategy</h1><p class="muted">What jobs are scored against, and your standard answers. Edit freely.</p></div>
-        <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button></div></header>
-      <p class="message" id="strategy-message"></p>
-      <div class="stale-draft" id="cv-changed" hidden><span id="cv-changed-text"></span>
-        <button class="secondary" id="cv-changed-open">Review what changes</button></div>
-      <div id="strategy-notion" class="callout"><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
-        <div class="inline spaced"><button class="secondary" id="replace-cv">Replace CV…</button><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
-      <div id="cv-card" class="callout cv">
-        <div class="cv-line">📄 <b>CV for tailoring</b> <span id="cv-state"></span></div>
-        <div class="inline spaced"><button class="secondary" id="cv-view">👁️ View as PDF</button><button class="secondary" id="cv-import">🔄 Read my CV PDF</button><button class="link" id="cv-folder">📁 Files</button></div>
-        <p class="message" id="cv-message"></p>
+      <header class="view-head"><div><h1>Strategy</h1><p class="muted">Shape which opportunities rise to the top.</p></div>
+        <div class="head-actions"><span class="synced" id="strategy-synced"></span>
+          <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button></div></header>
+      <div class="strategy-grid">
+        <div class="strategy-main">
+          <article class="summary-card">
+            <div class="panel-top"><h3>What you're targeting</h3><button class="arrow-link" id="open-profile">Edit preferences</button></div>
+            <dl class="target-rows" id="strategy-targets"></dl>
+          </article>
+          <article class="summary-card">
+            <h3>How matches are scored</h3>
+            <p class="muted" id="strategy-score-note">Average of each part of the fit score across your matches.</p>
+            <div class="score-bars" id="strategy-scores"></div>
+          </article>
+          <article class="summary-card">
+            <div class="summary-head"><i data-icon="close"></i><h3>Avoid</h3></div>
+            <p class="muted">Jobs matching these are scored lower or filtered out.</p>
+            <div class="chip-list" id="strategy-avoid"></div>
+          </article>
+        </div>
+        <div class="strategy-side">
+          <article class="summary-card">
+            <h3>Your search at a glance</h3>
+            <div class="glance" id="strategy-glance"></div>
+            <button class="primary wide-button" id="strategy-jobs">View matching jobs</button>
+          </article>
+          <article class="summary-card suggestion" id="strategy-insight" hidden>
+            <span class="file-tile"><i data-icon="target"></i></span>
+            <div><h3>Suggested adjustment</h3><p id="strategy-insight-text"></p>
+              <button class="arrow-link" id="strategy-insight-open">Review insight</button></div>
+          </article>
+        </div>
       </div>
+      <p class="message" id="strategy-load"></p>
     </div>
 
     <div class="view" data-view="settings" hidden>
@@ -523,16 +545,28 @@
           </div>
         </div>
         <div class="settings-page" data-settings-page="profile" hidden>
-          <div class="settings-page-head"><h2>Application profile</h2><p class="muted">The information used to prepare and fill applications.</p></div>
-          <div class="setting cv-card" id="setting-cv">
-            <span class="file-tile"><i data-icon="file"></i></span>
-            <div class="cv-card-text"><span class="small muted">Current CV</span><b id="contact-cv">None yet</b>
-              <span class="small muted">Used for application kits and form filling.</span></div>
-            <button class="secondary with-icon" id="cv-preview"><i data-icon="eye"></i><span>Preview</span></button>
-            <button class="primary" id="contact-cv-replace">Replace CV</button>
+          <div class="settings-page-head"><h2>Application profile</h2><p class="muted">Your CV, details and reusable application answers.</p></div>
+          <div class="tabs" role="tablist">
+            <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
+            <button role="tab" data-profile-tab="answers">Standard answers</button>
           </div>
-          <div class="setting panel" id="setting-contact">
-            <div class="summary-head"><i data-icon="user"></i><h3>Contact details</h3></div>
+          <div class="setting cv-card" id="setting-cv" data-profile-panel="details">
+            <span class="file-tile"><i data-icon="file"></i></span>
+            <div class="cv-card-text"><b>Current CV</b><span id="contact-cv">None yet</span>
+              <span class="small muted">Used for tailoring and form filling <span id="cv-state"></span></span>
+              <p class="message" id="cv-message"></p><p class="message" id="strategy-message"></p></div>
+            <div class="cv-card-actions">
+              <div class="inline"><button class="secondary with-icon" id="cv-view"><i data-icon="eye"></i><span>Preview CV</span></button>
+                <button class="primary" id="replace-cv">Replace CV</button></div>
+              <button class="link" id="strategy-redo">↻ Rebuild profile from CV</button>
+              <span class="small"><button class="link" id="cv-import">Read my CV PDF</button> · <button class="link" id="cv-folder">CV folder</button></span>
+            </div>
+          </div>
+          <div class="stale-draft" id="cv-changed" data-profile-panel="details" hidden><span id="cv-changed-text"></span>
+        <button class="secondary" id="cv-changed-open">Review what changes</button></div>
+          <div class="setting panel" id="setting-contact" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
+              <div class="panel-actions"><span class="synced is-on">Saved in Notion</span><button class="link" id="open-profile-details">Open profile in Notion</button></div></div>
             <p class="muted panel-lead">Your personal details for application forms.</p>
             <div class="form-grid cols-2">
               <label>First name<input data-contact="first_name" type="text"></label>
@@ -543,17 +577,21 @@
               <input data-contact="full_name" type="hidden">
             </div>
           </div>
-          <div class="setting panel" id="setting-links">
-            <div class="summary-head"><i data-icon="link"></i><h3>Professional links</h3></div>
+          <div class="setting panel" id="setting-links" data-profile-panel="details">
+            <div class="panel-top"><div class="summary-head"><i data-icon="link"></i><h3>Professional links</h3></div>
+              <button class="secondary" id="links-edit">Edit</button></div>
             <p class="muted panel-lead">Links to your online profiles, automatically included where relevant.</p>
-            <div class="form-grid cols-3">
+            <div class="link-tiles" id="links-view"></div>
+            <div class="form-grid cols-3" id="links-form" hidden>
               <label>LinkedIn<input data-contact="linkedin" type="url" placeholder="https://www.linkedin.com/in/…"></label>
               <label>GitHub<input data-contact="github" type="url" placeholder="https://github.com/…"></label>
               <label>Website<input data-contact="website" type="url" placeholder="https://…"></label>
             </div>
             <div class="panel-foot"><p class="message" id="contact-message"></p><button class="primary" id="contact-save" disabled>Save changes</button></div>
           </div>
-          <div class="setting panel" id="setting-claude">
+          <div class="setting info-bar" id="setting-profile-note" data-profile-panel="details"><i data-icon="info"></i>
+            <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>
+          <div class="setting panel" id="setting-claude" data-profile-panel="details">
             <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
             <p class="muted panel-lead">Let Claude help you complete application forms (Apply with Claude).</p>
             <div class="switch-line">
@@ -563,6 +601,15 @@
             </div>
             <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
               They never click Submit; any other command runs without asking, so watch the window while it works.</p>
+          </div>
+          <div class="setting info-bar" id="setting-answers-note" data-profile-panel="answers" hidden><i data-icon="info"></i>
+            <span><b>Saved in Notion</b> · Updated answers are used for future application kits.</span>
+            <button class="link" id="open-answers">Open answers in Notion</button></div>
+          <div class="setting panel" id="setting-answers" data-profile-panel="answers" hidden>
+            <div class="summary-head"><i data-icon="file"></i><h3>Reusable answers</h3></div>
+            <p class="muted panel-lead">The answers Job Pilotto adapts for each application form and kit.</p>
+            <div class="answer-list" id="answers-list"><p class="muted">Loading from Notion…</p></div>
+            <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review">Review all in Notion</button></div>
           </div>
         </div>
         <div class="settings-page" data-settings-page="automation" hidden>

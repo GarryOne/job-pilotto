@@ -542,7 +542,9 @@ const LISTS = {
   languages: [['preferences', 'disqualifying_languages'], text => text, text => text.trim()],
 };
 const listOf = name => LISTS[name][0].reduce((node, key) => node?.[key], draft) || [];
-const titleCase = text => text.replace(/\b\w/g, c => c.toUpperCase()).replace(/\b(Aws|Gcp|Sre|Eks|Ecs|Slo|Ci|Cd)\b/g, w => w.toUpperCase());
+// Each word capitalised (accents too: "zürich" -> "Zürich"), known acronyms in capitals.
+const titleCase = text => String(text).replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_, gap, letter) => gap + letter.toUpperCase())
+  .replace(/\b(Aws|Gcp|Sre|Eks|Ecs|Slo|Ci|Cd)\b/g, w => w.toUpperCase());
 let draftSavedTimer, editsTimer;
 function draftChanged(fields) {
   clearTimeout(editsTimer);
@@ -874,6 +876,7 @@ $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 function settingsPage(name) {
+  if (name === 'profile') setTimeout(() => profileTab('details'), 0);
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
 }
@@ -974,7 +977,6 @@ async function renderOverview() {
 }
 
 // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
-$('cv-preview').addEventListener('click', () => window.pilot.viewBaseCv());
 document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { $('contact-save').disabled = false; }));
 $('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
 // Automation: run mode (this Mac while open, or Always on in GitHub); both segments lead to the Always on card.
@@ -1516,13 +1518,117 @@ $('apply-go').addEventListener('click', async event => {
   message('apply-message', result.ok ? result.message : result.error, result.ok ? 'ok' : 'error');
 });
 
+// ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
+function chips(items, tone = '') {
+  const box = el('div', 'chip-list');
+  box.append(...items.map(item => el('span', `chip-tag${tone ? ` tone-${tone}` : ''}`, item)));
+  return box;
+}
 async function loadStrategy() {
   state = await window.pilot.state();
   message('strategy-message', '');
+  message('strategy-load', 'Reading your strategy…', 'waiting');
+  const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
+  if (!data.ok) { message('strategy-load', data.error, 'error'); return; }
+  message('strategy-load', '');
+  $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+  const row = (glyph, label, value) => {
+    const dt = el('dt');
+    dt.append(icon(glyph), label);
+    const dd = el('dd');
+    dd.append(value);
+    return [dt, dd];
+  };
+  $('strategy-targets').replaceChildren(
+    ...row('briefcase', 'Roles', chips(data.roles.slice(0, 6).map(titleCase))),
+    ...row('pin', 'Locations', chips(data.locations.slice(0, 8).map(titleCase))),
+    ...row('chart', 'Compensation', data.compensation || 'Not set in your Profile'),
+    ...(data.stack.length ? row('layers', 'Tech stack', chips(data.stack.map(titleCase))) : []));
+  const level = value => (value >= 70 ? ['High', 'good'] : value >= 50 ? ['Medium', 'warn'] : ['Low', 'bad']);
+  $('strategy-score-note').textContent = data.scored
+    ? `Average of each part of the fit score across your ${data.scored} scored matches.` : 'No scored matches yet: run a search with your AI key.';
+  $('strategy-scores').replaceChildren(...data.components.map(part => {
+    const [label, tone] = level(part.value);
+    const line = el('div', 'score-bar');
+    const track = el('span', 'score-track');
+    const fill = el('span', 'score-fill');
+    fill.style.width = `${part.value}%`;
+    track.append(fill);
+    line.append(el('span', 'score-name', part.label), track, el('span', `score-level tone-${tone}`, `${label} · ${part.value}`));
+    return line;
+  }));
+  $('strategy-avoid').replaceChildren(...(data.avoid.length ? data.avoid : ['Nothing set']).map(item => el('span', 'chip-tag tone-bad', item)));
+  const glance = (glyph, count, text, go) => {
+    const button = Object.assign(document.createElement('button'), {type: 'button', className: 'glance-row'});
+    button.append(tile(glyph, 'neutral'), el('b', '', String(count)), el('span', 'muted', text), el('span', 'glance-arrow', '›'));
+    button.addEventListener('click', go);
+    return button;
+  };
+  const jobsBy = kind => () => { openView('jobs'); if (kind) document.querySelector(`[data-stat="${kind}"]`)?.click(); };
+  $('strategy-glance').replaceChildren(glance('file', data.counts.matches, 'scored matches', jobsBy('total')),
+    glance('layers', data.counts.kits, 'application kits ready', jobsBy('')), glance('send', data.counts.sent, 'applications sent', jobsBy('applied')));
+  show($('strategy-insight'), !!data.insight);
+  if (data.insight) {
+    $('strategy-insight-text').textContent = data.insight.action || data.insight.headline;
+    $('strategy-insight-open').onclick = () => window.pilot.openExternal(data.insight.url);
+  }
+}
+$('strategy-edit').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_SEARCH_SETTINGS_PAGE || state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
+$('strategy-jobs').addEventListener('click', () => openView('jobs'));
+
+// ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
+function profileTab(name) {
+  document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.profileTab === name));
+  document.querySelectorAll('[data-profile-panel]').forEach(panel => {
+    if (panel.id === 'cv-changed') return;  // shown only when the CV changed (showCvChanged)
+    show(panel, panel.dataset.profilePanel === name);
+  });
+  if (name === 'answers') loadAnswers();
+  else { loadCvSetting(); showCvChanged(); }
+}
+document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
+$('open-profile-details').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
+$('answers-review').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));
+// Professional links: shown as tiles; Edit shows the fields (saved with the details' Save changes).
+function showLinks() {
+  const value = name => document.querySelector(`[data-contact="${name}"]`).value.trim();
+  $('links-view').replaceChildren(...[['linkedin', 'LinkedIn', 'user'], ['github', 'GitHub', 'bot'], ['website', 'Website', 'link']].map(([key, name, glyph]) => {
+    const box = el('div', 'link-tile');
+    const text = el('span');
+    text.append(el('b', '', name), el('span', 'muted small', value(key).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') || 'Not added'));
+    box.append(tile(glyph, 'neutral'), text);
+    return box;
+  }));
+}
+$('links-edit').addEventListener('click', () => {
+  const editing = $('links-form').hidden;
+  show($('links-form'), editing);
+  show($('links-view'), !editing);
+  $('links-edit').textContent = editing ? 'Done' : 'Edit';
+  if (!editing) showLinks();
+});
+// Standard answers: read from Notion, one expandable item per question; edits happen in Notion.
+async function loadAnswers() {
+  const result = await window.pilot.standardAnswers();
+  if (!result.ok) { $('answers-list').replaceChildren(el('p', 'message error', result.error)); return; }
+  const items = result.groups.flatMap(group => group.items.map(item => ({...item, category: group.category})));
+  $('answers-count').textContent = `${items.length} standard answer${items.length === 1 ? '' : 's'}${items.some(item => item.open) ? ` · ${items.filter(item => item.open).length} need your answer` : ''}`;
+  $('answers-list').replaceChildren(...items.map((item, index) => {
+    const box = document.createElement('details');
+    box.className = 'answer-item';
+    box.open = index === 0;
+    const summary = document.createElement('summary');
+    const head = el('span', 'answer-head');
+    head.append(el('b', '', item.question), pill(item.open ? 'Needs your answer' : item.category, item.open ? 'warn' : 'info'));
+    const edit = el('button', 'link', 'Edit in Notion');
+    edit.addEventListener('click', event => { event.preventDefault(); window.pilot.openNotion(state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey); });
+    summary.append(head, el('span', 'muted answer-preview', item.answer.split('\n')[0]), edit);
+    box.append(summary, el('p', 'answer-text', item.answer || '—'));
+    return box;
+  }));
 }
 $('open-profile').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
 $('open-answers').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));
-$('open-workspace').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_MATCHES_DB, event.metaKey));
 
 // Sidebar: the Notion pages, most used first. Click opens them in the app's Notion window; ⌘-click in the browser.
 const NOTION_LINKS = [['NOTION_MATCHES_DB', 'Job matches', 'target'], ['NOTION_APPLICATIONS_DB', 'Applications', 'layers'],
@@ -1622,6 +1728,7 @@ $('set-telegram-save').addEventListener('click', async () => {
 function showContact() {
   window.pilot.contact().then(contact => {
     document.querySelectorAll('[data-contact]').forEach(input => { input.value = contact[input.dataset.contact] || ''; });
+    showLinks();
   }).catch(error => message('contact-message', `Couldn't read them from Notion: ${error.message}`, 'error'));
   $('contact-cv').textContent = state.settings.cvName || 'None yet';
 }
@@ -1637,10 +1744,6 @@ $('contact-save').addEventListener('click', async () => {
   if (!result.ok) $('contact-save').disabled = false;
   message('contact-message', result.ok ? (state.notion ? 'Saved in your Notion Profile ✓ The extension uses these from the next form it fills.'
     : 'Saved ✓ The extension uses these from the next form it fills.') : result.error, result.ok ? 'ok' : 'error');
-});
-$('contact-cv-replace').addEventListener('click', async () => {
-  const name = await window.pilot.chooseCv();
-  if (name) { state = await window.pilot.state(); showContact(); message('contact-message', `CV replaced: ${name}`, 'ok'); }
 });
 
 // ---------- Apply with Claude: what only the user can install (wizard, Optional extras) ----------

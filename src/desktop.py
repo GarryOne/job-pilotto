@@ -4,6 +4,7 @@
     python -m src.desktop jobs [--limit 200]     ranked open jobs with fit score and application status
     python -m src.desktop status <URL> <status>  record an application status locally (applied, saved, dismissed)
     python -m src.desktop posting <code>         one job's posting (title, company, description) for CV tailoring
+    python -m src.desktop strategy               the Strategy page: targets, how matches score, what's avoided, counts
 
 The app sets JOB_PILOTTO_CONFIG_DIR / JOB_PILOTTO_DATA_DIR / JOB_PILOTTO_PROFILE_FILE, so everything
 here reads and writes the user's own folder. Output is one JSON document on stdout.
@@ -149,6 +150,92 @@ def set_status(db, url, status, tracker=None):
     return {'ok': True, 'notion': outcome} if outcome else {'ok': True}
 
 
+COMPONENTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensation', 'Compensation'),
+              ('growth', 'Growth'), ('risk', 'Low risk'))
+
+
+def _readable(fragment):
+    """A search regex fragment as words ("z[uü]rich" -> "zürich", "\\bsre\\b" -> "sre")."""
+    import re
+    text = re.sub(r'\\b', '', str(fragment))
+    text = re.sub(r'\[[^\]]*?([^\]])\]', r'\1', text)  # a letter choice: its last letter (z[uü]rich -> zürich)
+    return re.sub(r'[.?*+()^$|\\]', '', text).strip()
+
+
+def _section(profile, word):
+    """The first line under the Profile heading that names `word` (e.g. Compensation), or ''."""
+    lines, inside = profile.splitlines(), False
+    for line in lines:
+        if line.lstrip().startswith('#'):
+            inside = word.lower() in line.lower()
+            continue
+        if inside and line.strip():
+            return line.strip('- ').strip()
+    return ''
+
+
+def strategy(db, tracker=None):
+    """What the Strategy page shows, all from the user's own data: search settings (the cache of ⚙️ Search settings),
+    preferences, the average fit components of the scored open jobs, counts, the Profile's compensation line and
+    the latest 💡 Insight."""
+    from .paths import CONFIG, load_search_config
+    search = load_search_config()
+    try:
+        prefs = json.loads((CONFIG / 'preferences.json').read_text())
+    except (OSError, ValueError):
+        prefs = {}
+    unique = lambda items: list(dict.fromkeys(i for i in (_readable(x) for x in items or []) if i))
+    places = search.get('locations') or {}
+    candidates, _ = digest.eligible_jobs(db)
+    fits = score.load(db)
+    scored = [fits[job['id']] for job in candidates if job['id'] in fits]
+    components = []
+    for key, label in COMPONENTS:
+        values = [fit['components'][key] for fit in scored if isinstance(fit.get('components'), dict) and key in fit['components']]
+        if values:
+            average = round(sum(values) / len(values))
+            components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
+    stages = {}
+    insight, compensation = None, ''
+    if tracker:
+        try:
+            for stage in tracker.url_stages().values():
+                stages[stage] = stages.get(stage, 0) + 1
+        except Exception:  # noqa: BLE001 — the rest still shows
+            pass
+        try:
+            compensation = _section(tracker.page_text(), 'compensation') or _section(tracker.page_text(), 'salary')
+        except Exception:  # noqa: BLE001
+            pass
+        from .ai.insights import INSIGHTS_DATABASE_ID
+        if INSIGHTS_DATABASE_ID:
+            try:
+                rows = tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
+                                        {'page_size': 1, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]})['results']
+                if rows:
+                    from .notion.ledger import plain
+                    props = rows[0]['properties']
+                    insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
+                               'url': rows[0].get('url', '')}
+            except Exception:  # noqa: BLE001
+                pass
+    sent = sum(n for stage, n in stages.items() if stage not in ('Saved', 'Kit ready', 'Applying', 'Dismissed', 'Closed', 'Recruiter lead'))
+    return {
+        'roles': unique(search.get('jobs_board_search_queries') or search.get('role_keywords')),
+        # The top cities, the country, the cities abroad (the long lists of nearby towns and spellings stay out).
+        'locations': unique((places.get('top_tier') or [])[:3] + (places.get('country_wide') or [])[:1] + (places.get('abroad') or [])),
+        'stack': unique(search.get('quality_stack_keywords'))[:8],
+        'compensation': compensation,
+        'avoid': [f'Requires {language}' for language in prefs.get('disqualifying_languages') or []]
+                 + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]
+                 + [f'Title: {word}' for word in unique(search.get('title_exclude_keywords'))[:6]]
+                 + [f'Remote only from {region}' for region in unique(search.get('remote_excluded_regions'))[:3]],
+        'components': components, 'scored': len(scored),
+        'counts': {'matches': len(scored), 'kits': stages.get('Kit ready', 0), 'sent': sent},
+        'insight': insight,
+    }
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -158,6 +245,7 @@ def main(argv=None):
     marking.add_argument('url')
     marking.add_argument('status', choices=STATUSES)
     sub.add_parser('posting').add_argument('code')
+    sub.add_parser('strategy')
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
         if args.command == 'posting':
@@ -165,6 +253,9 @@ def main(argv=None):
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()
+        if args.command == 'strategy':
+            print(json.dumps(strategy(db, tracker), ensure_ascii=False))
+            return 0
         if args.command == 'jobs':
             found = None
             if tracker:

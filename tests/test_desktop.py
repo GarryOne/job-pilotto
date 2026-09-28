@@ -85,3 +85,33 @@ class DesktopTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StrategyTests(unittest.TestCase):
+    def test_strategy_shows_the_users_own_targets_scores_and_counts(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        from src import desktop, store
+        with tempfile.TemporaryDirectory() as tmp:
+            db = store.connect(Path(tmp) / 'j.sqlite')
+            fits = {1: {'components': {'role_fit': 80, 'location': 60, 'compensation': 50, 'growth': 40, 'risk': 30}},
+                    2: {'components': {'role_fit': 60, 'location': 40, 'compensation': 50, 'growth': 60, 'risk': 10}}}
+            tracker = SimpleNamespace(url_stages=lambda: {'a': 'Applied', 'b': 'Kit ready', 'c': 'Rejected', 'd': 'Saved'},
+                                      page_text=lambda: '# Compensation\n- Target: CHF 150k\n# Other\n- x',
+                                      _request=lambda *a, **k: {'results': []})
+            search = {'jobs_board_search_queries': ['site reliability'], 'locations': {'top_tier': ['z[uü]rich'], 'country_wide': ['switzerland', 'bern'], 'abroad': ['berlin']},
+                      'quality_stack_keywords': [r'\bk8s\b'], 'title_exclude_keywords': ['sales']}
+            with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([{'id': 1}, {'id': 2}], [])), \
+                    mock.patch.object(desktop.score, 'load', lambda db: fits), mock.patch('src.paths.load_search_config', lambda: search):
+                data = desktop.strategy(db, tracker)
+            db.close()
+        self.assertEqual(data['roles'], ['site reliability'])
+        self.assertEqual(data['locations'], ['zürich', 'switzerland', 'berlin'])
+        self.assertEqual(data['stack'], ['k8s'])
+        self.assertEqual(data['compensation'], 'Target: CHF 150k')
+        self.assertIn('Title: sales', data['avoid'])
+        self.assertEqual({c['key']: c['value'] for c in data['components']},
+                         {'role_fit': 70, 'location': 50, 'compensation': 50, 'growth': 50, 'risk': 80})  # risk shown as "low risk"
+        self.assertEqual(data['counts'], {'matches': 2, 'kits': 1, 'sent': 2})

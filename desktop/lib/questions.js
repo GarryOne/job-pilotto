@@ -102,3 +102,43 @@ export async function answer(storage, questionKey, value, fetcher) {
   else await notion.deleteBlock(target.token, block.id, fetcher);
   return {ok: true};
 }
+
+// The standard answers page as the app's Standard answers tab shows it: one group per heading, each with its
+// questions (table rows [Question | Answer]), its guidance lines (a list under a heading, e.g. "Cover letter
+// style", shown as one item) and its ❓ lines (open: an answer is still needed). Read-only; edits happen in Notion.
+export async function standardAnswers(storage, fetcher) {
+  const {token, page} = notionPage(storage);
+  const plain = rich => (rich || []).map(t => t.plain_text).join('');
+  const groups = [];
+  let group = null;
+  const current = () => group || (group = {category: 'General', items: [], notes: []}, groups.push(group), group);
+  let cursor;
+  do {
+    const list = await notion.call(token, 'GET', `blocks/${page}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+    for (const block of list.results) {
+      const text = plain(block[block.type]?.rich_text).trim();
+      if (block.type.startsWith('heading_')) {
+        group = {category: text.replace(/\s*\(.*\)\s*$/, ''), items: [], notes: []};
+        groups.push(group);
+      } else if (block.type === 'table') {
+        current().table = true;
+        const rows = (await notion.call(token, 'GET', `blocks/${block.id}/children?page_size=100`, null, fetcher)).results;
+        for (const row of rows.slice(block.table?.has_column_header ? 1 : 0)) {
+          const [question = '', answer = ''] = (row.table_row?.cells || []).map(cellText);
+          if (question.trim()) current().items.push({question: question.trim(), answer: answer.trim(), open: answer.trim().startsWith('❓')});
+        }
+      } else if (text && isQuestionLine(text)) {
+        const {question, company} = parseLine({id: block.id, text});
+        current().items.push({question, answer: company ? `Asked by ${company}` : '', open: true});
+      } else if (text && group && /list_item|paragraph|quote|callout/.test(block.type)) {
+        group.notes.push(text);
+      }
+    }
+    cursor = list.has_more ? list.next_cursor : null;
+  } while (cursor);
+  // A section's guidance lines (no table there) become one item, first; a table section's lines are just its intro.
+  for (const each of groups) {
+    if (!each.table && each.notes.length) each.items.unshift({question: each.category, answer: each.notes.join('\n'), guidance: true});
+  }
+  return groups.filter(each => each.items.length).map(({category, items}) => ({category, items}));
+}
