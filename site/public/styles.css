@@ -74,8 +74,15 @@ p { margin: 0; }
 .hero { display: grid; grid-template-columns: 1fr 1.08fr; gap: 64px; align-items: center; padding-block: 72px 112px; }
 .hero-copy { display: grid; gap: 26px; justify-items: start; }
 .flightpath { color: var(--signal); font-style: italic; background: linear-gradient(90deg, var(--signal) 55%, transparent 0) left bottom / 14px 2px repeat-x; padding-bottom: .04em; }
-.hero-actions { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
-.cta { display: grid; gap: 8px; justify-items: center; }
+/* Both buttons on one row, flush with the text; one note under them. */
+.hero-actions { display: grid; gap: 12px; justify-items: start; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+/* Phones: the two buttons stacked, full width, easy to tap. */
+@media (max-width: 520px) {
+  .hero-actions, .cta-row { justify-items: stretch; width: 100%; }
+  .cta-row { flex-direction: column; align-items: stretch; }
+  .cta-row .btn { justify-content: center; text-align: center; }
+}
 .cta-note { font: 400 .74rem var(--mono); color: var(--muted); }
 .cta-note a { color: inherit; text-underline-offset: 3px; }
 .hero-note { font-size: .9rem; color: var(--muted); max-width: 56ch; }
@@ -127,7 +134,14 @@ p { margin: 0; }
 .gate.sent { background: #1c2733; color: #b7c4d3; }
 .gate.reply { background: #103a1f; color: #7ee39a; }
 .board-foot { color: var(--board-dim); font-size: .64rem; padding-top: 6px; letter-spacing: .04em; }
-@media (max-width: 480px) { .board col.c-time { width: 0; } .board td:first-child, .board th:first-child { display: none; } .board td:nth-child(2) { border-radius: 6px 0 0 6px; } }
+/* Phones: Role, Fit and Gate only. The fixed column widths would otherwise shift once cells are hidden
+   (Role landed in the hidden Time column), so the table sizes itself here. */
+@media (max-width: 480px) {
+  .board table { table-layout: auto; }
+  .board col { width: auto !important; }
+  .board td:nth-child(1), .board th:nth-child(1), .board td:nth-child(3), .board th:nth-child(3) { display: none; }
+  .board td:nth-child(2) { border-radius: 6px 0 0 6px; width: 100%; }
+}
 
 /* Sections */
 section.block { padding-block: 120px; border-top: 1px solid var(--line); }
