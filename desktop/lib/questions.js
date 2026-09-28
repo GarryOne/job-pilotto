@@ -14,10 +14,12 @@ function notionPage(storage) {
   const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_ANSWERS_PAGE_ID;
   return token && page ? {token, page} : null;
 }
+// A form's "required" marker is not part of the question ("* Nationality", "Postal Code *").
+const unmarked = text => String(text || '').replace(/^[\s*]+|[\s*]+$/g, '');
 // A ❓ line -> {key: block id, question, company}.
 export function parseLine(block) {
   const company = block.text.match(ASKED)?.[1] || '';
-  const question = block.text.replace(ASKED, '').replace(/❓/g, '').replace(/[\s:—-]+$/, '').trim();
+  const question = unmarked(block.text.replace(ASKED, '').replace(/❓/g, '').replace(/[\s:—-]+$/, ''));
   return {key: block.id, question, company};
 }
 // The question part of a line: before its ":" or " — " ("Salary expectation: CHF 130,000" -> "Salary expectation").
@@ -45,7 +47,7 @@ export async function collect(storage, run, company = '', fetcher) {
     const k = key(field.label);
     if (known.has(k)) continue;
     known.add(k);
-    fresh.push(field.label);
+    fresh.push(unmarked(field.label));
   }
   if (!fresh.length) return 0;
   if (target) await notion.appendBullets(target.token, target.page, fresh.map(question => questionLine(question, company)), fetcher);

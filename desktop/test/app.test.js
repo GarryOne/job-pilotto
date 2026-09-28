@@ -223,6 +223,19 @@ test('open questions are the ❓ lines of the Notion standard answers; answering
   assert.equal(storage.settings().openQuestions, undefined);  // nothing kept on the Mac
 });
 
+test('a form\'s required marker (*) is not part of an open question', async () => {
+  const questions = await import('../lib/questions.js');
+  const storage = tempStorage();
+  storage.setSecret('NOTION_TOKEN', 'ntn_x');
+  storage.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  const {blocks, fetcher} = fakeNotion(['* Street, No.: ❓ (asked by Acme)']);
+  const run = {url: 'https://x/1', trace: [{label: '* Nationality', required: true, reason: questions.NO_ANSWER},
+    {label: 'Street, No. *', required: true, reason: questions.NO_ANSWER}]};  // same question as the page's: not added again
+  assert.equal(await questions.collect(storage, run, 'Acme', fetcher), 1);
+  assert.equal(blocks.at(-1).text, 'Nationality: ❓ (asked by Acme)');
+  assert.deepEqual((await questions.list(storage, fetcher)).map(q => q.question), ['Street, No.', 'Nationality']);
+});
+
 test('without Notion, open questions wait on the Mac until Notion is connected', async () => {
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
