@@ -1,3 +1,4 @@
+import {replaceCell, replaceLine, withLine} from './markdown-edit.js';
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
 import {ago, avatar, band, matchLabel, placeAndMode, sorted, stats, tags, workMode} from './jobs-view.js';
@@ -473,12 +474,40 @@ $('draft-summary').addEventListener('click', () => $('draft-summary').classList.
 document.querySelectorAll('[data-goto-step]').forEach(button => button.addEventListener('click', () => goStep(button.dataset.gotoStep)));
 
 // Markdown (headings, tables, bullets, paragraphs, **bold**) as read-only HTML for the Detailed strategy.
-function markdownView(markdown) {
+// Values are edited in place: click a cell, a bullet or a paragraph (Enter or click away saves, Esc cancels).
+// edit(lineIndex, newLine) puts the change back into the markdown.
+function markdownView(markdown, edit) {
   const box = document.createDocumentFragment();
   const inline = text => {
     const span = document.createElement('span');
     text.split(/(\*\*[^*]+\*\*)/).forEach(part => span.append(part.startsWith('**') ? Object.assign(document.createElement('b'), {textContent: part.slice(2, -2)}) : part));
     return span;
+  };
+  // The element shows the formatted text; while editing, its raw markdown (so **bold** survives).
+  const editable = (element, raw, save) => {
+    element.classList.add('editable');
+    element.title = 'Click to edit';
+    element.addEventListener('click', () => {
+      if (element.isContentEditable) return;
+      element.textContent = raw.trim() === '❓' ? '' : raw;  // an unanswered ❓: start empty
+      element.contentEditable = 'plaintext-only';
+      element.focus();
+      getSelection().selectAllChildren(element); getSelection().collapseToEnd();
+      let done = false;
+      const finish = keep => {
+        if (done) return;
+        done = true;
+        element.contentEditable = 'false';
+        const text = element.textContent;
+        if (keep && text.trim() !== raw.trim()) save(text.trim() || '❓');
+        else renderDocs();
+      };
+      element.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); finish(true); }
+        if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+      });
+      element.addEventListener('blur', () => finish(true), {once: true});
+    });
   };
   const lines = markdown.split('\n');
   for (let i = 0; i < lines.length; i++) {
@@ -488,11 +517,19 @@ function markdownView(markdown) {
     if (heading) { const h = document.createElement(`h${Math.min(4, heading[1].length + 2)}`); h.append(inline(heading[2])); box.append(h); continue; }
     if (line.startsWith('|')) {
       const table = document.createElement('table');
+      let header = true;
       for (; i < lines.length && lines[i].trim().startsWith('|'); i++) {
         const cells = lines[i].trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
         if (cells.every(cell => /^:?-{2,}:?$/.test(cell))) continue;
         const row = table.insertRow();
-        cells.forEach(cell => { const td = row.insertCell(); td.append(inline(cell)); if (cell.includes('❓')) td.className = 'ask'; });
+        const index = i, source = lines[i];
+        cells.forEach((cell, c) => {
+          const td = row.insertCell();
+          td.append(inline(cell));
+          if (cell.includes('❓')) td.classList.add('ask');
+          if (!header && edit) editable(td, cell, text => edit(index, replaceCell(source, c, text)));
+        });
+        header = false;
       }
       i--;
       box.append(table);
@@ -500,18 +537,34 @@ function markdownView(markdown) {
     }
     if (/^[-*]\s/.test(line)) {
       const ul = document.createElement('ul');
-      for (; i < lines.length && /^\s*[-*]\s/.test(lines[i]); i++) { const li = document.createElement('li'); li.append(inline(lines[i].trim().slice(2))); ul.append(li); }
+      for (; i < lines.length && /^\s*[-*]\s/.test(lines[i]); i++) {
+        const li = document.createElement('li');
+        const raw = lines[i].trim().slice(2), index = i, source = lines[i];
+        li.append(inline(raw));
+        if (raw.includes('❓')) li.classList.add('ask');
+        if (edit) editable(li, raw, text => edit(index, replaceLine(source, text)));
+        ul.append(li);
+      }
       i--;
       box.append(ul);
       continue;
     }
-    const p = document.createElement('p'); p.append(inline(line)); box.append(p);
+    const p = document.createElement('p'); p.append(inline(line));
+    if (line.includes('❓')) p.classList.add('ask');
+    const index = i, source = lines[i];
+    if (edit) editable(p, line, text => edit(index, replaceLine(source, text)));
+    box.append(p);
   }
   return box;
 }
 function renderDocs() {
-  $('doc-profile').replaceChildren(markdownView(draft.profile_markdown));
-  $('doc-answers').replaceChildren(markdownView(draft.answers_markdown));
+  for (const [doc, field] of [['profile', 'profile_markdown'], ['answers', 'answers_markdown']]) {
+    $(`doc-${doc}`).replaceChildren(markdownView(draft[field], (index, line) => {
+      draft[field] = withLine(draft[field], index, line);
+      draftChanged([field]);
+      renderDocs();
+    }));
+  }
   $('draft-profile').value = draft.profile_markdown;
   $('draft-answers').value = draft.answers_markdown;
 }

@@ -620,3 +620,9 @@ details.manual { margin-top: 18px; }
 .review .doc-edit { margin-top: 6px; }
 .step[data-step="draft"] .actions.sticky { position: sticky; bottom: -48px; margin-bottom: -48px; background: var(--sky); padding: 12px 0 60px; border-top: 1px solid var(--line); z-index: 5; align-items: center; }
 .saved-note { margin-right: auto; color: var(--teal); font-size: 13px; }
+
+/* Step 5: values edit in place */
+.review .doc-view .editable { cursor: text; border-radius: 6px; }
+.review .doc-view .editable:hover { outline: 1px dashed var(--line); outline-offset: 2px; }
+.review .doc-view [contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
+.review .doc-view li.ask, .review .doc-view p.ask { background: #fff4e5; }

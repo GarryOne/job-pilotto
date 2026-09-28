@@ -452,3 +452,12 @@ test('while the strategy is drafted, the screen lists what Claude has finished s
   for (const line of ['Standard answers: Eligibility', 'Things for you to check: 1', 'Roles to look for: site reliability, sre',
     'Best places: zürich', 'Jobs requiring German will be hidden', 'Contact details found in your CV']) assert.ok(all.includes(line), line);
 });
+
+test('an edited cell or line goes back into its markdown line; the rest is untouched', async () => {
+  const {replaceCell, replaceLine, withLine} = await import('../renderer/markdown-edit.js');
+  assert.equal(replaceCell('| Pronouns | ❓ |', 1, 'he/him'), '| Pronouns | he/him |');
+  assert.equal(replaceCell('| **School** | ❓ | x |', 1, 'Babeș-Bolyai | UBB\n'), '| **School** | Babeș-Bolyai / UBB | x |');
+  assert.equal(replaceLine('  - Tone: direct', 'Tone: **direct**, factual'), '  - Tone: **direct**, factual');
+  assert.equal(replaceLine('❓ Not provided', 'Decline to self-identify'), 'Decline to self-identify');
+  assert.equal(withLine('# A\n| k | v |\n- x', 1, '| k | w |'), '# A\n| k | w |\n- x');
+});
