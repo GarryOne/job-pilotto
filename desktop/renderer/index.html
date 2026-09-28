@@ -263,8 +263,8 @@
       <header class="view-head jobs-head">
         <div><h1>Job matches</h1><p class="muted subtitle" id="jobs-stats">Loading…</p></div>
         <div class="head-actions">
-          <div class="last-search" id="search-status"><span class="dot"></span><div><b>No search yet</b><small></small></div></div>
-          <button class="secondary with-icon" id="refresh"><i data-icon="search"></i><span>Run new search</span></button>
+          <button class="last-search" id="search-status" title="Open the progress and history of your searches"><span class="dot"></span><div><b>No search yet</b><small></small></div></button>
+          <button class="secondary with-icon" id="refresh" title="Crawls the job boards and employer career pages for jobs you haven't seen yet, then reads and scores the new ones with AI (a few cents each; up to 60 per search). Your current matches stay."><i data-icon="refresh"></i><span>Check for new jobs</span></button>
           <button class="primary with-icon" id="apply-open"><i data-icon="send"></i><span>Apply to jobs…</span></button>
         </div>
       </header>
@@ -304,7 +304,7 @@
       </div>
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span></span></div>
       <div class="job-list" id="jobs-body"></div>
-      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.</p>
+      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Check for new jobs</b>; the first search takes a few minutes.</p>
     </div>
 
     <div class="view" data-view="focus" hidden>
@@ -996,6 +996,8 @@
       <div class="ap-detail">
         <p class="activity-selected"><span id="activity-selected"></span> <a href="#" class="activity-notion" id="activity-notion" hidden>Open in Notion ↗</a> <a href="#" class="activity-notion" id="activity-github" hidden>Open on GitHub ↗</a></p>
         <div class="activity-result" id="activity-result" hidden></div>
+        <div class="alert tone-warn activity-warnings" id="activity-warnings" hidden><i data-icon="info"></i>
+          <div><strong id="activity-warnings-title"></strong><ul class="small" id="activity-warnings-list"></ul></div></div>
         <ol class="activity-phases" id="activity-phases"></ol>
         <pre class="activity-message" id="activity-message" hidden></pre>
         <details class="activity-log" id="activity-log"><summary>Technical log <span class="muted" id="log-count"></span></summary><pre id="log" class="log"></pre></details>
@@ -1006,7 +1008,7 @@
       <b id="activity-title">No search yet</b>
       <span class="activity-step" id="activity-step"></span>
       <span class="activity-meta" id="activity-meta"></span>
-      <span class="activity-chev" aria-hidden="true">▴</span>
+      <span class="activity-open" id="activity-open">Details ▴</span>
     </button>
   </footer>
 </section>

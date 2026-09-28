@@ -211,11 +211,12 @@ async function showSearchStatus() {
   const [title, detail] = [box.querySelector('b'), box.querySelector('small')];
   const searching = running && (running.kind || 'search') === 'search';
   box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
-  if (searching) { title.textContent = `Searching now · ${TRIGGER[running.trigger] || running.trigger}`; detail.textContent = running.step; return; }
+  // Running: a link to its progress (the bottom bar's panel); done: what it found.
+  if (searching) { title.textContent = 'Search in progress →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
   if (!lastSearchAt) { title.textContent = 'No search yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
-  title.textContent = 'Last search done';
-  detail.textContent = `${clockTime(lastSearchAt)}${last?.new != null ? ` · ${last.new} new` : ''}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
+  title.textContent = last && !last.ok ? 'Last search had problems →' : `Search complete${last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : ''}`;
+  detail.textContent = `${clockTime(lastSearchAt)}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
 }
 
 // ---------- activity bar (bottom of every screen) ----------
@@ -224,6 +225,18 @@ const PHASES = [
   {match: /^Searching job boards/, label: 'Job boards (jobs.ch, TechTree)'},
   {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
 ];
+// A search's current log line as a short phrase for the header and the bottom bar (the raw line is in the log).
+function searchPhase(step = '') {
+  const phase = PHASES.find(item => item.match.test(step));
+  if (phase) return phase.label;
+  let m;
+  if ((m = step.match(/^Scored (\d+) of (\d+)/))) return `Scoring new jobs · ${m[1]} of ${m[2]}`;
+  if ((m = step.match(/^Enriched (\d+) of (\d+)/))) return `Reading new jobs · ${m[1]} of ${m[2]}`;
+  if (/^Checked: /.test(step)) return 'Employer career pages';
+  if (/^Job Matches:/.test(step)) return 'Saving to Notion';
+  if (/digest|telegram/i.test(step)) return 'Sending your digest';
+  return step.length > 60 ? `${step.slice(0, 57)}…` : step;
+}
 const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
   weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'},
   action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
@@ -306,17 +319,20 @@ function renderActivity(data) {
   if (running) {
     const kind = KIND[kindOf(running)];
     const next = (data.queued || []).length;
-    $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
-    $('activity-step').textContent = running.step || 'Starting…';
+    $('activity-title').textContent = kindOf(running) === 'search' ? `Checking for new jobs${running.where === 'github' ? ' (on GitHub)' : ''}${next ? ` · ${next} queued` : ''}`
+      : `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger}${running.where === 'github' ? ', on GitHub' : ''})${next ? ` · ${next} queued` : ''}`;
+    $('activity-step').textContent = searchPhase(running.step) || running.step || 'Starting…';
+    $('activity-open').textContent = 'View progress ↑';
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
+    $('activity-open').textContent = 'Details ▴';
     $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last search done' : 'Last search had problems') : 'No search yet';
     $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
       (lastSearch.ok ? '' : ' · click to see why') : '';
     $('activity-meta').textContent = [mailNote, nextSearchAt && `Next search ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
     $('activity-title').textContent = 'No search yet';
-    $('activity-step').textContent = 'Click "Find new jobs" to start one.';
+    $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';
     $('activity-meta').textContent = mailNote;
   }
 
@@ -396,11 +412,20 @@ function renderActivity(data) {
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram.
   $('activity-message').textContent = !run?.live && run?.message || '';
   show($('activity-message'), !run?.live && !!run?.message);
-  // The full log stays folded unless the task is running or went wrong (then it's what you want to see).
+  // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it.
+  const warnings = [...new Set(lines.filter(line => /^Warning|\b429\b|Too Many Requests|skipped|failed/i.test(line))
+    .map(line => line.replace(/^Warning:\s*/i, '').slice(0, 180)))];
+  show($('activity-warnings'), warnings.length > 0);
+  if (warnings.length) {
+    $('activity-warnings-title').textContent = run?.live ? `${KIND[kindOf(run)]?.name || 'Task'} running with warnings` : 'Finished with warnings';
+    $('activity-warnings-list').replaceChildren(...warnings.slice(0, 5).map(text => el('li', '', text)),
+      ...(warnings.length > 5 ? [el('li', 'muted', `+ ${warnings.length - 5} more in the technical log`)] : []));
+  }
+  // The full log stays folded (the stages come first); open by itself only when the task went wrong.
   const failed = run && !run.live && (!run.ok || run.off);
   if (run && $('activity-log').dataset.for !== String(run.id)) {
     $('activity-log').dataset.for = String(run.id);
-    $('activity-log').open = !!run.live || !!failed;
+    $('activity-log').open = !!failed;
   }
   $('log-count').textContent = lines.length ? `(${plural(lines.length, 'line')})` : '';
   const log = $('log');
@@ -1376,7 +1401,7 @@ function renderJobs() {
   const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
     applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
     dismissed: 'No dismissed jobs.'};
-  $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.'
+  $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Check for new jobs</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
@@ -1612,17 +1637,18 @@ window.pilot.onLog(line => {
   logLines.push(line);
   refreshActivity();
 });
+$('search-status').addEventListener('click', () => openActivity(true));
 $('refresh').addEventListener('click', async () => {
-  $('refresh').disabled = true;
-  $('refresh').querySelector('span').textContent = 'Searching…';
+  $('refresh').disabled = true;  // the header status shows "Search in progress →" meanwhile
   selectedRun = null;
+  setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
   try {
     await window.pilot.refresh();
   } finally {
     $('refresh').disabled = false;
-    $('refresh').querySelector('span').textContent = 'Run new search';
     loadJobs();
     refreshActivity();
+    showSearchStatus();
   }
 });
 

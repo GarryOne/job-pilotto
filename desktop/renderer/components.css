@@ -302,3 +302,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .review-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .review-changes { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); }
 .review-linked { color: var(--info); }
+
+/* Warnings of a run, shown above its technical log (Recent activity). */
+.activity-warnings { margin: var(--sp-2) 0; }
+.activity-warnings ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-5); }
