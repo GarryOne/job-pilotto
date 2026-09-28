@@ -52,6 +52,8 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   page uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an
   imported binding is read-only. Put logic that can be tested without a window in its own small module
   (`renderer/session-message.js`, `session-state.js`, `wheel.js`) with a test in `desktop/test/`.
+- `electron .` works in any worktree: the entry `desktop/start.js` builds `shared/` when it's missing, and a test run
+  (`JOB_PILOTTO_SMOKE…`) that can't start prints why and quits: no crash dialog on the owner's screen.
 - **Checking a UI change:** `npm run shot -- <page>` (one screen, ~5 s) or `--eval "…" --no-picture` to read the
   window's state (`window.__jp`) as JSON; `--reload` tests after ⌘R. The full reference set (`npm run ui-shots`)
   is only for big changes, about daily, or when the owner asks (details: skill `ui-look-and-feel`).

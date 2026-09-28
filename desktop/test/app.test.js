@@ -204,7 +204,7 @@ test('the window scripts parse (a syntax error leaves the app window blank)', as
   const {execFileSync} = await import('node:child_process');
   const {readdirSync} = await import('node:fs');
   const pages = readdirSync(new URL('../renderer/pages/', import.meta.url)).map(file => `renderer/pages/${file}`);
-  for (const file of ['renderer/app.js', ...pages, 'preload.cjs', 'main.js']) {
+  for (const file of ['renderer/app.js', ...pages, 'preload.cjs', 'main.js', 'start.js']) {
     execFileSync(process.execPath, ['--check', fileURLToPath(new URL(`../${file}`, import.meta.url))]);
   }
 });

@@ -4,7 +4,7 @@
   "version": "0.3.0-alpha",
   "private": true,
   "type": "module",
-  "main": "main.js",
+  "main": "start.js",
   "scripts": {
     "prestart": "npm install --no-audit --no-fund --silent && scripts/audiotee.sh && node scripts/stage.mjs",
     "start": "electron .",
@@ -42,6 +42,7 @@
       "output": "dist"
     },
     "files": [
+      "start.js",
       "main.js",
       "preload.cjs",
       "lib/**",
