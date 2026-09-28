@@ -249,7 +249,6 @@
     <button class="nav" data-view="interviews"><i data-icon="calendar"></i>Interviews</button>
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions</button>
     <button class="nav" data-view="strategy"><i data-icon="target"></i>Strategy</button>
-    <button class="nav" data-view="profile"><i data-icon="user"></i>Profile</button>
     <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
     <div class="notion-links" id="notion-links" hidden>
       <p class="nav-group">In your Notion</p>
@@ -564,8 +563,58 @@
       <p class="message" id="strategy-load"></p>
     </div>
 
-    <div class="view" data-view="profile" hidden>
-      <header class="view-head"><div><h1>Profile</h1><p class="muted">Your CV, details and reusable application answers: what goes into your applications.</p></div></header>
+    <div class="view" data-view="settings" hidden>
+      <div class="back-to-setup" id="back-to-setup" hidden>
+        <span>You're finishing your setup: set this up here, then go back to the last step.</span>
+        <button class="secondary small-btn" id="back-to-setup-go">← Back to setup</button>
+        <button class="link" id="back-to-setup-close" title="Hide">✕</button>
+      </div>
+      <header class="view-head"><div><h1>Settings</h1><p class="muted">Manage your profile, automations and connections.</p></div>
+        <button class="ghost" id="rerun-setup">Run setup again</button></header>
+      <div class="settings-layout">
+        <nav class="settings-nav" aria-label="Settings sections">
+          <button data-settings-go="overview" class="is-active"><i data-icon="columns"></i>Overview</button>
+          <button data-settings-go="profile"><i data-icon="user"></i>Profile</button>
+          <button data-settings-go="automation"><i data-icon="clock"></i>Automation</button>
+          <button data-settings-go="connections"><i data-icon="link"></i>Connections<span class="nav-dot" id="connections-dot" hidden></span></button>
+          <button data-settings-go="data"><i data-icon="database"></i>Data &amp; backup</button>
+          <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
+        </nav>
+        <div class="settings-pages">
+        <div class="settings-page" data-settings-page="overview">
+          <div class="alert tone-warn settings-alert" id="ov-alert" hidden>
+            <i data-icon="info"></i>
+            <div><strong id="ov-alert-title"></strong><p id="ov-alert-text"></p></div>
+            <button class="primary" id="ov-alert-go"></button>
+          </div>
+          <div class="settings-page-head"><h2>Your setup</h2><p class="muted">Connected services and extension status.</p></div>
+          <div class="service-grid" id="ov-services"></div>
+          <div class="summary-grid">
+            <article class="summary-card">
+              <div class="summary-head"><i data-icon="user"></i><h3>Application profile</h3></div>
+              <p class="muted">Your CV and contact details for tailored applications.</p>
+              <dl class="summary-rows"><dt>CV</dt><dd id="ov-cv"></dd><dt>Contact details</dt><dd id="ov-contact"></dd></dl>
+              <button class="arrow-link" id="ov-profile">Edit profile</button>
+            </article>
+            <article class="summary-card">
+              <div class="summary-head"><i data-icon="clock"></i><h3>Automation</h3></div>
+              <p class="muted">Your job search schedule and automation settings.</p>
+              <dl class="summary-rows"><dt>Job search</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
+                <dt>Always on</dt><dd id="ov-cloud"></dd></dl>
+              <button class="arrow-link" data-settings-go="automation">Manage automation</button>
+            </article>
+            <article class="summary-card is-wide">
+              <div class="summary-head"><i data-icon="database"></i><h3>Data &amp; backup</h3></div>
+              <p class="muted">Your data, exports and automatic backups.</p>
+              <div class="summary-line"><dl class="summary-rows"><dt>Last backup</dt><dd id="ov-backup"></dd></dl>
+                <button class="secondary" id="ov-backups">View backups</button></div>
+            </article>
+          </div>
+        </div>
+        
+        <div class="settings-page" data-settings-page="profile" hidden>
+          <div class="settings-page-head"><h2>Profile</h2><p class="muted">Your CV, details and reusable application answers: what goes into your applications (nothing here re-scores jobs).</p></div>
+
           <div class="tabs" role="tablist">
             <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
             <button role="tab" data-profile-tab="answers">Standard answers</button>
@@ -631,56 +680,7 @@
             <div class="answer-list" id="answers-list"><p class="muted">Loading from Notion…</p></div>
             <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review">Review all in Notion</button></div>
           </div>
-            </div>
-
-    <div class="view" data-view="settings" hidden>
-      <div class="back-to-setup" id="back-to-setup" hidden>
-        <span>You're finishing your setup: set this up here, then go back to the last step.</span>
-        <button class="secondary small-btn" id="back-to-setup-go">← Back to setup</button>
-        <button class="link" id="back-to-setup-close" title="Hide">✕</button>
-      </div>
-      <header class="view-head"><div><h1>Settings</h1><p class="muted">Manage your profile, automations and connections.</p></div>
-        <button class="ghost" id="rerun-setup">Run setup again</button></header>
-      <div class="settings-layout">
-        <nav class="settings-nav" aria-label="Settings sections">
-          <button data-settings-go="overview" class="is-active"><i data-icon="columns"></i>Overview</button>
-          <button data-settings-go="automation"><i data-icon="clock"></i>Automation</button>
-          <button data-settings-go="connections"><i data-icon="link"></i>Connections<span class="nav-dot" id="connections-dot" hidden></span></button>
-          <button data-settings-go="data"><i data-icon="database"></i>Data &amp; backup</button>
-          <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
-        </nav>
-        <div class="settings-pages">
-        <div class="settings-page" data-settings-page="overview">
-          <div class="alert tone-warn settings-alert" id="ov-alert" hidden>
-            <i data-icon="info"></i>
-            <div><strong id="ov-alert-title"></strong><p id="ov-alert-text"></p></div>
-            <button class="primary" id="ov-alert-go"></button>
-          </div>
-          <div class="settings-page-head"><h2>Your setup</h2><p class="muted">Connected services and extension status.</p></div>
-          <div class="service-grid" id="ov-services"></div>
-          <div class="summary-grid">
-            <article class="summary-card">
-              <div class="summary-head"><i data-icon="user"></i><h3>Application profile</h3></div>
-              <p class="muted">Your CV and contact details for tailored applications.</p>
-              <dl class="summary-rows"><dt>CV</dt><dd id="ov-cv"></dd><dt>Contact details</dt><dd id="ov-contact"></dd></dl>
-              <button class="arrow-link" id="ov-profile">Edit profile</button>
-            </article>
-            <article class="summary-card">
-              <div class="summary-head"><i data-icon="clock"></i><h3>Automation</h3></div>
-              <p class="muted">Your job search schedule and automation settings.</p>
-              <dl class="summary-rows"><dt>Job search</dt><dd id="ov-search"></dd><dt>Application kits</dt><dd id="ov-kits"></dd>
-                <dt>Always on</dt><dd id="ov-cloud"></dd></dl>
-              <button class="arrow-link" data-settings-go="automation">Manage automation</button>
-            </article>
-            <article class="summary-card is-wide">
-              <div class="summary-head"><i data-icon="database"></i><h3>Data &amp; backup</h3></div>
-              <p class="muted">Your data, exports and automatic backups.</p>
-              <div class="summary-line"><dl class="summary-rows"><dt>Last backup</dt><dd id="ov-backup"></dd></dl>
-                <button class="secondary" id="ov-backups">View backups</button></div>
-            </article>
-          </div>
         </div>
-        
         <div class="settings-page" data-settings-page="automation" hidden>
           <div class="settings-page-head has-action"><div><h2>Automation</h2><p class="muted">Choose what runs, when, and where.</p></div>
             <button class="primary" id="automation-save" disabled>Save changes</button></div>

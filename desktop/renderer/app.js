@@ -933,6 +933,7 @@ $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($
 
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 function settingsPage(name) {
+  if (name === 'profile') openProfile();
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
   document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
 }
@@ -955,8 +956,8 @@ document.addEventListener('click', event => {
   if (go) { settingsPage(go.dataset.settingsGo); document.querySelector('main')?.scrollTo(0, 0); }
 });
 $('ov-backups').addEventListener('click', () => window.pilot.showBackups());
-$('ov-profile').addEventListener('click', () => openView('profile'));
-// Profile (main menu): CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
+$('ov-profile').addEventListener('click', () => settingsPage('profile'));
+// Settings → Profile: CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
 async function openProfile() {
   state = await window.pilot.state();
   $('contact-save').disabled = true;
@@ -1089,7 +1090,6 @@ function openView(name) {
     loadSettings();
     window.pilot.dailyTarget().then(setting => { $('set-target').value = setting.target; $('set-remind').checked = setting.reminders; });
   }
-  if (name === 'profile') openProfile();
   if (name === 'interviews') loadInterviews();
   if (name === 'focus') loadFocus();
 }
@@ -1561,7 +1561,20 @@ async function loadJobs() {
   jobsLoading = true;
   claudeReady = (await window.pilot.claudeReady().catch(() => ({ok: false}))).ok;
   try {
-    const data = await window.pilot.jobs();
+    // The last good list at once (lib/view-cache.js), then the fresh one from Notion replaces it.
+    if (!allJobs.length) {
+      const saved = await window.pilot.cached('jobs');
+      if (saved?.result?.jobs) { showJobsData(saved.result); jobsLoading = false; renderJobs(); $('jobs-stats').textContent += ` · updating… (saved ${ago(saved.at) || 'just now'})`; jobsLoading = true; }
+    }
+    showJobsData(await window.pilot.jobs());
+  } catch (error) {
+    $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
+  }
+  jobsLoading = false;
+  renderJobs();
+}
+function showJobsData(data) {
+  {
     allJobs = data.jobs;
     const scored = allJobs.filter(job => job.fit != null).length;
     const count = stats(allJobs, data.total);
@@ -1577,11 +1590,7 @@ async function loadJobs() {
     const talking = inProcess(allJobs);
     document.querySelector('[data-stat="interviews"]').title = `Now: ${talking.screening} screening · ${talking.interviews} interviewing or offer. ` +
       'Applied counts applications sent (not forms still being filled); the Focus funnel counts every step an application ever reached.';
-  } catch (error) {
-    $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }
-  jobsLoading = false;
-  renderJobs();
 }
 
 window.pilot.onLog(line => {
@@ -1635,11 +1644,21 @@ function chips(items, tone = '') {
 async function loadStrategy() {
   state = await window.pilot.state();
   message('strategy-message', '');
-  message('strategy-load', 'Reading your strategy…', 'waiting');
+  // The last good read at once (lib/view-cache.js), then the fresh one.
+  const saved = await window.pilot.cached('strategy');
+  if (saved?.result?.ok && !strategyShown) {
+    renderStrategy(saved.result);
+    $('strategy-synced').textContent = `Saved ${ago(saved.at) || 'just now'} · updating…`;
+  } else if (!strategyShown) message('strategy-load', 'Reading your strategy…', 'waiting');
   const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
   if (!data.ok) { message('strategy-load', data.error, 'error'); return; }
   message('strategy-load', '');
+  renderStrategy(data);
   $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+}
+let strategyShown = false;
+function renderStrategy(data) {
+  strategyShown = true;
   const row = (glyph, label, value) => {
     const dt = el('dt');
     dt.append(icon(glyph), label);
@@ -2847,7 +2866,11 @@ async function loadFocusOnce() {
   $('focus-target').value = setting.target;
   $('focus-remind').checked = setting.reminders;
   $('focus-of').textContent = `/ ${setting.target} applications today`;
-  if (!focusShown) focusSkeleton();
+  if (!focusShown) {  // the last good Focus at once (lib/view-cache.js), else the skeleton; the fresh one follows
+    const saved = await window.pilot.cached('focus');
+    if (saved?.result?.focus) { renderFocus(saved.result.focus); focusStatus(`Saved ${ago(saved.at) || 'just now'} · updating…`, true); }
+    else focusSkeleton();
+  }
   const result = await window.pilot.focus();
   if (!result.ok) {
     focusStatus(result.error || 'Could not read your Notion.');
@@ -2936,7 +2959,10 @@ function renderFunnel(funnel) {
     const fill = el('span', '');
     fill.style.width = `${Math.max(share, step.reached ? 4 : 0)}%`;
     bar.append(fill);
-    li.append(el('span', 'funnel-name', step.step.replace(/^\S+\s/, '')), el('b', 'funnel-count', String(step.reached)), bar, el('span', 'muted small', `${share}%`));
+    // Ever reached (big), then how many are there now (the Jobs boxes' number), e.g. Screening 2 · 1 now.
+    const now = i && step.now != null ? ` · ${step.now} now` : '';
+    li.title = i ? `${step.reached} ever reached this step; ${step.now ?? '?'} ${step.now === 1 ? 'is' : 'are'} there now` : '';
+    li.append(el('span', 'funnel-name', step.step.replace(/^\S+\s/, '')), el('b', 'funnel-count', String(step.reached)), bar, el('span', 'muted small', `${share}%${now}`));
     nodes.push(li);
   });
   $('funnel-steps').replaceChildren(...nodes);

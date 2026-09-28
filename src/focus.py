@@ -268,7 +268,8 @@ def funnel(rows, events):
     steps = funnel_steps.funnel(apps)
     weak = funnel_steps.focus(steps)
     page = funnel_steps.PIPELINE_PAGE_ID
-    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'of_applied': s.get('of_applied')} for s in steps],
+    # now: still at this step (reached it, not the next one, not closed): the number the Jobs boxes show.
+    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'now': s['waiting'], 'of_applied': s.get('of_applied')} for s in steps],
             'improve': {'step': weak['step'], 'advice': weak['advice']} if weak else None,
             'notion_url': f'https://www.notion.so/{page.replace("-", "")}' if page else ''}
 

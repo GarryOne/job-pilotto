@@ -17,6 +17,7 @@ import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
+import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
 import * as reset from './lib/reset.js';
@@ -388,8 +389,10 @@ function handlers() {
     }
     const result = await pipeline.jobs(storage);
     for (const job of result.jobs || []) job.tailored = !!job.code && cvlib.exists(storage, job.code);
-    return result;
+    return viewCache.remember(storage, 'jobs', result);
   });
+  // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).
+  ipcMain.handle('cached', (_, name) => (DEMO ? null : viewCache.recall(storage, name)));
   ipcMain.handle('refresh', async () => {
     if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', 'you');
     await github.cloudDispatch(storage, log)({mode: 'run'});
@@ -463,7 +466,7 @@ function handlers() {
   ipcMain.handle('strategyData', async () => {
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'strategy']);
     if (code !== 0) return {ok: false, error: 'Could not read your strategy (see the activity log)'};
-    return {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())};
+    return viewCache.remember(storage, 'strategy', {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())});
   });
   // Jobs → Log job activity → Paste image: the clipboard's image as PNG, or null.
   ipcMain.handle('clipboardImage', () => {
@@ -612,7 +615,7 @@ function handlers() {
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
   // Demo mode: the fictional list in demo/focus.json (JOB_PILOTTO_DEMO_FOCUS_DELAY ms first, to see the loading state).
   ipcMain.handle('focus', async () => {
-    if (!DEMO) return pipeline.focus(storage);
+    if (!DEMO) return viewCache.remember(storage, 'focus', await pipeline.focus(storage));
     await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_FOCUS_DELAY) || 0));
     return {ok: true, focus: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8'))};
   });
