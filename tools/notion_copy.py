@@ -27,6 +27,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -52,17 +53,27 @@ def keychain(service):
 
 
 class Notion:
+    RATE = 3  # Notion allows ~3 requests a second per connection; shared by every thread using this client
+
     def __init__(self, token):
         self.token = token
+        self._lock, self._next = threading.Lock(), 0.0
+
+    def _wait_turn(self):  # start requests 1/RATE s apart (no pause after a reply: threads keep the pipe full)
+        with self._lock:
+            now = time.monotonic()
+            start = max(now, self._next)
+            self._next = start + 1 / self.RATE
+        time.sleep(start - now)
 
     def __call__(self, method, path, body=None):
         for attempt in range(6):
+            self._wait_turn()
             request = urllib.request.Request(API + path, method=method, data=json.dumps(body).encode() if body is not None else None,
                                              headers={'Authorization': f'Bearer {self.token}', 'Notion-Version': VERSION,
                                                       'Content-Type': 'application/json'})
             try:
                 with urllib.request.urlopen(request, timeout=60) as response:
-                    time.sleep(0.35)  # Notion allows ~3 requests a second
                     return json.load(response)
             except urllib.error.HTTPError as error:
                 if error.code in (429, 500, 502, 503, 504) and attempt < 5:

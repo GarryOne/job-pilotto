@@ -11,6 +11,7 @@ import hashlib
 import json
 
 from . import client as notion
+from .dedupe import normalize_url, plan
 
 SYNC_TABLE = """
 CREATE TABLE IF NOT EXISTS notion_matches (
@@ -78,13 +79,23 @@ def _hash(props):
 def adopt_existing(db, tracker, known):
     """Rows already in Notion that this SQLite doesn't know (its cache was reset): remember their page
     ids so they are updated instead of duplicated, and so stale ones can be marked Not seen. The
-    empty hash forces one rewrite. Returns {url: row} for the adopted rows."""
+    empty hash forces one rewrite. Copies of one job (same URL, see dedupe.normalize_url) are merged on the
+    way: the fullest row is kept and the others go to Notion's trash. Returns {url: row} for the adopted rows."""
     if not hasattr(tracker, 'query_database'):
         return {}
+    pages = tracker.query_database(notion.MATCHES_DATABASE_ID)
+    if hasattr(tracker, 'trash_page'):
+        for group in plan(pages):
+            for page in group['drop']:
+                tracker.trash_page(page['id'])
+            dropped = {page['id'] for page in group['drop']}
+            pages = [page for page in pages if page['id'] not in dropped]
+            db.execute('DELETE FROM notion_matches WHERE page_id IN (%s)' % ','.join('?' * len(dropped)), tuple(dropped))
+    known_keys = {normalize_url(url) for url in known}
     adopted = {}
-    for page in tracker.query_database(notion.MATCHES_DATABASE_ID):
+    for page in pages:
         url = ((page['properties'].get('Job URL') or {}).get('url') or '').strip()
-        if url and url not in known and url not in adopted:
+        if url and normalize_url(url) not in known_keys and url not in adopted:
             adopted[url] = {'url': url, 'page_id': page['id'], 'data_hash': ''}
             db.execute('INSERT OR IGNORE INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?)',
                        (url, page['id'], ''))
@@ -96,11 +107,19 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dis
     """Write changed rows; returns a one-line summary. Stops quietly on the first API error."""
     db.executescript(SYNC_TABLE)
     known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
-    if any(job['url'].strip() not in known for job in scored_jobs):
-        known.update(adopt_existing(db, tracker, known))
+    keys = {normalize_url(url) for url in known}
+    if any(normalize_url(job['url']) not in keys for job in scored_jobs):
+        adopt_existing(db, tracker, known)  # may also merge copies of a job: read the links again
+        known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
     created = updated = 0
+    by_key = {normalize_url(url): row for url, row in known.items()}
     for job in scored_jobs:
         url = job['url'].strip()
+        if url not in known and normalize_url(url) in by_key:  # the same job under another URL form: one link
+            old = by_key[normalize_url(url)]
+            known.pop(old['url'], None)
+            db.execute('DELETE FROM notion_matches WHERE url=?', (old['url'],))
+            known[url] = {**old, 'url': url}
         status = 'Applied' if url in applied_urls else 'Open'
         props = properties(job, status)
         digest = _hash(props)

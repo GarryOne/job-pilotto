@@ -95,6 +95,7 @@ class Tracker:
     def notion_jobs(self):
         """Every job in Notion, merged by URL: Job Matches rows (score, reason, status) and Applications rows
         (stage, next step, the kit's page). The desktop app's Jobs list is built from this (Notion is the truth)."""
+        from .dedupe import normalize_url  # one entry per job, whatever URL form each database has
         text = lambda prop: ''.join(t.get('plain_text', '') for t in (prop or {}).get('rich_text') or (prop or {}).get('title') or [])
         select = lambda prop: ((prop or {}).get('select') or {}).get('name')
         found = {}
@@ -102,8 +103,8 @@ class Tracker:
             for page in self._query(None, MATCHES_DATABASE_ID):
                 props = page['properties']
                 url = ((props.get('Job URL') or {}).get('url') or '').strip()
-                if url:
-                    found[url] = {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
+                if url and normalize_url(url) not in found:
+                    found[normalize_url(url)] = {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
                                   'location': text(props.get('Location')), 'work_mode': select(props.get('Work mode')) or '',
                                   'fit': (props.get('Score') or {}).get('number'), 'reason': text(props.get('Reason')),
                                   'match_status': select(props.get('Status')),
@@ -113,7 +114,7 @@ class Tracker:
             url = ((props.get('Job URL') or {}).get('url') or '').strip()
             if not url:
                 continue
-            row = found.setdefault(url, {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
+            row = found.setdefault(normalize_url(url), {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
                                          'location': text(props.get('Location')), 'work_mode': select(props.get('Work mode')) or '',
                                          'fit': (props.get('Fit score') or {}).get('number'), 'reason': '',
                                          'match_status': None, 'first_seen': page.get('created_time', '')})
@@ -217,6 +218,10 @@ class Tracker:
 
     def create_page(self, database_id, properties):
         return self._request('POST', 'pages', {'parent': {'database_id': database_id}, 'properties': properties})
+
+    def trash_page(self, page_id):
+        """Move a page to Notion's trash (restorable there for 30 days)."""
+        return self._request('PATCH', f'pages/{page_id}', {'archived': True})
 
     def update_page(self, page_id, properties):
         return self._request('PATCH', f'pages/{page_id}', {'properties': properties})
