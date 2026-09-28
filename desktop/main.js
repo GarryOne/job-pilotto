@@ -954,15 +954,33 @@ let quitting = false;
 app.on('before-quit', event => {
   if (quitting || DEMO || process.env.JOB_PILOTTO_SMOKE) return;
   const busy = pipeline.running(), queue = pipeline.queued();
-  if (!busy && !queue.length) return;
+  // Claude sessions still working or waiting for you (one that filled its form is done: stopping it loses nothing).
+  const sessions = terminals.running().filter(session => session.status !== 'done');
+  if (!busy && !queue.length && !sessions.length) return;
   event.preventDefault();
+  const names = sessions.map(session => terminals.label(session)).slice(0, 3).join(', ') + (sessions.length > 3 ? '…' : '');
+  const stopping = sessions.length ? `\n\nQuitting stops ${sessions.length === 1 ? 'the Claude session' : `${sessions.length} Claude sessions`} ` +
+    `(${names}): what's already filled stays in Chrome; start it again from the job to finish.` : '';
+  if (!busy && !queue.length) {  // only sessions: keep them, or stop them and quit
+    const waiting = sessions.filter(session => session.status === 'input').length;
+    const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {
+      type: 'warning', buttons: ['Keep working', sessions.length === 1 ? 'Stop it and quit' : 'Stop them and quit'], defaultId: 0, cancelId: 0,
+      message: sessions.length === 1 ? 'Claude is still applying' : `${sessions.length} Claude sessions are still applying`,
+      detail: `${waiting ? `${waiting} ${waiting === 1 ? 'is' : 'are'} waiting for your answer. ` : ''}${stopping.trim()}`,
+    });
+    if (choice === 0) { window?.show(); window?.webContents.send('session', 'open', {id: sessions[0].id}); return; }
+    quitting = true;
+    app.quit();
+    return;
+  }
   const what = [busy && `${pipeline.taskName(busy.kind)} is running`,
-    queue.length && `${queue.length} waiting (${queue.map(job => pipeline.taskName(job.kind)).join(', ')})`].filter(Boolean).join(' and ');
+    queue.length && `${queue.length} waiting (${queue.map(job => pipeline.taskName(job.kind)).join(', ')})`,
+    sessions.length && `${sessions.length} Claude session${sessions.length === 1 ? ' is' : 's are'} applying`].filter(Boolean).join(' and ');
   const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {
     type: 'question', buttons: ['Quit when done', 'Quit now', 'Cancel'], defaultId: 0, cancelId: 2,
     message: 'Job Pilotto is still working',
     detail: `${what[0].toUpperCase()}${what.slice(1)}.\n\nQuit when done: the app closes by itself once they finish.\n` +
-      'Quit now: it stops, and the jobs you started run again the next time you open the app. What was already saved stays in Notion.',
+      'Quit now: it stops, and the jobs you started run again the next time you open the app. What was already saved stays in Notion.' + stopping,
   });
   if (choice === 2) return;
   quitting = true;
