@@ -16,8 +16,21 @@ export const TEMPLATE = JSON.parse(fs.readFileSync(path.join(REPO, 'config', 'no
 const RETRY = new Set([429, 502, 503, 504]);
 let sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function useSleep(fn) { sleep = fn; }  // for tests
-export async function call(token, method, route, body, fetcher = globalThis.fetch, {retries = 4} = {}) {
+// One pace for the whole app: Notion allows about 3 requests a second per integration, and fills in several tabs,
+// the background polls and statistics would otherwise burst past it (429). Each call waits for its turn (spaced
+// GAP_MS apart), and after a 429 every call waits out the pause Notion asked for, not only the one that got it.
+const GAP_MS = 340;
+let nextSlot = 0, calmUntil = 0;
+async function turn(now = Date.now) {
+  const at = Math.max(nextSlot, calmUntil, now());
+  nextSlot = at + GAP_MS;
+  if (at > now()) await sleep(at - now());
+}
+export const _pace = {reset: () => { nextSlot = 0; calmUntil = 0; }, state: () => ({nextSlot, calmUntil})};  // tests
+// pace: real Notion calls take their turn; a fake fetcher (tests) runs at once unless asked.
+export async function call(token, method, route, body, fetcher = globalThis.fetch, {retries = 4, pace = fetcher === globalThis.fetch} = {}) {
   for (let attempt = 0; ; attempt++) {
+    if (pace) await turn();
     const response = await fetcher(API + route, {
       method,
       headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
@@ -28,6 +41,7 @@ export async function call(token, method, route, body, fetcher = globalThis.fetc
     if (RETRY.has(response.status) && attempt < retries) {
       const after = Number(response.headers?.get?.('retry-after'));
       const wait = Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 500 * 2 ** attempt, 10_000);
+      if (response.status === 429) calmUntil = Math.max(calmUntil, Date.now() + wait);  // everyone waits it out
       log('notion', `${response.status} on ${method} ${route.split('?')[0]}: retry ${attempt + 1}/${retries} in ${wait} ms`);
       await sleep(wait);
       continue;

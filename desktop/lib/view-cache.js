@@ -2,7 +2,9 @@
 // once while a fresh read from Notion runs, then swaps in the fresh one (stale-while-revalidate). A cache in the
 // data rules' sense: rebuilt by the next read, never edited, never the only copy. Tied to the Notion workspace, so
 // switching workspaces never shows another workspace's jobs.
-export const NAMES = ['jobs', 'focus', 'strategy'];
+export const NAMES = ['jobs', 'focus', 'strategy', 'contact', 'knowledge'];
+// contact, knowledge: what a form fill needs from Notion (your details, learned answers), so a fill never waits on
+// Notion nor fails when it's busy (lib/server.js me(): answered from here, refreshed in the background).
 // Not "cache/": on a Mac that's Chromium's own Cache folder (case-insensitive), which Electron may clear.
 const file = name => `view-cache/${name}.json`;
 const workspace = storage => storage.settings().notionIds?.NOTION_APPLICATIONS_DB || '';

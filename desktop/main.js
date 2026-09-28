@@ -291,7 +291,7 @@ function handlers() {
   ipcMain.handle('notionOAuthCancel', () => notionOAuth.cancel());
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
   ipcMain.handle('contact', () => (DEMO ? {} : contactDetails.read(storage)));
-  ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(() => ({ok: true}))
+  ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(saved => { server.contactSaved(storage, saved || contact); return {ok: true}; })
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   ipcMain.handle('saveSecret', (_, name, pasted) => {
     const {value, error} = cleanSecret(pasted);
@@ -1039,8 +1039,9 @@ if (firstCopy) app.whenReady().then(() => {
     let notionTimer;
     const readRuns = async () => {
       clearTimeout(notionTimer);
-      try { notionRuns = await runHistory.list(storage); } catch (error) { log(`Run history not read from Notion: ${error.message}`); }
-      notionTimer = setTimeout(readRuns, 15000);
+      let busy = false;
+      try { notionRuns = await runHistory.list(storage); } catch (error) { busy = error.status === 429; log(`Run history not read from Notion: ${error.message}`); }
+      notionTimer = setTimeout(readRuns, busy ? 60000 : 15000);  // Notion busy: this poll steps back for a minute
     };
     readRuns();
     // A job sent to GitHub: "Starting on GitHub…" until its row appears (it's read again sooner than usual).

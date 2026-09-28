@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import * as strategy from './strategy.js';
 import * as knowledge from './knowledge.js';
+import * as viewCache from './view-cache.js';
 import * as contactDetails from './contact.js';
 import {handleExtension, jobKey, pageText} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
@@ -102,15 +103,34 @@ async function learnFromRun(storage, run, job) {
 // Your details from Notion; when Notion can't be read, the last ones it gave (a cache, rebuilt at the next good
 // read) and the reason, never a silent empty answer: that left a form without your name, reported as "no answer".
 let lastContact = null;
-async function contactOf(storage) {
+async function readContact(storage) {
   try {
     const contact = await contactDetails.read(storage);
-    if (Object.keys(contact).length) lastContact = contact;
+    if (Object.keys(contact).length) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
     return {contact, contactSource: 'notion', contactError: Object.keys(contact).length ? null : 'the 📇 Contact details section of your Notion Profile is empty'};
   } catch (error) {
-    return {contact: lastContact || {}, contactSource: lastContact ? 'last read (Notion failed)' : 'none', contactError: `Notion: ${error.message}`};
+    const kept = lastContact || viewCache.recall(storage, 'contact')?.result?.contact || null;
+    return {contact: kept || {}, contactSource: kept ? 'last read (Notion failed)' : 'none', contactError: `Notion: ${error.message}`};
   }
 }
+// Answered at once from the last good read kept on this Mac (view-cache), refreshed from Notion in the background once
+// it's older than FRESH_MS; only the very first read waits for Notion. One refresh at a time per kind.
+const FRESH_MS = 10 * 60 * 1000;
+const refreshing = new Map();
+export async function kept(storage, name, load, {now = Date.now()} = {}) {
+  const saved = viewCache.recall(storage, name);
+  const refresh = () => {
+    if (!refreshing.has(name)) refreshing.set(name, Promise.resolve().then(load).finally(() => refreshing.delete(name)));
+    return refreshing.get(name);
+  };
+  if (!saved) return refresh();
+  if (now - Date.parse(saved.at) > FRESH_MS) refresh().catch(() => {});
+  return {...saved.result, fromCache: saved.at};
+}
+const contactOf = storage => kept(storage, 'contact', () => readContact(storage)).then(result =>
+  result.fromCache ? {contact: result.contact || {}, contactSource: `kept from Notion (${result.fromCache.slice(11, 16)})`, contactError: null} : result);
+// After an edit in Settings → Your details: the kept copy is the new one at once.
+export function contactSaved(storage, contact) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
 
 export async function me(storage, url = '') {
   const settings = storage.settings();
@@ -121,8 +141,12 @@ export async function me(storage, url = '') {
     resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
   } catch {}
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
-  const direct = (await knowledge.notes(storage).catch(() => [])).filter(n => n.value && ['answer', 'option'].includes(n.kind))
-    .map(({block, ...note}) => note);
+  const notes = await kept(storage, 'knowledge', async () => {
+    const list = (await knowledge.notes(storage)).map(({block, ...note}) => note);
+    viewCache.remember(storage, 'knowledge', {notes: list});
+    return {notes: list};
+  }).catch(() => ({notes: []}));
+  const direct = (notes.notes || []).filter(n => n.value && ['answer', 'option'].includes(n.kind));
   const details = await contactOf(storage);
   log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
     {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, ...(details.contactError ? {error: details.contactError} : {})});
