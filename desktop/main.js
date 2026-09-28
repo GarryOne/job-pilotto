@@ -469,7 +469,7 @@ const firstCopy = app.requestSingleInstanceLock();
 if (!firstCopy) {
   app.whenReady().then(() => {
     dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
-      detail: 'Quit the other copy first (⌘Q), then open this one again.'});
+      detail: `Quit the other copy first (${process.platform === 'darwin' ? '⌘Q' : 'close its window'}), then open this one again.`});
     app.quit();
   });
 }

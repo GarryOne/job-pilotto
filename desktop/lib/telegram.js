@@ -70,7 +70,7 @@ export function telegramEnv(storage, onLine) {
     dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine) : localDispatch(storage, onLine),
     status: () => {
       const s = storage.settings();
-      if (s.cloud?.repo) return `☁️ Job Pilotto works from your GitHub repo ${s.cloud.repo} on your schedule, even with the Mac off.`;
+      if (s.cloud?.repo) return `☁️ Job Pilotto works from your GitHub repo ${s.cloud.repo} on your schedule, even with your computer off.`;
       return s.lastSearchAt ? `🖥️ Last search from the Job Pilotto app: ${new Date(s.lastSearchAt).toLocaleString()}` +
         `${s.lastSearchOk === false ? ' (with problems)' : ''}. Next one on your schedule while the app is open.` : '🖥️ No search yet.';
     },

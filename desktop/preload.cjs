@@ -3,6 +3,7 @@ const {contextBridge, ipcRenderer} = require('electron');
 
 const call = name => (...args) => ipcRenderer.invoke(name, ...args);
 contextBridge.exposeInMainWorld('pilot', {
+  platform: process.platform,
   state: call('state'), saveSettings: call('saveSettings'), saveSecret: call('saveSecret'),
   checkAnthropic: call('checkAnthropic'), chooseCv: call('chooseCv'),
   draftStrategy: call('draftStrategy'), cachedDraft: call('cachedDraft'), cacheDraftEdits: call('cacheDraftEdits'), saveStrategy: call('saveStrategy'),

@@ -92,7 +92,7 @@ test('with the cloud on: no local timer, and buttons start runs in the repo', as
   const call = gh.calls.find(c => c.route.includes('/dispatches'));
   assert.equal(call.route, '/repos/ada/job-pilotto-private/actions/workflows/daily.yml/dispatches');
   assert.deepEqual(call.data, {ref: 'main', inputs: {mode: 'apply', job: 'ab12', seed: '7'}});
-  assert.match(telegramEnv(storage).status(), /even with the Mac off/);
+  assert.match(telegramEnv(storage).status(), /even with your computer off/);
 });
 
 test('the schedule and job choices reach the repo: crons, kits on, insights off', async () => {

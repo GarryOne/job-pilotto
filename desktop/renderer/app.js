@@ -1,10 +1,13 @@
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
 import {avatar, band, sorted, stats, tags} from './jobs-view.js';
+import {localize, osText as swap} from './os.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
 const $ = id => document.getElementById(id);
+const osText = text => swap(text, window.pilot.platform);
+localize(document.body, window.pilot.platform);
 const STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras'];
 fillIcons();
 let state = await window.pilot.state();
@@ -218,7 +221,7 @@ function renderActivity(data) {
   // How often: from Settings → How often (the cloud does it when "Keep working while my Mac is off" is on).
   const cloud = !!state?.settings?.cloud?.repo;
   $('activity-schedule').replaceChildren(...[
-    cloud ? '☁️ Runs in your GitHub repo, even with the Mac off' : null,
+    cloud ? osText('☁️ Runs in your GitHub repo, even with the Mac off') : null,
     `🔎 Next search: ${nextSearchAt ? soon(nextSearchAt) : cloud ? 'in the cloud' : 'only when you ask'}`,
     `📧 Next Gmail check: ${nextMailAt ? soon(nextMailAt) : cloud ? 'in the cloud' : 'off'}`,
   ].filter(Boolean).map(text => Object.assign(document.createElement('li'), {textContent: text})));
@@ -391,7 +394,7 @@ $('draft-save').addEventListener('click', async () => {
   message('draft-save-message', 'Saving your strategy to Notion…', 'waiting');
   const result = await window.pilot.saveStrategy({...draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value});
   buttons.forEach(button => { button.disabled = false; });
-  if (!result.ok) { message('draft-save-message', `${result.error} Your strategy is saved on this Mac; try Save again.`, 'error'); return; }
+  if (!result.ok) { message('draft-save-message', osText(`${result.error} Your strategy is saved on this Mac; try Save again.`), 'error'); return; }
   message('draft-save-message', 'Saved ✓', 'ok');
   state = await window.pilot.state();
   goStep('extras');
@@ -736,9 +739,9 @@ function renderNotionLinks() {
   show(box, links.length > 0);
   for (const [env, label, glyph] of links) {
     const link = Object.assign(document.createElement('button'), {className: 'notion-link', textContent: label,
-      title: `${state.notionTitles?.[env] || label}: opens in Notion (⌘-click: in a Job Pilotto window)`});
+      title: osText(`${state.notionTitles?.[env] || label}: opens in Notion (⌘-click: in a Job Pilotto window)`)});
     link.prepend(icon(glyph));
-    link.addEventListener('click', event => window.pilot.openNotion(state.notion[env], event.metaKey));
+    link.addEventListener('click', event => window.pilot.openNotion(state.notion[env], event.metaKey || event.ctrlKey));
     box.append(link);
   }
 }
@@ -869,7 +872,7 @@ document.querySelectorAll('[data-schedule]').forEach(select => select.addEventLi
 function showCloud() {
   const cloud = state.settings.cloud;
   $('cloud-status').textContent = cloud?.repo
-    ? `✓ On: working from ${cloud.repo} on the schedule above, even with the Mac off.` : 'Off: Job Pilotto works only while this app is open.';
+    ? osText(`✓ On: working from ${cloud.repo} on the schedule above, even with the Mac off.`) : 'Off: Job Pilotto works only while this app is open.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
   $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
   $('auto-search').disabled = !!cloud?.repo;
@@ -1027,7 +1030,8 @@ function toastMessage(title, body, hint) {
   const toast = Object.assign(document.createElement('div'), {className: 'toast'});
   toast.append(Object.assign(document.createElement('b'), {textContent: title}), Object.assign(document.createElement('span'), {textContent: body}));
   if (hint) toast.append(Object.assign(document.createElement('small'), {textContent:
-    'macOS notifications are off for this app: System Settings → Notifications → Electron (or Job Pilotto) → Allow notifications.'}));
+    window.pilot.platform === 'win32' ? 'Windows notifications are off for this app: Settings → System → Notifications → Job Pilotto → On.'
+      : 'macOS notifications are off for this app: System Settings → Notifications → Electron (or Job Pilotto) → Allow notifications.'}));
   toast.addEventListener('click', () => toast.remove());
   $('toasts').append(toast);
   setTimeout(() => toast.remove(), hint ? 20000 : 8000);
@@ -1292,11 +1296,11 @@ async function loadSaved() {
     open.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
     const remove = confirmButton('Delete', 'Sure?', async () => {
       const done = await iv.remove(row.id);
-      message('iv-message', done.ok ? `Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`
+      message('iv-message', done.ok ? osText(`Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`)
         : done.error, done.ok ? 'ok' : 'error');
       loadSaved();
     });
-    remove.title = "Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac";
+    remove.title = osText("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac");
     actions.append(open, remove);
     cell(actions);
     return tr;

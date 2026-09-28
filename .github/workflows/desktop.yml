@@ -117,9 +117,8 @@ jobs:
       - name: Install
         working-directory: desktop
         run: npm ci
-      - name: App tests (on Windows; reported, not blocking yet)
+      - name: App tests (on Windows)
         working-directory: desktop
-        continue-on-error: true
         run: npm test
       - name: Add the shared Google app client
         env:
