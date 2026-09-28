@@ -74,3 +74,14 @@ test('Apply with Claude hand-off: hook only on the job sites (every site once al
   // The events a page can send carry no personal data, and the result written back holds only counts and field labels.
   assert.doesNotMatch(handOff.slice(0, handOff.indexOf('const EVERY_SITE')), /contact|resume|profile/);
 });
+
+test('the Submit guard can be loaded twice on a page (a second fill) without throwing', () => {
+  const code = read('extension/page/browser-submit-guard.js');
+  const noop = () => {};
+  const window = { __jobPilottoNoGuard: true, addEventListener: noop };
+  const context = vm.createContext({ window, document: { addEventListener: noop, querySelectorAll: () => [] },
+    HTMLFormElement: function () {}, HTMLElement: function () {}, Element: function () {}, MutationObserver: function () { this.observe = noop; } });
+  window.window = window;
+  assert.doesNotThrow(() => { vm.runInContext(code, context); vm.runInContext(code, context); });
+  assert.equal(window.__jobPilottoGuardActive, false);
+});

@@ -1,6 +1,6 @@
 // "Open & fill" from the popup's Ready to apply list: open the job, wait for it to load, fill it.
 // The result shows in a panel on the page (the popup has closed by then) and in the icon badge.
-import {JOB_SITES, fillTab, settings} from './flow.js';
+import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, pair, settings} from './flow.js';
 
 function loaded(tabId) {
   return new Promise(resolve => {
@@ -119,11 +119,12 @@ async function fillOpenedTab(tab, url, force = false) {
   chrome.action.setBadgeText({tabId: tab.id, text: '…'}).catch(() => {});  // the tab may already be closed
   try {
     const config = await settings();
-    const kit = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/kit?url=${encodeURIComponent(url)}`,
-      {headers: {Authorization: `Bearer ${config.token}`}})
-      // A wrong token fails every call (kit, answers, your details): say so rather than fill nothing.
-      .then(r => (r.status === 401 ? Promise.reject(new Error('it is not connected to the Job Pilotto app (extension Settings → Connect)'))
-        : r.json().catch(() => ({}))), () => ({}));
+    // No kit (404: not tracked) fills without one; no app or no connection stops with the reason.
+    const kit = await api(config, `/extension/kit?url=${encodeURIComponent(url)}`).catch(error => {
+      if (error.status === 401) throw error;
+      if (!error.status) throw new Error(NO_APP);
+      return {};
+    });
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, onStep: text => progress(tab.id, text)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
@@ -201,10 +202,19 @@ chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install')
 // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
 async function reportTabs() {
   const config = await settings();
-  if (!config.workerUrl?.startsWith('http://127.0.0.1') || !config.token) return;
+  if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;  // your own Worker: no app here
   const urls = (await chrome.tabs.query({url: JOB_SITES})).map(tab => tab.url);
-  await fetch(`${config.workerUrl}/extension/tabs`, {method: 'POST', body: JSON.stringify({urls, version: chrome.runtime.getManifest().version}),
-    headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'}}).catch(() => {});
+  // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
+  try {
+    await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, version: chrome.runtime.getManifest().version})});
+    connected(true);
+  } catch (error) {
+    connected(false, error.status ? NOT_CONNECTED : NO_APP);
+  }
+}
+function connected(ok, why = '') {
+  chrome.action.setBadgeText({text: ok ? '' : '!'}).catch(() => {});
+  chrome.action.setTitle({title: ok ? 'Job Pilotto' : `Job Pilotto: ${why}`}).catch(() => {});
 }
 chrome.tabs.onRemoved.addListener(() => reportTabs());
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });

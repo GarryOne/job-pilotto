@@ -64,12 +64,34 @@ export async function settings() {
   return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents']);
 }
 
-export async function api(config, path, init = {}) {
+// The Job Pilotto Mac app gives its connection to this extension only (it checks the extension's ID).
+export const APP = 'http://127.0.0.1:47111';
+export const NOT_CONNECTED = "the Job Pilotto app didn't accept this extension, even after reconnecting";
+export const NO_APP = "can't reach the Job Pilotto app: is it open?";
+const usesApp = config => !config.workerUrl || config.workerUrl.startsWith(APP);
+
+// Connect to the app (the Settings button, and by itself whenever the app turns the token down).
+export async function pair() {
+  const response = await fetch(`${APP}/extension/pair`);
+  if (!response.ok) throw new Error(`the app answered ${response.status}`);
+  const {url, token} = await response.json();
+  await chrome.storage.local.set({workerUrl: url, token});
+  return {workerUrl: url, token};
+}
+
+// A call to the app (or your own Worker). The app's token changes when it's reinstalled, reset or switched to
+// another Notion workspace: a 401 from the app reconnects once and retries, so the user never has to.
+export async function api(config, path, init = {}, retry = true) {
+  if (usesApp(config) && !config.token) Object.assign(config, await pair());
   const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}${path}`, {
     ...init, headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json', ...(init.headers || {})},
   });
+  if (response.status === 401 && retry && usesApp(config)) {
+    const fresh = await pair().catch(() => null);
+    if (fresh && fresh.token !== config.token) return api(Object.assign(config, fresh), path, init, false);
+  }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(data.error || `HTTP ${response.status}`), {status: response.status, data});
+  if (!response.ok) throw Object.assign(new Error(response.status === 401 ? NOT_CONNECTED : data.error || `HTTP ${response.status}`), {status: response.status, data});
   return data;
 }
 
@@ -156,7 +178,12 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
   }
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
-  const me = await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => { debug.errors.push(`details from the app: ${error.message}`); return null; });
+  const me = await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
+    // No app or no connection: stop, rather than fill a form without your name and CV.
+    if (usesApp(config) && (!error.status || error.status === 401)) throw new Error(error.status ? NOT_CONNECTED : NO_APP);
+    debug.errors.push(`details from the app: ${error.message}`);
+    return null;
+  });
   // Learned notes (🧠 Form knowledge) answer fields nothing else did, matched by label and site.
   const host = new URL(tab.url).hostname, company = (tab.url.match(/\/([\w-]+)\/jobs\//) || [])[1] || '';
   const answered = new Set(answers.map(a => a.field));
