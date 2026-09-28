@@ -13,7 +13,9 @@ import {applyFormStates, askRow, formReady, emptyFields, emptyRow, explainExtens
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
-export {firstLine, isLive, sessionDuration, sessionReview, sessionState};
+// The state other pages show uses the form page's state too: ready to submit once the form says so.
+const sessionStatus = item => sessionState(item, formReady(item));
+export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
 
@@ -53,7 +55,7 @@ export function renderDock() {
   const order = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
   const shown = [...(live.length ? live : sessionList)].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5)).slice(0, 3);
   $('sd-cards').replaceChildren(...shown.map(item => {
-    const [label, tone] = sessionState(item);
+    const [label, tone] = sessionStatus(item);
     const card = el('div', `sd-card tone-${tone}`);
     const words = el('div', 'sd-words');
     const title = el('b', 'focus-headline', `${sessionCompany(item)} · ${sessionTitle(item)}`);
@@ -159,7 +161,9 @@ function sessionButton(text, kind, run, glyph) {
 function foldRow(short, more) {
   const li = el('li', 'ss-check');
   const line = el('div', 'ss-check-line');
-  line.append(icon('chevron'), ...richText(short).flatMap(node => [...node.childNodes]));
+  const words = el('span', 'ss-check-text');  // one flow of text (a `code` chip would otherwise be its own column)
+  words.append(...richText(short).flatMap(node => [...node.childNodes]));
+  line.append(icon('chevron'), words);
   li.append(line);
   if (!more) return li;
   const detail = el('div', 'muted small ss-check-more');

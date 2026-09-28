@@ -42,7 +42,7 @@ export function renderSessionPage() {
   $('ss-crumb').textContent = sessionCompany(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
-  $('ss-status').replaceChildren(pill(sessionReview(item) ? 'Ready for your review' : label, tone, {dot: true}));
+  $('ss-status').replaceChildren(pill(sessionReview(item) && tone !== 'good' ? 'Ready for your review' : label, tone, {dot: true}));
   // Start again and Cancel beside ⋯: the two ways out of a session that isn't going well.
   const again = Object.assign(el('button', 'secondary', '↺ Start again'), {title: 'Close this session and start a new one on the same job'});
   again.addEventListener('click', () => restartSession(item));

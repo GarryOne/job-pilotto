@@ -215,9 +215,15 @@ export async function init() {
     if ($('ss-needs-card').classList.contains('is-all-done')) $('ss-needs-card').classList.toggle('is-open');
   });
   window.pilot.onReview(state => {
-    const changed = JSON.stringify(reviewStates.get(state.id)?.missing || []) !== JSON.stringify(state.missing || []);
+    const before = reviewStates.get(state.id);
+    const changed = JSON.stringify(before?.missing || []) !== JSON.stringify(state.missing || []);
     reviewStates.set(state.id, state);
     const item = sessionList.find(entry => entry.id === state.id);
+    // Ready to submit (or not any more): every pill that shows it, in the dock and the sessions list.
+    if (item && !!before?.ready !== !!state.ready) {
+      renderDock();
+      if (!document.querySelector('.view[data-view="sessions"]').hidden) { renderSessionPage(); return; }
+    }
     if (changed && item && shared.openSessionId === state.id) renderSessionPage();
     if (item && shared.openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) applyFormStates(item);
   });

@@ -34,3 +34,9 @@ test('a row shows whole sentences up to the limit, at least one', () => {
   assert.equal(firstLine('One sentence here. Two sentences here. Three.', 30), 'One sentence here.');
   assert.equal(firstLine('A single very long sentence without any stop at all', 10), 'A single very long sentence without any stop at all');
 });
+
+test('ready for review becomes "Ready to submit" (green) once the form page says every required field is filled', () => {
+  assert.deepEqual(sessionState({status: 'done'}, true), ['Ready to submit', 'good']);
+  assert.deepEqual(sessionState({status: 'done'}, false), ['Ready for review', 'warn']);
+  assert.deepEqual(sessionState({status: 'running'}, true), ['Applying', 'info']);  // still working: not yet
+});

@@ -3,7 +3,7 @@
 import {readSessionMessage} from './session-message.js';
 
 export const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
-  ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
+  ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad'], submit: ['Ready to submit', 'good']};
 // Claude is running in it (demo sessions say nothing: they run while not ended).
 export const isLive = item => item.live ?? !item.endedAt;
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
@@ -14,7 +14,9 @@ export const asksYou = item => (item.question ? readSessionMessage(item.question
 // A message that ends on a question still waits for your answer first.
 export const sessionReview = item => item.status === 'done'
   || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !asksYou(item));
-export const sessionState = item => (sessionReview(item) ? SESSION_STATE.done : SESSION_STATE[item.status] || SESSION_STATE.ended);
+// formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
+export const sessionState = (item, formReady = false) => (sessionReview(item) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
+  : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // How long it worked (until it ended or waited for you), "42s", "3m 05s", "1h 02m".
 export function sessionDuration(item, now = Date.now()) {
   const end = item.endedAt || item.needsYouSince;
