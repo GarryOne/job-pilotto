@@ -197,3 +197,22 @@ test('a restored session shows its saved screen', async () => {
   terminals.remove('kept');
   terminals.persist(null);
 });
+
+test('a Stop reported before the last message reached the transcript: the message is read again once it arrives', async t => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  terminals.usePty(fakePty().loader);
+  await terminals.start({id: 'race', url: 'https://jobs.test/race', file: 'claude', env: {}});
+  const transcript = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-race-')), 't.jsonl');
+  const said = text => JSON.stringify({type: 'assistant', message: {content: [{type: 'text', text}]}});
+  fs.writeFileSync(transcript, said('Race is set. Checking the resume shows as attached.'));
+  terminals.report('race', {event: 'stop', transcript});
+  assert.equal(terminals.get('race').question, 'Race is set. Checking the resume shows as attached.');
+  fs.appendFileSync(transcript, '\n' + said('The form is filled in the open Chrome tab, and nothing was submitted.'));
+  t.mock.timers.tick(600);
+  assert.equal(terminals.get('race').question, 'The form is filled in the open Chrome tab, and nothing was submitted.');
+  // Once you reply, a late read doesn't bring the old message back.
+  terminals.report('race', {event: 'prompt'});
+  t.mock.timers.tick(5000);
+  assert.equal(terminals.get('race').question, '');
+  terminals.remove('race');
+});

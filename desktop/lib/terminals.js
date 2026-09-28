@@ -129,7 +129,7 @@ export async function resume(id, launch) {
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
-  claudeId: s.claudeId || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
+  claudeId: s.claudeId || '', transcript: s.transcript || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
   screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
@@ -157,6 +157,8 @@ export function restore(now = Date.now()) {
   for (const record of Array.isArray(records) ? records : []) {
     if (!record?.id || sessions.has(record.id) || now - Date.parse(record.startedAt) > KEEP_DAYS * 86400_000) continue;
     const {savedAt, screen, ...session} = record;
+    // Its last message read again: a Stop that came before the message reached the transcript saved an older one.
+    if (session.transcript && session.status !== 'running' && session.question) session.question = lastAssistantText(session.transcript) || session.question;
     // Its screen comes back as it was (older records have only the output's tail: the best that can be shown).
     session.mirror = newMirror(session.cols || 120, session.rows || 32, screen || session.output || '');
     if (session.status === 'running') Object.assign(session, {status: 'ended', note: 'Stopped when the app closed', endedAt: savedAt || new Date(now).toISOString()});
@@ -230,11 +232,34 @@ export function briefly(text, limit = 160) {
   return pick.slice(0, limit).replace(/\s+\S*$/, '') + '…';
 }
 
+// Claude Code can call the Stop hook a moment before its last message reaches the transcript file, so the first
+// read gets the message before it (seen: "Race is set. Checking the resume…" instead of the hand-over report).
+// Read it again a few times over the next seconds; a newer message replaces the question, until you reply.
+export const SETTLE_MS = [500, 1500, 4000];
+function settle(session) {
+  const turn = session.turn || 0;
+  for (const delay of SETTLE_MS) {
+    const timer = setTimeout(() => {
+      if (!sessions.has(session.id) || (session.turn || 0) !== turn || !session.transcript) return;
+      const text = lastAssistantText(session.transcript);
+      if (!text || text === session.question) return;
+      session.question = text;
+      listener('update', publicView(session));
+      save();
+    }, delay);
+    timer.unref?.();
+  }
+}
+
 export function report(id, {event = '', message = '', transcript = ''} = {}) {
   const session = sessions.get(id);
   if (!session) return {session: null, needsYou: false};
-  if (transcript && (event === 'stop' || event === 'input')) session.question = lastAssistantText(transcript) || session.question || '';
-  if (event === 'prompt') session.question = '';
+  if (transcript) session.transcript = transcript;
+  if (session.transcript && (event === 'stop' || event === 'input')) {
+    session.question = lastAssistantText(session.transcript) || session.question || '';
+    settle(session);
+  }
+  if (event === 'prompt') { session.question = ''; session.turn = (session.turn || 0) + 1; }
   const before = session.status;
   const text = String(message || '').trim();
   if (event === 'note' && /^Form filled/i.test(text)) Object.assign(session, {status: 'done', note: 'Form filled — review it in Chrome and Submit'});
