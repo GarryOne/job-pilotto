@@ -28,8 +28,8 @@ say(`installed: ${exe}`);
 
 const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000,
   env: {...process.env, PYTHONUTF8: '1', ...env}}).trim();
-say(py(['-c', 'import anthropic, keyring, sqlite3, ssl, sherpa_onnx, av, numpy, sys; ' +
-  "print('Python', sys.version.split()[0], 'anthropic', anthropic.__version__, 'keyring', keyring.__version__)"]));
+say(py(['-c', 'import anthropic, keyring, sqlite3, ssl, sherpa_onnx, av, numpy, sys; from importlib.metadata import version; ' +
+  "print('Python', sys.version.split()[0], 'anthropic', version('anthropic'), 'keyring', version('keyring'))"]));
 say(py(['-c', "from src import secret_store as s; s.put('job-pilotto.smoke.test', 'ok', 'ci'); " +
   "v = s.get('job-pilotto.smoke.test', 'ci'); s.delete('job-pilotto.smoke.test', 'ci'); " +
   "assert v == 'ok', v; assert s.get('job-pilotto.smoke.test', 'ci') is None; print('Credential Manager round-trip ok')"]));
