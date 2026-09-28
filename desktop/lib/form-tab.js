@@ -8,26 +8,32 @@ const ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.c
 const slug = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const bare = url => String(url || '').replace(/[?#].*$/, '').replace(/\/+$/, '');
 
-// The tab most likely to be this job's form, or null: the posting itself, a tab carrying the posting's job ID,
+// How likely a tab (or page) is this job's form, 0 = not: the posting itself, a tab carrying the posting's job ID,
 // an application-form host naming the company, the company in the title, then the posting's site.
-export function pickTab(tabs, {url, company}) {
+export function scoreTab(tab, {url, company}) {
   const posting = bare(url);
   let host = '';
   try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* no URL */ }
   const ids = String(url || '').match(/\d{5,}/g) || [];
   const name = slug(company);
+  const tabUrl = String(tab.url || ''), words = slug(`${tabUrl} ${tab.title}`);
+  let tabHost = '';
+  try { tabHost = new URL(tabUrl).hostname.replace(/^www\./, ''); } catch { return 0; }
+  let score = 0;
+  if (posting && bare(tabUrl).startsWith(posting)) score = 100;
+  else if (ids.some(id => tabUrl.includes(id))) score = 80;
+  else if (name.length > 1 && ATS.test(tabHost) && words.includes(name)) score = 70;
+  else if (name.length > 1 && slug(tab.title).includes(name)) score = 50;
+  else if (host && tabHost === host) score = 30;
+  if (score && /apply|application|form/i.test(tabUrl)) score += 5;
+  return score;
+}
+
+// The tab most likely to be this job's form, or null.
+export function pickTab(tabs, target) {
   let best = null, bestScore = 0;
   for (const tab of tabs) {
-    const tabUrl = String(tab.url || ''), words = slug(`${tabUrl} ${tab.title}`);
-    let tabHost = '';
-    try { tabHost = new URL(tabUrl).hostname.replace(/^www\./, ''); } catch { continue; }
-    let score = 0;
-    if (posting && bare(tabUrl).startsWith(posting)) score = 100;
-    else if (ids.some(id => tabUrl.includes(id))) score = 80;
-    else if (name.length > 1 && ATS.test(tabHost) && words.includes(name)) score = 70;
-    else if (name.length > 1 && slug(tab.title).includes(name)) score = 50;
-    else if (host && tabHost === host) score = 30;
-    if (score && /apply|application|form/i.test(tabUrl)) score += 5;
+    const score = scoreTab(tab, target);
     if (score >= bestScore && score > 0) { best = tab; bestScore = score; }  // ties: the later tab (opened last)
   }
   return best;

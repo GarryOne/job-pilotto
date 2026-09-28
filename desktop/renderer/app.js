@@ -3440,6 +3440,9 @@ function renderNextStep(item) {
   show($('ss-needs-card'), needs.length > 0);
   $('ss-needs-title').textContent = review ? 'What Claude needs from you' : 'What Claude flagged';
   $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))));
+  watchAgreements(item, needs.filter(need => need.kind === 'agree'));
+  applyFormStates(item);
+  showFormState(item);
   updateNeedsCount();
   const happened = [
     ...done.map(section => {
@@ -3494,16 +3497,62 @@ function smallButton(text, kind, run, title = '') {
   button.addEventListener('click', run);
   return button;
 }
+// ---- In step with the form page (the extension's ring, extension/review.js; lib/review.js) ----
+const reviewStates = new Map();  // session id → {left, total, ready, states: {watch id: ticked}}
+const syncedDone = new Set();    // rows ticked off because the form said so (untick there: back here)
+const watchId = text => `w${[...String(text)].reduce((hash, c) => (hash * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)}`;
+// The question to find in the form: the bold label Claude gave ("AI Policy for Application"), else its first words.
+const agreeLabel = need => splitLabel(need.text).label || firstLine(need.text.replace(/\*\*/g, ''), 80).replace(/[:.]\s*$/, '');
+const watching = new Map();      // session id → the JSON last sent, so it's sent when it changes only
+function watchAgreements(item, agrees) {
+  const items = agrees.map(need => ({id: watchId(need.text), label: agreeLabel(need)}));
+  const json = JSON.stringify(items);
+  if (watching.get(item.id) === json) return;
+  watching.set(item.id, json);
+  window.pilot.reviewWatch(item.id, items);
+}
+// The pill beside the step's title: what the form page says is left, or that it's ready to submit.
+function showFormState(item) {
+  const state = reviewStates.get(item.id);
+  const box = $('ss-form-state');
+  if (!state || !state.total) { box.replaceChildren(); return; }
+  box.replaceChildren(state.ready ? pill('Form ready to submit', 'good', {dot: true})
+    : pill(`Form: ${state.left} required left`, 'warn', {dot: true, title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists them)`}));
+}
+function applyFormStates(item) {
+  const state = reviewStates.get(item.id);
+  if (!state) return;
+  for (const li of document.querySelectorAll('#ss-needs .ss-need[data-watch]')) {
+    const ticked = state.states?.[li.dataset.watch];
+    const key = li.dataset.key;
+    if (ticked === true && !li.classList.contains('is-done')) { syncedDone.add(key); doneRow(li, key, 'Ticked in the form'); }
+    if (ticked === false && syncedDone.has(key)) {  // unticked in the form: open again here
+      syncedDone.delete(key);
+      handled.delete(key);
+      renderSessionPage();
+      return;
+    }
+  }
+  showFormState(item);
+}
+window.pilot.onReview(state => {
+  reviewStates.set(state.id, state);
+  const item = sessionList.find(entry => entry.id === state.id);
+  if (item && openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) applyFormStates(item);
+});
 function needRow(need, item) {
   const key = `${item.id}|${need.text}`, li = el('li', `ss-need is-${need.kind}`);
+  li.dataset.key = key;
   const body = el('div', 'ss-need-body');
   const words = el('div');
   words.append(...richText(need.text).flatMap(node => [...node.childNodes]));
   const actions = el('div', 'ss-need-actions');
   const name = need.label || 'this';
   if (need.kind === 'agree') {
-    actions.append(smallButton('Open the form to tick it', 'primary', () => window.pilot.showBrowser(item.url, sessionCompany(item))),
+    // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
+    actions.append(smallButton('Show it in the form', 'primary', () => window.pilot.reviewFocus(item.id, agreeLabel(need), item.url, sessionCompany(item))),
       smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
+    li.dataset.watch = watchId(need.text);
   } else {
     const change = !!need.recommended && !KEEP.test(need.recommended);
     actions.append(smallButton(need.recommended ? `✓ ${need.recommended}` : '✓ Looks right', 'primary', () => {

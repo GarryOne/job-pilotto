@@ -164,11 +164,12 @@ async function handOff(tab, job, ticket) {
 const EVERY_SITE = {origins: ['https://*/*']};
 async function registerHookEverywhere() {
   if (!(await chrome.permissions.contains(EVERY_SITE))) return;
+  // With the ring (review.js) since 0.7.0: an older registration (hook.js only) is replaced.
   const known = await chrome.scripting.getRegisteredContentScripts({ids: ['hook-everywhere']}).catch(() => []);
-  if (!known.length) {
-    await chrome.scripting.registerContentScripts([{id: 'hook-everywhere', matches: EVERY_SITE.origins, js: ['hook.js'],
-      runAt: 'document_idle'}]).catch(() => {});
-  }
+  if (known.length && known[0].js?.includes('review.js')) return;
+  if (known.length) await chrome.scripting.unregisterContentScripts({ids: ['hook-everywhere']}).catch(() => {});
+  await chrome.scripting.registerContentScripts([{id: 'hook-everywhere', matches: EVERY_SITE.origins, js: ['hook.js', 'review.js'],
+    allFrames: true, runAt: 'document_idle'}]).catch(() => {});
 }
 chrome.permissions.onAdded.addListener(registerHookEverywhere);
 chrome.runtime.onStartup.addListener(registerHookEverywhere);
@@ -184,6 +185,15 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     handOff(sender.tab, String(message.job || ''), String(message.ticket || ''));
     reply({ok: true});
     return false;
+  }
+  // The form page's ring (review.js): what's left there, to the app's session page; back: what to watch and show.
+  if (message?.type === 'review' && sender.tab) {
+    (async () => {
+      const config = await settings();
+      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
+      return api(config, '/extension/review', {method: 'POST', body: JSON.stringify(message.payload || {})});
+    })().then(reply, () => reply({matched: null}));
+    return true;  // the reply comes later
   }
   if (message?.type !== 'openAndFill') return false;
   (async () => {

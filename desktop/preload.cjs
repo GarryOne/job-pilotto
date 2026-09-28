@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('pilot', {
   onExportProgress: callback => ipcRenderer.on('exportProgress', (_, count) => callback(count)),
   onSaveProgress: callback => ipcRenderer.on('saveProgress', (_, progress) => callback(progress)),
   onToast: callback => ipcRenderer.on('toast', (_, toast) => callback(toast)),
+  onReview: callback => ipcRenderer.on('review', (_, state) => callback(state)),
+  reviewWatch: call('reviewWatch'), reviewFocus: call('reviewFocus'),
   onSession: callback => ipcRenderer.on('session', (_, event, payload) => callback(event, payload)),
   onTelegramWaiting: callback => ipcRenderer.on('telegramWaiting', (_, username) => callback(username)),
   command: call('command'),

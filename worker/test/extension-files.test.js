@@ -62,7 +62,8 @@ test('consent boxes are recognised by whole words (Acknowledge, consents, certif
 
 test('Apply with Claude hand-off: hook only on the job sites (every site once allowed), ticket checked by the app before filling', () => {
   const manifest = JSON.parse(read('extension/manifest.json'));
-  assert.deepEqual(manifest.content_scripts, [{matches: manifest.host_permissions, js: ['hook.js'], run_at: 'document_idle'}]);
+  // hook.js: the hand-off; review.js: the ring (what's left before you submit), in embedded forms (iframes) too.
+  assert.deepEqual(manifest.content_scripts, [{matches: manifest.host_permissions, js: ['hook.js', 'review.js'], all_frames: true, run_at: 'document_idle'}]);
   const hook = read('extension/hook.js');
   assert.match(hook, /addEventListener\('jobpilotto:fill'/);
   assert.match(hook, /typeof request\?\.ticket !== 'string'/);
@@ -70,7 +71,7 @@ test('Apply with Claude hand-off: hook only on the job sites (every site once al
   const handOff = background.slice(background.indexOf('async function handOff'));
   assert.ok(handOff.indexOf("'/extension/ticket'") > 0 && handOff.indexOf("'/extension/ticket'") < handOff.indexOf('fillOpenedTab('),
     'the ticket is checked before any fill');
-  assert.match(background, /registerContentScripts\(\[\{id: 'hook-everywhere'/);
+  assert.match(background, /registerContentScripts\(\[\{id: 'hook-everywhere'.*js: \['hook\.js', 'review\.js'\]/);
   // The events a page can send carry no personal data, and the result written back holds only counts and field labels.
   assert.doesNotMatch(handOff.slice(0, handOff.indexOf('const EVERY_SITE')), /contact|resume|profile/);
 });
@@ -84,4 +85,14 @@ test('the Submit guard can be loaded twice on a page (a second fill) without thr
   window.window = window;
   assert.doesNotThrow(() => { vm.runInContext(code, context); vm.runInContext(code, context); });
   assert.equal(window.__jobPilottoGuardActive, false);
+});
+
+test('the ring (review.js) is read only: it never types, ticks, clicks or submits anything in the form', () => {
+  const ring = read('extension/review.js');
+  // Only its own ring and panel get click handlers; the form's fields are scrolled to, outlined and focused.
+  assert.doesNotMatch(ring, /\.click\(\)|\.checked\s*=[^=]|\.value\s*=[^=]|dispatchEvent|\.submit\(|requestSubmit/);
+  assert.match(ring, /attachShadow/);
+  // It talks to the app only through the extension's background worker, never from the page's origin.
+  assert.doesNotMatch(ring, /fetch\(|XMLHttpRequest/);
+  assert.match(ring, /chrome\.runtime\.sendMessage\(\{type: 'review'/);
 });

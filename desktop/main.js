@@ -16,6 +16,7 @@ import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
 import * as quitDialog from './lib/quit-dialog.js';
+import * as review from './lib/review.js';
 import {openFormTab} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
@@ -714,6 +715,12 @@ function handlers() {
     }
     return {choice: 'reset', reset, failed};
   });
+  // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
+  ipcMain.handle('reviewWatch', (_, id, items) => review.setWatch(String(id), items));
+  ipcMain.handle('reviewFocus', async (_, id, label, url, company) => {
+    review.queueFocus(String(id), String(label || ''));
+    return openFormTab({url, company}, shell.openExternal);
+  });
   ipcMain.handle('unapplyJob', (_, url) => pipeline.unapply(storage, String(url)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
@@ -934,6 +941,8 @@ if (firstCopy) app.whenReady().then(() => {
   if (!DEMO) { terminals.persist(path.join(storage.dir, 'sessions.json')); terminals.restore(); }  // sessions of the last run
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
+  server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  review.setReporter(state => toWindow('review', state));
   server.setSessionReporter((id, info) => {
     const {session, needsYou} = terminals.report(id, info);
     if (session && needsYou) sessionNeedsYou(session);

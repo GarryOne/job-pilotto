@@ -150,6 +150,9 @@ export function checkTicket(ticket, job, now = Date.now()) {
 // "message" for Notification) and tools/notify.sh (form field "message"). Local programs only, as for tickets.
 let sessionReporter = () => {};
 export function setSessionReporter(fn) { sessionReporter = fn; }
+// The application form page (extension/review.js) and its session: what is left in the form, what to show (lib/review.js).
+let reviewHandler = () => ({matched: null, watch: [], commands: []});
+export function setReviewHandler(fn) { reviewHandler = fn; }
 
 export function start(storage, onError = () => {}) {
   const server = http.createServer(async (req, res) => {
@@ -217,6 +220,16 @@ export function start(storage, onError = () => {}) {
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify({ok}));
+        return;
+      }
+      if (req.url === '/extension/review') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(ok ? reviewHandler(payload) : {error: 'Wrong token'}));
         return;
       }
       if (req.url === '/extension/event') {

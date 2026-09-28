@@ -1,0 +1,47 @@
+// The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
+// is left before you can submit) and reports it here; the session page shows the same, ticks off the agreements you
+// tick in the form, and its "Open the form to tick it" makes the page scroll to that field.
+//   page -> app  POST /extension/review {url, title, left, total, watch: [{id, filled: true|false|null}]}
+//   app -> page  the reply: {matched, watch: [{id, label}], commands: [{focus: label}]}
+import {scoreTab} from './form-tab.js';
+
+const MIN_SCORE = 50;          // the company in the title or an application-form host naming it, at least
+const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the page to pick it up
+const watches = new Map();     // session id -> [{id, label}] the app wants tracked in the form
+const commands = new Map();    // session id -> [{focus, at}]
+const last = new Map();        // session id -> the last state passed on
+let reporter = () => {};
+export const setReporter = fn => { reporter = fn; };
+
+// The session a form page belongs to: the best match by the job's URL, ID, company and site; the later start wins a tie.
+export function matchSession(sessions, page) {
+  let best = null, bestScore = 0;
+  for (const session of sessions) {
+    const score = scoreTab(page, {url: session.url, company: session.company});
+    if (score >= MIN_SCORE && (score > bestScore || (score === bestScore && best && session.startedAt > best.startedAt))) { best = session; bestScore = score; }
+  }
+  return best;
+}
+
+export function setWatch(id, items) {
+  watches.set(id, (Array.isArray(items) ? items : []).filter(item => item?.id && item?.label).map(({id: key, label}) => ({id: String(key), label: String(label)})));
+}
+export function queueFocus(id, label, now = Date.now()) {
+  commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {focus: String(label), at: now}]);
+}
+
+// The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
+export function report(sessions, payload, now = Date.now()) {
+  const page = {url: String(payload?.url || ''), title: String(payload?.title || '')};
+  const session = matchSession(sessions, page);
+  if (!session) return {matched: null, watch: [], commands: []};
+  const states = {};
+  for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
+  const state = {id: session.id, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states};
+  state.ready = state.total > 0 && state.left === 0;
+  if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); reporter({...state, at: now}); }
+  const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
+  commands.delete(session.id);
+  return {matched: session.id, watch: watches.get(session.id) || [], commands: due.map(({focus}) => ({focus}))};
+}
+export const _reset = () => { watches.clear(); commands.clear(); last.clear(); reporter = () => {}; };  // tests

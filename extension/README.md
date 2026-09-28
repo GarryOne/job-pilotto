@@ -21,6 +21,10 @@ filling, the page shows *Unlock for my review*; you check every field, unlock, a
    permission on job sites (asked by **Open & fill**).
 7. **Ready to apply** lists jobs with a drafted kit; **Open & fill** opens one and fills it.
 8. After you submit, **I submitted it: mark Applied** updates Notion (Telegram confirms).
+9. **The ring** (bottom right of every application form): how many required fields are still empty, green
+   with ✓ *Ready* when none is. Click it for the list; click an item to go to that field. With the app open it
+   keeps the app's session page in step: agreements you tick here are ticked off there, and the app's
+   *Open the form to tick it* scrolls here to that field. Read only: it never types, ticks or clicks anything.
 
 Multi-page forms: click Next on the page, then Fill again.
 
