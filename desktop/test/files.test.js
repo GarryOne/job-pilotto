@@ -82,5 +82,5 @@ test('weekly backup: due after 7 days, keeps the last 4, never the keys', () => 
   assert.equal(backup.due(s.settings(), Date.parse('2026-09-13T10:00:00Z')), true);
   const listing = String(fs.readFileSync(path.join(target, kept[3])));
   assert.ok(!listing.includes('sk-secret'));
-  assert.equal(backup.folder('/home/x', () => false), '/home/x/Documents/Job Pilotto Backups');
+  assert.equal(backup.folder('/home/x', () => false), path.join('/home/x', 'Documents', 'Job Pilotto Backups'));  // \\ on Windows
 });

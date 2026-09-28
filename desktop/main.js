@@ -85,6 +85,15 @@ function createWindow() {
   // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
   const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
   window.loadFile(path.join(here, 'renderer', page));
+  // Smoke test of the in-app terminal (JOB_PILOTTO_PTY_SMOKE=<file>): a real pseudo-terminal runs a shell command;
+  // its output (or the error) goes to the file. The Windows build checks it in the installed app.
+  if (process.env.JOB_PILOTTO_PTY_SMOKE) {
+    const out = process.env.JOB_PILOTTO_PTY_SMOKE;
+    const [file, args] = process.platform === 'win32' ? [process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'echo pty-ok']] : ['/bin/sh', ['-c', 'echo pty-ok']];
+    terminals.start({id: 'smoke', url: 'https://smoke', file, args, cwd: app.getPath('home'), env: process.env})
+      .then(() => setTimeout(() => fs.writeFileSync(out, terminals.output('smoke') || 'no output'), 3000))
+      .catch(error => fs.writeFileSync(out, `error: ${error.message}`));
+  }
   // Smoke test (JOB_PILOTTO_SMOKE=<png path>): render hidden, save a screenshot, quit.
   if (process.env.JOB_PILOTTO_SMOKE) {
     window.webContents.once('did-finish-load', () => setTimeout(async () => {

@@ -119,9 +119,11 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
 
 // Claude Code settings for a session: hooks that report to the app (curl, on macOS and in Git Bash on Windows).
 export function hookSettings(id, port) {
+  // Double quotes and no redirects: the same command works in bash (Mac, Git Bash) and in cmd (Windows). Its tiny
+  // {"ok":true} reply isn't shown for these hooks; with the app closed curl just fails quietly (-s) and Claude goes on.
   const post = event => ({type: 'command', command:
-    `curl -s -m 3 -X POST -H 'X-Job-Pilotto: launcher' -H 'Content-Type: application/json' --data-binary @- ` +
-    `'http://127.0.0.1:${port}/claude/session?id=${encodeURIComponent(id)}&event=${event}' >/dev/null 2>&1 || true`});
+    `curl -s -m 3 -X POST -H "X-Job-Pilotto: launcher" -H "Content-Type: application/json" --data-binary @- ` +
+    `"http://127.0.0.1:${port}/claude/session?id=${encodeURIComponent(id)}&event=${event}"`});
   return JSON.stringify({hooks: {
     Notification: [{hooks: [post('input')]}],
     Stop: [{hooks: [post('stop')]}],

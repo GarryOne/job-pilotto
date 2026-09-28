@@ -62,6 +62,7 @@ test('the hooks report to the app on this computer only, for this session', () =
   const command = settings.hooks.Stop[0].hooks[0].command;
   assert.match(command, /http:\/\/127\.0\.0\.1:47111\/claude\/session\?id=ab12&event=stop/);
   assert.match(command, /X-Job-Pilotto: launcher/);
+  assert.doesNotMatch(command, /'|\/dev\/null|\|\|/);  // no single quotes or Unix-only redirects: cmd on Windows runs it too
   assert.deepEqual(Object.keys(settings.hooks).sort(), ['Notification', 'Stop', 'UserPromptSubmit']);
 });
 

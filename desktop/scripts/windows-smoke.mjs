@@ -49,6 +49,16 @@ const extras = `(() => { document.querySelectorAll('.step').forEach(s => { s.hid
 const waitForJobs = `new Promise(resolve => setTimeout(resolve, 8000))`;
 const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
   notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
+// The in-app terminal (Apply with Claude sessions): node-pty loads in the installed app and runs a command.
+{
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-pty-'));
+  const result = path.join(userData, 'pty.txt');
+  spawnSync(exe, [], {timeout: 90000, stdio: 'inherit', env: {...process.env, JOB_PILOTTO_USER_DATA: userData,
+    JOB_PILOTTO_SMOKE: path.join(userData, 'pty.png'), JOB_PILOTTO_SMOKE_JS: 'new Promise(r => setTimeout(r, 5000))', JOB_PILOTTO_PTY_SMOKE: result}});
+  const text = fs.existsSync(result) ? fs.readFileSync(result, 'utf8') : 'no result file';
+  if (!text.includes('pty-ok')) throw new Error(`in-app terminal: ${text.slice(0, 300)}`);
+  say('in-app terminal ok (node-pty ran cmd.exe in the installed app)');
+}
 for (const [name, js, settings] of [['welcome', '', null], ['wizard-extras', extras, null], ['wizard-notion', waitForJobs, DONE]]) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
   if (settings) fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify(settings));
