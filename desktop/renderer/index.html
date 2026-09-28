@@ -141,8 +141,12 @@
     </div>
 
     <div class="step" data-step="draft">
-      <span class="eyebrow">Step 5 of 6</span>
-      <h1>Your strategy</h1>
+      <div class="review-head">
+        <div><span class="eyebrow">Step 5 of 6</span>
+          <h1 id="draft-title">Your strategy</h1>
+          <p class="muted" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
+        <span class="pill-ai" id="draft-cost" hidden></span>
+      </div>
       <div id="draft-loading" class="progress">
         <div class="progress-head"><span class="spinner"></span><b id="draft-part">Reading your CV</b><span id="draft-percent" class="muted"></span></div>
         <div class="bar"><span id="draft-bar"></span></div>
@@ -150,23 +154,45 @@
         <p class="fine" id="draft-time">Claude reads your CV and writes your Profile, standard answers and search settings. This usually takes 1 to 2 minutes.</p>
       </div>
       <div id="draft-error" class="message error" hidden></div>
-      <div id="draft-view" hidden>
-        <p class="lede" id="draft-summary"></p>
-        <div class="chips-block">
-          <div><h3>Roles</h3><div class="chips" id="chips-roles"></div></div>
-          <div><h3>Places</h3><div class="chips" id="chips-places"></div></div>
-          <div><h3>Job board searches</h3><div class="chips" id="chips-queries"></div></div>
-          <div><h3>Hidden: jobs requiring</h3><div class="chips" id="chips-languages"></div></div>
+      <div id="draft-view" class="review" hidden>
+        <section class="card overview">
+          <div class="card-head"><div><h2>Your search strategy</h2><p class="muted" id="draft-summary"></p></div>
+            <button class="link" data-goto-step="goals">✎ Edit preferences</button></div>
+          <div class="tiles" id="draft-tiles"></div>
+        </section>
+        <div class="review-grid">
+          <section class="card" data-list="roles"><div class="card-head"><h3>💼 Target roles</h3><button class="icon-btn" data-edit title="Add a role">✎</button></div>
+            <div class="chips" id="chips-roles"></div></section>
+          <section class="card" data-list="places"><div class="card-head"><h3>📍 Target locations</h3><button class="icon-btn" data-edit title="Add a place">✎</button></div>
+            <div class="priority"><b>Priority</b><div class="chips" id="chips-places"></div></div>
+            <p class="sub">Anywhere in</p><div class="chips" id="chips-country"></div>
+            <p class="sub">Relocation (open to)</p><div class="chips" id="chips-abroad"></div></section>
+          <section class="card" data-list="queries"><div class="card-head"><h3>🔎 Search terms</h3><button class="icon-btn" data-edit title="Add a search">✎</button></div>
+            <div class="chips" id="chips-queries"></div></section>
+          <section class="card" data-list="languages"><div class="card-head"><h3>🚫 Excluded requirements</h3><button class="icon-btn" data-edit title="Add a language">✎</button></div>
+            <p class="sub">Hide jobs that require these languages.</p><div class="chips bad" id="chips-languages"></div></section>
         </div>
-        <div id="open-questions" class="callout" hidden><b>Still to answer</b><ul></ul><p class="fine">Edit them below; ❓ marks anything the AI couldn't know.</p></div>
-        <details open><summary>Profile (what jobs are scored against)</summary><textarea id="draft-profile" rows="14"></textarea></details>
-        <details><summary>Standard application answers</summary><textarea id="draft-answers" rows="14"></textarea></details>
-        <p class="fine" id="draft-cost"></p>
+        <section class="card questions-card" id="open-questions" hidden>
+          <div class="card-head"><div><h3><span class="bang">!</span> <span id="open-count"></span></h3>
+            <p class="muted small">They make applications more accurate. You can skip any of them; they stay as ❓ in Notion.</p></div>
+            <button class="link" id="open-more" hidden></button></div>
+          <div id="open-list"></div>
+        </section>
+        <div class="card-head detailed-head"><div><h2>Detailed strategy</h2><p class="muted small">What jobs are scored against, and your standard answers for forms.</p></div></div>
+        <details class="doc" open><summary><b>Job scoring profile</b> <span class="muted">what jobs are scored against</span></summary>
+          <div class="doc-view" id="doc-profile"></div>
+          <textarea id="draft-profile" rows="16" hidden></textarea>
+          <button class="link doc-edit" data-doc="profile">Edit as text</button></details>
+        <details class="doc"><summary><b>Standard application answers</b> <span class="muted">used to fill forms</span></summary>
+          <div class="doc-view" id="doc-answers"></div>
+          <textarea id="draft-answers" rows="16" hidden></textarea>
+          <button class="link doc-edit" data-doc="answers">Edit as text</button></details>
       </div>
-      <div class="actions">
+      <div class="actions sticky">
+        <span class="saved-note" id="draft-saved" hidden>✓ Saved automatically</span>
         <button class="ghost" data-back>Back</button>
-        <button class="ghost" id="draft-again">Draft again</button>
-        <button class="primary" id="draft-save" disabled>Save my strategy</button>
+        <button class="secondary" id="draft-again">Regenerate draft</button>
+        <button class="primary" id="draft-save" disabled>Save strategy &amp; continue</button>
       </div>
       <p class="message" id="draft-save-message"></p>
     </div>

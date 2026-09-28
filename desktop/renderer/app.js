@@ -374,6 +374,7 @@ $('q-seniority').addEventListener('change', () => window.pilot.saveSettings({que
 async function buildDraft() {
   goStep('draft');
   show($('draft-loading')); show($('draft-view'), false); show($('draft-error'), false);
+  $('draft-title').textContent = 'Your strategy'; show($('draft-subtitle'), false); show($('draft-cost'), false);
   $('draft-save').disabled = true;
   if (!state.secrets.ANTHROPIC_API_KEY) {
     show($('draft-loading'), false);
@@ -402,21 +403,190 @@ async function buildDraft() {
   renderDraft();
 }
 
-function renderDraft() {
-  show($('draft-loading'), false); show($('draft-error'), false); show($('draft-view'));
-  $('draft-summary').textContent = draft.summary;
-  for (const id of ['chips-roles', 'chips-places', 'chips-queries', 'chips-languages']) $(id).replaceChildren();
-  draft.search.role_keywords.forEach(k => chip($('chips-roles'), readable(k)));
-  [...draft.search.locations.top_tier, ...draft.search.locations.country_wide.slice(0, 4), ...draft.search.locations.abroad]
-    .forEach(k => chip($('chips-places'), readable(k)));
-  draft.search.jobs_board_search_queries.forEach(k => chip($('chips-queries'), k));
-  draft.preferences.disqualifying_languages.forEach(k => chip($('chips-languages'), k));
-  const open = $('open-questions');
-  show(open, draft.open_questions.length > 0);
-  open.querySelector('ul').replaceChildren(...draft.open_questions.map(q => Object.assign(document.createElement('li'), {textContent: q})));
+// ---------- step 5: review the drafted strategy ----------
+// The draft's lists, as the cards show them: [draft path, how an entry is shown, how a typed entry is stored].
+const escapeFragment = text => text.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const LISTS = {
+  roles: [['search', 'role_keywords'], readable, escapeFragment],
+  places: [['search', 'locations', 'top_tier'], readable, escapeFragment],
+  country: [['search', 'locations', 'country_wide'], readable, escapeFragment],
+  abroad: [['search', 'locations', 'abroad'], readable, escapeFragment],
+  queries: [['search', 'jobs_board_search_queries'], text => text, text => text.trim()],
+  languages: [['preferences', 'disqualifying_languages'], text => text, text => text.trim()],
+};
+const listOf = name => LISTS[name][0].reduce((node, key) => node?.[key], draft) || [];
+const titleCase = text => text.replace(/\b\w/g, c => c.toUpperCase()).replace(/\b(Aws|Gcp|Sre|Eks|Ecs|Slo|Ci|Cd)\b/g, w => w.toUpperCase());
+let draftSavedTimer, editsTimer;
+function draftChanged(fields) {
+  clearTimeout(editsTimer);
+  editsTimer = setTimeout(async () => {
+    await window.pilot.cacheDraftEdits(Object.fromEntries(fields.map(field => [field, draft[field]])));
+    show($('draft-saved')); clearTimeout(draftSavedTimer);
+    draftSavedTimer = setTimeout(() => show($('draft-saved'), false), 2500);
+  }, 300);
+}
+function renderList(name, {limit = 0} = {}) {
+  const [, show_, ] = LISTS[name];
+  const box = $(`chips-${name}`);
+  if (!box) return;
+  const items = listOf(name);
+  const expanded = box.dataset.expanded === '1';
+  const visible = limit && !expanded ? items.slice(0, limit) : items;
+  box.replaceChildren(...visible.map((item, i) => {
+    const pill = Object.assign(document.createElement('span'), {className: 'chip removable'});
+    const label = Object.assign(document.createElement('span'), {textContent: name === 'roles' || name === 'queries' ? titleCase(show_(item)) : titleCase(show_(item))});
+    const remove = Object.assign(document.createElement('button'), {className: 'x', textContent: '×', title: 'Remove'});
+    remove.addEventListener('click', () => { listOf(name).splice(i, 1); draftChanged(['search', 'preferences']); renderLists(); });
+    pill.append(label, remove);
+    return pill;
+  }));
+  if (limit && items.length > limit && !expanded) {
+    const more = Object.assign(document.createElement('button'), {className: 'chip more', textContent: `+ ${items.length - limit} more`});
+    more.addEventListener('click', () => { box.dataset.expanded = '1'; renderLists(); });
+    box.append(more);
+  }
+  if (!items.length) box.append(Object.assign(document.createElement('span'), {className: 'muted small', textContent: 'None'}));
+}
+function renderLists() {
+  renderList('roles', {limit: 10}); renderList('places', {limit: 6}); renderList('country', {limit: 4});
+  renderList('abroad'); renderList('queries', {limit: 8}); renderList('languages');
+}
+// ✎ on a card: a small input to add an entry (Enter adds, Esc closes).
+document.querySelectorAll('.review [data-edit]').forEach(button => button.addEventListener('click', () => {
+  const card = button.closest('[data-list]');
+  let input = card.querySelector('input.add');
+  if (input) { input.remove(); return; }
+  const name = card.dataset.list;
+  input = Object.assign(document.createElement('input'), {className: 'add', placeholder: name === 'places' ? 'Add a place, then Enter' : 'Add, then Enter'});
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape') input.remove();
+    if (event.key !== 'Enter' || !input.value.trim()) return;
+    listOf(name).push(LISTS[name][2](input.value));
+    input.value = '';
+    draftChanged(['search', 'preferences']);
+    renderLists();
+  });
+  card.append(input);
+  input.focus();
+}));
+$('draft-summary').addEventListener('click', () => $('draft-summary').classList.toggle('open'));
+document.querySelectorAll('[data-goto-step]').forEach(button => button.addEventListener('click', () => goStep(button.dataset.gotoStep)));
+
+// Markdown (headings, tables, bullets, paragraphs, **bold**) as read-only HTML for the Detailed strategy.
+function markdownView(markdown) {
+  const box = document.createDocumentFragment();
+  const inline = text => {
+    const span = document.createElement('span');
+    text.split(/(\*\*[^*]+\*\*)/).forEach(part => span.append(part.startsWith('**') ? Object.assign(document.createElement('b'), {textContent: part.slice(2, -2)}) : part));
+    return span;
+  };
+  const lines = markdown.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    if (heading) { const h = document.createElement(`h${Math.min(4, heading[1].length + 2)}`); h.append(inline(heading[2])); box.append(h); continue; }
+    if (line.startsWith('|')) {
+      const table = document.createElement('table');
+      for (; i < lines.length && lines[i].trim().startsWith('|'); i++) {
+        const cells = lines[i].trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+        if (cells.every(cell => /^:?-{2,}:?$/.test(cell))) continue;
+        const row = table.insertRow();
+        cells.forEach(cell => { const td = row.insertCell(); td.append(inline(cell)); if (cell.includes('❓')) td.className = 'ask'; });
+      }
+      i--;
+      box.append(table);
+      continue;
+    }
+    if (/^[-*]\s/.test(line)) {
+      const ul = document.createElement('ul');
+      for (; i < lines.length && /^\s*[-*]\s/.test(lines[i]); i++) { const li = document.createElement('li'); li.append(inline(lines[i].trim().slice(2))); ul.append(li); }
+      i--;
+      box.append(ul);
+      continue;
+    }
+    const p = document.createElement('p'); p.append(inline(line)); box.append(p);
+  }
+  return box;
+}
+function renderDocs() {
+  $('doc-profile').replaceChildren(markdownView(draft.profile_markdown));
+  $('doc-answers').replaceChildren(markdownView(draft.answers_markdown));
   $('draft-profile').value = draft.profile_markdown;
   $('draft-answers').value = draft.answers_markdown;
-  $('draft-cost').textContent = `Drafted by Claude for about USD ${draft.usd.toFixed(2)}.`;
+}
+document.querySelectorAll('.doc-edit').forEach(button => button.addEventListener('click', () => {
+  const doc = button.dataset.doc, area = $(`draft-${doc}`), view = $(`doc-${doc}`);
+  const editing = area.hidden;
+  show(area, editing); show(view, !editing);
+  button.textContent = editing ? 'Done editing' : 'Edit as text';
+  if (!editing) renderDocs();
+}));
+
+// Open questions: answer inline (added to the standard answers), or skip.
+function renderQuestions() {
+  const questions = draft.open_questions;
+  show($('open-questions'), questions.length > 0);
+  $('open-count').textContent = `${questions.length} detail${questions.length === 1 ? '' : 's'} need${questions.length === 1 ? 's' : ''} your answer`;
+  const box = $('open-list');
+  const expanded = box.dataset.expanded === '1';
+  const shown = expanded ? questions : questions.slice(0, 3);
+  box.replaceChildren(...shown.map((question, i) => {
+    const row = Object.assign(document.createElement('div'), {className: 'q-row'});
+    const text = Object.assign(document.createElement('span'), {className: 'q-text', textContent: question});
+    const answer = Object.assign(document.createElement('button'), {className: 'secondary small-btn', textContent: 'Answer'});
+    const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip'});
+    answer.addEventListener('click', () => {
+      const input = Object.assign(document.createElement('input'), {placeholder: 'Your answer, then Enter'});
+      input.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || !input.value.trim()) return;
+        const heading = '# Answered during setup';
+        if (!draft.answers_markdown.includes(heading)) draft.answers_markdown = `${draft.answers_markdown.trim()}\n\n${heading}\n`;
+        draft.answers_markdown = `${draft.answers_markdown.trimEnd()}\n- ${question} — ${input.value.trim()}\n`;
+        draft.open_questions.splice(draft.open_questions.indexOf(question), 1);
+        draftChanged(['answers_markdown', 'open_questions']);
+        renderQuestions(); renderDocs();
+      });
+      row.replaceChildren(text, input);
+      input.focus();
+    });
+    skip.addEventListener('click', () => { draft.open_questions.splice(draft.open_questions.indexOf(question), 1); draftChanged(['open_questions']); renderQuestions(); });
+    row.append(text, answer, skip);
+    return row;
+  }));
+  const more = $('open-more');
+  show(more, questions.length > 3);
+  more.textContent = expanded ? 'Show fewer' : `Show ${questions.length - 3} more`;
+}
+$('open-more').addEventListener('click', () => { const box = $('open-list'); box.dataset.expanded = box.dataset.expanded === '1' ? '' : '1'; renderQuestions(); });
+
+function renderDraft() {
+  show($('draft-loading'), false); show($('draft-error'), false); show($('draft-view'));
+  $('draft-title').textContent = 'Review your strategy';
+  show($('draft-subtitle'));
+  $('draft-cost').textContent = `✦ AI draft · $${draft.usd.toFixed(2)}`;
+  show($('draft-cost'));
+  const q = state.settings.questionnaire || currentAnswers();
+  $('draft-summary').textContent = draft.summary;
+  $('draft-summary').title = 'Click to show all';
+  const tile = (icon, label, value) => {
+    const box = Object.assign(document.createElement('div'), {className: 'tile'});
+    box.append(Object.assign(document.createElement('span'), {className: 'tile-icon', textContent: icon}),
+      Object.assign(document.createElement('div'), {innerHTML: ''}));
+    box.lastChild.append(Object.assign(document.createElement('small'), {textContent: label}), Object.assign(document.createElement('b'), {textContent: value || '—'}));
+    return box;
+  };
+  const market = draft.search.locations.country_wide[0] || draft.search.locations.top_tier[0] || '';
+  $('draft-tiles').replaceChildren(
+    tile('👤', 'Target level', q.seniority ? (q.seniority === 'Junior' ? 'Junior' : `${q.seniority} and above`) : ''),
+    tile('📍', 'Primary market', titleCase(readable(market))),
+    tile('🏢', 'Work mode', q.work_mode),
+    tile('🧰', 'Core stack', (draft.search.quality_stack_keywords || []).slice(0, 4).map(k => titleCase(readable(k))).join(', ')));
+  document.querySelectorAll('.review .chips').forEach(box => { box.dataset.expanded = ''; });
+  renderLists();
+  $('open-list').dataset.expanded = '';
+  renderQuestions();
+  renderDocs();
   $('draft-save').disabled = false;
 }
 // Same answers as the cached draft: show it again (no new Claude call). Changed answers or "Draft again": redraft.
@@ -430,12 +600,8 @@ async function toDraft() {
   }
   buildDraft();
 }
-let editsTimer;
 for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answers', 'answers_markdown']]) {
-  $(id).addEventListener('input', () => {
-    clearTimeout(editsTimer);
-    editsTimer = setTimeout(() => window.pilot.cacheDraftEdits({[field]: $(id).value}), 400);
-  });
+  $(id).addEventListener('input', () => { draft[field] = $(id).value; draftChanged([field]); });
 }
 $('goals-next').addEventListener('click', toDraft);
 $('draft-again').addEventListener('click', buildDraft);

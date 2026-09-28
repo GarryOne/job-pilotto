@@ -567,3 +567,56 @@ details.manual { margin-top: 18px; }
 .draft-feed li.done::before { content: '✓'; color: var(--teal); font-weight: 700; display: inline-block; width: 20px; }
 .draft-feed li.now { color: var(--ink); font-weight: 600; }
 .draft-feed li.now::before { content: '●'; color: var(--signal); display: inline-block; width: 20px; animation: pulse 1.2s ease-in-out infinite; }
+
+/* ---------- Wizard step 5: review your strategy ---------- */
+.review-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.review-head h1 { margin-bottom: 4px; }
+.pill-ai { border: 1px solid #b9c8f5; color: #3b55c9; background: #f3f6ff; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.review { display: grid; gap: 14px; margin-top: 16px; padding-bottom: 12px; }
+.review .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+.review .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.review .card-head h2 { font-size: 18px; margin: 0 0 4px; }
+.review .card-head h3 { font-size: 15px; margin: 0; }
+.review .card-head p { margin: 0; }
+.review .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.review .tile { display: flex; gap: 10px; align-items: center; background: var(--sky); border-radius: 10px; padding: 12px; }
+.review .tile-icon { font-size: 20px; }
+.review .tile small { display: block; color: var(--muted); font-size: 12px; }
+.review .tile b { font-size: 14px; }
+.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.review .chips { gap: 6px; }
+.review .chip.removable { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: 12px; background: var(--sky); }
+.review .chip .x { background: transparent; border: 0; padding: 0 4px; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; }
+.review .chip.more { font-size: 12px; padding: 2px 10px; white-space: nowrap; }
+.review #draft-summary { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.review #draft-summary.open { -webkit-line-clamp: unset; }
+.review .card-head .link { white-space: nowrap; }
+.review .tile b { font-size: 13px; }
+.review .chip .x:hover { color: #b42318; }
+.review .chip.more { border-style: dashed; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
+.review .chips.bad .chip.removable { background: #fdecec; border-color: #f3c2c2; color: #9a1c12; }
+.review .priority { background: #e9f7ef; border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
+.review .priority b { color: #1f7a4a; font-size: 13px; }
+.review .sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.review .icon-btn { background: transparent; border: 0; color: var(--muted); font-size: 16px; padding: 2px 6px; cursor: pointer; }
+.review input.add { font-size: 13px; padding: 6px 10px; }
+.review .questions-card { background: var(--signal-soft); border-color: #f5cfb4; }
+.review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal); color: #fff; font-size: 13px; margin-right: 4px; }
+.review .q-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; background: var(--surface); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+.review .q-row + .q-row { margin-top: 6px; }
+.review .q-row input { grid-column: 2 / 4; font-size: 13px; }
+.review .detailed-head { margin-top: 8px; }
+.review details.doc { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 18px; }
+.review details.doc summary { cursor: pointer; font-size: 15px; }
+.review .doc-view { font-size: 13px; margin-top: 8px; }
+.review .doc-view h3, .review .doc-view h4, .review .doc-view h5 { margin: 14px 0 6px; font-size: 14px; }
+.review .doc-view table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
+.review .doc-view td { border-top: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+.review .doc-view tr:first-child td { font-weight: 600; color: var(--muted); border-top: 0; }
+.review .doc-view td:first-child { width: 32%; font-weight: 500; }
+.review .doc-view td.ask { background: #fff4e5; }
+.review .doc-view ul { margin: 4px 0 8px; padding-left: 18px; }
+.review textarea { width: 100%; margin-top: 8px; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+.review .doc-edit { margin-top: 6px; }
+.step[data-step="draft"] .actions.sticky { position: sticky; bottom: -48px; margin-bottom: -48px; background: var(--sky); padding: 12px 0 60px; border-top: 1px solid var(--line); z-index: 5; align-items: center; }
+.saved-note { margin-right: auto; color: var(--teal); font-size: 13px; }
