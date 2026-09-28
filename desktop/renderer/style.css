@@ -812,7 +812,8 @@ main { min-width: 0; }
 .focus-card-head .link { text-decoration: none; }
 
 /* Application sessions: the dock above the activity bar */
-.sessions-dock { grid-column: 2; border-top: 1px solid var(--line); background: var(--surface); padding: var(--sp-2) var(--sp-4) var(--sp-3); box-shadow: var(--shadow-sm); }
+/* A light blue tray: apart from the white job cards above and the white status bar below; its cards stay white. */
+.sessions-dock { grid-column: 2; border-top: 1px solid var(--info-line); background: var(--info-soft); padding: var(--sp-2) var(--sp-4) var(--sp-3); box-shadow: var(--shadow-sm); }
 .sessions-dock.is-closed { padding-bottom: var(--sp-2); }
 .sessions-dock.is-closed .sd-cards { display: none; }
 .sd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
