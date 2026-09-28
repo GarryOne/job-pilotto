@@ -231,102 +231,6 @@
     return ticked;
   };
 
-  // Scroll to the field an item is about (matched by its label text) and flash it.
-  const reveal = text => {
-    const want = norm(text).slice(0, 60);
-    if (!want) return;
-    const target = Array.from(document.querySelectorAll('label, legend, fieldset, [class*=label], h3, h4, p, span, div'))
-      .filter(el => el.children.length < 6 && norm(el.textContent).includes(want.slice(0, 40)))
-      .sort((a, b) => a.textContent.length - b.textContent.length)[0];
-    if (!target) return;
-    target.scrollIntoView({block: 'center', behavior: 'smooth'});
-    target.animate([{outline: '3px solid #f07014', outlineOffset: '4px'}, {outline: '3px solid transparent', outlineOffset: '4px'}],
-      {duration: 1600, iterations: 2});
-  };
-
-  // The page panel: what was filled and what's left, grouped. In a shadow root, so the site's CSS can't touch it.
-  const GROUPS = [
-    {id: 'legal', icon: '⚖️', title: 'Consents to accept', match: /^Your choice \(legal\):\s*/},
-    {id: 'answer', icon: '✍️', title: 'Needs your answer', match: /^(Answer|Pick "[^"]*" for):\s*/},
-    {id: 'action', icon: '👉', title: 'To do on the page', match: /^(Click the|Upload your CV|Drop-downs not chosen)/},
-    {id: 'read', icon: '✍️', title: 'Written by AI: read before submitting', match: /^Read:\s*/},
-    {id: 'check', icon: '👀', title: 'Worth a check', match: /^Check:\s*/},
-    {id: 'done', icon: '✅', title: 'Done for you', match: /^Ticked for you:\s*/},
-    {id: 'tip', icon: '💡', title: 'Tip', match: /^Tip:\s*/},
-  ];
-  // The fill's own result box is gone: the Job Pilotto panel on the page (review.js) shows what's filled and left.
-  // (Its drawing code stays below, unused, for the moment; nothing calls it.)
-  const panel = summary => {
-    document.getElementById('job-pilotto-panel')?.remove();
-    if (summary) return;
-    const host = Object.assign(document.createElement('div'), {id: 'job-pilotto-panel'});
-    host.style.cssText = 'position:fixed;top:14px;right:14px;z-index:2147483647';
-    const root = host.attachShadow({mode: 'open'});
-    root.innerHTML = `<style>
-      :host { all: initial; }
-      .p { width: 340px; max-height: 76vh; overflow: auto; background: #132439; color: #fff; border-radius: 14px;
-        font: 13px/1.45 -apple-system, system-ui, sans-serif; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
-      .head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #25405f; position: sticky; top: 0; background: #132439; }
-      .mark { width: 26px; height: 26px; border-radius: 7px; background: #fff; color: #d9540b; display: grid; place-items: center; font-weight: 800; font-size: 12px; }
-      .title { font-weight: 700; font-size: 14px; }
-      .chip { margin-left: auto; font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
-      .chip.ok { background: #1f6b43; } .chip.left { background: #9a4b0a; }
-      .p.ready { box-shadow: 0 0 0 3px #2fb36b, 0 12px 40px rgba(0,0,0,.35); }
-      .ready { color: #b9f0cf; padding: 8px 0 2px; font-weight: 600; }
-      .x { background: none; border: 0; color: #8fa3bb; font-size: 16px; cursor: pointer; padding: 0 2px; }
-      .body { padding: 6px 14px 12px; }
-      section { margin-top: 10px; }
-      h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #9fb3ca; display: flex; gap: 6px; align-items: center; }
-      h4 .n { background: #25405f; border-radius: 99px; padding: 0 7px; color: #fff; font-size: 11px; }
-      .item { display: block; width: 100%; text-align: left; background: #1b3150; border: 0; color: #e8eef6; border-radius: 8px;
-        padding: 7px 9px; margin: 4px 0; font: inherit; cursor: pointer; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-      .item:hover { background: #24406a; }
-      .primary { background: #d9540b; color: #fff; border: 0; border-radius: 8px; padding: 7px 12px; font: 600 13px system-ui, sans-serif; cursor: pointer; margin: 6px 0 2px; width: 100%; }
-      .note { color: #8fa3bb; font-size: 11.5px; }
-      details summary { cursor: pointer; color: #9fb3ca; font-size: 12px; list-style: none; }
-      .ready { color: #b9f0cf; padding: 8px 0 2px; }
-    </style>`;
-    const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
-    const sorted = Object.fromEntries(GROUPS.map(g => [g.id, []]));
-    for (const item of summary.todo) {
-      const group = GROUPS.find(g => g.match.test(item)) || GROUPS[2];
-      sorted[group.id].push(item.replace(group.match, '').trim() || item);
-    }
-    const open = ['legal', 'answer', 'action'].reduce((n, id) => n + sorted[id].length, 0);
-    const p = el('div', {className: open ? 'p' : 'p ready'});
-    const close = el('button', {className: 'x', type: 'button', title: 'Close', textContent: '✕'});
-    close.onclick = () => host.remove();
-    p.append(el('div', {className: 'head'}, el('div', {className: 'mark', textContent: 'JP'}),
-      el('div', {className: 'title', textContent: `${summary.filled} fields filled`}),
-      el('span', {className: `chip ${open ? 'left' : 'ok'}`, textContent: open ? `${open} left for you` : '✓ Ready to submit'}), close));
-    const body = el('div', {className: 'body'});
-    if (!open) body.append(el('div', {className: 'ready', textContent: 'All required fields are done. Read the AI-written answers, then press Submit.'}));
-    for (const group of GROUPS) {
-      const items = sorted[group.id];
-      if (!items.length) continue;
-      const list = items.map(text => { const b = el('button', {className: 'item', type: 'button', title: text, textContent: text}); b.onclick = () => reveal(text); return b; });
-      const heading = el('h4', {}, `${group.icon} ${group.title}`, el('span', {className: 'n', textContent: String(items.length)}));
-      if (group.id === 'done' || group.id === 'check' && items.length > 3) {
-        body.append(el('section', {}, el('details', {}, el('summary', {}, heading), ...list)));
-        continue;
-      }
-      const section = el('section', {}, heading, ...list);
-      if (group.id === 'legal') {
-        const tick = el('button', {className: 'primary', type: 'button', textContent: `✓ Accept all ${items.length} for me`});
-        tick.onclick = () => {
-          const ticked = tickConsents();
-          panel({...summary, filled: summary.filled + ticked.length,
-            todo: [...summary.todo.filter(item => !GROUPS[0].match.test(item)), ...ticked.map(text => `Ticked for you: ${text}`)]});
-        };
-        section.append(tick, el('div', {className: 'note', textContent: 'Always: extension Settings → "Tick terms and consent boxes for me".'}));
-      }
-      body.append(section);
-    }
-    p.append(body);
-    root.append(p);
-    document.documentElement.append(host);
-  };
-
   // answers: [{field, value, question?, confidence?, note?}] merged by the extension (AI + kit).
   // For "Fill drop-down menus too": the next armed dropdown, scrolled into view, as viewport coordinates
   // for a real click (sent by the extension through Chrome's debugger), or null when none is left.
@@ -353,50 +257,7 @@
   window.__jobPilottoArmedCount = () => document.querySelectorAll('[data-jobpilotto-armed]').length;
 
   // ---- Live panel: re-checks the page as the user works, so done items disappear and it turns green. ----
-  let liveBase = null;
   const attention = new Map();  // field id -> label: AI-written answers the user should read
-  const liveTodo = () => {
-    const items = [];
-    // Consents still unticked.
-    for (const box of document.querySelectorAll('input[type=checkbox]')) {
-      const text = `${questionOf(box)} ${labelOf(box)}`, label = box.labels?.[0] || box.closest('label');
-      if (box.checked || !LEGAL.test(text) || !(visible(box) || (label && visible(label)))) continue;
-      items.push(`Your choice (legal): ${clean(String(questionOf(box) || labelOf(box)).replace(/\S*(_|\[\])\S*/g, ' ')).slice(0, 160)}`);
-    }
-    // Dropdowns still waiting for their click.
-    const armedLeft = document.querySelectorAll('[data-jobpilotto-armed]').length;
-    if (armedLeft) items.push(`Click the ${armedLeft} highlighted dropdown(s); each picks its answer when opened`);
-    // Required fields still empty (checkbox groups counted once).
-    const groups = new Set();
-    for (const row of window.__jobPilottoAuditVisibleFields()) {
-      if (!row.required || row.filled || row.legal || /^(attach|dropbox|google drive|enter manually)$/i.test(clean(row.label))) continue;
-      if (row.field === 'resume') { items.push('Upload your CV'); continue; }
-      const el = document.getElementById(row.field);
-      if (el?.closest('[data-jobpilotto-armed]')) continue;
-      if (el?.type === 'checkbox') {
-        const q = questionOf(el);
-        if (Array.from(document.querySelectorAll('input[type=checkbox]')).some(b => questionOf(b) === q && b.checked) || groups.has(q)) continue;
-        groups.add(q);
-        items.push(`Answer: ${q || row.label}`);
-        continue;
-      }
-      const name = once(clean(row.label).replace(row.field, '')) || row.field;
-      items.push(el?.type === 'file' || row.type === 'file' ? `Upload: ${name}` : `Answer: ${name}`);
-    }
-    for (const label of attention.values()) items.push(`Read: ${label}`);
-    const kept = (liveBase?.todo || []).filter(item => /^(Check|Ticked for you|Tip):/.test(item));
-    return [...new Set([...items, ...kept])];
-  };
-  let recheckTimer = null;
-  const recheck = () => {
-    clearTimeout(recheckTimer);
-    recheckTimer = setTimeout(() => {
-      if (liveBase && document.getElementById('job-pilotto-panel')) panel({...liveBase, todo: liveTodo()});
-    }, 350);
-  };
-  if (typeof document.addEventListener === 'function') for (const type of ['change', 'input', 'click']) {
-    document.addEventListener(type, event => { if (!event.composedPath().some(n => n.id === 'job-pilotto-panel')) recheck(); }, true);
-  }
   // Orange border + tag on answers the AI wrote (long text, cover letter, low confidence); cleared when the user edits.
   const markAttention = (field, label) => {
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
@@ -410,12 +271,11 @@
     attention.set(field, clean(label).slice(0, 120));
     const clear = event => {
       if (!event.isTrusted) return;
-      target.style.outline = ''; tag.remove(); attention.delete(field); recheck();
+      target.style.outline = ''; tag.remove(); attention.delete(field);
       el.removeEventListener('input', clear);
     };
     el.addEventListener('input', clear);
   };
-  window.__jobPilottoPanel = summary => { liveBase = summary; panel({...summary, todo: liveTodo()}); };
 
   // Optional cover letter: a textarea labelled Cover letter, or behind an "Enter manually" button.
   const fillCoverLetter = async letter => {
@@ -566,7 +426,6 @@
     }
     const letterBox = Array.from(document.querySelectorAll('textarea')).find(el => /cover\s*letter/i.test(`${el.id} ${el.name} ${labelOf(el)}`));
     if (coverLetter && letterBox?.value) markAttention(letterBox.id || letterBox.name, 'Cover letter');
-    window.__jobPilottoPanel(summary);
     return summary;
   };
 })();

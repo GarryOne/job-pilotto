@@ -25,7 +25,7 @@ async function run() {
       if (!func) return [{}];
       const window = {__jobPilottoDescribeForm: async () => FORM, __jobPilottoCheckboxQuestions: () => [], __jobPilottoPageText: () => '',
         __jobPilottoProfileEntries: rows => rows.filter(r => ['first_name', 'last_name', 'email', 'phone'].includes(r.field)).map(r => ({field: r.field})),
-        __jobPilottoExtensionFill: list => { calls.push({path: 'page fill', fields: list.map(a => a.field)}); return {filled: 5, todo: []}; }, __jobPilottoArmedCount: () => 0, __jobPilottoPanel: () => {}};
+        __jobPilottoExtensionFill: list => { calls.push({path: 'page fill', fields: list.map(a => a.field)}); return {filled: 5, todo: []}; }, __jobPilottoArmedCount: () => 0};
       globalThis.window = window;
       return [{result: await func(...(args || []))}];
     }},

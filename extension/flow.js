@@ -218,7 +218,6 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   if (!clickDropdowns && await armedLeft()) {
     // Say why they're left, and how to have them chosen automatically.
     summary.todo = [...(summary.todo || []), 'Tip: turn on "Fill drop-down menus too" in the extension Settings to have these chosen for you'];
-    await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
   }
   if (clickDropdowns) {
     onStep('Choosing the drop-down answers…');
@@ -237,12 +236,10 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         summary.todo = (summary.todo || []).filter(item => !/highlighted dropdown/.test(item));
         const left = await inPage(tab.id, () => window.__jobPilottoArmedCount());
         if (left) summary.todo.unshift(`Click the ${left} highlighted dropdown(s); each picks its answer when opened`);
-        await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
       }
     } catch (error) {
       debug.errors.push(`dropdowns: ${error.message}`);
       summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
-      await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
     }
   }
   // With a kit: the questions it doesn't cover, answered by Claude now that the rest is already on the page.
