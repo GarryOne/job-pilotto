@@ -506,6 +506,8 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .recent-row[data-state="ok"] .run-status::after { content: '✓'; }
 .recent-row[data-state="error"] .run-status { background: var(--bad); }
 .recent-row[data-state="error"] .run-status::after { content: '!'; }
+.recent-row[data-state="queued"] .run-status { background: transparent; border: 2px dashed var(--line-strong); }
+.recent-row[data-state="queued"] { cursor: default; }
 .recent-row[data-state="busy"] .run-status { background: transparent; border: 2px solid var(--signal-line); border-top-color: var(--signal); animation: spin .8s linear infinite; }
 .run-kind { font-weight: 600; white-space: nowrap; }
 .ap-detail { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px 4px; background: var(--surface-2); }

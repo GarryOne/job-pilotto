@@ -318,7 +318,7 @@ function handlers() {
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
   });
-  ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running() || cloudRunning,
+  ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running() || cloudRunning, queued: pipeline.queued(),
     lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings()),
     nextMailAt: nextMailAt(storage.settings())}));
   ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo

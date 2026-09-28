@@ -160,6 +160,9 @@ export function saveRuns(storage, list) { storage.writeText('runs.json', JSON.st
 export function runs(storage) { try { return JSON.parse(storage.readText('runs.json')) || []; } catch { return []; } }
 let current = null;
 export const running = () => current;
+// Tracked tasks waiting behind the running one (oldest first), so Recent activity lists them at once.
+let waiting = [], nextTicket = 0;
+export const queued = () => waiting.map(({id, kind, trigger, queuedAt}) => ({id, kind, trigger, queuedAt}));
 
 export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
   return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), record => {
@@ -245,7 +248,13 @@ export function taskSummary(kind, log) {
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
 function tracked(storage, kind, trigger, onLine, work, summarize) {
-  return serial(async () => {
+  // The same task already waiting: a second click joins it instead of queueing it twice.
+  const twin = waiting.find(ticket => ticket.kind === kind);
+  if (twin) return twin.done;
+  const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString()};
+  waiting.push(ticket);
+  ticket.done = serial(async () => {
+    waiting = waiting.filter(other => other !== ticket);
     const log = [];
     const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
     current = {...record, step: 'Starting'};
@@ -269,6 +278,7 @@ function tracked(storage, kind, trigger, onLine, work, summarize) {
     }
     return {ok, run: record};
   });
+  return ticket.done;
 }
 
 // What started a run, for its Notion ⏰ Search runs row (GitHub runs say Schedule or Manual).

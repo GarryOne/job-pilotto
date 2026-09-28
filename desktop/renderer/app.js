@@ -267,7 +267,8 @@ function renderActivity(data) {
     : nextMailAt ? `📧 First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
   if (running) {
     const kind = KIND[kindOf(running)];
-    $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger})`;
+    const next = (data.queued || []).length;
+    $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger})${next ? ` · ${next} queued` : ''}`;
     $('activity-step').textContent = running.step || 'Starting…';
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
@@ -283,19 +284,23 @@ function renderActivity(data) {
 
   // Recent activity: newest first; click one to see its log below.
   const shown = runs.find(run => run.id === selectedRun) || null;
-  const recent = (running ? [{...running, live: true}] : []).concat(runs.slice(0, 8));
+  // Waiting behind the running task (a second action clicked meanwhile): listed at once, in the order they'll run.
+  const waiting = (data.queued || []).map(run => ({...run, waiting: true}));
+  const recent = (running ? [{...running, live: true}] : []).concat(waiting, runs.slice(0, 8));
   $('activity-count').textContent = `${recent.length} recent`;
   $('activity-recent').replaceChildren(...recent.map(run => {
     const item = document.createElement('li');
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'recent-row'});
     button.classList.toggle('current', run.live ? !shown : shown ? run.id === shown.id : run === last && !running);
-    button.dataset.state = run.live ? 'busy' : run.ok && !run.off ? 'ok' : 'error';
+    button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
     // Status circle (✓ / ! / spinner), what ran, when and what it found, who started it.
     button.append(el('span', 'run-status'), el('span', 'run-kind', `${kind.icon} ${kind.name}`),
-      el('span', 'muted run-what', run.live ? 'Running now' : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))}`),
+      el('span', 'muted run-what', run.live ? 'Running now' : run.waiting
+        ? `Queued · starts after ${running ? KIND[kindOf(running)].name : 'the current task'}`
+        : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))}`),
       pill(capital(WHO[run.trigger] || run.trigger), run.trigger === 'you' ? 'good' : 'neutral'));
-    button.addEventListener('click', () => { selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
+    button.addEventListener('click', () => { if (run.waiting) return; selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;
   }));
@@ -1682,8 +1687,10 @@ document.querySelectorAll('[data-command]').forEach(button => button.addEventLis
   openActivity(true);  // feedback at once: what runs and its log, in Recent activity
   button.disabled = true;
   if (COMMAND_KIND[button.dataset.command]) awaitedRun = {kind: COMMAND_KIND[button.dataset.command], since: Date.now() - 2000};
+  refreshActivity();
   const result = await window.pilot.command(button.dataset.command);
   button.disabled = false;
+  refreshActivity();  // it's queued (or running) by now: its row shows at once
   answer(result.text + (result.telegram ? '\n\n(Also sent to Telegram.)' : ''));
 }));
 $('replace-cv').addEventListener('click', async () => {
