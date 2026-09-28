@@ -463,8 +463,6 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .activity.open .activity-bar { position: relative; z-index: 41; background: var(--surface); }
 .activity-panel { z-index: 40; padding: 14px 16px 12px; border-radius: var(--r-lg); max-height: min(70vh, 560px);
   box-shadow: 0 30px 80px rgb(var(--shadow-rgb) / .35), 0 4px 14px rgb(var(--shadow-rgb) / .12); }
-.activity-panel::after { content: ''; position: absolute; right: 22px; bottom: -7px; width: 14px; height: 14px; background: var(--surface);
-  border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
 .ap-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .ap-head h3 { margin: 0; font-size: var(--fs-lg); }
 .ap-pulse { color: var(--info); display: grid; }
@@ -496,6 +494,30 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-detail .activity-log summary { font-size: var(--fs-sm); color: var(--ink); }
 .ap-detail .log { font-size: var(--fs-sm); padding: 8px 12px; }
 @media (prefers-reduced-motion: reduce) { .recent-row[data-state="busy"] .run-status { animation: none; } }
+/* Compact: rows keep their own height (they had stretched to the Schedule column), tighter spacing. */
+.activity-panel { padding: 10px 14px 10px; }
+.ap-head { gap: 8px; margin-bottom: 6px; }
+.ap-head h3 { font-size: var(--fs-base); }
+.ap-pulse .icon { width: 16px; height: 16px; }
+.ap-close { width: 26px; height: 26px; }
+.activity-cols { margin-bottom: 8px; align-items: start; }
+.activity-recent { align-content: start; gap: 1px; }
+.recent-row { padding: 3px 8px; gap: 8px; grid-template-columns: 16px 104px minmax(0, 1fr) auto; }
+.run-status { width: 15px; height: 15px; font-size: calc(var(--fs-xs) * .8); }
+.recent-row .ui-pill { padding: 0 7px; }
+.ap-schedule { gap: 6px; }
+#activity-schedule { gap: 6px; }
+.ap-slot { padding: 5px 10px; gap: 8px; }
+.ap-slot .ui-tile { width: 26px; height: 26px; }
+.ap-slot .ui-tile .icon { width: 14px; height: 14px; }
+.ap-slot b { font-size: var(--fs-xs); }
+.ap-time { font-size: var(--fs-lg); }
+#check-mail { padding: 4px 10px; font-size: var(--fs-sm); }
+.ap-detail { padding: 6px 10px 2px; }
+.ap-detail .activity-selected { margin: 0 0 4px; font-size: var(--fs-sm); }
+.ap-detail .activity-phases { gap: 2px; margin-bottom: 6px; font-size: var(--fs-sm); }
+.ap-detail .activity-log summary { margin-bottom: 4px; }
+.ap-detail .log { font-size: var(--fs-xs); padding: 6px 10px; margin-bottom: 6px; }
 
 /* Settings → Danger zone */
 .setting.danger-zone { border-color: var(--bad-line); background: var(--bad-soft); }
