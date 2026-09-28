@@ -37,10 +37,20 @@ function goStep(name) {
   window.pilot.saveSettings({wizardStep: name});  // reopening the app continues here
   if (name === 'ai' && state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value) {
     message('ai-message', '✓ Your key is saved. Continue, or paste a new key to replace it.', 'ok');
+    // The saved key, masked (dots and its last 4 characters), as in Settings.
+    window.pilot.secretHints().then(hints => {
+      if (hints.ANTHROPIC_API_KEY) $('anthropic-key').placeholder = `${hints.ANTHROPIC_API_KEY} · saved (paste a new one to replace it)`;
+    });
   }
   if (name === 'notion') showNotionNext();
-  if (name === 'notion' && notionReady() && !$('notion-key').value) {
-    message('notion-message', '✓ Connected to your Job Pilotto workspace. Continue, or connect again.', 'ok');
+  // Reviewing a finished setup: the workspace stays as it is (switching it is Settings → Notion).
+  const reviewing = !!state.settings.setupDone && !!state.notion;
+  $('notion-oauth').disabled = reviewing;
+  document.querySelector('.step[data-step="notion"] .oauth').classList.toggle('locked', reviewing);
+  if (name === 'ai') $('ai-save').textContent = state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value ? 'Continue' : 'Check and save';
+  if (name === 'notion' && (notionReady() || reviewing) && !$('notion-key').value) {
+    message('notion-message', reviewing ? '✓ Connected to your Job Pilotto workspace. To connect a different one: Settings → Notion.'
+      : '✓ Connected to your Job Pilotto workspace. Continue, or connect again.', 'ok');
   }
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
   document.querySelectorAll('#step-list li').forEach((li, i) => {
@@ -68,6 +78,9 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 
 const notionReady = () => !!state.notion && Object.keys(state.notion).length >= 11;
 
+$('anthropic-key').addEventListener('input', () => {
+  $('ai-save').textContent = state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value.trim() ? 'Continue' : 'Check and save';
+});
 $('ai-save').addEventListener('click', async () => {
   const key = $('anthropic-key').value.trim();
   if (!key && state.secrets.ANTHROPIC_API_KEY) { goStep('notion'); return; }  // saved earlier: just continue
@@ -87,7 +100,7 @@ $('ai-skip').addEventListener('click', () => goStep('notion'));
 // Notion is required: the wizard continues only when every database and page of the template is found.
 $('notion-template').addEventListener('click', () => window.pilot.openExternal(state.templateUrl));
 // Connected earlier (e.g. setup run again): Continue without connecting again.
-function showNotionNext() { show($('notion-next'), notionReady()); }
+function showNotionNext() { show($('notion-next'), notionReady() || (!!state.settings.setupDone && !!state.notion)); }
 $('notion-next').addEventListener('click', () => goStep('cv'));
 $('notion-oauth').addEventListener('click', async () => {
   $('notion-oauth').disabled = true;

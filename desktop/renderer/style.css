@@ -636,3 +636,6 @@ details.manual { margin-top: 18px; }
 .save-dialog .impact { padding-left: 18px; display: grid; gap: var(--sp-2); font-size: var(--fs-base); margin: var(--sp-4) 0; }
 .save-dialog .impact li.bad b { color: var(--bad); }
 .save-dialog .impact li.good b { color: var(--good); }
+
+/* Reviewing a finished setup: the Notion connect steps are shown dimmed, the button disabled */
+.oauth.locked ol { opacity: .55; }
