@@ -803,6 +803,72 @@
         "Waiting for you": {
           "type": "formula",
           "expression": "if(contains(format(prop(\"Job stage\")), \"Applying\"), \"⏳ Submit pending\", \"\")"
+        },
+        "Claude working (min)": {
+          "type": "number",
+          "format": "number"
+        },
+        "Waiting for you (min)": {
+          "type": "number",
+          "format": "number"
+        },
+        "Times asked": {
+          "type": "number",
+          "format": "number"
+        },
+        "Your reply (median s)": {
+          "type": "number",
+          "format": "number"
+        },
+        "Ready → decided (min)": {
+          "type": "number",
+          "format": "number"
+        },
+        "Outcome": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Submitted",
+              "color": "green"
+            },
+            {
+              "name": "Not submitted",
+              "color": "gray"
+            },
+            {
+              "name": "Open",
+              "color": "yellow"
+            }
+          ]
+        },
+        "Turns": {
+          "type": "number",
+          "format": "number"
+        },
+        "Tool calls": {
+          "type": "number",
+          "format": "number"
+        },
+        "Tools used": {
+          "type": "rich_text"
+        },
+        "Tokens in": {
+          "type": "number",
+          "format": "number"
+        },
+        "Tokens out": {
+          "type": "number",
+          "format": "number"
+        },
+        "Cache read": {
+          "type": "number",
+          "format": "number"
+        },
+        "Model": {
+          "type": "rich_text"
+        },
+        "Session timeline": {
+          "type": "rich_text"
         }
       }
     },

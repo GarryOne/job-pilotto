@@ -50,6 +50,26 @@ const KEEP_DAYS = 14;
 const sessions = new Map();
 let saveFile = null, saveTimer = null, closing = false;
 let listener = () => {};
+// The timeline of each session (every status change, with its time) feeds its statistics in Notion (session-stats.js):
+// onStatus(fn) hears each change, so the app writes them when something happened, not on every byte of output.
+let statusListener = () => {};
+export function onStatus(fn) { statusListener = fn; }
+function mark(session, status = session.status, now = new Date().toISOString()) {
+  session.events ||= [];
+  if (session.events.at(-1)?.status === status) return;
+  session.events.push({at: now, status});
+  statusListener(publicView(session), session);
+}
+// What you decided at the end: 'submitted' or 'not submitted' (the "Did you submit?" question, or Jobs → ⋯).
+export function setOutcome(id, outcome) {
+  const session = sessions.get(id);
+  if (!session) return;
+  session.outcome = outcome;
+  session.decidedAt = new Date().toISOString();
+  mark(session, `decided: ${outcome}`, session.decidedAt);
+  saveNow();
+}
+export const record = id => sessions.get(id) || null;  // the full record (timeline, transcript path), for statistics
 let loadPty = () => import('@lydell/node-pty').then(module => module.default || module);
 
 // For tests: a fake pseudo-terminal.
@@ -93,6 +113,7 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
       session.endedAt = new Date().toISOString();
       if (session.status !== 'done') session.status = exitCode === 0 ? 'ended' : 'failed';
       if (session.status !== 'done') session.note = exitCode === 0 ? 'Session ended' : `Session stopped (exit ${exitCode})`;
+      mark(session, session.status === 'done' ? 'ended after filling' : session.status);
       listener('update', publicView(session));
       save();
     });
@@ -102,9 +123,10 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
 // Start one session: file + args run in cwd with env, in a terminal of cols x rows. claudeId is the Claude Code
 // conversation it runs (claude --session-id), kept so the session can be resumed after the app was closed.
 export async function start({id, url, title = '', company = '', location = '', workMode = '', claudeId = '', ...launch}) {
-  const session = {id, url, title, company, location, workMode, claudeId, term: null, output: '', status: 'running', note: 'Starting…', startedAt: new Date().toISOString()};
+  const session = {id, url, title, company, location, workMode, claudeId, term: null, output: '', status: 'running', note: 'Starting…', startedAt: new Date().toISOString(), events: []};
   await attach(session, launch);
   sessions.set(id, session);
+  mark(session, 'running', session.startedAt);
   listener('update', publicView(session));
   save();
   return publicView(session);
@@ -123,6 +145,7 @@ export async function resume(id, launch) {
   session.exitCode = null;
   session.restored = false;
   if (session.status === 'ended' || session.status === 'failed') Object.assign(session, {status: 'running', note: 'Resuming…', needsYouSince: null});
+  mark(session, session.status === 'running' ? 'running' : `resumed (${session.status})`);
   listener('update', publicView(session));
   save();
   return publicView(session);
@@ -132,7 +155,8 @@ export async function resume(id, launch) {
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
-  claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
+  claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
+  decidedAt: s.decidedAt || null, runPage: s.runPage || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
   screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
@@ -279,6 +303,7 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
   else if (event === 'prompt') Object.assign(session, {status: 'running', note: session.answered || before === 'input' ? 'Working on your reply…' : 'Working…', answered: session.answered || before === 'input'});
   if (session.status === 'input' && before !== 'input') session.needsYouSince = new Date().toISOString();
   if (session.status !== 'input') session.needsYouSince = null;
+  mark(session);
   listener('update', publicView(session));
   save();
   return {session: publicView(session), needsYou: session.status === 'input' && before !== 'input'};

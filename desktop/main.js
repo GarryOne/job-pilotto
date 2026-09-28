@@ -17,6 +17,7 @@ import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
 import * as quitDialog from './lib/quit-dialog.js';
 import * as review from './lib/review.js';
+import * as sessionRuns from './lib/session-runs.js';
 import {listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
@@ -695,6 +696,7 @@ function handlers() {
       {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 2, message, detail});
     if (response === 2) return {ok: false, cancelled: true};
     const result = DEMO ? {ok: true} : response === 0 ? await pipeline.setStatus(storage, found.url, 'applied') : await pipeline.unapply(storage, found.url);
+    if (result.ok) terminals.setOutcome(String(id), response === 0 ? 'submitted' : 'not submitted');  // its statistics, before it goes
     if (!result.ok) return {ok: false, error: result.error || 'Notion could not be updated.'};
     terminals.remove(String(id));
     return {ok: true, submitted: response === 0};
@@ -715,7 +717,7 @@ function handlers() {
     const reset = [], failed = [];
     for (const session of found) {
       const result = DEMO ? {ok: true} : await pipeline.unapply(storage, session.url).catch(error => ({ok: false, error: error.message}));
-      if (result.ok) { terminals.remove(session.id); reset.push(session.url); } else failed.push({url: session.url, error: result.error});
+      if (result.ok) { terminals.setOutcome(session.id, 'not submitted'); terminals.remove(session.id); reset.push(session.url); } else failed.push({url: session.url, error: result.error});
     }
     return {choice: 'reset', reset, failed, kept: open.size};
   });
@@ -956,6 +958,12 @@ if (firstCopy) app.whenReady().then(() => {
       : `Chrome extension connection failed: ${error.message}`));
   }
   if (!DEMO) { terminals.persist(path.join(storage.dir, 'sessions.json')); terminals.restore(); }  // sessions of the last run
+  // Each session's statistics on its Agent Runs row in Notion, a few seconds after each change (lib/session-runs.js).
+  if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => ({
+    call: (method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body),
+    db: storage.settings().notionIds?.NOTION_AGENT_RUNS_DB,
+    create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || ''),
+  }), page => { session.runPage = page; terminals.saveNow(); }));
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
