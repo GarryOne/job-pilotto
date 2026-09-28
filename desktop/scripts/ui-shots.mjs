@@ -21,8 +21,7 @@ export const SCREENS = [
   ['jobs', 'Jobs: stat tiles, toolbar, job rows (fit ring, tags, status pill, main action, ⋯)', `${open('jobs')} ${wait(1200)}`],
   ['session', 'Session page: list, job header, decision card, live terminal, message box, quick replies',
     `document.getElementById('sd-all').click(); ${wait(1500)}`],
-  ['actions', 'Actions: two labelled sections (Run now / Look up) and the Status card',
-    `${open('actions')} document.querySelector('[data-command=status]').click(); ${wait(1200)}`],
+  ['actions', 'Actions: running banner, task cards by category with Run, Recent runs table', `${open('actions')} ${wait(1500)}`],
   ['interviews', 'Interviews: recorder, drafts and the saved library table', `${open('interviews')} ${wait(1200)}`],
   ['settings', 'Settings: setting rows (title, explanation, control)', `${open('settings')} ${wait(1200)}`],
   ['strategy', 'Strategy: targeting rows with chips, score bars, Avoid; side glance card', `${open('strategy')} ${wait(2500)}`],
@@ -40,7 +39,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const png = path.join(data, 'shot.png');
     spawnSync(electron, ['.'], {cwd: desktop, stdio: 'ignore', timeout: 60000, env: {...process.env, ...env,
       JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: js}});
-    if (!fs.existsSync(png)) { console.error(`${name}: no screenshot`); fs.rmSync(data, {recursive: true, force: true}); continue; }
+    if (!fs.existsSync(png)) { console.error(`${name}: no screenshot (its script failed?)`); process.exitCode = 1; fs.rmSync(data, {recursive: true, force: true}); continue; }
     // 1400 px wide JPEGs: sharp enough to read, small enough for git (~150 KB each).
     execFileSync('sips', ['-Z', '1400', '-s', 'format', 'jpeg', '-s', 'formatOptions', '78', png, '--out', path.join(out, `${name}.jpg`)], {stdio: 'ignore'});
     fs.rmSync(data, {recursive: true, force: true});
