@@ -50,7 +50,6 @@ export function localEnv(storage) {
     NOTION_ANSWERS_PAGE_ID: ids.NOTION_ANSWERS_PAGE_ID || '',
     // extension.js reads the Profile, standard answers and 🧠 Form knowledge pages from Notion.
     JOB_PILOTTO_KIT_MODEL: pipeline.MODELS.kit,
-    queue: async () => (await pipeline.jobs(storage)).jobs.filter(j => ['unreviewed', 'saved'].includes(j.status)).slice(0, 25).map(summary),
     markApplied: async url => {
       const job = await find(url);
       if (!job) return {ok: false, error: 'This job isn\'t in your list'};

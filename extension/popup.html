@@ -27,10 +27,6 @@
   li { margin: 2px 0; }
   .ok { color: var(--green); }
   .warn { color: var(--amber); }
-  .queue-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
-  .queue-row:first-of-type { border-top: 0; }
-  .queue-row div { flex: 1; min-width: 0; }
-  .queue-row .title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .note { font-size: 12px; color: var(--muted); }
   [hidden] { display: none !important; }
   .brand { display: inline-flex; align-items: center; gap: 6px; } .brand img { border-radius: 5px; }
@@ -50,8 +46,7 @@
     <div style="margin-top:6px"><span class="pill" id="job-stage"></span> <span class="muted" id="job-answers"></span></div>
   </section>
   <section id="actions" class="actions" hidden>
-    <button class="primary" id="fill-ai">Fill with AI</button>
-    <button class="secondary" id="fill-kit">Fill without AI</button>
+    <button class="primary" id="fill">Fill this form</button>
     <button class="secondary" id="copy-letter" hidden>Copy cover letter</button>
     <button class="secondary" id="applied" hidden>I submitted it: mark Applied</button>
   </section>
@@ -61,10 +56,6 @@
   </section>
   <section id="result" class="card" hidden></section>
   <a id="run-log" class="note" href="#" hidden>📋 Open this fill's record in Notion (field by field)</a>
-  <section id="queue" class="card" hidden>
-    <b>Ready to apply</b> <span class="muted" id="queue-count"></span>
-    <div id="queue-list" style="margin-top:6px"></div>
-  </section>
   <p class="note">Job Pilotto never clicks Submit: review every field, then submit yourself.</p>
 </main>
 <script src="popup.js" type="module"></script>

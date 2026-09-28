@@ -1,18 +1,6 @@
-// "Open & fill" from the popup's Ready to apply list: open the job, wait for it to load, fill it.
-// The result shows in a panel on the page (the popup has closed by then) and in the icon badge.
+// The background worker: tabs the app opens to fill (#jobpilotto-fill), Apply with Claude's hand-off, the ring's
+// messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, pair, settings} from './flow.js';
-
-function loaded(tabId) {
-  return new Promise(resolve => {
-    const done = (id, info) => {
-      if (id === tabId && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(done);
-        resolve();
-      }
-    };
-    chrome.tabs.onUpdated.addListener(done);
-  });
-}
 
 async function note(tabId, text) {
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
@@ -37,7 +25,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     // Not one of the supported job sites (flow.js JOB_SITES):
     // the extension may not touch this page by itself; the user can still click its button here.
     chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
-    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill with AI (this site needs your click)'}).catch(() => {});  // the tab may already be closed
+    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill this form (this site needs your click)'}).catch(() => {});  // the tab may already be closed
     return;
   }
   started.add(tabId);
@@ -195,14 +183,6 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     })().then(reply, () => reply({matched: null}));
     return true;  // the reply comes later
   }
-  if (message?.type !== 'openAndFill') return false;
-  (async () => {
-    const tab = await chrome.tabs.create({url: message.url, active: true});
-    await loaded(tab.id);
-    started.add(tab.id);
-    await fillOpenedTab(tab, message.url);
-  })();
-  reply({ok: true});
   return false;
 });
 

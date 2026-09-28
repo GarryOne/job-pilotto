@@ -1,5 +1,5 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
-// Shared by the popup (the tab you're on) and the background worker ("Open & fill" from the queue).
+// Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -131,9 +131,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null;
-  // A job with a kit fills from it at once: the form was read and answered (and eligibility decided) when
-  // the kit was drafted, so no Claude call here; anything the kit missed is listed for the user.
-  if (kitAnswers.length) useAI = false;
+  // The best of both, like an Apply with Claude session: the kit's answers first (drafted when the kit was made),
+  // then Claude only for the questions they don't cover, so nothing is left empty that could be answered. A form
+  // the kit covers fully costs nothing (no call when nothing is open).
   if (useAI) {
     const form = await inPage(tab.id, async () => [...await window.__jobPilottoDescribeForm(),
       ...window.__jobPilottoCheckboxQuestions().map(g => ({field: `group:${g.question}`, label: g.question, type: 'checkbox-group', options: g.options}))]);

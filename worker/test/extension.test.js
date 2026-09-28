@@ -152,11 +152,9 @@ test('AI answer endpoint: validates input and reports a missing key', async () =
   assert.equal(response.status, 503);
 });
 
-test('ready-to-apply queue lists Kit ready jobs', async () => {
-  const calls = mockFetch();
-  const data = await (await call('/extension/queue')).json();
-  assert.deepEqual(data.jobs.map((j) => j.company), ['Anthropic']);
-  assert.deepEqual(calls[0].body.filter, { property: 'Stage', select: { equals: 'Kit ready' } });
+test('no job list in the extension: which job to apply to next is the desktop app\'s', async () => {
+  mockFetch();
+  assert.equal((await call('/extension/queue')).status, 404);
 });
 
 test('test mode tells Claude to answer every field with dummy values where unsure', async () => {

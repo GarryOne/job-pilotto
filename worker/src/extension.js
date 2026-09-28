@@ -1,7 +1,6 @@
 // Endpoints for the Job Pilotto Chrome extension (extension/ in the repo).
 //
 //   GET  /extension/kit?url=<job page>  the job's Applications row and its drafted kit, read from Notion
-//   GET  /extension/queue               jobs with a drafted kit, for the popup's "Ready to apply" list
 //   POST /extension/answer {url, fields, page_text}
 //                                       one Claude call answers every field of the live form from the
 //                                       Profile, Application Answers and the kit; checks eligibility
@@ -308,14 +307,6 @@ export async function handleExtension(request, env) {
       if (!row) return json({ error: 'not tracked', hint: 'Prepare a kit for this job first (📝 Prepare in Telegram).' }, 404);
       const kit = await readKit(env, row.id);
       return json({ job: summary(row), kit: kit ? kitForForm(kit) : null });
-    }
-    if (request.method === 'GET' && url.pathname === '/extension/queue') {
-      if (env.queue) return json({ jobs: await env.queue() }); // desktop app: its own list
-      const data = await notion(env, `databases/${env.NOTION_APPLICATIONS_DB}/query`, 'POST', {
-        filter: { property: 'Stage', select: { equals: 'Kit ready' } },
-        sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }], page_size: 25,
-      });
-      return json({ jobs: data.results.map(summary).filter((job) => job.url) });
     }
     if (request.method === 'POST' && url.pathname === '/extension/answer') {
       const body = await request.json().catch(() => ({}));

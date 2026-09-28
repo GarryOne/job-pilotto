@@ -1,5 +1,5 @@
-// Popup: fill the job page you're on (with AI, or from the drafted kit only), mark it Applied,
-// and open the next job from the Ready to apply list. Nothing runs on a page until you click here.
+// Popup: the job page you're on only: fill it (with AI, or from the drafted kit only) and mark it Applied. Which
+// job to apply to next is the desktop app's job. Nothing runs on a page until you click here.
 import {api, cachedAI, fillTab, forgetAI, settings} from './flow.js';
 
 const $ = id => document.getElementById(id);
@@ -59,7 +59,7 @@ function showResult(result) {
 }
 
 async function fill(options) {
-  for (const id of ['fill-ai', 'fill-kit', 'fill-anyway']) $(id).disabled = true;
+  for (const id of ['fill', 'fill-anyway']) $(id).disabled = true;
   $('ineligible').hidden = true;
   const started = Date.now();
   let step = 'Reading the form…';
@@ -83,17 +83,17 @@ async function fill(options) {
     status(/Cannot access|cannot be scripted/i.test(error.message) ? 'Chrome doesn\'t allow extensions on this page.'
       : `Filling failed: ${error.message}`, 'warn');
   } finally {
-    for (const id of ['fill-ai', 'fill-kit', 'fill-anyway']) $(id).disabled = false;
-    $('fill-ai').textContent = 'Fill again with AI';
+    for (const id of ['fill', 'fill-anyway']) $(id).disabled = false;
+    $('fill').textContent = 'Fill again';
   }
 }
 
-// "Fill again with AI" asks Claude again (e.g. after the form changed); the first click uses what's known.
-$('fill-ai').addEventListener('click', async () => {
-  if ($('fill-ai').textContent.startsWith('Fill again')) await forgetAI(tab);
+// One way to fill, the best one (flow.js fillTab): the kit's answers, then Claude only for what they don't cover.
+// "Fill again" (after the form changed, or a next page) reads it afresh.
+$('fill').addEventListener('click', async () => {
+  if ($('fill').textContent.startsWith('Fill again')) await forgetAI(tab);
   fill({useAI: true});
 });
-$('fill-kit').addEventListener('click', () => fill({useAI: false}));
 $('fill-anyway').addEventListener('click', () => fill({useAI: true, force: true}));
 
 $('copy-letter').addEventListener('click', async () => {
@@ -111,38 +111,6 @@ $('applied').addEventListener('click', async () => {
     status(`Couldn't mark it Applied: ${error.message}`, 'warn');
   }
 });
-
-async function loadQueue() {
-  try {
-    const {jobs} = await api(config, '/extension/queue');
-    if (!jobs.length) return;
-    $('queue').hidden = false;
-    $('queue-count').textContent = `· ${jobs.length} with a drafted kit`;
-    for (const job of jobs.slice(0, 8)) {
-      const row = document.createElement('div');
-      row.className = 'queue-row';
-      const text = document.createElement('div');
-      const title = document.createElement('div');
-      title.className = 'title';
-      title.textContent = job.title;
-      const company = document.createElement('div');
-      company.className = 'muted';
-      company.textContent = job.company;
-      text.append(title, company);
-      const open = document.createElement('button');
-      open.className = 'secondary small';
-      open.textContent = 'Open & fill';
-      open.addEventListener('click', async () => {
-        // The job sites are granted at install (manifest host_permissions); asking here closed the popup
-        // before the answer came back, so the button did nothing.
-        await chrome.runtime.sendMessage({type: 'openAndFill', url: job.url});
-        window.close();
-      });
-      row.append(text, open);
-      $('queue-list').append(row);
-    }
-  } catch { /* the queue is a convenience; the page actions still work */ }
-}
 
 async function load() {
   if (!config.workerUrl || !config.token) {
@@ -164,11 +132,9 @@ async function load() {
       kit = data.kit;
       jobUrl = data.job.url || from || tab.url;
       $('job-answers').textContent = kit ? `${kit.answers.length} drafted answers` : 'no kit yet';
-      $('fill-kit').hidden = !kit;
       $('copy-letter').hidden = !kit?.cover_letter;
       $('applied').hidden = false;
     } catch (error) {
-      $('fill-kit').hidden = true;
       if (error.status === 401) status('The extension token was rejected. Check it in Settings.', 'warn');
       else if (error.status !== 404) status(`Couldn't reach your Worker: ${error.message}`, 'warn');
       // 404: a job that isn't tracked yet can still be filled with AI.
@@ -180,7 +146,6 @@ async function load() {
       $('ineligible-note').textContent = `Not filled: ${known.eligibility_note}`;
     }
   }
-  loadQueue();
 }
 
 load();
