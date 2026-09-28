@@ -167,8 +167,12 @@ test('draft progress: 10% once Claude starts writing, then each part by its shar
   assert.equal(strategy.progress(summary, {}).percent, 13);  // reading 10 + summary 3
   assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(7480), {}).percent, 33);  // + half of the Profile's 40
   const typical = {profile_markdown: 7500};  // this user's Profile is usually shorter: learned from the last draft
-  assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(7480), typical).percent, 53);
+  assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(7480), typical).percent, 51);  // a part being written stops at 95% of its share
   assert.equal(strategy.progress('{"summary":"x","profile_markdown":"y","answers_markdown":"z', {}).part, 'Writing your standard answers');
+  // A short Profile that's finished counts in full once the answers start (it used to count by length: bar ended ~45%).
+  assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(3000) + '","answers_markdown":"', {}).percent, 53);
+  const done = summary + '"profile_markdown":"y","answers_markdown":"z","open_questions":[],"search":{},"preferences":{},"contact":{"email":"a"';
+  assert.ok(strategy.progress(done, {}).percent >= 97);
   assert.ok(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(99999) + '","answers_markdown":"' + 'z'.repeat(99999)
     + '","open_questions":[],"search":{' + 'q'.repeat(9999) + '},"preferences":{' + 'p'.repeat(999) + '},"contact":{' + 'c'.repeat(999), {}).percent <= 99);
 });

@@ -68,10 +68,11 @@ export function progress(text, typical = {}) {
   for (const [key, label] of PARTS) if (text.includes(key)) part = label;
   const lengths = sectionLengths(text);
   let percent = text.length ? READING : 0;
-  for (const [key, share, usual] of SECTIONS) {
-    if (!lengths[key]) break;
-    percent += share * Math.min(1, lengths[key] / (typical[key] || usual));
-  }
+  const started = SECTIONS.filter(([key]) => lengths[key]);
+  started.forEach(([key, share, usual], i) => {
+    // A finished part (the next one has started) counts in full; only the one being written is estimated.
+    percent += i < started.length - 1 ? share : share * Math.min(0.95, lengths[key] / (typical[key] || usual));
+  });
   return {part, percent: Math.min(99, Math.round(percent)), chars: text.length, notes: notes(text)};
 }
 
