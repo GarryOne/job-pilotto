@@ -17,6 +17,7 @@ const KIT = [{field: 'question_15024092008', answer: 'Yes'}, {field: 'question_1
 
 async function run() {
   const calls = [];
+  globalThis.navigator ??= {userAgent: 'node-test'};  // Node 20 (CI) has no navigator; flow.js logs the user agent
   globalThis.chrome = {
     runtime: {getManifest: () => ({version: 'test'})},
     storage: {session: {get: async () => ({}), set: async () => {}}, local: {get: async () => ({})}},
