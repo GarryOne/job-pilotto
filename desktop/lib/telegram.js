@@ -48,12 +48,19 @@ export function localDispatch(storage, onLine = () => {}) {
       pipeline.checkMail(storage, onLine, 'you').catch(error => onLine(`Gmail check failed: ${error.message}`));
       return;
     }
-    let args;
-    if (workflow === 'scout.yml') args = ['src', 'scout', '--send', '--batch', String(inputs.batch || 15)];
-    else args = pipeline.dailyArgs(storage, inputs);
-    const crawl = ['scheduled', 'run'].includes(inputs.mode);
+    // Searching and the one-off jobs are tracked, so the app's Recent activity shows them and their result.
+    const failed = error => onLine(`Telegram action failed: ${error.message}`);
+    if (workflow === 'scout.yml') {
+      const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
+      pipeline.task(storage, 'scout', ['src', 'scout', ...send, '--batch', String(inputs.batch || 15)], onLine).catch(failed);
+      return;
+    }
+    if (inputs.mode === 'run') { pipeline.refresh(storage, onLine, 'run', 'you').catch(failed); return; }
+    if (pipeline.TASKS[inputs.mode]) { pipeline.task(storage, inputs.mode, pipeline.dailyArgs(storage, inputs), onLine).catch(failed); return; }
+    const args = pipeline.dailyArgs(storage, inputs);
+    const crawl = inputs.mode === 'scheduled';
     const task = () => pipeline.run(storage, args, onLine);
-    (crawl ? pipeline.serial(task) : task()).catch(error => onLine(`Telegram action failed: ${error.message}`));
+    (crawl ? pipeline.serial(task) : task()).catch(failed);
   };
 }
 

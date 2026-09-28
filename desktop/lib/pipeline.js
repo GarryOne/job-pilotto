@@ -198,6 +198,29 @@ export function checkMail(storage, onLine, trigger = 'you') {
   });
 }
 
+// A one-off job the Actions page (or its Telegram command) starts: an insight, the weekly report, today's list,
+// finding new employers. Tracked like a search, so Recent activity shows it running, then its result line
+// (the one the pipeline prints, e.g. "Insight sent: Skills — …") and its Notion ⏱️ Search runs row.
+export const TASKS = {
+  insight: {name: 'Insight', result: /^(Insight sent: |Insight: )/},
+  weekly: {name: 'Weekly report', result: /^Weekly report sent: /},
+  today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
+  scout: {name: 'Find employers', result: /Source scout(<\/b>)? · checked|^Source scout is off/},
+};
+export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Search');
+export function task(storage, kind, args, onLine, trigger = 'you') {
+  return tracked(storage, kind, trigger, onLine, async tee => {
+    const {code} = await run(storage, args, tee, triggerEnv(trigger));
+    return {ok: code === 0};
+  }, (record, log) => ({summary: taskSummary(kind, log)}));
+}
+// The result line a task printed, made readable: "Insight sent: Skills — Go in 40% (0.012 USD)" -> "Skills — Go in 40%".
+export function taskSummary(kind, log) {
+  const line = log.filter(entry => TASKS[kind]?.result.test(entry)).pop();
+  return line ? line.replace(/<[^>]+>/g, '').replace(/^(Insight sent|Weekly report sent|Insight): /, '')
+    .replace(/^🔎 Source scout · /, '').replace(/\s*\([\d.]+ USD\)$/, '').trim() : null;
+}
+
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
 function tracked(storage, kind, trigger, onLine, work, summarize) {
@@ -214,7 +237,7 @@ function tracked(storage, kind, trigger, onLine, work, summarize) {
     try {
       ok = (await work(tee)).ok;
     } catch (error) {
-      tee(`${kind === 'mail' ? 'Gmail check' : 'Search'} failed: ${error.message}`);
+      tee(`${taskName(kind)} failed: ${error.message}`);
     } finally {
       const notionUrl = log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
       Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, log: log.slice(-400), ...summarize(record, log)});

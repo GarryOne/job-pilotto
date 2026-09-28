@@ -208,7 +208,8 @@ const PHASES = [
   {match: /^Searching job boards/, label: 'Job boards (jobs.ch, TechTree)'},
   {match: /^Checking employer career pages/, label: 'Employer career pages, then reading and scoring new jobs'},
 ];
-const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}};
+const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
+  weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'}};
 const kindOf = run => run?.kind || 'search';
 const WHO = {schedule: 'scheduled', you: 'started by you', first: 'first search'};
 let logLines = [];      // the running task's lines, live
@@ -235,6 +236,8 @@ function outcome(run) {
     return read ? `${plural(read, 'email')} checked · no updates` : 'nothing new';
   }
   if (!run.ok) return 'had problems';
+  // A one-off job (insight, weekly report, today's list, find employers): the result line it printed.
+  if (kindOf(run) !== 'search') return run.summary || 'done';
   return run.new != null ? plural(run.new, 'new job') : 'done';
 }
 function renderActivity(data) {

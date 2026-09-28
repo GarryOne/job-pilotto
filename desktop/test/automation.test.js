@@ -154,3 +154,17 @@ test('pairing hands the extension connection only to the Job Pilotto extension',
     .replace(/[0-9a-f]/g, c => 'abcdefghijklmnop'[parseInt(c, 16)]);
   assert.equal(id, server.EXTENSION_ID);  // the manifest key and the app agree on the extension's ID
 });
+
+test('one-off jobs from the Actions page are tracked with a readable result line', async () => {
+  const pipeline = await import('../lib/pipeline.js');
+  assert.equal(pipeline.taskSummary('insight', ['AI budget: ok', 'Insight sent: Skills — Go is in 40% of your matches (0.012 USD)', 'Cronjob run logged: https://x']),
+    'Skills — Go is in 40% of your matches');
+  assert.equal(pipeline.taskSummary('insight', ['Insight: nothing new today (0.004 USD)']), 'nothing new today');
+  assert.equal(pipeline.taskSummary('weekly', ['Weekly report sent: Replies doubled (0.020 USD)']), 'Replies doubled');
+  assert.equal(pipeline.taskSummary('scout', ['🔎 <b>Source scout</b> · checked 15 · 🆕 2 new sources']), 'checked 15 · 🆕 2 new sources');
+  assert.equal(pipeline.taskSummary('today', ['', "Digest ready: 12 jobs, 3 new. Telegram isn't connected, so nothing was sent."]),
+    "Digest ready: 12 jobs, 3 new. Telegram isn't connected, so nothing was sent.");
+  assert.equal(pipeline.taskSummary('today', ['nothing matching']), null);
+  assert.equal(pipeline.taskName('insight'), 'Insight');
+  assert.equal(pipeline.taskName('mail'), 'Gmail check');
+});
