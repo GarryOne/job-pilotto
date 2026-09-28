@@ -1984,6 +1984,9 @@ async function showClaudePrereqs() {
       found.windows ? 'Open PowerShell, run claude, then /login' : 'Open Terminal, run claude, then /login')],
     ...(found.windows ? [[found.git, 'Git for Windows installed (Claude Code needs it)', link('https://git-scm.com/downloads/win', 'Install Git for Windows')]] : []),
     [null, 'Claude in Chrome extension added and signed in', link('https://chromewebstore.google.com/search/Claude', 'Get it from the Chrome Web Store')],
+    // Built into the app (nothing to install): sessions run inside Job Pilotto; without it, in Terminal windows.
+    [found.inApp, found.inApp ? 'In-app terminal ready (built in): sessions run inside Job Pilotto' : 'In-app terminal unavailable',
+      document.createTextNode('sessions open in Terminal windows instead')],
   ];
   $('claude-prereqs').replaceChildren(...items.map(([done, text, action]) => {
     const li = document.createElement('li');
@@ -3156,7 +3159,7 @@ function renderDock() {
     const title = el('b', 'focus-headline', `${sessionCompany(item)} · ${sessionTitle(item)}`);
     title.title = title.textContent;
     const state = el('div', 'sd-state');  // the badge, then what it's doing (or asking), on one line under the title
-    const note = el('span', 'muted small sd-note', item.question && item.status === 'input' ? item.question.split('\n').pop() : item.note || '');
+    const note = el('span', 'muted small sd-note', item.status === 'input' ? item.brief || item.note || '' : item.note || '');
     note.title = note.textContent;
     state.append(pill(label, tone, {dot: item.status === 'running'}), note);
     words.append(title, state);
@@ -3212,9 +3215,8 @@ function renderSessionPage() {
   head.append(sessionLogo(item), el('b', '', `${sessionCompany(item)} · ${sessionTitle(item)}`), place, view);
   $('ss-job').replaceChildren(head);
   show($('ss-decision'), item.status === 'input');
-  $('ss-question').textContent = item.question || item.note || 'Claude is waiting for your reply.';
+  $('ss-question').replaceChildren(...richText(item.question || item.note || 'Claude is waiting for your reply.'));
   $('ss-live-state').replaceChildren(pill(item.status === 'input' ? 'Waiting for your response' : item.endedAt ? label : 'Working', tone, {dot: true}));
-  $('ss-input').disabled = !!item.endedAt;
 }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 async function attachTerminal(id) {
@@ -3246,9 +3248,8 @@ function say(text) {
   setTimeout(() => window.pilot.sessionWrite(openSessionId, '\r'), 60);
   xterm?.focus();
 }
-$('ss-compose').addEventListener('submit', event => { event.preventDefault(); say($('ss-input').value); $('ss-input').value = ''; });
 document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
-$('ss-ask').addEventListener('click', () => $('ss-input').focus());
+$('ss-ask').addEventListener('click', () => xterm?.focus());  // the terminal is the one place to type
 $('ss-pause').addEventListener('click', () => openSessionId && window.pilot.sessionWrite(openSessionId, '\x1b'));  // Esc interrupts Claude
 $('ss-copy').addEventListener('click', async () => {
   const text = (await window.pilot.sessionOutput(openSessionId)).replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
@@ -3335,3 +3336,35 @@ $('actions-automation').addEventListener('click', event => {
   openView('settings');
   document.getElementById('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
+
+// Claude's message, readable: paragraphs, bullet and numbered lists, **bold** and `code` (built as DOM, never HTML).
+function richText(text) {
+  const inline = line => {
+    const nodes = [];
+    for (const part of String(line).split(/(\*\*[^*]+\*\*|`[^`]+`)/)) {
+      if (/^\*\*[^*]+\*\*$/.test(part)) nodes.push(el('b', '', part.slice(2, -2)));
+      else if (/^`[^`]+`$/.test(part)) nodes.push(el('code', '', part.slice(1, -1)));
+      else if (part) nodes.push(document.createTextNode(part));
+    }
+    return nodes;
+  };
+  const blocks = [];
+  let list = null;
+  for (const raw of String(text).split(/\n/)) {
+    const line = raw.trim();
+    const item = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (item) {
+      if (!list) { list = el(/^\d/.test(line) ? 'ol' : 'ul', 'rich-list'); blocks.push(list); }
+      const li = el('li');
+      li.append(...inline(item[1]));
+      list.append(li);
+      continue;
+    }
+    list = null;
+    if (!line) continue;
+    const p = el('p', 'rich-p');
+    p.append(...inline(line.replace(/^#+\s*/, '')));
+    blocks.push(p);
+  }
+  return blocks;
+}

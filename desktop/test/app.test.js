@@ -331,9 +331,11 @@ test('Apply to N with Claude: the best N jobs with a kit, one session each; none
 });
 
 test('the next jobs with a kit come from apply_batch --next, links only', async () => {
-  const run = async (_, args) => ({code: 0, stdout: `Loading…\r\nhttps://a/1\r\nhttps://b/2\n`, args});
-  assert.deepEqual(await apply.nextWithKits({}, 2, run), ['https://a/1', 'https://b/2']);
-  assert.deepEqual(await apply.nextWithKits({}, 2, async () => ({code: 1, stdout: 'https://a/1'})), []);
+  const run = async (_, args) => ({code: 0, stdout: `Loading…\r\n{"url": "https://a/1", "title": "SRE", "company": "Acme"}\r\nhttps://b/2\n`, args});
+  const urls = await apply.nextWithKits({}, 2, run);
+  assert.deepEqual([...urls], ['https://a/1', 'https://b/2']);
+  assert.deepEqual(urls.details['https://a/1'], {title: 'SRE', company: 'Acme'});  // for the session card and notification
+  assert.deepEqual([...await apply.nextWithKits({}, 2, async () => ({code: 1, stdout: 'https://a/1'}))], []);
 });
 
 test('the kit check asks Notion through apply_batch --has-kit and says to Prepare when there is none', async () => {

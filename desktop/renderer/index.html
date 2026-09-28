@@ -378,11 +378,11 @@
             <span class="focus-round tone-warn"><i data-icon="alert"></i></span>
             <div class="ss-decision-body">
               <b>Claude is waiting for you</b>
-              <p id="ss-question"></p>
+              <div class="ss-question" id="ss-question"></div>
               <div class="ss-decision-actions">
                 <button class="primary" data-say="Continue.">Continue</button>
                 <button class="secondary" data-say="Skip this role: close its tab and finish without filling anything.">Skip this role</button>
-                <button class="link with-icon" id="ss-ask"><i data-icon="chat"></i><span>Answer in your own words</span></button>
+                <button class="link with-icon" id="ss-ask"><i data-icon="chat"></i><span>Answer in the terminal below</span></button>
               </div>
             </div>
           </div>
@@ -394,11 +394,8 @@
             </div>
           </div>
           <div class="ss-terminal" id="ss-terminal"></div>
-          <form class="ss-compose" id="ss-compose">
-            <input id="ss-input" placeholder="Message Claude, e.g. “the CAPTCHA is done, carry on”" autocomplete="off">
-            <button class="primary with-icon" type="submit"><i data-icon="send"></i><span>Send</span></button>
-          </form>
           <div class="ss-chips">
+            <span class="muted small">Type your answer in the terminal, or send a quick reply:</span>
             <button class="ui-tag is-action" data-say="Explain in one or two lines what you are doing now and why.">Explain this step</button>
             <button class="ui-tag is-action" data-say="Continue.">Continue</button>
             <button class="ui-tag is-action" data-say="Skip this role: close its tab and finish without filling anything.">Skip this role</button>

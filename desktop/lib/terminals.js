@@ -26,7 +26,7 @@ export async function available() {
 
 const publicView = s => ({id: s.id, url: s.url, title: s.title, company: s.company, status: s.status, note: s.note,
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  question: s.question || '', location: s.location || '', workMode: s.workMode || ''});
+  question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const byUrl = url => list().filter(s => s.url === url).pop() || null;
@@ -80,10 +80,21 @@ export function lastAssistantText(file, read = fs.readFileSync) {
       const entry = JSON.parse(line);
       if (entry.type !== 'assistant') continue;
       const text = (entry.message?.content || []).filter(part => part.type === 'text').map(part => part.text).join('\n').trim();
-      if (text) return text.slice(-600);
+      if (text) return text.length > 3000 ? text.slice(-3000).replace(/^[^\n]*\n/, '') : text;  // whole lines only
     }
   } catch {}
   return '';
+}
+
+// A message in one short plain sentence (notifications, the dock): markdown removed, its question if it asks
+// one (the last sentence ending in "?"), else its first sentence, cut at a word with "…".
+export function briefly(text, limit = 160) {
+  const plain = String(text || '').replace(/\*\*|__|`/g, '').replace(/^\s*(#+|[-*•]|\d+[.)])\s+/gm, '')
+    .replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const sentences = plain.match(/[^.!?]+[.!?]+/g) || [plain];
+  const pick = (sentences.filter(s => s.trim().endsWith('?')).pop() || sentences[0] || '').trim();
+  if (pick.length <= limit) return pick;
+  return pick.slice(0, limit).replace(/\s+\S*$/, '') + '…';
 }
 
 export function report(id, {event = '', message = '', transcript = ''} = {}) {

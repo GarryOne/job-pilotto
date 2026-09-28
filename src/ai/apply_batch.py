@@ -20,6 +20,7 @@ uses exactly those (each must already have a kit — Stage isn't used to select 
 to fetch the kit) and --max is ignored.
 """
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -112,6 +113,7 @@ def unstarted_urls_by_score(tracker, max_jobs):
             url_score[url] = score
     candidates = [_prop(row, 'Job URL') for row in rows
                   if _prop(row, 'Job URL') and (_prop(row, 'Stage') == 'Kit ready' or _prop(row, 'Next step').startswith(KIT_STEP))]
+    unstarted_urls_by_score.rows = {_prop(row, 'Job URL'): row for row in rows}  # for job_details() of the ones picked
     candidates = sorted(dict.fromkeys(candidates), key=lambda url: url_score.get(url, -1), reverse=True)
     urls, batch = [], max(max_jobs * 2, 4)
     for start in range(0, len(candidates), batch):
@@ -121,6 +123,15 @@ def unstarted_urls_by_score(tracker, max_jobs):
         if len(urls) >= max_jobs:
             break
     return urls[:max_jobs]
+
+
+def job_details(url):
+    """What the app shows for a picked job (its session card, the notification): title, company, place."""
+    row = getattr(unstarted_urls_by_score, 'rows', {}).get(url)
+    if not row:
+        return {'url': url}
+    return {'url': url, 'title': _prop(row, 'Job'), 'company': _prop(row, 'Company') or _prop(row, 'Via'),
+            'location': _prop(row, 'Location'), 'workMode': _prop(row, 'Work mode')}
 
 
 def top_unprepared_urls(tracker, max_jobs):
@@ -190,6 +201,7 @@ def main():
     parser.add_argument('--next', type=int, metavar='N',
                         help='print the N highest-scored not-yet-started job URLs with a kit, '
                              'one per line, and exit — for apply-batch-claude.sh --max; touches nothing')
+    parser.add_argument('--details', action='store_true', help='with --next: one JSON line per job (url, title, company)')
     parser.add_argument('--top-unprepared', type=int, metavar='N',
                         help='print the N highest-scored open jobs with no kit yet, one per line, and '
                              'exit — for tools/prepare-top.sh; touches nothing')
@@ -253,7 +265,8 @@ def main():
 
     if args.next is not None:
         for url in unstarted_urls_by_score(tracker, args.next):
-            print(url)
+            # --details (the app): one JSON line per job with its title and company; else the plain URL (the scripts).
+            print(json.dumps(job_details(url), ensure_ascii=False) if args.details else url)
         return 0
 
     if not SEND_SCRIPT.exists():

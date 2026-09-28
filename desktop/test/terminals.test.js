@@ -64,3 +64,12 @@ test('the hooks report to the app on this computer only, for this session', () =
   assert.match(command, /X-Job-Pilotto: launcher/);
   assert.deepEqual(Object.keys(settings.hooks).sort(), ['Notification', 'Stop', 'UserPromptSubmit']);
 });
+
+test('a notification gets one plain sentence: the question if there is one, never markdown or a cut-off start', () => {
+  const message = 'Filled 14 of 16 fields. Please check these kit answers before you submit:\n\n' +
+    '- **Go/Ruby:** "No" to reading Go or Ruby.\n- **Visa:** "Yes, but not one of the visas listed".\n\nShall I change the visa answer?';
+  assert.equal(terminals.briefly(message), 'Shall I change the visa answer?');
+  assert.equal(terminals.briefly('**Needs your input**: the CAPTCHA'), 'Needs your input: the CAPTCHA');
+  const long = terminals.briefly('word '.repeat(80), 40);
+  assert.ok(long.endsWith('…') && long.length <= 41 && !/wor…$/.test(long));
+});

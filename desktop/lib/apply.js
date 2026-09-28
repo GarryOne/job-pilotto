@@ -87,9 +87,15 @@ export async function hasKit(storage, url, run = pipeline.run) {
 }
 
 // The N best jobs with a kit that aren't started yet (Kit ready, or Saved with a kit), from Notion.
+// The best n jobs with a kit: their URLs, with the title and company of each (details) for its session card.
 export async function nextWithKits(storage, n, run = pipeline.run) {
-  const {code, stdout} = await run(storage, ['src.ai.apply_batch', '--next', String(n)]);
-  return code === 0 ? stdout.split(/\r?\n/).map(line => line.trim()).filter(line => /^https?:\/\//.test(line)) : [];
+  const {code, stdout} = await run(storage, ['src.ai.apply_batch', '--next', String(n), '--details']);
+  // One JSON line per job (--details); a plain link line (an older pipeline) is read as a job without details.
+  const jobs = code === 0 ? stdout.split(/\r?\n/).map(line => line.trim()).map(line => { try { return JSON.parse(line); } catch { return {url: line}; } })
+    .filter(job => /^https?:\/\//.test(job?.url || '')) : [];
+  const urls = jobs.map(job => job.url);
+  urls.details = Object.fromEntries(jobs.map(({url, ...rest}) => [url, rest]));
+  return urls;
 }
 
 // One job, from its row: a Claude session in its own window takes it from the posting to a filled form.
@@ -121,7 +127,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
     const urls = await next(storage, n);
     if (!urls.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
     const here = launch === session.launch && await inApp(storage);
-    (here ? session.launchInApp(storage, urls, {claude: claudeBinary()}) : launch(storage, urls, {claude: claudeBinary()})).catch(() => {});
+    (here ? session.launchInApp(storage, urls, {claude: claudeBinary(), details: urls.details || {}}) : launch(storage, urls, {claude: claudeBinary()})).catch(() => {});
     n = urls.length;
     return {ok: true, inApp: here, message: here
       ? `Starting ${n} Claude session(s) in the app, a few seconds apart. Each shows in Application sessions at the bottom; you're notified when one needs you. It stops before Submit for your review.`

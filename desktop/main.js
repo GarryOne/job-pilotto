@@ -655,7 +655,7 @@ function handlers() {
   ipcMain.handle('sessionStop', (_, id) => terminals.stop(String(id)));
   ipcMain.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
-  ipcMain.handle('claudePrereqs', () => apply.claudePrereqs());
+  ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
   // The token lives in the Keychain, where the Python side (src/sources/google.py) reads it.
   ipcMain.handle('googleStatus', async () => {
@@ -943,7 +943,7 @@ function resumeQueue() {
 // A Claude session waits for you: a notification (a click opens that session in the app) and a Telegram message.
 function sessionNeedsYou(session) {
   const what = terminals.label(session);
-  const text = (session.question || session.note || 'Claude needs your input').replace(/\s+/g, ' ').slice(0, 220);
+  const text = session.brief || 'Claude needs your input';  // one plain sentence; the whole message is on the session page
   if (!process.env.JOB_PILOTTO_SMOKE && Notification.isSupported()) {
     const note = new Notification({title: `Needs your input · ${what}`, body: text});
     note.on('click', () => { window?.show(); window?.focus(); window?.webContents.send('session', 'open', {id: session.id}); });

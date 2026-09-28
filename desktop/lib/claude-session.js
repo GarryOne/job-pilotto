@@ -162,10 +162,12 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
     fs.writeFileSync(promptFile, prompt(url, {ticket: ticket(url), auditFile}), {mode: 0o600});
     fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
     const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile];
+    // A one-line instruction naming the file: the terminal starts clean (not a screen of instructions, nor the
+    // extension ticket), and cmd.exe on Windows needn't quote a long argument.
+    const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
     const {file, args} = platform === 'win32'
-      // cmd.exe runs claude.cmd; the instructions stay in their file (cmd can't quote a long argument reliably).
-      ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`]}
-      : {file: claude, args: [...flags, fs.readFileSync(promptFile, 'utf8')]};
+      ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]}
+      : {file: claude, args: [...flags, ask]};
     started.push(await term.start({id, url, file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}, ...(details[url] || {})}));
     if (platform !== 'win32') {
       run(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [url], {env, detached: true, stdio: 'ignore'});

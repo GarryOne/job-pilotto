@@ -1,9 +1,36 @@
 [
-  {"id": "d1", "url": "https://jobs.example/northwind/platform", "title": "Platform Engineer", "company": "Northwind AI", "status": "input",
-   "note": "Waiting for your reply", "question": "This role says on-site in San Francisco. Your profile prefers Zurich or remote. Continue anyway, or skip this role?",
-   "location": "San Francisco, CA", "workMode": "On-site", "startedAt": "2026-09-28T17:10:00Z"},
-  {"id": "d2", "url": "https://jobs.example/acme/sre", "title": "SRE", "company": "Acme Robotics", "status": "running", "note": "Filling started",
-   "location": "London, UK", "workMode": "Remote", "startedAt": "2026-09-28T16:24:00Z"},
-  {"id": "d3", "url": "https://jobs.example/example-labs/sre", "title": "SRE", "company": "Example Labs", "status": "done",
-   "note": "Form filled — review it in Chrome and Submit", "startedAt": "2026-09-28T14:02:00Z", "endedAt": "2026-09-28T14:20:00Z"}
+  {
+    "id": "d1",
+    "url": "https://jobs.example/northwind/platform",
+    "title": "Platform Engineer",
+    "company": "Northwind AI",
+    "status": "input",
+    "note": "Waiting for your reply",
+    "question": "Filled 14 of 16 fields on the form. Please check these kit answers before you submit:\n\n- **Go/Ruby:** \"No\" to reading Go or Ruby, and \"Neither\" for languages shipped. The posting tests these in the technical interview.\n- **Visa:** \"Yes, but not one of the visas listed\" (you're an EU citizen; the role is in San Francisco).\n\nShall I change the visa answer, or leave both as they are?",
+    "location": "San Francisco, CA",
+    "workMode": "On-site",
+    "startedAt": "2026-09-28T17:10:00Z",
+    "brief": "Shall I change the visa answer, or leave both as they are?"
+  },
+  {
+    "id": "d2",
+    "url": "https://jobs.example/acme/sre",
+    "title": "SRE",
+    "company": "Acme Robotics",
+    "status": "running",
+    "note": "Filling started",
+    "location": "London, UK",
+    "workMode": "Remote",
+    "startedAt": "2026-09-28T16:24:00Z"
+  },
+  {
+    "id": "d3",
+    "url": "https://jobs.example/example-labs/sre",
+    "title": "SRE",
+    "company": "Example Labs",
+    "status": "done",
+    "note": "Form filled — review it in Chrome and Submit",
+    "startedAt": "2026-09-28T14:02:00Z",
+    "endedAt": "2026-09-28T14:20:00Z"
+  }
 ]

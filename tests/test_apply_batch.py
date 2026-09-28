@@ -119,3 +119,4 @@ class NextJobsTests(unittest.TestCase):
         with mock.patch.object(apply_batch.notion, 'MATCHES_DATABASE_ID', 'matches'), \
                 mock.patch.object(apply_batch, 'still_open', lambda tracker, url: url not in closed):
             self.assertEqual(apply_batch.unstarted_urls_by_score(Tracker(), 2), ['https://b', 'https://d'])
+            self.assertEqual(apply_batch.job_details('https://b')['url'], 'https://b')  # --details: the row's title and company
