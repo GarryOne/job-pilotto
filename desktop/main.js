@@ -389,7 +389,8 @@ function handlers() {
   });
   ipcMain.handle('openTabs', () => server.openTabs());
   ipcMain.handle('extensionSeen', () => server.extensionSeen());
-  ipcMain.handle('openQuestions', () => questions.list(storage).catch(() => []));
+  // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
+  ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));
   ipcMain.handle('answerQuestion', (_, questionKey, answer) => questions.answer(storage, questionKey, answer)
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).

@@ -220,12 +220,13 @@
         <div class="stat sky"><span class="stat-icon"><i data-icon="bookmark"></i></span><div><b id="stat-week">–</b><span>New this week</span></div></div>
         <div class="stat violet"><span class="stat-icon"><i data-icon="building"></i></span><div><b id="stat-companies">–</b><span>Unique companies</span></div></div>
       </div>
-      <section class="card questions" id="questions" hidden>
-        <h3>✍️ Answer once, used in every application</h3>
+      <details class="questions" id="questions" hidden>
+        <summary><b>✍️ Answer once</b><span class="q-count" id="questions-count"></span><span class="muted small">used in every application</span></summary>
         <p class="muted small">Forms asked these and nothing in your profile or standard answers covered them. Your answer is added to your
           Notion standard answers; redraft a job's kit (↻) to use it there.</p>
+        <p class="message error" id="questions-error" hidden></p>
         <div id="questions-list"></div>
-      </section>
+      </details>
       <div class="toolbar">
         <label class="search-box"><i data-icon="search"></i><input id="filter-text" type="search" placeholder="Search jobs, companies or places, or paste a job link" aria-label="Search jobs"></label>
         <select id="filter-status" aria-label="Show">

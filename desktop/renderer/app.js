@@ -687,8 +687,12 @@ $('filter-text').addEventListener('input', renderJobs);
 
 // ---------- questions to answer once ----------
 async function loadQuestions() {
-  const list = await window.pilot.openQuestions();
-  show($('questions'), list.length > 0);
+  const {list, error} = await window.pilot.openQuestions();
+  // Collapsed by default (the count shows on its heading); shown whenever there's something to answer or a read failed.
+  show($('questions'), list.length > 0 || !!error);
+  $('questions-count').textContent = error ? 'couldn\'t load' : `${list.length} question${list.length === 1 ? '' : 's'}`;
+  $('questions-error').textContent = error ? `Couldn't read your questions from Notion: ${error}` : '';
+  show($('questions-error'), !!error);
   $('questions-list').replaceChildren(...list.map(q => {
     const row = Object.assign(document.createElement('div'), {className: 'question'});
     const label = Object.assign(document.createElement('label'), {textContent: q.question});
