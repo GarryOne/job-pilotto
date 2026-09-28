@@ -17,7 +17,7 @@ import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
 import * as quitDialog from './lib/quit-dialog.js';
 import * as review from './lib/review.js';
-import {openFormTab} from './lib/form-tab.js';
+import {listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import * as viewCache from './lib/view-cache.js';
@@ -701,19 +701,23 @@ function handlers() {
   });
   // At start: sessions left open (the app closed, or was killed) whose jobs are still Applying. Keep, ask one by one, or reset.
   ipcMain.handle('sessionsLeftOpen', async (_, ids) => {
-    const found = (Array.isArray(ids) ? ids : []).map(id => terminals.get(String(id))).filter(Boolean);
-    if (!found.length) return {choice: 'keep'};
-    const {message, detail, buttons} = quitDialog.leftOpen(found, session => session.company || terminals.label(session));
+    const all = (Array.isArray(ids) ? ids : []).map(id => terminals.get(String(id))).filter(Boolean);
+    // A form still open in Chrome can be resumed as it is: kept without asking. Only the others are asked about.
+    const open = DEMO ? new Set() : withOpenForm(all, await listTabs());
+    terminals.markAsked([...open]);
+    const found = all.filter(session => !open.has(session.id));
+    if (!found.length) return {choice: 'keep', kept: open.size};
+    const {message, detail, buttons} = quitDialog.leftOpen(found, session => session.company || terminals.label(session), open.size);
     const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
       {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 0, message, detail});
     terminals.markAsked(found.map(session => session.id));
-    if (response !== 2) return {choice: response === 1 ? 'each' : 'keep'};
+    if (response !== 2) return {choice: response === 1 ? 'each' : 'keep', kept: open.size, asked: found.map(session => session.id)};
     const reset = [], failed = [];
     for (const session of found) {
       const result = DEMO ? {ok: true} : await pipeline.unapply(storage, session.url).catch(error => ({ok: false, error: error.message}));
       if (result.ok) { terminals.remove(session.id); reset.push(session.url); } else failed.push({url: session.url, error: result.error});
     }
-    return {choice: 'reset', reset, failed};
+    return {choice: 'reset', reset, failed, kept: open.size};
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   ipcMain.handle('reviewWatch', (_, id, items) => review.setWatch(String(id), items));

@@ -47,6 +47,25 @@ JSON.stringify(chrome.running() ? chrome.windows().flatMap(w => w.tabs().map((t,
 const focus = ({win, index}) => `const chrome = Application('Google Chrome');
 const w = chrome.windows.byId(${Number(win)}); w.activeTabIndex = ${Number(index)}; w.index = 1; chrome.activate();`;
 
+// Which sessions still have their form open in a tab: each tab goes to one session at most, the strongest match first
+// (its job ID beats a company name, so two applications at one company get their own tabs). Returns the session ids.
+export function withOpenForm(sessions, tabs, minScore = 50) {
+  const pairs = [];
+  for (const session of sessions) for (const [index, tab] of tabs.entries()) {
+    const score = scoreTab(tab, {url: session.url, company: session.company});
+    if (score >= minScore) pairs.push({id: session.id, index, score});
+  }
+  pairs.sort((a, b) => b.score - a.score);
+  const taken = new Set(), found = new Set();
+  for (const {id, index} of pairs) if (!found.has(id) && !taken.has(index)) { found.add(id); taken.add(index); }
+  return found;
+}
+// Chrome's open tabs ([{url, title}]), [] without Chrome, permission or a Mac.
+export async function listTabs() {
+  if (process.platform !== 'darwin') return [];
+  try { return JSON.parse(await jxa(LIST)) || []; } catch { return []; }
+}
+
 // Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'.
 export async function openFormTab({url, company}, openExternal) {
   if (process.platform !== 'darwin') { await openExternal(url); return 'posting'; }

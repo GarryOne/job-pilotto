@@ -8,15 +8,17 @@ export function submitted(company) {
 }
 
 // At start: sessions left open by a closed, killed or crashed app whose jobs are still Applying. Three ways on.
-export function leftOpen(sessions, label) {
+// kept: how many others were kept without asking (their form is still open in Chrome).
+export function leftOpen(sessions, label, kept = 0) {
   const one = sessions.length === 1;
+  const others = kept ? `\n\n${kept} other${kept === 1 ? ' is' : 's are'} still open in Chrome and ${kept === 1 ? 'was' : 'were'} kept.` : '';
   return {
     message: one ? 'An application was left open' : `${sessions.length} applications were left open`,
     detail: `${sessionLines(sessions, label).join('\n')}\n\nJob Pilotto closed while ${one ? 'it was' : 'they were'} in progress, and ${one ? 'it is' : 'they are'} still marked Applying in Notion. What now?\n\n` +
       `Keep: ${one ? 'it stays' : 'they stay'} in Application sessions; press Resume Claude to carry on.\n` +
       'One by one: I ask you about each: did you submit it?\n' +
-      `Reset: not submitted. ${one ? 'It goes' : 'They go'} back to Kit ready (the forms stay in Chrome).`,
-    buttons: ['Keep them', 'Go through them one by one', 'Reset them all'],
+      `Reset: not submitted. ${one ? 'It goes' : 'They go'} back to Kit ready.${others}`,
+    buttons: [one ? 'Keep it (recommended)' : 'Keep them (recommended)', 'Go through them one by one', one ? 'Reset it' : 'Reset them all'],
   };
 }
 
@@ -26,8 +28,11 @@ const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
 const SHOWN = 4;
 
 // "• N26" per session (the company: the job title is long and the list only has to be recognised), then "+ 2 more".
+// Two at one company get their job title too ("Canonical · Site Reliability Engineer").
 export function sessionLines(sessions, label) {
-  const lines = sessions.slice(0, SHOWN).map(session => `•  ${label(session)}`);
+  const names = sessions.map(label);
+  const twice = name => names.filter(other => other === name).length > 1;
+  const lines = sessions.slice(0, SHOWN).map((session, i) => `•  ${twice(names[i]) && session.title ? `${names[i]} · ${session.title}` : names[i]}`);
   if (sessions.length > SHOWN) lines.push(`•  and ${sessions.length - SHOWN} more`);
   return lines;
 }

@@ -42,7 +42,11 @@ test('at start: sessions left open are listed and there are three ways on, the r
   assert.equal(dialog.message, '2 applications were left open');
   assert.match(dialog.detail, /^•  N26\n•  Canonical\n\nJob Pilotto closed while they were in progress, and they are still marked Applying in Notion\. What now\?/);
   assert.match(dialog.detail, /Keep: they stay in Application sessions; press Resume Claude/);
-  assert.match(dialog.detail, /Reset: not submitted\. They go back to Kit ready \(the forms stay in Chrome\)/);
-  assert.deepEqual(dialog.buttons, ['Keep them', 'Go through them one by one', 'Reset them all']);
+  assert.match(dialog.detail, /Reset: not submitted\. They go back to Kit ready\.$/);
+  assert.deepEqual(dialog.buttons, ['Keep them (recommended)', 'Go through them one by one', 'Reset them all']);
+  assert.match(leftOpen(sessions(['N26']), label, 2).detail, /2 others are still open in Chrome and were kept\.$/);
+  // Two applications at one company: their titles tell them apart.
+  const twice = leftOpen([{company: 'Canonical', title: 'Site Reliability Engineer'}, {company: 'Canonical', title: 'Software Engineer'}, {company: 'N26', title: 'SRE'}], label);
+  assert.match(twice.detail, /^•  Canonical · Site Reliability Engineer\n•  Canonical · Software Engineer\n•  N26\n/);
   assert.equal(leftOpen(sessions(['N26']), label).message, 'An application was left open');
 });

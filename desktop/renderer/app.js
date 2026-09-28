@@ -1702,7 +1702,9 @@ async function askAboutLeftOpen() {
   leftOpenAsked = true;
   if (!open.length) return;
   const answer = await window.pilot.sessionsLeftOpen(open.map(item => item.id));
-  if (answer?.choice === 'each') for (const item of open) await removeSession(item);
+  if (answer?.kept) toastMessage(`${answer.kept} application${answer.kept === 1 ? '' : 's'} restored`,
+    `${answer.kept === 1 ? 'Its form is' : 'Their forms are'} still open in Chrome: review and submit, or press Resume Claude on the session.`);
+  if (answer?.choice === 'each') for (const item of open.filter(entry => answer.asked?.includes(entry.id))) await removeSession(item);
   if (answer?.choice === 'reset') {
     for (const url of answer.reset || []) { const job = allJobs.find(entry => pageKey(entry.url) === pageKey(url)); if (job) job.stage = 'Kit ready'; }
     if (answer.failed?.length) toastMessage('Not all reset', `${answer.failed.length} could not be reset in Notion (${answer.failed[0].error || 'try again'}). They stay in the list.`);
