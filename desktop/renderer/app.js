@@ -173,8 +173,9 @@ function renderActivity(data) {
   $('activity').dataset.state = running ? 'busy' : last && (!last.ok || last.off) ? 'error' : last ? 'ok' : 'idle';
   const liveLines = running ? logLines : null;
   const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
+  const soon = at => (at <= Date.now() ? 'due now' : clockTime(new Date(at).toISOString()));  // a past time = runs at the next check
   const mailNote = lastMail ? `📧 Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
-    : nextMailAt ? `📧 First Gmail check ${hhmm(nextMailAt)}` : '';
+    : nextMailAt ? `📧 First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
   if (running) {
     const kind = KIND[kindOf(running)];
     $('activity-title').textContent = `${kind.icon} ${kind.name} running (${WHO[running.trigger] || running.trigger})`;
@@ -213,8 +214,8 @@ function renderActivity(data) {
   const cloud = !!state?.settings?.cloud?.repo;
   $('activity-schedule').replaceChildren(...[
     cloud ? '☁️ Runs in your GitHub repo, even with the Mac off' : null,
-    `🔎 Next search: ${nextSearchAt ? clockTime(new Date(nextSearchAt).toISOString()) : cloud ? 'in the cloud' : 'only when you ask'}`,
-    `📧 Next Gmail check: ${nextMailAt ? clockTime(new Date(nextMailAt).toISOString()) : cloud ? 'in the cloud' : 'off'}`,
+    `🔎 Next search: ${nextSearchAt ? soon(nextSearchAt) : cloud ? 'in the cloud' : 'only when you ask'}`,
+    `📧 Next Gmail check: ${nextMailAt ? soon(nextMailAt) : cloud ? 'in the cloud' : 'off'}`,
   ].filter(Boolean).map(text => Object.assign(document.createElement('li'), {textContent: text})));
 
   // The selected run (or the live / latest one): what it did, its phases, and its full log.
