@@ -1,8 +1,9 @@
 name: desktop
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
-# GitHub Release, only when something that goes into the app changed on main. The Windows job then adds
-# an x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") to the same release.
+# GitHub Release, only when something that goes into the app changed on main. The release starts as a
+# draft; the Windows job adds the x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") and then
+# publishes it, so "latest" always has both downloads the website links to.
 on:
   push:
     branches: [main]
@@ -93,7 +94,8 @@ jobs:
           gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
             --title "Job Pilotto ${version}" \
             --notes-file release-notes.md \
-            --target "$GITHUB_SHA"
+            --target "$GITHUB_SHA" \
+            --draft   # published by the windows job once the .exe is there (or by mac-only if it fails)
 
   windows:
     needs: build   # the release exists and has its version
@@ -142,3 +144,19 @@ jobs:
           # A stable name too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
           gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
+          gh release edit "desktop-v${VERSION}" --draft=false --latest
+
+  # The Windows build failed: publish the Mac release anyway. The website's Windows link (latest release)
+  # then 404s until a release with the .exe, so the warning below says so.
+  mac-only:
+    needs: [build, windows]
+    if: always() && needs.build.result == 'success' && needs.windows.result != 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish without the Windows installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          echo "::warning::Windows build failed; publishing desktop-v${VERSION} for Mac only (the Windows download link breaks until the next release)."
+          gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --latest

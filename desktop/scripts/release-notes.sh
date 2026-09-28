@@ -34,3 +34,11 @@ cat <<'NOTES'
 2. The first time you open it, macOS says it can't verify the developer (the app isn't notarised by
    Apple yet). Go to **System Settings → Privacy & Security** and click **Open Anyway**. Only once.
 NOTES
+cat <<'NOTES'
+
+## Install (Windows 10 or 11, x64, beta)
+
+1. Download **Job-Pilotto-windows-x64.exe** below and run it; it installs for your user and opens the app.
+2. The installer isn't signed yet, so Windows SmartScreen warns you. Click **More info → Run anyway**. Only once.
+3. Apply with Claude is Mac-only for now; Fill in Chrome works the same.
+NOTES
