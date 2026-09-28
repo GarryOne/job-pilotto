@@ -407,3 +407,14 @@ test('Apply with Claude checklist: Claude Code found and signed in, Git for Wind
   assert.equal(apply.gitBash({ProgramFiles: 'C:\\Program Files'}, file => file === bash), bash);
   assert.equal(apply.gitBash({}, () => true), '');
 });
+
+test('every wizard step sits inside the wizard\'s content column (an extra </div> pushes the rest below the sidebar)', () => {
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  const body = html.slice(html.indexOf('<div class="step-body">'), html.indexOf('<!-- After setup'));
+  let depth = 0;
+  for (const tag of body.matchAll(/<(\/?)div\b[^>]*>/g)) {
+    depth += tag[1] ? -1 : 1;
+    if (/data-step="/.test(tag[0])) assert.equal(depth, 2, `${tag[0]} opens outside .step-body`);
+  }
+  assert.equal(depth, 0, 'the wizard\'s divs are balanced');
+});

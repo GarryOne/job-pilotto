@@ -43,13 +43,13 @@ const jobs = py(['-m', 'src.desktop', 'jobs'], {JOB_PILOTTO_NO_DOTENV: '1', JOB_
 JSON.parse(jobs);
 say(`pipeline jobs list ok: ${jobs.slice(0, 80)}`);
 
-// The app's own screens. Fresh data folders each time; the Jobs page gets a finished setup (fake Notion ids,
-// no search due), so it loads the list through the bundled Python like a real start.
+// The app's own screens. Fresh data folders each time; the third has setup done but no Notion key (it can't be
+// made here), so the app asks for Notion again: the wizard's Notion step, with the rest of the app loaded.
 const extras = `(() => { document.querySelectorAll('.step').forEach(s => { s.hidden = s.dataset.step !== 'extras'; }); })()`;
 const waitForJobs = `new Promise(resolve => setTimeout(resolve, 8000))`;
 const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
   notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
-for (const [name, js, settings] of [['welcome', '', null], ['wizard-extras', extras, null], ['jobs', waitForJobs, DONE]]) {
+for (const [name, js, settings] of [['welcome', '', null], ['wizard-extras', extras, null], ['wizard-notion', waitForJobs, DONE]]) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
   if (settings) fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify(settings));
   const png = path.join(out, `windows-${name}.png`);
