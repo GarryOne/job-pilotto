@@ -500,21 +500,26 @@
 
   <!-- Always visible: what's running now (your searches and scheduled ones), or the last and next search. -->
   <footer class="activity" id="activity">
-    <div class="activity-panel" id="activity-panel" hidden>
+    <div class="activity-backdrop" id="activity-backdrop" hidden></div>
+    <div class="activity-panel" id="activity-panel" hidden role="dialog" aria-labelledby="activity-heading">
+      <div class="ap-head">
+        <span class="ap-pulse"><i data-icon="pulse"></i></span>
+        <h3 id="activity-heading">Recent activity</h3><span class="ap-count" id="activity-count"></span>
+        <button class="icon-btn ap-close" id="activity-close" aria-label="Close" title="Close (Esc)"><i data-icon="close"></i></button>
+      </div>
       <div class="activity-cols">
-        <div>
-          <h4>Recent activity</h4>
-          <ul class="activity-recent" id="activity-recent"></ul>
-        </div>
-        <div>
-          <h4>Schedule <small class="muted">(Settings → How often)</small></h4>
-          <ul class="activity-schedule" id="activity-schedule"></ul>
+        <ul class="activity-recent" id="activity-recent"></ul>
+        <div class="ap-schedule">
+          <div class="ap-schedule-head"><b>Schedule</b><a href="#" id="activity-manage" title="Settings → How often">Manage</a></div>
+          <div id="activity-schedule"></div>
           <button class="secondary small-btn" id="check-mail">📧 Check Gmail now</button>
         </div>
       </div>
-      <p class="activity-selected"><span id="activity-selected"></span> <a href="#" class="activity-notion" id="activity-notion" hidden>Open in Notion ↗</a></p>
-      <ol class="activity-phases" id="activity-phases"></ol>
-      <details class="activity-log" id="activity-log"><summary>Full log</summary><pre id="log" class="log"></pre></details>
+      <div class="ap-detail">
+        <p class="activity-selected"><span id="activity-selected"></span> <a href="#" class="activity-notion" id="activity-notion" hidden>Open in Notion ↗</a></p>
+        <ol class="activity-phases" id="activity-phases"></ol>
+        <details class="activity-log" id="activity-log"><summary>Technical log <span class="muted" id="log-count"></span></summary><pre id="log" class="log"></pre></details>
+      </div>
     </div>
     <button class="activity-bar" id="activity-toggle" aria-expanded="false" aria-controls="activity-panel">
       <span class="activity-dot" id="activity-dot"></span>

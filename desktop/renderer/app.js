@@ -17,6 +17,7 @@ let allJobs = [];
 
 // ---------- helpers ----------
 function show(element, visible = true) { element.hidden = !visible; }
+const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? {className} : {}, text != null ? {textContent: text} : {});
 function message(id, text, tone = '') { const el = $(id); el.textContent = text || ''; el.className = `message ${tone}`; }
 function chip(parent, text) { const span = document.createElement('span'); span.className = 'chip'; span.textContent = text; parent.append(span); }
 // Regex fragments from the draft ("z[uü]rich", "\\bsre\\b") shown as plain words.
@@ -161,6 +162,7 @@ function phaseIndex(lines) {
 }
 const hhmm = ms => new Date(ms).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const capital = text => String(text || '').replace(/^./, c => c.toUpperCase());
 // One line on what a finished run did.
 function outcome(run) {
   if (kindOf(run) === 'mail') {
@@ -202,16 +204,18 @@ function renderActivity(data) {
 
   // Recent activity: newest first; click one to see its log below.
   const shown = runs.find(run => run.id === selectedRun) || null;
-  $('activity-recent').replaceChildren(...(running ? [{...running, live: true}] : []).concat(runs.slice(0, 8)).map(run => {
+  const recent = (running ? [{...running, live: true}] : []).concat(runs.slice(0, 8));
+  $('activity-count').textContent = `${recent.length} recent`;
+  $('activity-recent').replaceChildren(...recent.map(run => {
     const item = document.createElement('li');
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'recent-row'});
     button.classList.toggle('current', run.live ? !shown : shown ? run.id === shown.id : run === last && !running);
     button.dataset.state = run.live ? 'busy' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
-    button.append(Object.assign(document.createElement('span'), {className: 'activity-dot'}),
-      Object.assign(document.createElement('span'), {textContent: `${kind.icon} ${kind.name}`}),
-      Object.assign(document.createElement('span'), {className: 'muted', textContent: run.live ? 'running now' : `${clockTime(run.endedAt || run.startedAt)} · ${outcome(run)}`}),
-      Object.assign(document.createElement('small'), {className: 'muted', textContent: WHO[run.trigger] || run.trigger}));
+    // Status circle (✓ / ! / spinner), what ran, when and what it found, who started it.
+    button.append(el('span', 'run-status'), el('span', 'run-kind', `${kind.icon} ${kind.name}`),
+      el('span', 'muted run-what', run.live ? 'Running now' : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))}`),
+      el('span', `run-who ${run.trigger === 'you' ? 'you' : ''}`, capital(WHO[run.trigger] || run.trigger)));
     button.addEventListener('click', () => { selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;
@@ -220,18 +224,29 @@ function renderActivity(data) {
 
   // How often: from Settings → How often (the cloud does it when "Keep working while my Mac is off" is on).
   const cloud = !!state?.settings?.cloud?.repo;
+  // A card per scheduled task: what, which day, and the time in large type (or why there's none).
+  const slot = (glyph, name, at, none) => {
+    const card = el('div', 'ap-slot');
+    const tile = el('span', 'ap-slot-icon');
+    tile.append(icon(glyph));
+    const words = el('div', '');
+    const due = at && at <= Date.now();
+    words.append(el('b', '', name), el('small', 'muted', at ? (due ? 'at the next check' : new Date(at).toLocaleDateString([], {weekday: 'short'})) : none));
+    card.append(tile, words, el('span', 'ap-time', at ? (due ? 'Due now' : hhmm(at)) : ''));
+    return card;
+  };
   $('activity-schedule').replaceChildren(...[
-    cloud ? osText('☁️ Runs in your GitHub repo, even with the Mac off') : null,
-    `🔎 Next search: ${nextSearchAt ? soon(nextSearchAt) : cloud ? 'in the cloud' : 'only when you ask'}`,
-    `📧 Next Gmail check: ${nextMailAt ? soon(nextMailAt) : cloud ? 'in the cloud' : 'off'}`,
-  ].filter(Boolean).map(text => Object.assign(document.createElement('li'), {textContent: text})));
+    cloud ? el('p', 'muted small', osText('☁️ Runs in your GitHub repo, even with the Mac off')) : null,
+    slot('search', 'Next search', nextSearchAt, cloud ? 'In the cloud' : 'Only when you ask'),
+    slot('mail', 'Next Gmail check', nextMailAt, cloud ? 'In the cloud' : 'Off'),
+  ].filter(Boolean));
 
   // The selected run (or the live / latest one): what it did, its phases, and its full log.
   const run = shown || (running ? {...running, live: true} : last);
   const lines = shown ? shown.log || [] : liveLines || last?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;
-  $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name}, running now` :
-    `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} (${WHO[run.trigger] || run.trigger}) · ${outcome(run)}`;
+  $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name} · running now` :
+    `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} · ${capital(outcome(run))}`;
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
   const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
@@ -249,6 +264,7 @@ function renderActivity(data) {
     $('activity-log').dataset.for = String(run.id);
     $('activity-log').open = !!run.live || !!failed;
   }
+  $('log-count').textContent = lines.length ? `(${plural(lines.length, 'line')})` : '';
   const log = $('log');
   const text = lines.join('\n') || 'Nothing to show yet.';
   if (log.textContent !== text) {
@@ -280,10 +296,20 @@ function refreshActivity() {
 }
 function openActivity(open) {
   show($('activity-panel'), open);
+  show($('activity-backdrop'), open);  // dims the page, so the card stands apart from what's behind it
+  $('activity').classList.toggle('open', open);
   $('activity-toggle').setAttribute('aria-expanded', open);
   if (open) $('log').scrollTop = $('log').scrollHeight;
 }
 $('activity-toggle').addEventListener('click', () => openActivity($('activity-panel').hidden));
+$('activity-close').addEventListener('click', () => openActivity(false));
+$('activity-backdrop').addEventListener('click', () => openActivity(false));
+$('activity-manage').addEventListener('click', event => {
+  event.preventDefault();
+  openActivity(false);
+  openView('settings');
+  setTimeout(() => $('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'}), 150);
+});
 // Close the card with Escape or a click outside it, like a popover.
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
 document.addEventListener('mousedown', event => {
@@ -469,7 +495,6 @@ document.addEventListener('click', event => { if (!rowMenu.hidden && !event.targ
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeRowMenu(); });
 document.querySelector('main').addEventListener('scroll', closeRowMenu);
 
-const el = (tag, className, text) => Object.assign(document.createElement(tag), className ? {className} : {}, text != null ? {textContent: text} : {});
 // Work in progress on a job (redrafting its kit, tailoring its CV), shown on its row while the menu is closed.
 const busyNotes = new Map();
 
