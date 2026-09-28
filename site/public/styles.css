@@ -206,9 +206,30 @@ section.block { padding-block: 120px; border-top: 1px solid var(--line); }
 @media (max-width: 560px) { .clickflow { grid-template-columns: 1fr; } .clickflow li::after { display: none; } }
 
 /* Screens, on warm backdrops like product shots */
-.demo { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-lg); aspect-ratio: 1280 / 820; }
+/* The demo in a Mac window (drawn here, so it stays sharp at any size): title bar, traffic lights, soft shadow. */
+.mac-window { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--surface); box-shadow: var(--shadow-lg); }
+.mac-bar { position: relative; display: flex; align-items: center; height: 38px; padding: 0 14px; background: linear-gradient(#f4ecf5, #ebe1ee);
+  border-bottom: 1px solid rgb(0 0 0 / .08); }
+.mac-dots { display: flex; gap: 8px; }
+.mac-dots i { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 .5px rgb(0 0 0 / .18); }
+.mac-dots i:nth-child(1) { background: #ff5f57; } .mac-dots i:nth-child(2) { background: #febc2e; } .mac-dots i:nth-child(3) { background: #28c840; }
+.mac-title { position: absolute; left: 0; right: 0; text-align: center; font: 600 .8rem var(--sans, inherit); color: #4a4450; pointer-events: none; }
+.demo { width: 100%; display: block; aspect-ratio: 1600 / 1024; background: var(--surface); }
+@media (prefers-color-scheme: dark) { .mac-bar { background: linear-gradient(#2c2833, #242029); border-bottom-color: rgb(255 255 255 / .06); } .mac-title { color: #cfc8d6; } }
+/* The Windows download: visible, second to the Mac button. */
+.alt-download { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: .86rem; text-decoration: none; }
+.alt-download:hover { border-color: var(--ink); }
+.alt-download svg { color: #0078d4; flex: none; }
+.alt-download em { font: 600 .68rem var(--mono); font-style: normal; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
 .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 36px; }
 .shots figure { margin: 0; display: grid; gap: 14px; align-content: start; }
+.shots .mac-window img { width: 100%; height: auto; display: block; }
+.mac-window.is-small .mac-bar { height: 26px; padding: 0 10px; }
+.mac-window.is-small .mac-dots { gap: 6px; }
+.mac-window.is-small .mac-dots i { width: 9px; height: 9px; }
+.mac-window.is-small .mac-title { font-size: .68rem; }
 .shots figure > img { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface); }
 .shots figure.tall { background: linear-gradient(150deg, #f3c9a8, #eaa177); border-radius: 18px; padding: 28px 28px 18px; }
 .shots figure.tall:nth-of-type(4) { background: var(--navy) radial-gradient(rgb(255 255 255 / .14) 1px, transparent 1.4px) 0 0 / 14px 14px; }

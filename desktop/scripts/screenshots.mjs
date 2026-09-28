@@ -46,7 +46,7 @@ const FRAMES = [
     chips('chips-languages', ['German (fluent)', 'French (fluent)']);
     $('draft-profile').value = ${JSON.stringify(profile)}; $('draft-save').disabled = false;`)},
   {name: 'wizard-extras', fresh: true, js: step('extras')},
-  {name: 'jobs', js: ''},
+  {name: 'jobs', js: `(async () => { ${view('jobs')} await new Promise(r => setTimeout(r, 1500)); })()`},  // the app opens on Focus
   {name: 'actions', js: view('actions')},
   {name: 'interviews', js: `(async () => { ${view('interviews')} await new Promise(r => setTimeout(r, 700));
     document.querySelector('.iv-draft button').click(); await new Promise(r => setTimeout(r, 700));
