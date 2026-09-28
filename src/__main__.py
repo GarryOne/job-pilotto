@@ -21,11 +21,15 @@ def main():
         return 2
     name = sys.argv.pop(1)
     sys.argv[0] = f'python -m src {name}'
-    if name in ('daily', 'scout', 'discover', 'feeds'):
-        # ⚙️ Search settings in Notion are the source of truth: refresh the cached config before it's imported.
-        from .notion import search_settings
-        search_settings.sync_quietly()
     import importlib
+    if name in ('daily', 'scout', 'discover', 'feeds'):
+        # One search at a time: the app and the terminal share the job cache (src/paths.py run_lock).
+        from .paths import run_lock
+        with run_lock():
+            # ⚙️ Search settings in Notion are the source of truth: refresh the cached config before it's imported.
+            from .notion import search_settings
+            search_settings.sync_quietly()
+            return importlib.import_module(commands[name]).main() or 0
     return importlib.import_module(commands[name]).main() or 0
 
 

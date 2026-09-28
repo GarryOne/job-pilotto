@@ -1,7 +1,10 @@
 """Repository paths shared by every module."""
+import contextlib
 import json
 import os
 import re
+import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,12 +36,93 @@ def _load_dotenv():
 
 _load_dotenv()
 
+
+def app_folder():
+    """The Desktop App's data folder (its settings, Notion IDs, job cache), or JOB_PILOTTO_APP_DIR."""
+    if os.getenv('JOB_PILOTTO_APP_DIR'):
+        return Path(os.environ['JOB_PILOTTO_APP_DIR'])
+    if sys.platform == 'darwin':
+        return Path.home() / 'Library' / 'Application Support' / 'Job Pilotto'
+    if sys.platform == 'win32':
+        return Path(os.getenv('APPDATA') or Path.home() / 'AppData' / 'Roaming') / 'Job Pilotto'
+    return Path(os.getenv('XDG_CONFIG_HOME') or Path.home() / '.config') / 'Job Pilotto'
+
+
+def follow_app(env=os.environ, folder=None):
+    """The terminal follows the Desktop App: same Notion workspace, same job cache and search settings.
+
+    When the app is set up on this computer, every NOTION_* ID the environment (or .env) doesn't set comes from
+    the app's settings, and the data and config folders are the app's. If .env sets a NOTION_* ID of another
+    workspace (a test one, on purpose), nothing is taken: that run keeps its own workspace and job cache. Off when the app itself runs the pipeline
+    (it passes everything), in tests, or with JOB_PILOTTO_FOLLOW_APP=0. -> what was taken ({} = nothing)."""
+    if env.get('JOB_PILOTTO_NO_DOTENV') or env.get('JOB_PILOTTO_FOLLOW_APP') == '0' or 'unittest' in sys.modules:
+        return {}
+    folder = Path(folder) if folder else app_folder()
+    try:
+        settings = json.loads((folder / 'settings.json').read_text())
+    except (OSError, ValueError):
+        return {}
+    if not settings.get('setupDone') or not settings.get('notionIds'):
+        return {}
+    ids = {name: str(value) for name, value in settings['notionIds'].items() if value and name.startswith('NOTION_')}
+    other = sorted(name for name in ids if env.get(name) and env[name].replace('-', '') != ids[name].replace('-', ''))
+    if other:  # .env points at another workspace on purpose: that run keeps its own job cache too (never mixed)
+        print(f'Not using the Desktop App\'s workspace: .env sets {", ".join(other)}', file=sys.stderr)
+        return {}
+    taken = {}
+    for name, value in ids.items():
+        if not env.get(name):
+            env[name] = taken[name] = value
+    for name, sub in (('JOB_PILOTTO_DATA_DIR', 'data'), ('JOB_PILOTTO_CONFIG_DIR', 'config')):
+        if not env.get(name) and (folder / sub).is_dir():
+            env[name] = taken[name] = str(folder / sub)
+    if taken:
+        print(f'Using the Desktop App\'s Notion workspace and job data ({folder})', file=sys.stderr)
+    return taken
+
+
+FOLLOWED = follow_app()
+
 # The desktop app keeps each user's settings and data in its own folder (Application Support), so the
 # same code runs from the repo (defaults below) or from the app, which sets these variables.
 CONFIG = Path(os.environ['JOB_PILOTTO_CONFIG_DIR']) if os.getenv('JOB_PILOTTO_CONFIG_DIR') else ROOT / 'config'
 DATA = Path(os.environ['JOB_PILOTTO_DATA_DIR']) if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'data'
 REPORTS = DATA / 'reports' if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'reports'
 JOBS_DB = DATA / 'jobs.sqlite'
+
+
+@contextlib.contextmanager
+def run_lock(folder=None, on_wait=lambda: print('Another Job Pilotto search is running (app or terminal): waiting for it…',
+                                                file=sys.stderr), poll=5):
+    """One search at a time per data folder, whether the app or the terminal started it (they share the cache)."""
+    folder = Path(folder or DATA)
+    folder.mkdir(parents=True, exist_ok=True)
+    handle = open(folder / 'run.lock', 'a+')
+    try:
+        if sys.platform == 'win32':
+            import msvcrt
+            lock = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            unlock = lambda: msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            lock = lambda: fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            unlock = lambda: fcntl.flock(handle, fcntl.LOCK_UN)
+        told = False
+        while True:
+            try:
+                lock()
+                break
+            except OSError:
+                if not told:
+                    on_wait()
+                    told = True
+                time.sleep(poll)
+        try:
+            yield
+        finally:
+            unlock()
+    finally:
+        handle.close()
 
 
 def local_text(variable):

@@ -56,6 +56,10 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - Apply with Claude (Desktop App job row, recommended when Claude Code is installed and Notion connected): `desktop/lib/apply.js` `claudeOne` → `desktop/lib/claude-session.js` (Mac: Terminal; Windows: a console window via `start`, needs Git for Windows), one `claude --chrome --permission-mode bypassPermissions` session per job, started in the app's pipeline folder with the skill bundled (`stage.mjs` copies `.claude/skills/apply-to-job`), after a one-time consent (`settings.claudeConsent`, Settings → Apply with Claude); it follows job board → employer site → sign-up → form ("Reaching the form" in the apply-to-job skill). Employer passwords go through `python3 -m src.ai.passwords` into the Keychain / Windows Credential Manager (`job-pilotto.<host>.password`); the session's `python3` is a shim to the app's Python; confirmation emails are read with `python -m src.sources.google verify` (Gmail read-only, connected in Settings → Gmail and Calendar). Never Submit.
 - Form-filling improvement loop: every extension fill is logged to Agent Runs (field table + debug JSON); `tools/fill-failures.py` groups what was left; the **improve-filling** skill (`.claude/skills/improve-filling/SKILL.md`) turns the top failures into tested fixes. Data gaps go to the app's "Answer once" list.
 - Notion IDs have no defaults in code: they come from the environment (`.env`, repository variables, or the Desktop App).
+- **The terminal follows the Desktop App** (`src/paths.py` `follow_app`): when the app is set up on this computer,
+  terminal runs use its Notion IDs and its `data/` + `config/` folders (one job cache); a line on stderr says so.
+  `.env` NOTION_* IDs of another workspace (e.g. the test one) switch that off for the run, never mixed.
+  `JOB_PILOTTO_FOLLOW_APP=0` turns it off. Searches from the app and the terminal take turns (`run_lock`).
 
 ## Tests
 `python3 -m unittest discover -s tests`, `cd worker && npm test` and `cd desktop && npm test`.
