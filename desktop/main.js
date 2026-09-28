@@ -69,7 +69,7 @@ function openNotion(url) {
 
 function createWindow() {
   window = new BrowserWindow({
-    width: 1180, height: 820, minWidth: 900, minHeight: 640, title: 'Job Pilotto', show: !process.env.JOB_PILOTTO_SMOKE,
+    width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: 'Job Pilotto', show: !process.env.JOB_PILOTTO_SMOKE,
     backgroundColor: '#eef3f7',
     webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false},
   });

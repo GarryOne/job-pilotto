@@ -778,7 +778,10 @@ function openView(name) {
   if (name === 'settings') loadSettings();
   if (name === 'interviews') loadInterviews();
 }
-document.querySelectorAll('.nav').forEach(nav => nav.addEventListener('click', () => openView(nav.dataset.view)));
+document.querySelectorAll('.nav').forEach(nav => {
+  nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
+  nav.addEventListener('click', () => openView(nav.dataset.view));
+});
 
 // Job pages open in Chrome now (reported by the extension; refreshed every 2 s), plus ones just opened here.
 let openedInChrome = new Set();
