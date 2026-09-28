@@ -58,29 +58,29 @@ test('the app checks Gmail at the chosen times of day while it is open, unless t
 
 test('a Gmail check looks back far enough to cover the time since the last good check', () => {
   const storage = tempStorage();
-  assert.deepEqual(pipeline.mailArgs(storage), ['src.ai.mail', '--days', '2']);
+  assert.deepEqual(pipeline.mailArgs(storage), ['src.ai.mail', '--days', '2', '--log-run']);
   const now = Date.parse('2026-09-28T12:00:00Z');
   storage.saveSettings({lastMailOkAt: '2026-09-23T12:00:00Z'});
-  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '6']);
+  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '6', '--log-run']);
   storage.saveSettings({lastMailOkAt: '2026-08-01T12:00:00Z'});
-  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '14']);
+  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '14', '--log-run']);
   storage.setSecret('TELEGRAM_BOT_TOKEN', '1:abc');
   storage.saveSettings({telegramChatId: '42', lastMailOkAt: '2026-09-28T07:00:00Z'});
-  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '2', '--send']);
+  assert.deepEqual(pipeline.mailArgs(storage, now), ['src.ai.mail', '--days', '2', '--send', '--log-run']);
 });
 
 test('Telegram actions run the same pipeline command as the GitHub workflow', () => {
   const storage = tempStorage();
-  assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'today'}), ['src', 'daily', '--mode', 'today']);
+  assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'today'}), ['src', 'daily', '--mode', 'today', '--log-run']);
   storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
   storage.setSecret('TELEGRAM_BOT_TOKEN', '1:abc');
   storage.saveSettings({telegramChatId: '42'});
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'scheduled'}),
-    ['src', 'daily', '--mode', 'scheduled', '--send', '--enrich-max', '100', '--score-max', '60', '--insight']);
+    ['src', 'daily', '--mode', 'scheduled', '--send', '--log-run', '--enrich-max', '100', '--score-max', '60', '--insight']);
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'apply', job: 'ab12cd34', action: 'saved'}),
-    ['src', 'daily', '--mode', 'apply', '--send', '--job', 'ab12cd34', '--action', 'saved']);
+    ['src', 'daily', '--mode', 'apply', '--send', '--log-run', '--job', 'ab12cd34', '--action', 'saved']);
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'more', seed: 7, page: 2}),
-    ['src', 'daily', '--mode', 'more', '--send', '--page', '2', '--seed', '7']);
+    ['src', 'daily', '--mode', 'more', '--send', '--log-run', '--page', '2', '--seed', '7']);
 });
 
 test('pairing waits for Start in a private chat, then greets the user', async () => {

@@ -232,6 +232,8 @@ function renderActivity(data) {
   const kind = run ? KIND[kindOf(run)] : null;
   $('activity-selected').textContent = !run ? '' : run.live ? `${kind.icon} ${kind.name}, running now` :
     `${kind.icon} ${kind.name} · ${clockTime(run.startedAt)} (${WHO[run.trigger] || run.trigger}) · ${outcome(run)}`;
+  show($('activity-notion'), !!run?.notionUrl);
+  $('activity-notion').dataset.url = run?.notionUrl || '';
   const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
   const live = !!run?.live;
@@ -255,6 +257,10 @@ function renderActivity(data) {
     if (atBottom) log.scrollTop = log.scrollHeight;  // follow new lines unless the user scrolled up to read
   }
 }
+$('activity-notion').addEventListener('click', event => {
+  event.preventDefault();
+  if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
+});
 $('check-mail').addEventListener('click', async () => {
   $('check-mail').disabled = true;
   selectedRun = null;
@@ -530,7 +536,13 @@ function renderJobs() {
 
     const box = el('div', 'row-actions');
     const menu = [];
-    const setStatus = next => async () => { await window.pilot.setStatus(job.url, next); job.status = next; renderJobs(); };
+    // Notion is the source of truth: if it can't be written, nothing changes and the user is told.
+    const setStatus = next => async () => {
+      const result = await window.pilot.setStatus(job.url, next).catch(error => ({ok: false, error: error.message}));
+      if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
+      job.status = next;
+      renderJobs();
+    };
     // Chrome opens the job's form and the extension fills it at once from the kit.
     const fillInChrome = async button => {
       const result = await window.pilot.applyOne(job.url);
@@ -668,7 +680,8 @@ async function loadJobs() {
     allJobs = data.jobs;
     const scored = allJobs.filter(job => job.fit != null).length;
     const count = stats(allJobs, data.total);
-    $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` + (data.filtered ? ` · ${data.filtered} hidden` : '');
+    $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` + (data.filtered ? ` · ${data.filtered} hidden` : '') +
+      (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     $('stat-total').textContent = count.total;
     $('stat-high').textContent = count.high;

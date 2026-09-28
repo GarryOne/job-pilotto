@@ -17,8 +17,10 @@ def new_run(mode):
     """The run dict an AI job fills for its ⏰ Cronjob Runs row; trigger and link come from GitHub Actions.
     Every AI job logs one (crawls, kits, insights, interviews, mail), so the rows add up to the month's spend."""
     event = os.getenv('GITHUB_EVENT_NAME', '')
+    # The desktop app says what started it (JOB_PILOTTO_TRIGGER: "Mac schedule" or "Mac (you)").
+    trigger = os.getenv('JOB_PILOTTO_TRIGGER') or {'schedule': 'Schedule', '': 'Local'}.get(event, 'Manual')
     run = {'mode': mode, 'started_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-           'trigger': {'schedule': 'Schedule', '': 'Local'}.get(event, 'Manual'), 'warnings': []}
+           'trigger': trigger, 'warnings': []}
     if os.getenv('GITHUB_RUN_ID'):
         run['run_url'] = (f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/"
                           f"{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID')}")
@@ -45,11 +47,26 @@ def total_tokens(run):
 def status(run):
     if run.get('warnings') or run.get('feed_errors'):
         return 'Warnings'
+    if run.get('mode') == 'mail':
+        return 'OK' if run.get('updates') else 'Quiet'
     return 'OK' if run.get('new') or run.get('changed') else 'Quiet'
+
+
+def mail_lines(run):
+    """A Gmail check: what it read and each update it recorded in the application ledger."""
+    info = run.get('mail') or {}
+    updates = run.get('updates') or []
+    lines = [f"Gmail check: {info.get('done', 0)} new email(s) read, {len(updates)} update(s) recorded; "
+             f"AI cost ${total_usd(run):.3f}."]
+    lines += updates
+    lines += [f'Warning: {w}' for w in run.get('warnings', [])]
+    return lines
 
 
 def report_lines(run):
     """The mini-report: a headline, then what stood out, most useful first."""
+    if run.get('mode') == 'mail':
+        return mail_lines(run)
     new, changed = run.get('new', 0), run.get('changed', 0)
     feeds, errors = run.get('feeds', 0), run.get('feed_errors', 0)
     cost = total_usd(run)

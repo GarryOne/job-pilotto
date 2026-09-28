@@ -142,8 +142,8 @@ def queue_mail_check(delay=5):
 
 def log_ai_run(tracker, run, args):
     """⏰ Cronjob Runs row for an on-demand AI job (kit, interview, insight, weekly), so the month's rows add
-    up to the AI spend the budget guard reads. Only real (sending) runs are logged, like the crawl."""
-    if tracker and args.send:
+    up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
+    if tracker and (args.send or args.log_run):
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
         cron_runs.log_run(tracker, run)
 
@@ -200,6 +200,12 @@ def save_run(run):
     (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
 
 
+def log_crawl(tracker, run):
+    url = cron_runs.log_run(tracker, run)
+    if url:
+        print(f'Cronjob run logged: {url}')  # the desktop app links its activity row to this
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=JOBS_DB)
@@ -226,6 +232,8 @@ def main():
     parser.add_argument('--file', help='interview mode: Telegram file id, or a local path, of the recording or transcript')
     parser.add_argument('--interview', help='interview mode: review this 🎤 Interviews row (saved from the app)')
     parser.add_argument('--note', default='', help='interview mode: the caption, or "/interview <label>" plus notes')
+    parser.add_argument('--log-run', action='store_true',
+                        help='log this run to Notion ⏰ Search runs even without --send (the desktop app always does)')
     parser.add_argument('--insight', action='store_true',
                         help="scheduled mode: send the day's insight if it's due (insight mode always sends one)")
     args = parser.parse_args()
@@ -447,6 +455,8 @@ def main():
               'was sent (terminal: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send).')
         if args.mode in ('scheduled', 'run', 'today'):
             save_run(run)  # the desktop app's activity bar shows its counts
+            if tracker and args.log_run:
+                log_crawl(tracker, run)
         return 0
     token, chat_id = telegram.credentials()
     if args.mode == 'scheduled' and not new_count:
@@ -482,11 +492,8 @@ def main():
             run['warnings'].append(f'insight skipped: {type(error).__name__}')
     if args.mode in ('scheduled', 'run', 'today'):
         save_run(run)
-        # Only sending runs are logged to Notion, so local previews don't fill the table.
-        if tracker:
-            url = cron_runs.log_run(tracker, run)
-            if url:
-                print(f'Cronjob run logged: {url}')
+        if tracker:  # sending runs; a terminal preview (no --send) isn't logged unless --log-run
+            log_crawl(tracker, run)
     return 0
 
 

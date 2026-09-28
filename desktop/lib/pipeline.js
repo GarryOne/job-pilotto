@@ -71,9 +71,9 @@ export function pipelineEnv(storage, parent = process.env) {
 }
 
 // Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine.
-export function run(storage, args, onLine = () => {}) {
+export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: pipelineEnv(storage)});
+    const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
     let stdout = '', buffer = '';
     const lines = chunk => {
       buffer += chunk;
@@ -107,7 +107,8 @@ export function dailyArgs(storage, inputs = {}) {
   const mode = inputs.mode || 'scheduled';
   const ai = !!storage.secret('ANTHROPIC_API_KEY');
   const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId);
-  const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : [])];
+  // --log-run: every run from the app gets a row in Notion ⏰ Search runs (Notion is where the details live).
+  const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : []), '--log-run'];
   if (inputs.job) args.push('--job', String(inputs.job), '--action', String(inputs.action || 'applied'));
   if (inputs.page) args.push('--page', String(inputs.page));
   if (inputs.seed) args.push('--seed', String(inputs.seed));
@@ -139,7 +140,7 @@ let current = null;
 export const running = () => current;
 
 export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
-  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode), record => {
+  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), record => {
     let summary = {};
     try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
     const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
@@ -156,12 +157,12 @@ export function mailArgs(storage, now = Date.now()) {
   // Look back far enough to cover the time since the last check (the Mac may have been off), 2 to 14 days.
   const since = settings.lastMailOkAt ? (now - Date.parse(settings.lastMailOkAt)) / 86400000 : 0;
   const days = Math.min(14, Math.max(2, Math.ceil(since) + 1));
-  return ['src.ai.mail', '--days', String(days), ...(telegram ? ['--send'] : [])];
+  return ['src.ai.mail', '--days', String(days), ...(telegram ? ['--send'] : []), '--log-run'];
 }
 export function checkMail(storage, onLine, trigger = 'you') {
   let off = false;
   return tracked(storage, 'mail', trigger, onLine, async tee => {
-    const {code, stdout} = await run(storage, mailArgs(storage), tee);
+    const {code, stdout} = await run(storage, mailArgs(storage), tee, triggerEnv(trigger));
     off = /Gmail \+ Calendar is off/.test(stdout);
     // lastMailAt paces the schedule (a failed or "not connected" check waits for the next time too);
     // lastMailOkAt sets how far back the next check looks.
@@ -193,7 +194,8 @@ function tracked(storage, kind, trigger, onLine, work, summarize) {
     } catch (error) {
       tee(`${kind === 'mail' ? 'Gmail check' : 'Search'} failed: ${error.message}`);
     } finally {
-      Object.assign(record, {endedAt: new Date().toISOString(), ok, log: log.slice(-400), ...summarize(record, log)});
+      const notionUrl = log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
+      Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, log: log.slice(-400), ...summarize(record, log)});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
     }
@@ -201,13 +203,16 @@ function tracked(storage, kind, trigger, onLine, work, summarize) {
   });
 }
 
-function searchOnce(storage, onLine, mode) {
+// What started a run, for its Notion ⏰ Search runs row (GitHub runs say Schedule or Manual).
+export const triggerEnv = trigger => ({JOB_PILOTTO_TRIGGER: trigger === 'schedule' ? 'Mac schedule' : 'Mac (you)'});
+
+function searchOnce(storage, onLine, mode, trigger = 'you') {
   return (async () => {
     const ai = !!storage.secret('ANTHROPIC_API_KEY');
     onLine('Searching job boards (jobs.ch, TechTree)…');
     await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
     onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
-    const {code} = await run(storage, dailyArgs(storage, {mode}), onLine);
+    const {code} = await run(storage, dailyArgs(storage, {mode}), onLine, triggerEnv(trigger));
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchOk: code === 0});
     return {ok: code === 0};
   })();

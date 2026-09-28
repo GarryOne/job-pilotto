@@ -2,6 +2,7 @@
 // settings, in one Claude call. Nothing is saved until the user reviews and accepts the draft.
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
+import {pageText} from '../shared/worker/extension.js';
 import path from 'node:path';
 import {REPO} from './pipeline.js';
 
@@ -93,6 +94,21 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
 }
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
+// The Profile and standard answers: the Notion pages when Notion is connected (the source of truth; nothing
+// is copied to the Mac), else the local files written during setup before Notion was connected.
+export async function profileTexts(storage) {
+  const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
+  if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {profile: storage.readText('profile.md'), answers: storage.readText('answers.md')};
+  const env = {NOTION_TOKEN: token};
+  const [profile, answers] = await Promise.all([pageText(env, ids.NOTION_PROFILE_PAGE_ID),
+    ids.NOTION_ANSWERS_PAGE_ID ? pageText(env, ids.NOTION_ANSWERS_PAGE_ID) : '']);
+  return {profile, answers};
+}
+// Once Notion holds them, the local copies go: one copy, no drift.
+export function dropLocalCopies(storage) {
+  for (const name of ['profile.md', 'answers.md']) fs.rmSync(storage.path(name), {force: true});
+}
+
 export function save(storage, accepted) {
   if (accepted.contact) storage.saveSettings({contact: Object.fromEntries(Object.entries(accepted.contact).filter(([, value]) => value))});
   storage.writeText('profile.md', accepted.profile_markdown.trim() + '\n');

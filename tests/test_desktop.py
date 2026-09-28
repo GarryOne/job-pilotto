@@ -59,6 +59,25 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(tracker.marked, [('https://x.test/1', 'Site Reliability Engineer', 'Acme', 'Saved')])
         self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'saved')
 
+    def test_notion_stage_is_the_truth_and_refreshes_the_local_cache(self):
+        desktop.set_status(self.db, 'https://x.test/1', 'saved')  # stale local value
+        listed = desktop.jobs(self.db, stages={'https://x.test/1': ('Rejected', '', '')}, notion=True)
+        self.assertEqual(listed['jobs'][0]['status'], 'applied')  # Rejected = it was applied to
+        self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'applied')  # cache updated
+        # No row in Notion (e.g. the Saved row was deleted there) = not reviewed.
+        self.assertEqual(desktop.jobs(self.db, stages={}, notion=True)['jobs'][0]['status'], 'unreviewed')
+        self.assertEqual([desktop.stage_status(s) for s in (None, 'Kit ready', 'Saved', 'Dismissed', 'Closed', 'Interview scheduled')],
+                         ['unreviewed', 'unreviewed', 'saved', 'dismissed', 'dismissed', 'applied'])
+
+    def test_a_status_notion_rejects_changes_nothing(self):
+        class Down:
+            def mark(self, job, stage):
+                raise TimeoutError()
+        result = desktop.set_status(self.db, 'https://x.test/1', 'dismissed', Down())
+        self.assertFalse(result['ok'])
+        self.assertIn('Notion could not be updated', result['error'])
+        self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'unreviewed')
+
     def test_without_notion_status_stays_local(self):
         self.assertEqual(desktop.set_status(self.db, 'https://x.test/1', 'applied'), {'ok': True})
         self.assertFalse(desktop.set_status(self.db, 'https://x.test/404', 'applied')['ok'])

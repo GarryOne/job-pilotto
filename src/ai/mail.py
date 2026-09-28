@@ -423,6 +423,8 @@ def main(argv=None):
     parser.add_argument('--send', action='store_true', help='send the summary and reminders to Telegram')
     parser.add_argument('--dry-run', action='store_true', help='classify and print; write nothing')
     parser.add_argument('--no-calendar', action='store_true')
+    parser.add_argument('--log-run', action='store_true',
+                        help='log this check to Notion ⏰ Search runs even without --send (the desktop app always does)')
     args = parser.parse_args(argv)
     tracker, google = notion.Tracker.from_env(), Google.from_env()
     if not google:
@@ -438,13 +440,26 @@ def main(argv=None):
         sender = lambda text: telegram.send(text, token, chat_id)
     stats = {}
     log = cron_runs.new_run('mail')
+    logged = (args.send or args.log_run) and not args.dry_run
+
+    def log_check(warning=None):  # one ⏰ Search runs row per check: what it read, what it recorded, the cost
+        log['mail'] = {key: value for key, value in stats.items() if key != 'updates'}
+        log['updates'] = stats.get('updates', [])
+        log['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(log['started_at'])).total_seconds())
+        if warning:
+            log['warnings'].append(warning)
+        url = cron_runs.log_run(tracker, log)
+        if url:
+            print(f'Cronjob run logged: {url}')
+
     try:
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
                   stats=stats))
-        if args.send and stats.get('usd'):  # a ⏰ Cronjob Runs row when it spent anything, for the budget
-            log['mail'] = stats
-            cron_runs.log_run(tracker, log)
+        if logged:
+            log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
+        if logged:
+            log_check(f'check failed: {type(error).__name__}: {str(error)[:200]}')
         if 'invalid_grant' in str(error):
             message = ('⚠️ The Google sign-in for Gmail and Calendar has expired (Google limits apps in testing mode '
                        'to 7 days). On the Mac, in the repo, run: python3 -m src.sources.google auth --github '

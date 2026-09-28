@@ -15,6 +15,7 @@ import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
+import * as migrate from './lib/migrate.js';
 import {createStorage, safeStorageCrypto} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -133,7 +134,7 @@ function handlers() {
   ipcMain.handle('state', () => ({
     about,
     settings: storage.settings(), secrets: storage.secretsPresent(),
-    hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!storage.readText('profile.md'),
+    hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!storage.readText('profile.md') || !!(storage.settings().setupDone && storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID),
     folder: storage.dir,
     notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
@@ -207,13 +208,14 @@ function handlers() {
         const report = page => (done, total) => window?.webContents.send('saveProgress', {page, done, total});
         await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, draft.profile_markdown, undefined, report('Profile'));
         await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
+        strategy.dropLocalCopies(storage);  // Notion has them now
       }
       storage.saveSettings({setupDone: true});
       return {ok: true};
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
   });
-  ipcMain.handle('profileText', () => ({profile: storage.readText('profile.md'), answers: storage.readText('answers.md')}));
+  ipcMain.handle('profileText', () => strategy.profileTexts(storage));
   ipcMain.handle('saveProfileText', (_, {profile, answers}) => {
     storage.writeText('profile.md', profile);
     storage.writeText('answers.md', answers);
@@ -408,12 +410,13 @@ function handlers() {
       const job = await pipeline.posting(storage, code);
       if (!job.ok) return {ok: false, error: job.error};
       const base = cvlib.baseCv(storage);
+      const {profile} = await strategy.profileTexts(storage);
       let feedback = '', result, applied, printed;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const answer = await cvlib.tailor(storage, job, key, {feedback});
+        const answer = await cvlib.tailor(storage, job, key, {feedback, profile});
         cost += answer.usd;
         result = answer.result;
-        applied = cvlib.applyTailoring(base, result, storage.readText('profile.md'));
+        applied = cvlib.applyTailoring(base, result, profile);
         printed = await printPdf(cvlib.writeHtml(storage, applied.cv, `${code}.html`));
         if (!printed.overflow.length) break;
         feedback = `Your last version didn't fit on page ${printed.overflow.join(', ')}: make the bullets on that page shorter or drop one, so it fits.`;
@@ -522,6 +525,7 @@ if (firstCopy) app.whenReady().then(() => {
   }
   createWindow();
   if (!DEMO) {
+    migrate.run(storage, log);  // user data left on this Mac -> Notion (source of truth), once
     restartTelegram();
     // On the chosen schedule while the app is open (the digest goes to Telegram when there's something new).
     // Searches: a notification a minute before one starts, and one with the result when it's done.

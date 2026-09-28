@@ -97,14 +97,13 @@ const numbered = cv => ({summary: cv.summary || '', jobs: cv.jobs.map(job => ({c
   bullets: r.bullets.map((text, index) => ({index, text})), skills: r.skills || ''}))})),
   ...(cv.skills ? {skills: cv.skills} : {})});
 
-export async function tailor(storage, posting, apiKey, {client = null, feedback = ''} = {}) {
+export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = storage.readText('profile.md')} = {}) {
   const cv = baseCv(storage);
   if (!cv) throw new Error('No base CV yet');
-  const profile = storage.readText('profile.md');
   const anthropic = client || new Anthropic({apiKey});
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 12000, system: TAILOR_INSTRUCTIONS,
-    messages: [{role: 'user', content: `<cv>\n${JSON.stringify(numbered(cv), null, 1)}\n</cv>\n\n<profile>\n${profile.slice(0, 40000)}\n</profile>\n\n` +
+    messages: [{role: 'user', content: `<cv>\n${JSON.stringify(numbered(cv), null, 1)}\n</cv>\n\n<profile>\n${(profile || '').slice(0, 40000)}\n</profile>\n\n` +
       `<posting>\n${posting.title} at ${posting.company}${posting.location ? ` (${posting.location})` : ''}\n\n${(posting.description || '(no description stored: tailor to the title)').slice(0, 30000)}\n</posting>` +
       (feedback ? `\n\n<feedback>${feedback}</feedback>` : '')}],
     output_config: {format: {type: 'json_schema', schema: TAILOR_SCHEMA}},
@@ -272,9 +271,10 @@ export function reviewPage(storage, record) {
   const base = baseCv(storage);
   let marked = record.review, warnings = record.warnings;
   if (record.result && base) try {
-    const again = applyTailoring(base, record.result, storage.readText('profile.md'));
+    const profile = storage.readText('profile.md');  // only without Notion; else keep the warnings made at tailoring time
+    const again = applyTailoring(base, record.result, profile);
     marked = again.review;
-    warnings = [...again.warnings, ...record.warnings.filter(w => /too full/.test(w))];
+    if (profile) warnings = [...again.warnings, ...record.warnings.filter(w => /too full/.test(w))];
   } catch {}
   const cvHtml = render(marked, {style: style(storage), review: true, base: pathToFileURL(dir(storage) + path.sep).href});
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

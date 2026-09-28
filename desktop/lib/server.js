@@ -6,6 +6,7 @@ import * as cv from './cv.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
+import * as strategy from './strategy.js';
 import {handleExtension, jobKey, pageText} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
@@ -52,9 +53,10 @@ export function localEnv(storage) {
     markApplied: async url => {
       const job = await find(url);
       if (!job) return {ok: false, error: 'This job isn\'t in your list'};
-      await pipeline.setStatus(storage, job.url, 'applied');
-      notify('Marked Applied ✓', `${jobName(job)}. Saved in Job Pilotto and your Notion.`);
-      return {ok: true, message: 'Marked Applied in Job Pilotto.'};
+      const result = await pipeline.setStatus(storage, job.url, 'applied');
+      if (!result.ok) return {ok: false, error: result.error || 'Could not mark it Applied'};
+      notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`);
+      return {ok: true, message: 'Marked Applied in your Notion.'};
     },
     KNOWLEDGE_TEXT: learn.asText(settings.formKnowledge),
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
@@ -79,11 +81,7 @@ async function learnFromRun(storage, run, job) {
   const studied = settings.formKnowledgeStudied || {};
   const fresh = learn.newFields(run, studied, settings.formKnowledge || []);
   if (!fresh.length) return;  // this site's fields were already studied: no AI call
-  const env = {NOTION_TOKEN: token};
-  const [profile, answers] = token ? await Promise.all([
-    ids.NOTION_PROFILE_PAGE_ID ? pageText(env, ids.NOTION_PROFILE_PAGE_ID).catch(() => '') : '',
-    ids.NOTION_ANSWERS_PAGE_ID ? pageText(env, ids.NOTION_ANSWERS_PAGE_ID).catch(() => '') : '']) :
-    [storage.readText('profile.md'), storage.readText('answers.md')];
+  const {profile, answers} = await strategy.profileTexts(storage).catch(() => ({profile: '', answers: ''}));
   const {notes, usd} = await learn.learn({run, profile, answers, contact: settings.contact || {}, known: settings.formKnowledge || [], studied, apiKey});
   const site = learn.siteOf(run.url);
   // Remember what was studied, learned or not (a missing personal fact won't be retried; it's in Answer once).

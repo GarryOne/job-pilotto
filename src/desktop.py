@@ -19,14 +19,26 @@ from .paths import JOBS_DB
 STATUSES = ('unreviewed', 'saved', 'applied', 'dismissed')
 
 
-def jobs(db, limit=200, stages=None):
+# Notion Applications Stage -> the app's status. With Notion connected the Stage is the only source of truth;
+# the local applications.status column is a cache refreshed from it on every list.
+def stage_status(stage):
+    if not stage or stage == 'Kit ready':
+        return 'unreviewed'
+    if stage == 'Saved':
+        return 'saved'
+    if stage in ('Dismissed', 'Closed'):
+        return 'dismissed'
+    return 'applied'  # Applying, Applied and everything after it (replies, interviews, rejection, offer)
+
+
+def jobs(db, limit=200, stages=None, notion=False):
     """Eligible open jobs, best fit first (unscored after scored, then the rule-based rank).
 
     stages: job URL -> Notion Applications Stage. Kits live in Notion; a job has one when its Stage is Kit ready."""
     stages = stages or {}
     NOT_ELIGIBLE = '⛔ Not eligible: '
 
-    def notion(job):  # (Stage, Next step, Notion page URL); tests may pass plain stages
+    def notion_row(job):  # (Stage, Next step, Notion page URL); tests may pass plain stages
         value = stages.get((job.get('url') or '').strip(), (None, '', ''))
         return (tuple(value) + ('', ''))[:3] if isinstance(value, tuple) else (value, '', '')
     candidates, blocked = digest.eligible_jobs(db)
@@ -34,6 +46,11 @@ def jobs(db, limit=200, stages=None):
     rows = []
     for job in candidates:
         fit = fits.get(job['id'])
+        if notion:  # Notion wins; keep the local cache in step
+            truth = stage_status(notion_row(job)[0])
+            if truth != (job.get('application_status') or 'unreviewed'):
+                store.set_application_status(db, job['id'], truth)
+                job = {**job, 'application_status': truth}
         rows.append({
             'id': job['id'], 'code': job_code(job['url']) if job.get('url') else '',
             'title': job['title'], 'company': job['company'], 'location': job.get('location') or '',
@@ -44,10 +61,10 @@ def jobs(db, limit=200, stages=None):
             'reason': (fit.get('summary') or fit.get('reason') or '') if fit else '',
             'rank': digest.rank_score(job),
             # A kit writes Next step (Kit ready / Not eligible); the stage can stay Saved if the job was starred first.
-            'notion_url': notion(job)[2],  # the job's Applications page: kit, verdict, notes
-            'kit': notion(job)[0] == 'Kit ready' or notion(job)[1].startswith(('📝 Kit ready', NOT_ELIGIBLE)),
+            'notion_url': notion_row(job)[2],  # the job's Applications page: kit, verdict, notes
+            'kit': notion_row(job)[0] == 'Kit ready' or notion_row(job)[1].startswith(('📝 Kit ready', NOT_ELIGIBLE)),
             # The kit's eligibility verdict, written to Next step when it was drafted.
-            'ineligible': notion(job)[1][len(NOT_ELIGIBLE):] if notion(job)[1].startswith(NOT_ELIGIBLE) else '',
+            'ineligible': notion_row(job)[1][len(NOT_ELIGIBLE):] if notion_row(job)[1].startswith(NOT_ELIGIBLE) else '',
         })
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
     return {'jobs': rows[:limit], 'total': len(rows), 'filtered': len(blocked)}
@@ -75,12 +92,15 @@ def set_status(db, url, status, tracker=None):
                           WHERE jobs.url=?""", (url,)).fetchone()
     if not row:
         return {'ok': False, 'error': 'job not found'}
+    outcome = None
+    if tracker and status in NOTION_STAGES:  # Notion first: if it can't be written, nothing changes
+        try:
+            _, outcome = tracker.mark(dict(row), NOTION_STAGES[status])
+        except Exception as error:  # noqa: BLE001 — shown to the user; the local cache stays as it was
+            return {'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}
     store.set_application_status(db, row['id'], status)
     db.commit()
-    if tracker and status in NOTION_STAGES:
-        _, outcome = tracker.mark(dict(row), NOTION_STAGES[status])
-        return {'ok': True, 'notion': outcome}
-    return {'ok': True}
+    return {'ok': True, 'notion': outcome} if outcome else {'ok': True}
 
 
 def main(argv=None):
@@ -100,13 +120,15 @@ def main(argv=None):
         from .notion.client import Tracker
         tracker = Tracker.from_env()
         if args.command == 'jobs':
-            stages = {}
+            stages, fresh = {}, False
             if tracker:
                 try:
-                    stages = tracker.url_rows()
-                except Exception as error:  # the list still shows without Notion; Apply then waits for a kit
+                    stages, fresh = tracker.url_rows(), True
+                except Exception as error:  # the list still shows from the cache, marked as possibly out of date
                     print(f'Warning: Notion stages unavailable: {type(error).__name__}: {error}', file=__import__('sys').stderr)
-            result = jobs(db, args.limit, stages)
+            result = jobs(db, args.limit, stages, notion=fresh)
+            if tracker and not fresh:
+                result['stale'] = True
         else:
             result = set_status(db, args.url, args.status, tracker)
     print(json.dumps(result, ensure_ascii=False))
