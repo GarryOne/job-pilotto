@@ -22,6 +22,16 @@ export function leftOpen(sessions, label, kept = 0) {
   };
 }
 
+// "Start again from scratch" on a session: what happens, asked once before it does.
+export function restart(company) {
+  return {
+    message: `Start the ${company ? `${company} application` : 'application'} again from scratch?`,
+    detail: 'This session stops and is closed (its statistics are kept in Notion). A new Apply with Claude session then ' +
+      'starts on the same job from the beginning. The form tab stays open in Chrome: close it first for an empty form.',
+    buttons: ['Start again', 'Cancel'],
+  };
+}
+
 // The words of the "you're quitting while something works" dialogs (native macOS/Windows dialogs: a title, a few
 // lines, buttons). Short, one line per thing that would stop, and what happens to it.
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;

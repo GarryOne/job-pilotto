@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {leftOpen, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
+import {leftOpen, restart, sessionsOnly, submitted, working} from '../lib/quit-dialog.js';
 
 const label = session => session.company;
 const sessions = names => names.map(company => ({company}));
@@ -49,4 +49,11 @@ test('at start: sessions left open are listed and there are three ways on, the r
   const twice = leftOpen([{company: 'Canonical', title: 'Site Reliability Engineer'}, {company: 'Canonical', title: 'Software Engineer'}, {company: 'N26', title: 'SRE'}], label);
   assert.match(twice.detail, /^•  Canonical · Site Reliability Engineer\n•  Canonical · Software Engineer\n•  N26\n/);
   assert.equal(leftOpen(sessions(['N26']), label).message, 'An application was left open');
+});
+
+test('start again from scratch: asked once, says what closes, what starts and that the form tab stays', () => {
+  const dialog = restart('Canonical');
+  assert.equal(dialog.message, 'Start the Canonical application again from scratch?');
+  assert.match(dialog.detail, /This session stops and is closed.*A new Apply with Claude session then starts on the same job.*close it first for an empty form/s);
+  assert.deepEqual(dialog.buttons, ['Start again', 'Cancel']);
 });

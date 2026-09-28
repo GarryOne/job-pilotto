@@ -838,6 +838,10 @@
             {
               "name": "Open",
               "color": "yellow"
+            },
+            {
+              "name": "Restarted",
+              "color": "blue"
             }
           ]
         },

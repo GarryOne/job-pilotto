@@ -68,7 +68,7 @@ export function toolsText(tools = {}) {
   return [...totals].sort((a, b) => b[1] - a[1]).map(([name, count]) => `${name} ${count}`).join(' · ');
 }
 
-const OUTCOME = {submitted: 'Submitted', 'not submitted': 'Not submitted'};
+const OUTCOME = {submitted: 'Submitted', 'not submitted': 'Not submitted', restarted: 'Restarted'};
 // The Agent Runs columns (config/notion_schema.json) for one session.
 export function properties(session, {now = Date.now(), read} = {}) {
   const time = timeline(session.events, {now, decidedAt: session.decidedAt});

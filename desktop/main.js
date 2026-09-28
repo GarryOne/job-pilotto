@@ -685,6 +685,20 @@ function handlers() {
   ipcMain.handle('apply', async (_, options) => options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options));
   ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
+  // A session started again from scratch: it stops and closes (outcome 'restarted' in its statistics), and a new
+  // Apply with Claude session starts on the same job (its kit, a new conversation). The job stays Applying.
+  ipcMain.handle('sessionRestart', async (_, id) => {
+    const old = terminals.get(String(id));
+    if (!old) return {ok: false, error: 'This session is no longer in the list.'};
+    const {message, detail, buttons} = quitDialog.restart(old.company);
+    const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
+      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 1, message, detail});
+    if (response !== 0) return {ok: false, cancelled: true};
+    if (!(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Allow it in Settings.'};
+    terminals.setOutcome(old.id, 'restarted');
+    terminals.remove(old.id);
+    return apply.claudeOne(storage, old.url, undefined, undefined, undefined, {title: old.title, company: old.company, location: old.location, workMode: old.workMode});
+  });
   ipcMain.handle('applyWithClaude', async (_, url, details = null) => (await claudeConsent())
     ? apply.claudeOne(storage, url, undefined, undefined, undefined, details)
     : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});

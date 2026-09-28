@@ -74,8 +74,9 @@ export function sessionMenu(item) {
   const menu = [{label: '↗ Open posting', run: () => window.pilot.openExternal(item.url)}];
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
   if (item.resumable) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
-  if (isLive(item)) menu.push({label: '⏹ Stop session', danger: true, run: () => window.pilot.sessionStop(item.id)});
-  else menu.push({label: '✕ Remove from the list', run: () => removeSession(item)});
+  menu.push({label: '↺ Start again from scratch', run: () => restartSession(item)});
+  if (isLive(item)) menu.push({label: '⏹ Stop Claude', run: () => window.pilot.sessionStop(item.id)});
+  menu.push({label: '✕ Close this session', danger: true, run: () => closeSession(item)});
   return menu;
 }
 // Live while Claude works: a ticking duration, and its latest step from the log (the last "●" line it wrote).
@@ -100,6 +101,19 @@ export async function removeSession(item) {
   if (shared.openSessionId === item.id) shared.openSessionId = null;
   await refreshSessions();
   if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs();
+}
+// Close: Claude stops (if it runs), then the session goes; a job still Applying asks "Did you submit?" first.
+async function closeSession(item) {
+  if (isLive(item)) await window.pilot.sessionStop(item.id);
+  await removeSession(item);
+}
+// Start again: this session closes and a new one starts on the same job (asked once, in a dialog).
+async function restartSession(item) {
+  const result = await window.pilot.sessionRestart(item.id);
+  if (result?.cancelled) return;
+  if (!result?.ok) { toastMessage('Not started again', result?.error || 'Try again.'); await refreshSessions(); return; }
+  await refreshSessions();
+  if (result.session?.id) openSession(result.session.id);
 }
 // Claude again, in this session's conversation (the app was closed, or the session stopped). The log opens to show it.
 export async function resumeSession(item) {
