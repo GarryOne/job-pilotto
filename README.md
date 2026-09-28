@@ -391,6 +391,20 @@ kits, Telegram triage, Notion tracking — and browser agents that fill the form
 it**. Compared from each project's published features and source code, September 2026; this is not
 a measured accuracy or success-rate benchmark.
 
+**Score:** ✅ = 1, ⚠️ = ½, ❌ or ➖ = 0 on the 10 rows below (➖ counts as 0: not described publicly).
+
+| | Tool | Score | Strongest at |
+|:-:|---|:-:|---|
+| 🥇 | 🦾 **Job Pilotto** | **10**/10 | the whole route, and you press Submit |
+| 🥈 | [Job-CoPilot.ai](https://job-copilot.ai/) | **4**/10 | fit score and cover letters, hosted |
+| 🥈 | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | **4**/10 | open source; reads Gmail, pipeline analytics |
+| 4 | [JobCopilot.com](https://jobcopilot.com/) | **3½**/10 | volume: applies for you, hosted |
+| 4 | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) | **3½**/10 | open source; discovery and a success dashboard |
+| 6 | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | **3**/10 | open source; job discovery |
+| 7 | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | **2**/10 | open source form autofiller |
+
+<sub>Fair warning: the rows are what Job Pilotto was built for, so its 10 is partly the choice of rows. Volume (hundreds of applications a day) isn't a row: JobCopilot.com does it, Job Pilotto won't.</sub>
+
 **Legend:** ✅ yes · ⚠️ partial or experimental · ❌ no · ➖ not described in its public docs
 
 | | 🦾 **Job Pilotto** | [JobCopilot.com](https://jobcopilot.com/) | [Job-CoPilot.ai](https://job-copilot.ai/) | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) |
@@ -405,6 +419,7 @@ a measured accuracy or success-rate benchmark.
 | 📬 Gmail and Calendar update each application | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ➖ |
 | 📊 Funnel and the step to improve | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ⚠️ |
 | 🎤 Records, transcribes and reviews real interviews | ✅ | ⚠️ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
+| 🏁 **Score (out of 10)** | **10** | **3½** | **4** | **4** | **3** | **2** | **3½** |
 
 Notes on the rows: ⚠️ on a tailored CV means tailoring without a check of what changed; JobCopilot.com
 (AI mock interviewer) and Job-CoPilot.ai (prep from the job description) help before an interview but don't
