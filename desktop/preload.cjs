@@ -1,7 +1,12 @@
 // The window's only bridge to the app: named actions, no Node access, no secret values.
 const {contextBridge, ipcRenderer} = require('electron');
 
-const call = name => (...args) => ipcRenderer.invoke(name, ...args);
+// A window newer than the app behind it (code updated while the app ran, then the window reloaded) calls
+// actions the running app doesn't have yet: the window is told once, so it can offer a restart.
+const call = name => (...args) => ipcRenderer.invoke(name, ...args).catch(error => {
+  if (/No handler registered/.test(String(error?.message))) window.dispatchEvent(new Event('pilot-outdated'));
+  throw error;
+});
 contextBridge.exposeInMainWorld('pilot', {
   platform: process.platform,
   state: call('state'), saveSettings: call('saveSettings'), saveSecret: call('saveSecret'),

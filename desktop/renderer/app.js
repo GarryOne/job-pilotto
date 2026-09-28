@@ -2365,7 +2365,19 @@ function openLink(url, event) {
 // First load: a spinner where the list goes (like Jobs and Interviews); later the items stay while it refreshes.
 let focusLoading = null, focusShown = false;
 function loadFocus() {
-  focusLoading ||= (async () => {
+  focusLoading ||= loadFocusOnce().catch(error => {
+    // Never a blank page: say what went wrong where the list goes.
+    $('focus-note').textContent = 'Focus could not load.';
+    const li = el('li', 'card muted');
+    li.textContent = /No handler registered/.test(String(error?.message))
+      ? 'Job Pilotto was updated while it was open. Restart it to load Focus.'
+      : `Focus could not load: ${error?.message || error}. Try Refresh.`;
+    $('focus-list').replaceChildren(li);
+  }).finally(() => { focusLoading = null; $('focus-refresh').disabled = false; });
+  return focusLoading;
+}
+async function loadFocusOnce() {
+  {
     $('focus-refresh').disabled = true;
     const setting = await window.pilot.dailyTarget();
     $('focus-target').value = setting.target;
@@ -2390,8 +2402,7 @@ function loadFocus() {
       return;
     }
     renderFocus(result.focus);
-  })().finally(() => { focusLoading = null; $('focus-refresh').disabled = false; });
-  return focusLoading;
+  }
 }
 function renderFocus({items, today, funnel}) {
   renderFunnel(funnel);
@@ -2468,4 +2479,13 @@ for (const id of ['focus-remind', 'set-remind']) $(id).addEventListener('change'
   await window.pilot.saveSettings({focusReminders: on});
   for (const other of ['focus-remind', 'set-remind']) $(other).checked = on;
   state = await window.pilot.state();
+});
+
+// The running app is older than this window (updated while open): offer a restart, once.
+let outdatedShown = false;
+window.addEventListener('pilot-outdated', () => {
+  if (outdatedShown) return;
+  outdatedShown = true;
+  const toast = toastMessage('Job Pilotto was updated', 'Restart it to finish the update: some buttons won\'t work until then. Click here to restart.');
+  if (toast) toast.onclick = () => window.pilot.interviews.relaunch();
 });
