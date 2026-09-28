@@ -193,6 +193,27 @@ class MailTests(unittest.TestCase):
         _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='YuPe (via Cal.com)')]])
         self.assertEqual((sent, tracker.created), ([], []))
 
+    def test_rejection_naming_no_role_at_a_tracked_company_asks_the_owner(self):
+        apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden'), app('p2', 'Grafana Labs', 'Staff SRE | Germany')]
+        tracker, google = FakeTracker(apps), FakeGoogle([email('g1', 'Your application for Grafana Labs')])
+        stats = {}
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+            sent = []
+            mail.run(tracker, google, client=FakeClient([[result(0, -1, 'Rejected', company='Grafana Labs')]]), days=2,
+                     send=sent.append, calendar=False, now=NOW, state_path=self.state, stats=stats)
+        self.assertEqual(tracker.created, [])
+        self.assertIn("doesn't say which role", sent[0])
+        self.assertIn('Rejected · Grafana Labs', stats['updates'][0])
+
+    def test_emails_read_against_another_ledger_are_read_again(self):
+        self.state.write_text(json.dumps({'ledger': 'old-workspace-events', 'seen': ['m1'], 'notified': ['prep:e1']}))
+        state = mail.load_state(self.state, ledger='real-events')
+        self.assertEqual((state['seen'], state['notified']), ([], ['prep:e1']))
+        self.state.write_text(json.dumps({'seen': ['m1'], 'notified': []}))  # written before the ledger was kept
+        self.assertEqual(mail.load_state(self.state, ledger='real-events')['seen'], [])
+        mail.save_state({'ledger': 'real-events', 'seen': ['m2'], 'notified': []}, self.state)
+        self.assertEqual(mail.load_state(self.state, ledger='real-events')['seen'], ['m2'])
+
     def test_irrelevant_and_untracked_mail(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
         google = FakeGoogle([email('m5', 'Jobs you may like'), email('m6', 'Thanks for applying to Zeta')])

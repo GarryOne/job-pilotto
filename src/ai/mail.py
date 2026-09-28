@@ -88,16 +88,24 @@ nudges, transcripts or recordings of a call, security codes, logistics.
 Answer for every item index."""
 
 
-def load_state(path=STATE_FILE):
+def load_state(path=STATE_FILE, ledger=None):
+    """Emails already read and reminders already sent, for this ledger (📈 Application Events database).
+    Read against another workspace, an email may have matched nothing there: start over when the ledger
+    changes (the Source IDs already in the ledger still keep an email from being logged twice)."""
+    ledger = EVENTS_DATABASE_ID if ledger is None else ledger
     try:
-        return json.loads(path.read_text())
+        state = json.loads(path.read_text())
     except (OSError, ValueError):
-        return {'seen': [], 'notified': []}
+        state = {}
+    if state.get('ledger') != ledger:
+        state = {'seen': [], 'notified': state.get('notified', [])}
+    return {'ledger': ledger, 'seen': state.get('seen', []), 'notified': state.get('notified', [])}
 
 
 def save_state(state, path=STATE_FILE):
     path.parent.mkdir(parents=True, exist_ok=True)
-    state = {'seen': state['seen'][-3000:], 'notified': state['notified'][-1000:]}
+    state = {'ledger': state.get('ledger', EVENTS_DATABASE_ID), 'seen': state['seen'][-3000:],
+             'notified': state['notified'][-1000:]}
     path.write_text(json.dumps(state))
 
 
@@ -267,8 +275,15 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             lines.append(f"📧 {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
                          " — not tracked yet; /add its job URL to follow it.")
             continue
-        if not row:
+        if not row and result['kind'] not in ('Rejected', 'Offer'):
             continue  # about a tracked process but not matched to one role: nothing reliable to log
+        if not row:  # an outcome for a tracked company that names no single role: ask rather than guess
+            lines.append(f"❓ {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
+                         f" — the email doesn't say which role; set its Stage ({escape(result['kind'])}) yourself.")
+            if stats is not None:
+                stats.setdefault('updates', []).append(
+                    f"❓ {result['kind']} · {result['company'] or email['subject'][:60]} — which role? Set its Stage")
+            continue
         changed = record(tracker, row, result['kind'], email['date'], 'Gmail', email['id'],
                          f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now)
         if changed:
