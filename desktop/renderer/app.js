@@ -3209,6 +3209,7 @@ function renderDock() {
     words.append(title, state);
     const action = el('button', item.status === 'input' ? 'primary' : 'secondary', item.status === 'input' ? 'Respond' : item.status === 'done' ? 'Review' : 'Open session');
     action.addEventListener('click', () => openSession(item.id));
+    card.addEventListener('click', event => { if (!event.target.closest('button')) openSession(item.id); });  // the whole card
     card.append(sessionLogo(item), words, action);  // stop / open posting: on the session page (⋯), keeping cards compact
     return card;
   }));
@@ -3219,7 +3220,12 @@ function sessionMenu(item) {
   else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
   return menu;
 }
-$('sd-toggle').addEventListener('click', () => { dockOpen = !dockOpen; renderDock(); });
+// The tray's header row opens the sessions page (like View all); its ⌃ collapses; a card opens its session.
+$('sd-toggle').addEventListener('click', event => { event.stopPropagation(); dockOpen = !dockOpen; renderDock(); });
+document.querySelector('.sd-head').addEventListener('click', event => {
+  if (event.target.closest('#sd-toggle, #sd-all')) return;
+  openSession(openSessionId || sessionList[0]?.id);
+});
 $('sd-all').addEventListener('click', event => { event.preventDefault(); openSession(openSessionId || sessionList[0]?.id); });
 $('ss-crumb-all').addEventListener('click', event => { event.preventDefault(); openSession(openSessionId || sessionList[0]?.id); });
 document.querySelectorAll('.crumbs [data-go]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); openView(link.dataset.go); }));

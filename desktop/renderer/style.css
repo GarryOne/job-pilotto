@@ -818,7 +818,7 @@ main { min-width: 0; }
   border: 0; border-top: 2px solid var(--info-line); border-radius: 0;
   background: color-mix(in srgb, var(--info-soft) 75%, var(--info-line));
   padding: var(--sp-3) var(--sp-5) var(--sp-4); box-shadow: 0 -12px 32px rgb(var(--shadow-rgb) / .16); }
-.sessions-dock .sd-toggle b { font-size: var(--fs-lg); }
+.sessions-dock .sd-title b { font-size: var(--fs-lg); }
 .sessions-dock #sd-summary { display: inline-flex; gap: var(--sp-2); }
 .sessions-dock.is-closed { padding-bottom: var(--sp-2); }
 .sessions-dock.is-closed .sd-cards { display: none; }
@@ -1006,3 +1006,12 @@ main { min-width: 0; }
 .activity-panel { left: 0; right: 0; bottom: 100%; border: 1px solid var(--line); border-bottom: 1px solid var(--line);
   border-radius: var(--r-lg) var(--r-lg) 0 0; box-shadow: 0 -14px 36px rgb(var(--shadow-rgb) / .16); }
 .activity-backdrop { display: none; }
+
+/* Application sessions tray: the header row is one big link to the sessions page; ⌃ is its own small button. */
+.sd-head { cursor: pointer; border-radius: var(--r-md); }
+.sd-head:hover .sd-title b { text-decoration: underline; }
+.sd-title { display: flex; align-items: center; gap: var(--sp-2); }
+.sd-toggle { padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); cursor: pointer; }
+.sd-toggle:hover { background: var(--surface); }
+.sd-card { cursor: pointer; }
+.sd-card:hover { border-color: var(--info-line); box-shadow: var(--shadow-sm); }
