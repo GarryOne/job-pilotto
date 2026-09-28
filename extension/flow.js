@@ -134,7 +134,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
-  let ai = null, aiError = null;
+  let ai = null, aiError = null, later = [];
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
   const me = early || await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
     // No app or no connection: stop, rather than fill a form without your name and CV.
@@ -161,10 +161,12 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const open = (form || []).filter(f => !f.filled && !f.legal && f.type !== 'file' && !fromKit.has(f.field) && !contact.has(f.field) &&
       !PERSONAL.test(f.field)).map(({field, label, type, required, options}) => ({field, label, type, required, options}));
     debug.sentToClaude = open.map(f => f.field);
-    // With a kit, applying was the user's decision (they prepared it): no eligibility stop.
+    // With a kit, applying was the user's decision (they prepared it): no eligibility stop, and no waiting: everything
+    // known fills at once, and Claude answers what's left afterwards (below), while you already see the form filled.
     if (fromKit.size) force = true;
-    const cached = reuse ? await cachedAI(tab) : null;
-    if (cached) {
+    if (withKit) later = open;
+    const cached = reuse && !withKit ? await cachedAI(tab) : null;
+    if (withKit) { /* Claude after the fill */ } else if (cached) {
       ai = cached;
       if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: 0};
       const byAI = new Set(ai.answers.map(a => a.field));
@@ -241,6 +243,30 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       debug.errors.push(`dropdowns: ${error.message}`);
       summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
       await inPage(tab.id, s => window.__jobPilottoPanel(s), [summary]);
+    }
+  }
+  // With a kit: the questions it doesn't cover, answered by Claude now that the rest is already on the page.
+  if (later.length && useAI) {
+    onStep(`Filled. Claude is answering ${later.length} question${later.length === 1 ? '' : 's'} the kit doesn't cover…`);
+    try {
+      const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
+      ai = await api(config, '/extension/answer', {method: 'POST',
+        body: JSON.stringify({url: tab.url, fields: later, page_text: pageText, test: !!config.testMode})});
+      step('Claude answered (after the fill)');
+      const extra = ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'}));
+      if (extra.length) {
+        // Only Claude's answers this time: no contact details or CV again (they're in already).
+        const more = await inPage(tab.id, (list, consents) => window.__jobPilottoExtensionFill(list, {}, null, '', consents), [extra, config.acceptConsents === true]);
+        const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(() => []) : [];
+        debug.laterDropdowns = combos;
+        summary.filled = (summary.filled || 0) + (more?.filled || 0) + combos.filter(c => c.picked).length;
+        summary.unfilledRequired = more?.unfilledRequired ?? summary.unfilledRequired;
+        summary.trace = [...(summary.trace || []), ...(more?.trace || []).filter(row => row.source === 'Claude (on the page)')];
+        step('filled Claude\'s answers');
+      }
+    } catch (error) {
+      aiError = error.message;
+      debug.errors.push(`Claude (after the fill): ${error.message}`);
     }
   }
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});

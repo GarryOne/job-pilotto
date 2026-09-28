@@ -25,7 +25,7 @@ async function run() {
       if (!func) return [{}];
       const window = {__jobPilottoDescribeForm: async () => FORM, __jobPilottoCheckboxQuestions: () => [], __jobPilottoPageText: () => '',
         __jobPilottoProfileEntries: rows => rows.filter(r => ['first_name', 'last_name', 'email', 'phone'].includes(r.field)).map(r => ({field: r.field})),
-        __jobPilottoExtensionFill: () => ({filled: 5, todo: []}), __jobPilottoArmedCount: () => 0, __jobPilottoPanel: () => {}};
+        __jobPilottoExtensionFill: list => { calls.push({path: 'page fill', fields: list.map(a => a.field)}); return {filled: 5, todo: []}; }, __jobPilottoArmedCount: () => 0, __jobPilottoPanel: () => {}};
       globalThis.window = window;
       return [{result: await func(...(args || []))}];
     }},
@@ -48,4 +48,7 @@ test('with a kit, only the question nothing answers goes to Claude: not the cont
   assert.deepEqual(asked[0].body.fields.map(f => f.field), ['question_99']);
   // The contact details were fetched before deciding what to ask.
   assert.ok(calls.findIndex(call => call.path === '/extension/me') < calls.findIndex(call => call.path === '/extension/answer'));
+  // Instant: the page is filled from the kit before Claude is even asked; Claude's answers go in afterwards.
+  const order = calls.map(call => call.path).filter(path => ['page fill', '/extension/answer'].includes(path));
+  assert.deepEqual(order, ['page fill', '/extension/answer']);
 });

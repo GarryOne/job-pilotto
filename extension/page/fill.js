@@ -254,8 +254,11 @@
     {id: 'done', icon: '✅', title: 'Done for you', match: /^Ticked for you:\s*/},
     {id: 'tip', icon: '💡', title: 'Tip', match: /^Tip:\s*/},
   ];
+  // The fill's own result box is gone: the Job Pilotto panel on the page (review.js) shows what's filled and left.
+  // (Its drawing code stays below, unused, for the moment; nothing calls it.)
   const panel = summary => {
     document.getElementById('job-pilotto-panel')?.remove();
+    if (summary) return;
     const host = Object.assign(document.createElement('div'), {id: 'job-pilotto-panel'});
     host.style.cssText = 'position:fixed;top:14px;right:14px;z-index:2147483647';
     const root = host.attachShadow({mode: 'open'});
