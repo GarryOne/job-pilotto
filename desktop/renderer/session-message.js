@@ -38,3 +38,11 @@ export function readSessionMessage(message) {
   }
   return {checks, audit, done, intro};
 }
+
+// Claude's latest step while it works: the last "●" line in the terminal output (colours and cursor moves removed).
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]|\x1b[=>]/g;
+export function latestStep(output) {
+  const plain = output.replace(/\x1b\[\d*C/g, ' ').replace(ANSI, '');
+  const steps = [...plain.matchAll(/●\s+([^\r\n●]{6,200})/g)].map(match => match[1].replace(/\s+/g, ' ').trim());
+  return steps.pop() || '';
+}

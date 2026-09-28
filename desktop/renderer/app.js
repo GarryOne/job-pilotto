@@ -5,7 +5,7 @@ import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, plac
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 import {openPalette} from './palette.js';
-import {readSessionMessage, splitLabel} from './session-message.js';
+import {latestStep, readSessionMessage, splitLabel} from './session-message.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
@@ -3234,9 +3234,21 @@ const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:
 const sessionReview = item => item.status === 'done'
   || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !/\?\s*$/.test(item.brief || item.question || ''));
 const sessionState = item => (sessionReview(item) ? SESSION_STATE.done : SESSION_STATE[item.status] || SESSION_STATE.ended);
+// Live while Claude works: a ticking duration, and its latest step from the log (the last "●" line it wrote).
+const sessionTail = {};  // the end of each session's output, for its latest step
+function ticking(node, prefix, since) {
+  Object.assign(node.dataset, {since, prefix});
+  node.textContent = prefix + sessionDuration({startedAt: since});
+  return node;
+}
+setInterval(() => {
+  if (document.querySelector('.view[data-view="sessions"]')?.hidden) return;
+  for (const node of document.querySelectorAll('[data-since]')) node.textContent = node.dataset.prefix + sessionDuration({startedAt: node.dataset.since});
+}, 1000);
 function sessionDuration(item) {
   const end = item.endedAt || item.needsYouSince;
   const seconds = Math.max(0, Math.round(((end ? new Date(end) : new Date()) - new Date(item.startedAt)) / 1000));
+  if (seconds >= 3600) return `${Math.floor(seconds / 3600)}h ${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}m`;
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
 }
 const hhmmOf = iso => new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
@@ -3301,7 +3313,8 @@ function renderNextStep(item) {
   // What to read: one line when the form is ready (Claude's words stay one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask);
   const words = review ? [el('p', 'rich-p', 'The form is ready in Chrome. Check the answers and legal boxes, then submit it yourself.')]
-    : asking ? richText(said.join('\n')) : [el('p', 'rich-p muted', item.note || '')];
+    : asking ? richText(said.join('\n'))
+    : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})];
   if (review && item.question) {
     const full = el('details', 'ss-full');
     full.append(el('summary', '', 'Claude\'s full message'), ...richText(item.question));
@@ -3331,9 +3344,10 @@ function renderNextStep(item) {
   mark.append(icon(review ? 'check' : asking ? 'clock' : running ? 'refresh' : 'info'));
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   side.append(mark, el('b', '', review ? `Claude finished at ${hhmmOf(since)}` : asking ? `Waiting since ${hhmmOf(since)}`
-    : running ? `Started at ${hhmmOf(item.startedAt)}` : `Ended at ${hhmmOf(since)}`),
+    : running ? 'Working for' : `Ended at ${hhmmOf(since)}`),
   el('span', 'muted small', review ? (item.status === 'done' ? 'Form filled in Chrome and recorded in Notion.' : 'Form filled in Chrome.')
-    : asking ? 'Claude is paused until you answer.' : running ? 'You can leave this page; you\'ll be notified.' : ''));
+    : asking ? 'Claude is paused until you answer.' : running ? `Started at ${hhmmOf(item.startedAt)}. You'll be notified when it needs you.` : ''));
+  if (running) ticking(side.querySelector('b'), 'Working for ', item.startedAt);
   $('ss-next-side').replaceChildren(side);
   // What Claude flagged, and its audit note, as two cards under the step.
   show($('ss-checks-card'), checks.length > 0);
@@ -3375,6 +3389,7 @@ $('ss-new').addEventListener('click', () => openView('jobs'));
 async function openSession(id) {
   if (!id) return;
   if (id !== openSessionId) termShownFor = null;  // the log shows this session's output once it's open
+  if (!sessionTail[id]) sessionTail[id] = String(await window.pilot.sessionOutput(id) || '').slice(-6000);
   openSessionId = id;
   openView('sessions');
   await refreshSessions();
@@ -3413,7 +3428,9 @@ function renderSessionPage() {
   const review = sessionReview(item);
   const [logLabel, logTone] = item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
     : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];
-  $('ss-live-state').replaceChildren(pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true}));
+  const livePill = pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true});
+  if (item.status === 'running') ticking(livePill, `${logLabel} · `, item.startedAt);
+  $('ss-live-state').replaceChildren(livePill);
   $('ss-log-last').textContent = `> ${review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
   openLog(logChoice[item.id] ?? item.status === 'running', false);
 }
@@ -3461,7 +3478,10 @@ $('ss-log-head').addEventListener('click', event => { if (!event.target.closest(
 $('ss-log-last').addEventListener('click', () => openLog(true));
 window.pilot.onSession((event, payload) => {
   if (event === 'data') {
+    sessionTail[payload.id] = ((sessionTail[payload.id] || '') + payload.data).slice(-6000);
     if (payload.id !== openSessionId) return;
+    const step = $('ss-step') && latestStep(sessionTail[payload.id]);
+    if (step) $('ss-step').textContent = step;
     if ($('ss-log-body').hidden) termShownFor = null;  // replayed in full when the log opens
     else if (termShownFor === payload.id) xterm?.write(payload.data);
     return;

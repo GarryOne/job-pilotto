@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {readSessionMessage} from '../renderer/session-message.js';
+import {latestStep, readSessionMessage} from '../renderer/session-message.js';
 
 // The shape of a real final report (fictional details).
 const REPORT = `The Example Labs application (Engineering Manager, London) is filled in the open Chrome tab and ready for you to review and click Submit. Nothing was submitted.
@@ -35,4 +35,11 @@ test('a short question: its bullets are what to check, the audit paragraph is fo
   assert.equal(audit, 'fixed one row.');
   assert.deepEqual(done, []);
   assert.deepEqual(intro, ['Please check these answers:', 'Shall I leave them?']);
+});
+
+test('the latest step: the last ● line of the terminal output, without colours or cursor moves', () => {
+  const output = '\x1b[1m●\x1b[0m Kit found; opening the form now.\r\n  Called claude-in-chrome\r\n' +
+    '\x1b[38;5;15m●\x1b[39m\x1b[1CForm\x1b[1Copen with the extension hook present.\r\n\x1b[2K> ';
+  assert.equal(latestStep(output), 'Form open with the extension hook present.');
+  assert.equal(latestStep('no steps yet'), '');
 });
