@@ -47,6 +47,11 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   (recording/transcribing, Apply with Claude, form filling, Google sign-in) or an instant answer runs locally.
 
 ## Desktop UI: one design system
+- **The window is one module per page** (`desktop/renderer/pages/`: focus, jobs, sessions, session-needs, session-log,
+  strategy, settings, interviews, activity…); `renderer/app.js` only runs each page's `init()` in order. Helpers every
+  page uses are in `pages/core.js`; state more than one page *reassigns* lives on `shared` (`pages/shared.js`), since an
+  imported binding is read-only. Put logic that can be tested without a window in its own small module
+  (`renderer/session-message.js`, `wheel.js`) with a test in `desktop/test/`.
 - **Before building or changing any screen, read the skill `ui-look-and-feel`** (`.claude/skills/ui-look-and-feel/SKILL.md`):
   the reference screenshots (`desktop/docs/ui/`, refreshed with `npm run ui-shots`), the page and card patterns the
   owner approved, and how to render your change in demo mode and look at it before saying it's done.

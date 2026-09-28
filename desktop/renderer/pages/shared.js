@@ -1,0 +1,18 @@
+// State more than one page changes (an imported binding is read-only, so it lives on one object).
+export const shared = {
+  state: await window.pilot.state(),
+  outdatedShown: false,
+  openSessionId: null,
+  xterm: null,
+  xtermFit: null,
+  dockOpen: true,
+  termShownFor: null,
+  draft: null,
+  allJobs: [],
+  logLines: [],  // the running task's lines, live
+  idleSeen: true,  // nothing was running at the last check: the next log line starts a new task
+  selectedRun: null,  // id of the past run picked in "Recent activity"; null = the latest
+  awaitedRun: null,  // {kind, since}
+  // Job pages open in Chrome now (reported by the extension; refreshed every 2 s), plus ones just opened here.
+  openedInChrome: new Set(),
+};

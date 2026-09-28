@@ -1,0 +1,154 @@
+// Session page: opening a session and its log.
+import {el, moreButton, pill} from '../components.js';
+import {latestStep} from '../session-message.js';
+import {passWheel, wheelLines} from '../wheel.js';
+import {shared} from './shared.js';
+import {clockTime} from './activity.js';
+import {$, show} from './core.js';
+import {renderJobs} from './jobs.js';
+import {openView, remembered} from './nav.js';
+import {isLive, logChoice, openLog, refreshSessions, renderNextStep, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, ticking} from './sessions.js';
+import {toastMessage} from './startup.js';
+
+export async function openSession(id) {
+  if (!id) return;
+  if (id !== shared.openSessionId) shared.termShownFor = null;  // the log shows this session's output once it's open
+  if (!sessionTail[id]) sessionTail[id] = String(await window.pilot.sessionOutput(id) || '').slice(-6000);
+  shared.openSessionId = id;
+  openView('sessions');
+  await refreshSessions();
+}
+export function renderSessionPage() {
+  // The session shown is the open one; after a reload (⌘R) the one open before it, else the first. It becomes the
+  // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).
+  shared.openSessionId = shared.openSessionId || remembered('session') || null;
+  const item = sessionList.find(entry => entry.id === shared.openSessionId) || sessionList[0];
+  if (item && item.id !== shared.openSessionId) { shared.openSessionId = item.id; shared.termShownFor = null; }
+  if (item) remembered('session', item.id);
+  show($('ss-list-empty'), !sessionList.length);
+  $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
+    const [label, tone] = sessionState(entry);
+    const li = el('li', `ss-row tone-${tone}${entry.id === item?.id ? ' is-current' : ''}`);
+    const words = el('div', 'ss-row-words');
+    const top = el('div', 'ss-row-top');
+    top.append(el('b', '', sessionCompany(entry)), el('span', 'muted small', clockTime(entry.startedAt)));
+    words.append(top, el('span', 'small', sessionTitle(entry)), pill(label, tone, {dot: true}));
+    li.append(sessionLogo(entry), words);
+    li.addEventListener('click', () => openSession(entry.id));
+    return li;
+  }));
+  if (!item) return;
+  const [label, tone] = sessionState(item);
+  $('ss-crumb').textContent = sessionCompany(item);
+  $('ss-title').textContent = sessionCompany(item);
+  $('ss-role').textContent = sessionTitle(item);
+  $('ss-status').replaceChildren(pill(sessionReview(item) ? 'Ready for your review' : label, tone, {dot: true}));
+  $('ss-more').replaceChildren(moreButton(sessionMenu(item), 'More'));
+  const job = sessionJob(item);
+  const head = el('div', 'ss-job-card');
+  const words = el('div', 'ss-job-words');
+  const place = [...String(item.location || job.location || '').split(/\s*;\s*/), item.workMode || job.work_mode].filter(Boolean).join(' · ');
+  words.append(el('b', '', `${sessionCompany(item)} · ${sessionTitle(item)}`), el('span', 'muted', place));
+  const view = Object.assign(el('a', 'link small', 'View job ↗'), {href: '#'});
+  view.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(item.url); });
+  head.append(sessionLogo(item), words, view);
+  $('ss-job').replaceChildren(head);
+  renderNextStep(item);
+  const review = sessionReview(item);
+  const [logLabel, logTone] = item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
+    : item.status === 'input' && !isLive(item) ? ['Closed with the app', 'neutral']
+    : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];
+  const livePill = pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true});
+  if (item.status === 'running') ticking(livePill, `${logLabel} · `, item.startedAt);
+  $('ss-live-state').replaceChildren(livePill);
+  $('ss-log-last').textContent = `> ${review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
+  // A session that isn't running (closed with the app, or ended) takes no typing: say so, with Resume one click away.
+  const offline = !isLive(item);
+  show($('ss-offline'), offline);
+  show($('ss-replies'), !offline);
+  $('ss-offline-resume').hidden = !item.resumable;
+  $('ss-offline').querySelector('span').textContent = item.resumable
+    ? 'Claude isn\'t running (it closed with the app), so typing and replies go nowhere.'
+    : 'This session has ended: typing goes nowhere. Start a new session from the job to continue.';
+  openLog(logChoice[item.id] ?? item.status === 'running', false);
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+export async function attachTerminal(id) {
+  const {Terminal} = await import('../../node_modules/@xterm/xterm/lib/xterm.mjs');
+  const {FitAddon} = await import('../../node_modules/@xterm/addon-fit/lib/addon-fit.mjs');
+  if (!shared.xterm) {
+    shared.xterm = new Terminal({fontFamily: cssVar('--font-mono'), fontSize: 12, lineHeight: 1.35, cursorBlink: true, cursorStyle: 'bar', convertEol: false, scrollback: 5000,
+      theme: {background: cssVar('--navy'), foreground: cssVar('--on-navy'), cursor: cssVar('--signal'), selectionBackground: cssVar('--navy-active')}});
+    shared.xtermFit = new FitAddon();
+    shared.xterm.loadAddon(shared.xtermFit);
+    shared.xterm.open($('ss-terminal'));
+    shared.xterm.onData(data => {
+      if (!shared.openSessionId) return;
+      const item = sessionList.find(entry => entry.id === shared.openSessionId);
+      // Keys typed into a session that isn't running: point at Resume instead of losing them silently.
+      if (item && !isLive(item)) { if (!/^\x1b\[[IO]$/.test(data)) $('ss-offline').classList.add('is-flash'), setTimeout(() => $('ss-offline').classList.remove('is-flash'), 900); return; }
+      window.pilot.sessionWrite(shared.openSessionId, data);
+    });
+    // The wheel scrolls the log (see wheel.js); a live Claude on its own full screen gets it instead.
+    let carry = 0;
+    shared.xterm.attachCustomWheelEventHandler(event => {
+      const live = sessionList.find(entry => entry.id === shared.openSessionId)?.live !== false;
+      if (passWheel({live, mouse: shared.xterm.modes.mouseTrackingMode !== 'none'})) return true;
+      event.preventDefault();
+      const lineHeight = $('ss-terminal').querySelector('.xterm-rows')?.firstElementChild?.offsetHeight || 16;
+      const step = wheelLines(event, shared.xterm.rows, lineHeight, carry);
+      carry = step.carry;
+      if (step.lines) shared.xterm.scrollLines(step.lines);
+      return false;
+    });
+    new ResizeObserver(() => fitTerminal()).observe($('ss-terminal'));
+  }
+  // Drawn only while the log is open: a terminal laid out while hidden has no size and stays blank.
+  if ($('ss-log-body').hidden) { shared.termShownFor = null; return; }
+  // The session's screen at the size it was drawn for, then fitted to the log (a running Claude redraws for it).
+  const {data, cols, rows} = await window.pilot.sessionSnapshot(id);
+  shared.xterm.reset();
+  shared.xterm.resize(cols, rows);
+  shared.xterm.write(data, () => { fitTerminal(); shared.xterm.scrollToBottom(); shared.xterm.refresh(0, shared.xterm.rows - 1); });
+  shared.termShownFor = id;
+}
+export function fitTerminal() {
+  if (!shared.xterm || document.querySelector('.view[data-view="sessions"]').hidden || $('ss-log-body').hidden) return;
+  try { shared.xtermFit.fit(); } catch { return; }
+  if (shared.openSessionId) window.pilot.sessionResize(shared.openSessionId, shared.xterm.cols, shared.xterm.rows);
+}
+// Typing a reply: the text, then Enter (Claude Code sends a message on Return).
+export function say(text) {
+  if (!shared.openSessionId || !text.trim()) return;
+  window.pilot.sessionWrite(shared.openSessionId, text.trim());
+  setTimeout(() => window.pilot.sessionWrite(shared.openSessionId, '\r'), 60);
+  shared.xterm?.focus();
+}
+
+// Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
+export async function init() {
+  document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
+  $('ss-offline-resume').addEventListener('click', () => { const item = sessionList.find(entry => entry.id === shared.openSessionId); if (item) resumeSession(item); });
+  $('ss-copy').addEventListener('click', async () => {
+    const text = (await window.pilot.sessionOutput(shared.openSessionId)).replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
+    await navigator.clipboard.writeText(text);
+    toastMessage('Log copied', 'The session\'s output is on the clipboard.');
+  });
+  // The whole header bar opens and closes the log (Copy log does its own thing).
+  $('ss-log-head').addEventListener('click', event => { if (!event.target.closest('#ss-copy')) openLog($('ss-log-body').hidden); });
+  $('ss-log-last').addEventListener('click', () => openLog(true));
+  window.pilot.onSession((event, payload) => {
+    if (event === 'data') {
+      sessionTail[payload.id] = ((sessionTail[payload.id] || '') + payload.data).slice(-6000);
+      if (payload.id !== shared.openSessionId) return;
+      const step = $('ss-step') && latestStep(sessionTail[payload.id]);
+      if (step) $('ss-step').textContent = step;
+      if ($('ss-log-body').hidden) shared.termShownFor = null;  // replayed in full when the log opens
+      else if (shared.termShownFor === payload.id) shared.xterm?.write(payload.data);
+      return;
+    }
+    if (event === 'open') { openSession(payload.id); return; }
+    refreshSessions().then(() => { if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs(); });
+  });
+  refreshSessions();
+}

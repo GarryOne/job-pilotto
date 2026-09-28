@@ -200,7 +200,9 @@ test('the extension gets the base CV from the app; contact details and notes nee
 
 test('the window scripts parse (a syntax error leaves the app window blank)', async () => {
   const {execFileSync} = await import('node:child_process');
-  for (const file of ['renderer/app.js', 'preload.cjs', 'main.js']) {
+  const {readdirSync} = await import('node:fs');
+  const pages = readdirSync(new URL('../renderer/pages/', import.meta.url)).map(file => `renderer/pages/${file}`);
+  for (const file of ['renderer/app.js', ...pages, 'preload.cjs', 'main.js']) {
     execFileSync(process.execPath, ['--check', fileURLToPath(new URL(`../${file}`, import.meta.url))]);
   }
 });
@@ -473,15 +475,6 @@ test('a Gmail check that exited normally but read nothing is a failure with its 
   assert.equal(mailProblem('Mail: 12 emails read, 2 updates\nUpdates:\nGrafana: Rejected'), null);
 });
 
-test('the Focus page state exists before the start-up code opens Focus', async () => {
-  const {readFileSync} = await import('node:fs');
-  const source = readFileSync(new URL('../renderer/app.js', import.meta.url), 'utf8');
-  const startup = source.indexOf("openView('focus')");
-  for (const name of ['let focusLoading', 'const FOCUS_WHEN', 'let outdatedShown']) {
-    assert.ok(source.indexOf(name) >= 0 && source.indexOf(name) < startup, `${name} is declared after the start-up code uses it`);
-  }
-});
-
 test('Rebuild from CV: changes grouped by what they trigger, contact edits ignored, location changes tie search and Profile', async () => {
   const {rebuildGroups, save} = await import('../lib/strategy.js');
   const current = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich']}}, preferences: {excluded_companies: ['Sonar']},
@@ -507,11 +500,14 @@ test('Rebuild from CV: changes grouped by what they trigger, contact edits ignor
   assert.deepEqual(JSON.parse(storage.readText('config/preferences.json')), {excluded_companies: ['Keep']});
 });
 
-test('the sessions state exists before the start-up code renders the job list', async () => {
-  const {readFileSync} = await import('node:fs');
-  const source = readFileSync(new URL('../renderer/app.js', import.meta.url), 'utf8');
-  const startup = source.indexOf("openView('focus')");
-  for (const name of ['const SESSION_STATE', 'const SESSION_PILL', 'let sessionList']) {
-    assert.ok(source.indexOf(name) >= 0 && source.indexOf(name) < startup, `${name} is declared after the start-up code uses it`);
-  }
+test('the window is one module per page, and every import between them resolves', async () => {
+  // Each page's state is declared in its own module, and every module is loaded before app.js runs any page's
+  // start-up code, so a page can't use another's state too early. esbuild fails on an import nothing exports.
+  const {build} = await import('esbuild');
+  const result = await build({entryPoints: [fileURLToPath(new URL('../renderer/app.js', import.meta.url))], bundle: true,
+    write: false, format: 'esm', platform: 'browser', external: ['../../node_modules/*'], logLevel: 'silent'});
+  assert.equal(result.errors.length, 0);
+  const {readdirSync} = await import('node:fs');
+  const pages = readdirSync(new URL('../renderer/pages/', import.meta.url)).filter(file => file.endsWith('.js'));
+  assert.ok(pages.length > 10 && pages.includes('shared.js'));
 });
