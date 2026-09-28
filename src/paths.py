@@ -85,7 +85,9 @@ FOLLOWED = follow_app()
 
 # The desktop app keeps each user's settings and data in its own folder (Application Support), so the
 # same code runs from the repo (defaults below) or from the app, which sets these variables.
-CONFIG = Path(os.environ['JOB_PILOTTO_CONFIG_DIR']) if os.getenv('JOB_PILOTTO_CONFIG_DIR') else ROOT / 'config'
+# Tests read their own example user (an SRE in Zurich, tests/fixtures/config), never the shipped example defaults.
+CONFIG = (Path(os.environ['JOB_PILOTTO_CONFIG_DIR']) if os.getenv('JOB_PILOTTO_CONFIG_DIR')
+          else ROOT / 'tests' / 'fixtures' / 'config' if 'unittest' in sys.modules else ROOT / 'config')
 DATA = Path(os.environ['JOB_PILOTTO_DATA_DIR']) if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'data'
 REPORTS = DATA / 'reports' if os.getenv('JOB_PILOTTO_DATA_DIR') else ROOT / 'reports'
 JOBS_DB = DATA / 'jobs.sqlite'

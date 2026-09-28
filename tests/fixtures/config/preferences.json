@@ -1,0 +1,10 @@
+{
+  "_comment": "Hard filters applied before ranking. Mirrors the Notion page 'Profile — CV and Preferences'. digest_min_score: scored jobs below it stay in Notion Job Matches but never reach the Telegram digest (saved jobs always do); unscored jobs are shown, so the digest still works without AI.",
+  "disqualifying_languages": [
+    "German",
+    "French",
+    "Italian"
+  ],
+  "excluded_companies": [],
+  "digest_min_score": 50
+}

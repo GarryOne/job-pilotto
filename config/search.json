@@ -1,128 +1,64 @@
 {
+  "_comment": "Example search settings (a data analyst in Amsterdam and Berlin), not anyone's real search. Each user's own settings live in their Notion page ⚙️ Search settings (the setup wizard drafts them from the CV); the app and the terminal keep a cached copy in their own config folder. Regex fragments are case-insensitive.",
   "role_keywords": [
-    "site reliability",
-    "\\bsre\\b",
-    "platform engineer",
-    "devops",
-    "infrastructure",
-    "production engineer",
-    "cloud engineer",
-    "observability",
-    "kubernetes",
-    "reliability engineer"
+    "data analyst",
+    "business intelligence",
+    "\\bbi\\b",
+    "analytics engineer",
+    "reporting analyst"
   ],
   "title_exclude_keywords": [
-    "\\btax\\b",
-    "\\blegal\\b",
-    "counsel",
-    "lawyer",
-    "account(ant|ing)\\b",
+    "\\bintern(ship)?\\b",
     "\\bsales\\b",
-    "account (executive|manager)",
     "recruit(er|ing)",
-    "talent acquisition",
-    "\\bsap\\b",
-    "\\babap\\b",
-    "\\bplc\\b",
-    "mechatroni",
-    "marketing",
-    "\\bfinance\\b",
-    "customer success",
-    "payroll"
+    "\\blegal\\b"
   ],
   "board_discovery_keywords": [
-    "software",
-    "entwickler",
-    "developer",
-    "développeur",
-    "site reliability",
-    "\\bsre\\b",
-    "devops",
-    "platform engineer",
-    "backend",
-    "frontend",
-    "full.?stack",
-    "forward deployed engineer"
+    "data",
+    "analyst",
+    "analytics",
+    "business intelligence",
+    "\\bbi\\b"
   ],
   "jobs_board_search_queries": [
-    "software engineer",
-    "site reliability",
-    "devops engineer",
-    "platform engineer",
-    "cloud engineer",
-    "développeur logiciel"
+    "data analyst",
+    "business intelligence analyst",
+    "analytics engineer"
   ],
   "quality_stack_keywords": [
-    "kubernetes",
-    "terraform",
-    "datadog",
-    "opentelemetry",
-    "prometheus",
-    "grafana",
-    "\\baws\\b",
-    "helm",
-    "observability",
-    "incident",
-    "on-call",
-    "slo\\b"
+    "\\bsql\\b",
+    "python",
+    "dbt",
+    "looker",
+    "power bi",
+    "tableau",
+    "snowflake"
   ],
   "locations": {
     "top_tier": [
-      "z[uü]rich",
-      "winterthur",
-      "\\bzug\\b",
-      "baden",
-      "uster",
-      "d[uü]bendorf",
-      "oerlikon",
-      "kloten",
-      "glattbrugg",
-      "opfikon",
-      "wallisellen",
-      "schlieren",
-      "dietikon",
-      "r[uü]schlikon",
-      "thalwil",
-      "horgen",
-      "b[uü]lach"
+      "amsterdam",
+      "berlin"
     ],
     "country_wide": [
-      "switzerland",
-      "schweiz",
-      "suisse",
-      "svizzera",
-      "geneva",
-      "gen[eè]ve",
-      "genf",
-      "basel",
-      "bern",
-      "lausanne",
-      "lugano",
-      "luzern",
-      "lucerne",
-      "st\\.? ?gallen"
+      "netherlands",
+      "germany"
     ],
-    "abroad": [
-      "berlin",
-      "london",
-      "dubai"
-    ]
+    "abroad": []
   },
   "google_jobs": {
     "queries": [
-      "site reliability engineer",
-      "devops engineer",
-      "platform engineer"
+      "data analyst",
+      "analytics engineer"
     ],
-    "country": "ch",
+    "country": "nl",
     "locations": [
       {
-        "location": "Zurich,Zurich,Switzerland",
-        "language": "de"
+        "location": "Amsterdam,North Holland,Netherlands",
+        "language": "nl"
       },
       {
-        "location": "Geneva,Geneva,Switzerland",
-        "language": "fr"
+        "location": "Berlin,Berlin,Germany",
+        "language": "de"
       }
     ],
     "searches_per_run": 1,
@@ -131,17 +67,8 @@
   "remote_excluded_regions": [
     "\\busa?\\b",
     "united states",
-    "u\\.s\\.",
     "canada",
-    "north america",
-    "latam",
-    "latin america",
     "apac",
-    "asia",
-    "india",
-    "australia",
-    "brazil",
-    "mexico",
-    "americas"
+    "latam"
   ]
 }

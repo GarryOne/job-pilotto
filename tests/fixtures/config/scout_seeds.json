@@ -1,0 +1,43 @@
+{
+  "_comment": "Candidate employers for scout.py. Tier 1 is probed first. 'known' entries skip slug guessing. 'manual_watch' companies have no public job feed; they are listed in Notion with a pre-filled careers search instead.",
+  "excluded": [],
+  "tier1_known": [
+    {"name": "Amazon / AWS", "ats": "amazon", "slug": "amazon"},
+    {"name": "Netflix", "ats": "netflix", "slug": "netflix"},
+    {"name": "Datadog", "ats": "greenhouse", "slug": "datadog"},
+    {"name": "Palantir", "ats": "lever", "slug": "palantir"}
+  ],
+  "tier1": [
+    "Stripe", "Airbnb", "Spotify", "Uber", "Databricks", "Snowflake", "Anthropic", "OpenAI", "Nvidia",
+    "Shopify", "Coinbase", "Wise", "GitLab", "Elastic", "MongoDB", "HashiCorp", "Confluent", "Atlassian",
+    "Adyen", "Klarna", "Canva", "Figma", "DeepL", "Stack Overflow", "Dropbox", "Pinterest", "Twilio", "Reddit",
+    "Discord", "Notion", "Vercel", "Monzo", "N26", "Zalando", "Delivery Hero", "Booking.com", "Revolut",
+    "Scale AI", "Mistral AI", "Hugging Face", "Celonis", "Trade Republic", "Personio", "Grammarly", "Duolingo"
+  ],
+  "manual_watch": [
+    {"name": "Google", "careers": "https://www.google.com/about/careers/applications/jobs/results/?q=site%20reliability%20engineer&location=Zurich%2C%20Switzerland"},
+    {"name": "Meta", "careers": "https://www.metacareers.com/jobs/?q=production%20engineer&offices[0]=London%2C%20UK"},
+    {"name": "Apple", "careers": "https://jobs.apple.com/en-us/search?search=site%20reliability&location=zurich-ZURCH"},
+    {"name": "Microsoft", "careers": "https://jobs.careers.microsoft.com/global/en/search?q=site%20reliability&lc=Zurich%2C%20Switzerland"},
+    {"name": "TikTok / ByteDance", "careers": "https://lifeattiktok.com/search?keyword=site%20reliability&location=CT_75"},
+    {"name": "Revolut", "careers": "https://www.revolut.com/careers/?query=site%20reliability"}
+  ],
+  "regional": {
+    "Zurich": ["Scandit", "On", "Beekeeper", "Frontify", "Climeworks", "Smallpdf", "Yokoy", "Digitec Galaxus",
+               "GetYourGuide", "Starmind", "Ringier", "SIX Group", "Swisscom", "Zühlke", "Ergon", "Adnovum",
+               "Nothing", "Wefox", "Unique", "Taktile", "Nexthink", "Proton", "Sygnum", "Fintech Sygnum", "Apiax",
+               "Lakera", "Veezoo", "Kickstart", "Planted", "Tiko", "Exoscale", "Cloudscale", "Hostpoint", "Nine Internet Solutions"],
+    "Berlin": ["SumUp", "HelloFresh", "Contentful", "Adjust", "Babbel", "SoundCloud", "Raisin", "Taxfix", "Pitch",
+               "Enpal", "Grover", "Omio", "Tier Mobility", "Solaris", "Mambu", "Ecosia", "Aleph Alpha", "Helsing",
+               "Parloa", "Langfuse"],
+    "London": ["Deliveroo", "Monzo", "Starling Bank", "GoCardless", "Checkout.com", "Improbable", "Cleo", "Synthesia",
+               "ElevenLabs", "Wayve", "Tractable", "Paddle", "Marshmallow", "Octopus Energy", "Snyk", "Thought Machine",
+               "Onfido", "Lendable", "Motorway", "Zopa"],
+    "Dubai": ["Careem", "Talabat", "Kitopi", "Tabby", "Property Finder", "Noon", "Bayut", "Tamara", "Anghami",
+              "Sarwa", "Pure Harvest", "Deriv"],
+    "Remote": ["PostHog", "Supabase", "Sentry", "PagerDuty", "Temporal", "Tailscale", "Fly.io", "DuckDuckGo",
+               "Zapier", "Automattic", "Honeycomb", "Chainguard", "Grafana Labs", "Doist", "Hotjar", "Toptal",
+               "Oyster", "Remote", "Deel", "Buffer", "Netlify", "Render", "Railway", "Neon", "Clerk", "Airbyte",
+               "dbt Labs", "Mattermost", "Sourcegraph", "Kong", "Cockroach Labs", "Redis", "ClickHouse", "Timescale"]
+  }
+}

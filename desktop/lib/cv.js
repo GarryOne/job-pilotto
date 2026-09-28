@@ -88,7 +88,7 @@ Hard rules: use only facts from the CV and the facts the Profile states as confi
 add a tool, technology, certification, number, employer or responsibility that isn't there, never change numbers (keep
 **bold** figures), never inflate scope ("led" only where the CV says led). Same language as the CV. The result must fit
 the same pages: don't make the CV longer.
-changes: 3–8 short items for the candidate: where (e.g. "Summary", "Sonar · Production Engineer"), what changed, and why
+changes: 3–8 short items for the candidate: where (e.g. "Summary", "Acme · Data Engineer"), what changed, and why
 (which part of the posting it answers).`;
 
 // The CV as the model sees it: bullets numbered per role.
