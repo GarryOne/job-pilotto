@@ -10,7 +10,7 @@ with you.
 **Not a developer?** Use the free [Mac app](#mac-app): a guided setup in about ten minutes, no
 terminal, with a Chrome extension that fills the forms. Website:
 [job-pilotto-site.sre-watch-bot.workers.dev](https://job-pilotto-site.sre-watch-bot.workers.dev/)
-([every feature](https://job-pilotto-site.sre-watch-bot.workers.dev/#features),
+([how it works](https://job-pilotto-site.sre-watch-bot.workers.dev/#how),
 [compared with Simplify, Teal, Huntr, JobCopilot and LazyApply](https://job-pilotto-site.sre-watch-bot.workers.dev/compare.html)).
 
 <p align="center">

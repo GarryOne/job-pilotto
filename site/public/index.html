@@ -19,11 +19,9 @@
     <a class="brand" href="#top"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a>
     <div class="links">
       <a href="#how">How it works</a>
-      <a href="#features">Features</a>
-      <a href="compare.html">Compare</a>
-      <a href="#see">See it</a>
-      <a href="#checkin">Setup</a>
+      <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
+      <a href="compare.html">Compare</a>
       <a href="#faq">FAQ</a>
     </div>
     <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
@@ -35,234 +33,189 @@
       <h1>Your job search on autopilot. You still land it.</h1>
       <p class="lede">A Mac app that reads new openings every few hours, scores each one against your CV, drafts your answers and fills the application form. Everything is tracked in your own Notion. You review and click Submit.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg"> Download for Mac</a>
-        <a class="btn btn-ghost" href="#see">See it in action</a>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
+          <span class="cta-note">Free · Apple silicon (M1 or newer)</span>
+        </div>
+        <div class="cta">
+          <a class="btn btn-ghost" href="#early">Get Pro early access</a>
+          <span class="cta-note">First month free</span>
+        </div>
       </div>
-      <p class="hero-note">For Macs with Apple silicon (M1 or newer). Set up in about 10 minutes with a free Notion account and your own AI key. The first time, macOS asks you to allow it: System Settings → Privacy &amp; Security → Open Anyway.</p>
+      <p class="hero-note"><b>Free today is for technical users:</b> you paste two keys and allow an unsigned app once, about 10 minutes. Pro will make it one click. <a href="#setup">What setup takes</a></p>
     </div>
 
-    <div class="board" role="img" aria-label="Example departures board showing five matching jobs with fit scores and application status">
-      <div class="board-head"><b>Departures · your matches</b><span>ZRH · updated 06:30</span></div>
+    <div class="board" role="img" aria-label="Illustrative departures board: five matching jobs at made-up companies, with fit scores and application status">
+      <div class="board-head"><b>Departures · your matches</b><span>Illustrative</span></div>
       <table>
         <thead><tr><th>Time</th><th>Role</th><th>Company</th><th>Fit</th><th>Gate</th></tr></thead>
         <tbody>
-          <tr><td>06:30</td><td class="role">Staff SRE, AI Reliability</td><td>Anthropic</td><td class="fit">86</td><td><span class="gate now">Filling</span></td></tr>
-          <tr><td>06:30</td><td class="role">Platform Engineer</td><td>Datadog</td><td class="fit">81</td><td><span class="gate kit">Kit ready</span></td></tr>
-          <tr><td>02:30</td><td class="role">SRE, Edge Systems</td><td>Cloudflare</td><td class="fit">78</td><td><span class="gate kit">Kit ready</span></td></tr>
-          <tr><td>Yest.</td><td class="role">Infrastructure Engineer</td><td>Scale AI</td><td class="fit">74</td><td><span class="gate sent">Applied</span></td></tr>
-          <tr><td>Tue</td><td class="role">DevOps Engineer</td><td>Grafana Labs</td><td class="fit">71</td><td><span class="gate reply">Screening</span></td></tr>
+          <tr><td>06:30</td><td class="role">Staff SRE, AI Reliability</td><td>Alpenlink</td><td class="fit">86</td><td><span class="gate now">Filling</span></td></tr>
+          <tr><td>06:30</td><td class="role">Platform Engineer</td><td>Alpine Data</td><td class="fit">81</td><td><span class="gate kit">Kit ready</span></td></tr>
+          <tr><td>02:30</td><td class="role">SRE, Edge Systems</td><td>Glacier Labs</td><td class="fit">78</td><td><span class="gate kit">Kit ready</span></td></tr>
+          <tr><td>Yest.</td><td class="role">Infrastructure Engineer</td><td>Lakeside Pay</td><td class="fit">74</td><td><span class="gate sent">Applied</span></td></tr>
+          <tr><td>Tue</td><td class="role">DevOps Engineer</td><td>Northwind</td><td class="fit">71</td><td><span class="gate reply">Screening</span></td></tr>
         </tbody>
       </table>
-      <div class="board-foot">Example board. Fit = how well a role matches your CV and preferences, out of 100.</div>
+      <div class="board-foot">Made-up companies. Fit = how well a role matches your CV and preferences, out of 100.</div>
     </div>
   </header>
 
   <section class="block" id="how">
     <div class="section-head">
       <span class="eyebrow">How it works</span>
-      <h2>Four legs, from new opening to reply</h2>
-      <p class="lede">Every step runs on its own. The only thing it waits for is you pressing Submit.</p>
+      <h2>Four stops, from new opening to reply</h2>
+      <p class="lede">Each stop runs on its own. Open one to see everything in it.</p>
     </div>
-    <div class="route">
-      <article class="leg">
-        <span class="leg-code">FIND · every 4 h</span>
-        <h3>Finds the right openings</h3>
-        <p>Career pages of top tech employers, Swiss job boards and Google Jobs. Roles that need German or French you don't speak are filtered out.</p>
-      </article>
-      <article class="leg">
-        <span class="leg-code">SCORE · per job</span>
-        <h3>Scores them against your CV</h3>
-        <p>A fit score out of 100 with the reasons, quoted from the posting. Your best matches arrive in Telegram.</p>
-      </article>
-      <article class="leg">
-        <span class="leg-code">PREPARE · 1 tap</span>
-        <h3>Drafts your application</h3>
-        <p>A cover letter and an answer for every form question, written in your voice from your CV and past answers.</p>
-      </article>
-      <article class="leg">
-        <span class="leg-code">APPLY · you submit</span>
-        <h3>Fills the form, tracks replies</h3>
-        <p>Pick how many jobs to apply to; each form is filled for you. You check it and submit. Replies and interviews land in your Notion.</p>
-      </article>
-    </div>
+    <ol class="stops">
+      <li class="stop">
+        <span class="leg-code">01 · FIND</span>
+        <div>
+          <h3>Finds the right openings and scores them</h3>
+          <p>Career pages of top tech employers, Swiss job boards and Google Jobs, every few hours. Each job gets a fit score out of 100 with the reason; the best arrive in Telegram.</p>
+          <details><summary>Everything in this stop</summary><ul>
+            <li><b>Employer career pages</b> from their public job feeds (Greenhouse, Lever, Ashby, Workable, SmartRecruiters and more)</li>
+            <li><b>Swiss job boards</b> (jobs.ch, TechTree), optional <b>Google Jobs</b>, and a daily <b>scout</b> that adds new employers</li>
+            <li><b>Filters</b> by city, remote and languages you don't speak; jobs you applied to or dismissed never come back</li>
+            <li><b>Facts from each posting</b> (languages, seniority, salary, visa), each with a quote as proof; <b>visa badges</b></li>
+            <li>Edit your profile and every open job is <b>scored again</b></li>
+          </ul></details>
+        </div>
+      </li>
+      <li class="stop">
+        <span class="leg-code">02 · PREPARE</span>
+        <div>
+          <h3>Drafts your application</h3>
+          <p>One tap: an answer for every question on the employer's real form, a cover letter in your voice, and a CV tailored to the job.</p>
+          <details><summary>Everything in this stop</summary><ul>
+            <li>An <b>application kit</b> per job, with an <b>eligibility check</b> ("not eligible" and why)</li>
+            <li><b>Tailored CV</b>: bullets reordered and reworded toward the posting; numbers, titles and dates can't change; every change highlighted</li>
+            <li><b>Sounds like you</b>: drafts start from your CV and answers you've written; anything uncertain is flagged, never guessed</li>
+            <li><b>Answer once</b>: questions it couldn't answer are asked once and reused on every later form</li>
+          </ul></details>
+        </div>
+      </li>
+      <li class="stop">
+        <span class="leg-code">03 · APPLY</span>
+        <div>
+          <h3>Fills the form. You submit.</h3>
+          <p>The Chrome extension fills a form in seconds. With Claude Code, Apply with Claude also gets through the job board, the employer's site and its sign-up to the form. <a href="#your-click">Where your click happens</a></p>
+          <details><summary>Everything in this stop</summary><ul>
+            <li><b>Fill in Chrome</b>: text fields, dropdowns, phone, city search, checkbox questions, CV and cover letter; a live checklist of what's left</li>
+            <li>Answers written by AI are <b>outlined</b> so you read them first; consent boxes stay yours unless you allow it</li>
+            <li><b>Apply with Claude</b>: follows Apply to the employer's site, <b>creates the account</b> if asked (password generated into your Keychain, never seen), reads the confirmation email (Gmail, read-only)</li>
+            <li>On a form the extension knows, Claude <b>hands it to the extension</b> and fills only what's left</li>
+            <li>Marks the job <b>Applied</b> when the confirmation page appears</li>
+          </ul></details>
+        </div>
+      </li>
+      <li class="stop">
+        <span class="leg-code">04 · TRACK</span>
+        <div>
+          <h3>Replies, interviews and what to change <span class="new">New: interviews</span></h3>
+          <p>Gmail and Calendar update each application by themselves. Record an interview and get a transcript with who said what, filed under the job, plus a review if you want one.</p>
+          <details><summary>Everything in this stop</summary><ul>
+            <li><b>Gmail and Calendar</b> (read-only): confirmations, replies, interviews and rejections; a <b>prep message</b> the evening before</li>
+            <li><b>Interviews</b>: record the call or add a recording; transcribed <b>on your Mac, free</b>, speakers told apart, saved to Notion under the job</li>
+            <li>An <b>interview review</b> in one click (about $0.05): every question, how you answered, what to practise</li>
+            <li>A <b>daily insight</b>, a <b>weekly report</b> and your funnel, with the step to improve</li>
+            <li><b>Telegram</b> for matches and commands; <b>Notion</b> with its views and mobile app; runs <b>while your Mac is off</b> with your free GitHub</li>
+          </ul>
+          <p class="consent-note"><b>Ask first, every time.</b> The app won't record until you confirm everyone on the call agreed. Recording people without their consent is illegal in Switzerland and many other places.</p>
+          </details>
+        </div>
+      </li>
+    </ol>
   </section>
 
-  <section class="block" id="features">
+  <section class="block" id="your-click">
     <div class="section-head">
-      <span class="eyebrow">Features</span>
-      <h2>Everything it does, from search to reply</h2>
-      <p class="lede">All of it is in the free Mac app. Optional parts switch on when you connect them (Telegram, Google, GitHub).</p>
+      <span class="eyebrow">You stay in control</span>
+      <h2>Where your click happens</h2>
+      <p class="lede">It does the legwork, even the employer's sign-up. Two moments are always yours, and it never presses Submit.</p>
     </div>
-    <div class="features">
-      <article class="feature">
-        <span class="leg-code">FIND</span>
-        <h3>New openings, every few hours</h3>
-        <ul>
-          <li><b>Employer career pages</b> of top tech companies, read from their public job feeds (Greenhouse, Lever, Ashby, Workable, SmartRecruiters and more)</li>
-          <li><b>Swiss job boards</b> (jobs.ch, TechTree) and optional <b>Google Jobs</b></li>
-          <li>A daily <b>scout</b> that finds new employers worth watching and adds them</li>
-          <li><b>Filters</b> by city, remote, and languages you don't speak; jobs you applied to or dismissed never come back</li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">SCORE</span>
-        <h3>Each job read and scored for you</h3>
-        <ul>
-          <li><b>Facts from every posting</b>: languages, seniority, work mode, salary, visa, each with a quote as proof</li>
-          <li>A <b>fit score out of 100</b> against your profile, with the reason in one line</li>
-          <li><b>Visa badges</b> when you'd need sponsorship, or when the job offers it</li>
-          <li>Edit your profile and every open job is <b>scored again</b></li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">PREPARE</span>
-        <h3>Your application, drafted</h3>
-        <ul>
-          <li>An <b>application kit</b> per job: reads the employer's real form, drafts an answer for every question and a cover letter in your voice</li>
-          <li>An <b>eligibility check</b> in the kit: "not eligible" with the reason when a job clearly rules you out</li>
-          <li><b>Answer once</b>: questions it couldn't answer are listed once in the app and reused on every later form</li>
-          <li>Anything uncertain is <b>flagged for you to check</b>, never guessed</li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">TAILOR <span class="new">New</span></span>
-        <h3>A CV tailored to each job</h3>
-        <ul>
-          <li><b>One click per job</b>: bullets reordered and reworded toward the posting, the summary rewritten for it</li>
-          <li><b>Only your own facts</b>: numbers can't change, new tools or claims are flagged, titles and dates stay as they are</li>
-          <li><b>See every change</b>: reworded words, moved and dropped bullets highlighted, each with the reason</li>
-          <li>A clean default design or <b>your own</b>, and the extension uploads the tailored CV on that job's form</li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">FILL · CHROME</span>
-        <h3>Forms filled in seconds</h3>
-        <ul>
-          <li>Press <b>Fill in Chrome</b> (or <b>Apply</b> without Claude Code): Chrome opens the form and the extension fills it from your kit</li>
-          <li>Text fields, <b>dropdowns</b>, phone country, city search boxes, checkbox questions, <b>CV and cover letter</b></li>
-          <li>A <b>live checklist</b> on the page of what's left, updated as you go, turning green when it's ready to submit</li>
-          <li>Answers written by AI are <b>outlined</b> so you read them first; consent boxes are ticked only if you allow it</li>
-          <li>Follows a job board's <b>Apply</b> to the employer's own site, and works on any site with one click</li>
-          <li>Marks the job <b>Applied</b> by itself when the confirmation page appears</li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">APPLY · CLAUDE <span class="new">New</span></span>
-        <h3>Apply with Claude, all the way to the form</h3>
-        <ul>
-          <li><b>Recommended</b> when you have Claude Code: one button, and Claude drives your Chrome from the posting to the last form page</li>
-          <li>Follows a job board's <b>Apply</b> to the employer's site and its own <b>Apply now</b>, across every page</li>
-          <li><b>Creates the employer account</b> if the site asks, with a password generated into your Mac's Keychain that it never sees</li>
-          <li>Reads the <b>confirmation email</b> from your Gmail (read-only) and confirms the account itself</li>
-          <li>Asks you only for the <b>CAPTCHA</b> and the terms boxes, then stops before <b>Submit</b></li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">TRACK · LEARN</span>
-        <h3>Replies, interviews and what to change</h3>
-        <ul>
-          <li><b>Gmail and Calendar</b> (read-only): confirmations, replies, interviews and rejections update each application by themselves</li>
-          <li>A <b>prep message</b> the evening before an interview</li>
-          <li><b>Interviews recorded and transcribed</b> on your Mac, with who said what, saved to Notion under the job (<a href="#interviews">more</a>)</li>
-          <li><b>Interview reviews</b> from a transcript or your notes: every question, how you answered, what to practise</li>
-          <li>A <b>daily insight</b>, a <b>weekly report</b> and your funnel, with the step to improve</li>
-          <li>Gets better at each <b>job site's forms</b> with every fill</li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">EVERYWHERE</span>
-        <h3>On your phone, in your Notion</h3>
-        <ul>
-          <li><b>Telegram</b>: your best new matches with buttons to save, prepare, dismiss or mark applied, and commands like /applied</li>
-          <li><b>Notion</b> workspace: matches, applications, interviews, insights; with its views, filters and mobile app</li>
-          <li><b>Keeps working while your Mac is off</b>: the app sets up your own private GitHub repository to run on your schedule</li>
-          <li><b>Notifications</b> on your Mac: kit ready, form filled, application sent</li>
-        </ul>
-      </article>
-      <article class="feature">
-        <span class="leg-code">CONTROL</span>
-        <h3>You stay in charge</h3>
-        <ul>
-          <li><b>Never submits</b> for you, and never applies in bulk</li>
-          <li>Your <b>keys in your Mac's Keychain</b>, your data on your Mac and in your Notion</li>
-          <li>An <b>AI budget cap</b> with alerts; every run and its cost logged</li>
-          <li><b>Open source</b>: read it, run it yourself, or change it</li>
-        </ul>
-      </article>
-    </div>
+    <ol class="clickflow" aria-label="Apply with Claude, step by step">
+      <li><span class="who">Auto</span><b>Posting</b><small>opens the job, follows Apply</small></li>
+      <li><span class="who">Auto</span><b>Employer site</b><small>its own Apply now</small></li>
+      <li><span class="who">Auto</span><b>Account</b><small>sign-up; password to your Keychain; email code from Gmail</small></li>
+      <li><span class="who">Auto</span><b>Form filled</b><small>extension + Claude, from your kit</small></li>
+      <li class="you"><span class="who">You</span><b>CAPTCHA and terms</b><small>it asks, you tick</small></li>
+      <li class="you"><span class="who">You</span><b>Review and Submit</b><small>it stops here, always</small></li>
+    </ol>
+    <p class="flow-note">With the Chrome extension alone it's shorter: the extension fills the form on the page you're on, and the same last step is yours.</p>
   </section>
 
-  <section class="block" id="interviews">
-    <div class="section-head">
-      <span class="eyebrow">New · Interviews</span>
-      <h2>Every interview transcribed, with who said what</h2>
-      <p class="lede">Record the call in the app, or add a recording you already have. It's transcribed on your Mac, free, and saved to your Notion next to the job it belongs to.</p>
-    </div>
-    <div class="iv-feature">
-      <ul>
-        <li><b>Speakers told apart.</b> Each line says who spoke. When you record in the app, it knows which voice is yours.</li>
-        <li><b>Private and free.</b> Open-source speech models run on your Mac. The recording never leaves it, and no minutes are billed.</li>
-        <li><b>Filed under the right job.</b> Pick the application and the transcript lands in your Notion 🎤 Interviews, linked to it. You can change the job at any time.</li>
-        <li><b>A review if you want one.</b> One click and Claude goes through every question: what landed, what a stronger answer would add, and what to practise for the next round. About $0.05.</li>
-        <li><b>From your phone too.</b> Send a voice note or recording to your Telegram bot after the call.</li>
-      </ul>
-      <img src="images/app/interviews.png" loading="lazy" width="1600" height="1024" alt="Interviews page: a consent reminder, a transcript with speakers named, and the job it belongs to">
-    </div>
-    <p class="consent-note"><b>Ask first, every time.</b> Before recording, tell everyone on the call and record only if they all agree. The app won't start recording until you confirm that they did. Recording people without their consent is illegal in Switzerland and many other places.</p>
-  </section>
   <section class="block" id="see">
     <div class="section-head">
       <span class="eyebrow">See it</span>
-      <h2>A few minutes of setup, then it works on its own</h2>
-      <p class="lede">The Mac app walks you through it: your AI key, your Notion workspace, your CV and what you're looking for. It drafts your search strategy, then keeps working on your schedule.</p>
+      <h2>The real screens</h2>
+      <p class="lede">The Mac app, your Telegram and your Notion. The candidate and companies here are made up.</p>
     </div>
     <video class="demo" src="images/app/walkthrough.mp4" poster="images/app/walkthrough-poster.jpg" autoplay muted loop playsinline controls
       aria-label="Walkthrough of the Job Pilotto Mac app: setup steps, the job list, interviews and the schedule settings"></video>
     <div class="shots">
-      <figure><img src="images/app/wizard-goals.png" loading="lazy" width="1600" height="1024" alt="Setup step: roles, places, languages, salary and notice period">
-        <figcaption>Say what you're looking for, in plain words.</figcaption></figure>
-      <figure><img src="images/app/wizard-strategy.png" loading="lazy" width="1600" height="1024" alt="Drafted strategy: roles, places, job board searches and hidden language requirements">
-        <figcaption>It drafts your strategy from your CV. Edit anything.</figcaption></figure>
-      <figure><img src="images/app/jobs.png" loading="lazy" width="1600" height="1024" alt="Job list with fit scores out of 100 and the reason for each">
-        <figcaption>Every job scored against your profile, with the reason.</figcaption></figure>
-      <figure><img src="images/app/schedule.png" loading="lazy" width="1600" height="1024" alt="Settings: how often to search, draft application kits, send insights, find new employers and check mail">
-        <figcaption>You choose how often each job runs, even with your Mac off.</figcaption></figure>
-    </div>
-    <p class="shots-note">Screens use a fictional candidate and fictional companies.</p>
-  </section>
-
-  <section class="block" id="checkin">
-    <div class="checkin">
-      <div class="section-head">
-        <span class="eyebrow">Check-in</span>
-        <h2>Ready in about ten minutes</h2>
-        <p class="lede">The app walks you through every step. No terminal, no servers, nothing to host.</p>
-        <div class="no-keys">
-          <h3>What you bring</h3>
-          <p>A Mac, a free Notion account, and an Anthropic account for the AI (you pay Anthropic directly, usually a few dollars a month). Your data stays in your Notion and on your Mac; Job Pilotto stores nothing on a server.</p>
-        </div>
-      </div>
-      <ol class="checkin-list">
-        <li><div><b>Install the Mac app</b><span class="how"><a href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download</a>, drag it to Applications, then allow it once in System Settings → Privacy &amp; Security → Open Anyway</span></div><span class="time">1 min</span></li>
-        <li><div><b>Add your AI key</b><span class="how">Copy it from your Anthropic account; the app checks it</span></div><span class="time">2 min</span></li>
-        <li><div><b>Copy the Notion workspace</b><span class="how">Duplicate the Job Pilotto template and connect it</span></div><span class="time">3 min</span></li>
-        <li><div><b>Choose your CV</b><span class="how">A PDF; it stays on your Mac</span></div><span class="time">30 s</span></li>
-        <li><div><b>Say what you're looking for</b><span class="how">Roles, places, languages, salary; the AI drafts your strategy for you to review</span></div><span class="time">3 min</span></li>
-        <li><div><b>Optional: Telegram and the Chrome extension</b><span class="how">Matches on your phone; one-click form filling</span></div><span class="time">2 min</span></li>
-      </ol>
+      <figure><img src="images/app/jobs.png" loading="lazy" width="1600" height="1024" alt="Job list in the Mac app with fit scores out of 100 and the reason for each">
+        <figcaption><b>Mac app:</b> every job scored against your profile, with the reason.</figcaption></figure>
+      <figure><img src="images/app/interviews.png" loading="lazy" width="1600" height="1024" alt="Interviews page: consent reminder, transcript with speakers named, and the job it belongs to">
+        <figcaption><b>Mac app:</b> an interview transcribed with speakers, filed under its job.</figcaption></figure>
+      <figure class="tall"><img src="images/proof/telegram-interview.png" loading="lazy" width="1040" height="1349" alt="Telegram message: interview review with strong answers, weak answers and what to practise">
+        <figcaption><b>Telegram:</b> the review after an interview.</figcaption></figure>
+      <figure class="tall"><img src="images/proof/notion-interview-review.png" loading="lazy" width="495" height="830" alt="Notion page: interview review with strengths, weak spots, signals and every question">
+        <figcaption><b>Notion:</b> the full review, question by question.</figcaption></figure>
     </div>
   </section>
 
-  <section class="block">
+  <section class="block" id="privacy">
     <div class="section-head">
-      <span class="eyebrow">You stay in control</span>
-      <h2>Built for good applications, not more of them</h2>
+      <span class="eyebrow">Privacy</span>
+      <h2>What it can access</h2>
+      <p class="lede">Everything runs in your own accounts. Nothing is stored on a Job Pilotto server.</p>
     </div>
-    <div class="promises">
-      <div class="promise"><div class="icon" aria-hidden="true">🖐️</div><div><h3>It never submits for you</h3><p>The extension or Claude fills the form and shows what's left; pressing Submit is always you. Consent boxes stay yours too, unless you ask it to tick them. No spray-and-pray.</p></div></div>
-      <div class="promise"><div class="icon" aria-hidden="true">🗂️</div><div><h3>Your data lives in your Notion</h3><p>Matches, applications, answers, interviews and insights, in your own workspace, with Notion's views, filters and mobile app. Stop any time and keep everything.</p></div></div>
-      <div class="promise"><div class="icon" aria-hidden="true">✍️</div><div><h3>Sounds like you</h3><p>Drafts start from your CV and answers you've written, and flag anything you should check before sending.</p></div></div>
-      <div class="promise"><div class="icon" aria-hidden="true">🔒</div><div><h3>Your keys stay on your Mac</h3><p>AI and Notion keys are encrypted with your Mac's Keychain and only ever sent to the service they belong to.</p></div></div>
+    <div class="access-wrap">
+      <table class="access">
+        <thead><tr><th>What</th><th>Access</th><th>Where it stays</th></tr></thead>
+        <tbody>
+          <tr><td>🔑 Your keys</td><td>Encrypted with your Mac's Keychain; each sent only to its own service</td><td>Your Mac</td></tr>
+          <tr><td>🗂️ Notion</td><td>One connection, only to the Job Pilotto page you pick</td><td>Your Notion</td></tr>
+          <tr><td>📧 Gmail · 📅 Calendar</td><td><b>Read-only</b>. Job emails are classified by Claude with your key</td><td>Your Google account</td></tr>
+          <tr><td>📄 CV</td><td>Read by Claude to draft your profile, kits and tailored CVs</td><td>Your Mac</td></tr>
+          <tr><td>🎙️ Recordings</td><td>Transcribed on your Mac. Only the transcript goes to Notion</td><td>Your Mac</td></tr>
+          <tr><td>🧩 Chrome</td><td>Fills forms on job sites. Never presses Submit</td><td>Your browser</td></tr>
+          <tr><td>🔐 Employer accounts</td><td>Passwords generated straight into your Keychain; Claude never sees them</td><td>Your Mac</td></tr>
+          <tr><td>💸 AI spending</td><td>Your Anthropic account, with a monthly cap: alert at 70%, extras paused at 90%</td><td>Your Anthropic account</td></tr>
+          <tr><td>☁️ GitHub <small>optional</small></td><td>One private repository you choose, nothing else</td><td>Your GitHub</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block" id="setup">
+    <div class="section-head">
+      <span class="eyebrow">Setup</span>
+      <h2>What setup takes</h2>
+      <p class="lede">The app walks you through it either way. Today's Free version asks you to paste two keys; Pro will do that for you.</p>
+    </div>
+    <div class="setup-cols">
+      <div>
+        <h3 class="setup-title">Free · today <span class="for">for technical users</span></h3>
+        <ol class="checkin-list">
+          <li><div><b>Install the app</b><span class="how">Allow it once: System Settings → Privacy &amp; Security → Open Anyway (not signed yet)</span></div><span class="time">1 min</span></li>
+          <li><div><b>Paste your Anthropic key</b><span class="how">From console.anthropic.com; the app checks it</span></div><span class="time">2 min</span></li>
+          <li><div><b>Copy the Notion workspace</b><span class="how">Duplicate the template, create a connection, paste its token</span></div><span class="time">3 min</span></li>
+          <li><div><b>Choose your CV, say what you want</b><span class="how">The AI drafts your strategy for you to review</span></div><span class="time">3 min</span></li>
+          <li><div><b>Optional</b><span class="how">Telegram bot, Chrome extension, Gmail; your GitHub to run while the Mac is off; Claude Code for Apply with Claude</span></div><span class="time">+ 5 min</span></li>
+        </ol>
+      </div>
+      <div>
+        <h3 class="setup-title">Pro · soon <span class="for">for everyone</span></h3>
+        <ol class="checkin-list soon">
+          <li><div><b>Install the app</b><span class="how">Signed by Apple: no warnings, updates itself</span></div><span class="time">1 min</span></li>
+          <li><div><b>Sign in to Notion</b><span class="how">One click, no token to copy</span></div><span class="time">1 min</span></li>
+          <li><div><b>Choose your CV, say what you want</b><span class="how">Same drafted strategy</span></div><span class="time">3 min</span></li>
+          <li><div><b>Nothing to host</b><span class="how">Searches run for you, as often as hourly</span></div><span class="time">0 min</span></li>
+        </ol>
+        <a class="btn btn-ghost setup-cta" href="#early">Get Pro early access · first month free</a>
+      </div>
     </div>
   </section>
 
@@ -270,7 +223,7 @@
     <div class="section-head">
       <span class="eyebrow">Pricing</span>
       <h2>Free to use. Pro when you want more.</h2>
-      <p class="lede">The Mac app is free and open source: you bring your own AI key and your own free Notion. Pro will add the things that are hard to run yourself.</p>
+      <p class="lede">You bring your own AI key and your own free Notion. AI usage is billed by Anthropic to you: usually a few dollars a month, capped by your own budget.</p>
     </div>
     <div class="plans two">
       <article class="plan featured">
@@ -278,37 +231,29 @@
         <span class="plan-name">Free · Mac app</span>
         <div class="price">0 <small>forever</small></div>
         <ul>
-          <li>Guided setup in about 10 minutes</li>
-          <li>Finds, scores and ranks new openings every few hours</li>
-          <li>Drafts cover letters and form answers in your voice</li>
-          <li>A tailored CV per job, with every change highlighted</li>
-          <li>Fills application forms in Chrome; you review and submit</li>
-          <li>Apply with Claude: gets through employer sign-ups to the form (with Claude Code)</li>
-          <li>Telegram digest, your whole search tracked in Notion</li>
-          <li>Records and transcribes your interviews on your Mac, filed under the job</li>
-          <li>Keeps working while your Mac is off (with your free GitHub)</li>
+          <li>Every step above: find, prepare, apply, track</li>
+          <li>Apply with Claude (with your Claude Code)</li>
+          <li>Interviews transcribed on your Mac</li>
+          <li>Runs while your Mac is off (with your free GitHub)</li>
           <li>Open source: read or run the code yourself</li>
         </ul>
         <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
-        <a class="plan-link" href="https://github.com/GarryOne/job-pilotto">or run it from the source code</a>
+        <span class="plan-link">Apple silicon (M1 or newer) · <a href="https://github.com/GarryOne/job-pilotto">or run it from the source code</a></span>
       </article>
       <article class="plan">
         <span class="tag soon">Coming soon</span>
         <span class="plan-name">Pro</span>
         <div class="price">Soon <small>early sign-ups get a month free</small></div>
         <ul>
-          <li>Signed by Apple, installs without warnings, updates itself</li>
-          <li>Hosted searches: nothing to set up on GitHub, checks as often as hourly</li>
-          <li>The maintained index of employer career pages, checked every week</li>
-          <li>One-click Notion connection, no tokens to copy</li>
-          <li>More countries: Germany, the Netherlands, the UK and remote Europe</li>
-          <li>Salary and response-rate benchmarks from roles like yours</li>
-          <li>Priority help and a personal setup call</li>
+          <li>Signed by Apple, updates itself; one-click Notion</li>
+          <li>Hosted searches, as often as hourly, nothing on GitHub</li>
+          <li>The maintained index of employer career pages</li>
+          <li>More countries: Germany, the Netherlands, the UK, remote Europe</li>
+          <li>Salary and response-rate benchmarks; priority help</li>
         </ul>
         <a class="btn btn-ghost" href="#early">Get early access</a>
       </article>
     </div>
-    <p class="hero-note">AI usage is billed by Anthropic to your own account, usually a few dollars a month.</p>
   </section>
 
   <section class="block" id="early">
@@ -338,7 +283,7 @@
     <div class="faq">
       <details><summary>Does it apply to jobs for me?</summary><p>No, never. It finds, scores, drafts and fills. Submitting is always your click, after you've reviewed the form.</p></details>
       <details><summary>Do I need Notion?</summary><p>Yes, a free Notion account. It's where you see and track everything: matches, applications, interviews and insights. The app copies a ready-made workspace into your account during setup.</p></details>
-      <details><summary>What does the AI cost?</summary><p>You use your own Anthropic account, so the cost goes to you directly and you can see it: usually a few dollars a month. Each search shows what it cost in your Notion.</p></details>
+      <details><summary>What does the AI cost?</summary><p>You use your own Anthropic account, so the cost goes to you directly and you can see it: usually a few dollars a month, capped by the monthly budget you set. Each run shows what it cost in your Notion.</p></details>
       <details><summary>How is it different from Simplify, Teal, Huntr or JobCopilot?</summary><p>It does the whole search, not one step: finds and scores jobs, drafts each form's answers, tailors your CV, fills the form and tracks replies from your Gmail, with your data in your own Notion. It never mass-applies. <a href="compare.html">See the side-by-side comparison</a>.</p></details>
       <details><summary>Windows or Linux?</summary><p>Mac first. Windows is planned once the Mac app is stable.</p></details>
       <details><summary>Which jobs does it cover?</summary><p>Today it focuses on tech roles in Switzerland where English is enough, plus remote roles open to people in Switzerland. It reads career pages of top tech employers (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and more), jobs.ch, TechTree and Google Jobs.</p></details>
