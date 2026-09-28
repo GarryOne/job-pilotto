@@ -5,6 +5,7 @@ import {ago, applicationStats, avatar, inProcess, band, byStat, matchLabel, plac
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 import {openPalette} from './palette.js';
+import {readSessionMessage, splitLabel} from './session-message.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
@@ -27,7 +28,7 @@ const savedAgo = iso => {
 const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
   ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
 const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
-let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockOpen = true, logChoice = {};
+let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockOpen = true, logChoice = {}, termShownFor = null;
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
@@ -3221,22 +3222,6 @@ function sessionMenu(item) {
   else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
   return menu;
 }
-// Claude's last message, sorted for the page: the lines it flags (its bullet list), the audit note ("Audit …:"),
-// and the rest (its intro and question). Its words are kept; only where they're shown changes.
-function readSessionMessage(text) {
-  const checks = [], intro = [];
-  let audit = '';
-  for (const raw of String(text || '').split(/\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const bullet = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
-    const auditLine = line.match(/^\**(?:form\s+)?audit[^:*]*:\**\s*(.*)$/i);
-    if (bullet) checks.push(bullet[1]);
-    else if (auditLine) audit = auditLine[1].replace(/^\*+\s*/, '');
-    else intro.push(line);
-  }
-  return {checks, audit, intro};
-}
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
 const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself/i;
 // A message that ends on a question still waits for your answer first.
@@ -3257,7 +3242,11 @@ function openLog(open, remember = true) {
   show($('ss-log-last'), !open);
   $('ss-expand').textContent = open ? 'Collapse log' : 'Expand log';
   $('ss-expand').setAttribute('aria-expanded', open);
-  if (open) setTimeout(() => { fitTerminal(); if (remember) xterm?.focus(); }, 30);
+  if (open) setTimeout(async () => {
+    if (termShownFor !== openSessionId) await attachTerminal(openSessionId);
+    else fitTerminal();
+    if (remember) xterm?.focus();
+  }, 30);
 }
 function sessionButton(text, kind, run, glyph) {
   const button = el('button', `${kind}${glyph ? ' with-icon' : ''}`);
@@ -3266,9 +3255,34 @@ function sessionButton(text, kind, run, glyph) {
   button.addEventListener('click', run);
   return button;
 }
+// The part of a text shown on its row: all of it when short, else whole sentences up to the limit (at least one).
+function firstLine(text, limit = 110) {
+  if (text.length <= limit) return text;
+  let shown = '';
+  for (const sentence of text.split(/(?<=\.)\s+/)) {
+    if (shown && shown.length + sentence.length + 1 > limit) break;
+    shown = shown ? `${shown} ${sentence}` : sentence;
+  }
+  return shown;
+}
+// A row that shows one line and unfolds the rest on click (a › that turns).
+function foldRow(short, more) {
+  const li = el('li', 'ss-check');
+  const line = el('div', 'ss-check-line');
+  line.append(icon('chevron'), ...richText(short).flatMap(node => [...node.childNodes]));
+  li.append(line);
+  if (!more) return li;
+  const detail = el('div', 'muted small ss-check-more');
+  detail.append(...richText(more));
+  detail.hidden = true;
+  li.classList.add('has-more');
+  li.addEventListener('click', () => { detail.hidden = !detail.hidden; li.classList.toggle('is-open', !detail.hidden); });
+  li.append(detail);
+  return li;
+}
 function renderNextStep(item) {
   const review = sessionReview(item), asking = item.status === 'input' && !review, running = item.status === 'running';
-  const {checks, audit, intro} = readSessionMessage(item.question);
+  const {checks, audit, done, intro} = readSessionMessage(item.question);
   const tone = review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
   $('ss-next-icon').className = `focus-round tone-${tone}`;
@@ -3319,31 +3333,24 @@ function renderNextStep(item) {
   show($('ss-checks-card'), checks.length > 0);
   $('ss-checks-card').querySelector('b').textContent = review ? 'Before you submit' : 'What Claude flagged';
   $('ss-checks').replaceChildren(...checks.map(text => {
-    const li = el('li', 'ss-check');
-    const [, head, rest] = text.match(/^\*\*([^*]+?):?\*\*:?\s*(.*)$/) || [null, '', text];
-    const short = head || rest.split(/(?<=[.;])\s/)[0];
-    const more = head ? rest : rest.slice(short.length).trim();
-    const line = el('div', 'ss-check-line');
-    line.append(icon('chevron'), ...richText(short).flatMap(node => [...node.childNodes]));
-    li.append(line);
-    if (more) {
-      const detail = el('div', 'muted small ss-check-more');
-      detail.append(...richText(more).flatMap(node => [...node.childNodes]));
-      detail.hidden = true;
-      li.classList.add('has-more');
-      li.addEventListener('click', () => { detail.hidden = !detail.hidden; li.classList.toggle('is-open', !detail.hidden); });
-      li.append(detail);
-    }
-    return li;
+    const {label, text: rest} = splitLabel(text);
+    const short = label || firstLine(rest);
+    return foldRow(short, label ? rest : rest.slice(short.length).trim());
   }));
+  // What Claude did (its other sections): one line each, the details one click away.
+  show($('ss-done-card'), done.length > 0);
+  $('ss-done-count').replaceChildren(pill(`${done.length}`, 'neutral'));
+  $('ss-done').replaceChildren(...done.map(section => foldRow(section.label || firstLine(section.text),
+    [section.label ? section.text : '', ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n'))));
   show($('ss-audit-card'), !!audit);
   if (audit) {
-    const sentences = audit.split(/(?<=\.)\s+/);
-    const fixes = (audit.match(/\b(?:corrected|removed|fixed)\b/gi) || []).length;
+    const capital = audit.charAt(0).toUpperCase() + audit.slice(1);
+    const summary = firstLine(capital, 160), rest = capital.slice(summary.length).trim();
+    const fixes = (audit.match(/\b(?:corrected|removed|fixed|by hand)\b/gi) || []).length;
     $('ss-audit-pill').replaceChildren(...(fixes ? [pill(`${fixes} correction${fixes === 1 ? '' : 's'}`, 'warn', {dot: true})] : [pill('Checked', 'good', {dot: true})]));
-    $('ss-audit-summary').replaceChildren(...richText(sentences[0]).flatMap(node => [...node.childNodes]));
-    $('ss-audit-detail').replaceChildren(...richText(sentences.slice(1).join(' ') || audit));
-    show($('ss-audit-more'), sentences.length > 1);
+    $('ss-audit-summary').replaceChildren(...richText(summary).flatMap(node => [...node.childNodes]));
+    $('ss-audit-detail').replaceChildren(...richText(rest));
+    show($('ss-audit-more'), !!rest);
   }
   show($('ss-facts'), checks.length > 0 || !!audit);
   $('ss-facts').classList.toggle('is-single', !(checks.length && audit));
@@ -3361,10 +3368,10 @@ $('ss-new').addEventListener('click', () => openView('jobs'));
 
 async function openSession(id) {
   if (!id) return;
+  if (id !== openSessionId) termShownFor = null;  // the log shows this session's output once it's open
   openSessionId = id;
   openView('sessions');
   await refreshSessions();
-  await attachTerminal(id);
 }
 function renderSessionPage() {
   const item = sessionList.find(entry => entry.id === openSessionId) || sessionList[0];
@@ -3417,9 +3424,13 @@ async function attachTerminal(id) {
     xterm.onData(data => openSessionId && window.pilot.sessionWrite(openSessionId, data));
     new ResizeObserver(() => fitTerminal()).observe($('ss-terminal'));
   }
-  xterm.reset();
-  xterm.write(await window.pilot.sessionOutput(id));
+  // Drawn only while the log is open: a terminal laid out while hidden has no size and stays blank.
+  if ($('ss-log-body').hidden) { termShownFor = null; return; }
   fitTerminal();
+  xterm.reset();
+  const output = await window.pilot.sessionOutput(id);
+  xterm.write(output, () => { fitTerminal(); xterm.scrollToBottom(); xterm.refresh(0, xterm.rows - 1); });
+  termShownFor = id;
 }
 function fitTerminal() {
   if (!xterm || document.querySelector('.view[data-view="sessions"]').hidden || $('ss-log-body').hidden) return;
@@ -3439,10 +3450,16 @@ $('ss-copy').addEventListener('click', async () => {
   await navigator.clipboard.writeText(text);
   toastMessage('Log copied', 'The session\'s output is on the clipboard.');
 });
-$('ss-expand').addEventListener('click', () => openLog($('ss-log-body').hidden));
+// The whole header bar opens and closes the log (Copy log does its own thing).
+$('ss-log-head').addEventListener('click', event => { if (!event.target.closest('#ss-copy')) openLog($('ss-log-body').hidden); });
 $('ss-log-last').addEventListener('click', () => openLog(true));
 window.pilot.onSession((event, payload) => {
-  if (event === 'data') { if (payload.id === openSessionId) xterm?.write(payload.data); return; }
+  if (event === 'data') {
+    if (payload.id !== openSessionId) return;
+    if ($('ss-log-body').hidden) termShownFor = null;  // replayed in full when the log opens
+    else if (termShownFor === payload.id) xterm?.write(payload.data);
+    return;
+  }
   if (event === 'open') { openSession(payload.id); return; }
   refreshSessions().then(() => { if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs(); });
 });

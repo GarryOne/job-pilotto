@@ -6,12 +6,12 @@
     "company": "Northwind AI",
     "status": "input",
     "note": "Waiting for your reply",
-    "question": "The form is filled in Chrome and recorded in Notion. Before you submit, check these:\n\n- **Hybrid in four cities; each needs a visa.** Three days a week in the San Francisco, New York, Seattle or London office, outside your usual cities.\n- **No Kubernetes operator experience.** The cover letter says so openly.\n- **The form has no salary question.**\n\n**Audit file:** Location and CV fields checked on the page; the audit helper showed both as empty. I corrected those in the file and removed a duplicate, empty \"Resume/CV\" row. The run log has a note about both audit gaps.\n\nReview it and submit it yourself when you're happy.",
+    "question": "The Northwind AI application (Platform Engineer, San Francisco) is filled in the open Chrome tab and ready for you to review and click Submit. Nothing was submitted.\n\n- **Extension:** it filled 12 of 16 fields; I filled the rest myself.\n- **Filled:** name, email and phone, your city, the LinkedIn link, the infrastructure answer and the cover letter. Your CV is attached.\n- **Yes/No questions:**\n  - Kubernetes operator experience: No\n  - In person in the office 3 days a week: Yes\n  - Will need sponsorship: Yes\n- **Nothing left empty.** This form has no education section.\n- **Check before you submit:**\n  - Hybrid in four cities; each needs a visa.\n  - The cover letter says openly that you have no Kubernetes operator experience.\n  - The form has no salary question.\n- **Run record:** saved to Notion. The form checker showed the location and CV as empty; I checked both on the page and corrected the record.",
     "location": "San Francisco; New York; Seattle; London",
     "workMode": "Hybrid",
     "startedAt": "2026-09-28T19:42:00Z",
     "needsYouSince": "2026-09-28T19:48:12Z",
-    "brief": "Review it and submit it yourself when you're happy."
+    "brief": "The Northwind AI application is filled in the open Chrome tab and ready for you to review and click Submit."
   },
   {
     "id": "d2",

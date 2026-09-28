@@ -892,7 +892,7 @@ main { min-width: 0; }
 .ss-fact-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); background: var(--surface); }
 .ss-fact-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .ss-fact-head .icon { width: 18px; height: 18px; color: var(--ink-2); }
-.ss-fact-head > span:last-child { margin-left: auto; }
+.ss-fact-card .ss-fact-head > span:last-child { margin-left: auto; }
 .ss-checks { list-style: none; padding: 0; margin: 0; }
 .ss-check { padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
 .ss-check.has-more { cursor: pointer; }
@@ -901,6 +901,16 @@ main { min-width: 0; }
 .ss-check:not(.has-more) .ss-check-line .icon { visibility: hidden; }
 .ss-check.is-open .ss-check-line .icon { transform: rotate(90deg); }
 .ss-check-more { margin: var(--sp-1) 0 0 22px; }
+/* What Claude did: folded by default (a report to look up, not a task). */
+.ss-done-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); background: var(--surface); margin: 0; }
+.ss-done-card > summary { list-style: none; cursor: pointer; margin: 0; padding: var(--sp-1) 0; }
+.ss-done-card > summary::-webkit-details-marker { display: none; }
+.ss-done-card > summary::after { content: '▸'; margin-left: auto; color: var(--muted); transition: transform .15s; }
+.ss-done-card[open] > summary::after { transform: rotate(90deg); }
+.ss-done-card[open] > summary { margin-bottom: var(--sp-2); }
+.ss-check-more .rich-list { margin: var(--sp-1) 0 0; padding-left: var(--sp-4); }
+.ss-check-more .rich-p { margin: 0; }
+.ss-log-head { cursor: pointer; }
 .ss-audit-summary { margin: 0 0 var(--sp-2); }
 .ss-audit-more { margin: 0; }
 .ss-audit-more > div { margin-top: var(--sp-2); color: var(--ink-2); }

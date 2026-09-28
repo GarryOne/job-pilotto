@@ -798,6 +798,9 @@ function handlers() {
   ipcMain.handle('extensionInfo', () => ({url: `http://127.0.0.1:${server.PORT}`, token: server.extensionToken(storage)}));
 }
 
+// Started from a terminal that's since closed, writing a log line fails (EIO/EPIPE); that must never crash the app.
+for (const stream of [process.stdout, process.stderr]) stream?.on?.('error', () => {});
+
 // A separate data folder for tests and demos (JOB_PILOTTO_USER_DATA), so they never touch the real one.
 if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
 
