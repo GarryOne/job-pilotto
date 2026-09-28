@@ -10,12 +10,12 @@
 <meta name="description" content="Job Pilotto is a Mac app that finds the right tech jobs, drafts your answers and fills the form, with everything tracked in your own Notion. You review and click Submit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Newsreader:opsz,wght@6..72,400..600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="wrap">
-  <nav class="topnav" id="topnav">
+  <nav class="topnav on-dark" id="topnav">
     <a class="brand" href="#top"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a>
     <div class="links">
       <a href="#how">How it works</a>
@@ -46,30 +46,20 @@
     </div>
 
     <div class="hero-visual">
-      <span class="backdrop warm" aria-hidden="true"></span>
-      <span class="backdrop dots" aria-hidden="true"></span>
-      <span class="chip chip-top" aria-hidden="true"><i></i>3 kits ready this morning</span>
-    <div class="board" aria-label="Illustrative departures board: five matching jobs at made-up companies, with fit scores and application status">
-      <div class="board-head"><b>Departures · your matches</b><span>Illustrative</span></div>
-      <table>
-        <colgroup><col class="c-time"><col class="c-role"><col class="c-co"><col class="c-fit"><col class="c-gate"></colgroup>
-        <thead><tr><th>Time</th><th>Role</th><th>Company</th><th>Fit</th><th>Gate</th></tr></thead>
-        <tbody>
-          <tr><td data-flap>06:30</td><td class="role" data-flap>STAFF SRE</td><td data-flap>ALPENLINK</td><td class="fit" data-flap>86</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
-          <tr><td data-flap>06:30</td><td class="role" data-flap>PLATFORM ENG</td><td data-flap>ALPINE DATA</td><td class="fit" data-flap>81</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
-          <tr><td data-flap>02:30</td><td class="role" data-flap>SRE EDGE</td><td data-flap>GLACIER LABS</td><td class="fit" data-flap>78</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
-          <tr><td data-flap>YEST</td><td class="role" data-flap>INFRA ENG</td><td data-flap>LAKESIDE</td><td class="fit" data-flap>74</td><td><span class="gate sent">APPLIED</span></td></tr>
-          <tr><td data-flap>TUE</td><td class="role" data-flap>DEVOPS ENG</td><td data-flap>NORTHWIND</td><td class="fit" data-flap>71</td><td><span class="gate reply">SCREENING</span></td></tr>
-        </tbody>
-      </table>
-      <div class="board-foot">Made-up companies · Fit = match with your CV, out of 100</div>
-    </div>
-      <div class="float-card" aria-hidden="true">
-        <b>Form filled</b>
-        <span class="check on">Contact details</span>
-        <span class="check on">CV and cover letter</span>
-        <span class="check on">12 answers from your kit</span>
-        <span class="check you">Submit: your turn</span>
+      <div class="board" aria-label="Illustrative departures board: five matching jobs at made-up companies, with fit scores and application status">
+        <div class="board-head"><b>Departures · your matches</b><span>Illustrative</span></div>
+        <table>
+          <colgroup><col class="c-time"><col class="c-role"><col class="c-co"><col class="c-fit"><col class="c-gate"></colgroup>
+          <thead><tr><th>Time</th><th>Role</th><th>Company</th><th>Fit</th><th>Gate</th></tr></thead>
+          <tbody>
+            <tr><td data-flap>06:30</td><td class="role" data-flap>STAFF SRE</td><td data-flap>ALPENLINK</td><td class="fit" data-flap>86</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+            <tr><td data-flap>06:30</td><td class="role" data-flap>PLATFORM ENG</td><td data-flap>ALPINE DATA</td><td class="fit" data-flap>81</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+            <tr><td data-flap>02:30</td><td class="role" data-flap>SRE EDGE</td><td data-flap>GLACIER LABS</td><td class="fit" data-flap>78</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+            <tr><td data-flap>YEST</td><td class="role" data-flap>INFRA ENG</td><td data-flap>LAKESIDE</td><td class="fit" data-flap>74</td><td><span class="gate sent">APPLIED</span></td></tr>
+            <tr><td data-flap>TUE</td><td class="role" data-flap>DEVOPS ENG</td><td data-flap>NORTHWIND</td><td class="fit" data-flap>71</td><td><span class="gate reply">SCREENING</span></td></tr>
+          </tbody>
+        </table>
+        <div class="board-foot">Made-up companies · Fit = match with your CV, out of 100</div>
       </div>
     </div>
   </header>
