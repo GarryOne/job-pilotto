@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 import os
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
@@ -85,8 +86,30 @@ def input_hash(job, facts, profile):
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
-def pending_jobs(db, candidates, profile, limit):
-    """Candidates whose score is missing or out of date (job, facts or profile changed)."""
+# Profile sections that are about filling forms, not about which jobs fit: editing them must not re-score anything.
+FORM_ONLY = re.compile(r'contact|\blinks?\b|application form answers|📎', re.I)
+
+
+def scoring_profile(profile):
+    """The Profile as the fit score reads it: without its contact, links and form-answer sections, so a new phone
+    number or LinkedIn link doesn't re-score every job (experience, goals, salary, locations still do)."""
+    kept, skipping, level = [], False, 0
+    for line in (profile or '').splitlines():
+        heading = re.match(r'\s*(#+)\s+(.*)', line)
+        if heading:
+            depth = len(heading[1])
+            if skipping and depth > level:
+                continue  # a sub-heading of a skipped section
+            skipping, level = bool(FORM_ONLY.search(heading[2])), depth
+        if not skipping:
+            kept.append(line)
+    return '\n'.join(kept).strip()
+
+
+def pending_jobs(db, candidates, profile, limit, full_profile=None):
+    """Candidates whose score is missing or out of date (job, facts or the scoring part of the profile changed).
+    full_profile: the whole Profile text, for scores made before scoring_profile existed: if one matches it, the
+    score is still current (only form sections were in it) and its hash is updated instead of scoring again."""
     db.executescript(SCORES_TABLE)
     done = {row['job_id']: row for row in db.execute('SELECT job_id, scorer_version, input_hash FROM scores')}
     pending = []
@@ -94,9 +117,14 @@ def pending_jobs(db, candidates, profile, limit):
         if not job.get('description'):
             continue
         row = done.get(job['id'])
-        if row and row['scorer_version'] == SCORER_VERSION and row['input_hash'] == input_hash(job, job.get('ai'), profile):
+        current = input_hash(job, job.get('ai'), profile)
+        if row and row['scorer_version'] == SCORER_VERSION and row['input_hash'] == current:
+            continue
+        if row and full_profile and row['scorer_version'] == SCORER_VERSION and row['input_hash'] == input_hash(job, job.get('ai'), full_profile):
+            db.execute('UPDATE scores SET input_hash=? WHERE job_id=?', (current, job['id']))
             continue
         pending.append(job)
+    db.commit()
     return sorted(pending, key=lambda j: j['first_seen_at'], reverse=True)[:limit]
 
 
@@ -140,9 +168,16 @@ def load(db):
     return {row['job_id']: json.loads(row['data_json']) for row in db.execute('SELECT job_id, data_json FROM scores')}
 
 
+def stale_count(db, candidates, profile):
+    """How many scored-or-scorable jobs still wait for a (re-)score with this profile ("Scores updating")."""
+    return len(pending_jobs(db, candidates, scoring_profile(profile), 10**9, full_profile=profile))
+
+
 def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None):
-    """Score up to max_jobs pending candidates; returns a one-line summary."""
-    jobs = pending_jobs(db, candidates, profile, max_jobs)
+    """Score up to max_jobs pending candidates; returns a one-line summary. profile: the whole Profile text (the
+    scoring part is taken here)."""
+    full, profile = profile, scoring_profile(profile)
+    jobs = pending_jobs(db, candidates, profile, max_jobs, full_profile=full)
     if not jobs:
         return f'0 job(s) to score with {model}'
     try:

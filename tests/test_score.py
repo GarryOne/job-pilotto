@@ -84,3 +84,32 @@ class ScoreTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ScoringProfileTests(unittest.TestCase):
+    PROFILE = ('# Hard constraints\n- EU citizen\n# Contact\n- Phone: +00 000\n# Links\n- LinkedIn: x\n## 📎 CV\n- cv.pdf\n'
+               '# Experience\n## SRE — Acme\n- Kubernetes\n# Application form answers — surveys\n- Gender: …')
+
+    def test_the_fit_score_reads_goals_and_experience_but_not_contact_links_or_form_answers(self):
+        kept = score.scoring_profile(self.PROFILE)
+        self.assertEqual(kept, '# Hard constraints\n- EU citizen\n# Experience\n## SRE — Acme\n- Kubernetes')
+
+    def test_a_new_phone_number_rescores_nothing_but_a_new_skill_does(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        job = {'id': 1, 'title': 'SRE', 'description': 'Run Kubernetes', 'ai': {}, 'first_seen_at': '2026-09-28'}
+        score.save(db, job, 'm', {'score': 80}, score.scoring_profile(self.PROFILE))
+        phone = self.PROFILE.replace('+00 000', '+11 111')
+        self.assertEqual(score.stale_count(db, [job], phone), 0)
+        skill = self.PROFILE.replace('- Kubernetes', '- Kubernetes, Terraform')
+        self.assertEqual(score.stale_count(db, [job], skill), 1)
+
+    def test_scores_made_from_the_whole_profile_stay_current_without_a_new_ai_call(self):
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        job = {'id': 1, 'title': 'SRE', 'description': 'Run Kubernetes', 'ai': {}, 'first_seen_at': '2026-09-28'}
+        score.save(db, job, 'm', {'score': 80}, self.PROFILE)  # scored before scoring_profile existed
+        self.assertEqual(score.stale_count(db, [job], self.PROFILE), 0)  # adopted: its hash is updated, no re-score
+        self.assertEqual(score.stale_count(db, [job], self.PROFILE.replace('+00 000', '+2')), 0)

@@ -64,7 +64,7 @@ def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=Non
     enrich.save(db, item, enrich.DEFAULT_MODEL, facts)
     cost.add(stats.setdefault('enrich', {}) if stats is not None else None, enrich.DEFAULT_MODEL, usage)
     item['ai'] = facts
-    profile = local_profile() or tracker.page_text()
+    profile = score.scoring_profile(local_profile() or tracker.page_text())  # contact/links edits don't re-score
     fit, usage = score.score_one(client, score.DEFAULT_MODEL, item, profile)
     score.save(db, item, score.DEFAULT_MODEL, fit, profile)
     cost.add(stats.setdefault('score', {}) if stats is not None else None, score.DEFAULT_MODEL, usage)

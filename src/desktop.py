@@ -219,6 +219,13 @@ def strategy(db, tracker=None):
                                'url': rows[0].get('url', '')}
             except Exception:  # noqa: BLE001
                 pass
+    stale = 0
+    if tracker:  # jobs whose fit score waits for the new Profile ("Scores updating"), re-scored over the next searches
+        try:
+            from .paths import local_profile
+            stale = score.stale_count(db, candidates, local_profile() or tracker.page_text())
+        except Exception:  # noqa: BLE001
+            pass
     sent = sum(n for stage, n in stages.items() if stage not in ('Saved', 'Kit ready', 'Applying', 'Dismissed', 'Closed', 'Recruiter lead'))
     return {
         'roles': unique(search.get('jobs_board_search_queries') or search.get('role_keywords')),
@@ -230,7 +237,7 @@ def strategy(db, tracker=None):
                  + [f'Company: {name}' for name in prefs.get('excluded_companies') or []]
                  + [f'Title: {word}' for word in unique(search.get('title_exclude_keywords'))[:6]]
                  + [f'Remote only from {region}' for region in unique(search.get('remote_excluded_regions'))[:3]],
-        'components': components, 'scored': len(scored),
+        'components': components, 'scored': len(scored), 'stale': stale,
         'counts': {'matches': len(scored), 'kits': stages.get('Kit ready', 0), 'sent': sent},
         'insight': insight,
     }

@@ -1545,8 +1545,9 @@ async function loadStrategy() {
     ...row('chart', 'Compensation', data.compensation || 'Not set in your Profile'),
     ...(data.stack.length ? row('layers', 'Tech stack', chips(data.stack.map(titleCase))) : []));
   const level = value => (value >= 70 ? ['High', 'good'] : value >= 50 ? ['Medium', 'warn'] : ['Low', 'bad']);
-  $('strategy-score-note').textContent = data.scored
-    ? `Average of each part of the fit score across your ${data.scored} scored matches.` : 'No scored matches yet: run a search with your AI key.';
+  $('strategy-score-note').textContent = !data.scored ? 'No scored matches yet: run a search with your AI key.'
+    : `Average of each part of the fit score across your ${data.scored} scored matches.` +
+      (data.stale ? ` Scores updating: ${data.stale} job${data.stale === 1 ? '' : 's'} wait for a new score after a Profile change (60 per search).` : '');
   $('strategy-scores').replaceChildren(...data.components.map(part => {
     const [label, tone] = level(part.value);
     const line = el('div', 'score-bar');
