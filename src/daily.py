@@ -3,7 +3,7 @@
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
-from html import escape
+from html import escape, unescape
 import json
 import os
 import random
@@ -138,6 +138,11 @@ def queue_mail_check(delay=5):
     except Exception as error:
         print(f'Warning: mail check not queued: {type(error).__name__}: {error}')
         return False
+
+
+def log_text(html):
+    """A Telegram HTML reply as plain text for the terminal and the app's activity log (no tags, no &#x27;)."""
+    return unescape(re.sub(r'<[^>]+>', '', html))
 
 
 def log_ai_run(tracker, run, args):
@@ -296,7 +301,7 @@ def main():
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
         log_ai_run(tracker, run, args)
-        print(reply)
+        print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
             telegram.send(reply, *telegram.credentials())
         return 0
@@ -332,7 +337,7 @@ def main():
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
         log_ai_run(tracker, run, args)
-        print(reply)
+        print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
             telegram.send(reply, *telegram.credentials())
         return 0

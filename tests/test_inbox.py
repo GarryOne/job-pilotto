@@ -150,6 +150,11 @@ class DailyAddTests(unittest.TestCase):
         self.assertEqual(tracker.created[0]['Stage'], {'select': {'name': 'Screening'}})
         self.assertIn('Tracked recruiter lead', printed.call_args_list[-1].args[0])
 
+    def test_the_log_gets_plain_text_not_telegram_html(self):
+        from src import daily
+        self.assertEqual(daily.log_text("⚠️ That doesn&#x27;t look like <b>a job</b> &amp; so on"),
+                         "⚠️ That doesn't look like a job & so on")
+
 
 if __name__ == '__main__':
     unittest.main()
