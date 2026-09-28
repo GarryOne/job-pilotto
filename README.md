@@ -395,46 +395,23 @@ a measured accuracy or success-rate benchmark.
 
 | | 🦾 **Job Pilotto** | [JobCopilot.com](https://jobcopilot.com/) | [Job-CoPilot.ai](https://job-copilot.ai/) | [suxrobGM/jobpilot](https://github.com/suxrobGM/jobpilot) | [jsmastery-pro/JobPilot](https://github.com/jsmastery-pro/JobPilot) | [BhairavJShah/JobPilot-AI](https://github.com/BhairavJShah/JobPilot-AI) | [arthurpanhku/job-pilot](https://github.com/arthurpanhku/job-pilot) |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 🔓 Open source, self-hosted | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| 🕷️ Automatic job discovery | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
-| 🛰️ Finds new employer feeds by itself | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 🎯 AI fit score against your profile | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
-| 🌍 Location, language and visa filters | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| ✍️ Cover letter and form answers per job | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
-| 📄 Tailored CV per job | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
-| 🔍 Every CV change shown and fact-checked | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 🖥️ Desktop app with guided setup | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 🧠 Learns each job site's forms | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 💾 Saved answer vault, reused on every form | ✅ | ➖ | ➖ | ➖ | ➖ | ✅ | ➖ |
+| 🔓 Open source, your data in your own accounts | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| 🕷️ Finds new jobs by itself, on a schedule | ✅ | ✅ | ✅ | ➖ | ✅ | ➖ | ✅ |
+| 🎯 AI fit score against your profile, with the reason | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
+| ✍️ Cover letter and answers to each employer's own form | ✅ | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ |
+| 📄 Tailored CV, every change shown and fact-checked | ✅ | ⚠️ | ⚠️ | ➖ | ⚠️ | ➖ | ⚠️ |
 | 🤖 Fills real application forms | ✅ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
-| 🔑 Gets through employer sign-up (account, email confirmation) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 🧰 Choice of filler (Chrome extension, ChatGPT, Codex, Claude) | ✅ | ❌ | ❌ | ⚠️ | ❌ | ❌ | ❌ |
-| 🛡️ You always click Submit (enforced) | ✅ | ⚠️ | ➖ | ❌ | ➖ | ❌ | ➖ |
-| 🔍 Post-fill field audit | ⚠️ | ➖ | ➖ | ➖ | ✅ | ✅ | ➖ |
-| 📱 Mobile triage (Telegram buttons) | ✅ | ➖ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
-| 📋 Application tracking | ✅ | ➖ | ✅ | ✅ | ➖ | ➖ | ➖ |
-| 📬 Reads Gmail and Calendar to update each application | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ➖ |
-| 🗂️ Record of what was sent (questions, answers, CV version) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 📊 Outcome analytics: funnel conversion, what to improve | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ⚠️ |
-| 🎤 Interview review from a transcript or notes | ✅ | ⚠️ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
-| 💸 Your own AI budget cap and health alerts | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| ✅ Marked applied automatically on submit | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 🔔 Desktop notifications (started, ready, submitted) | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| 🚀 High-volume unattended applying | ❌ | ✅ | ❌ | ✅ | ⚠️ | ✅ | ⚠️ |
-| 📈 Published cross-ATS fill-accuracy numbers | ❌ | ➖ | ➖ | ➖ | ⚠️ | ➖ | ➖ |
+| 🛡️ You always click Submit | ✅ | ⚠️ | ➖ | ❌ | ➖ | ❌ | ➖ |
+| 📬 Gmail and Calendar update each application | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ➖ |
+| 📊 Funnel and the step to improve | ✅ | ➖ | ➖ | ✅ | ➖ | ➖ | ⚠️ |
+| 🎤 Records, transcribes and reviews real interviews | ✅ | ⚠️ | ⚠️ | ➖ | ➖ | ➖ | ➖ |
 
-Notes on the rows: Job-CoPilot.ai sends alerts rather than triage buttons; suxrobGM/jobpilot runs
-Claude or Codex, reads Gmail replies and shows pipeline analytics; JobCopilot.com (AI mock interviewer)
-and Job-CoPilot.ai (prep from the job description) help before an interview but don't review one that
-happened; arthurpanhku's dashboard shows success rates; jsmastery-pro's [form-filling report](https://github.com/jsmastery-pro/JobPilot/blob/main/BROWSERBASE_REPORT.md)
-documents wrong-field fills on external ATS forms; BhairavJShah's
-[autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py)
-submits when no doubts remain; arthurpanhku's
-[Indeed automation](https://github.com/arthurpanhku/job-pilot/blob/main/backend/app/automation/indeed.py)
-still has form-fill and submit placeholders. Job Pilotto's audit is ⚠️: every Codex and Claude run is
-recorded with a page-derived verdict (guard on, required fields filled, no legal box ticked,
-résumé attached; `python3 -m src.ai.apply_run --status` / `--report <URL>`), but field *values*
-aren't yet compared to their sources.
+Notes on the rows: ⚠️ on a tailored CV means tailoring without a check of what changed; JobCopilot.com
+(AI mock interviewer) and Job-CoPilot.ai (prep from the job description) help before an interview but don't
+review one that happened; suxrobGM/jobpilot reads Gmail replies and shows pipeline analytics; arthurpanhku's
+dashboard shows success rates; BhairavJShah's
+[autofiller](https://github.com/BhairavJShah/JobPilot-AI/blob/main/automation/form_autofiller.py) submits when
+no doubts remain. High-volume unattended applying is left out on purpose: Job Pilotto doesn't do it, by design.
 
 <p align="center">
   <img src="docs/images/pipeline-coverage.png" width="100%"
