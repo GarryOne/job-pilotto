@@ -812,13 +812,19 @@ main { min-width: 0; }
 .focus-card-head .link { text-decoration: none; }
 
 /* Application sessions: the dock above the activity bar */
-/* A light blue tray: apart from the white job cards above and the white status bar below; its cards stay white. */
-.sessions-dock { grid-column: 2; border-top: 1px solid var(--info-line); background: var(--info-soft); padding: var(--sp-2) var(--sp-4) var(--sp-3); box-shadow: var(--shadow-sm); }
+/* A light blue-grey tray floating over the page (rounded top, soft shadow upward): apart from the white job cards
+   above and the white status bar below; its cards stay white. */
+.sessions-dock { grid-column: 2; position: relative; z-index: 1;
+  border: 1px solid var(--info-line); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: color-mix(in srgb, var(--info-soft) 60%, var(--surface));
+  padding: var(--sp-3) var(--sp-5) var(--sp-4); box-shadow: 0 -8px 24px rgb(var(--shadow-rgb) / .08); }
+.sessions-dock .sd-toggle b { font-size: var(--fs-lg); }
+.sessions-dock #sd-summary { display: inline-flex; gap: var(--sp-2); }
 .sessions-dock.is-closed { padding-bottom: var(--sp-2); }
 .sessions-dock.is-closed .sd-cards { display: none; }
 .sd-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .sd-toggle { display: flex; align-items: center; gap: var(--sp-2); background: none; border: 0; padding: var(--sp-1) 0; color: var(--ink); }
-.sd-glyph { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-sm); background: var(--navy); color: var(--on-navy);
+.sd-glyph { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-md); background: var(--navy); color: var(--on-navy);
   font: 700 var(--fs-xs) var(--font-mono); }
 .sd-chevron { color: var(--muted); transition: transform .2s var(--ease); }
 .sessions-dock.is-closed .sd-chevron { transform: rotate(180deg); }

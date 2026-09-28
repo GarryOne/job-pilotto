@@ -3147,7 +3147,8 @@ function renderDock() {
   show($('sessions-dock'), sessionList.length > 0 && !onSessionsPage);
   if (!sessionList.length) return;
   const running = sessionList.filter(item => !item.endedAt).length, waiting = sessionList.filter(item => item.status === 'input').length;
-  $('sd-summary').replaceChildren(pill([`${running} running`, waiting && `${waiting} need${waiting === 1 ? 's' : ''} your input`].filter(Boolean).join(' · '), waiting ? 'warn' : 'info'));
+  // Two pills: how many are active (blue), how many wait for you (amber).
+  $('sd-summary').replaceChildren(pill(`${running} active`, 'info'), ...(waiting ? [pill(`${waiting} need${waiting === 1 ? 's' : ''} input`, 'warn')] : []));
   $('sd-toggle').setAttribute('aria-expanded', dockOpen);
   $('sessions-dock').classList.toggle('is-closed', !dockOpen);
   const order = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
