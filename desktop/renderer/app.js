@@ -6,6 +6,7 @@ import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
 import {openPalette} from './palette.js';
 import {latestStep, PROBLEM, readSessionMessage, sortChecks, splitLabel} from './session-message.js';
+import {passWheel, wheelLines} from './wheel.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
@@ -3668,7 +3669,12 @@ async function openSession(id) {
   await refreshSessions();
 }
 function renderSessionPage() {
+  // The session shown is the open one; after a reload (⌘R) the one open before it, else the first. It becomes the
+  // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).
+  openSessionId = openSessionId || remembered('session') || null;
   const item = sessionList.find(entry => entry.id === openSessionId) || sessionList[0];
+  if (item && item.id !== openSessionId) { openSessionId = item.id; termShownFor = null; }
+  if (item) remembered('session', item.id);
   show($('ss-list-empty'), !sessionList.length);
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
     const [label, tone] = sessionState(entry);
@@ -3719,6 +3725,18 @@ async function attachTerminal(id) {
     xterm.loadAddon(xtermFit);
     xterm.open($('ss-terminal'));
     xterm.onData(data => openSessionId && window.pilot.sessionWrite(openSessionId, data));
+    // The wheel scrolls the log (see wheel.js); a live Claude on its own full screen gets it instead.
+    let carry = 0;
+    xterm.attachCustomWheelEventHandler(event => {
+      const live = sessionList.find(entry => entry.id === openSessionId)?.live !== false;
+      if (passWheel({live, mouse: xterm.modes.mouseTrackingMode !== 'none'})) return true;
+      event.preventDefault();
+      const lineHeight = $('ss-terminal').querySelector('.xterm-rows')?.firstElementChild?.offsetHeight || 16;
+      const step = wheelLines(event, xterm.rows, lineHeight, carry);
+      carry = step.carry;
+      if (step.lines) xterm.scrollLines(step.lines);
+      return false;
+    });
     new ResizeObserver(() => fitTerminal()).observe($('ss-terminal'));
   }
   // Drawn only while the log is open: a terminal laid out while hidden has no size and stays blank.
