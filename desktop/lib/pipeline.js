@@ -319,9 +319,9 @@ export async function reviewRejection(storage, url, onLine = () => {}) {
   return {ok: code === 0 && !!summary, text: summary || lines.pop() || 'The review failed (see the activity log)'};
 }
 
-// Focus (src/focus.py, no AI): what to do next, from Notion. target = the daily applications target.
-export async function focus(storage, target = 30) {
-  const {code, stdout} = await run(storage, ['src.focus', '--target', String(target)]);
+// Focus (src/focus.py, no AI): what to do next, from Notion.
+export async function focus(storage) {
+  const {code, stdout} = await run(storage, ['src.focus']);  // the target comes from ⚙️ Search settings
   try { return {ok: code === 0, focus: JSON.parse(stdout.trim().split('\n').pop())}; }
   catch { return {ok: false, error: 'Could not read your Notion (see the activity log).'}; }
 }
@@ -330,8 +330,8 @@ export async function focusDone(storage, pageId) {
   return {ok: code === 0};
 }
 // The reminder text (empty when nothing is worth interrupting for); send: also to Telegram.
-export async function focusReminder(storage, target = 30, send = false) {
-  const {code, stdout} = await run(storage, ['src.focus', 'remind', '--target', String(target), ...(send ? ['--send'] : [])]);
+export async function focusReminder(storage, send = false) {
+  const {code, stdout} = await run(storage, ['src.focus', 'remind', ...(send ? ['--send'] : [])]);
   try { return code === 0 ? JSON.parse(stdout.trim().split('\n').pop()).text || '' : ''; } catch { return ''; }
 }
 

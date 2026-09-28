@@ -721,8 +721,11 @@ main { min-width: 0; }
 .focus-progress b { font-size: var(--fs-xl); }
 .focus-bar { height: 8px; background: var(--bg); border-radius: var(--r-pill); margin-top: var(--sp-2); overflow: hidden; }
 .focus-bar span { display: block; height: 100%; width: 0; background: var(--signal); border-radius: var(--r-pill); transition: width .3s var(--ease); }
-.focus-setting { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); }
-.focus-setting input[type=number] { width: 72px; }
+.focus-settings { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.focus-setting { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-2); white-space: nowrap; margin: 0; }
+.focus-setting input[type=number] { width: 80px; }
+.focus-setting.is-check input { width: auto; margin: 0; }
+.focus-list .list-loading { padding: var(--sp-4) 0; }
 .focus-list { list-style: none; padding: 0; margin: 0; }
 .focus-item { display: flex; align-items: center; gap: var(--sp-4); border-left: 4px solid var(--line); }
 .focus-item.is-p1 { border-left-color: var(--bad); }
@@ -733,3 +736,11 @@ main { min-width: 0; }
 .focus-detail { margin: var(--sp-1) 0 0; }
 .focus-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 1180px) { .focus-item { flex-direction: column; align-items: stretch; } .focus-actions { justify-content: flex-start; } }
+.focus-funnel-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--sp-3); }
+.funnel-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2); }
+.funnel-step { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); padding: var(--sp-3) var(--sp-2);
+  background: var(--surface-2); border-radius: var(--r-md); text-align: center; }
+.funnel-step.is-weak { background: var(--warn-soft); }
+.funnel-count { font-size: var(--fs-xl); }
+.funnel-name { font-size: var(--fs-sm); color: var(--ink-2); }
+@media (max-width: 1180px) { .funnel-steps { grid-template-columns: repeat(3, 1fr); } }

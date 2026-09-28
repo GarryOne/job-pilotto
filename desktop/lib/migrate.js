@@ -10,6 +10,14 @@ import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 
 export const STEPS = [
+  // The daily applications target, first kept in the app's settings -> ⚙️ Search settings in Notion.
+  {name: 'daily target', run: async storage => {
+    const old = storage.settings().dailyTarget;
+    if (old == null) return false;
+    await strategy.setDailyTarget(storage, old, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+    storage.saveSettings({dailyTarget: undefined});
+    return true;
+  }},
   // The workspace itself: columns and databases the code needs that it lacks (config/notion_schema.json).
   {name: 'workspace', run: async (storage, fetcher) => {
     const fixed = await schema.repair(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, schema.load(), fetcher);

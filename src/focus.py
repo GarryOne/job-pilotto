@@ -14,7 +14,8 @@ the list (Focus) and, at 11:00, 15:00 and 19:00, reminds you (notification, and 
 you're behind the daily target or someone waits for an answer.
 
 Usage:
-  python -m src.focus [--target 30]            # the list as JSON (for the app)
+  python -m src.focus [--target 30]            # the list as JSON (for the app); the target defaults to
+                                               # "Daily applications target" on ⚙️ Search settings
   python -m src.focus done <page id> replied   # you answered: log it
   python -m src.focus remind [--target 30] [--send]
 """
@@ -29,7 +30,8 @@ from zoneinfo import ZoneInfo
 
 from . import telegram
 from .notion import client as notion
-from .notion.ledger import EVENTS_DATABASE_ID, REPLY, add_event, plain
+from .notion import funnel as funnel_steps
+from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
@@ -176,7 +178,35 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
     order = {'offer': 0, 'book': 1, 'reply': 2, 'prepare': 3, 'review': 4, 'nudge': 5, 'apply': 6, 'learn': 7, 'waiting': 8}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits)},
-            'generated_at': now.isoformat(timespec='seconds')}
+            'funnel': funnel(rows, events), 'generated_at': now.isoformat(timespec='seconds')}
+
+
+def funnel(rows, events):
+    """The application funnel (src/notion/funnel.py) from the rows already read: each step, how many reached it,
+    their share of applications, and the step to improve (with its advice) when there's enough data."""
+    kinds = {}
+    for event in events:
+        kind = plain(event['properties'].get('Kind'))
+        for link in (event['properties'].get('Application') or {}).get('relation', []):
+            kinds.setdefault(link['id'].replace('-', ''), set()).add(kind)
+    apps = [{'stage': _field(r, 'Stage'), 'seen': kinds.get(r['id'].replace('-', ''), set()) | {_field(r, 'Stage')}}
+            for r in rows if _field(r, 'Stage') in OUTCOME_STAGES + funnel_steps.PREPARED_STAGES]
+    steps = funnel_steps.funnel(apps)
+    weak = funnel_steps.focus(steps)
+    page = funnel_steps.PIPELINE_PAGE_ID
+    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'of_applied': s.get('of_applied')} for s in steps],
+            'improve': {'step': weak['step'], 'advice': weak['advice']} if weak else None,
+            'notion_url': f'https://www.notion.so/{page.replace("-", "")}' if page else ''}
+
+
+def settings_target():
+    """The daily target from ⚙️ Search settings ("Daily applications target"), read from Notion first."""
+    from .notion import search_settings
+    search_settings.sync_quietly()
+    try:
+        return max(int(search_settings.load_cached()['preferences'].get('daily_applications_target') or DEFAULT_TARGET), 1)
+    except (TypeError, ValueError):
+        return DEFAULT_TARGET
 
 
 def load(tracker, *, target=DEFAULT_TARGET, now=None):
@@ -213,7 +243,7 @@ def main(argv=None):
     parser.add_argument('command', nargs='?', default='list', choices=('list', 'done', 'remind'))
     parser.add_argument('page_id', nargs='?')
     parser.add_argument('what', nargs='?', default='replied')
-    parser.add_argument('--target', type=int, default=DEFAULT_TARGET)
+    parser.add_argument('--target', type=int, help='default: "Daily applications target" on ⚙️ Search settings')
     parser.add_argument('--send', action='store_true', help='remind: also send it to Telegram')
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
@@ -226,7 +256,7 @@ def main(argv=None):
         add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You answered (marked done in Focus)')
         print(json.dumps({'ok': True}))
         return 0
-    focus = load(tracker, target=args.target)
+    focus = load(tracker, target=args.target or settings_target())
     if args.command == 'remind':
         text = reminder(focus)
         if text and args.send:

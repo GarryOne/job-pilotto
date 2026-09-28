@@ -81,6 +81,12 @@ class FocusTests(unittest.TestCase):
         self.assertEqual([i['kind'] for i in items], ['learn'])
         self.assertIn('Hard skills. Lead with Python.', items[0]['detail'])
 
+    def test_the_funnel_counts_each_step_from_the_same_rows(self):
+        rows = [row('a', 'A', 'x', stage='Rejected'), row('b', 'B', 'y', stage='Screening'), row('c', 'C', 'z', stage='Kit ready', applied=None)]
+        events = [event('a', 'Reply received', '2026-09-27T10:00:00Z')]
+        steps = {s['step']: s['reached'] for s in focus.build(rows, events, now=NOW)['funnel']['steps']}
+        self.assertEqual([steps[k] for k in ('📝 Prepared', '📨 Applied', '💬 Human reply', '📞 Screening')], [3, 2, 2, 1])
+
     def test_reminder_only_when_worth_it(self):
         calm = {'today': {'applied': 30, 'target': 30, 'kits_ready': 0}, 'items': []}
         self.assertEqual(focus.reminder(calm, now=NOW), '')

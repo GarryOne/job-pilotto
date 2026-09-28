@@ -50,6 +50,7 @@ SECTIONS = [
     ('Companies to skip', 'preferences', ('excluded_companies',), 'text'),
     ('Languages that rule a job out', 'preferences', ('disqualifying_languages',), 'text'),
     ('Minimum fit score for the digest', 'preferences', ('digest_min_score',), 'number'),
+    ('Daily applications target', 'preferences', ('daily_applications_target',), 'number'),
     ('Job board searches', 'search', ('jobs_board_search_queries',), 'text'),
     ('Words that find new employers', 'search', ('board_discovery_keywords',), 'match'),
     ('Google Jobs searches', 'search', ('google_jobs', 'queries'), 'text'),

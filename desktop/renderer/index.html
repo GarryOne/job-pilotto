@@ -134,6 +134,8 @@
           <input id="q-salary" placeholder="e.g. CHF 140,000 a year"></div>
         <div><label for="q-notice">Notice period</label>
           <input id="q-notice" placeholder="e.g. 1 month"></div>
+        <div><label for="q-target">Applications a day you aim for</label>
+          <input id="q-target" type="number" min="1" max="200" placeholder="30" title="Focus counts toward it and reminds you when you're behind. Change it any time."></div>
         <div class="full"><label for="q-skip">Companies to skip</label>
           <input id="q-skip" placeholder="e.g. my current employer"></div>
         <div class="full"><label for="q-more">Anything else that matters</label>
@@ -312,10 +314,17 @@
           <div><b id="focus-count">–</b> <span class="muted" id="focus-of">applications today</span></div>
           <div class="focus-bar" aria-hidden="true"><span id="focus-bar"></span></div>
         </div>
-        <label class="focus-setting">Daily target <input type="number" id="focus-target" min="1" max="200" step="1"></label>
-        <label class="focus-setting"><input type="checkbox" id="focus-remind"> Remind me at 11:00, 15:00 and 19:00</label>
+        <div class="focus-settings">
+          <label class="focus-setting">Daily target <input type="number" id="focus-target" min="1" max="200" step="1"></label>
+          <label class="focus-setting is-check"><input type="checkbox" id="focus-remind"><span>Remind me at 11, 15 and 19 h</span></label>
+        </div>
       </section>
       <ol class="focus-list" id="focus-list"></ol>
+      <section class="card focus-funnel" id="focus-funnel" hidden>
+        <div class="focus-funnel-head"><b>📈 Your funnel</b><a href="#" class="link" id="focus-funnel-notion">Open in Notion ↗</a></div>
+        <ol class="funnel-steps" id="funnel-steps"></ol>
+        <p class="muted small" id="funnel-improve" hidden></p>
+      </section>
       <p class="empty" id="focus-empty" hidden>Nothing waits for you right now.</p>
     </div>
 
@@ -519,6 +528,10 @@
           <label><span>🧭 Find new employers <small>adds job feeds from new companies</small></span>
             <select data-schedule="scout">
               <option value="daily">every day (08:15)</option><option value="weekly">every Monday (08:15)</option><option value="off">off</option></select></label>
+          <label><span>🎯 Applications a day <small>your target: Focus counts toward it (saved on ⚙️ Search settings in Notion)</small></span>
+            <input type="number" id="set-target" min="1" max="200" step="1"></label>
+          <label><span>🔔 Focus reminders <small>11:00, 15:00 and 19:00 when someone waits for an answer or you're behind the target</small></span>
+            <input type="checkbox" id="set-remind"></label>
           <label><span>📧 Check Gmail and Calendar <small>replies, interviews, reminders; needs Google connected</small></span>
             <select data-schedule="mail">
               <option value="1">once a day (08:00)</option><option value="3">3 times a day (07, 12, 18)</option>

@@ -295,7 +295,9 @@ function handlers() {
         await notion.snapshotStrategy(token, ids, when);
         step('snapshot', {finished: true});
       }
-      strategy.save(storage, draft);
+      // The daily target asked in the wizard goes on ⚙️ Search settings with the rest.
+      const perDay = storage.settings().questionnaire?.applications_per_day;
+      strategy.save(storage, {...draft, preferences: {...draft.preferences, daily_applications_target: strategy.clampTarget(perDay)}});
       step('local', {finished: true});
       const report = page => (done, total) => step(page, {done, total});
       // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.
@@ -543,8 +545,16 @@ function handlers() {
   });
   ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
-  ipcMain.handle('focus', (_, target) => (DEMO ? {ok: true, focus: {items: [], today: {applied: 0, target: target || 30, kits_ready: 0}}}
-    : pipeline.focus(storage, Number(target) || 30)));
+  ipcMain.handle('focus', () => (DEMO ? {ok: true, focus: {items: [], today: {applied: 0, target: strategy.dailyTarget(storage), kits_ready: 0}}}
+    : pipeline.focus(storage)));
+  // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
+  ipcMain.handle('dailyTarget', () => ({target: strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
+  ipcMain.handle('setDailyTarget', async (_, value) => {
+    if (DEMO) return {ok: true, target: strategy.clampTarget(value)};
+    try {
+      return {ok: true, target: await strategy.setDailyTarget(storage, value, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage})};
+    } catch (error) { return {ok: false, error: `Notion: ${error.message}. The target wasn't changed.`}; }
+  });
   ipcMain.handle('focusDone', (_, pageId) => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId))));
   // A rejected job's menu → Why was I rejected? (also runs by itself after the Gmail check logs a rejection).
   ipcMain.handle('reviewRejection', async (_, url) => {
@@ -804,7 +814,7 @@ async function focusReminder(now = new Date()) {
   const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${slot}`;  // local day
   if (settings.lastFocusReminder === key) return;
   storage.saveSettings({lastFocusReminder: key});
-  const text = await pipeline.focusReminder(storage, Number(settings.dailyTarget) || 30, true);
+  const text = await pipeline.focusReminder(storage, true);
   if (text) notify('Focus: what to do next', text);
 }
 

@@ -1,6 +1,7 @@
 {
-  "_comment": "Hard filters applied before ranking. Mirrors the Notion page 'Profile — CV and Preferences'. digest_min_score: scored jobs below it stay in Notion Job Matches but never reach the Telegram digest (saved jobs always do); unscored jobs are shown, so the digest still works without AI. Defaults for a new user: nothing filtered until the setup wizard sets their own (from their answers).",
+  "_comment": "Hard filters applied before ranking. Mirrors the Notion page 'Profile — CV and Preferences'. digest_min_score: scored jobs below it stay in Notion Job Matches but never reach the Telegram digest (saved jobs always do); unscored jobs are shown, so the digest still works without AI. Defaults for a new user: nothing filtered until the setup wizard sets their own (from their answers). daily_applications_target: how many applications a day the Focus page and its reminders aim for.",
   "disqualifying_languages": [],
   "excluded_companies": [],
-  "digest_min_score": 50
+  "digest_min_score": 50,
+  "daily_applications_target": 30
 }

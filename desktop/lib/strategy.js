@@ -178,6 +178,28 @@ export async function publishSearchSettings(storage, {run, ensurePage, writePage
 }
 export const SEARCH_SETTINGS_TITLE = '⚙️ Search settings';
 
+// The daily applications target (Focus, reminders) is a line of ⚙️ Search settings. The page is read first
+// (edits made in Notion are kept), then written with the new value; if Notion refuses, the cache is put back.
+export const DEFAULT_TARGET = 30;
+export const clampTarget = value => Math.max(1, Math.min(200, Math.round(Number(value)) || DEFAULT_TARGET));
+export function dailyTarget(storage) {
+  try { return clampTarget(JSON.parse(storage.readText('config/preferences.json') || '{}').daily_applications_target); }
+  catch { return DEFAULT_TARGET; }
+}
+export async function setDailyTarget(storage, value, {run, ensurePage, writePage}) {
+  const target = clampTarget(value);
+  await run(storage, ['src.notion.search_settings', 'sync']);
+  const before = storage.readText('config/preferences.json') || '{}';
+  storage.writeText('config/preferences.json', JSON.stringify({...JSON.parse(before), daily_applications_target: target}, null, 2) + '\n');
+  try {
+    await publishSearchSettings(storage, {run, ensurePage, writePage});
+  } catch (error) {
+    storage.writeText('config/preferences.json', before);
+    throw error;
+  }
+  return target;
+}
+
 export function save(storage, accepted) {
   // The Profile, standard answers and contact details go to Notion (main.js saveStrategy); here only the
   // search settings' cache is written (published to ⚙️ Search settings right after).

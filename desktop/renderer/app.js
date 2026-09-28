@@ -459,7 +459,7 @@ $('cv-next').addEventListener('click', () => goStep('goals'));
 
 const QUESTIONS = {roles: 'q-roles', seniority: 'q-seniority', work_mode: 'q-remote', places_in_order: 'q-places',
   relocate: 'q-relocate', work_permit: 'q-permit', languages: 'q-languages', minimum_salary: 'q-salary',
-  notice_period: 'q-notice', companies_to_skip: 'q-skip', anything_else: 'q-more'};
+  notice_period: 'q-notice', companies_to_skip: 'q-skip', anything_else: 'q-more', applications_per_day: 'q-target'};
 for (const [key, id] of Object.entries(QUESTIONS)) if (state.settings.questionnaire?.[key]) $(id).value = state.settings.questionnaire[key];
 const currentAnswers = () => Object.fromEntries(Object.entries(QUESTIONS).map(([key, id]) => [key, $(id).value.trim()]));
 let answersTimer;
@@ -848,7 +848,10 @@ function openView(name) {
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   if (name === 'strategy') { loadStrategy(); loadCvSetting(); showCvChanged(); }
-  if (name === 'settings') loadSettings();
+  if (name === 'settings') {
+    loadSettings();
+    window.pilot.dailyTarget().then(setting => { $('set-target').value = setting.target; $('set-remind').checked = setting.reminders; });
+  }
   if (name === 'interviews') loadInterviews();
   if (name === 'focus') loadFocus();
 }
@@ -2349,16 +2352,44 @@ function focusButton(label, className, run) {
 function openLink(url, event) {
   if (/notion\.(so|com)\//.test(url)) window.pilot.openNotion(url, event?.metaKey); else window.pilot.openExternal(url);
 }
-async function loadFocus() {
-  const target = Number(state.settings.dailyTarget) || 30;
-  $('focus-target').value = target;
-  $('focus-remind').checked = state.settings.focusReminders !== false;
-  $('focus-note').textContent = 'Reading your Notion…';
-  const result = await window.pilot.focus(target);
-  if (!result.ok) { $('focus-note').textContent = result.error || 'Could not read your Notion.'; return; }
-  const {items, today} = result.focus;
+// First load: a spinner where the list goes (like Jobs and Interviews); later the items stay while it refreshes.
+let focusLoading = null, focusShown = false;
+function loadFocus() {
+  focusLoading ||= (async () => {
+    $('focus-refresh').disabled = true;
+    const setting = await window.pilot.dailyTarget();
+    $('focus-target').value = setting.target;
+    $('focus-remind').checked = setting.reminders;
+    if (focusShown) $('focus-note').textContent = 'Refreshing from Notion…';
+    else {
+      $('focus-note').textContent = 'Loading from Notion…';
+      $('focus-count').textContent = '…';
+      $('focus-of').textContent = `of ${setting.target} applications today`;
+      const box = el('div', 'list-loading');
+      box.append(el('span', 'spinner'), el('div', '', 'Working out what to do next…'),
+        el('div', 'muted small', 'Replies, interviews and today\'s applications, from your Notion. Usually a few seconds.'));
+      const li = el('li', 'card');
+      li.append(box);
+      $('focus-list').replaceChildren(li);
+      show($('focus-empty'), false);
+    }
+    const result = await window.pilot.focus();
+    if (!result.ok) {
+      $('focus-note').textContent = result.error || 'Could not read your Notion.';
+      if (!focusShown) $('focus-list').replaceChildren();
+      return;
+    }
+    renderFocus(result.focus);
+  })().finally(() => { focusLoading = null; $('focus-refresh').disabled = false; });
+  return focusLoading;
+}
+function renderFocus({items, today, funnel}) {
+  renderFunnel(funnel);
+  focusShown = true;
   $('focus-note').textContent = 'What to do next, most important first. Read from your Notion.';
-  $('focus-count').textContent = `${today.applied} / ${today.target}`;
+  $('focus-count').textContent = String(today.applied);
+  $('focus-of').textContent = `of ${today.target} applications today`;
+  $('focus-target').value = today.target;
   $('focus-bar').style.width = `${Math.min(100, Math.round(100 * today.applied / Math.max(today.target, 1)))}%`;
   $('focus-list').replaceChildren(...items.map(item => {
     const li = el('li', `card focus-item is-p${item.priority}`);
@@ -2368,7 +2399,16 @@ async function loadFocus() {
     const actions = el('div', 'focus-actions');
     actions.append(pill(when, tone));
     if (item.link) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
-    if (item.kind === 'apply') actions.append(focusButton('Go to jobs', 'primary', () => openView('jobs')));
+    if (item.kind === 'apply') {
+      actions.append(focusButton('Go to jobs', 'primary', () => openView('jobs')));
+      // The target in the title is yours to set: jump to it, ready to type.
+      actions.append(focusButton('Change target', 'link', () => {
+        const input = $('focus-target');
+        input.scrollIntoView({behavior: 'smooth', block: 'center'});
+        input.focus();
+        input.select();
+      }));
+    }
     if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
     if (item.notion_url) actions.append(focusButton('Open in Notion', 'secondary', event => openLink(item.notion_url, event)));
     if (item.done && item.page_id) actions.append(focusButton('Done', 'ghost', async event => {
@@ -2382,14 +2422,40 @@ async function loadFocus() {
   }));
   show($('focus-empty'), !items.length);
 }
-$('focus-refresh').addEventListener('click', loadFocus);
-$('focus-target').addEventListener('change', async () => {
-  const value = Math.max(1, Math.min(200, Math.round(Number($('focus-target').value) || 30)));
-  await window.pilot.saveSettings({dailyTarget: value});
-  state = await window.pilot.state();
-  loadFocus();
+// The application funnel, compact: each step's count and its share of applications; the full view is in Notion.
+function renderFunnel(funnel) {
+  show($('focus-funnel'), !!funnel?.steps?.length);
+  if (!funnel?.steps?.length) return;
+  $('funnel-steps').replaceChildren(...funnel.steps.map((step, i) => {
+    const li = el('li', `funnel-step${funnel.improve?.step === step.step ? ' is-weak' : ''}`);
+    const share = i > 1 && step.of_applied != null ? `${Math.round(step.of_applied * 100)}%` : '';
+    li.append(el('b', 'funnel-count', String(step.reached)), el('span', 'funnel-name', step.step), el('span', 'muted small', share));
+    return li;
+  }));
+  $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step}. ${funnel.improve.advice}` : '';
+  show($('funnel-improve'), !!funnel.improve);
+  $('focus-funnel-notion').dataset.url = funnel.notion_url || '';
+  show($('focus-funnel-notion'), !!funnel.notion_url);
+}
+$('focus-funnel-notion').addEventListener('click', event => {
+  event.preventDefault();
+  if (event.currentTarget.dataset.url) window.pilot.openNotion(event.currentTarget.dataset.url, event.metaKey);
 });
-$('focus-remind').addEventListener('change', async () => {
-  await window.pilot.saveSettings({focusReminders: $('focus-remind').checked});
+// The target is a line of ⚙️ Search settings in Notion; changing it here (or in Settings) writes it there.
+async function saveDailyTarget(input) {
+  input.disabled = true;
+  const result = await window.pilot.setDailyTarget(input.value);
+  input.disabled = false;
+  if (!result.ok) { toastMessage('Target not changed', result.error); return false; }
+  for (const id of ['focus-target', 'set-target']) $(id).value = result.target;
+  return true;
+}
+$('focus-refresh').addEventListener('click', loadFocus);
+$('focus-target').addEventListener('change', async () => { if (await saveDailyTarget($('focus-target'))) loadFocus(); });
+$('set-target').addEventListener('change', () => saveDailyTarget($('set-target')));
+for (const id of ['focus-remind', 'set-remind']) $(id).addEventListener('change', async () => {
+  const on = $(id).checked;
+  await window.pilot.saveSettings({focusReminders: on});
+  for (const other of ['focus-remind', 'set-remind']) $(other).checked = on;
   state = await window.pilot.state();
 });
