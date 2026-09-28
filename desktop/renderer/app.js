@@ -506,7 +506,7 @@ function barLabel() {
 }
 function openActivity(open) {
   show($('activity-panel'), open);
-  // No dimming and no click-outside close: the panel is part of the bottom bar, and the page stays usable while it's open.
+  // No dimming: the panel is part of the bottom bar; a press anywhere else on the page closes it (below).
   $('activity').classList.toggle('open', open);
   $('activity-toggle').setAttribute('aria-expanded', open);
   if (open) $('log').scrollTop = $('log').scrollHeight;
@@ -532,6 +532,12 @@ $('activity-manage').addEventListener('click', event => {
   openActivity(false);
   openView('settings');
   openSetting('schedule');
+});
+// Close it with Escape, its ✕, the bar ("Hide activity"), or a press outside it and its bar. On pointerdown, so a button
+// that opens it (View activity, Run) still does: it closes first, then the click opens it again.
+document.addEventListener('pointerdown', event => {
+  if ($('activity-panel').hidden || event.target.closest('#activity, .ui-menu, .toast, dialog')) return;
+  openActivity(false);
 });
 // Close it with Escape, its ✕, or the bar ("Hide activity").
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
