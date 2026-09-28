@@ -85,6 +85,9 @@ function createWindow() {
   // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
   const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
   window.loadFile(path.join(here, 'renderer', page));
+  // Closed on the Mac, the app keeps running: forget the destroyed window so nothing calls into it.
+  const opened = window;
+  opened.on('closed', () => { if (window === opened) window = null; });
   // Smoke test of the in-app terminal (JOB_PILOTTO_PTY_SMOKE=<file>): a real pseudo-terminal runs a shell command;
   // its output (or the error) goes to the file. The Windows build checks it in the installed app.
   if (process.env.JOB_PILOTTO_PTY_SMOKE) {
@@ -815,10 +818,13 @@ if (!firstCopy) {
     app.quit();
   });
 }
+// Opened again while running: bring the window back, or a new one if it was closed.
 app.on('second-instance', () => {
-  if (window?.isMinimized()) window.restore();
-  window?.show();
-  window?.focus();
+  if (!app.isReady()) return;
+  if (!window) createWindow();
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
 });
 
 // Apply with Claude sessions run without asking before each action (--permission-mode bypassPermissions), so the
