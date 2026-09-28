@@ -439,28 +439,41 @@ function handlers() {
     : `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
   ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
   // Danger zone: a last native confirmation, then restart; the folder goes at the next start (lib/reset.js).
-  ipcMain.handle('resetProfile', (_, {backup = true} = {}) => {
+  // freshNotion: the Notion workspace is archived first (its page renamed, nothing deleted), so the setup
+  // builds a new one; if Notion refuses, nothing is reset.
+  ipcMain.handle('resetProfile', async (_, {backup = true, freshNotion = false} = {}) => {
     const answer = dialog.showMessageBoxSync(window, {type: 'warning', buttons: ['Cancel', 'Reset and restart'], defaultId: 0, cancelId: 0,
-      message: 'Reset Job Pilotto on this computer?',
+      message: freshNotion ? 'Reset Job Pilotto and start a fresh Notion workspace?' : 'Reset Job Pilotto on this computer?',
       detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
-        ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. Your Notion workspace, Gmail sign-in and GitHub repo are not changed.`});
+        ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. ${freshNotion
+        ? 'Your Job Pilotto page in Notion is renamed "… (archived)" and kept as it is; the setup then builds a new workspace in a new empty page.'
+        : 'Your Notion workspace, Gmail sign-in and GitHub repo are not changed.'}`});
     if (answer !== 1) return {ok: false};
-    reset.request(storage.dir, {backup});
+    let archived = null;
+    if (freshNotion) {
+      const when = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}).replace('Sept', 'Sep');
+      try { archived = await notion.archiveWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, when); }
+      catch (error) { return {ok: false, error: `Notion: ${error.message}. Nothing was reset.`}; }
+    }
+    reset.request(storage.dir, {backup, archived});
     app.relaunch();
     app.exit(0);
     return {ok: true};
   });
   ipcMain.handle('lastReset', () => resetDone);
   // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
-  ipcMain.handle('exportProfile', async (_, {keys = false} = {}) => {
+  // notion: also a read-only copy of the whole Notion workspace (notion.json), to keep or move elsewhere.
+  ipcMain.handle('exportProfile', async (_, {keys = false, notion: withNotion = false} = {}) => {
     const day = new Date().toISOString().slice(0, 10);
     const picked = await dialog.showSaveDialog(window, {title: 'Export your Job Pilotto data',
       defaultPath: path.join(app.getPath('documents'), `Job Pilotto export ${day}.tar.gz`), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
     if (picked.canceled || !picked.filePath) return {ok: false};
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
     try {
-      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, version: about.label});
-      return {ok: true, file: picked.filePath};
+      const copy = withNotion ? await notion.dumpWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {},
+        {onProgress: count => window?.webContents.send('exportProgress', count)}) : null;
+      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, notion: copy, version: about.label});
+      return {ok: true, file: picked.filePath, notion: copy && {pages: copy.pages, rows: copy.rows}};
     } catch (error) { return {ok: false, error: error.message}; }
   });
   // Import: the file replaces this computer's data (which is kept as a backup), at a restart.

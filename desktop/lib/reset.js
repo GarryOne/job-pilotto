@@ -3,7 +3,8 @@
 // reset are requested, the app restarts, and the folder is swapped at the very start of the next launch,
 // before anything opens it. The current data is moved to a backup folder first (reset can delete instead).
 // Nothing outside the folder is touched: the Notion workspace, the Keychain (Gmail sign-in, employer
-// passwords) and a GitHub repo stay as they are.
+// passwords) and a GitHub repo stay as they are. Two explicit extras (main.js): a reset can also archive the
+// Notion workspace (renamed, never deleted), and an export can carry a read-only copy of it (notion.json).
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,18 +12,20 @@ import {tar} from './tar.js';
 
 const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
+export const NOTION_FILE = 'notion.json';  // an export's copy of the Notion workspace (only when asked for)
 // What an export holds: the user's files and state, not Chromium's caches.
 export const ITEMS = ['settings.json', 'runs.json', 'cv.pdf', 'cv', 'interviews', 'recordings', 'config', 'data'];
 const stamp = now => now.toISOString().slice(0, 16).replace('T', ' ').replace(':', '.');
 export const backupName = (dir, now = new Date()) => `${dir} (backup ${stamp(now)})`;
 
 // One .tar.gz file (tar is on macOS and Windows 10+): a manifest, the items, and keys.json if asked for.
-export function exportTo(dir, file, {keys = null, version = ''} = {}, now = new Date()) {
+export function exportTo(dir, file, {keys = null, notion = null, version = ''} = {}, now = new Date()) {
   const extra = [];
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({app: 'Job Pilotto', version, exportedAt: now.toISOString(),
-    keys: !!keys}, null, 1));
+    keys: !!keys, notion: !!notion}, null, 1));
   extra.push('manifest.json');
   if (keys) { fs.writeFileSync(path.join(dir, KEYS_FILE), JSON.stringify(keys), {mode: 0o600}); extra.push(KEYS_FILE); }
+  if (notion) { fs.writeFileSync(path.join(dir, NOTION_FILE), JSON.stringify(notion)); extra.push(NOTION_FILE); }
   try {
     const items = [...ITEMS.filter(item => fs.existsSync(path.join(dir, item))), ...extra];
     execFileSync(tar(), ['-czf', file, '-C', dir, ...items]);
@@ -48,11 +51,12 @@ export function stageImport(dir, file) {
   return manifest;
 }
 
-export function request(dir, {backup = true} = {}, now = new Date()) {
-  fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup, at: now.toISOString()}));
+// archived: the Notion page a fresh start archived ({title, url}), shown after the restart.
+export function request(dir, {backup = true, archived = null} = {}, now = new Date()) {
+  fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({backup, archived, at: now.toISOString()}));
 }
 
-// At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true}.
+// At start-up -> null (nothing pending), or {backup: <folder>} / {deleted: true}, plus {imported: true} / {archived}.
 export function applyPending(dir, now = new Date()) {
   const marker = path.join(dir, MARKER);
   if (!fs.existsSync(marker)) return null;
@@ -67,9 +71,11 @@ export function applyPending(dir, now = new Date()) {
     fs.rmSync(dir, {recursive: true, force: true});
     done.deleted = true;
   }
+  if (wanted.archived) done.archived = wanted.archived;
   if (wanted.import && fs.existsSync(wanted.import)) {
     fs.renameSync(wanted.import, dir);
     fs.rmSync(path.join(dir, 'manifest.json'), {force: true});
+    fs.rmSync(path.join(dir, NOTION_FILE), {force: true});  // a copy for the user to keep; Notion stays the truth
     done.imported = true;
   }
   return done;

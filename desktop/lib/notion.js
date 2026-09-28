@@ -41,7 +41,7 @@ async function searchAll(token, kind, fetcher) {
 // they sit in, and the group holding the most of them wins (then the most recently edited), so the
 // app never mixes databases from two copies.
 export async function discover(token, fetcher) {
-  const [databases, pages] = await Promise.all([searchAll(token, 'database', fetcher), searchAll(token, 'page', fetcher)]);
+  const [databases, pages] = liveOnly(...await Promise.all([searchAll(token, 'database', fetcher), searchAll(token, 'page', fetcher)]));
   const wanted = [...Object.entries(TEMPLATE.databases).map(([env, title]) => [env, title, databases]),
     ...Object.entries(TEMPLATE.pages).map(([env, title]) => [env, title, pages])];
   const parentOf = item => item.parent?.page_id || item.parent?.database_id || item.parent?.type || 'workspace';
@@ -64,10 +64,24 @@ export async function discover(token, fetcher) {
   return {ids, missing};
 }
 
+// An archived workspace (Settings → Danger zone → "Also start a fresh Notion workspace" renames its page to
+// "Job Pilotto (archived 28 Sep 2026)"): still shared with the connection, but never connected to again, so
+// everything inside it is left out. Renaming the page back brings it back.
+export const ARCHIVED = /\(archived\b[^)]*\)\s*$/i;
+function liveOnly(databases, pages) {
+  const parent = new Map([...databases, ...pages].map(i => [i.id, i.parent?.page_id || i.parent?.database_id || i.parent?.block_id]));
+  const archived = new Set(pages.filter(p => ARCHIVED.test(titleOf(p))).map(p => p.id));
+  const inArchive = item => {
+    for (let id = item.id, depth = 0; id && depth < 20; id = parent.get(id), depth++) if (archived.has(id)) return true;
+    return false;
+  };
+  return [databases.filter(i => !inArchive(i)), pages.filter(i => !inArchive(i))];
+}
+
 // A new workspace: the one page the connection was given (no Job Pilotto databases or pages in it yet),
 // where the app builds everything from config/notion_schema.json. null when there isn't exactly one.
 export async function sharedRoot(token, fetcher) {
-  const pages = await searchAll(token, 'page', fetcher);
+  const [, pages] = liveOnly([], await searchAll(token, 'page', fetcher));
   const visible = new Set(pages.map(p => p.id));
   const tops = pages.filter(p => !(p.parent?.page_id && visible.has(p.parent.page_id)) && !p.parent?.database_id);
   return tops.length === 1 ? tops[0].id.replace(/-/g, '') : null;
@@ -290,4 +304,77 @@ export async function snapshotStrategy(token, ids, when, fetcher) {
     }
   }
   return page.id.replace(/-/g, '');
+}
+
+// ---------- starting over: archive the workspace, or copy it all into an export ----------
+// The page the Job Pilotto databases and pages sit in (the Profile's parent).
+export async function workspaceRoot(token, ids, fetcher) {
+  if (!ids.NOTION_PROFILE_PAGE_ID) throw new Error('No Job Pilotto workspace is connected');
+  const root = (await call(token, 'GET', `pages/${ids.NOTION_PROFILE_PAGE_ID}`, null, fetcher)).parent?.page_id;
+  if (!root) throw new Error('Your Job Pilotto pages are not inside one page, so there is no page to archive');
+  return root.replace(/-/g, '');
+}
+
+// Rename the workspace page to "<title> (archived <when>)": nothing is deleted or moved, and the app won't
+// connect to it again (see liveOnly). -> {id, title, url}.
+export async function archiveWorkspace(token, ids, when, fetcher) {
+  const root = await workspaceRoot(token, ids, fetcher);
+  const page = await call(token, 'GET', `pages/${root}`, null, fetcher);
+  const [key] = Object.entries(page.properties || {}).find(([, p]) => p.type === 'title') || ['title'];
+  const title = `${titleOf(page).replace(ARCHIVED, '').trim() || 'Job Pilotto'} (archived ${when})`;
+  await call(token, 'PATCH', `pages/${root}`, {properties: {[key]: {title: [{type: 'text', text: {content: title}}]}}}, fetcher);
+  return {id: root, title, url: pageUrl(root)};
+}
+
+// Everything in the workspace, as Notion's API returns it: the root page and every block under it, with
+// sub-pages' contents, each database's columns and rows, and each row's contents. For an export (Settings →
+// Your data); onProgress({pages, rows}) as it goes. Notion allows ~3 requests a second: waits when told to.
+export async function dumpWorkspace(token, ids, {fetcher, onProgress = () => {}, sleep = ms => new Promise(r => setTimeout(r, ms))} = {}) {
+  const count = {pages: 0, rows: 0};
+  const api = async (method, route, body) => {
+    for (let attempt = 1; ; attempt++) {
+      try { return await call(token, method, route, body, fetcher); } catch (error) {
+        if (attempt >= 6 || !(error.status === 429 || error.status >= 500)) throw error;
+        await sleep(1000 * attempt);
+      }
+    }
+  };
+  const all = async (method, route, body = {}) => {
+    const found = [];
+    let cursor;
+    do {
+      const page = method === 'GET'
+        ? await api('GET', `${route}?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`)
+        : await api('POST', route, {...body, page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+      found.push(...page.results);
+      cursor = page.has_more ? page.next_cursor : null;
+    } while (cursor);
+    return found;
+  };
+  const tree = async id => {
+    const blocks = await all('GET', `blocks/${id}/children`);
+    for (const block of blocks) {
+      if (block.type === 'child_database') {
+        block.database = await api('GET', `databases/${block.id}`).catch(() => null);  // a linked view: not ours to read
+        if (block.database) block.rows = await rows(block.id);
+      } else if (block.has_children) {
+        if (block.type === 'child_page') { count.pages += 1; onProgress({...count}); }
+        block.children = await tree(block.id);
+      }
+    }
+    return blocks;
+  };
+  const rows = async databaseId => {
+    const found = await all('POST', `databases/${databaseId}/query`);
+    for (const row of found) {
+      row.blocks = await tree(row.id);
+      count.rows += 1;
+      onProgress({...count});
+    }
+    return found;
+  };
+  const root = await workspaceRoot(token, ids, fetcher);
+  const page = await api('GET', `pages/${root}`);
+  return {app: 'Job Pilotto', format: 'Notion API 2022-06-28', exportedAt: new Date().toISOString(), ids, page,
+    blocks: await tree(root), ...count};
 }

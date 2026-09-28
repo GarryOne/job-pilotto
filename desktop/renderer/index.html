@@ -565,7 +565,9 @@
         <div class="inline"><button class="secondary" id="open-data">Show in Finder</button><button class="ghost" id="rerun-wizard">Run setup again</button></div>
         <div><p class="small muted"><b>Export</b> saves this computer's Job Pilotto data in one file (settings, CV and tailored CVs, recordings,
           interview drafts, job list, run history), to keep or move to another computer. <b>Import</b> replaces the data here with such a file
-          (the current data is kept as a backup). Your Notion workspace is never in the file: it stays in Notion.</p></div>
+          (the current data is kept as a backup). Your Notion workspace stays in Notion, whatever you choose here.</p></div>
+        <label class="radio"><input type="checkbox" id="export-notion"><span>Include a copy of my Notion data (every page, database and row, as JSON):
+          to keep, or to move to another Notion account. Takes a few minutes for a big workspace. Import doesn't use it.</span></label>
         <label class="radio"><input type="checkbox" id="export-keys"><span>Include my keys (AI, Notion, Telegram, GitHub). They're then in the file in plain text: keep it private.</span></label>
         <div class="inline"><button class="secondary" id="export-data">Export…</button><button class="secondary" id="import-data">Import…</button></div>
         <p class="message" id="data-message"></p>
@@ -574,9 +576,12 @@
         <div><h3>⚠️ Danger zone: reset Job Pilotto on this computer</h3>
           <p class="small"><b>Removed from this computer:</b> your AI, Notion, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
             interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
-          <p class="small muted"><b>Not changed:</b> your Notion workspace and everything in it, your Gmail sign-in, your GitHub repo. The Chrome extension
+          <p class="small muted"><b>Not changed:</b> your Notion workspace and everything in it (unless you tick "fresh Notion workspace" below), your Gmail sign-in, your GitHub repo. The Chrome extension
             has to be connected again.</p></div>
         <label class="radio"><input type="checkbox" id="reset-backup" checked><span>Keep a backup of this data (moved to a folder next to it; recommended)</span></label>
+        <label class="radio"><input type="checkbox" id="reset-notion"><span><b>Also start a fresh Notion workspace</b> (a new job search, or
+          someone else using this computer): your Job Pilotto page is renamed "… (archived <span id="reset-notion-day"></span>)" and
+          kept, nothing in it is deleted; the setup builds a new workspace. Leave it off to reconnect to the same workspace.</span></label>
         <div class="inline"><input type="text" id="reset-confirm" placeholder='Type RESET to confirm' autocomplete="off">
           <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
         <p class="message" id="reset-message"></p>
