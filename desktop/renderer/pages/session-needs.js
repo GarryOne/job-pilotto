@@ -38,8 +38,9 @@ const watchId = text => `w${[...String(text)].reduce((hash, c) => (hash * 31 + c
 // The question to find in the form: the bold label Claude gave ("AI Policy for Application"), else its first words.
 const agreeLabel = need => splitLabel(need.text).label || firstLine(need.text.replace(/\*\*/g, ''), 80).replace(/[:.]\s*$/, '');
 const watching = new Map();      // session id → the JSON last sent, so it's sent when it changes only
-export function watchAgreements(item, agrees) {
-  const items = agrees.map(need => ({id: watchId(need.text), label: agreeLabel(need)}));
+// The rows the form page reports on: agreements (ticked?) and questions Claude couldn't answer (answered since?).
+export function watchAgreements(item, needs) {
+  const items = needs.map(need => ({id: watchId(need.text), label: need.kind === 'ask' ? need.question : agreeLabel(need)}));
   const json = JSON.stringify(items);
   if (watching.get(item.id) === json) return;
   watching.set(item.id, json);
@@ -59,7 +60,8 @@ export function applyFormStates(item) {
   for (const li of document.querySelectorAll('#ss-needs .ss-need[data-watch]')) {
     const ticked = state.states?.[li.dataset.watch];
     const key = li.dataset.key;
-    if (ticked === true && !li.classList.contains('is-done')) { syncedDone.add(key); doneRow(li, key, 'Ticked in the form'); }
+    const outcome = li.classList.contains('is-ask') ? 'Filled in the form' : 'Ticked in the form';
+    if (ticked === true && !li.classList.contains('is-done')) { syncedDone.add(key); doneRow(li, key, outcome); }
     if (ticked === false && syncedDone.has(key)) {  // unticked in the form: open again here
       syncedDone.delete(key);
       handled.delete(key);
@@ -176,6 +178,8 @@ export function askRow(need, item) {
   if (saved) box.classList.add('is-saved');
   // The one click that unblocks it: Claude types the answer into the form.
   const key = `${item.id}|${need.text}`;
+  li.dataset.key = key;
+  li.dataset.watch = watchId(need.text);  // the form page says when it has an answer
   const fill = smallButton('Fill it in', 'primary', () => {
     const value = input.value.trim();
     if (!value) { note.textContent = 'Write an answer first'; input.focus(); return; }
@@ -186,10 +190,12 @@ export function askRow(need, item) {
     updateNeedsCount();
   }, offline(item));
   const line = el('div', 'ss-ask-line');
-  line.append(input, fill, box);
+  const actions = el('span', 'ss-need-actions');
+  actions.append(fill);
+  line.append(input, actions, box);
   body.append(head, line);
   li.append(el('span', 'ss-need-glyph', '❓'), body);
-  if (handled.has(key)) { li.classList.add('is-done'); fill.replaceWith(el('span', 'small ss-need-outcome', `✓ ${handled.get(key)}`)); }
+  if (handled.has(key)) { li.classList.add('is-done'); actions.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${handled.get(key)}`)); }
   return li;
 }
 

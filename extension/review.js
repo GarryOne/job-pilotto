@@ -69,7 +69,24 @@
   function find(label, list = fields()) {
     const wanted = norm(label);
     if (!wanted) return null;
-    return list.find(f => norm(f.label) === wanted) || list.find(f => norm(f.label).includes(wanted) || (norm(f.label).length > 8 && wanted.includes(norm(f.label))));
+    return list.find(f => norm(f.label) === wanted) || list.find(f => norm(f.label).includes(wanted) || (norm(f.label).length > 8 && wanted.includes(norm(f.label))))
+      || byWords(wanted, list);
+  }
+  // Claude shortens questions ("Rationale or evidence for the high school selections" for "Please share your rationale
+  // or evidence for the high school performance selections above…"): the field sharing most of its words, if at
+  // least 70% of them and 3 or more.
+  const WORD = /[\p{L}\p{N}]{3,}/gu;
+  const STOP = new Set(['the', 'and', 'for', 'you', 'your', 'are', 'with', 'this', 'that', 'what', 'have', 'did', 'how', 'please', 'which']);
+  function byWords(wanted, list) {
+    const words = [...new Set(wanted.match(WORD) || [])].filter(word => !STOP.has(word));
+    if (words.length < 2) return null;
+    let best = null, bestShare = 0, bestCount = 0;
+    for (const field of list) {
+      const label = norm(field.label);
+      const count = words.filter(word => label.includes(word)).length;
+      if (count / words.length > bestShare) { best = field; bestShare = count / words.length; bestCount = count; }
+    }
+    return bestShare >= 0.7 && bestCount >= 3 ? best : null;
   }
   function flash(el) {
     el.scrollIntoView({behavior: 'smooth', block: 'center'});
