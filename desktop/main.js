@@ -150,6 +150,15 @@ function handlers() {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       let result = await notion.connectWaiting(token, {onProgress: progress => window?.webContents.send('notionProgress', {...progress, titles})});
+      // A new, empty Job Pilotto page: build the whole workspace in it from the schema (the latest version).
+      if (!result.ok && !Object.keys(result.ids || {}).length) {
+        const root = await notion.sharedRoot(token);
+        if (root) {
+          window?.webContents.send('notionProgress', {building: true, titles});
+          const built = await schema.repair(token, {}, schema.load(), undefined, root);
+          result = {ok: built.created.length > 0 && !!built.ids.NOTION_PROFILE_PAGE_ID, ids: built.ids, missing: [], problems: [], built: built.created};
+        }
+      }
       // Missing columns or databases (an older template, or a deleted one): add them from the schema, check again.
       if (!result.ok && result.ids?.NOTION_PROFILE_PAGE_ID) {
         const fixed = await schema.repair(token, result.ids);

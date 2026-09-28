@@ -64,6 +64,15 @@ export async function discover(token, fetcher) {
   return {ids, missing};
 }
 
+// A new workspace: the one page the connection was given (no Job Pilotto databases or pages in it yet),
+// where the app builds everything from config/notion_schema.json. null when there isn't exactly one.
+export async function sharedRoot(token, fetcher) {
+  const pages = await searchAll(token, 'page', fetcher);
+  const visible = new Set(pages.map(p => p.id));
+  const tops = pages.filter(p => !(p.parent?.page_id && visible.has(p.parent.page_id)) && !p.parent?.database_id);
+  return tops.length === 1 ? tops[0].id.replace(/-/g, '') : null;
+}
+
 // Columns the pipeline needs that the user's copy lacks (renamed or deleted): [{title, missing: [...]}].
 export async function checkColumns(token, ids, fetcher) {
   const problems = [];

@@ -26,11 +26,12 @@ export function apiProperty(column, targetId) {
 const PASSES = [type => !['relation', 'rollup', 'formula'].includes(type), type => type === 'relation', type => type === 'rollup', type => type === 'formula'];
 
 // -> {ids (with anything created), created: [titles], columns: ["Database: Column"]}
-export async function repair(token, ids, schema = load(), fetcher) {
-  if (!schema || !ids.NOTION_PROFILE_PAGE_ID) return {ids, created: [], columns: []};
+// root: the page to build in when the workspace is new (an empty page shared with the connection); else the
+// parent of the Profile page.
+export async function repair(token, ids, schema = load(), fetcher, root = null) {
+  if (!schema || (!ids.NOTION_PROFILE_PAGE_ID && !root)) return {ids, created: [], columns: []};
   const api = (method, route, body) => call(token, method, route, body, fetcher);
   const out = {ids: {...ids}, created: [], columns: []};
-  let root;
   const parent = async () => {
     root ||= (await api('GET', `pages/${ids.NOTION_PROFILE_PAGE_ID}`)).parent?.page_id;
     if (!root) throw new Error('The Profile page has no parent page to create the missing parts in');

@@ -98,13 +98,14 @@ $('notion-connect').addEventListener('click', async () => {
   } else if (result.error) {
     message('notion-message', result.error, 'error');
   } else if (result.missing?.length) {
-    message('notion-message', 'The connection can\'t see these pages yet. Check step 1 (Duplicate) and step 3 (Content access → Edit access → tick Job Pilotto → Save). Just saved it? Notion can take a minute to share every database: Connect again shortly.', 'error');
+    message('notion-message', 'The connection can\'t see your Job Pilotto page yet, or sees more than one page. Check step 3 (Content access → Edit access → tick only Job Pilotto → Save). Just saved it? Notion can take a minute: Connect again shortly.', 'error');
   } else {
     message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
   }
 });
 
-window.pilot.onNotionProgress(({found, total, ids, titles}) => {
+window.pilot.onNotionProgress(({found, total, ids, titles, building}) => {
+  if (building) { message('notion-message', 'Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }
   message('notion-message', `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`, 'waiting');
   const list = $('notion-found');
   list.replaceChildren();

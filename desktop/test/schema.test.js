@@ -67,3 +67,22 @@ test('the committed schema (once snapshotted) covers every column the app requir
     for (const name of required) assert.ok(schema.databases[env]?.columns[name], `${env}: ${name}`);
   }
 });
+
+test('a new workspace is built from the schema inside the one empty page the connection can see', async () => {
+  const databases = {};
+  const {fetcher} = fakeWorkspace(databases);
+  const built = await repair('ntn_x', {}, SCHEMA, fetcher, 'empty-page');
+  assert.deepEqual(built.created, ['Applications', 'Events', 'Profile', 'Pipeline']);
+  assert.ok(built.ids.APPS && built.ids.EVENTS && built.ids.NOTION_PROFILE_PAGE_ID && built.ids.PIPELINE);
+  assert.deepEqual([...databases[built.ids.EVENTS]].sort(), ['Application', 'Applied on', 'At', 'Event']);
+  assert.equal(built.ids.SETTINGS, undefined);  // made later by its own module
+});
+
+test('the page to build in: exactly one top-level page shared with the connection', async () => {
+  const {sharedRoot} = await import('../lib/notion.js');
+  const search = pages => async () => ({ok: true, json: async () => ({results: pages, has_more: false})});
+  const page = (id, parent) => ({object: 'page', id, parent, properties: {}});
+  assert.equal(await sharedRoot('t', search([page('root-1', {type: 'workspace'}), page('child', {page_id: 'root-1'})])), 'root1');
+  assert.equal(await sharedRoot('t', search([page('a', {type: 'workspace'}), page('b', {type: 'workspace'})])), null);
+  assert.equal(await sharedRoot('t', search([])), null);
+});
