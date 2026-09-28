@@ -812,12 +812,12 @@ main { min-width: 0; }
 .focus-card-head .link { text-decoration: none; }
 
 /* Application sessions: the dock above the activity bar */
-/* A light blue-grey tray floating over the page (rounded top, soft shadow upward): apart from the white job cards
-   above and the white status bar below; its cards stay white. */
-.sessions-dock { grid-column: 2; position: relative; z-index: 1;
-  border: 1px solid var(--info-line); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
-  background: color-mix(in srgb, var(--info-soft) 60%, var(--surface));
-  padding: var(--sp-3) var(--sp-5) var(--sp-4); box-shadow: 0 -8px 24px rgb(var(--shadow-rgb) / .08); }
+/* A blue-grey tray, clearly above the page (blue top edge, deep upward shadow): apart from the white cards above and
+   the white status bar below; its cards stay white. */
+.sessions-dock { grid-column: 2; position: relative; z-index: 2;
+  border: 0; border-top: 2px solid var(--info-line); border-radius: 0;
+  background: color-mix(in srgb, var(--info-soft) 75%, var(--info-line));
+  padding: var(--sp-3) var(--sp-5) var(--sp-4); box-shadow: 0 -12px 32px rgb(var(--shadow-rgb) / .16); }
 .sessions-dock .sd-toggle b { font-size: var(--fs-lg); }
 .sessions-dock #sd-summary { display: inline-flex; gap: var(--sp-2); }
 .sessions-dock.is-closed { padding-bottom: var(--sp-2); }
