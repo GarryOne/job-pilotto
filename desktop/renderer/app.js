@@ -840,14 +840,14 @@ let permissionKind = 'screen';
 async function showPermission(noCallAudio = false) {
   const access = await iv.access();
   // npm start: macOS may list the terminal that started the app instead of Electron.
-  const who = access.dev ? '<b>Electron</b> (or your terminal)' : '<b>Job Pilotto</b>';
+  const who = access.dev ? 'your terminal app (e.g. <b>iTerm</b>; quit and reopen it)' : '<b>Job Pilotto</b> (+ to add it)';
   let text = '';
   if (access.microphone === 'denied' || access.microphone === 'restricted') {
     permissionKind = 'microphone';
     text = `🎙️ <b>Allow the microphone</b>: Privacy &amp; Security → Microphone → ${who}, then restart.`;
   } else if (access.screen !== 'granted' || noCallAudio) {
     permissionKind = 'screen';
-    text = `🔊 <b>Allow the call's audio</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → ${who}, then restart.`;
+    text = `🔊 <b>Allow the call's audio</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → <b>top list</b> (not "System Audio Recording Only") → ${who}, then restart.`;
   }
   $('iv-permission-text').innerHTML = text;
   show($('iv-permission'), !!text);
