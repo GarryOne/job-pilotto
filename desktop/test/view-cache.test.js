@@ -31,3 +31,10 @@ test("another Notion workspace never sees this one's saved screens", () => {
   s.saveSettings({notionIds: {NOTION_APPLICATIONS_DB: 'ws-2'}});
   assert.equal(viewCache.recall(s, 'strategy'), null);
 });
+
+test('saved screens live in their own folder, not Chromium\'s Cache (same name on a case-insensitive Mac disk)', () => {
+  const s = storage();
+  viewCache.remember(s, 'focus', {ok: true, focus: {}});
+  assert.ok(fs.existsSync(s.path('view-cache/focus.json')));
+  assert.ok(!fs.existsSync(s.path('cache')));
+});

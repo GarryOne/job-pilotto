@@ -3,7 +3,8 @@
 // data rules' sense: rebuilt by the next read, never edited, never the only copy. Tied to the Notion workspace, so
 // switching workspaces never shows another workspace's jobs.
 export const NAMES = ['jobs', 'focus', 'strategy'];
-const file = name => `cache/${name}.json`;
+// Not "cache/": on a Mac that's Chromium's own Cache folder (case-insensitive), which Electron may clear.
+const file = name => `view-cache/${name}.json`;
 const workspace = storage => storage.settings().notionIds?.NOTION_APPLICATIONS_DB || '';
 
 // Keep a fresh result (not an error, not a list read from the cache because Notion was unreachable); returns it.
