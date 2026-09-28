@@ -230,7 +230,13 @@
           <option value="best">Best match</option><option value="newest">Newest</option><option value="company">Company A–Z</option>
         </select></label>
       </div>
-      <div class="job-list-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span></span></div>
+      <div class="list-bar">
+        <span id="jobs-count"></span>
+        <div class="density" role="group" aria-label="List density">
+          <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
+        </div>
+      </div>
+      <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span></span></div>
       <div class="job-list" id="jobs-body"></div>
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.</p>
     </div>

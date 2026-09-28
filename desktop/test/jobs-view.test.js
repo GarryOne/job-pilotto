@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {avatar, band, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
+import {ago, avatar, band, matchLabel, sorted, stats, tags, workMode} from '../renderer/jobs-view.js';
+
+test('compact list: match label and age', () => {
+  assert.deepEqual([matchLabel(78), matchLabel(62), matchLabel(30), matchLabel(null)], ['Strong match', 'Good match', 'Weak match', 'Not scored']);
+  const now = Date.parse('2026-09-28T12:00:00Z');
+  assert.equal(ago('2026-09-28T11:30:00Z', now), 'just now');
+  assert.equal(ago('2026-09-28T07:00:00Z', now), '5h ago');
+  assert.equal(ago('2026-09-25T12:00:00Z', now), '3d ago');
+  assert.equal(ago('2026-09-07T12:00:00Z', now), '3w ago');
+  assert.equal(ago('', now), '');
+  assert.equal(ago('2099-01-01', now), '');  // a date in the future: no age
+});
 
 test('tags come from the title and fit summary, at most four, no false "Go"', () => {
   assert.deepEqual(tags({title: 'Senior SRE', reason: 'Kubernetes on AWS, OpenTelemetry rollout'}), ['SRE', 'OpenTelemetry', 'Kubernetes', 'AWS']);

@@ -1,6 +1,6 @@
 import {looksLikeLink, matches} from './filter.js';
 import {icon, fillIcons} from './icons.js';
-import {avatar, band, sorted, stats, tags, workMode} from './jobs-view.js';
+import {ago, avatar, band, matchLabel, sorted, stats, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
@@ -485,19 +485,37 @@ function renderJobs() {
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
     const row = el('article', 'job-row');
-    // Fit: a ring filled to the score.
-    const fit = el('div', `fit-ring ${band(job.fit)}`);
-    fit.style.setProperty('--p', job.fit ?? 0);
-    fit.append(el('span', '', job.fit ?? '–'));
+    // Fit: a ring filled to the score (the compact list adds "Strong match" under it).
+    const fit = el('div', `fit-cell ${band(job.fit)}`);
+    const ring = el('div', 'fit-ring');
+    ring.style.setProperty('--p', job.fit ?? 0);
+    ring.append(el('span', '', job.fit ?? '–'));
+    fit.append(ring, el('span', 'fit-label', matchLabel(job.fit)));
     fit.title = job.fit == null ? 'Not scored yet (needs the AI key)' : 'Fit with your profile, out of 100';
+    const statusLabel = {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status;
 
     const role = el('div', 'role');
+    const titleLine = el('div', 'title-line');
     const link = Object.assign(el('a', '', job.title), {href: '#', title: 'Open the posting'});
     link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
-    role.append(link);
-    if (job.reason) role.append(el('div', 'reason', job.reason));
+    titleLine.append(link, el('span', `status inline ${job.status}`, statusLabel));
+    role.append(titleLine);
+    // Compact list: company · place · mode · age on one line, in place of those columns.
+    const meta = el('div', 'meta');
+    const small = avatar(job.company);
+    const smallBadge = el('span', 'logo', small.initials);
+    smallBadge.style.setProperty('--hue', small.hue);
+    meta.append(smallBadge, el('b', '', job.company));
+    for (const part of [job.location, job.work_mode && workMode(job.work_mode).label, ago(job.first_seen_at)].filter(Boolean)) {
+      meta.append(el('span', 'sep', '·'), el('span', '', part));
+    }
+    role.append(meta);
+    if (job.reason) role.append(Object.assign(el('div', 'reason', job.reason), {title: job.reason}));
     const chips = el('div', 'tags');
-    for (const tag of tags(job)) chips.append(el('span', 'tag', tag));
+    // Three skill tags, the rest behind "+N".
+    const skills = tags(job, 8);
+    for (const tag of skills.slice(0, 3)) chips.append(el('span', 'tag', tag));
+    if (skills.length > 3) chips.append(Object.assign(el('span', 'tag more-tags', `+${skills.length - 3}`), {title: skills.slice(3).join(', ')}));
     if (job.kit && job.notion_url) {
       const kit = Object.assign(el('button', 'tag link-tag', '📝 Kit'), {title: 'Application kit: form answers, cover letter, eligibility (in Notion)'});
       kit.addEventListener('click', event => window.pilot.openNotion(job.notion_url, event.metaKey));
@@ -527,7 +545,7 @@ function renderJobs() {
     }
 
     const status = el('div', 'status-cell');
-    status.append(el('span', `status ${job.status}`, {unreviewed: 'New', saved: 'Saved', applied: 'Applied', dismissed: 'Dismissed'}[job.status] || job.status));
+    status.append(el('span', `status ${job.status}`, statusLabel));
     // The kit's eligibility verdict: a badge, with the reason on hover.
     if (job.ineligible) {
       const verdict = Object.assign(el('span', 'badge-ineligible tip', '⛔ Not eligible'), {tabIndex: 0});
@@ -595,6 +613,14 @@ function renderJobs() {
       });
       box.append(prepare);
     }
+    // Compact list: save with one click (filled once saved).
+    const saved = job.status === 'saved';
+    const bookmark = Object.assign(el('button', `secondary icon-btn bookmark${saved ? ' on' : ''}`), {disabled: saved,
+      title: saved ? 'Saved' : 'Save: keep this job on your list'});
+    bookmark.setAttribute('aria-label', bookmark.title);
+    bookmark.append(icon('bookmark'));
+    bookmark.addEventListener('click', () => setStatus('saved')());
+    if (job.status !== 'applied') box.prepend(bookmark);
 
     // Long work started from the menu: a note on the row until it's done.
     const background = async (note, work) => {
@@ -639,12 +665,23 @@ function renderJobs() {
     row.append(fit, role, company, place, status, box);
     body.append(row);
   }
+  $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}`;
   show($('jobs-empty'), rows.length === 0);
   $('jobs-empty').innerHTML = !allJobs.length ? 'No jobs here yet. Click <b>Run new search</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : text || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
 }
 $('sort-by').addEventListener('change', renderJobs);
+// List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
+function setDensity(value) {
+  const compact = value === 'compact';
+  $('jobs-body').classList.toggle('compact', compact);
+  $('jobs-head').hidden = compact;
+  document.querySelectorAll('[data-density]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.density === value)));
+  try { localStorage.setItem('jobsDensity', value); } catch {}
+}
+document.querySelectorAll('[data-density]').forEach(button => button.addEventListener('click', () => setDensity(button.dataset.density)));
+try { setDensity(localStorage.getItem('jobsDensity') || 'comfortable'); } catch { setDensity('comfortable'); }
 $('filter-status').addEventListener('change', renderJobs);
 $('filter-text').addEventListener('input', renderJobs);
 

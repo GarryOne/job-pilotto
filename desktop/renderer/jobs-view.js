@@ -53,3 +53,17 @@ export function workMode(text) {
 
 // Fit ring colour band.
 export const band = fit => (fit == null ? 'none' : fit >= 70 ? 'high' : fit >= 50 ? 'mid' : 'low');
+
+// Under the ring in the compact list.
+export const matchLabel = fit => (fit == null ? 'Not scored' : fit >= 70 ? 'Strong match' : fit >= 50 ? 'Good match' : 'Weak match');
+
+// When a job was first seen: "just now", "5h ago", "3d ago", "2w ago".
+export function ago(iso, now = Date.now()) {
+  const ms = now - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const hours = Math.floor(ms / 3600000);
+  if (hours < 1) return 'just now';
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return days < 14 ? `${days}d ago` : `${Math.floor(days / 7)}w ago`;
+}
