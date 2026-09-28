@@ -150,7 +150,9 @@ def log_ai_run(tracker, run, args):
     up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
     if tracker and (args.send or args.log_run):
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        cron_runs.log_run(tracker, run)
+        url = cron_runs.log_run(tracker, run)
+        if url:
+            print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
 
 def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None):

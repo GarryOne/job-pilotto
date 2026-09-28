@@ -150,6 +150,16 @@ class DailyAddTests(unittest.TestCase):
         self.assertEqual(tracker.created[0]['Stage'], {'select': {'name': 'Screening'}})
         self.assertIn('Tracked recruiter lead', printed.call_args_list[-1].args[0])
 
+    def test_an_ai_run_prints_its_notion_row_for_the_apps_link(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        from src import daily
+        run = daily.new_cron_run('insight')
+        with mock.patch.object(daily.cron_runs, 'log_run', lambda tracker, r: 'https://notion.test/run-1'), \
+                mock.patch('builtins.print') as printed:
+            daily.log_ai_run(object(), run, SimpleNamespace(send=False, log_run=True))
+        printed.assert_called_with('Cronjob run logged: https://notion.test/run-1')
+
     def test_the_log_gets_plain_text_not_telegram_html(self):
         from src import daily
         self.assertEqual(daily.log_text("⚠️ That doesn&#x27;t look like <b>a job</b> &amp; so on"),
