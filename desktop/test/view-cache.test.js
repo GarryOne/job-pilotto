@@ -47,3 +47,12 @@ test('while the view cache is off, screens load fresh (nothing handed back), but
   s.saveSettings({viewCache: true});
   assert.equal(viewCache.recall(s, 'jobs').result.total, 0);
 });
+
+test('the view cache is on unless settings say "viewCache": false', () => {
+  const s = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cache-')), {encrypt: v => v, decrypt: v => v});
+  s.saveSettings({notionIds: {NOTION_APPLICATIONS_DB: 'ws-1'}});  // never set: on
+  viewCache.remember(s, 'focus', {ok: true, focus: {items: []}});
+  assert.ok(viewCache.recall(s, 'focus'));
+  s.saveSettings({viewCache: false});
+  assert.equal(viewCache.recall(s, 'focus'), null);
+});

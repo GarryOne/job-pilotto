@@ -14,9 +14,9 @@ export function remember(storage, name, result) {
   }
   return result;
 }
-// Off for now (owner, 28 Sep 2026): screens load fresh every time. Turn it back on with "viewCache": true in the
-// app's settings.json. Reads are still saved meanwhile, so it works at once when turned on.
-export const enabled = storage => storage.settings().viewCache === true;
+// On (owner, 28 Sep 2026, after the reads were made parallel): a screen shows its last result at once, says how old
+// it is ("Saved 3 min ago · updating…") and swaps in the fresh read. "viewCache": false in settings.json turns it off.
+export const enabled = storage => storage.settings().viewCache !== false;
 
 // {at, result} of the last good read of this workspace, or null (also when the view cache is off).
 export function recall(storage, name) {

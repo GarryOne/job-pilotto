@@ -18,6 +18,11 @@ let state = await window.pilot.state();
 let focusLoading = null, focusShown = false;
 const FOCUS_WHEN = {1: ['Now', 'bad'], 2: ['Soon', 'warn'], 3: ['Today', 'info'], 4: ['When you can', 'neutral']};
 let outdatedShown = false;
+// How old a saved screen is, in minutes (ago() rounds to hours): "just now", "4 min ago", "2 h ago".
+const savedAgo = iso => {
+  const minutes = Math.floor((Date.now() - Date.parse(iso)) / 60000);
+  return !Number.isFinite(minutes) || minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.floor(minutes / 60)} h ago` : ago(iso);
+};
 // Application sessions (Apply with Claude in the app): declared before start-up code renders the job list.
 const SESSION_STATE = {running: ['Applying', 'info'], input: ['Needs your input', 'warn'], done: ['Form filled', 'good'],
   ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
@@ -1573,7 +1578,7 @@ async function loadJobs() {
     // The last good list at once (lib/view-cache.js), then the fresh one from Notion replaces it.
     if (!allJobs.length) {
       const saved = await window.pilot.cached('jobs');
-      if (saved?.result?.jobs) { showJobsData(saved.result); jobsLoading = false; renderJobs(); $('jobs-stats').textContent += ` · updating… (saved ${ago(saved.at) || 'just now'})`; jobsLoading = true; }
+      if (saved?.result?.jobs) { showJobsData(saved.result); jobsLoading = false; renderJobs(); $('jobs-stats').textContent += ` · saved ${savedAgo(saved.at)}, updating…`; jobsLoading = true; }
     }
     showJobsData(await window.pilot.jobs());
   } catch (error) {
@@ -1657,7 +1662,7 @@ async function loadStrategy() {
   const saved = await window.pilot.cached('strategy');
   if (saved?.result?.ok && !strategyShown) {
     renderStrategy(saved.result);
-    $('strategy-synced').textContent = `Saved ${ago(saved.at) || 'just now'} · updating…`;
+    $('strategy-synced').textContent = `Saved ${savedAgo(saved.at)} · updating…`;
   } else if (!strategyShown) strategySkeleton();
   const data = await window.pilot.strategyData().catch(error => ({ok: false, error: error.message}));
   if (!data.ok) { $('strategy-view-loading')?.remove(); message('strategy-load', data.error, 'error'); return; }
@@ -2894,7 +2899,7 @@ function focusStatus(text, busy = false) {
 }
 let focusUpdatedAt = 0;
 setInterval(() => {  // "Updated 3 min ago" stays true while the page is open
-  if (focusUpdatedAt && !focusLoading) focusStatus(`Updated ${ago(new Date(focusUpdatedAt).toISOString()) || 'just now'}`);
+  if (focusUpdatedAt && !focusLoading) focusStatus(`Updated ${savedAgo(new Date(focusUpdatedAt).toISOString())}`);
 }, 60000);
 function loadFocus() {
   focusLoading ||= loadFocusOnce().catch(error => {
@@ -2917,7 +2922,7 @@ async function loadFocusOnce() {
   $('focus-of').textContent = `/ ${setting.target} applications today`;
   if (!focusShown) {  // the last good Focus at once (lib/view-cache.js), else the skeleton; the fresh one follows
     const saved = await window.pilot.cached('focus');
-    if (saved?.result?.focus) { renderFocus(saved.result.focus); focusStatus(`Saved ${ago(saved.at) || 'just now'} · updating…`, true); }
+    if (saved?.result?.focus) { renderFocus(saved.result.focus); focusStatus(`Saved ${savedAgo(saved.at)} · updating…`, true); }
     else focusSkeleton();
   }
   const result = await window.pilot.focus();
