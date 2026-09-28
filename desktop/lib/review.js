@@ -10,6 +10,7 @@ const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the
 const watches = new Map();     // session id -> [{id, label}] the app wants tracked in the form
 const commands = new Map();    // session id -> [{focus, at}]
 const last = new Map();        // session id -> the last state passed on
+const waiting = new Map();     // session id -> resolvers waiting for a page to take a "show me this field"
 let reporter = () => {};
 export const setReporter = fn => { reporter = fn; };
 
@@ -29,6 +30,15 @@ export function setWatch(id, items) {
 export function queueFocus(id, label, now = Date.now()) {
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {focus: String(label), at: now}]);
 }
+// Resolves true once a form page took this session's "show me this field", false after ms (no page with the
+// extension answered: the extension isn't on that tab, or the tab is closed).
+export function delivered(id, ms = 7000) {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => { waiting.set(id, (waiting.get(id) || []).filter(fn => fn !== done)); resolve(false); }, ms);
+    const done = () => { clearTimeout(timer); resolve(true); };
+    waiting.set(id, [...(waiting.get(id) || []), done]);
+  });
+}
 
 // The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
 export function report(sessions, payload, now = Date.now()) {
@@ -42,6 +52,7 @@ export function report(sessions, payload, now = Date.now()) {
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); reporter({...state, at: now}); }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);
+  if (due.length) { for (const done of waiting.get(session.id) || []) done(); waiting.delete(session.id); }
   return {matched: session.id, watch: watches.get(session.id) || [], commands: due.map(({focus}) => ({focus}))};
 }
-export const _reset = () => { watches.clear(); commands.clear(); last.clear(); reporter = () => {}; };  // tests
+export const _reset = () => { watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests

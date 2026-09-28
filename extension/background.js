@@ -209,6 +209,18 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 // Just loaded: open the settings page, which connects to the Job Pilotto Mac app by itself.
 chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install') chrome.runtime.openOptionsPage(); });
 
+// Chrome gives an installed, updated or reloaded extension's page scripts only to pages loaded afterwards: the
+// application forms already open (often half filled) get them now, without reloading the page (it could lose answers).
+async function joinOpenTabs() {
+  const everySite = await chrome.permissions.contains(EVERY_SITE).catch(() => false);
+  const tabs = await chrome.tabs.query({url: everySite ? EVERY_SITE.origins : JOB_SITES}).catch(() => []);
+  for (const tab of tabs) {
+    await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, files: ['hook.js', 'review.js']}).catch(() => {});
+  }
+}
+chrome.runtime.onInstalled.addListener(joinOpenTabs);
+chrome.runtime.onStartup.addListener(joinOpenTabs);
+
 // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
 async function reportTabs() {
   const config = await settings();
@@ -216,11 +228,22 @@ async function reportTabs() {
   const urls = (await chrome.tabs.query({url: JOB_SITES})).map(tab => tab.url);
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
-    await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, version: chrome.runtime.getManifest().version})});
+    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, version: chrome.runtime.getManifest().version})});
     connected(true);
+    // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
+    // that can't update (a store install) doesn't reload over and over.
+    if (answer?.latest && newer(answer.latest, chrome.runtime.getManifest().version)) {
+      const {reloadedFor} = await chrome.storage.local.get('reloadedFor');
+      if (reloadedFor !== answer.latest) { await chrome.storage.local.set({reloadedFor: answer.latest}); chrome.runtime.reload(); }
+    }
   } catch (error) {
     connected(false, error.status ? NOT_CONNECTED : NO_APP);
   }
+}
+export function newer(a, b) {
+  const [x, y] = [a, b].map(v => String(v || '0').split('.').map(Number));
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
 }
 function connected(ok, why = '') {
   chrome.action.setBadgeText({text: ok ? '' : '!'}).catch(() => {});

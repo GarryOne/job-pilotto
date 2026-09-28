@@ -723,7 +723,10 @@ function handlers() {
   ipcMain.handle('reviewWatch', (_, id, items) => review.setWatch(String(id), items));
   ipcMain.handle('reviewFocus', async (_, id, label, url, company) => {
     review.queueFocus(String(id), String(label || ''));
-    return openFormTab({url, company}, shell.openExternal);
+    const went = await openFormTab({url, company}, shell.openExternal);
+    const taken = await review.delivered(String(id));
+    const seen = server.extensionSeen(), latest = server.latestExtension();
+    return {went, taken, extension: seen?.version || '', latest, outdated: !!(seen?.version && latest && seen.version !== latest)};
   });
   ipcMain.handle('unapplyJob', (_, url) => pipeline.unapply(storage, String(url)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
@@ -740,7 +743,7 @@ function handlers() {
     return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
   });
   ipcMain.handle('openTabs', () => server.openTabs());
-  ipcMain.handle('extensionSeen', () => server.extensionSeen());
+  ipcMain.handle('extensionSeen', () => (server.extensionSeen() ? {...server.extensionSeen(), latest: server.latestExtension()} : null));
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));
   ipcMain.handle('answerQuestion', (_, questionKey, answer) => questions.answer(storage, questionKey, answer)

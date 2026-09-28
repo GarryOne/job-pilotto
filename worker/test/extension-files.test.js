@@ -96,3 +96,16 @@ test('the ring (review.js) is read only: it never types, ticks, clicks or submit
   assert.doesNotMatch(ring, /fetch\(|XMLHttpRequest/);
   assert.match(ring, /chrome\.runtime\.sendMessage\(\{type: 'review'/);
 });
+
+test('an out-of-date extension in Chrome loads the new copy by itself, and joins the forms already open', () => {
+  const background = read('extension/background.js');
+  const newer = new Function(`${background.match(/export function newer[\s\S]*?\n}\n/)[0].replace('export ', '')}; return newer;`)();
+  assert.equal(newer('0.7.1', '0.6.8'), true);
+  assert.equal(newer('0.7.1', '0.7.1'), false);
+  assert.equal(newer('0.10.0', '0.9.9'), true);
+  assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
+  assert.match(background, /executeScript\(\{target: \{tabId: tab\.id, allFrames: true\}, files: \['hook\.js', 'review\.js'\]\}\)/);
+  // A copy left behind by a reload gives way to the fresh one instead of blocking it.
+  assert.match(read('extension/review.js'), /__jobPilottoReviewAlive\?\.\(\)/);
+  assert.match(read('extension/hook.js'), /__jobPilottoHookAlive\?\.\(\)/);
+});

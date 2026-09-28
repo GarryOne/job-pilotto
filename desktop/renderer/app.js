@@ -3462,6 +3462,7 @@ function renderNextStep(item) {
   $('ss-happened').replaceChildren(...happened.map(({short, more, problem}) => {
     const row = foldRow(short, more);
     if (problem) row.classList.add('is-problem');
+    if (problem && /extension/i.test(`${short} ${more}`)) explainExtension(row);
     return row;
   }));
   show($('ss-audit-card'), !!audit);
@@ -3542,6 +3543,23 @@ window.pilot.onReview(state => {
   const item = sessionList.find(entry => entry.id === state.id);
   if (item && openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) applyFormStates(item);
 });
+// A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to fix it.
+async function explainExtension(row) {
+  const seen = await window.pilot.extensionSeen().catch(() => null);
+  if (!seen?.version || !seen.latest || seen.version === seen.latest) return;
+  row.append(el('div', 'small ss-check-more', `Likely cause: Chrome runs Job Pilotto extension ${seen.version}, older than this app's ${seen.latest}. ` +
+    'Reload it once (chrome://extensions → ↻ on Job Pilotto); from then on it updates itself.'));
+}
+// Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
+async function showInForm(item, label) {
+  const result = await window.pilot.reviewFocus(item.id, label, item.url, sessionCompany(item));
+  if (result?.taken) return;
+  if (result?.outdated) toastMessage('Reload the Chrome extension once', `Chrome still runs Job Pilotto ${result.extension}; this app has ${result.latest}. ` +
+    'In Chrome open chrome://extensions and click ↻ on Job Pilotto. Your open forms keep their answers; later updates load by themselves.');
+  else if (result?.went !== 'tab') toastMessage('Form tab not found', 'No open Chrome tab matches this job. Find the tab Claude used, then click here again.');
+  else toastMessage('Scroll to it yourself this time', `The form tab didn't answer: the Job Pilotto extension isn't running on it. Look for "${label}" in the form. ` +
+    'In Chrome, chrome://extensions → ↻ on Job Pilotto makes it join the tabs already open.');
+}
 function needRow(need, item) {
   const key = `${item.id}|${need.text}`, li = el('li', `ss-need is-${need.kind}`);
   li.dataset.key = key;
@@ -3552,7 +3570,7 @@ function needRow(need, item) {
   const name = need.label || 'this';
   if (need.kind === 'agree') {
     // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
-    actions.append(smallButton('Show it in the form', 'primary', () => window.pilot.reviewFocus(item.id, agreeLabel(need), item.url, sessionCompany(item))),
+    actions.append(smallButton('Show it in the form', 'primary', () => showInForm(item, agreeLabel(need))),
       smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
     li.dataset.watch = watchId(need.text);
   } else {
@@ -3816,11 +3834,26 @@ $('actions-automation').addEventListener('click', event => {
   document.getElementById('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
 
+// A link in Claude's message: its words (a bare Notion or web address gets a short name), opening Notion where you're
+// signed in (⌘-click: the app's own Notion window), anything else in the browser.
+function messageLink(words, url) {
+  const notion = /(^|\.)notion\.(so|site|com)$/i.test((() => { try { return new URL(url).hostname; } catch { return ''; } })());
+  const text = words || (notion ? 'Open in Notion' : url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40));
+  const link = Object.assign(el('a', 'link', `${text} ↗`), {href: '#', title: url});
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();  // a link inside a row that unfolds: open the link, don't fold the row
+    if (notion) window.pilot.openNotion(url, event.metaKey); else window.pilot.openExternal(url);
+  });
+  return link;
+}
 // Claude's message, readable: paragraphs, bullet and numbered lists, **bold** and `code` (built as DOM, never HTML).
 function richText(text) {
   const inline = line => {
     const nodes = [];
-    for (const part of String(line).split(/(\*\*[^*]+\*\*|`[^`]+`)/)) {
+    for (const part of String(line).split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s)]+)/)) {
+      const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/) || (/^https?:\/\//.test(part) ? [part, '', part] : null);
+      if (link) { nodes.push(messageLink(link[1], link[2])); continue; }
       if (/^\*\*[^*]+\*\*$/.test(part)) nodes.push(el('b', '', part.slice(2, -2)));
       else if (/^`[^`]+`$/.test(part)) nodes.push(el('code', '', part.slice(1, -1)));
       else if (part) nodes.push(document.createTextNode(part));

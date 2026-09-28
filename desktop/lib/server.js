@@ -126,6 +126,10 @@ let tabs = new Set();
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;
 export const extensionSeen = () => seen;
+// The extension version in the app's folder (the one Chrome loads unpacked): an older one in Chrome reloads itself.
+export function latestExtension(read = fs.readFileSync) {
+  try { return JSON.parse(read(`${pipeline.REPO}/extension/manifest.json`, 'utf8')).version || ''; } catch { return ''; }
+}
 export const openTabs = () => [...tabs];
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
@@ -219,7 +223,7 @@ export function start(storage, onError = () => {}) {
           } catch {}
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify({ok}));
+        res.end(JSON.stringify(ok ? {ok, latest: latestExtension()} : {ok}));
         return;
       }
       if (req.url === '/extension/review') {

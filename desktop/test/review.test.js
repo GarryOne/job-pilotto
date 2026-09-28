@@ -44,3 +44,13 @@ test('"show me this field" reaches the matching page once, and expires', () => {
   review.queueFocus('s1', 'Old', 0);
   assert.deepEqual(review.report(sessions, form(), 10 * 60 * 1000).commands, []);  // too old
 });
+
+test('"show me this field": the app learns whether a form page took it, or that none did', async () => {
+  review._reset();
+  review.queueFocus('s1', 'Agreement to Arbitrate');
+  const taken = review.delivered('s1', 2000);
+  review.report(sessions, form());  // the page's next report picks it up
+  assert.equal(await taken, true);
+  review.queueFocus('s2', 'Privacy');
+  assert.equal(await review.delivered('s2', 30), false);  // no page with the extension answered
+});

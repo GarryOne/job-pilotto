@@ -6,8 +6,9 @@
 // <html data-jobpilotto-fill='{"state":"received|running|done|error", ...}'>, which the session reads.
 // <html data-jobpilotto-hook="<version>"> says the extension is here.
 (() => {
-  if (window.__jobPilottoHook) return;
-  window.__jobPilottoHook = true;
+  // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) lets the new one run.
+  if (window.__jobPilottoHookAlive?.()) return;
+  window.__jobPilottoHookAlive = () => !!chrome.runtime?.id;
   document.documentElement.dataset.jobpilottoHook = chrome.runtime.getManifest().version;
   document.addEventListener('jobpilotto:fill', event => {
     let request;

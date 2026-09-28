@@ -4,8 +4,10 @@
 // (the agreements only you may tick) and gets their state back, and "Open the form to tick it" in the app scrolls
 // here to that field. Read only: it never types, ticks or clicks anything in the form.
 (() => {
-  if (window.__jobPilottoReview) return;
-  window.__jobPilottoReview = true;
+  // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
+  if (window.__jobPilottoReviewAlive?.()) return;
+  window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
+  document.getElementById('jobpilotto-review-host')?.remove();
 
   const MIN_FIELDS = 3;
   const SKIP = ['hidden', 'submit', 'button', 'reset', 'search', 'image'];
@@ -140,6 +142,7 @@
   // ---- in step with the app (through the extension's background: extension/background.js) ----
   let watch = [], timer = null, busy = false;
   async function sync() {
+    if (!chrome.runtime?.id) { host.remove(); clearInterval(tick); return; }  // this copy was replaced by a reload
     const state = draw();
     if (!state || busy || !chrome.runtime?.id) return;
     busy = true;
@@ -161,6 +164,6 @@
   document.addEventListener('input', soon, true);
   document.addEventListener('change', soon, true);
   new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
-  setInterval(sync, 4000);  // picks up "show me this field" from the app, and fields that change without events
+  const tick = setInterval(sync, 4000);  // picks up "show me this field" from the app, and fields that change without events
   sync();
 })();
