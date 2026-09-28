@@ -4,6 +4,7 @@ import {icon, fillIcons} from './icons.js';
 import {ago, applicationStats, avatar, band, byStat, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from './jobs-view.js';
 import {localize, osText as swap} from './os.js';
 import {closeMenu, el, moreButton, pill, tag, tile} from './components.js';
+import {openPalette} from './palette.js';
 
 // The window: setup wizard on first run, then Jobs, Strategy and Settings.
 // It only talks to the app through window.pilot (preload.cjs); it never sees a key's value.
@@ -781,6 +782,39 @@ function openView(name) {
 document.querySelectorAll('.nav').forEach(nav => {
   nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
   nav.addEventListener('click', () => openView(nav.dataset.view));
+});
+
+// ⌘K / Ctrl+K: the command palette. Its commands are the app's own buttons, read when it opens (so a disabled
+// button or a missing Notion link isn't offered); running one opens its page, then clicks it.
+const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search jobs find refresh',
+  scout: 'employers companies discover', status: 'health check', weekly: 'report stats', insight: 'tip advice',
+  today: 'telegram list', applied: 'applications', saved: 'bookmarks starred'};
+const labelOf = node => node?.textContent.replace(/\s+/g, ' ').trim() || '';
+function paletteCommands() {
+  const commands = [];
+  const add = (group, label, hint, keywords, run) => { if (label) commands.push({group, label, hint, keywords, run}); };
+  const button = (view, id, keywords, hint = '') => {
+    const node = $(id);
+    if (node && !node.disabled && !node.closest('[hidden]:not(.view)')) add(view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => { openView(view); node.click(); });
+  };
+  document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => openView(nav.dataset.view)));
+  document.querySelectorAll('.action[data-command]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
+    labelOf(node.querySelector('span')), PALETTE_KEYWORDS[node.dataset.command], () => { openView('actions'); node.click(); }));
+  button('jobs', 'refresh', 'find jobs scan');
+  button('jobs', 'apply-open', 'apply fill forms');
+  button('jobs', 'applied-open', 'track add application outside');
+  button('interviews', 'iv-add', 'upload audio video transcript file');
+  button('interviews', 'iv-record', 'start call audio', 'Record a call (everyone agreed)');
+  button('interviews', 'iv-recordings', 'files folder finder');
+  document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));
+  return commands;
+}
+$('palette-hint').addEventListener('click', () => openPalette(paletteCommands()));
+document.addEventListener('keydown', event => {
+  if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
+  if ($('app').hidden) return;  // the setup wizard has nothing to run yet
+  event.preventDefault();
+  if ($('palette')) $('palette').close(); else openPalette(paletteCommands());
 });
 
 // Job pages open in Chrome now (reported by the extension; refreshed every 2 s), plus ones just opened here.
