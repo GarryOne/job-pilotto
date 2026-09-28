@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, nativeImage, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +15,7 @@ import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
+import * as quitDialog from './lib/quit-dialog.js';
 import {openFormTab} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
@@ -1009,29 +1010,18 @@ app.on('before-quit', event => {
   const sessions = terminals.running().filter(session => session.status === 'running');
   if (!busy && !queue.length && !sessions.length) return;
   event.preventDefault();
-  const names = sessions.map(session => terminals.label(session)).slice(0, 3).join(', ') + (sessions.length > 3 ? '…' : '');
-  const stopping = sessions.length ? `\n\nQuitting stops ${sessions.length === 1 ? 'the Claude session' : `${sessions.length} Claude sessions`} ` +
-    `(${names}): what's already filled stays in Chrome, and they come back stopped: open the session and press Resume.` : '';
+  const label = session => session.company || terminals.label(session);
+  const icon = nativeImage.createFromPath(path.join(here, 'assets', 'icon.png'));
   if (!busy && !queue.length) {  // only sessions: keep them, or stop them and quit
-    const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {
-      type: 'warning', buttons: ['Keep working', sessions.length === 1 ? 'Stop it and quit' : 'Stop them and quit'], defaultId: 0, cancelId: 0,
-      message: sessions.length === 1 ? 'Claude is still applying' : `${sessions.length} Claude sessions are still applying`,
-      detail: stopping.trim(),
-    });
+    const {message, detail, buttons} = quitDialog.sessionsOnly(sessions, label);
+    const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {type: 'none', icon, buttons, defaultId: 0, cancelId: 0, message, detail});
     if (choice === 0) { window?.show(); toWindow('session', 'open', {id: sessions[0].id}); return; }
     quitting = true;
     app.quit();
     return;
   }
-  const what = [busy && `${pipeline.taskName(busy.kind)} is running`,
-    queue.length && `${queue.length} waiting (${queue.map(job => pipeline.taskName(job.kind)).join(', ')})`,
-    sessions.length && `${sessions.length} Claude session${sessions.length === 1 ? ' is' : 's are'} applying`].filter(Boolean).join(' and ');
-  const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {
-    type: 'question', buttons: ['Quit when done', 'Quit now', 'Cancel'], defaultId: 0, cancelId: 2,
-    message: 'Job Pilotto is still working',
-    detail: `${what[0].toUpperCase()}${what.slice(1)}.\n\nQuit when done: the app closes by itself once they finish.\n` +
-      'Quit now: it stops, and the jobs you started run again the next time you open the app. What was already saved stays in Notion.' + stopping,
-  });
+  const {message, detail, buttons} = quitDialog.working({busy, queue, sessions, label, taskName: pipeline.taskName});
+  const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {type: 'none', icon, buttons, defaultId: 0, cancelId: 2, message, detail});
   if (choice === 2) return;
   quitting = true;
   if (choice === 1) {
