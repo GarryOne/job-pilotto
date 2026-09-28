@@ -4,6 +4,7 @@
 # GitHub. Reads the hook's JSON on stdin; exit 2 blocks the command and shows the reason to Claude.
 #   python: unittest, normally and as CI sees it (no Notion/Telegram/Google/SerpApi credentials)
 #   worker, site: npm test  desktop: npm test (npm ci first when node_modules is missing)
+# Also blocks a push on top of a red CI build on main, and a build.yml that installs without dev dependencies.
 set -uo pipefail
 
 input="$(cat)"
@@ -20,6 +21,20 @@ if [ -n "$last_cd" ]; then
 fi
 repo="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [ -f "$repo/src/daily.py" ] && [ -d "$repo/worker" ] || exit 0   # only this project
+
+# Don't stack commits on a red main: when the latest finished `build` run on main failed, block the push
+# (it says why) unless the command says it is the fix: `CI_RED_OK=1 git push ...`. No gh or no network: skip.
+case "$command" in *CI_RED_OK=1*) ;; *)
+  if command -v gh >/dev/null; then
+    last="$(cd "$repo" && gh run list --workflow build.yml --branch main --status completed -L 1 \
+      --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
+    case "$last" in failure*|cancelled*|timed_out*)
+      echo "Push blocked: CI 'build' on main is red ($last). See why (gh run view --log-failed), fix it," \
+        "and push the fix with CI_RED_OK=1 git push ...; don't add more commits on top of a red build." >&2
+      exit 2 ;;
+    esac
+  fi ;;
+esac
 
 failed=()
 log="$(mktemp)"
@@ -42,6 +57,15 @@ clean_install() {  # folder
   cp "$1/package.json" "$1/package-lock.json" "$scratch/" && (cd "$scratch" && npm ci --ignore-scripts --silent)
   local code=$?; rm -rf "$scratch"; return $code
 }
+# - install drift: the pre-push tests run with dev dependencies installed, so CI must install them too, or a
+#   test needing one (e.g. esbuild in desktop's pretest) passes here and fails on every CI run.
+ci_installs_dev() {
+  if grep -nE 'npm (ci|install)[^#]*--(omit|only)[= ](dev|prod)|--production' .github/workflows/build.yml; then
+    echo "build.yml: the test jobs must install dev dependencies like a developer does (drop --omit/--production)"
+    return 1
+  fi
+}
+run "CI installs dev dependencies (build.yml)" ci_installs_dev
 if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
 else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
 upstream="$(git -C "$repo" rev-parse --verify -q '@{upstream}' 2>/dev/null || git -C "$repo" rev-parse -q origin/main)"

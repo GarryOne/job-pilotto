@@ -67,4 +67,7 @@ A Claude Code hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs 
 Python suite without credentials as CI sees it, before every `git push` and blocks the push if one
 fails, so only green builds reach GitHub. It also lints the workflow files (`actionlint`, with
 shellcheck on each `run:` script) and, when a `package.json` or lock file changed, proves `npm ci`
-works from scratch, the two CI-only failure classes the tests can't see.
+works from scratch, the two CI-only failure classes the tests can't see. Two more guards: `build.yml` must
+install dev dependencies like a developer does (an `--omit=dev` there once hid a missing esbuild from this hook
+and left 8 commits red), and a push is blocked while the latest `build` run on main is red; push the fix itself
+with `CI_RED_OK=1 git push ...`.

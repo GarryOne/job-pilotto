@@ -53,8 +53,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # The tests don't start Electron, so its large binary is skipped.
-      - run: npm ci --omit=dev
+      # Install exactly what a developer (and the release workflow) has, dev dependencies included:
+      # `npm test` runs scripts/stage.mjs, which needs esbuild. Only Electron's large binary is skipped,
+      # as the tests don't start it. tools/pre-push-check.sh blocks `--omit` here.
+      - run: npm ci
         working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm test
         working-directory: desktop
