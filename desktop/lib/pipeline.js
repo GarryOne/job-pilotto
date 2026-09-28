@@ -195,7 +195,10 @@ export function checkMail(storage, onLine, trigger = 'you') {
     return {ok};
   }, (record, log) => {
     const start = log.indexOf('Updates:');
-    const updates = start < 0 ? [] : log.slice(start + 1).filter(line => /^\S/.test(line) && !/^Mail: /.test(line));
+    // The update lines sit between "Updates:" and the "Mail: …" summary; what follows (the run-log link) isn't one.
+    const after = start < 0 ? [] : log.slice(start + 1);
+    const end = after.findIndex(line => /^Mail: /.test(line));
+    const updates = (end < 0 ? after : after.slice(0, end)).filter(line => /^\S/.test(line) && !/^Cronjob run logged/.test(line));
     return {off, problem, updates, summary: log.filter(line => /^Mail: /.test(line)).pop() || null};
   });
 }

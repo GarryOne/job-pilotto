@@ -370,7 +370,7 @@ def review_rejections(tracker, client, rejected, stats, backfill=2):
             continue
         lines.append(escape(summary))
         if stats is not None:
-            stats.setdefault('updates', []).append(summary[:200])
+            stats.setdefault('updates', []).append(summary)  # whole: the app wraps it
     return lines
 
 

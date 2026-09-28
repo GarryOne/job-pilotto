@@ -334,10 +334,23 @@ function renderActivity(data) {
   const text = lines.join('\n') || 'Nothing to show yet.';
   if (log.textContent !== text) {
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
-    log.textContent = text;
+    log.replaceChildren(...linked(text));
     if (atBottom) log.scrollTop = log.scrollHeight;  // follow new lines unless the user scrolled up to read
   }
 }
+// Text with its web addresses as links (the run's Notion page, a GitHub run…); the log's click handler opens them.
+function linked(text) {
+  return text.split(/(https?:\/\/[^\s<>"')\]]+)/).map((part, i) => i % 2
+    ? Object.assign(document.createElement('a'), {href: part, textContent: part, className: 'log-link'})
+    : document.createTextNode(part));
+}
+$('log').addEventListener('click', event => {
+  const link = event.target.closest('a.log-link');
+  if (!link) return;
+  event.preventDefault();
+  if (/notion\.(so|com)\//.test(link.href)) window.pilot.openNotion(link.href, event.metaKey);
+  else window.pilot.openExternal(link.href);
+});
 $('activity-notion').addEventListener('click', event => {
   event.preventDefault();
   if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
