@@ -469,3 +469,12 @@ test('a Gmail check that exited normally but read nothing is a failure with its 
   assert.match(mailProblem('⚠️ The Google sign-in for Gmail and Calendar has expired (…)'), /Google sign-in expired/);
   assert.equal(mailProblem('Mail: 12 emails read, 2 updates\nUpdates:\nGrafana: Rejected'), null);
 });
+
+test('the Focus page state exists before the start-up code opens Focus', async () => {
+  const {readFileSync} = await import('node:fs');
+  const source = readFileSync(new URL('../renderer/app.js', import.meta.url), 'utf8');
+  const startup = source.indexOf("openView('focus')");
+  for (const name of ['let focusLoading', 'const FOCUS_WHEN', 'let outdatedShown']) {
+    assert.ok(source.indexOf(name) >= 0 && source.indexOf(name) < startup, `${name} is declared after the start-up code uses it`);
+  }
+});

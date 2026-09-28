@@ -14,6 +14,10 @@ localize(document.body, window.pilot.platform);
 const STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras'];
 fillIcons();
 let state = await window.pilot.state();
+// Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
+let focusLoading = null, focusShown = false;
+const FOCUS_WHEN = {1: ['Now', 'bad'], 2: ['Soon', 'warn'], 3: ['Today', 'info'], 4: ['When you can', 'neutral']};
+let outdatedShown = false;
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
@@ -2353,7 +2357,6 @@ async function startRecording(micOnly) {
 $('iv-stop').addEventListener('click', () => recorder?.state === 'recording' && recorder.stop());
 
 // ---------- Focus: what to do next (src/focus.py, from Notion, no AI) ----------
-const FOCUS_WHEN = {1: ['Now', 'bad'], 2: ['Soon', 'warn'], 3: ['Today', 'info'], 4: ['When you can', 'neutral']};
 function focusButton(label, className, run) {
   const button = Object.assign(document.createElement('button'), {className, textContent: label});
   button.addEventListener('click', run);
@@ -2363,7 +2366,6 @@ function openLink(url, event) {
   if (/notion\.(so|com)\//.test(url)) window.pilot.openNotion(url, event?.metaKey); else window.pilot.openExternal(url);
 }
 // First load: a spinner where the list goes (like Jobs and Interviews); later the items stay while it refreshes.
-let focusLoading = null, focusShown = false;
 function loadFocus() {
   focusLoading ||= loadFocusOnce().catch(error => {
     // Never a blank page: say what went wrong where the list goes.
@@ -2482,7 +2484,6 @@ for (const id of ['focus-remind', 'set-remind']) $(id).addEventListener('change'
 });
 
 // The running app is older than this window (updated while open): offer a restart, once.
-let outdatedShown = false;
 window.addEventListener('pilot-outdated', () => {
   if (outdatedShown) return;
   outdatedShown = true;
