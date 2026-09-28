@@ -1025,8 +1025,10 @@ async function loadQuestions() {
     const label = Object.assign(document.createElement('label'), {textContent: q.question});
     if (q.company) label.append(Object.assign(document.createElement('small'), {textContent: ` · asked by ${q.company}`}));
     const input = Object.assign(document.createElement('input'), {type: 'text', placeholder: 'Your standard answer'});
+    if (q.hint) label.append(Object.assign(document.createElement('small'), {className: 'muted', textContent: ` · ${q.hint}`}));
     const save = Object.assign(document.createElement('button'), {className: 'secondary', textContent: 'Save'});
-    const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip', title: 'Not a question to keep an answer for'});
+    const skip = Object.assign(document.createElement('button'), {className: 'link', textContent: 'Skip',
+      title: q.hint !== undefined ? 'Forms leave this field empty (the table row stays, answered "— (leave blank)")' : 'Not a question to keep an answer for'});
     const note = Object.assign(document.createElement('span'), {className: 'message'});
     const answer = async value => {
       save.disabled = skip.disabled = true;
