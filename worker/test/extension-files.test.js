@@ -16,10 +16,13 @@ test('manifest asks for activeTab, alarms, debugger, scripting and storage, and 
   assert.equal(manifest.manifest_version, 3);
   // debugger: real clicks on dropdowns, used only when Settings → Fill drop-down menus too is on (Chrome can't make it optional).
   assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'alarms', 'debugger', 'scripting', 'storage']);
+  // The flow's own list ("Opened in Chrome", auto-fill) is the same.
+  assert.match(read('extension/flow.js'), /successfactors\.eu/);
   // Granted at install, so tabs opened by the app or "Open & fill" fill themselves (as optional
   // permissions they needed a prompt that closed the popup, and nothing filled).
   assert.deepEqual(manifest.host_permissions, ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
-    'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*']);
+    'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
+    'https://*.successfactors.eu/*', 'https://*.successfactors.com/*', 'https://*.jobs.personio.de/*', 'https://*.jobs.personio.com/*', 'https://*.teamtailor.com/*', 'https://*.recruitee.com/*', 'https://*.softgarden.io/*', 'https://*.umantis.com/*', 'https://*.taleo.net/*', 'https://*.icims.com/*', 'https://*.bamboohr.com/*']);
   // Every other site only through Settings → Work on every job site (asked from the options tab, which stays open).
   assert.deepEqual(manifest.optional_host_permissions, ['https://*/*']);
   assert.match(read('extension/options.js'), /chrome\.permissions\.request\(EVERY_SITE\)/);

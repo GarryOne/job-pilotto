@@ -34,7 +34,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   const origin = new URL(tab.url).origin + '/*';
   chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
-    // Not one of the supported job sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable):
+    // Not one of the supported job sites (flow.js JOB_SITES):
     // the extension may not touch this page by itself; the user can still click its button here.
     chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
     chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill with AI (this site needs your click)'}).catch(() => {});  // the tab may already be closed

@@ -27,8 +27,7 @@ Multi-page forms: click Next on the page, then Fill again.
 ## Privacy
 
 - Permissions: `activeTab`, `scripting`, `storage`. Nothing runs on a page until you open the popup
-  there. **Open & fill** asks once for access to job sites only (Greenhouse, Lever, Ashby, Workday,
-  SmartRecruiters, Workable), so it can fill a tab it opened itself.
+  there. **Open & fill** asks once for access to job sites only (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, SuccessFactors, Personio, Teamtailor, Recruitee, softgarden, Umantis, Taleo, iCIMS and BambooHR), so it can fill a tab it opened itself.
 - Sent to your Worker for AI answers: the form's questions and choices and the page's text. Your
   contact details and CV stay in the browser.
 - Your contact details are stored in this browser only (`chrome.storage.local`).
