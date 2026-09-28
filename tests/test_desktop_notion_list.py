@@ -1,0 +1,47 @@
+"""The desktop Jobs list comes from Notion; the local cache only adds details and unsynced finds."""
+import sqlite3
+import unittest
+from unittest import mock
+
+from src import desktop
+
+
+def notion(url, **kw):
+    return {'url': url, 'title': kw.get('title', 'SRE'), 'company': kw.get('company', 'Acme'), 'location': 'Zurich',
+            'work_mode': 'Hybrid', 'fit': kw.get('fit', 70), 'reason': 'good', 'match_status': kw.get('status', 'Open'),
+            'first_seen': '2026-09-20', **({'stage': kw['stage'], 'next_step': kw.get('step', ''), 'notion_url': 'n'} if 'stage' in kw else {})}
+
+
+class NotionListTests(unittest.TestCase):
+    def run_list(self, notion_jobs, local=(), blocked=()):
+        with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=(list(local), list(blocked))), \
+                mock.patch.object(desktop.score, 'load', return_value={}), \
+                mock.patch.object(desktop.store, 'set_application_status') as cache:
+            return desktop.jobs(sqlite3.connect(':memory:'), notion_jobs=notion_jobs), cache
+
+    def test_notion_rows_are_the_list_even_without_a_local_copy(self):
+        result, _ = self.run_list([notion('https://a/1', fit=80), notion('https://a/2', stage='Applied', fit=60)])
+        self.assertEqual([(r['url'], r['status'], r['fit'], r['first_seen_at']) for r in result['jobs']],
+                         [('https://a/1', 'unreviewed', 80, '2026-09-20'), ('https://a/2', 'applied', 60, '2026-09-20')])
+
+    def test_gone_postings_excluded_companies_and_filtered_jobs_are_left_out(self):
+        with mock.patch.dict(desktop.digest.PREFERENCES, {'excluded_companies': ['SonarSource']}):
+            result, _ = self.run_list([notion('https://a/gone', status='Not seen'), notion('https://a/applied-gone', status='Not seen', stage='Applied'),
+                                       notion('https://a/sonar', company='SonarSource SA'), notion('https://a/german')],
+                                      blocked=[{'url': 'https://a/german'}])
+        self.assertEqual([r['url'] for r in result['jobs']], ['https://a/applied-gone'])  # your application stays
+
+    def test_only_notion_fields_the_cache_follows_notion_and_unsynced_finds_are_marked(self):
+        local = [{'id': 7, 'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme', 'posted_at': '2026-09-19',
+                  'first_seen_at': '2026-09-19T08:00', 'application_status': 'unreviewed'},
+                 {'id': 8, 'url': 'https://a/new', 'title': 'Platform', 'company': 'Beta', 'application_status': 'unreviewed'}]
+        result, cache = self.run_list([notion('https://a/1', stage='Saved')], local=local)
+        rows = {r['url']: r for r in result['jobs']}
+        # Notion's fields only: the cache's own dates never leak into the list
+        self.assertEqual((rows['https://a/1']['id'], rows['https://a/1']['first_seen_at'], rows['https://a/1']['status']), (None, '2026-09-20', 'saved'))
+        cache.assert_called_once_with(mock.ANY, 7, 'saved')
+        self.assertTrue(rows['https://a/new']['unsynced'])
+
+
+if __name__ == '__main__':
+    unittest.main()

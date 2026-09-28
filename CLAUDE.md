@@ -25,9 +25,13 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   refuses, nothing changes locally and the user is told.
 - Notion is required in the Desktop App (decided 28 Sep 2026): the setup can't finish without it, and a
   set-up app without a Notion connection opens the Notion step. There is no Mac-only mode.
-- No new "local fallback" copies of user data. A feature that needs a new database, column or page adds it
-  to Notion *and* to `config/notion_schema.json` (`tools/notion_schema.py snapshot`), so every workspace can
-  be rebuilt and repaired (`desktop/lib/schema.js`).
+- No new "local fallback" copies of user data, and **no cache-only fields**: if a screen or command needs a
+  field, it is a Notion column. A feature that needs a new database, column or page adds it to Notion *and* to
+  `config/notion_schema.json` (`tools/notion_schema.py snapshot`, or edit it), so every workspace can be rebuilt
+  and repaired (`desktop/lib/schema.js`, at connect and start-up). Existing rows get the value backfilled.
+  `tests/test_notion_schema_coverage.py` fails when the code uses a column the schema lacks.
+- The desktop Jobs list is built from Notion (Job Matches + Applications, `Tracker.notion_jobs`), with Notion's
+  fields only; the cache is kept in step and only adds jobs a search couldn't write to Notion yet (marked).
 - Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only
   after Notion confirmed it has it) and a test.
 - Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever

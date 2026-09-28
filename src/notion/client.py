@@ -92,6 +92,34 @@ class Tracker:
                 rows[url.strip()] = ((props['Stage'].get('select') or {}).get('name'), step, page.get('url') or '')
         return rows
 
+    def notion_jobs(self):
+        """Every job in Notion, merged by URL: Job Matches rows (score, reason, status) and Applications rows
+        (stage, next step, the kit's page). The desktop app's Jobs list is built from this (Notion is the truth)."""
+        text = lambda prop: ''.join(t.get('plain_text', '') for t in (prop or {}).get('rich_text') or (prop or {}).get('title') or [])
+        select = lambda prop: ((prop or {}).get('select') or {}).get('name')
+        found = {}
+        if MATCHES_DATABASE_ID:
+            for page in self._query(None, MATCHES_DATABASE_ID):
+                props = page['properties']
+                url = ((props.get('Job URL') or {}).get('url') or '').strip()
+                if url:
+                    found[url] = {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
+                                  'location': text(props.get('Location')), 'work_mode': select(props.get('Work mode')) or '',
+                                  'fit': (props.get('Score') or {}).get('number'), 'reason': text(props.get('Reason')),
+                                  'match_status': select(props.get('Status')),
+                                  'first_seen': ((props.get('First seen') or {}).get('date') or {}).get('start') or page.get('created_time', '')}
+        for page in self._query():
+            props = page['properties']
+            url = ((props.get('Job URL') or {}).get('url') or '').strip()
+            if not url:
+                continue
+            row = found.setdefault(url, {'url': url, 'title': text(props.get('Job')), 'company': text(props.get('Company')),
+                                         'location': text(props.get('Location')), 'work_mode': select(props.get('Work mode')) or '',
+                                         'fit': (props.get('Fit score') or {}).get('number'), 'reason': '',
+                                         'match_status': None, 'first_seen': page.get('created_time', '')})
+            row.update(stage=select(props.get('Stage')), next_step=text(props.get('Next step')), notion_url=page.get('url') or '')
+        return list(found.values())
+
     def hidden_urls(self):
         """URLs of jobs that should no longer appear in digests (applied, dismissed, rejected, ...)."""
         return {url for url, stage in self.url_stages().items() if stage not in VISIBLE_STAGES}

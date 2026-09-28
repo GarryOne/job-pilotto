@@ -51,6 +51,8 @@ def properties(job, status):
         'Status': {'select': {'name': status}},
         'Scored': {'date': {'start': datetime.now(timezone.utc).date().isoformat()}},
     }
+    if job.get('first_seen_at'):  # when a search first found it: "new this week" and the newest-first sort read this
+        props['First seen'] = {'date': {'start': job['first_seen_at'][:10]}}
     if ai:
         if ai['seniority']['value'] in SENIORITY:
             props['Seniority'] = {'select': {'name': SENIORITY[ai['seniority']['value']]}}
