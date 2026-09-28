@@ -79,11 +79,18 @@ export function readable(text) {
       : NAMED[code.toLowerCase()] ?? match);
 }
 
+// The pipeline processes running now: stopRunning() ends them cleanly when the app quits (instead of them
+// failing on their next line once the app is gone).
+const children = new Set();
+export function stopRunning() { for (const child of children) child.kill('SIGTERM'); }
+
 // Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine (made readable).
 // stdout itself stays as printed, for the callers that parse it.
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
+    children.add(child);
+    child.on('exit', () => children.delete(child));
     let stdout = '', buffer = '';
     const lines = chunk => {
       buffer += chunk;
@@ -179,8 +186,32 @@ export const running = () => current;
 let waiting = [], nextTicket = 0;
 export const queued = () => waiting.map(({id, kind, trigger, queuedAt}) => ({id, kind, trigger, queuedAt}));
 
+// The queue survives quitting the app: queue.json holds the running job and the waiting ones with how to start
+// each again (resume: a search's mode, a task's command). The app starts the ones you started again next time
+// (the schedule catches up its own). freezeQueue() keeps it as it is while the app quits.
+const QUEUE_FILE = 'queue.json';
+let frozen = false;
+function saveQueue(storage) {
+  if (frozen) return;
+  const jobs = [...(current?.resume ? [{...current, interrupted: true}] : []), ...waiting]
+    .map(({kind, trigger, queuedAt, startedAt, resume, interrupted}) => ({kind, trigger, queuedAt: queuedAt || startedAt, resume, ...(interrupted ? {interrupted} : {})}));
+  storage.writeText(QUEUE_FILE, JSON.stringify(jobs));
+}
+export function freezeQueue(storage) { saveQueue(storage); frozen = true; }
+// The jobs saved when the app last quit (and forgets them: they're started again, or dropped).
+export function takeQueue(storage) {
+  let jobs = [];
+  try { jobs = JSON.parse(storage.readText(QUEUE_FILE)) || []; } catch {}
+  storage.writeText(QUEUE_FILE, '[]');
+  return jobs.filter(job => job && job.kind && job.resume);
+}
+// Resolves once nothing runs and nothing waits (for "Quit when done").
+export async function whenIdle(poll = 2000) {
+  while (current || waiting.length) await new Promise(resolve => setTimeout(resolve, poll));
+}
+
 export function refresh(storage, onLine, mode = 'run', trigger = 'you') {
-  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), record => {
+  return tracked(storage, 'search', trigger, onLine, tee => searchOnce(storage, tee, mode, trigger), {mode}, record => {
     let summary = {};
     try { summary = JSON.parse(storage.readText('data/reports/last-run.json')); } catch {}
     const fresh = summary.started_at && Date.parse(summary.started_at) >= record.id - 60000;
@@ -217,7 +248,7 @@ export function checkMail(storage, onLine, trigger = 'you') {
     const ok = code === 0 && !problem;
     storage.saveSettings({lastMailAt: at, ...(ok && !off ? {lastMailOkAt: at} : {})});
     return {ok};
-  }, (record, log) => ({...mailResult(log), off, problem}));
+  }, {}, (record, log) => ({...mailResult(log), off, problem}));
 }
 // What a Gmail check recorded and its "Mail: …" summary line (also read from GitHub runs' logs, cloud-runs.js).
 export function mailResult(log) {
@@ -243,7 +274,7 @@ export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
     const {code} = await run(storage, args, tee, triggerEnv(trigger));
     return {ok: code === 0};
-  }, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
+  }, {args}, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
 }
 // Without Telegram the pipeline prints its message between <<<message / message>>> (src/telegram.py to_app);
 // the last one, as plain text (Telegram HTML removed), is what the app shows as the result.
@@ -261,17 +292,19 @@ export function taskSummary(kind, log) {
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
-function tracked(storage, kind, trigger, onLine, work, summarize) {
+function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
   // The same task already waiting: a second click joins it instead of queueing it twice.
   const twin = waiting.find(ticket => ticket.kind === kind);
   if (twin) return twin.done;
-  const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString()};
+  const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString(), resume};
   waiting.push(ticket);
+  saveQueue(storage);
   ticket.done = serial(async () => {
     waiting = waiting.filter(other => other !== ticket);
     const log = [];
     const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
-    current = {...record, step: 'Starting'};
+    current = {...record, step: 'Starting', resume};
+    saveQueue(storage);
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
     const tee = line => {
       log.push(line);
@@ -289,6 +322,7 @@ function tracked(storage, kind, trigger, onLine, work, summarize) {
       Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, log: log.slice(-400), ...summarize(record, log)});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
+      saveQueue(storage);
     }
     return {ok, run: record};
   });

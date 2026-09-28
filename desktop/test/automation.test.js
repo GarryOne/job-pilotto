@@ -191,3 +191,27 @@ test('Telegram HTML shows as readable text everywhere the app shows output', () 
   assert.equal(pipeline.readable('score < 50 → skip'), 'score < 50 → skip');
   assert.equal(pipeline.appMessage(['<<<message', '<b>Seniority</b>', 'candidate&#x27;s title', 'message>>>']), "Seniority\ncandidate's title");
 });
+
+test('the queue survives quitting: saved with how to start each job again, emptied as they finish', async () => {
+  const storage = tempStorage();
+  // Two tasks clicked together: the second waits for the first. Both fail fast (no such module), that's fine here.
+  const first = pipeline.task(storage, 'insight', ['src.no_such_module_a'], () => {});
+  const second = pipeline.task(storage, 'weekly', ['src.no_such_module_b'], () => {});
+  const saved = JSON.parse(storage.readText('queue.json'));
+  assert.deepEqual(saved.map(job => [job.kind, job.trigger, job.resume.args[0]]),
+    [['insight', 'you', 'src.no_such_module_a'], ['weekly', 'you', 'src.no_such_module_b']]);
+  await Promise.all([first, second]);
+  assert.deepEqual(JSON.parse(storage.readText('queue.json')), []);
+  await pipeline.whenIdle(10);  // nothing runs, nothing waits
+});
+
+test('at the next start the saved jobs are handed back once, and entries without a way to start them are dropped', () => {
+  const storage = tempStorage();
+  storage.writeText('queue.json', JSON.stringify([
+    {kind: 'insight', trigger: 'you', resume: {args: ['src', 'daily', '--mode', 'insight']}, interrupted: true},
+    {kind: 'mail', trigger: 'schedule', resume: {}},
+    {kind: 'weekly', trigger: 'you'},  // older file without resume: dropped
+  ]));
+  assert.deepEqual(pipeline.takeQueue(storage).map(job => job.kind), ['insight', 'mail']);
+  assert.deepEqual(pipeline.takeQueue(storage), []);  // taken: not started twice
+});

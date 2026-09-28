@@ -832,6 +832,7 @@ if (firstCopy) app.whenReady().then(() => {
           run.updates.slice(0, 3).join('\n'));
       },
     }, powerMonitor, {soon: () => notify('Job search starting in 1 minute', 'Your scheduled search for new jobs is about to run.')});
+    setTimeout(resumeQueue, 20 * 1000);  // after the schedule's own catch-up check has queued what's due
   }
   if (!DEMO) setInterval(() => focusReminder().catch(() => {}), 5 * 60 * 1000);
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
@@ -853,3 +854,48 @@ async function focusReminder(now = new Date()) {
 }
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+// Jobs you started that were running or waiting when the app quit (pipeline queue.json) start again. The
+// schedule's own (searches, Gmail checks) aren't: its catch-up runs whatever is due anyway.
+function resumeQueue() {
+  const cloud = !!storage.settings().cloud?.repo;  // searches and Gmail checks then run in the GitHub repo
+  const jobs = pipeline.takeQueue(storage).filter(job => job.trigger !== 'schedule' && !(cloud && ['search', 'mail'].includes(job.kind)));
+  for (const job of jobs) {
+    const failed = error => log(`${pipeline.taskName(job.kind)} failed: ${error.message}`);
+    if (job.kind === 'search') pipeline.refresh(storage, log, job.resume.mode || 'run', 'you').catch(failed);
+    else if (job.kind === 'mail') pipeline.checkMail(storage, log, 'you').catch(failed);
+    else if (pipeline.TASKS[job.kind] && Array.isArray(job.resume.args)) pipeline.task(storage, job.kind, job.resume.args, log, 'you').catch(failed);
+  }
+  if (jobs.length) {
+    notify(`Picking up ${jobs.length} job${jobs.length === 1 ? '' : 's'} from before you quit`,
+      jobs.map(job => pipeline.taskName(job.kind)).join(', '));
+  }
+}
+
+// Quitting while something runs or waits: ask. "Quit when done" closes the app once the queue is empty;
+// "Quit now" stops the running job cleanly and keeps the queue for next time (resumeQueue).
+let quitting = false;
+app.on('before-quit', event => {
+  if (quitting || DEMO || process.env.JOB_PILOTTO_SMOKE) return;
+  const busy = pipeline.running(), queue = pipeline.queued();
+  if (!busy && !queue.length) return;
+  event.preventDefault();
+  const what = [busy && `${pipeline.taskName(busy.kind)} is running`,
+    queue.length && `${queue.length} waiting (${queue.map(job => pipeline.taskName(job.kind)).join(', ')})`].filter(Boolean).join(' and ');
+  const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {
+    type: 'question', buttons: ['Quit when done', 'Quit now', 'Cancel'], defaultId: 0, cancelId: 2,
+    message: 'Job Pilotto is still working',
+    detail: `${what[0].toUpperCase()}${what.slice(1)}.\n\nQuit when done: the app closes by itself once they finish.\n` +
+      'Quit now: it stops, and the jobs you started run again the next time you open the app. What was already saved stays in Notion.',
+  });
+  if (choice === 2) return;
+  quitting = true;
+  if (choice === 1) {
+    pipeline.freezeQueue(storage);
+    pipeline.stopRunning();
+    app.quit();
+    return;
+  }
+  notify('Job Pilotto will quit when done', what);
+  pipeline.whenIdle().then(() => app.quit());
+});
