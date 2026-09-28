@@ -95,10 +95,30 @@ TMP_DIR="$(mktemp -d)"
 ( sleep 60 && rm -rf "$TMP_DIR" ) >/dev/null 2>&1 &
 disown
 
+# Started by the Mac app (it passes its settings in the environment): the Terminal session must use the app's
+# Notion workspace and folder, not ~/sre-watch/.env. They go to each window through a private file (umask 077)
+# that the new shell reads and deletes at once; the folder is removed after a minute anyway.
+write_session_env() {
+  [ -n "${JOB_PILOTTO_CONFIG_DIR:-}" ] || return 0
+  (umask 077; python3 - "$1" <<'PY'
+import os, re, shlex, sys
+keep = re.compile(r'^(NOTION_[A-Z0-9_]+|JOB_PILOTTO_[A-Z0-9_]+|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID)$')
+with open(sys.argv[1], 'w') as out:
+    for key, value in sorted(os.environ.items()):
+        if keep.match(key):
+            out.write(f'export {key}={shlex.quote(value)}\n')
+PY
+  )
+}
+
 i=0
 for url in "${urls[@]}"; do
   i=$((i + 1))
   prompt_file="$TMP_DIR/prompt_$i.txt"
+  env_file="$TMP_DIR/session_$i.env"
+  write_session_env "$env_file"
+  load_env=""
+  [ -f "$env_file" ] && load_env=". '$env_file' && rm -f '$env_file' && "
   # A ticket from the Job Pilotto app (when it's running) lets this session hand the form to the Chrome
   # extension for its fast fill first (extension/hook.js); without one the session fills everything itself.
   ticket="$(curl -s -m 3 -X POST -H 'X-Job-Pilotto: launcher' -H 'Content-Type: application/json' \
@@ -109,7 +129,7 @@ for url in "${urls[@]}"; do
     handoff="Extension first: on each form page, if <html> has data-jobpilotto-hook, hand the form to the Job Pilotto extension before filling anything yourself: evaluate document.dispatchEvent(new CustomEvent('jobpilotto:fill',{detail:JSON.stringify({job:'$url',ticket:'$ticket'})})), then read document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s) until its state is done or error; if it's still missing after 5 s, or there's no data-jobpilotto-hook, carry on without it. When it's done, run the audit and fill ONLY what it left (its todo list), then verify as usual. Never send the event twice on the same page. "
   fi
   cat > "$prompt_file" <<PROMPT
-Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the posting in Chrome (claude-in-chrome) and get to the actual form as the skill's "Reaching the form" section says: when the page is a job board's or only links out, follow its Apply / Apply now buttons to the employer's site, and create an account or sign in there if it asks (password generated into the Keychain and pasted from the clipboard, never typed or shown). A confirmation email's code or link you read yourself with python3 -m src.sources.google verify --from <employer domain> (Gmail, read-only). Whenever a CAPTCHA or a terms checkbox blocks you, run tools/notify.sh $url "Needs your input — see Terminal", tell me in one line what to do in Chrome, wait for my reply, then carry on. ${handoff}Fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. If the --context call below finds no kit for this job, stop right there: open nothing, run tools/notify.sh $url "No kit yet — press Prepare first", say so in one line and finish. Get everything in ONE call first — the kit, Profile, Application Answers and earlier runs' learnings for this job board: NOTION_TOKEN="\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)" python3 -m src.ai.apply_run --context $url (don't fetch those pages separately). For every dropdown, open it and pick with window.__jobPilottoClickOption('<exact option text>') — never type + Return, which picks partial matches ("Male" -> "Female"). While filling, stamp phases inside JS calls you already make with window.__jobPilottoStep('<name>') (e.g. 'dropdowns', 'resume'). Right before you fill the first field, run: tools/notify.sh $url "Filling started" and note the time from date -u +%FT%TZ. At hand-over, record the run instead of notifying yourself: in the form tab evaluate JSON.stringify({page_url: location.href, guard_active: !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields(), steps: window.__jobPilottoSteps || []}), write that JSON to /tmp/jobpilotto-audit.json, then run: NOTION_TOKEN="\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)" python3 -m src.ai.apply_run --record $url --audit /tmp/jobpilotto-audit.json --started <that time> --learning "<one line on what you learned about this form, or empty if nothing new>" — it saves the run record, updates the Notion row and sends my "Form filled" or "Needs your input" notification. If the posting is gone ("Job not found", 404, or not on the company's board), don't stop to ask: run NOTION_TOKEN="\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)" python3 -m src.ai.apply_batch --mark-closed $url (marks it Closed and notifies me), close the tab, and finish. If you stop on any other blocker before filling, just run tools/notify.sh $url "Needs your input — see Terminal". A background watcher (tools/wait-and-mark-applied.sh) already marks the job applied in Notion when I submit, so you don't need to watch the tab. Start now.
+Use the apply-to-job skill to apply to this job: $url. Don't ask me questions or discuss the skill file — just follow it: pull the drafted kit from Notion Applications for this job URL, open the posting in Chrome (claude-in-chrome) and get to the actual form as the skill's "Reaching the form" section says: when the page is a job board's or only links out, follow its Apply / Apply now buttons to the employer's site, and create an account or sign in there if it asks (password generated into the Keychain and pasted from the clipboard, never typed or shown). A confirmation email's code or link you read yourself with python3 -m src.sources.google verify --from <employer domain> (Gmail, read-only). Whenever a CAPTCHA or a terms checkbox blocks you, run tools/notify.sh $url "Needs your input — see Terminal", tell me in one line what to do in Chrome, wait for my reply, then carry on. ${handoff}Fill it per the skill's rules (fast-path dropdowns via JS, leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. If the --context call below finds no kit for this job, stop right there: open nothing, run tools/notify.sh $url "No kit yet — press Prepare first", say so in one line and finish. Get everything in ONE call first — the kit, Profile, Application Answers and earlier runs' learnings for this job board: NOTION_TOKEN="\${NOTION_TOKEN:-\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)}" python3 -m src.ai.apply_run --context $url (don't fetch those pages separately). For every dropdown, open it and pick with window.__jobPilottoClickOption('<exact option text>') — never type + Return, which picks partial matches ("Male" -> "Female"). While filling, stamp phases inside JS calls you already make with window.__jobPilottoStep('<name>') (e.g. 'dropdowns', 'resume'). Right before you fill the first field, run: tools/notify.sh $url "Filling started" and note the time from date -u +%FT%TZ. At hand-over, record the run instead of notifying yourself: in the form tab evaluate JSON.stringify({page_url: location.href, guard_active: !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields(), steps: window.__jobPilottoSteps || []}), write that JSON to /tmp/jobpilotto-audit.json, then run: NOTION_TOKEN="\${NOTION_TOKEN:-\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)}" python3 -m src.ai.apply_run --record $url --audit /tmp/jobpilotto-audit.json --started <that time> --learning "<one line on what you learned about this form, or empty if nothing new>" — it saves the run record, updates the Notion row and sends my "Form filled" or "Needs your input" notification. If the posting is gone ("Job not found", 404, or not on the company's board), don't stop to ask: run NOTION_TOKEN="\${NOTION_TOKEN:-\$(security find-generic-password -a "\$USER" -s job-pilotto.notion.token -w)}" python3 -m src.ai.apply_batch --mark-closed $url (marks it Closed and notifies me), close the tab, and finish. If you stop on any other blocker before filling, just run tools/notify.sh $url "Needs your input — see Terminal". A background watcher (tools/wait-and-mark-applied.sh) already marks the job applied in Notion when I submit, so you don't need to watch the tab. Start now.
 PROMPT
 
   # Flip Stage to Applying right away, same dedup the ChatGPT/Codex path already does for its own
@@ -120,7 +140,7 @@ PROMPT
   osascript <<OSA
 set wasRunning to application "$TERMINAL_APP" is running
 tell application "$TERMINAL_APP"
-  set cmd to "cd '$REPO_DIR' && claude --chrome --permission-mode bypassPermissions \"\$(cat '$prompt_file')\""
+  set cmd to "cd '$REPO_DIR' && ${load_env}claude --chrome --permission-mode bypassPermissions \"\$(cat '$prompt_file')\""
   -- A fresh launch opens its own empty window; run in it instead of opening a second one.
   if wasRunning then
     do script cmd
