@@ -124,7 +124,11 @@ function createWindow() {
   window.webContents.setWindowOpenHandler(({url}) => { shell.openExternal(url); return {action: 'deny'}; });
 }
 
-const log = line => window?.webContents.send('log', line);
+// Every message to the window goes through here: a closed or crashed window is skipped, never a crash.
+function toWindow(...args) {
+  if (window && !window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(...args);
+}
+const log = line => toWindow('log', line);
 
 // A CV page (cv/template.js) printed to PDF by Chromium in a hidden window. Fixed pages (a custom design)
 // never grow, so a page whose content doesn't fit is reported instead of silently cut.
@@ -164,7 +168,7 @@ function openTailoredCv(code) {
 let notificationsBlocked = false;
 function notify(title, body) {
   if (process.env.JOB_PILOTTO_SMOKE) return;
-  const toast = hint => window?.webContents.send('toast', {title, body, hint});
+  const toast = hint => toWindow('toast', {title, body, hint});
   if (!Notification.isSupported() || notificationsBlocked) { toast(false); return; }
   const note = new Notification({title, body, silent: false});
   note.on('click', () => { window?.show(); window?.focus(); });
@@ -218,7 +222,7 @@ function handlers() {
   async function connectNotion(token, {templateRoot = null} = {}) {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
-      const send = progress => window?.webContents.send('notionProgress', {...progress, titles});
+      const send = progress => toWindow('notionProgress', {...progress, titles});
       let result = await notion.connect(token);
       // A new, empty Job Pilotto page (nothing of ours in it yet): find it (Notion can take a few seconds to share
       // it with the connection), then build the whole workspace in it from the schema (the latest version).
@@ -307,7 +311,7 @@ function handlers() {
   ipcMain.handle('draftStrategy', async (_, answers) => {
     storage.saveSettings({questionnaire: answers});
     const kb = Math.round(fs.statSync(storage.path('cv.pdf')).size / 1024);
-    const send = progress => window?.webContents.send('draftProgress', progress);
+    const send = progress => toWindow('draftProgress', progress);
     const sent = `Sent your CV (${kb} KB) and your answers to Claude (${strategy.MODEL})`;
     // Before Claude writes anything it reads the CV (about 25 s): the bar moves by time, up to 10%.
     const started = Date.now();
@@ -358,7 +362,7 @@ function handlers() {
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
       if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {ok: false, error: 'Connect Notion first: your strategy is saved there.'};
       // Progress for the save window: each step starts, advances (blocks written) and finishes.
-      const step = (name, extra = {}) => window?.webContents.send('saveProgress', {step: name, ...extra});
+      const step = (name, extra = {}) => toWindow('saveProgress', {step: name, ...extra});
       // Replacing a strategy that was set up before: keep a copy of the current one in Notion first.
       if (storage.settings().setupDone) {
         step('snapshot');
@@ -428,12 +432,12 @@ function handlers() {
       let token = storage.secret('GITHUB_TOKEN');
       if (!token) {
         const start = await github.startSignIn();
-        window?.webContents.send('cloudStep', {code: start.userCode, url: start.url});
+        toWindow('cloudStep', {code: start.userCode, url: start.url});
         shell.openExternal(start.url);
         token = await github.finishSignIn(start);
         storage.setSecret('GITHUB_TOKEN', token);
       }
-      const result = await github.connect(storage, token, {repo: chosen, onStep: text => window?.webContents.send('cloudStep', {text})});
+      const result = await github.connect(storage, token, {repo: chosen, onStep: text => toWindow('cloudStep', {text})});
       return {ok: true, ...result};
     } catch (error) {
       if (error.status === 401) storage.setSecret('GITHUB_TOKEN', '');  // revoked: sign in again next time
@@ -456,7 +460,7 @@ function handlers() {
     if (storage.settings().telegramCloud) await telegramCloud.turnOff(storage);
     try {
       const bot = await telegram.api(token, 'getMe');
-      window?.webContents.send('telegramWaiting', bot.username);
+      toWindow('telegramWaiting', bot.username);
       const {chatId} = await telegram.pair(token);
       storage.setSecret('TELEGRAM_BOT_TOKEN', token);
       storage.saveSettings({telegramChatId: chatId, telegramBot: bot.username, telegramOffset: null});
@@ -541,7 +545,7 @@ function handlers() {
       const file = path.join(storage.path('interviews'), String(id).replace(/[^\w-]/g, ''), 'call.pcm');
       let last = 0;
       const {startedAt} = await calltap.start(id, file, level => {
-        if (Date.now() - last > 200) { last = Date.now(); window?.webContents.send('ivLevel', {id, level}); }
+        if (Date.now() - last > 200) { last = Date.now(); toWindow('ivLevel', {id, level}); }
       });
       return {ok: true, startedAt};
     } catch (error) {
@@ -549,7 +553,7 @@ function handlers() {
     }
   });
   ipcMain.handle('ivTranscribe', async (_, id, options) => {
-    const meta = await interviews.transcribe(storage, id, options, step => window?.webContents.send('ivProgress', step));
+    const meta = await interviews.transcribe(storage, id, options, step => toWindow('ivProgress', step));
     if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`);
     return meta;
   });
@@ -607,7 +611,7 @@ function handlers() {
     const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
     try {
       const copy = withNotion ? await notion.dumpWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {},
-        {onProgress: count => window?.webContents.send('exportProgress', count)}) : null;
+        {onProgress: count => toWindow('exportProgress', count)}) : null;
       reset.exportTo(storage.dir, picked.filePath, {keys: secrets, notion: copy, version: about.label});
       return {ok: true, file: picked.filePath, notion: copy && {pages: copy.pages, rows: copy.rows}};
     } catch (error) { return {ok: false, error: error.message}; }
@@ -895,7 +899,7 @@ if (firstCopy) app.whenReady().then(() => {
       : `Chrome extension connection failed: ${error.message}`));
   }
   createWindow();
-  terminals.onChange((event, payload) => window?.webContents.send('session', event, payload));
+  terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setSessionReporter((id, info) => {
     const {session, needsYou} = terminals.report(id, info);
     if (session && needsYou) sessionNeedsYou(session);
@@ -903,7 +907,7 @@ if (firstCopy) app.whenReady().then(() => {
   if (!DEMO) {
     // User data left on this Mac -> Notion (source of truth), once. It runs while the window loads, so the
     // window reads again what moved (e.g. open questions read before they reached Notion looked like none).
-    migrate.run(storage, log).then(moved => { if (moved.length) window?.webContents.send('moved', moved); });
+    migrate.run(storage, log).then(moved => { if (moved.length) toWindow('moved', moved); });
     syncCv();
     // Recent activity from Notion ⏱️ Search runs (every run's row, wherever it ran), every 15 s.
     let notionTimer;
@@ -981,10 +985,10 @@ function sessionNeedsYou(session) {
   const text = session.brief || 'Claude needs your input';  // one plain sentence; the whole message is on the session page
   if (!process.env.JOB_PILOTTO_SMOKE && Notification.isSupported()) {
     const note = new Notification({title: `Needs your input · ${what}`, body: text});
-    note.on('click', () => { window?.show(); window?.focus(); window?.webContents.send('session', 'open', {id: session.id}); });
+    note.on('click', () => { window?.show(); window?.focus(); toWindow('session', 'open', {id: session.id}); });
     note.show();
   }
-  window?.webContents.send('toast', {title: `Needs your input · ${what}`, body: text});
+  toWindow('toast', {title: `Needs your input · ${what}`, body: text});
   const token = storage.secret('TELEGRAM_BOT_TOKEN'), chat = storage.settings().telegramChatId;
   if (token && chat) telegram.api(token, 'sendMessage', {chat_id: chat, text: `🧭 Needs your input · ${what}\n${text}\n\nAnswer it in Job Pilotto → Application sessions.`})
     .catch(error => log(`Telegram: ${error.message}`));
@@ -1012,7 +1016,7 @@ app.on('before-quit', event => {
       message: sessions.length === 1 ? 'Claude is still applying' : `${sessions.length} Claude sessions are still applying`,
       detail: `${waiting ? `${waiting} ${waiting === 1 ? 'is' : 'are'} waiting for your answer. ` : ''}${stopping.trim()}`,
     });
-    if (choice === 0) { window?.show(); window?.webContents.send('session', 'open', {id: sessions[0].id}); return; }
+    if (choice === 0) { window?.show(); toWindow('session', 'open', {id: sessions[0].id}); return; }
     quitting = true;
     app.quit();
     return;
