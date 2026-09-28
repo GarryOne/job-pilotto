@@ -212,10 +212,10 @@ async function showSearchStatus() {
   const searching = running && (running.kind || 'search') === 'search';
   box.dataset.state = searching ? 'busy' : lastSearchAt ? 'ok' : 'none';
   // Running: a link to its progress (the bottom bar's panel); done: what it found.
-  if (searching) { title.textContent = 'Search in progress →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
-  if (!lastSearchAt) { title.textContent = 'No search yet'; detail.textContent = ''; return; }
+  if (searching) { title.textContent = 'Checking for new jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
+  if (!lastSearchAt) { title.textContent = 'No check yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
-  title.textContent = last && !last.ok ? 'Last search had problems →' : `Search complete${last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : ''}`;
+  title.textContent = last && !last.ok ? 'Last check had problems →' : `Check complete${last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : ''}`;
   detail.textContent = `${clockTime(lastSearchAt)}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
 }
 
@@ -237,7 +237,7 @@ function searchPhase(step = '') {
   if (/digest|telegram/i.test(step)) return 'Sending your digest';
   return step.length > 60 ? `${step.slice(0, 57)}…` : step;
 }
-const KIND = {search: {icon: '🔎', name: 'Search'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
+const KIND = {search: {icon: '🔎', name: 'New jobs check'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
   weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'},
   action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
   add: {icon: '➕', name: 'Tracked application'}, rejection: {icon: '🔍', name: 'Rejection review'}};
@@ -326,12 +326,12 @@ function renderActivity(data) {
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
     $('activity-open').textContent = 'Details ▴';
-    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last search done' : 'Last search had problems') : 'No search yet';
+    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last new jobs check' : 'Last new jobs check had problems') : 'No new jobs check yet';
     $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
       (lastSearch.ok ? '' : ' · click to see why') : '';
-    $('activity-meta').textContent = [mailNote, nextSearchAt && `Next search ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
+    $('activity-meta').textContent = [mailNote, nextSearchAt && `Next new jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
-    $('activity-title').textContent = 'No search yet';
+    $('activity-title').textContent = 'No new jobs check yet';
     $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';
     $('activity-meta').textContent = mailNote;
   }
@@ -376,7 +376,7 @@ function renderActivity(data) {
   };
   $('activity-schedule').replaceChildren(...[
     cloud ? el('p', 'muted small', osText('☁️ Runs in your GitHub repo, even with the Mac off')) : null,
-    slot('search', 'Next search', nextSearchAt, cloud ? 'In the cloud' : 'Only when you ask'),
+    slot('search', 'Next new jobs check', nextSearchAt, cloud ? 'In the cloud' : 'Only when you ask'),
     slot('mail', 'Next Gmail check', nextMailAt, cloud ? 'In the cloud' : 'Off'),
   ].filter(Boolean));
 
@@ -1639,7 +1639,7 @@ window.pilot.onLog(line => {
 });
 $('search-status').addEventListener('click', () => openActivity(true));
 $('refresh').addEventListener('click', async () => {
-  $('refresh').disabled = true;  // the header status shows "Search in progress →" meanwhile
+  $('refresh').disabled = true;  // the header status shows "Checking for new jobs →" meanwhile
   selectedRun = null;
   setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
   try {

@@ -297,8 +297,9 @@ main { padding: 20px 24px; }
 .jobs-head h1 { font-size: var(--fs-2xl); margin: 0 0 2px; }
 .jobs-head .subtitle { font-size: var(--fs-md); margin: 0; }
 .head-actions { align-items: center; gap: 8px; }
-.last-search { display: flex; align-items: center; gap: 8px; margin-right: 6px; max-width: 260px; min-width: 0;
-  background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.last-search { display: flex; align-items: flex-start; align-self: center; gap: 8px; margin-right: 6px; max-width: 260px; min-width: 0;
+  height: auto; min-height: 0; line-height: 1.35; background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.last-search .dot { margin-top: 5px; }  /* level with the first line, not between the two */
 .last-search > div { min-width: 0; }  /* lets the line under it shorten with "…" instead of running over the buttons */
 .last-search:hover b { text-decoration: underline; }
 .last-search b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -503,7 +504,7 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-time { margin-left: auto; font: 700 var(--fs-xl) var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #check-mail { justify-self: start; }
 .activity-recent { gap: 3px; margin: 0; }
-.recent-row { grid-template-columns: 20px 118px minmax(0, 1fr) auto; padding: 6px 10px; border-left: 3px solid transparent; font-size: var(--fs-sm); }
+.recent-row { grid-template-columns: 20px 150px minmax(0, 1fr) auto; padding: 6px 10px; border-left: 3px solid transparent; font-size: var(--fs-sm); }
 .recent-row.current { background: var(--good-soft); border-color: transparent; border-left-color: var(--teal); }
 .run-status { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 700 var(--fs-xs) var(--font-sans); color: var(--on-accent); background: var(--line); }
 .recent-row[data-state="ok"] .run-status { background: var(--good-bright); }
@@ -527,7 +528,7 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-close { width: 26px; height: 26px; }
 .activity-cols { margin-bottom: 8px; align-items: start; }
 .activity-recent { align-content: start; gap: 1px; }
-.recent-row { padding: 3px 8px; gap: 8px; grid-template-columns: 16px 104px minmax(0, 1fr) auto; }
+.recent-row { padding: 3px 8px; gap: 8px; grid-template-columns: 16px 150px minmax(0, 1fr) auto; }  /* fits "New jobs check", "Find employers" */
 .run-status { width: 15px; height: 15px; font-size: calc(var(--fs-xs) * .8); }
 .recent-row .ui-pill { padding: 0 7px; }
 .ap-schedule { gap: 6px; }
