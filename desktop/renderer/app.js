@@ -1518,6 +1518,7 @@ $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show(
 // ---------- actions (every Telegram command) ----------
 function answer(text) { const box = $('command-answer'); show(box); box.textContent = text; box.scrollIntoView({behavior: 'smooth'}); }
 document.querySelectorAll('[data-command]').forEach(button => button.addEventListener('click', async () => {
+  openActivity(true);  // feedback at once: what runs and its log, in Recent activity
   button.disabled = true;
   const result = await window.pilot.command(button.dataset.command);
   button.disabled = false;
