@@ -7,6 +7,7 @@
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import {tar} from './tar.js';
 
 const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
@@ -24,7 +25,7 @@ export function exportTo(dir, file, {keys = null, version = ''} = {}, now = new 
   if (keys) { fs.writeFileSync(path.join(dir, KEYS_FILE), JSON.stringify(keys), {mode: 0o600}); extra.push(KEYS_FILE); }
   try {
     const items = [...ITEMS.filter(item => fs.existsSync(path.join(dir, item))), ...extra];
-    execFileSync('tar', ['-czf', file, '-C', dir, ...items]);
+    execFileSync(tar(), ['-czf', file, '-C', dir, ...items]);
   } finally {
     for (const name of extra) fs.rmSync(path.join(dir, name), {force: true});
   }
@@ -36,7 +37,7 @@ export function stageImport(dir, file) {
   const staged = `${dir} (import)`;
   fs.rmSync(staged, {recursive: true, force: true});
   fs.mkdirSync(staged, {recursive: true});
-  execFileSync('tar', ['-xzf', file, '-C', staged]);
+  execFileSync(tar(), ['-xzf', file, '-C', staged]);
   let manifest = null;
   try { manifest = JSON.parse(fs.readFileSync(path.join(staged, 'manifest.json'), 'utf8')); } catch {}
   if (manifest?.app !== 'Job Pilotto' || !fs.existsSync(path.join(staged, 'settings.json'))) {

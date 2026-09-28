@@ -10,6 +10,7 @@ import path from 'node:path';
 
 import {cadence, crons, withSchedule} from './cadence.js';
 import {MODELS, REPO} from './pipeline.js';
+import {tar} from './tar.js';
 
 // The Job Pilotto GitHub App (public identifiers; device flow needs no client secret). Its permissions,
 // on the one repository it's installed on: Actions, Contents, Secrets, Variables and Workflows (write).
@@ -220,6 +221,6 @@ export async function syncDatabase(storage, {fetcher = globalThis.fetch, unzip} 
 async function unzipFile(zip, dir) {
   const {execFile} = await import('node:child_process');
   // Windows 10+ ships bsdtar, which also reads zip files.
-  const [command, args] = process.platform === 'win32' ? ['tar', ['-xf', zip, '-C', dir]] : ['/usr/bin/unzip', ['-o', zip, '-d', dir]];
+  const [command, args] = process.platform === 'win32' ? [tar(), ['-xf', zip, '-C', dir]] : ['/usr/bin/unzip', ['-o', zip, '-d', dir]];
   await new Promise((resolve, reject) => execFile(command, args, error => error ? reject(error) : resolve()));
 }

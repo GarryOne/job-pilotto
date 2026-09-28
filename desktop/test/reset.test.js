@@ -6,6 +6,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import * as reset from '../lib/reset.js';
 import {createStorage} from '../lib/storage.js';
+import {tar} from '../lib/tar.js';
 
 const fakeCrypto = {encrypt: v => Buffer.from(v).toString('base64'), decrypt: s => Buffer.from(s, 'base64').toString()};
 function profile() {
@@ -48,7 +49,7 @@ test('a file that is not a Job Pilotto export is refused and nothing changes', a
   const bogus = path.join(a.base, 'bogus.tar.gz');
   fs.writeFileSync(path.join(a.base, 'x.txt'), 'x');
   const {execFileSync} = await import('node:child_process').then(m => m);
-  execFileSync('tar', ['-czf', bogus, '-C', a.base, 'x.txt']);
+  execFileSync(tar(), ['-czf', bogus, '-C', a.base, 'x.txt']);
   assert.throws(() => reset.stageImport(a.dir, bogus), /not a Job Pilotto export/);
   assert.equal(reset.applyPending(a.dir), null);
 });
@@ -64,4 +65,9 @@ test('reset: the data folder is moved to a backup (default) or deleted at the ne
   assert.deepEqual(reset.applyPending(b.dir), {deleted: true});
   assert.ok(!fs.existsSync(b.dir));
   assert.equal(reset.applyPending(b.dir), null);  // nothing pending: nothing happens
+});
+
+test('Windows runs its own tar by full path, never a Git for Windows GNU tar from PATH', () => {
+  assert.equal(tar('win32', {SystemRoot: 'C:\\Windows'}), 'C:\\Windows\\System32\\tar.exe');
+  assert.equal(tar('darwin'), 'tar');
 });
