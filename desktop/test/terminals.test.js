@@ -74,3 +74,86 @@ test('a notification gets one plain sentence: the question if there is one, neve
   const long = terminals.briefly('word '.repeat(80), 40);
   assert.ok(long.endsWith('…') && long.length <= 41 && !/wor…$/.test(long));
 });
+
+// ---- sessions outlive the app ----
+const tempFile = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-sessions-')), 'sessions.json');
+
+test('saved sessions come back after a restart: waiting ones as they were, working ones as stopped, all resumable', async () => {
+  const file = tempFile();
+  terminals._reset();
+  terminals.persist(file);
+  const pty = fakePty();
+  terminals.usePty(pty.loader);
+  await terminals.start({id: 'a1', url: 'https://jobs.test/a', company: 'Acme', claudeId: 'conv-a', file: 'claude', env: {}});
+  await terminals.start({id: 'b2', url: 'https://jobs.test/b', company: 'Beta', claudeId: 'conv-b', file: 'claude', env: {}});
+  await terminals.start({id: 'c3', url: 'https://jobs.test/c', company: 'Cirrus', file: 'claude', env: {}});  // started before conversations were kept
+  pty.spawned[0].emit('filled the form\r\n');
+  terminals.report('a1', {event: 'note', message: 'Form filled — review and Submit'});
+  terminals.report('b2', {event: 'stop'});
+  terminals.report('b2', {event: 'prompt'});  // working again
+  assert.equal(terminals.running().length, 3);
+  terminals.shutdown();  // the app quits: state saved as it was, processes ended without turning into "stopped"
+  assert.ok(pty.spawned.every(term => term.killed));
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).find(record => record.id === 'a1').status, 'done');
+  if (process.platform !== 'win32') assert.equal(fs.statSync(file).mode & 0o777, 0o600);  // its output can hold form answers
+
+  terminals._reset();  // the next start
+  terminals.persist(file);
+  assert.equal(terminals.restore(), 3);
+  const [a, b, c] = ['a1', 'b2', 'c3'].map(id => terminals.get(id));
+  assert.deepEqual([a.status, a.live, a.resumable, a.company], ['done', false, true, 'Acme']);
+  assert.deepEqual([b.status, b.note, b.live, b.resumable], ['ended', 'Stopped when the app closed', false, true]);
+  assert.deepEqual([c.live, c.resumable], [false, false]);  // no conversation to reopen
+  assert.equal(terminals.output('a1'), 'filled the form\r\n');
+  assert.deepEqual(terminals.running(), []);  // nothing runs: the quit warning isn't for these
+  terminals.write('a1', 'x');  // typing into a session with no process is ignored
+  terminals.stop('a1');
+  terminals._reset();
+});
+
+test('resume starts Claude again in the same record: a stopped session works again, a finished one stays finished', async () => {
+  const file = tempFile();
+  terminals._reset();
+  terminals.persist(file);
+  terminals.usePty(fakePty().loader);
+  await terminals.start({id: 'a1', url: 'https://jobs.test/a', claudeId: 'conv-a', file: 'claude', env: {}});
+  await terminals.start({id: 'b2', url: 'https://jobs.test/b', claudeId: 'conv-b', file: 'claude', env: {}});
+  terminals.report('a1', {event: 'note', message: 'Form filled'});
+  terminals.shutdown();
+  terminals._reset();
+  terminals.persist(file);
+  terminals.restore();
+  const pty = fakePty();
+  terminals.usePty(pty.loader);
+  const launch = id => ({file: 'claude', args: ['--resume', terminals.claudeIdOf(id)], cwd: '/repo', env: {}});
+  const done = await terminals.resume('a1', launch('a1'));
+  assert.deepEqual([done.status, done.live, done.resumable, done.endedAt], ['done', true, false, null]);
+  const stopped = await terminals.resume('b2', launch('b2'));
+  assert.deepEqual([stopped.status, stopped.note, stopped.live], ['running', 'Resuming…', true]);
+  assert.deepEqual(pty.spawned.map(term => term.args), [['--resume', 'conv-a'], ['--resume', 'conv-b']]);
+  assert.match(terminals.output('b2'), /resumed/);
+  assert.equal((await terminals.resume('b2', launch('b2'))).live, true);  // already running: nothing is started twice
+  assert.equal(pty.spawned.length, 2);
+  await assert.rejects(terminals.resume('nope', launch('a1')), /no longer in the list/);
+  terminals._reset();
+});
+
+test('a session ending on its own is still resumable, and older ones than two weeks are dropped', async () => {
+  const file = tempFile();
+  terminals._reset();
+  terminals.persist(file);
+  const pty = fakePty();
+  terminals.usePty(pty.loader);
+  await terminals.start({id: 'x1', url: 'https://jobs.test/x', claudeId: 'conv-x', file: 'claude', env: {}});
+  pty.spawned[0].kill();
+  assert.deepEqual([terminals.get('x1').status, terminals.get('x1').live, terminals.get('x1').resumable], ['ended', false, true]);
+  terminals.saveNow();
+  const records = JSON.parse(fs.readFileSync(file, 'utf8'));
+  records.push({...records[0], id: 'old', startedAt: '2026-08-01T10:00:00Z'});
+  fs.writeFileSync(file, JSON.stringify(records));
+  terminals._reset();
+  terminals.persist(file);
+  assert.equal(terminals.restore(Date.parse('2026-09-29T10:00:00Z')), 1);
+  assert.equal(terminals.get('old'), null);
+  terminals._reset();
+});

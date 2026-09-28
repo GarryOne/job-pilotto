@@ -7,11 +7,19 @@
 // turn and waits for you, Notification = it asks for something, UserPromptSubmit = you answered) and the skill's
 // tools/notify.sh ("Filling started", "Form filled", "Needs your input") report to the app's local server
 // (/claude/session), which calls report() here.
+//
+// Sessions outlive the app: each one is saved to a file on this Mac as it changes (persist), and restore() brings
+// them back at the next start, without their process (Claude ended with the app; Chrome's tabs did not). A
+// session that was working comes back as stopped; one that waited for you (a question, a filled form) comes back
+// as it was. resume() starts Claude again in the same conversation (claude --resume <claudeId>).
 import fs from 'node:fs';
 import path from 'node:path';
 
 const OUTPUT_LIMIT = 400_000;
+const SAVED_OUTPUT = 80_000;  // the tail of each session's output that is saved
+const KEEP_DAYS = 14;
 const sessions = new Map();
+let saveFile = null, saveTimer = null, closing = false;
 let listener = () => {};
 let loadPty = () => import('@lydell/node-pty').then(module => module.default || module);
 
@@ -24,50 +32,127 @@ export async function available() {
   try { await loadPty(); return true; } catch { return false; }
 }
 
+// A session is live while its process runs; a restored or ended one is not (but can be resumed with its claudeId).
+const isLive = s => !!s.term && !s.endedAt;
 const publicView = s => ({id: s.id, url: s.url, title: s.title, company: s.company, status: s.status, note: s.note,
+  live: isLive(s), resumable: !!s.claudeId && !isLive(s),
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
+export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
 export const byUrl = url => list().filter(s => s.url === url).pop() || null;
 
-// Start one session: file + args run in cwd with env, in a terminal of cols x rows.
-export async function start({id, url, title = '', company = '', location = '', workMode = '', file, args = [], cwd, env, cols = 120, rows = 32}) {
-  const pty = await loadPty();
-  const term = pty.spawn(file, args, {name: 'xterm-256color', cols, rows, cwd, env: {...env, TERM: 'xterm-256color', COLORTERM: 'truecolor'}});
-  const session = {id, url, title, company, location, workMode, term, output: '', status: 'running', note: 'Starting…', startedAt: new Date().toISOString()};
+// Runs the process of a session: its output is kept and saved, its exit ends it (unless the app is closing).
+function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
+  return loadPty().then(pty => {
+    const term = pty.spawn(file, args, {name: 'xterm-256color', cols, rows, cwd, env: {...env, TERM: 'xterm-256color', COLORTERM: 'truecolor'}});
+    session.term = term;
+    term.onData(data => {
+      session.output = (session.output + data).slice(-OUTPUT_LIMIT);
+      listener('data', {id: session.id, data});
+      save();
+    });
+    term.onExit(({exitCode}) => {
+      if (closing || session.term !== term) return;  // the app is quitting (state already saved), or it was resumed since
+      session.exitCode = exitCode;
+      session.endedAt = new Date().toISOString();
+      if (session.status !== 'done') session.status = exitCode === 0 ? 'ended' : 'failed';
+      if (session.status !== 'done') session.note = exitCode === 0 ? 'Session ended' : `Session stopped (exit ${exitCode})`;
+      listener('update', publicView(session));
+      save();
+    });
+  });
+}
+
+// Start one session: file + args run in cwd with env, in a terminal of cols x rows. claudeId is the Claude Code
+// conversation it runs (claude --session-id), kept so the session can be resumed after the app was closed.
+export async function start({id, url, title = '', company = '', location = '', workMode = '', claudeId = '', ...launch}) {
+  const session = {id, url, title, company, location, workMode, claudeId, term: null, output: '', status: 'running', note: 'Starting…', startedAt: new Date().toISOString()};
+  await attach(session, launch);
   sessions.set(id, session);
-  term.onData(data => {
-    session.output = (session.output + data).slice(-OUTPUT_LIMIT);
-    listener('data', {id, data});
-  });
-  term.onExit(({exitCode}) => {
-    session.exitCode = exitCode;
-    session.endedAt = new Date().toISOString();
-    if (session.status !== 'done') session.status = exitCode === 0 ? 'ended' : 'failed';
-    if (session.status !== 'done') session.note = exitCode === 0 ? 'Session ended' : `Session stopped (exit ${exitCode})`;
-    listener('update', publicView(session));
-  });
   listener('update', publicView(session));
+  save();
   return publicView(session);
 }
 
+// Starts Claude again in the conversation of a session that isn't running (restored, ended or stopped). Its record
+// stays: job, output (a line marks the restart), question. A stopped one goes back to working; one that waited
+// for you stays as it was (it waits in the resumed conversation).
+export async function resume(id, launch) {
+  const session = sessions.get(id);
+  if (!session) throw new Error('This session is no longer in the list.');
+  if (isLive(session)) return publicView(session);
+  await attach(session, launch);
+  session.output = (session.output + '\r\n\x1b[2m— resumed —\x1b[0m\r\n').slice(-OUTPUT_LIMIT);
+  session.endedAt = null;
+  session.exitCode = null;
+  if (session.status === 'ended' || session.status === 'failed') Object.assign(session, {status: 'running', note: 'Resuming…', needsYouSince: null});
+  listener('update', publicView(session));
+  save();
+  return publicView(session);
+}
+
+// ---- Saving and restoring (sessions.json in the data folder; a cache of runtime state, never the only copy of
+// anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
+export function persist(file) { saveFile = file; }
+const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
+  claudeId: s.claudeId || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
+  startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
+  output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output, savedAt: new Date().toISOString()});
+export function saveNow() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (!saveFile) return;
+  try {
+    fs.mkdirSync(path.dirname(saveFile), {recursive: true});
+    fs.writeFileSync(saveFile + '.tmp', JSON.stringify([...sessions.values()].map(saved)), {mode: 0o600});  // output can hold form answers
+    fs.renameSync(saveFile + '.tmp', saveFile);
+  } catch { /* not saved this time; the next change tries again */ }
+}
+function save() {
+  if (!saveFile || saveTimer) return;
+  saveTimer = setTimeout(saveNow, 1500);
+  saveTimer.unref?.();
+}
+// At start: the saved sessions come back without a process. Working ones (their process died with the app) are
+// shown as stopped; older than KEEP_DAYS are dropped. Returns how many came back.
+export function restore(now = Date.now()) {
+  if (!saveFile) return 0;
+  let records = [];
+  try { records = JSON.parse(fs.readFileSync(saveFile, 'utf8')); } catch { return 0; }
+  for (const record of Array.isArray(records) ? records : []) {
+    if (!record?.id || sessions.has(record.id) || now - Date.parse(record.startedAt) > KEEP_DAYS * 86400_000) continue;
+    const {savedAt, ...session} = record;
+    if (session.status === 'running') Object.assign(session, {status: 'ended', note: 'Stopped when the app closed', endedAt: savedAt || new Date(now).toISOString()});
+    sessions.set(session.id, {...session, term: null});
+  }
+  return sessions.size;
+}
+// The app is quitting: save what each session was doing, then end their processes without changing that.
+export function shutdown() {
+  saveNow();
+  closing = true;
+  for (const session of sessions.values()) if (isLive(session)) session.term.kill();
+}
+
 export const output = id => sessions.get(id)?.output || '';
-export function write(id, data) { sessions.get(id)?.term?.write(String(data)); }
+export function write(id, data) { const session = sessions.get(id); if (session && isLive(session)) session.term.write(String(data)); }
 export function resize(id, cols, rows) {
   const session = sessions.get(id);
-  if (session && !session.endedAt && cols > 10 && rows > 3) session.term.resize(Math.floor(cols), Math.floor(rows));
+  if (session && isLive(session) && cols > 10 && rows > 3) session.term.resize(Math.floor(cols), Math.floor(rows));
 }
 export function stop(id) {
   const session = sessions.get(id);
-  if (session && !session.endedAt) session.term.kill();
+  if (session && isLive(session)) session.term.kill();
 }
 export function remove(id) {
   stop(id);
   sessions.delete(id);
   listener('update', {id, removed: true});
+  save();
 }
-export const running = () => list().filter(s => !s.endedAt);
+export const running = () => list().filter(s => s.live);
 
 // What a session reported: a hook event or a notify.sh message. Returns the new public view (null if unknown),
 // and whether it now needs you (for the notification).
@@ -114,6 +199,7 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
   if (session.status === 'input' && before !== 'input') session.needsYouSince = new Date().toISOString();
   if (session.status !== 'input') session.needsYouSince = null;
   listener('update', publicView(session));
+  save();
   return {session: publicView(session), needsYou: session.status === 'input' && before !== 'input'};
 }
 
@@ -132,4 +218,5 @@ export function hookSettings(id, port) {
 }
 
 export const _sessions = sessions;  // tests
+export function _reset() { clearTimeout(saveTimer); saveTimer = null; saveFile = null; closing = false; sessions.clear(); }  // tests
 export const label = session => [session.company, session.title].filter(Boolean).join(' · ') || path.basename(session.url || '');

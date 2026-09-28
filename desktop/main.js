@@ -680,6 +680,7 @@ function handlers() {
   ipcMain.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
   ipcMain.handle('sessionResize', (_, id, cols, rows) => terminals.resize(String(id), Number(cols), Number(rows)));
   ipcMain.handle('sessionStop', (_, id) => terminals.stop(String(id)));
+  ipcMain.handle('sessionResume', async (_, id) => (await claudeConsent()) ? apply.resumeSession(storage, String(id)) : {ok: false, error: 'Cancelled.'});
   ipcMain.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
@@ -897,6 +898,7 @@ if (firstCopy) app.whenReady().then(() => {
       ? `Chrome extension connection is off: port ${server.PORT} is used by another program.`
       : `Chrome extension connection failed: ${error.message}`));
   }
+  if (!DEMO) { terminals.persist(path.join(storage.dir, 'sessions.json')); terminals.restore(); }  // sessions of the last run
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setSessionReporter((id, info) => {
@@ -993,7 +995,8 @@ function sessionNeedsYou(session) {
     .catch(error => log(`Telegram: ${error.message}`));
 }
 // Sessions still running when the app quits end with it (a Claude session can't outlive its terminal).
-app.on('will-quit', () => { for (const session of terminals.running()) terminals.stop(session.id); });
+// Their state is saved first and stays as it was: the sessions come back at the next start (terminals.restore).
+app.on('will-quit', () => terminals.shutdown());
 
 // Quitting while something runs or waits: ask. "Quit when done" closes the app once the queue is empty;
 // "Quit now" stops the running job cleanly and keeps the queue for next time (resumeQueue).
@@ -1001,19 +1004,19 @@ let quitting = false;
 app.on('before-quit', event => {
   if (quitting || DEMO || process.env.JOB_PILOTTO_SMOKE) return;
   const busy = pipeline.running(), queue = pipeline.queued();
-  // Claude sessions still working or waiting for you (one that filled its form is done: stopping it loses nothing).
-  const sessions = terminals.running().filter(session => session.status !== 'done');
+  // Claude sessions actively working. One waiting for you (a question, a filled form) is kept as it is: it comes
+  // back at the next start, and Resume reopens its conversation.
+  const sessions = terminals.running().filter(session => session.status === 'running');
   if (!busy && !queue.length && !sessions.length) return;
   event.preventDefault();
   const names = sessions.map(session => terminals.label(session)).slice(0, 3).join(', ') + (sessions.length > 3 ? '…' : '');
   const stopping = sessions.length ? `\n\nQuitting stops ${sessions.length === 1 ? 'the Claude session' : `${sessions.length} Claude sessions`} ` +
-    `(${names}): what's already filled stays in Chrome; start it again from the job to finish.` : '';
+    `(${names}): what's already filled stays in Chrome, and they come back stopped: open the session and press Resume.` : '';
   if (!busy && !queue.length) {  // only sessions: keep them, or stop them and quit
-    const waiting = sessions.filter(session => session.status === 'input').length;
     const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {
       type: 'warning', buttons: ['Keep working', sessions.length === 1 ? 'Stop it and quit' : 'Stop them and quit'], defaultId: 0, cancelId: 0,
       message: sessions.length === 1 ? 'Claude is still applying' : `${sessions.length} Claude sessions are still applying`,
-      detail: `${waiting ? `${waiting} ${waiting === 1 ? 'is' : 'are'} waiting for your answer. ` : ''}${stopping.trim()}`,
+      detail: stopping.trim(),
     });
     if (choice === 0) { window?.show(); toWindow('session', 'open', {id: sessions[0].id}); return; }
     quitting = true;

@@ -119,6 +119,13 @@ export async function claudeOne(storage, url, launch = session.launch, binary = 
   return {ok: true};
 }
 
+// A session that isn't running (the app was closed and reopened): Claude again, in its conversation.
+export async function resumeSession(storage, id, binary = claudeBinary) {
+  const ready = claudeReady(storage, binary);
+  if (!ready.ok) return ready;
+  return session.resumeInApp(storage, id, {claude: binary()});
+}
+
 export async function start(storage, {n, mode}, open = spawn, list = pipeline.jobs, launch = session.launch, next = nextWithKits) {
   n = Math.max(1, Math.min(10, Number(n) || 1));
   if (mode === 'agents') {

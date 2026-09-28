@@ -146,7 +146,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
 // (terminals.js), shown as a card in the window's session dock and as a full terminal on a click. Hooks and
 // tools/notify.sh report its state (JOB_PILOTTO_SESSION names it). Resolves with the sessions started.
 export async function launchInApp(storage, urls, {claude, platform = process.platform, pipelineRun = pipeline.run,
-  ticket = issueTicket, gap = GAP_MS, term = terminals, port = PORT, details = {}} = {}) {
+  ticket = issueTicket, gap = GAP_MS, term = terminals, port = PORT, details = {}, watch = run} = {}) {
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);
@@ -161,16 +161,17 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
     const settingsFile = path.join(dir, `settings_${id}.json`);
     fs.writeFileSync(promptFile, prompt(url, {ticket: ticket(url), auditFile}), {mode: 0o600});
     fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
-    const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile];
+    const claudeId = crypto.randomUUID();  // the conversation: resume() can reopen it after the app was closed
+    const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', claudeId];
     // A one-line instruction naming the file: the terminal starts clean (not a screen of instructions, nor the
     // extension ticket), and cmd.exe on Windows needn't quote a long argument.
     const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
     const {file, args} = platform === 'win32'
       ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]}
       : {file: claude, args: [...flags, ask]};
-    started.push(await term.start({id, url, file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}, ...(details[url] || {})}));
+    started.push(await term.start({id, url, claudeId, file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}, ...(details[url] || {})}));
     if (platform !== 'win32') {
-      run(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [url], {env, detached: true, stdio: 'ignore'});
+      watch(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [url], {env, detached: true, stdio: 'ignore'});
     }
   }
   // The prompt, settings and audit files: kept for the sessions' first minutes, then removed.
@@ -178,3 +179,29 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
   return started;
 }
 const run = (command, args, options) => spawn(command, args, options).unref();
+
+// Starts Claude again in the conversation of a session that isn't running (the app was closed, or it stopped).
+// A session that was working gets a line to carry on; one that waited for you (a question, a filled form) is
+// reopened as it was, waiting. The hooks are written again (the old settings file may be gone).
+export async function resumeInApp(storage, id, {claude, platform = process.platform, term = terminals, port = PORT, watch = run} = {}) {
+  const old = term.list().find(entry => entry.id === id);
+  if (!old) return {ok: false, error: 'This session is no longer in the list.'};
+  if (!old.resumable) return {ok: false, error: old.live ? 'Claude is already running in this session.' : 'This session can\'t be resumed (it was started before sessions were kept).'};
+  const repo = pipeline.REPO;
+  const env = sessionEnv(storage, process.env, platform, pythonShim(storage, pipeline.python(), platform));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jobpilotto-'));
+  const settingsFile = path.join(dir, `settings_${id}.json`);
+  fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
+  setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
+  const stopped = old.status === 'ended' || old.status === 'failed';
+  const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--resume', term.claudeIdOf(id)];
+  const ask = stopped ? ['Job Pilotto was closed while you were working on this application. Carry on where you left off: check the form in Chrome (its tab may still be open), finish it, and stop before Submit.'] : [];
+  const {file, args} = platform === 'win32'
+    ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ...ask]}
+    : {file: claude, args: [...flags, ...ask]};
+  try {
+    const resumed = await term.resume(id, {file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}});
+    if (platform !== 'win32') watch(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [old.url], {env, detached: true, stdio: 'ignore'});
+    return {ok: true, session: resumed};
+  } catch (error) { return {ok: false, error: error.message}; }
+}

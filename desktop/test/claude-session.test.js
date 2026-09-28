@@ -72,3 +72,45 @@ test('Mac: a Terminal window per job whose shell loads the session variables fro
   assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /ANTHROPIC_API_KEY/);
   assert.match(spawned[1].command, /tools[\\/]wait-and-mark-applied\.sh$/);
 });
+
+// A fake terminal module: what the session code asks of terminals.js.
+function fakeTerms(existing = []) {
+  const started = [], resumed = [];
+  return {started, resumed, hookSettings: (id, port) => `hooks:${id}:${port}`, claudeIdOf: id => existing.find(s => s.id === id)?.claudeId || '',
+    list: () => existing, start: async options => { started.push(options); return options; }, resume: async (id, options) => { resumed.push({id, ...options}); return {id}; }};
+}
+
+test('each session runs its own Claude conversation, named up front so it can be reopened later', async () => {
+  const storage = tempStorage();
+  const term = fakeTerms();
+  await session.launchInApp(storage, ['https://a/1', 'https://b/2'], {claude: '/bin/claude', platform: 'darwin', gap: 0, term, watch: () => {},
+    pipelineRun: async () => ({code: 0}), ticket: () => ''});
+  const ids = term.started.map(options => options.args[options.args.indexOf('--session-id') + 1]);
+  assert.match(ids[0], /^[0-9a-f-]{36}$/);
+  assert.notEqual(ids[0], ids[1]);
+  assert.deepEqual(term.started.map(options => options.claudeId), ids);
+});
+
+test('resume: the same conversation with fresh hooks; a stopped session is told to carry on, a waiting one is not', async () => {
+  const storage = tempStorage();
+  const watched = [];
+  const existing = [{id: 'w1', url: 'https://a/1', claudeId: 'conv-1', status: 'input', resumable: true, live: false},
+    {id: 'e2', url: 'https://b/2', claudeId: 'conv-2', status: 'ended', resumable: true, live: false},
+    {id: 'l3', url: 'https://c/3', claudeId: 'conv-3', status: 'running', resumable: false, live: true},
+    {id: 'o4', url: 'https://d/4', claudeId: '', status: 'ended', resumable: false, live: false}];
+  const term = fakeTerms(existing);
+  const options = {claude: '/bin/claude', platform: 'darwin', term, port: 47111, watch: (...call) => watched.push(call)};
+  assert.equal((await session.resumeInApp(storage, 'w1', options)).ok, true);
+  assert.equal((await session.resumeInApp(storage, 'e2', options)).ok, true);
+  const [waiting, stopped] = term.resumed;
+  assert.deepEqual(waiting.args.slice(-2), ['--resume', 'conv-1']);  // nothing to add: it waits where it was
+  assert.deepEqual(stopped.args.slice(-3, -1), ['--resume', 'conv-2']);
+  assert.match(stopped.args.at(-1), /Carry on where you left off/);
+  assert.equal(waiting.env.JOB_PILOTTO_SESSION, 'w1');
+  const settings = waiting.args[waiting.args.indexOf('--settings') + 1];
+  assert.equal(fs.readFileSync(settings, 'utf8'), 'hooks:w1:47111');
+  assert.match((await session.resumeInApp(storage, 'l3', options)).error, /already running/);
+  assert.match((await session.resumeInApp(storage, 'o4', options)).error, /can't be resumed/);
+  assert.match((await session.resumeInApp(storage, 'zz', options)).error, /no longer in the list/);
+  assert.equal(watched.length, 2);  // the submit watcher runs again for the two resumed
+});

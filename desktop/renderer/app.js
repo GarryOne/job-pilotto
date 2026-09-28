@@ -27,6 +27,8 @@ const savedAgo = iso => {
 // Application sessions (Apply with Claude in the app): declared before start-up code renders the job list.
 const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
   ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
+// Claude is running in it (demo sessions say nothing: they run while not ended).
+const isLive = item => item.live ?? !item.endedAt;
 const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockOpen = true, logChoice = {}, termShownFor = null;
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
@@ -3196,7 +3198,7 @@ function renderDock() {
   const onSessionsPage = !document.querySelector('.view[data-view="sessions"]')?.hidden;
   show($('sessions-dock'), sessionList.length > 0 && !onSessionsPage);
   if (!sessionList.length) return;
-  const running = sessionList.filter(item => !item.endedAt).length, waiting = sessionList.filter(item => item.status === 'input').length;
+  const running = sessionList.filter(isLive).length, waiting = sessionList.filter(item => item.status === 'input').length;
   // Two pills: how many are active (blue), how many wait for you (amber).
   $('sd-summary').replaceChildren(pill(`${running} active`, 'info'), ...(waiting ? [pill(`${waiting} need${waiting === 1 ? 's' : ''} input`, 'warn')] : []));
   $('sd-toggle').setAttribute('aria-expanded', dockOpen);
@@ -3223,8 +3225,9 @@ function renderDock() {
 }
 function sessionMenu(item) {
   const menu = [{label: '↗ Open posting', run: () => window.pilot.openExternal(item.url)}];
-  if (!item.endedAt) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
-  if (!item.endedAt) menu.push({label: '⏹ Stop session', danger: true, run: () => window.pilot.sessionStop(item.id)});
+  if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
+  if (item.resumable) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
+  if (isLive(item)) menu.push({label: '⏹ Stop session', danger: true, run: () => window.pilot.sessionStop(item.id)});
   else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
   return menu;
 }
@@ -3255,6 +3258,14 @@ function sessionDuration(item) {
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
 }
 const hhmmOf = iso => new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+// Claude again, in this session's conversation (the app was closed, or the session stopped). The log opens to show it.
+async function resumeSession(item) {
+  const result = await window.pilot.sessionResume(item.id);
+  if (!result?.ok) { toastMessage('Not resumed', result?.error || 'Claude could not be started.'); return; }
+  logChoice[item.id] = true;
+  termShownFor = null;
+  await refreshSessions();
+}
 function pauseSession() { if (openSessionId) window.pilot.sessionWrite(openSessionId, '\x1b'); }  // Esc interrupts Claude
 // Open or closed as you last left it for this session; until then open while Claude works.
 function openLog(open, remember = true) {
@@ -3315,7 +3326,7 @@ function renderNextStep(item) {
   // Its state, after the title: finished (when), waiting (since when) or working (for how long).
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
-  state.textContent = review ? `· Claude finished at ${hhmmOf(since)}` : asking ? `· waiting since ${hhmmOf(since)}`
+  state.textContent = review ? `· Claude finished at ${hhmmOf(since)}` : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
@@ -3326,13 +3337,15 @@ function renderNextStep(item) {
   const full = $('ss-full');
   full.replaceChildren(...(review && item.question ? richText(item.question) : []));
   if (fullFor !== item.id) { full.hidden = true; fullFor = item.id; }
-  const actions = [];
+  const actions = [], live = isLive(item);
+  const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (review) {
     actions.push(sessionButton('Open filled form', 'primary', async () => {
       const went = await window.pilot.showBrowser(item.url, sessionCompany(item));
       if (went === 'chrome') toastMessage('Form tab not found', 'Chrome is in front, but no open tab matches this job. Look for the tab Claude used.');
     }, 'link'));
-    actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    if (live) actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    else if (item.resumable) actions.push(resume('secondary'));
     if (item.question) {
       const toggle = sessionButton(full.hidden ? 'Claude\'s message ▾' : 'Claude\'s message ▴', 'link', () => {
         full.hidden = !full.hidden;
@@ -3343,6 +3356,9 @@ function renderNextStep(item) {
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
     actions.push(never);
+  } else if (asking && !live) {
+    if (item.resumable) actions.push(resume('primary'));
+    actions.push(sessionButton('Remove from the list', 'secondary', async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }));
   } else if (asking) {
     actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
     actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
@@ -3350,6 +3366,8 @@ function renderNextStep(item) {
   } else if (running) {
     actions.push(sessionButton('Pause', 'secondary', pauseSession));
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
+  } else if (item.resumable) {
+    actions.push(resume('primary'));
   }
   $('ss-actions').replaceChildren(...actions);
   // Two sections under the step: what Claude needs from you (answer, agree, confirm), then what happened
@@ -3492,6 +3510,7 @@ function renderSessionPage() {
   renderNextStep(item);
   const review = sessionReview(item);
   const [logLabel, logTone] = item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
+    : item.status === 'input' && !isLive(item) ? ['Closed with the app', 'neutral']
     : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];
   const livePill = pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true});
   if (item.status === 'running') ticking(livePill, `${logLabel} · `, item.startedAt);

@@ -25,7 +25,9 @@
     "workMode": "Remote",
     "startedAt": "2026-09-28T19:42:00Z",
     "needsYouSince": "2026-09-28T19:47:00Z",
-    "brief": "Shall I change the visa answer, or leave both as they are?"
+    "brief": "Shall I change the visa answer, or leave both as they are?",
+    "live": false,
+    "resumable": true
   },
   {
     "id": "d3",
