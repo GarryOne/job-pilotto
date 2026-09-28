@@ -1875,7 +1875,9 @@ function renderSaved() {
     picker.append(select, pasted);
     cell(who, picker);
 
-    cell(job ? placeAndMode(job.location, job.work_mode) || '–' : '–').className = 'iv-where';
+    // Where: the job in this list, else the linked Applications row (a job applied to outside Job Pilotto).
+    const place = job || row.place || {};
+    cell(placeAndMode(place.location, place.work_mode) || '–').className = 'iv-where';
     cell(row.overall ? pill(OUTCOME[row.overall] || row.overall, OUTCOME_TONE[row.overall] || 'neutral', {dot: true})
       : pill(reviewing.has(row.id) ? 'Reviewing…' : 'Not reviewed', reviewing.has(row.id) ? 'signal' : 'neutral', {dot: true}));
 

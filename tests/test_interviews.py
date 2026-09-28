@@ -313,6 +313,9 @@ class InterviewTests(unittest.TestCase):
         self.assertNotIn('Overall', created['properties'])  # not reviewed: no AI was used
         self.assertEqual(interviews.saved_transcript(tracker, page['id']), SPOKEN)
         self.assertEqual(interviews.listing(tracker)[0]['application'], ['g-1'])
+        # Where the job is comes from the linked Applications row, so a job the app's list lacks still shows it.
+        grafana['properties'].update({'Location': text('Zürich, Switzerland'), 'Work mode': {'type': 'select', 'select': {'name': 'On-site'}}})
+        self.assertEqual(interviews.listing(tracker)[0]['place'], {'location': 'Zürich, Switzerland', 'work_mode': 'On-site'})
         # A job not in Applications yet is added there first (an interview means you applied), then linked.
         added = []
 

@@ -406,8 +406,21 @@ def delete(tracker, page_id):
     tracker._request('PATCH', f'pages/{page_id}', {'archived': True})
 
 
+def _place(tracker, page_id, seen):
+    """Location and Work mode of a linked Applications row, read once per page (the app's jobs list may not
+    have it, e.g. an application made before Job Pilotto). {} when Notion can't give it."""
+    if page_id not in seen:
+        try:
+            props = tracker._request('GET', f'pages/{page_id}')['properties']
+            seen[page_id] = {'location': plain(props.get('Location')) or '', 'work_mode': plain(props.get('Work mode')) or ''}
+        except Exception:  # noqa: BLE001 - a trashed or unshared page: the row still lists, without a place
+            seen[page_id] = {}
+    return seen[page_id]
+
+
 def listing(tracker, limit=100):
-    """🎤 Interviews rows for the app, newest first: reviewed when Overall is set."""
+    """🎤 Interviews rows for the app, newest first: reviewed when Overall is set. `place` is where the linked
+    application's job is (Location, Work mode from Applications)."""
     rows = []
     for row in tracker.query_database(INTERVIEWS_DATABASE_ID):
         props = row['properties']
@@ -417,7 +430,10 @@ def listing(tracker, limit=100):
                      'round': plain(props.get('Round')) or '', 'next_step': plain(props.get('Next step')) or '',
                      'application': [r['id'] for r in (props.get('Application') or {}).get('relation', [])]})
     rows.sort(key=lambda r: r['date'], reverse=True)
-    return rows[:limit]
+    rows, seen = rows[:limit], {}
+    for row in rows:
+        row['place'] = _place(tracker, row['application'][0], seen) if row['application'] else {}
+    return rows
 
 
 def main(argv=None):
