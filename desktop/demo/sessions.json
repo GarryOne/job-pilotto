@@ -6,31 +6,34 @@
     "company": "Northwind AI",
     "status": "input",
     "note": "Waiting for your reply",
-    "question": "Filled 14 of 16 fields on the form. Please check these kit answers before you submit:\n\n- **Go/Ruby:** \"No\" to reading Go or Ruby, and \"Neither\" for languages shipped. The posting tests these in the technical interview.\n- **Visa:** \"Yes, but not one of the visas listed\" (you're an EU citizen; the role is in San Francisco).\n\nShall I change the visa answer, or leave both as they are?",
-    "location": "San Francisco, CA",
-    "workMode": "On-site",
-    "startedAt": "2026-09-28T17:10:00Z",
-    "brief": "Shall I change the visa answer, or leave both as they are?"
+    "question": "The form is filled in Chrome and recorded in Notion. Before you submit, check these:\n\n- **Hybrid in four cities; each needs a visa.** Three days a week in the San Francisco, New York, Seattle or London office, outside your usual cities.\n- **No Kubernetes operator experience.** The cover letter says so openly.\n- **The form has no salary question.**\n\n**Audit file:** Location and CV fields checked on the page; the audit helper showed both as empty. I corrected those in the file and removed a duplicate, empty \"Resume/CV\" row. The run log has a note about both audit gaps.\n\nReview it and submit it yourself when you're happy.",
+    "location": "San Francisco; New York; Seattle; London",
+    "workMode": "Hybrid",
+    "startedAt": "2026-09-28T19:42:00Z",
+    "needsYouSince": "2026-09-28T19:48:12Z",
+    "brief": "Review it and submit it yourself when you're happy."
   },
   {
     "id": "d2",
     "url": "https://jobs.example/acme/sre",
-    "title": "SRE",
+    "title": "Cloud Engineering Manager",
     "company": "Acme Robotics",
-    "status": "running",
-    "note": "Filling started",
+    "status": "input",
+    "note": "Waiting for your reply",
+    "question": "Filled 14 of 16 fields on the form. Please check these kit answers before you submit:\n\n- **Go/Ruby:** \"No\" to reading Go or Ruby, and \"Neither\" for languages shipped. The posting tests these in the technical interview.\n- **Visa:** \"Yes, but not one of the visas listed\" (you're an EU citizen; the role is in San Francisco).\n\nShall I change the visa answer, or leave both as they are?",
     "location": "London, UK",
     "workMode": "Remote",
-    "startedAt": "2026-09-28T16:24:00Z"
+    "startedAt": "2026-09-28T19:42:00Z",
+    "needsYouSince": "2026-09-28T19:47:00Z",
+    "brief": "Shall I change the visa answer, or leave both as they are?"
   },
   {
     "id": "d3",
     "url": "https://jobs.example/example-labs/sre",
-    "title": "SRE",
+    "title": "Engineering Manager, Infrastructure",
     "company": "Example Labs",
-    "status": "done",
-    "note": "Form filled — review it in Chrome and Submit",
-    "startedAt": "2026-09-28T14:02:00Z",
-    "endedAt": "2026-09-28T14:20:00Z"
+    "status": "running",
+    "note": "Filling started",
+    "startedAt": "2026-09-28T19:41:00Z"
   }
 ]

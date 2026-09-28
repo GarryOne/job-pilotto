@@ -1,6 +1,7 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
+import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
@@ -780,6 +781,12 @@ function handlers() {
   });
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
+  // "Open filled form": the form is a tab in the Chrome window Claude used, so bring Chrome forward (on the Mac);
+  // elsewhere, or without Chrome, open the posting.
+  ipcMain.handle('showBrowser', (_, url) => {
+    if (process.platform !== 'darwin') return shell.openExternal(url);
+    return new Promise(done => execFile('open', ['-a', 'Google Chrome'], error => done(error ? shell.openExternal(url) : true)));
+  });
   // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
   // browser. ⌘-click opens the app's own Notion window instead (its own sign-in, kept between restarts).
   ipcMain.handle('openNotion', (_, url, inWindow) => {

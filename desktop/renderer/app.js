@@ -24,10 +24,10 @@ const savedAgo = iso => {
   return !Number.isFinite(minutes) || minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.floor(minutes / 60)} h ago` : ago(iso);
 };
 // Application sessions (Apply with Claude in the app): declared before start-up code renders the job list.
-const SESSION_STATE = {running: ['Applying', 'info'], input: ['Needs your input', 'warn'], done: ['Form filled', 'good'],
+const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
   ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad']};
 const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
-let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockOpen = true, sessionExpanded = false;
+let sessionList = [], openSessionId = null, xterm = null, xtermFit = null, dockOpen = true, logChoice = {};
 for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${state.about.label}`;
 let draft = null;
 let allJobs = [];
@@ -3197,7 +3197,7 @@ function renderDock() {
   const order = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
   const shown = [...(live.length ? live : sessionList)].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5)).slice(0, 3);
   $('sd-cards').replaceChildren(...shown.map(item => {
-    const [label, tone] = SESSION_STATE[item.status] || SESSION_STATE.ended;
+    const [label, tone] = sessionState(item);
     const card = el('div', `sd-card tone-${tone}`);
     const words = el('div', 'sd-words');
     const title = el('b', 'focus-headline', `${sessionCompany(item)} · ${sessionTitle(item)}`);
@@ -3216,12 +3216,138 @@ function renderDock() {
 }
 function sessionMenu(item) {
   const menu = [{label: '↗ Open posting', run: () => window.pilot.openExternal(item.url)}];
+  if (!item.endedAt) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
   if (!item.endedAt) menu.push({label: '⏹ Stop session', danger: true, run: () => window.pilot.sessionStop(item.id)});
   else menu.push({label: '✕ Remove from the list', run: async () => { await window.pilot.sessionRemove(item.id); if (openSessionId === item.id) openSessionId = null; refreshSessions(); }});
   return menu;
 }
-// The tray's header: its title and counts open the sessions page (like View all); anywhere else in the row
-// (the empty space, ⌃) collapses or expands it; a card opens its own session.
+// Claude's last message, sorted for the page: the lines it flags (its bullet list), the audit note ("Audit …:"),
+// and the rest (its intro and question). Its words are kept; only where they're shown changes.
+function readSessionMessage(text) {
+  const checks = [], intro = [];
+  let audit = '';
+  for (const raw of String(text || '').split(/\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const bullet = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
+    const auditLine = line.match(/^\**(?:form\s+)?audit[^:*]*:\**\s*(.*)$/i);
+    if (bullet) checks.push(bullet[1]);
+    else if (auditLine) audit = auditLine[1].replace(/^\*+\s*/, '');
+    else intro.push(line);
+  }
+  return {checks, audit, intro};
+}
+// Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
+const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself/i;
+// A message that ends on a question still waits for your answer first.
+const sessionReview = item => item.status === 'done'
+  || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !/\?\s*$/.test(item.brief || item.question || ''));
+const sessionState = item => (sessionReview(item) ? SESSION_STATE.done : SESSION_STATE[item.status] || SESSION_STATE.ended);
+function sessionDuration(item) {
+  const end = item.endedAt || item.needsYouSince;
+  const seconds = Math.max(0, Math.round(((end ? new Date(end) : new Date()) - new Date(item.startedAt)) / 1000));
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s` : `${seconds}s`;
+}
+const hhmmOf = iso => new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+function pauseSession() { if (openSessionId) window.pilot.sessionWrite(openSessionId, '\x1b'); }  // Esc interrupts Claude
+// Open or closed as you last left it for this session; until then open while Claude works.
+function openLog(open, remember = true) {
+  if (remember && openSessionId) logChoice[openSessionId] = open;
+  show($('ss-log-body'), open);
+  show($('ss-log-last'), !open);
+  $('ss-expand').textContent = open ? 'Collapse log' : 'Expand log';
+  $('ss-expand').setAttribute('aria-expanded', open);
+  if (open) setTimeout(() => { fitTerminal(); if (remember) xterm?.focus(); }, 30);
+}
+function sessionButton(text, kind, run, glyph) {
+  const button = el('button', `${kind}${glyph ? ' with-icon' : ''}`);
+  if (glyph) button.append(icon(glyph));
+  button.append(el('span', '', text));
+  button.addEventListener('click', run);
+  return button;
+}
+function renderNextStep(item) {
+  const review = sessionReview(item), asking = item.status === 'input' && !review, running = item.status === 'running';
+  const {checks, audit, intro} = readSessionMessage(item.question);
+  const tone = review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
+  $('ss-decision').className = `ss-next tone-${tone}`;
+  $('ss-next-icon').className = `focus-round tone-${tone}`;
+  $('ss-next-icon').replaceChildren(icon(review || asking ? 'alert' : running ? 'pulse' : 'info'));
+  const brief = item.brief || '';
+  const ask = /\?$/.test(brief) ? brief : '';
+  $('ss-next-title').textContent = review ? 'Review the filled application'
+    : asking ? ask || 'Claude needs your answer'
+    : running ? 'Claude is filling the application' : item.status === 'failed' ? 'The session stopped' : 'The session ended';
+  // What to read: one line when the form is ready (Claude's words stay one click away), else Claude's own text.
+  const said = intro.filter(line => line.replace(/\*/g, '') !== ask);
+  const words = review ? [el('p', 'rich-p', 'The form is ready in Chrome. Check the answers and legal boxes, then submit it yourself.')]
+    : asking ? richText(said.join('\n')) : [el('p', 'rich-p muted', item.note || '')];
+  if (review && item.question) {
+    const full = el('details', 'ss-full');
+    full.append(el('summary', '', 'Claude\'s full message'), ...richText(item.question));
+    words.push(full);
+  }
+  $('ss-question').replaceChildren(...words);
+  show($('ss-steps'), review);
+  const actions = [];
+  if (review) {
+    actions.push(sessionButton('Open filled form', 'primary', () => window.pilot.showBrowser(item.url), 'link'));
+    actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    const never = el('span', 'ss-never muted small');
+    never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
+    actions.push(never);
+  } else if (asking) {
+    actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
+    actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    actions.push(sessionButton('Answer in your own words', 'link', () => openLog(true), 'chat'));
+  } else if (running) {
+    actions.push(sessionButton('Pause', 'secondary', pauseSession));
+    actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
+  }
+  $('ss-actions').replaceChildren(...actions);
+  // Its state, on the right: finished (when), waiting (since when) or working (since when).
+  const side = el('div', 'ss-side');
+  const mark = el('span', `focus-round tone-${review ? 'good' : tone}`);
+  mark.append(icon(review ? 'check' : asking ? 'clock' : running ? 'refresh' : 'info'));
+  const since = item.needsYouSince || item.endedAt || item.startedAt;
+  side.append(mark, el('b', '', review ? `Claude finished at ${hhmmOf(since)}` : asking ? `Waiting since ${hhmmOf(since)}`
+    : running ? `Started at ${hhmmOf(item.startedAt)}` : `Ended at ${hhmmOf(since)}`),
+  el('span', 'muted small', review ? (item.status === 'done' ? 'Form filled in Chrome and recorded in Notion.' : 'Form filled in Chrome.')
+    : asking ? 'Claude is paused until you answer.' : running ? 'You can leave this page; you\'ll be notified.' : ''));
+  $('ss-next-side').replaceChildren(side);
+  // What Claude flagged, and its audit note, as two cards under the step.
+  show($('ss-checks-card'), checks.length > 0);
+  $('ss-checks-card').querySelector('b').textContent = review ? 'Before you submit' : 'What Claude flagged';
+  $('ss-checks').replaceChildren(...checks.map(text => {
+    const li = el('li', 'ss-check');
+    const [, head, rest] = text.match(/^\*\*([^*]+?):?\*\*:?\s*(.*)$/) || [null, '', text];
+    const short = head || rest.split(/(?<=[.;])\s/)[0];
+    const more = head ? rest : rest.slice(short.length).trim();
+    const line = el('div', 'ss-check-line');
+    line.append(icon('chevron'), ...richText(short).flatMap(node => [...node.childNodes]));
+    li.append(line);
+    if (more) {
+      const detail = el('div', 'muted small ss-check-more');
+      detail.append(...richText(more).flatMap(node => [...node.childNodes]));
+      detail.hidden = true;
+      li.classList.add('has-more');
+      li.addEventListener('click', () => { detail.hidden = !detail.hidden; li.classList.toggle('is-open', !detail.hidden); });
+      li.append(detail);
+    }
+    return li;
+  }));
+  show($('ss-audit-card'), !!audit);
+  if (audit) {
+    const sentences = audit.split(/(?<=\.)\s+/);
+    const fixes = (audit.match(/\b(?:corrected|removed|fixed)\b/gi) || []).length;
+    $('ss-audit-pill').replaceChildren(...(fixes ? [pill(`${fixes} correction${fixes === 1 ? '' : 's'}`, 'warn', {dot: true})] : [pill('Checked', 'good', {dot: true})]));
+    $('ss-audit-summary').replaceChildren(...richText(sentences[0]).flatMap(node => [...node.childNodes]));
+    $('ss-audit-detail').replaceChildren(...richText(sentences.slice(1).join(' ') || audit));
+    show($('ss-audit-more'), sentences.length > 1);
+  }
+  show($('ss-facts'), checks.length > 0 || !!audit);
+  $('ss-facts').classList.toggle('is-single', !(checks.length && audit));
+}
 document.querySelector('.sd-head').addEventListener('click', event => {
   if (event.target.closest('#sd-all')) return;
   if (event.target.closest('.sd-link')) { openSession(openSessionId || sessionList[0]?.id); return; }
@@ -3244,31 +3370,39 @@ function renderSessionPage() {
   const item = sessionList.find(entry => entry.id === openSessionId) || sessionList[0];
   show($('ss-list-empty'), !sessionList.length);
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
-    const [label, tone] = SESSION_STATE[entry.status] || SESSION_STATE.ended;
-    const li = el('li', `ss-row${entry.id === item?.id ? ' is-current' : ''}${entry.status === 'input' ? ' is-waiting' : ''}`);
+    const [label, tone] = sessionState(entry);
+    const li = el('li', `ss-row tone-${tone}${entry.id === item?.id ? ' is-current' : ''}`);
     const words = el('div', 'ss-row-words');
-    words.append(el('b', '', sessionCompany(entry)), el('span', 'small', sessionTitle(entry)), pill(label, tone, {dot: true}));
-    li.append(sessionLogo(entry), words, el('span', 'muted small', clockTime(entry.startedAt)));
+    const top = el('div', 'ss-row-top');
+    top.append(el('b', '', sessionCompany(entry)), el('span', 'muted small', clockTime(entry.startedAt)));
+    words.append(top, el('span', 'small', sessionTitle(entry)), pill(label, tone, {dot: true}));
+    li.append(sessionLogo(entry), words);
     li.addEventListener('click', () => openSession(entry.id));
     return li;
   }));
   if (!item) return;
-  const [label, tone] = SESSION_STATE[item.status] || SESSION_STATE.ended;
+  const [label, tone] = sessionState(item);
   $('ss-crumb').textContent = sessionCompany(item);
-  $('ss-title').textContent = `${sessionCompany(item)} · ${sessionTitle(item)}`;
-  $('ss-status').replaceChildren(pill(label, tone));
-  $('ss-pause').disabled = !!item.endedAt;
+  $('ss-title').textContent = sessionCompany(item);
+  $('ss-role').textContent = sessionTitle(item);
+  $('ss-status').replaceChildren(pill(sessionReview(item) ? 'Ready for your review' : label, tone, {dot: true}));
   $('ss-more').replaceChildren(moreButton(sessionMenu(item), 'More'));
   const job = sessionJob(item);
   const head = el('div', 'ss-job-card');
-  const place = el('span', 'muted', [item.location || job.location, item.workMode || job.work_mode].filter(Boolean).join(' · '));
+  const words = el('div', 'ss-job-words');
+  const place = [...String(item.location || job.location || '').split(/\s*;\s*/), item.workMode || job.work_mode].filter(Boolean).join(' · ');
+  words.append(el('b', '', `${sessionCompany(item)} · ${sessionTitle(item)}`), el('span', 'muted', place));
   const view = Object.assign(el('a', 'link small', 'View job ↗'), {href: '#'});
   view.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(item.url); });
-  head.append(sessionLogo(item), el('b', '', `${sessionCompany(item)} · ${sessionTitle(item)}`), place, view);
+  head.append(sessionLogo(item), words, view);
   $('ss-job').replaceChildren(head);
-  show($('ss-decision'), item.status === 'input');
-  $('ss-question').replaceChildren(...richText(item.question || item.note || 'Claude is waiting for your reply.'));
-  $('ss-live-state').replaceChildren(pill(item.status === 'input' ? 'Waiting for your response' : item.endedAt ? label : 'Working', tone, {dot: true}));
+  renderNextStep(item);
+  const review = sessionReview(item);
+  const [logLabel, logTone] = item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
+    : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];
+  $('ss-live-state').replaceChildren(pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true}));
+  $('ss-log-last').textContent = `> ${review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
+  openLog(logChoice[item.id] ?? item.status === 'running', false);
 }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 async function attachTerminal(id) {
@@ -3286,10 +3420,9 @@ async function attachTerminal(id) {
   xterm.reset();
   xterm.write(await window.pilot.sessionOutput(id));
   fitTerminal();
-  xterm.focus();
 }
 function fitTerminal() {
-  if (!xterm || document.querySelector('.view[data-view="sessions"]').hidden) return;
+  if (!xterm || document.querySelector('.view[data-view="sessions"]').hidden || $('ss-log-body').hidden) return;
   try { xtermFit.fit(); } catch { return; }
   if (openSessionId) window.pilot.sessionResize(openSessionId, xterm.cols, xterm.rows);
 }
@@ -3301,19 +3434,13 @@ function say(text) {
   xterm?.focus();
 }
 document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
-$('ss-ask').addEventListener('click', () => xterm?.focus());  // the terminal is the one place to type
-$('ss-pause').addEventListener('click', () => openSessionId && window.pilot.sessionWrite(openSessionId, '\x1b'));  // Esc interrupts Claude
 $('ss-copy').addEventListener('click', async () => {
   const text = (await window.pilot.sessionOutput(openSessionId)).replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
   await navigator.clipboard.writeText(text);
   toastMessage('Log copied', 'The session\'s output is on the clipboard.');
 });
-$('ss-expand').addEventListener('click', () => {
-  sessionExpanded = !sessionExpanded;
-  document.querySelector('.view[data-view="sessions"]').classList.toggle('is-expanded', sessionExpanded);
-  $('ss-expand').textContent = sessionExpanded ? 'Collapse' : 'Expand';
-  setTimeout(fitTerminal, 50);
-});
+$('ss-expand').addEventListener('click', () => openLog($('ss-log-body').hidden));
+$('ss-log-last').addEventListener('click', () => openLog(true));
 window.pilot.onSession((event, payload) => {
   if (event === 'data') { if (payload.id === openSessionId) xterm?.write(payload.data); return; }
   if (event === 'open') { openSession(payload.id); return; }

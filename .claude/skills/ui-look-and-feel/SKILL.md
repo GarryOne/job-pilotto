@@ -22,7 +22,7 @@ look at it.
 | Focus | `focus.jpg` | Up next rows, Insight, funnel; side column (progress, reminders, your focus); sessions dock |
 | Focus, loading | `focus-loading.jpg` | Skeleton cards in the page's shape, "Syncing…" by Refresh |
 | Jobs | `jobs.jpg` | Stat tiles, toolbar, job rows (fit ring, tags, status pill, main action, ⋯) |
-| Session | `session.jpg` | List + detail page: job header, decision card, live terminal, message box, quick replies |
+| Session | `session.jpg` | List + detail: job header, "Your next step" card (steps, one primary, state on the right), Before you submit + Form audit cards, folded session log |
 | Actions | `actions.jpg` | Running banner, task cards by category with a Run button, Recent runs table |
 | Interviews | `interviews.jpg` | Recorder, drafts, saved library table |
 | Settings | `settings.jpg` | Setting rows: title, one-line explanation, control |

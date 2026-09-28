@@ -360,11 +360,11 @@
     <div class="view" data-view="sessions" hidden>
       <nav class="crumbs small"><a href="#" data-go="jobs">Jobs</a><span>/</span><a href="#" id="ss-crumb-all">Application sessions</a><span>/</span><b id="ss-crumb"></b></nav>
       <header class="view-head">
-        <div class="ss-title"><h1 id="ss-title">Application sessions</h1><span id="ss-status"></span></div>
-        <div class="head-actions">
-          <button class="secondary with-icon" id="ss-pause" title="Interrupt Claude (Esc); then type what to do instead"><span>⏸ Pause</span></button>
-          <span id="ss-more"></span>
+        <div class="ss-title">
+          <h1 id="ss-title">Application sessions</h1>
+          <div class="ss-subtitle"><span class="muted" id="ss-role"></span><span id="ss-status"></span></div>
         </div>
+        <div class="head-actions"><span id="ss-more"></span></div>
       </header>
       <div class="ss-grid">
         <section class="card ss-list-card">
@@ -374,34 +374,52 @@
         </section>
         <section class="card ss-main" id="ss-main">
           <div class="ss-job" id="ss-job"></div>
-          <div class="ss-decision" id="ss-decision" hidden>
-            <span class="focus-round tone-warn"><i data-icon="alert"></i></span>
-            <div class="ss-decision-body">
-              <b>Claude is waiting for you</b>
+          <!-- The one thing to do now: what Claude needs (or what's left for you), its steps and buttons; its state on the right. -->
+          <div class="ss-next" id="ss-decision">
+            <span class="focus-round" id="ss-next-icon"></span>
+            <div class="ss-next-body">
+              <span class="ss-eyebrow">Your next step</span>
+              <b class="ss-next-title" id="ss-next-title"></b>
               <div class="ss-question" id="ss-question"></div>
-              <div class="ss-decision-actions">
-                <button class="primary" data-say="Continue.">Continue</button>
-                <button class="secondary" data-say="Skip this role: close its tab and finish without filling anything.">Skip this role</button>
-                <button class="link with-icon" id="ss-ask"><i data-icon="chat"></i><span>Answer in the terminal below</span></button>
+              <ol class="ss-steps" id="ss-steps" hidden>
+                <li><span class="ss-step-n">1</span><span><b>Review answers</b><span class="muted small">Check your information</span></span></li>
+                <li><span class="ss-step-n">2</span><span><b>Accept terms</b><span class="muted small">Tick the legal boxes</span></span></li>
+                <li><span class="ss-step-n">3</span><span><b>Submit yourself</b><span class="muted small">Click Submit in Chrome</span></span></li>
+              </ol>
+              <div class="ss-decision-actions" id="ss-actions"></div>
+            </div>
+            <div class="ss-next-side" id="ss-next-side"></div>
+          </div>
+          <div class="ss-facts" id="ss-facts" hidden>
+            <section class="ss-fact-card" id="ss-checks-card" hidden>
+              <div class="ss-fact-head"><i data-icon="file"></i><b>Before you submit</b></div>
+              <ul class="ss-checks" id="ss-checks"></ul>
+            </section>
+            <section class="ss-fact-card" id="ss-audit-card" hidden>
+              <div class="ss-fact-head"><i data-icon="shield"></i><b>Form audit</b><span id="ss-audit-pill"></span></div>
+              <p class="muted ss-audit-summary" id="ss-audit-summary"></p>
+              <details class="ss-audit-more" id="ss-audit-more"><summary>View audit details</summary><div id="ss-audit-detail"></div></details>
+            </section>
+          </div>
+          <section class="ss-log" id="ss-log">
+            <div class="ss-log-head" id="ss-log-head">
+              <span class="ss-log-glyph">&gt;_</span><b>Session log</b><span id="ss-live-state"></span>
+              <div class="ss-live-actions">
+                <button class="ghost small-button" id="ss-copy">Copy log</button>
+                <button class="ghost small-button" id="ss-expand" aria-expanded="false">Expand log</button>
               </div>
             </div>
-          </div>
-          <div class="ss-live-head">
-            <div class="with-glyph"><b>Live session</b><span id="ss-live-state"></span></div>
-            <div class="ss-live-actions">
-              <button class="secondary small-button" id="ss-copy">Copy log</button>
-              <button class="secondary small-button" id="ss-expand">Expand</button>
+            <div class="ss-log-last" id="ss-log-last"></div>
+            <div class="ss-log-body" id="ss-log-body" hidden>
+              <div class="ss-terminal" id="ss-terminal"></div>
+              <div class="ss-chips">
+                <span class="small">Type in the log, or send a quick reply:</span>
+                <button class="ui-tag is-action" data-say="Explain in one or two lines what you are doing now and why.">Explain this step</button>
+                <button class="ui-tag is-action" data-say="Continue.">Continue</button>
+                <button class="ui-tag is-action" data-say="Stop here. Leave the form as it is for me to finish.">I'll finish it myself</button>
+              </div>
             </div>
-          </div>
-          <div class="ss-terminal" id="ss-terminal"></div>
-          <div class="ss-chips">
-            <span class="muted small">Type your answer in the terminal, or send a quick reply:</span>
-            <button class="ui-tag is-action" data-say="Explain in one or two lines what you are doing now and why.">Explain this step</button>
-            <button class="ui-tag is-action" data-say="Continue.">Continue</button>
-            <button class="ui-tag is-action" data-say="Skip this role: close its tab and finish without filling anything.">Skip this role</button>
-            <button class="ui-tag is-action" data-say="Stop here. Leave the form as it is for me to finish.">I'll finish it myself</button>
-          </div>
-          <p class="ss-safe muted small"><i data-icon="shield"></i>Job Pilotto never submits an application without your review.</p>
+          </section>
         </section>
       </div>
     </div>
