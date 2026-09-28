@@ -9,7 +9,7 @@ import {$, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -242,9 +242,12 @@ export function renderNextStep(item) {
   updateNeedsCount();
   const happened = [
     ...done.map(section => {
-      const lead = firstLine(section.text);
+      // "**Filled:**" with its details on the bullets under it: the line shows the first of them.
+      const text = section.text || section.items.join('; ');
+      const lead = firstLine(text);
       return {short: section.label ? `**${section.label}:** ${lead}`.trim() : lead, problem: section.label === 'Problems' || PROBLEM.test(section.text),
-        more: [section.text.slice(lead.length).trim(), ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n')};
+        more: section.text ? [section.text.slice(lead.length).trim(), ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n')
+          : section.items.length > 1 ? section.items.map(line => `- ${line}`).join('\n') : ''};
     }),
     ...filled.map(({text, problem}) => {
       const {label, text: rest} = splitLabel(text);
@@ -255,7 +258,8 @@ export function renderNextStep(item) {
   happened.sort((x, y) => Number(y.problem) - Number(x.problem));
   $('ss-happened').replaceChildren(...happened.map(({short, more, problem}) => {
     const row = foldRow(short, more);
-    if (problem) row.classList.add('is-problem');
+    // A problem Claude worked around, on a form that's now ready: history, not a warning.
+    if (problem) row.classList.add(formReady(item) ? 'is-solved' : 'is-problem');
     if (problem && /extension/i.test(`${short} ${more}`)) explainExtension(row);
     return row;
   }));

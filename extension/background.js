@@ -209,7 +209,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         const data = await prefetch(config, String(message.url || sender.tab.url).split('#')[0]).kit;  // the contact details come along
         return {connected: true, app, job: data.job || null, answers: data.kit?.answers?.length || 0, coverLetter: data.kit?.cover_letter || ''};
       } catch (error) {
-        return {connected: error.status === 404, app, job: null, answers: 0, coverLetter: '', why: error.status ? '' : (app ? NO_APP : error.message)};
+        // The app answered (an error is still an answer): connected, and say what failed; only no answer is "not connected".
+        return {connected: !!error.status, app, job: null, answers: 0, coverLetter: '', retry: !!error.status && error.status !== 404,
+          why: !error.status ? (app ? NO_APP : error.message) : error.status === 404 ? '' : `Connected, but this job couldn't be loaded (${error.message || error.status}): trying again`};
       }
     })().then(reply, () => reply({connected: false}));
     return true;

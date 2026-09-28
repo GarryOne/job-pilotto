@@ -1,6 +1,8 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
 import {splitLabel} from '../session-message.js';
+import {icon} from '../icons.js';
+import {sameQuestion} from '../labels.js';
 import {shared} from './shared.js';
 import {$} from './core.js';
 import {openView} from './nav.js';
@@ -21,9 +23,18 @@ function doneRow(li, key, outcome) {
   li.querySelector('.ss-need-actions')?.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${outcome}`));
   updateNeedsCount();
 }
+// The form page says every required field is filled (the extension's ring is green).
+export const formReady = item => !!reviewStates.get(item.id)?.ready;
+// What's left, said the way you act on it: "2 in the form · 3 to check" (judgement calls apart from form fields).
 export function updateNeedsCount() {
-  const open = document.querySelectorAll('#ss-needs .ss-need:not(.is-done)').length;
-  $('ss-needs-count').replaceChildren(open ? pill(`${open}`, 'warn') : pill('All handled', 'good', {dot: true}));
+  const open = [...document.querySelectorAll('#ss-needs .ss-need:not(.is-done)')];
+  const check = open.filter(li => li.classList.contains('is-confirm')).length, form = open.length - check;
+  const text = [form && `${form} in the form`, check && `${check} to check`].filter(Boolean).join(' · ');
+  $('ss-needs-count').replaceChildren(open.length ? pill(text, 'warn') : pill('All handled', 'good', {dot: true}));
+  // All handled: the card folds to its header (a click shows the rows again).
+  $('ss-needs-card').classList.toggle('is-all-done', !open.length);
+  const head = $('ss-needs-card').querySelector('.ss-fact-head .icon');
+  if (head && head.dataset.state !== String(!open.length)) { const glyph = icon(open.length ? 'alert' : 'check'); glyph.dataset.state = String(!open.length); head.replaceWith(glyph); }
 }
 function smallButton(text, kind, run, title = '') {
   const button = el('button', `${kind} ss-need-button`, text);
@@ -32,7 +43,7 @@ function smallButton(text, kind, run, title = '') {
   return button;
 }
 // ---- In step with the form page (the extension's ring, extension/review.js; lib/review.js) ----
-const reviewStates = new Map();  // session id → {left, total, ready, states: {watch id: ticked}}
+export const reviewStates = new Map();  // session id → {left, total, ready, states: {watch id: ticked}}
 const syncedDone = new Set();    // rows ticked off because the form said so (untick there: back here)
 const watchId = text => `w${[...String(text)].reduce((hash, c) => (hash * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)}`;
 // The question to find in the form: the bold label Claude gave ("AI Policy for Application"), else its first words.
@@ -71,13 +82,12 @@ export function applyFormStates(item) {
   }
   showFormState(item);
 }
-// Required fields the form page says are still empty and Claude's message didn't list: the app finds them itself.
-const fieldKey = text => String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+// Required fields the form page says are still empty and Claude's message didn't list (reworded counts as listed:
+// renderer/labels.js): the app finds them itself.
 export function emptyFields(item, needs) {
-  const listed = needs.map(need => fieldKey(agreeLabel(need))).filter(Boolean);
+  const listed = needs.flatMap(need => [agreeLabel(need), need.question, need.text]).filter(Boolean);
   return (reviewStates.get(item.id)?.missing || []).filter(label => {
-    const key = fieldKey(label);
-    return key && !listed.some(l => l.includes(key) || key.includes(l));
+    return label && !listed.some(text => sameQuestion(text, label));
   });
 }
 export function emptyRow(label, item) {
@@ -201,6 +211,9 @@ export function askRow(need, item) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  $('ss-needs-card').querySelector('.ss-fact-head').addEventListener('click', () => {
+    if ($('ss-needs-card').classList.contains('is-all-done')) $('ss-needs-card').classList.toggle('is-open');
+  });
   window.pilot.onReview(state => {
     const changed = JSON.stringify(reviewStates.get(state.id)?.missing || []) !== JSON.stringify(state.missing || []);
     reviewStates.set(state.id, state);

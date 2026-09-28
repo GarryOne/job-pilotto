@@ -901,7 +901,18 @@ main { min-width: 0; }
 .ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .ss-need-button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
 .ss-need-outcome { color: var(--good); }
-.ss-need.is-done > .ss-need-body > div:first-child { color: var(--muted); }
+.ss-need.is-done > .ss-need-body > div:first-child { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Done: one quiet line (the answer box goes; saving it to your answers stays). */
+.ss-need.is-done .ss-need-glyph { opacity: .45; }
+.ss-need.is-done .ss-ask-input, .ss-need.is-done .ss-need-hint { display: none; }
+.ss-need.is-done .ss-ask-q b { font-weight: 500; }
+.ss-need.is-done .ss-ask-save { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+/* Everything handled: the card folds to its header; a click opens it. */
+.ss-needs.is-all-done { border-color: var(--line); }
+.ss-needs.is-all-done .ss-fact-head { cursor: pointer; margin-bottom: 0; }
+.ss-needs.is-all-done:not(.is-open) #ss-needs { display: none; }
+.ss-needs.is-all-done .ss-fact-head .icon { color: var(--good); }
+.ss-check.is-solved .ss-check-line { color: var(--muted); }
 .ss-ask-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .ss-ask-input { flex: 1 1 260px; max-width: 460px; }
 .ss-ask-save { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); white-space: nowrap; margin: 0; }

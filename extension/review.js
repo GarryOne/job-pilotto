@@ -345,6 +345,8 @@
       if (jobAsked !== wanted) {
         jobAsked = wanted;
         connection = await send({type: 'panelJob', url: wanted}).catch(() => ({connected: false}));
+        // The app answered with an error (Notion busy): ask again in 30 s instead of never on this page.
+        if (connection?.retry) setTimeout(() => { if (jobAsked === wanted) jobAsked = ''; }, 30000);
         job = connection?.job ? {...connection.job, coverLetter: connection.coverLetter} : null;
         // Open by itself the first time on a job it knows (you can close it; it stays closed).
         if ((job || session) && !userMoved && !open) setOpen(true);
