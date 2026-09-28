@@ -3324,7 +3324,10 @@ function renderNextStep(item) {
   show($('ss-steps'), review);
   const actions = [];
   if (review) {
-    actions.push(sessionButton('Open filled form', 'primary', () => window.pilot.showBrowser(item.url), 'link'));
+    actions.push(sessionButton('Open filled form', 'primary', async () => {
+      const went = await window.pilot.showBrowser(item.url, sessionCompany(item));
+      if (went === 'chrome') toastMessage('Form tab not found', 'Chrome is in front, but no open tab matches this job. Look for the tab Claude used.');
+    }, 'link'));
     actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));

@@ -79,7 +79,8 @@
       "icon": "assets/icon.png",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Job Pilotto records your interview calls (with everyone's agreement) to transcribe them on this Mac.",
-        "NSAudioCaptureUsageDescription": "Job Pilotto records the call's audio to transcribe your interviews on this Mac."
+        "NSAudioCaptureUsageDescription": "Job Pilotto records the call's audio to transcribe your interviews on this Mac.",
+        "NSAppleEventsUsageDescription": "Job Pilotto switches Chrome to the application form Claude filled, so you can review it."
       }
     },
     "dmg": {
