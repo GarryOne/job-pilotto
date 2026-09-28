@@ -10,27 +10,26 @@
 <meta name="description" content="Job Pilotto is a Mac app that finds the right tech jobs, drafts your answers and fills the form, with everything tracked in your own Notion. You review and click Submit.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=IBM+Plex+Mono:wght@400;600&family=Public+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Newsreader:opsz,wght@6..72,400..600&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="wrap">
-  <nav>
+  <nav class="topnav" id="topnav">
     <a class="brand" href="#top"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a>
     <div class="links">
       <a href="#how">How it works</a>
       <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
-      <a href="compare.html">Compare</a>
       <a href="#faq">FAQ</a>
     </div>
-    <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
+    <a class="btn btn-primary btn-small" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
   </nav>
 
   <header class="hero" id="top">
     <div class="hero-copy">
       <span class="eyebrow">For tech jobs in Switzerland · in English</span>
-      <h1>Your job search on autopilot. You still land it.</h1>
+      <h1>Your job search on <span class="flightpath">autopilot</span>. You still land it.</h1>
       <p class="lede">A Mac app that reads new openings every few hours, scores each one against your CV, drafts your answers and fills the application form. Everything is tracked in your own Notion. You review and click Submit.</p>
       <div class="hero-actions">
         <div class="cta">
@@ -42,93 +41,104 @@
           <span class="cta-note">First month free</span>
         </div>
       </div>
-      <p class="hero-note"><b>Free today is for technical users:</b> you paste two keys and allow an unsigned app once, about 10 minutes. Pro will make it one click. <a href="#setup">What setup takes</a></p>
+      <p class="hero-note"><b>Free today is for technical users:</b> you paste two keys and allow an unsigned app once, about 10 minutes. <a href="#setup">What setup takes</a></p>
+      <p class="maker"><img src="images/logo.png" alt="" width="28" height="28"><span>Built by an SRE in Geneva who needed it for a real job search, and now uses it every day.</span></p>
     </div>
 
-    <div class="board" role="img" aria-label="Illustrative departures board: five matching jobs at made-up companies, with fit scores and application status">
+    <div class="hero-visual">
+      <span class="backdrop warm" aria-hidden="true"></span>
+      <span class="backdrop dots" aria-hidden="true"></span>
+      <span class="chip chip-top" aria-hidden="true"><i></i>3 kits ready this morning</span>
+    <div class="board" aria-label="Illustrative departures board: five matching jobs at made-up companies, with fit scores and application status">
       <div class="board-head"><b>Departures · your matches</b><span>Illustrative</span></div>
       <table>
+        <colgroup><col class="c-time"><col class="c-role"><col class="c-co"><col class="c-fit"><col class="c-gate"></colgroup>
         <thead><tr><th>Time</th><th>Role</th><th>Company</th><th>Fit</th><th>Gate</th></tr></thead>
         <tbody>
-          <tr><td>06:30</td><td class="role">Staff SRE, AI Reliability</td><td>Alpenlink</td><td class="fit">86</td><td><span class="gate now">Filling</span></td></tr>
-          <tr><td>06:30</td><td class="role">Platform Engineer</td><td>Alpine Data</td><td class="fit">81</td><td><span class="gate kit">Kit ready</span></td></tr>
-          <tr><td>02:30</td><td class="role">SRE, Edge Systems</td><td>Glacier Labs</td><td class="fit">78</td><td><span class="gate kit">Kit ready</span></td></tr>
-          <tr><td>Yest.</td><td class="role">Infrastructure Engineer</td><td>Lakeside Pay</td><td class="fit">74</td><td><span class="gate sent">Applied</span></td></tr>
-          <tr><td>Tue</td><td class="role">DevOps Engineer</td><td>Northwind</td><td class="fit">71</td><td><span class="gate reply">Screening</span></td></tr>
+          <tr><td data-flap>06:30</td><td class="role" data-flap>STAFF SRE</td><td data-flap>ALPENLINK</td><td class="fit" data-flap>86</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+          <tr><td data-flap>06:30</td><td class="role" data-flap>PLATFORM ENG</td><td data-flap>ALPINE DATA</td><td class="fit" data-flap>81</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+          <tr><td data-flap>02:30</td><td class="role" data-flap>SRE EDGE</td><td data-flap>GLACIER LABS</td><td class="fit" data-flap>78</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+          <tr><td data-flap>YEST</td><td class="role" data-flap>INFRA ENG</td><td data-flap>LAKESIDE</td><td class="fit" data-flap>74</td><td><span class="gate sent">APPLIED</span></td></tr>
+          <tr><td data-flap>TUE</td><td class="role" data-flap>DEVOPS ENG</td><td data-flap>NORTHWIND</td><td class="fit" data-flap>71</td><td><span class="gate reply">SCREENING</span></td></tr>
         </tbody>
       </table>
-      <div class="board-foot">Made-up companies. Fit = how well a role matches your CV and preferences, out of 100.</div>
+      <div class="board-foot">Made-up companies · Fit = match with your CV, out of 100</div>
+    </div>
+      <div class="float-card" aria-hidden="true">
+        <b>Form filled</b>
+        <span class="check on">Contact details</span>
+        <span class="check on">CV and cover letter</span>
+        <span class="check on">12 answers from your kit</span>
+        <span class="check you">Submit: your turn</span>
+      </div>
     </div>
   </header>
 
-  <section class="block" id="how">
+  <section class="block reveal" id="how">
     <div class="section-head">
       <span class="eyebrow">How it works</span>
-      <h2>Four stops, from new opening to reply</h2>
-      <p class="lede">Each stop runs on its own. Open one to see everything in it.</p>
+      <h2>One route, from new opening to reply</h2>
+      <p class="lede">Every stop runs on its own. Pick one to see what happens there.</p>
     </div>
-    <ol class="stops">
-      <li class="stop">
-        <span class="leg-code">01 · FIND</span>
-        <div>
-          <h3>Finds the right openings and scores them</h3>
-          <p>Career pages of top tech employers, Swiss job boards and Google Jobs, every few hours. Each job gets a fit score out of 100 with the reason; the best arrive in Telegram.</p>
-          <details><summary>Everything in this stop</summary><ul>
-            <li><b>Employer career pages</b> from their public job feeds (Greenhouse, Lever, Ashby, Workable, SmartRecruiters and more)</li>
-            <li><b>Swiss job boards</b> (jobs.ch, TechTree), optional <b>Google Jobs</b>, and a daily <b>scout</b> that adds new employers</li>
-            <li><b>Filters</b> by city, remote and languages you don't speak; jobs you applied to or dismissed never come back</li>
-            <li><b>Facts from each posting</b> (languages, seniority, salary, visa), each with a quote as proof; <b>visa badges</b></li>
-            <li>Edit your profile and every open job is <b>scored again</b></li>
-          </ul></details>
-        </div>
-      </li>
-      <li class="stop">
-        <span class="leg-code">02 · PREPARE</span>
-        <div>
-          <h3>Drafts your application</h3>
-          <p>One tap: an answer for every question on the employer's real form, a cover letter in your voice, and a CV tailored to the job.</p>
-          <details><summary>Everything in this stop</summary><ul>
-            <li>An <b>application kit</b> per job, with an <b>eligibility check</b> ("not eligible" and why)</li>
-            <li><b>Tailored CV</b>: bullets reordered and reworded toward the posting; numbers, titles and dates can't change; every change highlighted</li>
-            <li><b>Sounds like you</b>: drafts start from your CV and answers you've written; anything uncertain is flagged, never guessed</li>
-            <li><b>Answer once</b>: questions it couldn't answer are asked once and reused on every later form</li>
-          </ul></details>
-        </div>
-      </li>
-      <li class="stop">
-        <span class="leg-code">03 · APPLY</span>
-        <div>
-          <h3>Fills the form. You submit.</h3>
-          <p>The Chrome extension fills a form in seconds. With Claude Code, Apply with Claude also gets through the job board, the employer's site and its sign-up to the form. <a href="#your-click">Where your click happens</a></p>
-          <details><summary>Everything in this stop</summary><ul>
-            <li><b>Fill in Chrome</b>: text fields, dropdowns, phone, city search, checkbox questions, CV and cover letter; a live checklist of what's left</li>
-            <li>Answers written by AI are <b>outlined</b> so you read them first; consent boxes stay yours unless you allow it</li>
-            <li><b>Apply with Claude</b>: follows Apply to the employer's site, <b>creates the account</b> if asked (password generated into your Keychain, never seen), reads the confirmation email (Gmail, read-only)</li>
-            <li>On a form the extension knows, Claude <b>hands it to the extension</b> and fills only what's left</li>
-            <li>Marks the job <b>Applied</b> when the confirmation page appears</li>
-          </ul></details>
-        </div>
-      </li>
-      <li class="stop">
-        <span class="leg-code">04 · TRACK</span>
-        <div>
-          <h3>Replies, interviews and what to change <span class="new">New: interviews</span></h3>
-          <p>Gmail and Calendar update each application by themselves. Record an interview and get a transcript with who said what, filed under the job, plus a review if you want one.</p>
-          <details><summary>Everything in this stop</summary><ul>
-            <li><b>Gmail and Calendar</b> (read-only): confirmations, replies, interviews and rejections; a <b>prep message</b> the evening before</li>
-            <li><b>Interviews</b>: record the call or add a recording; transcribed <b>on your Mac, free</b>, speakers told apart, saved to Notion under the job</li>
-            <li>An <b>interview review</b> in one click (about $0.05): every question, how you answered, what to practise</li>
-            <li>A <b>daily insight</b>, a <b>weekly report</b> and your funnel, with the step to improve</li>
-            <li><b>Telegram</b> for matches and commands; <b>Notion</b> with its views and mobile app; runs <b>while your Mac is off</b> with your free GitHub</li>
-          </ul>
-          <p class="consent-note"><b>Ask first, every time.</b> The app won't record until you confirm everyone on the call agreed. Recording people without their consent is illegal in Switzerland and many other places.</p>
-          </details>
-        </div>
-      </li>
-    </ol>
+    <div class="route" data-route>
+      <div class="route-track" aria-hidden="true"><span class="route-plane" data-plane>✈</span></div>
+      <div class="route-stops" role="tablist" aria-label="Stops">
+        <button class="stop-tab" role="tab" id="tab-find" aria-controls="panel-find" aria-selected="true">
+          <span class="tile">01</span><span class="code">FIND</span><b>Finds and scores jobs</b><small>Every few hours, a fit score out of 100</small></button>
+        <button class="stop-tab" role="tab" id="tab-prepare" aria-controls="panel-prepare" aria-selected="false">
+          <span class="tile">02</span><span class="code">PREPARE</span><b>Drafts your application</b><small>Answers, cover letter, tailored CV</small></button>
+        <button class="stop-tab" role="tab" id="tab-apply" aria-controls="panel-apply" aria-selected="false">
+          <span class="tile">03</span><span class="code">APPLY</span><b>Fills the form</b><small>In seconds. You submit</small></button>
+        <button class="stop-tab" role="tab" id="tab-track" aria-controls="panel-track" aria-selected="false">
+          <span class="tile">04</span><span class="code">TRACK</span><b>Replies and interviews</b><small>From Gmail, with transcripts</small></button>
+      </div>
+    </div>
+    <div class="stop-panels">
+      <div class="stop-panel" role="tabpanel" id="panel-find" aria-labelledby="tab-find">
+        <dl class="items">
+          <div><dt>Employer career pages</dt><dd>Public job feeds of top tech employers, read directly</dd></div>
+          <div><dt>Swiss job boards</dt><dd>jobs.ch and TechTree, plus Google Jobs if you want it</dd></div>
+          <div><dt>Daily scout</dt><dd>Finds new employers worth watching and adds them</dd></div>
+          <div><dt>Filters that matter</dt><dd>City, remote, and languages you don't speak</dd></div>
+          <div><dt>Facts with proof</dt><dd>Languages, seniority, salary and visa, each quoted from the posting</dd></div>
+          <div><dt>Fit score</dt><dd>Out of 100 with the reason; re-scored when your profile changes</dd></div>
+        </dl>
+      </div>
+      <div class="stop-panel" role="tabpanel" id="panel-prepare" aria-labelledby="tab-prepare">
+        <dl class="items">
+          <div><dt>Application kit</dt><dd>An answer for every question on the employer's real form</dd></div>
+          <div><dt>Cover letter</dt><dd>In your voice, from your CV and answers you've written</dd></div>
+          <div><dt>Tailored CV</dt><dd>Reordered toward the job; every change highlighted</dd></div>
+          <div><dt>Eligibility check</dt><dd>"Not eligible" and why, before you spend time on it</dd></div>
+          <div><dt>Answer once</dt><dd>New questions are asked once and reused on every form</dd></div>
+          <div><dt>Never guesses</dt><dd>Anything uncertain is flagged for you to check</dd></div>
+        </dl>
+      </div>
+      <div class="stop-panel" role="tabpanel" id="panel-apply" aria-labelledby="tab-apply">
+        <dl class="items">
+          <div><dt>Fill in Chrome</dt><dd>Text, dropdowns, phone, city, CV and cover letter in seconds</dd></div>
+          <div><dt>Live checklist</dt><dd>What's left on the page, turning green when it's ready</dd></div>
+          <div><dt>AI answers outlined</dt><dd>So you read them before anything else</dd></div>
+          <div><dt>Apply with Claude</dt><dd>Job board → employer site → sign-up → form, with Claude Code</dd></div>
+          <div><dt>Employer accounts</dt><dd>Password generated into your Keychain; never seen</dd></div>
+          <div><dt>Submit stays yours</dt><dd>It stops on the last page. <a href="#your-click">See where your click happens</a></dd></div>
+        </dl>
+      </div>
+      <div class="stop-panel" role="tabpanel" id="panel-track" aria-labelledby="tab-track">
+        <dl class="items">
+          <div><dt>Gmail and Calendar</dt><dd>Replies and interviews update each application; read-only</dd></div>
+          <div><dt>Interview prep</dt><dd>A message the evening before, with what to practise</dd></div>
+          <div><dt>Interview transcripts <span class="new">New</span></dt><dd>Recorded on your Mac, speakers told apart, filed under the job</dd></div>
+          <div><dt>Interview review</dt><dd>Every question, how you answered, what to improve; about $0.05</dd></div>
+          <div><dt>Insights</dt><dd>A daily insight, a weekly report and your funnel</dd></div>
+          <div><dt>Everywhere</dt><dd>Telegram, Notion's mobile app, and runs while your Mac is off</dd></div>
+        </dl>
+        <p class="consent-note"><b>Ask first, every time.</b> The app won't record until you confirm everyone on the call agreed. Recording people without their consent is illegal in Switzerland and many other places.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="block" id="your-click">
+  <section class="block reveal" id="your-click">
     <div class="section-head">
       <span class="eyebrow">You stay in control</span>
       <h2>Where your click happens</h2>
@@ -145,7 +155,7 @@
     <p class="flow-note">With the Chrome extension alone it's shorter: the extension fills the form on the page you're on, and the same last step is yours.</p>
   </section>
 
-  <section class="block" id="see">
+  <section class="block reveal" id="see">
     <div class="section-head">
       <span class="eyebrow">See it</span>
       <h2>The real screens</h2>
@@ -165,7 +175,7 @@
     </div>
   </section>
 
-  <section class="block" id="privacy">
+  <section class="block reveal" id="privacy">
     <div class="section-head">
       <span class="eyebrow">Privacy</span>
       <h2>What it can access</h2>
@@ -189,7 +199,7 @@
     </div>
   </section>
 
-  <section class="block" id="setup">
+  <section class="block reveal" id="setup">
     <div class="section-head">
       <span class="eyebrow">Setup</span>
       <h2>What setup takes</h2>
@@ -219,39 +229,56 @@
     </div>
   </section>
 
-  <section class="block" id="pricing">
+  <section class="block reveal" id="pricing">
     <div class="section-head">
       <span class="eyebrow">Pricing</span>
       <h2>Free to use. Pro when you want more.</h2>
       <p class="lede">You bring your own AI key and your own free Notion. AI usage is billed by Anthropic to you: usually a few dollars a month, capped by your own budget.</p>
     </div>
-    <div class="plans two">
-      <article class="plan featured">
-        <span class="tag">Available now</span>
-        <span class="plan-name">Free · Mac app</span>
-        <div class="price">0 <small>forever</small></div>
-        <ul>
-          <li>Every step above: find, prepare, apply, track</li>
-          <li>Apply with Claude (with your Claude Code)</li>
-          <li>Interviews transcribed on your Mac</li>
-          <li>Runs while your Mac is off (with your free GitHub)</li>
-          <li>Open source: read or run the code yourself</li>
-        </ul>
-        <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
-        <span class="plan-link">Apple silicon (M1 or newer) · <a href="https://github.com/GarryOne/job-pilotto">or run it from the source code</a></span>
+    <div class="passes">
+      <article class="pass">
+        <div class="pass-main">
+          <div class="pass-top"><span class="pass-airline">✈ Job Pilotto</span><span class="tag">Boarding now</span></div>
+          <div class="pass-route"><div><small>From</small><b>ZRH</b></div><span class="pass-line" aria-hidden="true"></span><div><small>To</small><b>OFFER</b></div></div>
+          <h3>Free · Mac app</h3>
+          <ul>
+            <li>Every stop: find, prepare, apply, track</li>
+            <li>Apply with Claude (with your Claude Code)</li>
+            <li>Interviews transcribed on your Mac</li>
+            <li>Runs while your Mac is off, with your free GitHub</li>
+            <li>Open source: read or run the code yourself</li>
+          </ul>
+          <a class="btn btn-primary" href="https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.dmg">Download for Mac</a>
+          <span class="pass-fine">Apple silicon (M1 or newer) · <a href="https://github.com/GarryOne/job-pilotto">or run it from the source</a></span>
+        </div>
+        <div class="pass-stub">
+          <div><small>Class</small><b>FREE</b></div>
+          <div><small>Fare</small><b>CHF 0</b></div>
+          <div><small>Gate</small><b>NOW</b></div>
+          <span class="barcode" aria-hidden="true"></span>
+        </div>
       </article>
-      <article class="plan">
-        <span class="tag soon">Coming soon</span>
-        <span class="plan-name">Pro</span>
-        <div class="price">Soon <small>early sign-ups get a month free</small></div>
-        <ul>
-          <li>Signed by Apple, updates itself; one-click Notion</li>
-          <li>Hosted searches, as often as hourly, nothing on GitHub</li>
-          <li>The maintained index of employer career pages</li>
-          <li>More countries: Germany, the Netherlands, the UK, remote Europe</li>
-          <li>Salary and response-rate benchmarks; priority help</li>
-        </ul>
-        <a class="btn btn-ghost" href="#early">Get early access</a>
+      <article class="pass soon">
+        <div class="pass-main">
+          <div class="pass-top"><span class="pass-airline">✈ Job Pilotto</span><span class="tag soon">Coming soon</span></div>
+          <div class="pass-route"><div><small>From</small><b>ZRH</b></div><span class="pass-line" aria-hidden="true"></span><div><small>To</small><b>OFFER</b></div></div>
+          <h3>Pro</h3>
+          <ul>
+            <li>Signed by Apple, updates itself; one-click Notion</li>
+            <li>Hosted searches, as often as hourly</li>
+            <li>The maintained index of employer career pages</li>
+            <li>More countries: DE, NL, UK, remote Europe</li>
+            <li>Salary and response-rate benchmarks; priority help</li>
+          </ul>
+          <a class="btn btn-ghost" href="#early">Get early access</a>
+          <span class="pass-fine">Early sign-ups get their first month free</span>
+        </div>
+        <div class="pass-stub">
+          <div><small>Class</small><b>PRO</b></div>
+          <div><small>Fare</small><b>SOON</b></div>
+          <div><small>Gate</small><b>TBA</b></div>
+          <span class="barcode" aria-hidden="true"></span>
+        </div>
       </article>
     </div>
   </section>
@@ -275,7 +302,7 @@
     </div>
   </section>
 
-  <section class="block" id="faq">
+  <section class="block reveal" id="faq">
     <div class="section-head">
       <span class="eyebrow">FAQ</span>
       <h2>Questions before take-off</h2>
@@ -294,11 +321,82 @@
   </section>
 
   <footer>
-    <span>✈ Job Pilotto · made in Switzerland by an SRE who needed it</span>
-    <span>Open source · Mac app · Your data stays in your Notion</span>
+    <span>✈ Job Pilotto · made in Geneva by an SRE who needed it</span>
+    <span><a href="compare.html">Compare with other tools</a> · Open source · Your data stays in your Notion</span>
   </footer>
 </div>
 <script>
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.documentElement.classList.add('js');
+
+  // Split-flap: each board cell's letters flip through the alphabet and land on the text.
+  const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:';
+  function flap(el, text, delay = 0) {
+    el.textContent = '';
+    el.setAttribute('aria-label', text);
+    [...text].forEach((ch, i) => {
+      const cell = Object.assign(document.createElement('span'), {className: 'flap', textContent: calm ? ch : ' '});
+      cell.setAttribute('aria-hidden', 'true');
+      el.append(cell);
+      if (calm || ch === ' ') { cell.textContent = ch; return; }
+      let turns = 6 + Math.floor(Math.random() * 8);
+      setTimeout(function spin() {
+        cell.textContent = turns-- > 0 ? GLYPHS[Math.floor(Math.random() * GLYPHS.length)] : ch;
+        if (turns >= 0) setTimeout(spin, 45);
+      }, delay + i * 28);
+    });
+  }
+  document.querySelectorAll('[data-flap]').forEach((el, i) => flap(el, el.textContent.trim(), 150 + (i % 4) * 90 + Math.floor(i / 4) * 120));
+
+  // The gates move like a real board: a kit becomes Filling, then Your turn (you review and submit).
+  const gates = [...document.querySelectorAll('[data-gate]')];
+  const STATES = [['KIT READY', 'kit'], ['FILLING', 'now'], ['YOUR TURN', 'you']];
+  gates.forEach(g => { g.dataset.step = 0; });
+  let turn = 0;
+  if (!calm) setInterval(() => {
+    const gate = gates[turn % gates.length];
+    const step = (Number(gate.dataset.step) + 1) % STATES.length;
+    gate.dataset.step = step;
+    gate.className = `gate ${STATES[step][1]}`;
+    flap(gate, STATES[step][0]);
+    if (step === 0) turn += 1;
+  }, 2600);
+
+  // Route: one stop open at a time; the plane flies to it.
+  const tabs = [...document.querySelectorAll('.stop-tab')], plane = document.querySelector('[data-plane]');
+  function open(tab) {
+    tabs.forEach(t => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    const i = tabs.indexOf(tab);
+    plane.style.setProperty('--at', `${tabs.length > 1 ? i / (tabs.length - 1) * 100 : 50}%`);
+  }
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => open(tab));
+    tab.addEventListener('keydown', event => {
+      const step = {ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1}[event.key];
+      if (!step) return;
+      const next = tabs[(tabs.indexOf(tab) + step + tabs.length) % tabs.length];
+      next.focus(); open(next);
+    });
+  });
+  if (tabs.length) open(tabs[0]);
+
+  // Sections ease in as they reach the screen.
+  if (!calm && 'IntersectionObserver' in window) {
+    const seen = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { entry.target.classList.add('in'); seen.unobserve(entry.target); }
+    }), {rootMargin: '0px 0px -10% 0px'});
+    document.querySelectorAll('.reveal').forEach(el => seen.observe(el));
+  } else document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+
+  // The sticky nav gets its edge once the page scrolls.
+  const nav = document.getElementById('topnav');
+  addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 8), {passive: true});
+
   // Pro early access: sent to /api/waitlist (site/src/index.js), kept in Cloudflare KV.
   const form = document.getElementById('waitlist');
   form.addEventListener('submit', async event => {
