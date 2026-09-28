@@ -1,0 +1,5 @@
+[
+  {"id": 1790620000000, "kind": "search", "trigger": "schedule", "startedAt": "2026-09-28T17:08:00Z", "endedAt": "2026-09-28T17:10:00Z", "ok": true, "found": 214, "new": 12, "changed": 3, "log": []},
+  {"id": 1790616000000, "kind": "mail", "trigger": "schedule", "startedAt": "2026-09-28T16:00:00Z", "endedAt": "2026-09-28T16:00:40Z", "ok": true, "updates": ["💬 Reply received · Acme Robotics — SRE"], "summary": "Mail: 6 new email(s) classified, 1 update(s)", "log": []},
+  {"id": 1790500000000, "kind": "weekly", "trigger": "schedule", "startedAt": "2026-09-28T06:00:00Z", "endedAt": "2026-09-28T06:01:00Z", "ok": true, "summary": "9 applications sent, 2 interviews landed", "log": []}
+]

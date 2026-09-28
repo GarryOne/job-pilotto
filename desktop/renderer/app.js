@@ -284,6 +284,7 @@ function showAwaitedResult(runs) {
   else window.pilot.runDetail(run.pageId).then(detail => show(detail.message), () => show(null));  // on its Notion page
 }
 function renderActivity(data) {
+  renderActionsPage(data);
   lastActivity = data;
   showAwaitedResult(data.runs);
   const {running, runs, nextSearchAt, nextMailAt} = data;
@@ -2131,7 +2132,8 @@ document.querySelectorAll('[data-command]').forEach(button => button.addEventLis
   // (Status, Help) shows right here, not behind the panel.
   const task = !!COMMAND_KIND[command];
   if (task) {
-    openActivity(true);
+    // On the Actions page its banner and Recent runs follow it; from elsewhere (⌘K), Recent activity opens.
+    if (document.querySelector('.view[data-view="actions"]').hidden) openActivity(true);
     awaitedRun = {kind: COMMAND_KIND[command], since: Date.now() - 2000};
     refreshActivity();
   }
@@ -3193,3 +3195,44 @@ async function showStatusCard() {
   show($('command-answer'), false);
   card.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 }
+
+// Actions page: the live banner (what runs now), Recent runs, and Telegram's state. Fed by the activity data.
+const TASK_ICON = {search: 'search', mail: 'mail', insight: 'chart', weekly: 'file', today: 'send', scout: 'building'};
+const TASK_TITLE = {search: 'Search for new jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Weekly report',
+  today: "Today's matches", scout: 'Find new employers'};
+function runWhen(iso) {
+  const at = new Date(iso), today = new Date();
+  const time = at.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+  return at.toDateString() === today.toDateString() ? `Today ${time}` : `${at.toLocaleDateString([], {weekday: 'short'})} ${time}`;
+}
+function renderActionsPage(data) {
+  if (!data) return;
+  const {running, runs = []} = data;
+  const connected = !!(state.settings.telegramChatId || state.settings.telegramCloud);
+  $('actions-telegram').replaceChildren(el('span', `dot ${connected ? 'is-on' : ''}`), document.createTextNode(connected ? 'Telegram connected' : 'Telegram not connected'));
+  show($('run-banner'), !!running);
+  if (running) {
+    const kind = kindOf(running);
+    $('run-banner-title').textContent = `${TASK_TITLE[kind] || KIND[kind]?.name || 'A task'} is running`;
+    $('run-banner-step').textContent = `Started ${new Date(running.startedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · ${running.step || 'starting'}`;
+  }
+  const rows = runs.slice(0, 5).map(run => {
+    const kind = kindOf(run);
+    const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
+    const li = el('li', 'runs-row');
+    const tile = el('span', 'task-tile small');
+    tile.append(icon(TASK_ICON[kind] || 'pulse'));
+    li.append(tile, el('b', '', KIND[kind]?.name || 'Task'), pill(label, tone), el('span', 'muted', runWhen(run.endedAt || run.startedAt)),
+      el('span', 'muted runs-result', capital(outcome(run))), el('span', 'runs-go', '›'));
+    li.addEventListener('click', () => { selectedRun = run.id; openActivity(true); renderActivity(lastActivity); });
+    return li;
+  });
+  $('runs-table').replaceChildren(...(rows.length ? rows : [el('li', 'muted runs-empty', 'Nothing has run yet. Press Run on a task above.')]));
+}
+$('run-banner-view').addEventListener('click', () => openActivity(true));
+$('runs-all').addEventListener('click', event => { event.preventDefault(); openActivity(true); });
+$('actions-automation').addEventListener('click', event => {
+  event.preventDefault();
+  openView('settings');
+  document.getElementById('setting-schedule')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+});

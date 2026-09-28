@@ -410,24 +410,63 @@
     </div>
 
     <div class="view" data-view="actions" hidden>
-      <header class="view-head"><div><h1>Actions</h1><p class="muted" id="actions-note">Everything the Telegram bot can do. When Telegram is connected, results go to your chat too.</p></div></header>
-      <h2 class="action-section">Run now <span class="muted small">In the background: Recent activity opens and shows it running, then its result</span></h2>
-      <div class="action-grid">
-        <button class="action" data-command="run"><b>🔄 Search now</b><span>Find and score new jobs; the digest follows</span></button>
-        <button class="action" data-command="today"><b>📋 Send today's list</b><span>Your current best matches, ranked</span></button>
-        <button class="action" data-command="insight"><b>💡 An insight now</b><span>One finding about your search</span></button>
-        <button class="action" data-command="weekly"><b>📊 Weekly report</b><span>Replies, applications, market, focus</span></button>
-        <button class="action" data-command="mail"><b>📧 Check Gmail</b><span>Confirmations, replies, interviews (if connected)</span></button>
-        <button class="action" data-command="scout"><b>🔎 Find new employers</b><span>Check candidate companies for job feeds</span></button>
-      </div>
-      <h2 class="action-section">Look up <span class="muted small">Instant, right here</span></h2>
-      <div class="action-grid">
-        <button class="action" data-command="applied"><b>📨 My applications</b><span>Every application and its stage, in Jobs</span></button>
-        <button class="action" data-command="saved"><b>⭐ Saved jobs</b><span>Jobs you saved for later, in Jobs</span></button>
-        <button class="action" data-command="status"><b>🩺 Status</b><span>What ran, what runs next</span></button>
-      </div>
-      <section class="card status-card" id="status-card" hidden></section>
+      <header class="view-head">
+        <div><h1>Actions</h1><p class="muted subtitle">Run a task now and follow its result here.</p></div>
+        <div class="head-actions actions-head">
+          <span class="actions-telegram muted" id="actions-telegram"></span>
+          <a href="#" class="link" id="actions-automation">Automation settings</a>
+        </div>
+      </header>
+      <section class="card run-banner" id="run-banner" hidden>
+        <span class="spinner"></span>
+        <div class="run-banner-words"><b id="run-banner-title"></b><span class="muted" id="run-banner-step"></span></div>
+        <button class="secondary" id="run-banner-view">View activity</button>
+      </section>
       <pre class="answer" id="command-answer" hidden></pre>
+      <h2 class="action-section">Run a task</h2>
+      <div class="task-grid">
+          <div class="task-card">
+            <span class="task-category">DISCOVERY</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="search"></i></span>
+              <div class="task-words"><b>Search for new jobs</b><span class="muted">Find, filter and score new opportunities</span></div>
+              <button class="primary action" data-command="run"><b hidden>Search for new jobs</b>Run</button></div>
+          </div>
+          <div class="task-card">
+            <span class="task-category">DISCOVERY</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="building"></i></span>
+              <div class="task-words"><b>Find new employers</b><span class="muted">Add companies to your job sources</span></div>
+              <button class="primary action" data-command="scout"><b hidden>Find new employers</b>Run</button></div>
+          </div>
+          <div class="task-card">
+            <span class="task-category">COMMUNICATION</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="mail"></i></span>
+              <div class="task-words"><b>Check Gmail &amp; Calendar</b><span class="muted">Sync replies, confirmations and interviews</span></div>
+              <button class="primary action" data-command="mail"><b hidden>Check Gmail &amp; Calendar</b>Run</button></div>
+          </div>
+          <div class="task-card">
+            <span class="task-category">COMMUNICATION</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="send"></i></span>
+              <div class="task-words"><b>Send today's matches</b><span class="muted">Your best matches, ranked (and to Telegram)</span></div>
+              <button class="primary action" data-command="today"><b hidden>Send today's matches</b>Run</button></div>
+          </div>
+          <div class="task-card">
+            <span class="task-category">INSIGHTS</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="chart"></i></span>
+              <div class="task-words"><b>Generate an insight</b><span class="muted">One useful finding about your search</span></div>
+              <button class="primary action" data-command="insight"><b hidden>Generate an insight</b>Run</button></div>
+          </div>
+          <div class="task-card">
+            <span class="task-category">INSIGHTS</span>
+            <div class="task-body"><span class="task-tile"><i data-icon="file"></i></span>
+              <div class="task-words"><b>Create weekly report</b><span class="muted">Applications, replies and market trends</span></div>
+              <button class="primary action" data-command="weekly"><b hidden>Create weekly report</b>Run</button></div>
+          </div>
+      </div>
+      <section class="card runs-card">
+        <div class="focus-card-head"><h2>Recent runs</h2><a href="#" class="link small" id="runs-all">View all activity</a></div>
+        <ol class="runs-table" id="runs-table"></ol>
+      </section>
+      <section class="card status-card" id="status-card" hidden></section>
     </div>
 
     <div class="view" data-view="interviews" hidden>
