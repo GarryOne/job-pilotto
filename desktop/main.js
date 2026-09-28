@@ -458,6 +458,13 @@ app.on('second-instance', () => {
 // through ScreenCaptureKit behind these switches; without them (or without Screen Recording permission)
 // the recorder falls back to the microphone alone.
 app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
+// Electron's desktopCapturer rejects an internal promise ("Failed to get sources") when macOS hasn't allowed
+// screen capture, even though the display-media handler catches it; that one is expected (the recorder shows
+// the permission panel), so it isn't logged. Every other unhandled rejection still is.
+process.on('unhandledRejection', reason => {
+  if (String(reason?.message || reason) === 'Failed to get sources.') return;
+  console.error('Unhandled rejection:', reason);
+});
 
 if (firstCopy) app.whenReady().then(() => {
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
