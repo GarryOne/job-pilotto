@@ -740,6 +740,9 @@ function handlers() {
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
   // The token lives in the Keychain, where the Python side (src/sources/google.py) reads it.
   ipcMain.handle('googleStatus', async () => {
+    // Demo mode: the fictional user's account. The real check reads this Mac's Google sign-in (the Keychain, not the
+    // demo folder), which put the owner's own address into the reference screenshots.
+    if (DEMO) return {connected: true, email: 'alex.morgan@example.com'};
     const {stdout} = await pipeline.run(storage, ['src.sources.google', 'status']);
     try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return {connected: false}; }
   });
