@@ -227,7 +227,10 @@ function outcome(run) {
     if (run.off) return 'Gmail not connected (Settings → Gmail and Calendar)';
     if (run.problem) return run.problem;
     if (!run.ok) return 'had problems';
-    return run.updates?.length ? plural(run.updates.length, 'application update') : 'nothing new';
+    if (run.updates?.length) return plural(run.updates.length, 'application update');
+    // "Mail: 2 new email(s) classified, 0 update(s), …": emails were read but none changed an application.
+    const read = Number(/^Mail: (\d+) new email/.exec(run.summary || '')?.[1] || 0);
+    return read ? `${plural(read, 'email')} checked · no updates` : 'nothing new';
   }
   if (!run.ok) return 'had problems';
   return run.new != null ? plural(run.new, 'new job') : 'done';
