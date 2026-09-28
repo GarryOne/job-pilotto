@@ -217,6 +217,7 @@ function handlers() {
         await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('Profile'));
         await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
         strategy.dropLocalCopies(storage);  // Notion has them now
+        await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       }
       storage.saveSettings({setupDone: true});
       return {ok: true};

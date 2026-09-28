@@ -109,6 +109,24 @@ export function dropLocalCopies(storage) {
   for (const name of ['profile.md', 'answers.md']) fs.rmSync(storage.path(name), {force: true});
 }
 
+// ⚙️ Search settings: a readable Notion page next to the Profile (src/notion/search_settings.py parses it before
+// every crawl; config/search.json and preferences.json are only its cache). Created when missing, and
+// rewritten from the cached settings (e.g. after a strategy is rebuilt from the CV).
+export async function publishSearchSettings(storage, {run, ensurePage, writePage}) {
+  const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
+  if (!token || !ids.NOTION_PROFILE_PAGE_ID) return null;
+  let page = ids.NOTION_SEARCH_SETTINGS_PAGE;
+  if (!page) {
+    page = await ensurePage(token, ids.NOTION_PROFILE_PAGE_ID, SEARCH_SETTINGS_TITLE, '');
+    storage.saveSettings({notionIds: {...storage.settings().notionIds, NOTION_SEARCH_SETTINGS_PAGE: page}});
+  }
+  const {code, stdout} = await run(storage, ['src.notion.search_settings', 'render']);
+  if (code !== 0 || !stdout.trim()) throw new Error('Could not render the search settings');
+  await writePage(token, page, stdout);
+  return page;
+}
+export const SEARCH_SETTINGS_TITLE = '⚙️ Search settings';
+
 export function save(storage, accepted) {
   // With Notion, contact details go into the Profile page (main.js adds the section); without, they wait here.
   if (accepted.contact && !storage.secret('NOTION_TOKEN')) storage.saveSettings({contact: Object.fromEntries(Object.entries(accepted.contact).filter(([, value]) => value))});

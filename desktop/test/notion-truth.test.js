@@ -53,7 +53,9 @@ test('data an older version kept on the Mac moves to Notion once, then only Noti
     contact: {email: 'igor@x.com', phone: '+41 1'},
   });
   const page = fakeNotion(['## 📇 Contact details', 'Email: notion@x.com']);  // one fake page stands in for all three
-  const moved = await migrate.run(storage, () => {}, migrate.STEPS.filter(s => s.name !== 'profile copies'), page.fetcher);
+  // (profile copies and search settings have their own tests; they'd need the Python side here)
+  const steps = migrate.STEPS.filter(s => !['profile copies', 'search settings'].includes(s.name));
+  const moved = await migrate.run(storage, () => {}, steps, page.fetcher);
   assert.deepEqual(moved, ['open questions', 'form knowledge', 'contact details']);
   const texts = page.texts();
   assert.ok(texts.includes('Visa sponsorship: ❓ (asked by Acme)'));
@@ -61,5 +63,21 @@ test('data an older version kept on the Mac moves to Notion once, then only Noti
   assert.ok(texts.includes('Email: notion@x.com') && texts.includes('Phone: +41 1'));  // Notion's value won
   const settings = storage.settings();
   for (const key of ['openQuestions', 'answeredQuestions', 'formKnowledge', 'contact']) assert.equal(settings[key], undefined, key);
-  assert.deepEqual(await migrate.run(storage, () => {}, migrate.STEPS.filter(s => s.name !== 'profile copies'), page.fetcher), []);  // nothing left
+  assert.deepEqual(await migrate.run(storage, () => {}, steps, page.fetcher), []);  // nothing left
+});
+
+test('search settings become a readable Notion page next to the Profile, created once and rewritten after a rebuild', async () => {
+  const {publishSearchSettings} = await import('../lib/strategy.js');
+  const storage = connected();
+  const calls = [];
+  const deps = {
+    run: async (_, args) => { calls.push(args.join(' ')); return {code: 0, stdout: '## Roles to look for\n- sre\n'}; },
+    ensurePage: async (token, beside, title) => { calls.push(`create ${title} beside ${beside}`); return 'settings-page'; },
+    writePage: async (token, page, markdown) => { calls.push(`write ${page}: ${markdown.trim().split('\n')[1]}`); },
+  };
+  assert.equal(await publishSearchSettings(storage, deps), 'settings-page');
+  assert.equal(storage.settings().notionIds.NOTION_SEARCH_SETTINGS_PAGE, 'settings-page');
+  await publishSearchSettings(storage, deps);  // exists now: only rewritten
+  assert.deepEqual(calls, ['create ⚙️ Search settings beside profile', 'src.notion.search_settings render', 'write settings-page: - sre',
+    'src.notion.search_settings render', 'write settings-page: - sre']);
 });

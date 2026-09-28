@@ -5,6 +5,7 @@ import * as contact from './contact.js';
 import * as knowledge from './knowledge.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
+import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 
 export const STEPS = [
@@ -15,6 +16,11 @@ export const STEPS = [
     if (!profile.trim() || (storage.readText('answers.md') && !answers.trim())) return false;  // Notion looks empty: keep them
     strategy.dropLocalCopies(storage);
     return true;
+  }},
+  // Search settings -> a readable ⚙️ Search settings page (the local files stay, as its cache).
+  {name: 'search settings', run: async storage => {
+    if (storage.settings().notionIds?.NOTION_SEARCH_SETTINGS_PAGE) return false;
+    return !!await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
   }},
   // Open questions -> ❓ lines of the standard answers page (skipping ones already there).
   {name: 'open questions', run: async (storage, fetcher) => {
