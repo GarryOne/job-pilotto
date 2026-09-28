@@ -745,6 +745,22 @@ $('draft-save').addEventListener('click', () => {
   $('replace-dialog').showModal();
 });
 $('replace-ok').addEventListener('change', () => { $('replace-go').disabled = !$('replace-ok').checked; });
+// Every dialog: a click on the dimmed backdrop closes it like Esc (a dialog that blocks Esc, e.g. while saving,
+// blocks this too). Pressed and released outside, so selecting text in a field and letting go outside doesn't close it.
+let pressedOutside = null;
+const outside = (dialog, event) => {
+  const box = dialog.getBoundingClientRect();
+  return event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
+};
+document.addEventListener('mousedown', event => {
+  pressedOutside = event.target instanceof HTMLDialogElement && event.target.open && outside(event.target, event) ? event.target : null;
+});
+document.addEventListener('click', event => {
+  const dialog = pressedOutside;
+  pressedOutside = null;
+  if (!dialog || event.target !== dialog || !outside(dialog, event)) return;
+  if (dialog.dispatchEvent(new Event('cancel', {cancelable: true}))) dialog.close();
+});
 $('replace-cancel').addEventListener('click', () => $('replace-dialog').close());
 $('replace-go').addEventListener('click', () => { $('replace-dialog').close(); saveDraft(); });
 $('save-retry').addEventListener('click', saveDraft);
