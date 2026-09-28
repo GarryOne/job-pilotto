@@ -494,6 +494,23 @@
       <div class="setting">
         <div><h3>Your data</h3><p class="muted small" id="data-folder"></p></div>
         <div class="inline"><button class="secondary" id="open-data">Show in Finder</button><button class="ghost" id="rerun-wizard">Run setup again</button></div>
+        <div><p class="small muted"><b>Export</b> saves this computer's Job Pilotto data in one file (settings, CV and tailored CVs, recordings,
+          interview drafts, job list, run history), to keep or move to another computer. <b>Import</b> replaces the data here with such a file
+          (the current data is kept as a backup). Your Notion workspace is never in the file: it stays in Notion.</p></div>
+        <label class="radio"><input type="checkbox" id="export-keys"><span>Include my keys (AI, Notion, Telegram, GitHub). They're then in the file in plain text: keep it private.</span></label>
+        <div class="inline"><button class="secondary" id="export-data">Export…</button><button class="secondary" id="import-data">Import…</button></div>
+        <p class="message" id="data-message"></p>
+      </div>
+      <div class="setting danger-zone" id="setting-reset">
+        <div><h3>⚠️ Danger zone: reset Job Pilotto on this computer</h3>
+          <p class="small"><b>Removed from this computer:</b> your AI, Notion, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
+            interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
+          <p class="small muted"><b>Not changed:</b> your Notion workspace and everything in it, your Gmail sign-in, your GitHub repo. The Chrome extension
+            has to be connected again.</p></div>
+        <label class="radio"><input type="checkbox" id="reset-backup" checked><span>Keep a backup of this data (moved to a folder next to it; recommended)</span></label>
+        <div class="inline"><input type="text" id="reset-confirm" placeholder='Type RESET to confirm' autocomplete="off">
+          <button class="danger-solid" id="reset-go" disabled>Reset and restart</button></div>
+        <p class="message" id="reset-message"></p>
       </div>
     </div>
   </main>

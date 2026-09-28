@@ -545,3 +545,9 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .ap-detail .activity-log summary { font-size: 12.5px; color: var(--ink); }
 .ap-detail .log { font-size: 12px; padding: 8px 12px; }
 @media (prefers-reduced-motion: reduce) { .recent-row[data-state="busy"] .run-status { animation: none; } }
+
+/* Settings → Danger zone */
+.setting.danger-zone { border-color: #e2a1a1; background: #fff6f6; }
+.setting.danger-zone h3 { color: #b42318; }
+button.danger-solid { background: #b42318; color: #fff; border-color: #b42318; }
+button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }

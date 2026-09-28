@@ -1128,6 +1128,30 @@ $('replace-cv').addEventListener('click', async () => {
   if (name) message('strategy-message', `CV replaced: ${name}. Use "Rebuild from CV…" to redraft your strategy from it.`, 'ok');
 });
 
+// ---------- your data: export / import ----------
+$('export-data').addEventListener('click', async () => {
+  const result = await window.pilot.exportProfile({keys: $('export-keys').checked});
+  if (result.ok) message('data-message', `Exported ✓ ${result.file}`, 'ok');
+  else if (result.error) message('data-message', `Export failed: ${result.error}`, 'error');
+});
+$('import-data').addEventListener('click', async () => {
+  const result = await window.pilot.importProfile();
+  if (result?.error) message('data-message', `Import failed: ${result.error}`, 'error');
+});
+
+// ---------- danger zone: reset this computer's Job Pilotto data ----------
+$('reset-confirm').addEventListener('input', () => { $('reset-go').disabled = $('reset-confirm').value.trim() !== 'RESET'; });
+$('reset-go').addEventListener('click', async () => {
+  if ($('reset-confirm').value.trim() !== 'RESET') return;
+  const result = await window.pilot.resetProfile({backup: $('reset-backup').checked});
+  if (!result?.ok) message('reset-message', 'Not reset.', 'waiting');
+});
+window.pilot.lastReset().then(done => {
+  if (done?.imported) toastMessage('Data imported ✓', `Your previous data is in ${done.backup}.`);
+  else if (done?.backup) toastMessage('Job Pilotto was reset', `Your previous data is in ${done.backup}.`);
+  else if (done?.deleted) toastMessage('Job Pilotto was reset', 'Your previous data on this computer was deleted.');
+});
+
 // ---------- start ----------
 // Notion is required (it's where Job Pilotto keeps your data): set up without it -> the Notion step first.
 if (state.settings.setupDone && state.notion) { show($('app')); loadJobs(); } else {

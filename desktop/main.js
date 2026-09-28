@@ -17,8 +17,9 @@ import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
+import * as reset from './lib/reset.js';
 import * as contactDetails from './lib/contact.js';
-import {createStorage, safeStorageCrypto} from './lib/storage.js';
+import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 
@@ -369,6 +370,45 @@ function handlers() {
   ipcMain.handle('openPrivacy', (_, kind) => shell.openExternal(process.platform === 'win32' ? 'ms-settings:privacy-microphone'
     : `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));
   ipcMain.handle('relaunch', () => { app.relaunch(); app.exit(0); });
+  // Danger zone: a last native confirmation, then restart; the folder goes at the next start (lib/reset.js).
+  ipcMain.handle('resetProfile', (_, {backup = true} = {}) => {
+    const answer = dialog.showMessageBoxSync(window, {type: 'warning', buttons: ['Cancel', 'Reset and restart'], defaultId: 0, cancelId: 0,
+      message: 'Reset Job Pilotto on this computer?',
+      detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
+        ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. Your Notion workspace, Gmail sign-in and GitHub repo are not changed.`});
+    if (answer !== 1) return {ok: false};
+    reset.request(storage.dir, {backup});
+    app.relaunch();
+    app.exit(0);
+    return {ok: true};
+  });
+  ipcMain.handle('lastReset', () => resetDone);
+  // Export: one file with this computer's Job Pilotto data (keys only when asked: they're in plain text there).
+  ipcMain.handle('exportProfile', async (_, {keys = false} = {}) => {
+    const day = new Date().toISOString().slice(0, 10);
+    const picked = await dialog.showSaveDialog(window, {title: 'Export your Job Pilotto data',
+      defaultPath: path.join(app.getPath('documents'), `Job Pilotto export ${day}.tar.gz`), filters: [{name: 'Job Pilotto export', extensions: ['gz']}]});
+    if (picked.canceled || !picked.filePath) return {ok: false};
+    const secrets = keys ? Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value)) : null;
+    try {
+      reset.exportTo(storage.dir, picked.filePath, {keys: secrets, version: about.label});
+      return {ok: true, file: picked.filePath};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
+  // Import: the file replaces this computer's data (which is kept as a backup), at a restart.
+  ipcMain.handle('importProfile', async () => {
+    const picked = await dialog.showOpenDialog(window, {title: 'Import Job Pilotto data', properties: ['openFile'],
+      filters: [{name: 'Job Pilotto export', extensions: ['gz', 'tgz']}]});
+    if (picked.canceled || !picked.filePaths[0]) return {ok: false};
+    const answer = dialog.showMessageBoxSync(window, {type: 'warning', buttons: ['Cancel', 'Import and restart'], defaultId: 0, cancelId: 0,
+      message: 'Replace this computer\'s Job Pilotto data with the export?',
+      detail: 'Your current data here is moved to a backup folder first, then Job Pilotto restarts with the imported data. Your Notion workspace is not changed.'});
+    if (answer !== 1) return {ok: false};
+    try { reset.stageImport(storage.dir, picked.filePaths[0]); } catch (error) { return {ok: false, error: error.message}; }
+    app.relaunch();
+    app.exit(0);
+    return {ok: true};
+  });
   ipcMain.handle('ivRecordings', () => {
     fs.mkdirSync(storage.path('recordings'), {recursive: true});
     return shell.openPath(storage.path('recordings'));
@@ -489,6 +529,11 @@ function handlers() {
 // A separate data folder for tests and demos (JOB_PILOTTO_USER_DATA), so they never touch the real one.
 if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
 
+// A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
+// opens it; the app then starts like the first time (the setup wizard).
+let resetDone = null;
+try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); }
+
 // One copy per data folder: two would fight over the same files, Telegram bot and extension port.
 const firstCopy = app.requestSingleInstanceLock();
 if (!firstCopy) {
@@ -541,6 +586,7 @@ if (firstCopy) app.whenReady().then(() => {
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  reset.adoptKeys(storage);  // keys that came with an import: stored encrypted, plain file deleted
   pipeline.ensureConfig(storage);
   handlers();
   // Without Screen Recording permission there's no source (desktopCapturer rejects "Failed to get sources",
