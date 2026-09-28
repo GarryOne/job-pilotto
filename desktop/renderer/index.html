@@ -252,8 +252,7 @@
 
     <div class="view" data-view="interviews" hidden>
       <header class="view-head">
-        <div><h1>Interviews</h1><p class="muted">Record a call or add a recording. It's transcribed on this Mac, free, with who said what.
-          Name the speakers, pick the job, and save it to Notion 🎤 Interviews. A question-by-question review is one click away.</p></div>
+        <div><h1>Interviews</h1><p class="muted">Record or add a call → transcript with speakers, on this Mac → save it to Notion under its job.</p></div>
         <div class="head-actions">
           <button class="secondary" id="iv-add">Add a recording or transcript…</button>
           <button class="primary" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded">● Record a call</button>
@@ -264,21 +263,15 @@
         <span class="muted small" id="iv-sources"></span>
         <button class="secondary" id="iv-stop">Stop</button>
       </section>
-      <section class="callout permission" id="iv-permission" hidden>
-        <b id="iv-permission-title">🔊 Allow the call's audio</b>
-        <p class="small" id="iv-permission-text"></p>
-        <div class="inline"><button class="secondary" id="iv-permission-open">Open System Settings</button>
-          <button class="secondary" id="iv-permission-restart">Restart Job Pilotto</button>
-          <button class="ghost" id="iv-mic-only" title="For an interview in person or on speakers: records what your microphone hears">Record my microphone only</button></div>
+      <section class="notice permission" id="iv-permission" hidden>
+        <span id="iv-permission-text"></span>
+        <span class="notice-actions"><button class="secondary small-btn" id="iv-permission-open">Open Settings</button>
+          <button class="secondary small-btn" id="iv-permission-restart">Restart</button>
+          <button class="link" id="iv-mic-only" title="For an interview in person or on speakers">Mic only</button></span>
       </section>
-      <section class="callout consent" id="iv-consent-box">
-        <b>⚠️ Ask everyone for consent before you record.</b>
-        <p class="small">At the start of the call, tell the other people that you'd like to record it to transcribe it for your own notes, and record only
-          if everyone agrees. In Switzerland (Art. 179<sup>ter</sup> of the Criminal Code), in many EU countries and in several US states, recording a
-          conversation without the other people's consent is against the law, and it can cost you their trust. The same goes for recordings you add
-          from elsewhere. If anyone says no, take notes instead.</p>
-        <label class="radio"><input type="checkbox" id="iv-consent"><span>Everyone on this call has agreed to be recorded</span></label>
-        <p class="fine">The recording stays on this Mac; only the transcript goes to your Notion.</p>
+      <section class="notice consent" id="iv-consent-box">
+        <span title="Recording a conversation without everyone's consent is against the law in Switzerland (Art. 179ter of the Criminal Code) and many other places. The same goes for recordings you add. If anyone says no, take notes instead.">⚠️ <b>Ask everyone before recording</b>: it's illegal without their consent (CH Art. 179<sup>ter</sup>).</span>
+        <label class="consent-check"><input type="checkbox" id="iv-consent"> Everyone agreed</label>
       </section>
       <p class="message" id="iv-message"></p>
 

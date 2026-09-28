@@ -839,17 +839,15 @@ function jobOptions(select, chosenUrl, emptyLabel) {
 let permissionKind = 'screen';
 async function showPermission(noCallAudio = false) {
   const access = await iv.access();
-  const who = access.dev ? '<b>Electron</b> (or, if it isn\'t listed, the terminal you ran <code>npm start</code> in)' : '<b>Job Pilotto</b>';
+  // npm start: macOS may list the terminal that started the app instead of Electron.
+  const who = access.dev ? '<b>Electron</b> (or your terminal)' : '<b>Job Pilotto</b>';
   let text = '';
   if (access.microphone === 'denied' || access.microphone === 'restricted') {
     permissionKind = 'microphone';
-    $('iv-permission-title').textContent = '🎙️ Allow the microphone';
-    text = `System Settings → Privacy & Security → <b>Microphone</b> → turn on ${who}, then restart Job Pilotto.`;
+    text = `🎙️ <b>Allow the microphone</b>: Privacy &amp; Security → Microphone → ${who}, then restart.`;
   } else if (access.screen !== 'granted' || noCallAudio) {
     permissionKind = 'screen';
-    $('iv-permission-title').textContent = '🔊 Allow the call\'s audio (so the interviewers are recorded too)';
-    text = `System Settings → Privacy & Security → <b>Screen &amp; System Audio Recording</b> → turn on ${who}` +
-      ' (not there? click <b>+</b> and add it), then restart Job Pilotto. Recording starts once the call\'s audio is allowed.';
+    text = `🔊 <b>Allow the call's audio</b>: Privacy &amp; Security → Screen &amp; System Audio Recording → ${who}, then restart.`;
   }
   $('iv-permission-text').innerHTML = text;
   show($('iv-permission'), !!text);
@@ -1074,8 +1072,7 @@ async function startRecording(micOnly) {
     message('iv-message', 'Connecting to the call\'s audio…');
     call = await callAudio();
     if (!call) {
-      message('iv-message', 'Not recording: the call\'s audio isn\'t allowed yet, so only your voice would be kept. ' +
-        'Allow it (above) and restart, or choose "Record my microphone only".', 'error');
+      message('iv-message', 'Not recording: allow the call\'s audio first (above), or choose Mic only.', 'error');
       await showPermission(true);
       $('iv-record').disabled = !$('iv-consent').checked;
       $('iv-permission').scrollIntoView({behavior: 'smooth', block: 'center'});
