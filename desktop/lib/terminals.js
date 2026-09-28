@@ -98,7 +98,8 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
   else if (event === 'note' && text) Object.assign(session, {note: text});
   else if (event === 'input') Object.assign(session, {status: 'input', note: text || 'Claude needs your input'});
   else if (event === 'stop' && session.status !== 'done') Object.assign(session, {status: 'input', note: 'Waiting for your reply'});
-  else if (event === 'prompt') Object.assign(session, {status: 'running', note: 'Working on your reply…'});
+  // The first prompt is the app's own instructions (Claude Code reports it like a reply): only later ones are yours.
+  else if (event === 'prompt') Object.assign(session, {status: 'running', note: session.answered || before === 'input' ? 'Working on your reply…' : 'Working…', answered: session.answered || before === 'input'});
   if (session.status === 'input' && before !== 'input') session.needsYouSince = new Date().toISOString();
   if (session.status !== 'input') session.needsYouSince = null;
   listener('update', publicView(session));

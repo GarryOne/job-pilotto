@@ -85,30 +85,42 @@ def still_open(tracker, url):
     return True
 
 
+KIT_STEP = '📝 Kit ready'  # the Next step a drafted kit writes (src/ai/kit.py)
+
+
+def _prop(row, name):
+    return ledger.plain(row['properties'].get(name)) or ''
+
+
 def unstarted_urls_by_score(tracker, max_jobs):
     """Job URLs with a kit (not yet Applying/Applied/...), ranked by AI fit score descending.
 
-    Score comes straight from the Job Matches — AI Scored Notion database (synced there by
-    src/notion/matches.py) rather than the local jobs.sqlite — this only needs to read
-    Score/Job URL, both of which already live in Notion, so it has no sqlite dependency. Jobs
-    with no score on file (not yet scored) sort last rather than being excluded, so a fresh kit
-    still gets queued even if scoring hasn't caught up."""
-    pairs = ready_jobs(tracker, max_jobs=1000)
-    match_rows = tracker.query_database(notion.MATCHES_DATABASE_ID)
+    Fast: whether a job has a kit is on its row (Stage Kit ready, or Next step "📝 Kit ready" on a Saved job), so
+    no kit is opened here (the Claude session reads its own). The Applications rows and the Job Matches scores are
+    read at the same time, and the top candidates' postings are checked at the same time. Score comes from Job
+    Matches; jobs not scored yet sort last rather than being excluded."""
+    rows, match_rows = notion.together(
+        lambda: tracker.query_database(tracker.database_id, {'or': [
+            {'property': 'Stage', 'select': {'equals': 'Kit ready'}},
+            {'property': 'Stage', 'select': {'equals': 'Saved'}}]}),
+        lambda: tracker.query_database(notion.MATCHES_DATABASE_ID) if notion.MATCHES_DATABASE_ID else [])
     url_score = {}
     for row in match_rows:
         url = row['properties'].get('Job URL', {}).get('url')
         score = row['properties'].get('Score', {}).get('number')
         if url is not None and score is not None:
             url_score[url] = score
-    pairs.sort(key=lambda pair: url_score.get(pair[1]['url'], -1), reverse=True)
-    urls = []
-    for _, kit_data in pairs:
-        if still_open(tracker, kit_data['url']):
-            urls.append(kit_data['url'])
+    candidates = [_prop(row, 'Job URL') for row in rows
+                  if _prop(row, 'Job URL') and (_prop(row, 'Stage') == 'Kit ready' or _prop(row, 'Next step').startswith(KIT_STEP))]
+    candidates = sorted(dict.fromkeys(candidates), key=lambda url: url_score.get(url, -1), reverse=True)
+    urls, batch = [], max(max_jobs * 2, 4)
+    for start in range(0, len(candidates), batch):
+        chunk = candidates[start:start + batch]
+        open_now = notion.together(*[lambda url=url: still_open(tracker, url) for url in chunk])
+        urls += [url for url, alive in zip(chunk, open_now) if alive]
         if len(urls) >= max_jobs:
             break
-    return urls
+    return urls[:max_jobs]
 
 
 def top_unprepared_urls(tracker, max_jobs):

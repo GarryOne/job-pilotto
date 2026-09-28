@@ -1660,8 +1660,26 @@ $('apply-open').addEventListener('click', () => {
 $('apply-go').addEventListener('click', async event => {
   event.preventDefault();
   const mode = document.querySelector('input[name="apply-mode"]:checked').value;
-  const result = await window.pilot.apply({n: $('apply-n').value, mode});
-  message('apply-message', result.ok ? result.message : result.error, result.ok ? 'ok' : 'error');
+  const n = Math.max(1, Number($('apply-n').value) || 1);
+  // Feedback at once: picking the jobs reads Notion and checks each posting is still open (a few seconds).
+  $('apply-go').disabled = true;
+  $('apply-go').classList.add('busy');
+  $('apply-go').textContent = 'Starting…';
+  message('apply-message', `Finding your best ${n} job${n === 1 ? '' : 's'} with a kit and checking the postings are still open…`, 'waiting');
+  try {
+    const result = await window.pilot.apply({n, mode});
+    if (result.ok && result.inApp) {  // the sessions show in the dock: close the dialog and let them be watched
+      $('apply-dialog').close();
+      toastMessage('Applying with Claude', result.message);
+      await refreshSessions();
+      return;
+    }
+    message('apply-message', result.ok ? result.message : result.error, result.ok ? 'ok' : 'error');
+  } finally {
+    $('apply-go').disabled = false;
+    $('apply-go').classList.remove('busy');
+    $('apply-go').textContent = 'Start';
+  }
 });
 
 // A kit's provenance, for its tag: "Current", "Drafted with earlier inputs" (which ones changed), or "Inputs unknown".

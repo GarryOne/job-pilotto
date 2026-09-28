@@ -92,3 +92,30 @@ class HasKitTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NextJobsTests(unittest.TestCase):
+    """Apply to N with Claude: the best N jobs with a kit, picked from the rows (no kit is opened), fast."""
+
+    def test_best_scored_open_jobs_with_a_kit_without_opening_kits(self):
+        from unittest import mock
+        def row(url, stage, step=''):
+            return {'id': url, 'properties': {'Job URL': {'type': 'url', 'url': url},
+                                              'Stage': {'type': 'select', 'select': {'name': stage}},
+                                              'Next step': {'type': 'rich_text', 'rich_text': [{'plain_text': step}]}}}
+        def match(url, score):
+            return {'properties': {'Job URL': {'url': url}, 'Score': {'number': score}}}
+
+        class Tracker:
+            database_id = 'apps'
+            def query_database(self, database_id, filter_=None):
+                if database_id == 'apps':
+                    return [row('https://a', 'Kit ready'), row('https://b', 'Saved', '📝 Kit ready: review it'),
+                            row('https://c', 'Saved'), row('https://d', 'Kit ready'), row('https://e', 'Kit ready')]
+                return [match('https://a', 60), match('https://b', 90), match('https://d', 75), match('https://e', 80)]
+            def read_kit(self, *args):
+                raise AssertionError('no kit is opened to pick the jobs')
+        closed = {'https://e'}
+        with mock.patch.object(apply_batch.notion, 'MATCHES_DATABASE_ID', 'matches'), \
+                mock.patch.object(apply_batch, 'still_open', lambda tracker, url: url not in closed):
+            self.assertEqual(apply_batch.unstarted_urls_by_score(Tracker(), 2), ['https://b', 'https://d'])
