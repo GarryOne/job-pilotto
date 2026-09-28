@@ -16,9 +16,10 @@ const REPORT = `The Example Labs application (Engineering Manager, London) is fi
   - It's a UK role, so you'll need visa sponsorship.
 - **Run record:** saved to Notion. The form checker didn't detect the CV, so I marked it attached by hand.`;
 
-test('a report: only the "Check before you submit" items are checks; the audit and the rest are apart', () => {
-  const {checks, audit, done, intro} = readSessionMessage(REPORT);
-  assert.deepEqual(checks, [
+test('a report: only the "Check before you submit" items are for you; the audit and the rest are apart', () => {
+  const {checks, needs, audit, done, intro} = readSessionMessage(REPORT);
+  assert.deepEqual(checks, []);
+  assert.deepEqual(needs, [
     "The infrastructure answer says you don't have on-prem Kubernetes experience.",
     "It's a UK role, so you'll need visa sponsorship.",
   ]);
@@ -92,4 +93,20 @@ Review everything, then Submit yourself.`);
   const sorted = sortChecks(needs, {forYou: true}).needs;
   assert.deepEqual(sorted.map(need => need.kind), ['agree', 'ask', 'ask', 'confirm']);
   assert.deepEqual(sorted.slice(1, 3).map(need => need.question), ['Any relatives or partners working at Acme?', 'First generation to attend university?']);
+});
+
+test('"Check before you submit" items are for you (a labelled fact too), with the action Claude recommends', async () => {
+  const {sortChecks} = await import('../renderer/session-message.js');
+  const {needs} = readSessionMessage(`The form is filled. Nothing was submitted.
+
+- **Extension:** it failed again, so I filled everything myself.
+
+**Check before you submit:**
+- ⚠️ **Location:** the role wants someone in the UK or Ireland.
+- **Pay:** €117k–141k, below your minimum. **Recommended:** apply anyway
+- The extension failed on the upload, so I attached the CV by hand.`);
+  const {needs: sorted, filled} = sortChecks(needs, {forYou: true});
+  assert.deepEqual(sorted.map(need => [need.kind, need.label, need.recommended]), [['confirm', 'Location', ''], ['confirm', 'Pay', 'apply anyway']]);
+  assert.equal(sorted[1].text, '**Pay:** €117k–141k, below your minimum.');
+  assert.deepEqual(filled.map(item => item.problem), [true]);
 });

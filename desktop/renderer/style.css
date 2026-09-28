@@ -894,7 +894,10 @@ main { min-width: 0; }
 .ss-need { display: flex; gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--line); }
 .ss-need-glyph { flex: none; width: 22px; }
 .ss-need-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1; }
-.ss-need-hint { display: block; }
+.ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ss-need-button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.ss-need-outcome { color: var(--good); }
+.ss-need.is-done > .ss-need-body > div:first-child { color: var(--muted); }
 .ss-ask-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .ss-ask-input { flex: 1 1 260px; max-width: 460px; }
 .ss-ask-save { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); white-space: nowrap; margin: 0; }

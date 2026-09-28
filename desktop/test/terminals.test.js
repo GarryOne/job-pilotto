@@ -157,3 +157,43 @@ test('a session ending on its own is still resumable, and older ones than two we
   assert.equal(terminals.get('old'), null);
   terminals._reset();
 });
+
+test('the log opens on the session\'s screen at its size, not a replay: redraws in place leave only the last frame', async () => {
+  const pty = fakePty();
+  terminals.usePty(pty.loader);
+  await terminals.start({id: 'snap', url: 'https://jobs.test/snap', file: 'claude', env: {}, cols: 80, rows: 10});
+  // Claude Code's way: the alternate screen, then each frame drawn over the last from the top.
+  pty.spawned[0].emit('\x1b[?1049h\x1b[H\x1b[2JThinking… 1s');
+  pty.spawned[0].emit('\x1b[H\x1b[2KForm filled in Chrome.');
+  let shot = await terminals.snapshot('snap');
+  assert.deepEqual([shot.cols, shot.rows], [80, 10]);
+  assert.match(shot.data, /Form filled in Chrome\./);
+  assert.doesNotMatch(shot.data, /Thinking/);
+  terminals.resize('snap', 100, 20);
+  shot = await terminals.snapshot('snap');
+  assert.deepEqual([shot.cols, shot.rows], [100, 20]);
+  terminals.remove('snap');
+});
+
+test('a restored session shows its saved screen', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-snap-'));
+  const file = path.join(dir, 'sessions.json');
+  const pty = fakePty();
+  terminals.usePty(pty.loader);
+  terminals.persist(file);
+  await terminals.start({id: 'kept', url: 'https://jobs.test/kept', file: 'claude', env: {}, cols: 90, rows: 12});
+  pty.spawned[0].emit('\x1b[?1049h\x1b[HReview the form in Chrome.');
+  await terminals.snapshot('kept');  // parsed
+  terminals.saveNow();
+  const record = JSON.parse(fs.readFileSync(file, 'utf8')).find(r => r.id === 'kept');
+  assert.match(record.screen, /Review the form in Chrome\./);
+  assert.deepEqual([record.cols, record.rows], [90, 12]);
+  terminals.remove('kept');
+  fs.writeFileSync(file, JSON.stringify([{...record, output: 'garbled tail', status: 'done'}]));
+  terminals.restore();
+  const shot = await terminals.snapshot('kept');
+  assert.match(shot.data, /Review the form in Chrome\./);
+  assert.deepEqual([shot.cols, shot.rows], [90, 12]);
+  terminals.remove('kept');
+  terminals.persist(null);
+});

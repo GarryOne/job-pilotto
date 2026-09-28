@@ -3376,8 +3376,8 @@ function renderNextStep(item) {
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
   show($('ss-needs-card'), needs.length > 0);
   $('ss-needs-title').textContent = review ? 'What Claude needs from you' : 'What Claude flagged';
-  $('ss-needs-count').replaceChildren(pill(`${needs.length}`, 'warn'));
-  $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need) : needRow(need))));
+  $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))));
+  updateNeedsCount();
   const happened = [
     ...done.map(section => {
       const lead = firstLine(section.text);
@@ -3409,21 +3409,67 @@ function renderNextStep(item) {
   }
   show($('ss-happened-card'), happened.length > 0 || !!audit);
 }
-// Something only you can do: tick an agreement in the form yourself, or a judgement call to confirm.
-function needRow(need) {
-  const li = el('li', `ss-need is-${need.kind}`);
-  const glyph = el('span', 'ss-need-glyph', need.kind === 'agree' ? '⚖️' : '👀');
+// Something only you can do, with its most likely action one click away: a judgement call (Claude's recommended
+// action, else "Looks right"; "Change…" tells Claude what to change) or an agreement (open the form to tick it).
+// A handled row stays, marked done, until the page is closed.
+const handled = new Map();  // `${session}|${text}` → what was done
+const KEEP = /^(?:keep|leave|ok|fine|no change|looks right|as is|nothing)/i;
+const offline = item => (item.live === false ? 'The session has ended: resume it to send this to Claude' : '');
+function doneRow(li, key, outcome) {
+  handled.set(key, outcome);
+  li.classList.add('is-done');
+  li.querySelector('.ss-need-actions')?.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${outcome}`));
+  updateNeedsCount();
+}
+function updateNeedsCount() {
+  const open = document.querySelectorAll('#ss-needs .ss-need:not(.is-done)').length;
+  $('ss-needs-count').replaceChildren(open ? pill(`${open}`, 'warn') : pill('All handled', 'good', {dot: true}));
+}
+function smallButton(text, kind, run, title = '') {
+  const button = el('button', `${kind} ss-need-button`, text);
+  if (title) { button.disabled = true; button.title = title; }
+  button.addEventListener('click', run);
+  return button;
+}
+function needRow(need, item) {
+  const key = `${item.id}|${need.text}`, li = el('li', `ss-need is-${need.kind}`);
   const body = el('div', 'ss-need-body');
   const words = el('div');
   words.append(...richText(need.text).flatMap(node => [...node.childNodes]));
-  body.append(words, el('span', 'muted small ss-need-hint', need.kind === 'agree' ? 'Tick it yourself in the form.' : 'Your call before you submit.'));
-  li.append(glyph, body);
+  const actions = el('div', 'ss-need-actions');
+  const name = need.label || 'this';
+  if (need.kind === 'agree') {
+    actions.append(smallButton('Open the form to tick it', 'primary', () => window.pilot.showBrowser(item.url, sessionCompany(item))),
+      smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
+  } else {
+    const change = !!need.recommended && !KEEP.test(need.recommended);
+    actions.append(smallButton(need.recommended ? `✓ ${need.recommended}` : '✓ Looks right', 'primary', () => {
+      if (change) say(`${name}: ${need.recommended}. Change it in the form, then tell me.`);
+      doneRow(li, key, change ? `Asked Claude: ${need.recommended}` : 'Checked');
+    }, change ? offline(item) : ''));
+    const ask = smallButton('Change…', 'link', () => {
+      const input = el('input', 'ss-ask-input');
+      input.placeholder = `What should ${name} be?`;
+      const send = () => {
+        if (!input.value.trim()) return;
+        say(`Change ${name} in the form: ${input.value.trim()}`);
+        doneRow(li, key, `Asked Claude: ${input.value.trim()}`);
+      };
+      input.addEventListener('keydown', event => { if (event.key === 'Enter') send(); });
+      actions.replaceChildren(input, smallButton('Send to Claude', 'primary', send, offline(item)));
+      input.focus();
+    }, offline(item));
+    actions.append(ask);
+  }
+  body.append(words, actions);
+  li.append(el('span', 'ss-need-glyph', need.kind === 'agree' ? '⚖️' : '👀'), body);
+  if (handled.has(key)) doneRow(li, key, handled.get(key));
   return li;
 }
 // A fact Claude couldn't find: its suggested answer (editable), and a tick that saves it to your standard answers
 // in Notion, so every later application has it. Type it in the form too: the form is already filled.
 const savedAnswers = new Map();  // question → the answer saved this session (the page redraws often)
-function askRow(need) {
+function askRow(need, item) {
   const li = el('li', 'ss-need is-ask');
   const body = el('div', 'ss-need-body');
   const head = el('div', 'ss-ask-q');
@@ -3452,10 +3498,22 @@ function askRow(need) {
     box.classList.add('is-error');
   });
   if (saved) box.classList.add('is-saved');
+  // The one click that unblocks it: Claude types the answer into the form.
+  const key = `${item.id}|${need.text}`;
+  const fill = smallButton('Fill it in', 'primary', () => {
+    const value = input.value.trim();
+    if (!value) { note.textContent = 'Write an answer first'; input.focus(); return; }
+    say(`Fill "${need.question}" in the form with: ${value}`);
+    handled.set(key, `Asked Claude to fill: ${value}`);
+    li.classList.add('is-done');
+    fill.replaceWith(el('span', 'small ss-need-outcome', `✓ Asked Claude to fill: ${value}`));
+    updateNeedsCount();
+  }, offline(item));
   const line = el('div', 'ss-ask-line');
-  line.append(input, box);
+  line.append(input, fill, box);
   body.append(head, line);
   li.append(el('span', 'ss-need-glyph', '❓'), body);
+  if (handled.has(key)) { li.classList.add('is-done'); fill.replaceWith(el('span', 'small ss-need-outcome', `✓ ${handled.get(key)}`)); }
   return li;
 }
 document.querySelector('.sd-head').addEventListener('click', event => {
@@ -3533,10 +3591,11 @@ async function attachTerminal(id) {
   }
   // Drawn only while the log is open: a terminal laid out while hidden has no size and stays blank.
   if ($('ss-log-body').hidden) { termShownFor = null; return; }
-  fitTerminal();
+  // The session's screen at the size it was drawn for, then fitted to the log (a running Claude redraws for it).
+  const {data, cols, rows} = await window.pilot.sessionSnapshot(id);
   xterm.reset();
-  const output = await window.pilot.sessionOutput(id);
-  xterm.write(output, () => { fitTerminal(); xterm.scrollToBottom(); xterm.refresh(0, xterm.rows - 1); });
+  xterm.resize(cols, rows);
+  xterm.write(data, () => { fitTerminal(); xterm.scrollToBottom(); xterm.refresh(0, xterm.rows - 1); });
   termShownFor = id;
 }
 function fitTerminal() {

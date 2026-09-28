@@ -1,9 +1,9 @@
 // Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only
 // where they're shown changes). Its report is labelled sections, either bullets ("- **Filled:** …" with
 // sub-bullets) or heading lines ("**Left for you:**" followed by bullets):
-// - checks: what to look at before submitting (the items under a "Check …" / "Before you submit" section; with no
-//   such section and no "needs" section, every bullet: a short message's bullets are what it asks you to check);
-// - needs: the items under a section that is plainly for you ("Needs you", "Left for you", "Kit checks");
+// - needs: the items under a section that is for you ("Check before you submit", "Needs you", "Left for you",
+//   "Kit checks");
+// - checks: with no such section, every bullet (a short message's bullets are what it asks you to check);
 // - audit: the run record / audit note;
 // - done: the other sections (what Claude did), each {label, text, items};
 // - intro: the lines outside the list (its opening sentence, its question).
@@ -37,8 +37,7 @@ export function readSessionMessage(message) {
   const listed = sections.some(section => CHECK.test(section.label) || NEEDS.test(section.label));
   for (const section of sections) {
     if (AUDIT.test(section.label)) audit = [section.text, ...section.items].filter(Boolean).join(' ');
-    else if (NEEDS.test(section.label)) needs.push(...itemsOf(section));
-    else if (CHECK.test(section.label)) checks.push(...itemsOf(section));
+    else if (NEEDS.test(section.label) || CHECK.test(section.label)) needs.push(...itemsOf(section));
     else if (!listed) checks.push(section.label ? `**${section.label}:** ${section.text}`.trim() : section.text);
     else done.push(section);
   }
@@ -79,6 +78,13 @@ export function readAsk(check) {
 // forYou: the items come from a section that is all for the owner ("Left for you"), so none of them is "filled".
 const AGREE = /^⚖|\b(?:pledge|privacy|gdpr|terms|consent|acknowledg\w*)\b.*\b(?:yourself|you tick|tick it|tick them)\b/i;
 const CONFIRM = /^👀|\b(?:make sure|you choose|your call|decide|confirm|happy (?:to|with|disclosing)|you'll need|involves|requires you|travel|relocat)/i;
+// A judgement call with the action Claude recommends: "**Pay:** below your minimum. **Recommended:** keep it"
+// → {text, label: 'Pay', recommended: 'keep it'} (recommended '' when Claude gave none).
+const RECOMMENDED = /\s*\**\s*recommended(?: action)?\s*:\**\s*:?\s*/i;
+export function readConfirm(check) {
+  const [text, ...rest] = String(check).split(RECOMMENDED);
+  return {text: text.trim(), label: splitLabel(text).label, recommended: rest.join(' ').replace(/\*\*/g, '').trim()};
+}
 export const PROBLEM = /\b(?:failed|error|couldn't|could not|didn't work|blocked|by hand|timed out)\b/i;
 export function sortChecks(checks, {forYou = false} = {}) {
   const needs = [], filled = [];
@@ -88,7 +94,8 @@ export function sortChecks(checks, {forYou = false} = {}) {
     const ask = readAsk(text), plain = text.replace(MARKS, '');
     if (ask) needs.push({kind: 'ask', text, ...ask});
     else if (AGREE.test(text)) needs.push({kind: 'agree', text: plain});
-    else if (forYou || CONFIRM.test(text)) needs.push({kind: 'confirm', text: plain});
+    else if (forYou && PROBLEM.test(text) && !CONFIRM.test(text)) filled.push({text, problem: true});
+    else if (forYou || CONFIRM.test(text)) needs.push({kind: 'confirm', ...readConfirm(plain)});
     else filled.push({text, problem: PROBLEM.test(text)});
   }
   return {needs, filled};

@@ -12,8 +12,37 @@
 // them back at the next start, without their process (Claude ended with the app; Chrome's tabs did not). A
 // session that was working comes back as stopped; one that waited for you (a question, a filled form) comes back
 // as it was. resume() starts Claude again in the same conversation (claude --resume <claudeId>).
+//
+// The log shows the session's screen, not a replay of its bytes: Claude Code draws on the alternate screen and
+// redraws it in place many times a second, so replaying its output at another size, or from a cut-off tail,
+// leaves a blank or garbled screen. A headless terminal (the mirror) follows each session at its real size, and
+// snapshot() serializes it: what a real terminal shows now. The saved record keeps that screen too.
 import fs from 'node:fs';
 import path from 'node:path';
+
+let Headless = null;  // {Terminal, SerializeAddon}; without it the log falls back to the raw output
+try {
+  const [headless, serialize] = await Promise.all([import('@xterm/headless'), import('@xterm/addon-serialize')]);
+  Headless = {Terminal: (headless.default || headless).Terminal, SerializeAddon: (serialize.default || serialize).SerializeAddon};
+} catch { /* not installed */ }
+function newMirror(cols, rows, initial = '') {
+  if (!Headless) return null;
+  const term = new Headless.Terminal({cols, rows, scrollback: 5000, allowProposedApi: true});
+  const serializer = new Headless.SerializeAddon();
+  term.loadAddon(serializer);
+  if (initial) term.write(initial);
+  return {term, serializer};
+}
+const screenOf = mirror => mirror.serializer.serialize({scrollback: 5000});
+// A recorded output as a real terminal of cols x rows would show it (also for demo mode).
+export async function snapshotOf(raw, cols = 120, rows = 32) {
+  const mirror = newMirror(cols, rows);
+  if (!mirror) return {data: raw, cols, rows};
+  await new Promise(done => mirror.term.write(raw, done));
+  const data = screenOf(mirror);
+  mirror.term.dispose();
+  return {data, cols, rows};
+}
 
 const OUTPUT_LIMIT = 400_000;
 const SAVED_OUTPUT = 80_000;  // the tail of each session's output that is saved
@@ -48,8 +77,11 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
   return loadPty().then(pty => {
     const term = pty.spawn(file, args, {name: 'xterm-256color', cols, rows, cwd, env: {...env, TERM: 'xterm-256color', COLORTERM: 'truecolor'}});
     session.term = term;
+    Object.assign(session, {cols, rows});
+    if (session.mirror) session.mirror.term.resize(cols, rows); else session.mirror = newMirror(cols, rows);
     term.onData(data => {
       session.output = (session.output + data).slice(-OUTPUT_LIMIT);
+      session.mirror?.term.write(data);
       listener('data', {id: session.id, data});
       save();
     });
@@ -99,7 +131,8 @@ export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
   claudeId: s.claudeId || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output, savedAt: new Date().toISOString()});
+  output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
+  screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
 export function saveNow() {
   clearTimeout(saveTimer);
   saveTimer = null;
@@ -123,7 +156,9 @@ export function restore(now = Date.now()) {
   try { records = JSON.parse(fs.readFileSync(saveFile, 'utf8')); } catch { return 0; }
   for (const record of Array.isArray(records) ? records : []) {
     if (!record?.id || sessions.has(record.id) || now - Date.parse(record.startedAt) > KEEP_DAYS * 86400_000) continue;
-    const {savedAt, ...session} = record;
+    const {savedAt, screen, ...session} = record;
+    // Its screen comes back as it was (older records have only the output's tail: the best that can be shown).
+    session.mirror = newMirror(session.cols || 120, session.rows || 32, screen || session.output || '');
     if (session.status === 'running') Object.assign(session, {status: 'ended', note: 'Stopped when the app closed', endedAt: savedAt || new Date(now).toISOString()});
     sessions.set(session.id, {...session, term: null});
   }
@@ -137,10 +172,22 @@ export function shutdown() {
 }
 
 export const output = id => sessions.get(id)?.output || '';
+// What the log shows when it opens: the session's screen and scrollback, at the size it was drawn for.
+export async function snapshot(id) {
+  const session = sessions.get(id);
+  if (!session) return {data: '', cols: 120, rows: 32};
+  const {cols = 120, rows = 32, mirror} = session;
+  if (!mirror) return {data: session.output || '', cols, rows};
+  await new Promise(done => mirror.term.write('', done));  // what's still being parsed
+  return {data: screenOf(mirror), cols, rows};
+}
 export function write(id, data) { const session = sessions.get(id); if (session && isLive(session)) session.term.write(String(data)); }
 export function resize(id, cols, rows) {
   const session = sessions.get(id);
-  if (session && isLive(session) && cols > 10 && rows > 3) session.term.resize(Math.floor(cols), Math.floor(rows));
+  if (!session || !isLive(session) || cols <= 10 || rows <= 3) return;
+  Object.assign(session, {cols: Math.floor(cols), rows: Math.floor(rows)});
+  session.term.resize(session.cols, session.rows);
+  session.mirror?.term.resize(session.cols, session.rows);
 }
 export function stop(id) {
   const session = sessions.get(id);
@@ -148,6 +195,7 @@ export function stop(id) {
 }
 export function remove(id) {
   stop(id);
+  sessions.get(id)?.mirror?.term.dispose();
   sessions.delete(id);
   listener('update', {id, removed: true});
   save();

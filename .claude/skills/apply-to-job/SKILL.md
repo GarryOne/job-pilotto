@@ -278,7 +278,7 @@ in that file next time — keep evolving it.
    - **Needs you:**
      - ❓ **<question, as the form asks it>**: why it's unknown. **Suggested:** <your best answer>
      - ⚖️ **<agreement / legal box>**: tick it yourself.
-     - 👀 **<judgement call>**: e.g. an answer that discloses a gap, the role's travel.
+     - 👀 **<judgement call>**: e.g. an answer that discloses a gap, the role's travel. **Recommended:** <one action>
    - **Run record:** …
    ```
    - **Every ❓ gets a `Suggested:` answer** — the most plausible one from the CV, Profile, Application
@@ -287,6 +287,11 @@ in that file next time — keep evolving it.
      edits it if needed and ticks one box, which saves `<question>: <answer>` to the standard answers
      page (`questions.remember`), so the next kit knows it. Write the question generically (no company
      name) so it's reusable; one ❓ per question.
+   - **Every 👀 gets a `Recommended:` action**: the one most likely right, in a few words the owner can
+     click ("keep it", "apply anyway", "change to Geneva, Switzerland"). The app shows it as a button; a
+     "keep" closes the item, any other action comes back to you as a message ("Pay: change to …. Change
+     it in the form, then tell me."), so do it and confirm. ❓ rows get a "Fill it in" button that sends
+     `Fill "<question>" in the form with: <answer>`.
    - Only what the owner must act on goes under **Needs you**; "these fields were filled" lines go in
      **Filled**.
    - **Grow coverage**: every kit is drafted fresh from the Profile and Application Answers pages
