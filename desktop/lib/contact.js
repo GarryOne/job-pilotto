@@ -1,6 +1,6 @@
 // Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
 // the "📇 Contact details" section of your Notion Profile page, the source of truth ("- Email: you@x.com");
-// edit them there or in Settings → Your details. Without Notion they wait in settings.json (contact).
+// edit them there or in Settings → Your details. Notion is required.
 import * as notion from './notion.js';
 
 export const HEADING = '📇 Contact details';
@@ -12,7 +12,8 @@ export const markdown = contact => `## ${HEADING}\n` + Object.entries(LABELS)
 
 const target = storage => {
   const token = storage.secret('NOTION_TOKEN'), page = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  return token && page ? {token, page} : null;
+  if (!token || !page) throw new Error('Connect Notion first: your contact details live in your Profile page.');
+  return {token, page};
 };
 // The section: its heading block and the "Label: value" lines under it (until the next heading).
 async function section(t, fetcher) {
@@ -25,7 +26,6 @@ async function section(t, fetcher) {
 
 export async function read(storage, fetcher) {
   const t = target(storage);
-  if (!t) return storage.settings().contact || {};
   const {lines} = await section(t, fetcher);
   const contact = {};
   for (const line of lines) {
@@ -39,7 +39,6 @@ export async function read(storage, fetcher) {
 export async function save(storage, contact, fetcher) {
   const clean = Object.fromEntries(Object.entries(contact || {}).filter(([key, value]) => LABELS[key] && value));
   const t = target(storage);
-  if (!t) { storage.saveSettings({contact: clean}); return clean; }
   let {heading, lines} = await section(t, fetcher);
   for (const line of lines) {
     if (KEY_BY_LABEL[line.text.split(':')[0].trim().toLowerCase()]) await notion.deleteBlock(t.token, line.id, fetcher);

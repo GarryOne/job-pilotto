@@ -94,17 +94,16 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
 }
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
-// The Profile and standard answers: the Notion pages when Notion is connected (the source of truth; nothing
-// is copied to the Mac), else the local files written during setup before Notion was connected.
+// The Profile and standard answers: the Notion pages (the only copy; Notion is required).
 export async function profileTexts(storage) {
   const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-  if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {profile: storage.readText('profile.md'), answers: storage.readText('answers.md')};
+  if (!token || !ids.NOTION_PROFILE_PAGE_ID) throw new Error('Connect Notion first: your Profile and standard answers live there.');
   const env = {NOTION_TOKEN: token};
   const [profile, answers] = await Promise.all([pageText(env, ids.NOTION_PROFILE_PAGE_ID),
     ids.NOTION_ANSWERS_PAGE_ID ? pageText(env, ids.NOTION_ANSWERS_PAGE_ID) : '']);
   return {profile, answers};
 }
-// Once Notion holds them, the local copies go: one copy, no drift.
+// Copies an older version kept on the Mac go once Notion has them (lib/migrate.js).
 export function dropLocalCopies(storage) {
   for (const name of ['profile.md', 'answers.md']) fs.rmSync(storage.path(name), {force: true});
 }
@@ -128,10 +127,8 @@ export async function publishSearchSettings(storage, {run, ensurePage, writePage
 export const SEARCH_SETTINGS_TITLE = '⚙️ Search settings';
 
 export function save(storage, accepted) {
-  // With Notion, contact details go into the Profile page (main.js adds the section); without, they wait here.
-  if (accepted.contact && !storage.secret('NOTION_TOKEN')) storage.saveSettings({contact: Object.fromEntries(Object.entries(accepted.contact).filter(([, value]) => value))});
-  storage.writeText('profile.md', accepted.profile_markdown.trim() + '\n');
-  storage.writeText('answers.md', accepted.answers_markdown.trim() + '\n');
+  // The Profile, standard answers and contact details go to Notion (main.js saveStrategy); here only the
+  // search settings' cache is written (published to ⚙️ Search settings right after).
   const current = JSON.parse(storage.readText('config/search.json') || '{}');
   const google = {...(current.google_jobs || {}), ...accepted.search.google_jobs,
     searches_per_run: current.google_jobs?.searches_per_run ?? 1, min_searches_left: current.google_jobs?.min_searches_left ?? 20};

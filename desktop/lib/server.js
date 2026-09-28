@@ -48,8 +48,7 @@ export function localEnv(storage) {
     NOTION_AGENT_RUNS_DB: ids.NOTION_AGENT_RUNS_DB || '',
     NOTION_PROFILE_PAGE_ID: ids.NOTION_PROFILE_PAGE_ID || '',
     NOTION_ANSWERS_PAGE_ID: ids.NOTION_ANSWERS_PAGE_ID || '',
-    // Without Notion, the local copies; with it, extension.js reads the Notion pages.
-    ...(notionToken ? {} : {PROFILE_TEXT: storage.readText('profile.md'), ANSWERS_TEXT: storage.readText('answers.md')}),
+    // extension.js reads the Profile, standard answers and 🧠 Form knowledge pages from Notion.
     JOB_PILOTTO_KIT_MODEL: pipeline.MODELS.kit,
     queue: async () => (await pipeline.jobs(storage)).jobs.filter(j => ['unreviewed', 'saved'].includes(j.status)).slice(0, 25).map(summary),
     markApplied: async url => {
@@ -60,8 +59,7 @@ export function localEnv(storage) {
       notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`);
       return {ok: true, message: 'Marked Applied in your Notion.'};
     },
-    // With Notion, extension.js reads the 🧠 Form knowledge page itself; without, the notes waiting on the Mac.
-    ...(notionToken ? {NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || ''} : {KNOWLEDGE_TEXT: learn.asText(settings.formKnowledge)}),
+    NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || '',
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
     onRun: async run => {
       const job = await find(run.url).catch(() => null);

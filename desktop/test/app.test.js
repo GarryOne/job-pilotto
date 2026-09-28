@@ -33,7 +33,7 @@ test('the pipeline runs on the user folder, with AI models only when a key is se
   assert.ok(fs.existsSync(storage.path('config/search.json')));
   let env = pipeline.pipelineEnv(storage);
   assert.equal(env.JOB_PILOTTO_DATA_DIR, storage.path('data'));
-  assert.equal(env.JOB_PILOTTO_PROFILE_FILE, storage.path('profile.md'));
+  assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);  // the Profile is read from Notion (required)
   assert.equal(env.JOB_PILOTTO_SCORE_MODEL, undefined);
   storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
   env = pipeline.pipelineEnv(storage);
@@ -73,7 +73,7 @@ test('Chrome mode marks each job link so the extension fills every tab by itself
     'https://job-boards.greenhouse.io/a/jobs/1#jobpilotto-fill']);
 });
 
-test('strategy draft: CV as a PDF document, structured output, then saved into the user folder', async () => {
+test('strategy draft: CV as a PDF document, structured output; only the search settings cache is saved on the Mac', async () => {
   const storage = tempStorage();
   pipeline.ensureConfig(storage);
   storage.writeText('cv.pdf', '%PDF-1.4 fake');
@@ -97,7 +97,7 @@ test('strategy draft: CV as a PDF document, structured output, then saved into t
   assert.equal(seen[0].messages[0].content[0].type, 'document');
   assert.equal(seen[0].output_config.format.type, 'json_schema');
   strategy.save(storage, result);
-  assert.match(storage.readText('profile.md'), /EU citizen/);
+  assert.equal(storage.readText('profile.md'), '');  // the Profile goes to Notion, not the Mac
   const search = JSON.parse(storage.readText('config/search.json'));
   assert.deepEqual(search.role_keywords, ['site reliability']);
   assert.equal(search.google_jobs.searches_per_run, 1);
@@ -177,16 +177,13 @@ test('Apply on one job opens it in Chrome with the fill marker; no link, no Chro
   assert.equal(calls.length, 1);
 });
 
-test('the strategy draft keeps the contact details it read from the CV; the extension gets them and the CV from the app', async () => {
+test('the extension gets the base CV from the app; contact details and notes need Notion', async () => {
   const storage = tempStorage();
   storage.writeText('cv.pdf', '%PDF-1.4 fake');
   storage.saveSettings({cvName: 'CV_Ada.pdf'});
-  strategy.save(storage, {profile_markdown: 'P', answers_markdown: 'A', search: {google_jobs: {}}, preferences: {},
-    contact: {first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com', phone: '', github: ''}});
-  assert.deepEqual(storage.settings().contact, {first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com'});
   const server = await import('../lib/server.js');
   const me = await server.me(storage);
-  assert.equal(me.contact.email, 'ada@example.com');
+  assert.deepEqual(me.contact, {});  // without Notion there is nowhere to read them from
   assert.equal(me.resume.name, 'CV_Ada.pdf');
   assert.equal(Buffer.from(me.resume.data, 'base64').toString(), '%PDF-1.4 fake');
   assert.ok(strategy.DRAFT_SCHEMA.required.includes('contact'));
@@ -236,16 +233,13 @@ test('a form\'s required marker (*) is not part of an open question', async () =
   assert.deepEqual((await questions.list(storage, fetcher)).map(q => q.question), ['Street, No.', 'Nationality']);
 });
 
-test('without Notion, open questions wait on the Mac until Notion is connected', async () => {
+test('without Notion, open questions say so instead of keeping a copy on the Mac', async () => {
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
   const run = {url: 'https://x/1', trace: [{label: 'Are you open to relocation?', required: true, reason: questions.NO_ANSWER}]};
-  assert.equal(await questions.collect(storage, run, 'Acme'), 1);
-  assert.equal(await questions.collect(storage, run, 'Acme'), 0);
-  const [q] = await questions.list(storage);
-  assert.equal((await questions.answer(storage, q.key, 'Yes')).ok, false);  // answers belong in Notion
-  assert.deepEqual(await questions.answer(storage, q.key, ''), {ok: true});
-  assert.equal((await questions.list(storage)).length, 0);
+  await assert.rejects(questions.collect(storage, run, 'Acme'), /Connect Notion first/);
+  await assert.rejects(questions.list(storage), /Connect Notion first/);
+  assert.equal(storage.settings().openQuestions, undefined);
 });
 
 test('form knowledge: learned notes merge per site and field, and read as prompt text', async () => {

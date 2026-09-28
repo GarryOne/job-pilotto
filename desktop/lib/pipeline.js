@@ -48,12 +48,7 @@ export function pipelineEnv(storage, parent = process.env) {
     JOB_PILOTTO_DATA_DIR: storage.path('data'),
     JOB_PILOTTO_CV_PATH: storage.path('cv.pdf'),
   };
-  // With Notion connected, the Profile and standard answers are read from Notion (the user edits them
-  // there); the local files are only for running without Notion.
-  if (!storage.secret('NOTION_TOKEN')) {
-    env.JOB_PILOTTO_PROFILE_FILE = storage.path('profile.md');
-    env.JOB_PILOTTO_ANSWERS_FILE = storage.path('answers.md');
-  }
+  // The Profile and standard answers are read from Notion (Notion is required).
   for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']) {
     const value = storage.secret(name);
     if (value) env[name] = value;

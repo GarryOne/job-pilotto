@@ -23,6 +23,8 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   deleted and rebuilt from Notion or a crawl (`jobs.sqlite`, `config/*.json` as the cache of ⚙️ Search
   settings, `runs.json`). A cache is refreshed *from* Notion; writes go to Notion first, and if Notion
   refuses, nothing changes locally and the user is told.
+- Notion is required in the Desktop App (decided 28 Sep 2026): the setup can't finish without it, and a
+  set-up app without a Notion connection opens the Notion step. There is no Mac-only mode.
 - No new "local fallback" copies of user data. A feature that needs a new database, column or page adds it
   to Notion *and* to `config/notion_schema.json` (`tools/notion_schema.py snapshot`), so every workspace can
   be rebuilt and repaired (`desktop/lib/schema.js`).

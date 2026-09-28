@@ -1,7 +1,6 @@
 // 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 // With Notion connected, the Notion page is the only copy: one bullet per note, which you can read, fix or
-// delete there ("[job-boards.greenhouse.io · option] How did you hear: … → "Careers Website""). Without
-// Notion, the notes wait in settings.json (formKnowledge) and move to Notion when it's connected.
+// delete there ("[job-boards.greenhouse.io · option] How did you hear: … → "Careers Website""). Notion is required.
 import * as learn from './learn.js';
 import * as notion from './notion.js';
 
@@ -18,12 +17,12 @@ export function parse(text) {
 
 const target = storage => {
   const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-  return token && ids.NOTION_PROFILE_PAGE_ID ? {token, ids} : null;
+  if (!token || !ids.NOTION_PROFILE_PAGE_ID) throw new Error('Connect Notion first: form knowledge lives there.');
+  return {token, ids};
 };
 
 export async function notes(storage, fetcher) {
   const t = target(storage);
-  if (!t) return storage.settings().formKnowledge || [];
   if (!t.ids.NOTION_KNOWLEDGE_PAGE) return [];
   return (await notion.textBlocks(t.token, t.ids.NOTION_KNOWLEDGE_PAGE, fetcher))
     .map(block => ({...parse(block.text), block})).filter(n => n.field);
@@ -39,7 +38,6 @@ async function page(storage, t, fetcher) {
 // New notes: a note for the same site + field replaces the old line in place; the rest are appended.
 export async function add(storage, fresh, fetcher) {
   const t = target(storage);
-  if (!t) { storage.saveSettings({formKnowledge: learn.merge(storage.settings().formKnowledge, fresh)}); return; }
   const id = await page(storage, t, fetcher);
   const existing = new Map((await notes(storage, fetcher)).map(n => [learn.knowledgeKey(n), n]));
   const append = [];

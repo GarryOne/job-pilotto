@@ -136,7 +136,7 @@ function handlers() {
   ipcMain.handle('state', () => ({
     about,
     settings: storage.settings(), secrets: storage.secretsPresent(),
-    hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!storage.readText('profile.md') || !!(storage.settings().setupDone && storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID),
+    hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!(storage.settings().setupDone && storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID),
     folder: storage.dir,
     notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
@@ -158,6 +158,7 @@ function handlers() {
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
+        if (!DEMO) migrate.run(storage, log);  // anything an older version kept on this Mac moves in now
       }
       return {...result, titles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages}};
     } catch (error) {
@@ -165,7 +166,7 @@ function handlers() {
     }
   });
   ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
-  ipcMain.handle('contact', () => contactDetails.read(storage));
+  ipcMain.handle('contact', () => (DEMO ? {} : contactDetails.read(storage)));
   ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(() => ({ok: true}))
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   ipcMain.handle('saveSecret', (_, name, pasted) => {
@@ -211,30 +212,23 @@ function handlers() {
   let saving = null;
   ipcMain.handle('saveStrategy', (_, draft) => {
     saving ||= (async () => {
-      strategy.save(storage, draft);
-      // Notion is where the user reads and edits them from now on.
+      // Notion is required: the Profile, standard answers and contact details live only there.
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-      if (token && ids.NOTION_PROFILE_PAGE_ID) {
-        const report = page => (done, total) => window?.webContents.send('saveProgress', {page, done, total});
-        // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.
-        const known = await contactDetails.read(storage).catch(() => ({}));
-        const merged = {...known, ...Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value))};
-        const profile = draft.profile_markdown.trim() + (Object.keys(merged).length ? `\n\n${contactDetails.markdown(merged)}\n` : '\n');
-        await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('Profile'));
-        await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
-        strategy.dropLocalCopies(storage);  // Notion has them now
-        await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
-      }
+      if (!token || !ids.NOTION_PROFILE_PAGE_ID) return {ok: false, error: 'Connect Notion first: your strategy is saved there.'};
+      strategy.save(storage, draft);
+      const report = page => (done, total) => window?.webContents.send('saveProgress', {page, done, total});
+      // Contact details are a section of the Profile page: what's there stays, the CV's non-empty values win.
+      const known = await contactDetails.read(storage).catch(() => ({}));
+      const merged = {...known, ...Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value))};
+      const profile = draft.profile_markdown.trim() + (Object.keys(merged).length ? `\n\n${contactDetails.markdown(merged)}\n` : '\n');
+      await notion.writePage(token, ids.NOTION_PROFILE_PAGE_ID, profile, undefined, report('Profile'));
+      await notion.writePage(token, ids.NOTION_ANSWERS_PAGE_ID, draft.answers_markdown, undefined, report('standard answers'));
+      strategy.dropLocalCopies(storage);  // Notion has them now
+      await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       storage.saveSettings({setupDone: true});
       return {ok: true};
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
-  });
-  ipcMain.handle('profileText', () => strategy.profileTexts(storage));
-  ipcMain.handle('saveProfileText', (_, {profile, answers}) => {
-    storage.writeText('profile.md', profile);
-    storage.writeText('answers.md', answers);
-    return true;
   });
   ipcMain.handle('runs', () => ({runs: pipeline.runs(storage), running: pipeline.running(),
     lastSearchAt: storage.settings().lastSearchAt || null, nextSearchAt: nextAt(storage.settings()),

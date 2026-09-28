@@ -347,17 +347,15 @@
 
     <div class="view" data-view="strategy" hidden>
       <header class="view-head"><div><h1>Strategy</h1><p class="muted">What jobs are scored against, and your standard answers. Edit freely.</p></div>
-        <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button><button class="primary" id="strategy-save">Save</button></div></header>
+        <div class="head-actions"><button class="secondary" id="strategy-redo">Rebuild from CV…</button></div></header>
       <p class="message" id="strategy-message"></p>
-      <div id="strategy-notion" class="callout" hidden><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
+      <div id="strategy-notion" class="callout"><b>Your Profile and standard answers live in Notion.</b> Edit them there; the next search uses your changes.
         <div class="inline spaced"><button class="secondary" id="replace-cv">Replace CV…</button><button class="secondary" id="open-profile">Open Profile</button><button class="secondary" id="open-answers">Open standard answers</button><button class="secondary" id="open-workspace">Open Job Matches</button></div></div>
       <div id="cv-card" class="callout cv">
         <div class="cv-line">📄 <b>CV for tailoring</b> <span id="cv-state"></span></div>
         <div class="inline spaced"><button class="secondary" id="cv-view">👁️ View as PDF</button><button class="secondary" id="cv-import">🔄 Read my CV PDF</button><button class="link" id="cv-folder">📁 Files</button></div>
         <p class="message" id="cv-message"></p>
       </div>
-      <label for="strategy-profile">Profile</label><textarea id="strategy-profile" rows="16"></textarea>
-      <label for="strategy-answers">Standard application answers</label><textarea id="strategy-answers" rows="16"></textarea>
     </div>
 
     <div class="view" data-view="settings" hidden>

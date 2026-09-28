@@ -770,14 +770,6 @@ $('apply-go').addEventListener('click', async event => {
 
 async function loadStrategy() {
   state = await window.pilot.state();
-  const inNotion = !!state.notion?.NOTION_PROFILE_PAGE_ID;
-  show($('strategy-notion'), inNotion);
-  for (const id of ['strategy-profile', 'strategy-answers', 'strategy-save']) show($(id), !inNotion);
-  document.querySelectorAll('label[for="strategy-profile"], label[for="strategy-answers"]').forEach(l => show(l, !inNotion));
-  if (inNotion) return;
-  const text = await window.pilot.profileText();
-  $('strategy-profile').value = text.profile;
-  $('strategy-answers').value = text.answers;
   message('strategy-message', '');
 }
 $('open-profile').addEventListener('click', event => window.pilot.openNotion(state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
@@ -804,10 +796,6 @@ function renderNotionLinks() {
   }
 }
 renderNotionLinks();
-$('strategy-save').addEventListener('click', async () => {
-  await window.pilot.saveProfileText({profile: $('strategy-profile').value, answers: $('strategy-answers').value});
-  message('strategy-message', 'Saved ✓ New jobs are scored against it from the next search.', 'ok');
-});
 $('strategy-redo').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('goals'); });
 
 async function loadCvSetting() {
@@ -1101,9 +1089,10 @@ $('replace-cv').addEventListener('click', async () => {
 });
 
 // ---------- start ----------
-if (state.settings.setupDone) { show($('app')); loadJobs(); } else {
+// Notion is required (it's where Job Pilotto keeps your data): set up without it -> the Notion step first.
+if (state.settings.setupDone && state.notion) { show($('app')); loadJobs(); } else {
   show($('wizard'));
-  const resume = state.settings.wizardStep || 'welcome';
+  const resume = state.settings.setupDone ? 'notion' : state.settings.wizardStep || 'welcome';
   if (resume === 'draft') toDraft(); else goStep(resume);
 }
 

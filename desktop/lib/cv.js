@@ -97,7 +97,7 @@ const numbered = cv => ({summary: cv.summary || '', jobs: cv.jobs.map(job => ({c
   bullets: r.bullets.map((text, index) => ({index, text})), skills: r.skills || ''}))})),
   ...(cv.skills ? {skills: cv.skills} : {})});
 
-export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = storage.readText('profile.md')} = {}) {
+export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = ''} = {}) {
   const cv = baseCv(storage);
   if (!cv) throw new Error('No base CV yet');
   const anthropic = client || new Anthropic({apiKey});
@@ -271,10 +271,7 @@ export function reviewPage(storage, record) {
   const base = baseCv(storage);
   let marked = record.review, warnings = record.warnings;
   if (record.result && base) try {
-    const profile = storage.readText('profile.md');  // only without Notion; else keep the warnings made at tailoring time
-    const again = applyTailoring(base, record.result, profile);
-    marked = again.review;
-    if (profile) warnings = [...again.warnings, ...record.warnings.filter(w => /too full/.test(w))];
+    marked = applyTailoring(base, record.result).review;  // the warnings stay those made at tailoring time (with the Profile)
   } catch {}
   const cvHtml = render(marked, {style: style(storage), review: true, base: pathToFileURL(dir(storage) + path.sep).href});
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
