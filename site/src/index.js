@@ -8,6 +8,7 @@ import * as telemetry from './telemetry.js';
 import {install} from './install.js';
 import {signals} from './signals.js';
 import {brain} from './brain.js';
+import {index as employerIndex} from './employers.js';
 import {handleReport} from '../../worker/src/report.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -62,6 +63,7 @@ export default {
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/telemetry') return telemetry.view(request, env);
+    if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/signals') return signals(request, env);
     if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
     if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
