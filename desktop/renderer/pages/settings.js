@@ -28,6 +28,14 @@ export function openSetting(id) {
   settingsPage(card.closest('[data-settings-page]')?.dataset.settingsPage || 'overview');
   if (card.classList.contains('conn-panel')) document.querySelectorAll('.conn-panel').forEach(panel => show(panel, panel === card));
   setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
+  arrived(card);
+}
+// The card a link led to glows for a moment, so it's clear which one on the page was meant.
+function arrived(card) {
+  card.classList.remove('is-arrived');
+  void card.offsetWidth;  // restart the glow when the same card is opened twice
+  card.classList.add('is-arrived');
+  setTimeout(() => card.classList.remove('is-arrived'), 2400);
 }
 // Settings → Profile: CV & details and Standard answers. What goes into applications; nothing here re-scores jobs.
 async function openProfile() {

@@ -136,6 +136,9 @@ main { overflow-y: auto; padding: 28px 32px; }
 .row-actions { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
 .empty { color: var(--muted); padding: 24px; text-align: center; }
 .setting { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; margin-bottom: 12px; display: grid; gap: 10px; }
+/* The card a link opened (openSetting): a short signal glow. */
+.is-arrived { animation: arrived 2.4s ease-out; }
+@keyframes arrived { 0%, 40% { box-shadow: 0 0 0 3px rgb(var(--signal-rgb) / .45); border-color: rgb(var(--signal-rgb) / .8); } 100% { box-shadow: 0 0 0 3px rgb(var(--signal-rgb) / 0); } }
 .inline { display: flex; gap: 8px; }
 .inline input { flex: 1; }
 .kv { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
