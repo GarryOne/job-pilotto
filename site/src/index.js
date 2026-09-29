@@ -1,8 +1,9 @@
-// The website: static pages (public/), POST /api/waitlist, and "Connect with Notion" for the app (src/notion.js).
+// The website: static pages (public/), POST /api/waitlist, stats (src/stats.js: /download/*, /api/hit, /stats), and "Connect with Notion" for the app (src/notion.js).
 // POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
 import * as notion from './notion.js';
+import * as stats from './stats.js';
 import {handleReport} from '../../worker/src/report.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,8 +49,11 @@ export async function dispatch(env, inputs, workflow, fetcher = fetch) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const {pathname} = new URL(request.url);
+    if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
+    if (pathname === '/api/hit') return stats.hit(request, env);
+    if (pathname === '/stats') return stats.stats(request, env);
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/api/waitlist') return waitlist(request, env);
     if (pathname === '/api/notion/start') return notion.start(request, env);

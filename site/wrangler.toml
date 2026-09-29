@@ -18,3 +18,11 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 [vars]
 GITHUB_REPO = "GarryOne/job-pilotto"   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
+
+# Website stats (src/stats.js): page views, Download clicks, the private /stats page. Tables: migrations/ (apply: npx wrangler@4 d1 migrations apply www-stats --remote).
+# Secrets: STATS_KEY (opens /stats; Keychain job-pilotto.site.stats_key) and STATS_SALT (hashes visitors).
+[[d1_databases]]
+binding = "STATS"
+database_name = "www-stats"
+database_id = "61f8d0f7-82c2-4afe-a6e5-508aaaf2cfa0"
+migrations_dir = "migrations"
