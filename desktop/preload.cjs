@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('pilot', {
   license: call('license'), licenseSet: call('licenseSet'), licenseRemove: call('licenseRemove'),
   onAllowance: callback => ipcRenderer.on('allowance', (_, state) => callback(state)),
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'),
+  poolShareGet: call('poolShareGet'), poolShareSet: call('poolShareSet'), poolShareShown: call('poolShareShown'),
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'),
   onUpdate: callback => ipcRenderer.on('update', (_, offer) => callback(offer)),
   sendFeedback: call('sendFeedback'), leaveReason: call('leaveReason'),

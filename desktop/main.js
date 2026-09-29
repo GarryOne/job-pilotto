@@ -9,6 +9,7 @@ import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
 import * as canary from './lib/canary.js';
 import * as telemetryLib from './lib/telemetry.js';
+import * as poolShare from './lib/pool-share.js';
 import * as requestLog from './lib/request-log.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
@@ -1043,6 +1044,17 @@ function handlers() {
   ipcMain.handle('licenseRemove', () => { const state = license.remove(); return {...state, text: licenseLib.text(state)}; });
   ipcMain.handle('telemetryRecord', (_, kind, fields) => { telemetry?.record(String(kind), fields || {}); return true; });
   ipcMain.handle('telemetryShown', () => ({on: telemetry?.enabled() ?? false, events: telemetry?.shown() || []}));
+  // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
+  ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));
+  ipcMain.handle('poolShareSet', async (_, value) => {
+    const result = poolShare.set(storage, value);
+    if (cloud()) github.updateRepo(storage).catch(error => log(`GitHub repo not updated: ${error.message}`));
+    return result;
+  });
+  ipcMain.handle('poolShareShown', async () => {
+    const {code, stdout} = await pipeline.run(storage, ['src.contribute', '--show']);
+    return {text: code === 0 ? stdout.trim() : 'Could not work out what would be sent right now.'};
+  });
   ipcMain.handle('telemetrySet', (_, on) => { storage.saveSettings({telemetry: !!on}); if (!on) telemetry?.flush(); return {on: !!on}; });
   ipcMain.handle('updateState', () => updateOffer);
   ipcMain.handle('updateCheck', () => checkForUpdate(true));

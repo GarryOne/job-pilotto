@@ -1,4 +1,5 @@
 // Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
+import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
 import * as requestLog from './request-log.js';
 import {spawn} from 'node:child_process';
@@ -65,6 +66,7 @@ export function pipelineEnv(storage, parent = process.env) {
     env.JOB_PILOTTO_INSIGHT_MODEL = MODELS.insight;
     env.JOB_PILOTTO_MAIL_MODEL = MODELS.enrich;
   }
+  Object.assign(env, poolShare.variables(storage) || {});  // "Help the pool grow": only when the user turned it on
   if (settings.telegramChatId) env.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   for (const [key, value] of Object.entries(settings.notionIds || {})) if (value) env[key] = value;
   return env;

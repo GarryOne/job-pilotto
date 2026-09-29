@@ -4,6 +4,7 @@
 // from the public starter template, installs the app on it, and approves a sign-in code; the app then
 // commits the schedule and search settings, and stores their keys as encrypted repository secrets. Each run executes the public
 // engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
+import * as poolShare from './pool-share.js';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import path from 'node:path';
@@ -177,6 +178,9 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
     if (insights === 'off') { delete variables.JOB_PILOTTO_INSIGHT_MODEL; removed.push('JOB_PILOTTO_INSIGHT_MODEL'); }
     if (kits > 0) variables.JOB_PILOTTO_AUTO_KIT_MAX = String(kits); else removed.push('JOB_PILOTTO_AUTO_KIT_MAX');
   }
+  // "Help the pool grow" (opt-in): Always-on runs follow the same choice.
+  const share = poolShare.variables(storage);
+  if (share) Object.assign(variables, share); else removed.push(...poolShare.NAMES);
   return {files, secrets, variables, removed};
 }
 
@@ -220,6 +224,9 @@ export async function updateRepo(storage, {fetcher} = {}) {
   // Keys added since Always on was turned on (e.g. Google connected later) reach the repo too.
   const extra = Object.fromEntries(Object.entries(extraSecrets() || {}).filter(([, value]) => value));
   if (Object.keys(extra).length) { await setSecrets(api, repo, extra); changed.push(...Object.keys(extra).map(name => `secret ${name}`)); }
+  // The opt-in "Help the pool grow" follows the switch (variables set when on, removed when off).
+  const share = poolShare.variables(storage);
+  if (share) await setVariables(api, repo, share); else await removeVariables(api, repo, poolShare.NAMES);
   return changed;
 }
 
