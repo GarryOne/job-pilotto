@@ -136,6 +136,9 @@ def md_blocks(text, limit=90):
             flush()
             kind = 'bulleted_list_item' if bullet else 'numbered_list_item'
             blocks.append(_typed(kind, (bullet or number).group(1)))
+        elif label := re.fullmatch(r'\*\*([^*]+?):?\*\*:?', stripped):  # "**Tech Stack:**" alone: the list below's heading
+            flush()
+            blocks.append(_typed('heading_3', label.group(1)))
         elif re.match(r'^\*\*[^*]+:\*\*|^\*\*[^*]+\*\*:', stripped):  # "**Position:** Principal SRE": a fact, one bullet each
             flush()
             blocks.append(_typed('bulleted_list_item', stripped))

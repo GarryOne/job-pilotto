@@ -174,5 +174,12 @@ class MarkdownTests(unittest.TestCase):
         self.assertEqual((position[0]['text']['content'], position[0]['annotations']['bold']), ('Position:', True))
         self.assertNotIn('#', blocks[0]['heading_3']['rich_text'][0]['text']['content'])
 
+    def test_a_bold_label_alone_on_its_line_heads_the_list_below_it(self):
+        # "**Tech Stack:**" then bullets: it showed as one more bullet, so the list had no heading.
+        from src.notion.ledger import md_blocks
+        blocks = md_blocks('**Tech Stack:**\n- Deep AWS\n**Team**\n- Building out SRE')
+        self.assertEqual([b['type'] for b in blocks], ['heading_3', 'bulleted_list_item', 'heading_3', 'bulleted_list_item'])
+        self.assertEqual(blocks[0]['heading_3']['rich_text'][0]['text']['content'], 'Tech Stack')
+
 if __name__ == '__main__':
     unittest.main()
