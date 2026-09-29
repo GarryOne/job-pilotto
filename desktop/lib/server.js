@@ -148,7 +148,8 @@ export async function me(storage, url = '') {
   }).catch(() => ({notes: []}));
   const direct = (notes.notes || []).filter(n => n.value && ['answer', 'option'].includes(n.kind));
   const details = await contactOf(storage);
-  log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
+  // Logged only when Notion was actually read or failed: an answer from the kept copy is the normal case (no noise).
+  if (!details.contactSource?.startsWith('kept')) log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
     {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, ...(details.contactError ? {error: details.contactError} : {})});
   return {...details, resume, knowledge: direct};
 }

@@ -94,7 +94,7 @@ export function emptyRow(label, item) {
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
   body.append(el('div', '', `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
-  actions.append(smallButton('Show it in the form', 'primary', () => showInForm(item, label)));
+  actions.append(smallButton('Show it in the form', 'primary', event => showInForm(item, label, event.currentTarget)));
   body.append(actions);
   li.append(el('span', 'ss-need-glyph', '✏️'), body);
   return li;
@@ -106,9 +106,22 @@ export async function explainExtension(row) {
   row.append(el('div', 'small ss-check-more', `Likely cause: Chrome runs Job Pilotto extension ${seen.version}, older than this app's ${seen.latest}. ` +
     'Reload it once (chrome://extensions → ↻ on Job Pilotto); from then on it updates itself.'));
 }
+// While Chrome is being brought to the form: the button says so at once, then what's taking time.
+export async function opening(button, work) {
+  const words = button?.querySelector('span') || button;
+  const before = words?.textContent;
+  if (button) button.disabled = true;
+  if (words) words.textContent = 'Opening…';
+  const slow = setTimeout(() => { if (words) words.textContent = 'Looking for the form tab in Chrome…'; }, 2000);
+  try { return await work(); } finally {
+    clearTimeout(slow);
+    if (words) words.textContent = before;
+    if (button) button.disabled = false;
+  }
+}
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
-async function showInForm(item, label) {
-  const result = await window.pilot.reviewFocus(item.id, label, item.url, sessionCompany(item));
+async function showInForm(item, label, button) {
+  const result = await opening(button, () => window.pilot.reviewFocus(item.id, label, item.url, sessionCompany(item)));
   if (result?.taken) return;
   if (result?.outdated) toastMessage('Reload the Chrome extension once', `Chrome still runs Job Pilotto ${result.extension}; this app has ${result.latest}. ` +
     'In Chrome open chrome://extensions and click ↻ on Job Pilotto. Your open forms keep their answers; later updates load by themselves.');
@@ -126,7 +139,7 @@ export function needRow(need, item) {
   const name = need.label || 'this';
   if (need.kind === 'agree') {
     // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
-    actions.append(smallButton('Show it in the form', 'primary', () => showInForm(item, agreeLabel(need))),
+    actions.append(smallButton('Show it in the form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
       smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
     li.dataset.watch = watchId(need.text);
   } else {

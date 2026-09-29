@@ -775,7 +775,7 @@ function handlers() {
   // macOS permission needed, never the wrong tab). Only when no page answers does the app look for the tab itself.
   const showForm = async (id, label, url, company) => {
     review.queueFocus(String(id), String(label || ''));
-    const taken = await review.delivered(String(id), 8000);
+    const taken = await review.delivered(String(id), 4000);  // the page checks in every 2 s
     const went = taken ? 'tab' : await openFormTab({url, company}, shell.openExternal);
     return {taken, went};
   };

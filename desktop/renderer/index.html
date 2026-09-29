@@ -383,7 +383,6 @@
             <div class="ss-next-head"><b class="ss-next-title" id="ss-next-title"></b><span class="muted" id="ss-next-state"></span><span id="ss-form-state"></span></div>
             <div class="ss-question" id="ss-question"></div>
             <div class="ss-decision-actions" id="ss-actions"></div>
-            <div class="ss-full" id="ss-full" hidden></div>
           </div>
           <section class="ss-fact-card ss-needs" id="ss-needs-card" hidden>
             <div class="ss-fact-head"><i data-icon="alert"></i><b id="ss-needs-title">What Claude needs from you</b><span id="ss-needs-count"></span></div>
@@ -396,6 +395,9 @@
               <p class="muted ss-audit-summary"><b>Form audit:</b> <span id="ss-audit-summary"></span></p>
               <details class="ss-audit-more" id="ss-audit-more"><summary>View audit details</summary><div id="ss-audit-detail"></div></details>
             </div>
+            <!-- Claude's own words, for when you want them: the cards above already sort them into what to do. -->
+            <button class="link small ss-full-toggle" id="ss-full-toggle" hidden>Claude's full report ▾</button>
+            <div class="ss-full" id="ss-full" hidden></div>
           </section>
           <section class="ss-log" id="ss-log">
             <div class="ss-log-head" id="ss-log-head">

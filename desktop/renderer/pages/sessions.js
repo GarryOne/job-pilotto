@@ -9,7 +9,7 @@ import {$, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, opening, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -199,22 +199,22 @@ export function renderNextStep(item) {
   const full = $('ss-full');
   full.replaceChildren(...(review && item.question ? richText(item.question) : []));
   if (fullFor !== item.id) { full.hidden = true; fullFor = item.id; }
+  // At the bottom of "What happened", folded: once the form is filled the cards say what to do; the report is there
+  // for its exact words.
+  const toggle = $('ss-full-toggle');
+  const label = () => { toggle.textContent = full.hidden ? 'Claude\'s full report ▾' : 'Claude\'s full report ▴'; };
+  show(toggle, !!(review && item.question));
+  label();
+  toggle.onclick = () => { full.hidden = !full.hidden; label(); };
   const actions = [], live = isLive(item);
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (review) {
-    actions.push(sessionButton('Open filled form', 'primary', async () => {
-      const went = await window.pilot.showBrowser(item.url, sessionCompany(item), item.id);
+    actions.push(sessionButton('Open filled form', 'primary', async event => {
+      const went = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
       if (went === 'chrome') toastMessage('Form tab not found', 'No open form answered. Look for the tab Claude used in Chrome.');
     }, 'link'));
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     else if (item.resumable) actions.push(resume('secondary'));
-    if (item.question) {
-      const toggle = sessionButton(full.hidden ? 'Claude\'s message ▾' : 'Claude\'s message ▴', 'link', () => {
-        full.hidden = !full.hidden;
-        toggle.querySelector('span').textContent = full.hidden ? 'Claude\'s message ▾' : 'Claude\'s message ▴';
-      });
-      actions.push(toggle);
-    }
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
     actions.push(never);
@@ -246,11 +246,12 @@ export function renderNextStep(item) {
   updateNeedsCount();
   const happened = [
     ...done.map(section => {
-      // "**Filled:**" with its details on the bullets under it: the line shows the first of them.
-      const text = section.text || section.items.join('; ');
-      const lead = firstLine(text);
+      // "**Filled:**" with its details on the bullets under it: the line shows the first of them (+ how many more);
+      // the list is one click away.
+      const extra = !section.text && section.items.length > 1 ? ` (+${section.items.length - 1} more)` : '';
+      const lead = firstLine(section.text || section.items[0] || '') + extra;
       return {short: section.label ? `**${section.label}:** ${lead}`.trim() : lead, problem: section.label === 'Problems' || PROBLEM.test(section.text),
-        more: section.text ? [section.text.slice(lead.length).trim(), ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n')
+        more: section.text ? [section.text.slice(firstLine(section.text).length).trim(), ...section.items.map(line => `- ${line}`)].filter(Boolean).join('\n')
           : section.items.length > 1 ? section.items.map(line => `- ${line}`).join('\n') : ''};
     }),
     ...filled.map(({text, problem}) => {
@@ -278,7 +279,7 @@ export function renderNextStep(item) {
     $('ss-audit-detail').replaceChildren(...richText(rest));
     show($('ss-audit-more'), !!rest);
   }
-  show($('ss-happened-card'), happened.length > 0 || !!audit);
+  show($('ss-happened-card'), happened.length > 0 || !!audit || !!(review && item.question));
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
