@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {runWarnings} from '../run-warnings.js';
-import {el, pill} from '../components.js';
+import {el, pill, tile} from '../components.js';
 import {shared} from './shared.js';
 import {answer} from './actions.js';
 import {$, osText, show} from './core.js';
@@ -55,6 +55,7 @@ export const KIND = {search: {icon: '🔎', name: 'Jobs check'}, mail: {icon: '�
   add: {icon: '➕', name: 'Tracked application'}, rejection: {icon: '🔍', name: 'Rejection review'}};
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
+const WHERE = {github: '☁️ GitHub', mac: 'this Mac'};  // where a run ran, after who started it
 // A run's status pill (Recent activity): running, queued, failed, completed with warnings, completed.
 function runStatus(run, warned) {
   if (run.live) return ['Running', 'info', {dot: true}];
@@ -127,7 +128,7 @@ export function renderActivity(data) {
   renderActionsPage(data);
   lastActivity = data;
   showAwaitedResult(data.runs);
-  const {running, runs, nextSearchAt, nextMailAt} = data;
+  const {running, runs, nextSearchAt, nextMailAt, nextScoutAt} = data;
   if (!running) shared.idleSeen = true;
   const last = runs[0];
   const lastSearch = runs.find(run => kindOf(run) === 'search');
@@ -179,7 +180,7 @@ export function renderActivity(data) {
     const words = el('span', 'run-words');
     words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
       ? `Waiting · starts after ${run.after}`
-      : `${clockTime(run.endedAt || run.startedAt)} · ${capital(outcome(run))} · ${WHO[run.trigger] || run.trigger}`));
+      : [clockTime(run.endedAt || run.startedAt), capital(outcome(run)), WHO[run.trigger] || run.trigger, WHERE[run.where]].filter(Boolean).join(' · ')));
     button.append(el('span', 'run-status'), el('span', 'run-icon', kind.icon), words, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
@@ -190,15 +191,26 @@ export function renderActivity(data) {
   // How often: from Settings → How often (GitHub does it when Always on is on).
   const cloud = !!shared.state?.settings?.cloud?.repo;
   // A card per scheduled task: what, which day, and the time in large type (or why there's none).
-  const slot = (name, at, none) => {
+  // "Gmail check · Today 18:00": its icon, what, and when (Today / Tomorrow / the weekday).
+  const day = at => {
+    const date = new Date(at), today = new Date();
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    return date.toDateString() === today.toDateString() ? 'Today' : date.toDateString() === tomorrow.toDateString() ? 'Tomorrow'
+      : date.toLocaleDateString([], {weekday: 'short'});
+  };
+  const slot = (name, glyph, at, none) => {
     const due = at && at <= Date.now();
-    const item = el('span', 'ap-slot');
-    item.append(el('span', 'muted', name), el('b', '', at ? (due ? 'due now' : `${new Date(at).toLocaleDateString([], {weekday: 'short'})} ${hhmm(at)}`) : none));
+    const item = el('span', `ap-slot${at ? '' : ' is-off'}`);
+    const words = el('span', 'ap-slot-words');
+    words.append(el('span', 'muted', name), el('b', '', at ? (due ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
+    item.append(tile(glyph, at ? 'info' : 'neutral'), words);
     return item;
   };
-  $('activity-schedule').replaceChildren(slot('Next jobs check', nextSearchAt, cloud ? 'in the cloud' : 'only when you ask'),
-    slot('Next Gmail check', nextMailAt, cloud ? 'in the cloud' : 'off'),
-    ...(cloud ? [el('span', 'muted small', osText('☁️ runs in your GitHub repo'))] : []));
+  $('activity-schedule').replaceChildren(slot('Jobs check', 'search', nextSearchAt, 'Only when you ask'),
+    slot('Gmail check', 'mail', nextMailAt, 'Off'),
+    ...(cloud ? [slot('New employers', 'building', nextScoutAt, 'Off'),
+      Object.assign(el('span', 'ap-where', osText('☁️ On GitHub · Always on')), {title: 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.'})]
+      : [el('span', 'ap-where', 'On this Mac, while the app is open')]));
 
   // The selected run (or the live / latest one): what it did, its phases, and its full log. A run read from
   // Notion brings its result and log from its page the first time it's shown.

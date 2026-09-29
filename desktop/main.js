@@ -10,7 +10,7 @@ import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
-import {nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
+import {cloudNextAt, nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
@@ -213,8 +213,10 @@ function activity() {
   const {runs, live, waiting} = notionRuns ? runHistory.merge(notionRuns, local, pendingCloud) : {runs: local, live: pendingCloud[0] || null, waiting: pendingCloud};
   pendingCloud = waiting;
   const settings = storage.settings();
+  const cloud = cloudNextAt(settings);  // Always on: GitHub's schedule (the Mac's own is off then)
   return {runs, running: pipeline.running() || live, queued: pipeline.queued(), lastSearchAt: settings.lastSearchAt || null,
-    nextSearchAt: nextAt(settings), nextMailAt: nextMailAt(settings)};
+    nextSearchAt: nextAt(settings) ?? cloud.search, nextMailAt: nextMailAt(settings) ?? cloud.mail, nextScoutAt: cloud.scout,
+    cloud: !!settings.cloud?.repo};
 }
 
 // While the app is open, every finished job is a notification, wherever it ran (this Mac, GitHub, a Telegram

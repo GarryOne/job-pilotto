@@ -74,3 +74,28 @@ export function startSchedule(storage, {search, mail = async () => {}, scout = a
   setTimeout(check, firstCheck);
   return {stop: () => clearInterval(timer)};
 }
+
+// Always on: when GitHub runs each job next, from the schedule the app wrote to the user's repo (lib/cadence.js
+// crons: jobs checks at :30 from 07:30, Gmail on the hour, new employers 08:15), in this Mac's time zone.
+// GitHub may start a scheduled run some minutes late. {search, mail, scout}: ms or null (off).
+export function cloudNextAt(settings, now = Date.now()) {
+  if (!settings.cloud?.repo) return {search: null, mail: null, scout: null};
+  const {search, mail, scout} = cadence(settings);
+  const next = (times, weekday = null) => {
+    for (let day = 0; day <= 8; day++) {
+      for (const [hour, minute] of [...times].sort((a, b) => a[0] * 60 + a[1] - b[0] * 60 - b[1])) {
+        const at = new Date(now);
+        at.setDate(at.getDate() + day);
+        at.setHours(hour, minute, 0, 0);
+        if (at.getTime() > now && (weekday == null || at.getDay() === weekday)) return at.getTime();
+      }
+    }
+    return null;
+  };
+  const searchHours = search === 24 ? [7] : search > 0 ? Array.from({length: 24 / search}, (_, i) => (7 + i * search) % 24) : [];
+  return {
+    search: searchHours.length ? next(searchHours.map(hour => [hour, 30])) : null,
+    mail: MAIL_HOURS[mail] ? next(MAIL_HOURS[mail].map(hour => [hour, 0])) : null,
+    scout: scout === 'off' ? null : next([[8, 15]], scout === 'weekly' ? 1 : null),
+  };
+}

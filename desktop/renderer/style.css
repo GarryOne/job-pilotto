@@ -1113,8 +1113,15 @@ main { min-width: 0; }
   font-size: var(--fs-sm); flex-wrap: wrap; }
 .activity-panel .ap-foot-icon { color: var(--muted); display: inline-flex; }
 .activity-panel .ap-schedule-line { display: flex; gap: var(--sp-4); flex: 1; flex-wrap: wrap; }
-.activity-panel .ap-slot { display: inline-flex; gap: var(--sp-2); border: 0; padding: 0; background: none; }
-.activity-panel .ap-slot + .ap-slot { padding-left: var(--sp-4); border-left: 1px solid var(--line); }
+.activity-panel .ap-schedule-line { gap: var(--sp-2); align-items: center; }
+.activity-panel .ap-slot { display: inline-flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2); background: var(--surface); }
+.activity-panel .ap-slot .ui-tile { width: 30px; height: 30px; }
+.activity-panel .ap-slot .ui-tile .icon { width: 15px; height: 15px; }
+.activity-panel .ap-slot-words { display: grid; line-height: 1.25; }
+.activity-panel .ap-slot-words .muted { font-size: var(--fs-xs); }
+.activity-panel .ap-slot-words b { font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.activity-panel .ap-slot.is-off b { color: var(--muted); font-weight: 600; }
 @media (max-width: 1180px) { .activity-panel .ap-grid { grid-template-columns: minmax(0, 1fr); } .activity-panel .ap-list { border-right: 0; } }
 
 /* Recent activity opens out of the bottom bar: attached to it (no gap, a thin line where they meet), rounded only at
@@ -1206,3 +1213,6 @@ main { min-width: 0; }
 .conn-status { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: var(--fs-sm); color: var(--muted); min-height: 18px; }
 .conn-status.is-done { color: var(--good); }
 .conn-status .icon { width: 14px; height: 14px; }
+/* Where the scheduled jobs run: GitHub (Always on) or this Mac. */
+.ap-where { align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.activity-panel #activity-schedule { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
