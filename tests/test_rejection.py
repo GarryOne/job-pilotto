@@ -111,7 +111,7 @@ class GmailCheckTriggersTests(unittest.TestCase):
     def test_a_rejection_email_starts_a_review_with_the_email_text(self):
         with tempfile.TemporaryDirectory() as folder:
             apps = [app('p1', 'Scale AI', 'Infrastructure Engineer')]
-            tracker, google = Tracker(apps), FakeGoogle([email('m1', 'Update on your application')])
+            tracker, google = Tracker(apps), FakeGoogle([{**email('m1', 'Update on your application'), 'body': 'Scale AI: not moving forward'}])
             reviewed = []
             fake = lambda tracker, row, **kw: (reviewed.append((row['id'], kw['email_text'])) or ({}, '🛠 Why rejected · Scale AI'))
             stats = {}
@@ -120,7 +120,7 @@ class GmailCheckTriggersTests(unittest.TestCase):
                 sent = []
                 mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Rejected', 'Not moving forward')]]), days=2,
                          send=sent.append, calendar=False, now=NOW, state_path=Path(folder) / 's.json', stats=stats)
-            self.assertEqual(reviewed, [('p1', 'Subject: Update on your application\n\nHello Sam ...')])
+            self.assertEqual(reviewed, [('p1', 'Subject: Update on your application\n\nScale AI: not moving forward')])
             self.assertIn('🛠 Why rejected · Scale AI', sent[0])
             self.assertIn('🛠 Why rejected · Scale AI', stats['updates'])
 

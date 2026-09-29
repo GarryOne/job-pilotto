@@ -84,8 +84,8 @@ class FakeClient:
                                                      cache_creation_input_tokens=0))
 
 
-def email(message_id, subject, date='2026-09-26T09:00:00+02:00', sender='no-reply@us.greenhouse-mail.io'):
-    return {'id': message_id, 'from': sender, 'to': 'me', 'subject': subject, 'date': date, 'body': 'Hello Sam ...'}
+def email(message_id, subject, date='2026-09-26T09:00:00+02:00', sender='no-reply@us.greenhouse-mail.io', body='Hello Sam ...'):
+    return {'id': message_id, 'from': sender, 'to': 'me', 'subject': subject, 'date': date, 'body': body}
 
 
 def result(index, application, kind, summary='s', relevant=True, interview_at='', company='Acme'):
@@ -116,7 +116,7 @@ class MailTests(unittest.TestCase):
 
     def test_rejection_moves_stage_and_is_never_logged_twice(self):
         apps = [app('p1', 'Scale AI', 'Infrastructure Software Engineer')]
-        tracker, google = FakeTracker(apps), FakeGoogle([email('m1', 'Update on your application')])
+        tracker, google = FakeTracker(apps), FakeGoogle([email('m1', 'Update on your application', body='Thank you for your interest in Scale AI ...')])
         summary, sent = self.run_mail(tracker, google, [[result(0, 0, 'Rejected', 'Not moving forward')]])
         event = tracker.created[0]
         self.assertEqual((event['Kind']['select']['name'], event['Source']['select']['name']), ('Rejected', 'Gmail'))
@@ -171,7 +171,7 @@ class MailTests(unittest.TestCase):
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
         apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),
                 app('p2', 'Acme', 'SRE', stage='Offer')]
-        google = FakeGoogle([email('m3', 'Your event has been scheduled', sender='hello@cal.com'),
+        google = FakeGoogle([email('m3', 'Your event has been scheduled', sender='hello@cal.com', body='Laelaps AI screening call ...'),
                              email('m4', 'Next steps', sender='x@acme.test')])
         tracker = FakeTracker(apps)
         self.run_mail(tracker, google, [[result(0, 0, 'Interview scheduled', interview_at='2026-09-30T12:30:00+02:00'),
@@ -183,9 +183,10 @@ class MailTests(unittest.TestCase):
 
     def test_emails_are_processed_oldest_first_and_transcripts_are_flagged(self):
         apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree')]
-        google = FakeGoogle([email('late', 'Reminder: Screening Call', '2026-09-25T09:30:00+00:00'),
-                             email('early', 'Screening Call booked', '2026-09-24T18:05:00+00:00'),
-                             email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00')])
+        laelaps = 'Your screening call with Laelaps AI ...'
+        google = FakeGoogle([email('late', 'Reminder: Screening Call', '2026-09-25T09:30:00+00:00', body=laelaps),
+                             email('early', 'Screening Call booked', '2026-09-24T18:05:00+00:00', body=laelaps),
+                             email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00', body=laelaps)])
         tracker = FakeTracker(apps)
         client = FakeClient([[result(0, 0, 'Interview scheduled'), result(1, 0, 'Other'), result(2, 0, 'Other')]])
         with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
@@ -292,6 +293,18 @@ class MailTests(unittest.TestCase):
         self.assertIn('from:huxley.com', extra)
         self.assertIn('filename:invite.ics', extra)
         self.assertNotIn('huxley', q)  # a second, short search: the first one stays within Gmail's limit
+
+    def test_an_email_is_never_attached_to_a_job_it_doesnt_name(self):
+        # 29 Sep 2026: Huxley's SRE invitation was attached to AG Talent's DevOps pitch (the AI matched the role).
+        ag = app('p1', '', 'Senior DevOps Engineer', stage='Screening', via='AG Talent', contact='Arjun Gillard · agillard@agtalent.co.uk')
+        tracker = FakeTracker([ag])
+        invite = email('h1', 'Connect Igor / Jaya - SRE', sender='Jaya <j.nejati@huxley.com>', body='Microsoft Teams meeting')
+        with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
+                mock.patch('src.ai.opportunity.track', lambda *a, **k: (app('new', '', 'SRE', stage='Screening', via='Huxley'), '')):
+            self.run_mail(tracker, FakeGoogle([invite]), [[result(0, 0, 'Interview scheduled', company='Huxley')]])
+        self.assertNotIn('p1', [page for page, _ in tracker.updates])
+        self.assertTrue(mail._names_it(ag, email('r', 'Re: DevOps Engineer', sender='agillard@agtalent.co.uk')))
+        self.assertTrue(mail._names_it(ag, email('r', 'Hi', sender='x@other.io', body='Arjun Gillard, AG Talent')))
 
     def test_an_interview_about_a_job_not_tracked_is_tracked_and_asks_which_job(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])

@@ -344,6 +344,12 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     for i, email in enumerate(emails):
         result = results.get(i) or {'relevant': False}
         row = apps[result['application']] if result.get('relevant') and 0 <= result.get('application', -1) < len(apps) else None
+        if row is not None and not _names_it(row, email):
+            # The AI matched on the role alone (an SRE invitation from one agency, a DevOps pitch from another): an
+            # email is attached to a job only if it names that job's company, agency or a contact; else it's a job of
+            # its own (tracked below, and Focus asks for its details).
+            print(f"Not attached to {_label(row)}: the email ({email['from'][:60]}) names none of it", file=sys.stderr)
+            row = None
         named = result.get('relevant') and not row and result.get('role') and result.get('company') \
             and result.get('kind') in TRACKABLE
         if result.get('relevant') and not row and not named:  # e.g. a scheduler email naming only the recruiter
@@ -553,6 +559,24 @@ def new_lead(tracker, client, model, email, apps, stats, on_new=None):
 def _contact_names(row):
     """Full names written in the Contact field ("Alex Morgan · alex@yupe.io" -> "alex morgan")."""
     return {m.lower() for m in re.findall(r"\b[A-Z][a-zà-ÿ'-]+ [A-Z][a-zà-ÿ'-]+\b", _field(row, 'Contact'))}
+
+
+def _names_it(row, email):
+    """True if the email names the application: its company, agency, contact (name or email), or comes from the
+    domain of one of its contacts. A job with nothing to name (no company, agency or contact) can't be checked."""
+    names = [n for n in (_field(row, 'Company'), _field(row, 'Via'), _field(row, 'Contact')) if n.strip()]
+    if not names:
+        return True
+    text = f"{email.get('from', '')} {email.get('subject', '')} {email.get('body', '')[:6000]}"
+    if _matches(row, text):
+        return True
+    domains = {d for d in re.findall(r'@([\w-]+\.[\w.-]+)', _field(row, 'Contact').lower())}
+    sender = (re.search(r'@([\w.-]+)', email.get('from', '')) or [None, ''])[1].lower()
+    squash = lambda value: re.sub(r'[^a-z0-9]', '', value.lower())
+    orgs = [squash(n) for n in (_field(row, 'Company'), _field(row, 'Via')) if len(squash(n)) > 3]
+    return bool(sender and (any(sender.endswith(d) for d in domains)  # a contact's own domain
+                            or any(o in squash(sender.split('.')[0]) or squash(sender.split('.')[0]) in o
+                                   for o in orgs if len(squash(sender.split('.')[0])) > 3)))  # agtalent.co.uk = AG Talent
 
 
 def _matches(row, text):
