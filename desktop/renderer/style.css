@@ -977,6 +977,7 @@ main { min-width: 0; }
 .ss-log-head { cursor: pointer; }
 .ss-audit-summary { margin: 0 0 var(--sp-2); }
 /* In the form (as on the website): where, the count and the bar always; the fields folded */
+.ss-form-head, .ss-form-progress, .ss-needs .ss-fact-head { cursor: pointer; }
 .ss-form-head { display: flex; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-1); font-size: var(--fs-xs);
   font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .ss-form-progress { display: flex; align-items: center; gap: var(--sp-3); }

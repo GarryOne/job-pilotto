@@ -281,7 +281,16 @@ export function askRow(need, item) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  $('ss-needs-history').addEventListener('click', () => { $('ss-needs-card').classList.toggle('show-history'); updateNeedsCount(); });
+  // The cards' header bars fold and unfold them: In the form's field list, the needs' history.
+  const toggleHistory = () => {
+    if ($('ss-needs-history').hidden) return;
+    $('ss-needs-card').classList.toggle('show-history');
+    updateNeedsCount();
+  };
+  $('ss-needs-history').addEventListener('click', toggleHistory);
+  $('ss-needs-card').querySelector('.ss-fact-head').addEventListener('click', event => { if (!event.target.closest('a, button, input')) toggleHistory(); });
+  for (const bar of ['.ss-form-head', '.ss-form-progress'])
+    $('ss-form-card').querySelector(bar).addEventListener('click', () => { const more = $('ss-form-more'); if (!more.hidden) more.open = !more.open; });
   // A window that just loaded (⌘R, a restart) asks for every form's last state: the app passes them on only when they
   // change, so without this the ticks from the form stayed away until something changed there.
   window.pilot.reviewStates().then(states => {
