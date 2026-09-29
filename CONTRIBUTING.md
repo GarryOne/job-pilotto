@@ -74,5 +74,12 @@ async results cached empty, AI answers cut off by `max_tokens`, runs that don't 
 - 🔐 **No secrets** in code, commits, docs or Notion.
 - 🧑‍💻 **Every setup step works for any user through the app:** nothing may depend on the owner's machine.
 
+## 6 · License of your contribution
+
+Job Pilotto is source-available under [FSL-1.1-ALv2](LICENSE.md). By opening a pull request you agree that your
+contribution is licensed under the same terms, and that the maintainer may also license it under later versions of
+Job Pilotto's license (including the Apache 2.0 future license). Welcome contributions: job feeds, support for more
+application systems, form-filling fixes, translations.
+
 More: [CLAUDE.md](CLAUDE.md) (project rules and data ownership), [AGENTS.md](AGENTS.md) (agents, form filling),
 [README.md](README.md) (what the product does).

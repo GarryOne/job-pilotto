@@ -179,7 +179,7 @@ export const SEARCH_SETTINGS_TITLE = '⚙️ Search settings';
 
 // The daily applications target (Focus, reminders) is a line of ⚙️ Search settings. The page is read first
 // (edits made in Notion are kept), then written with the new value; if Notion refuses, the cache is put back.
-export const DEFAULT_TARGET = 30;
+export const DEFAULT_TARGET = 5;  // fewer, better applications: a handful of good-fit ones a day
 export const clampTarget = value => Math.max(1, Math.min(200, Math.round(Number(value)) || DEFAULT_TARGET));
 export function dailyTarget(storage) {
   try { return clampTarget(JSON.parse(storage.readText('config/preferences.json') || '{}').daily_applications_target); }

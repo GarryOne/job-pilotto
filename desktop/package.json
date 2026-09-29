@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "main": "start.js",
+  "license": "SEE LICENSE IN ../LICENSE.md",
   "scripts": {
     "prestart": "npm install --no-audit --no-fund --silent && scripts/audiotee.sh && node scripts/stage.mjs",
     "start": "electron .",

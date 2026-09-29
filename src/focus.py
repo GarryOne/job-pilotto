@@ -39,7 +39,7 @@ from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event,
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
-DEFAULT_TARGET = 30
+DEFAULT_TARGET = 5  # fewer, better applications: a handful of good-fit ones a day
 REPLIED = 'Replied'
 ENDED = {'Rejected', 'Withdrawn', 'No response', 'Closed', 'Dismissed'}
 # Events that come from the other side and wait for an answer; anything later (your reply, a booking) settles them.

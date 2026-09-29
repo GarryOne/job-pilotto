@@ -25,3 +25,26 @@ test('only the owner\'s app (REPORT_TOKEN) is trusted; others go to triage', asy
   assert.equal(calls[0].workflow, 'fill-failure-intake.yml');
   assert.equal(calls[1].inputs.trusted, 'false');
 });
+
+test('untrusted reports are limited: 10 per sender per day, the same site + fields once a week', async () => {
+  const store = new Map();
+  const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
+  const calls = [];
+  const dispatch = async () => calls.push(1);
+  const post = (body, ip = '1.2.3.4') => new Request('https://x/report/fill-failure',
+    { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body: JSON.stringify(body) });
+  const now = Date.parse('2026-09-29T12:00:00Z');
+  const first = await (await handleReport(post(report), { WAITLIST: kv }, dispatch, now)).json();
+  const again = await (await handleReport(post(report), { WAITLIST: kv }, dispatch, now)).json();
+  assert.deepEqual([first.ok, again.duplicate, calls.length], [true, true, 1]);  // the copy isn't re-run
+  for (let i = 0; i < 8; i++) {
+    await handleReport(post({ ...report, site: `site${i}.example.com` }), { WAITLIST: kv }, dispatch, now);
+  }
+  const over = await handleReport(post({ ...report, site: 'eleven.example.com' }), { WAITLIST: kv }, dispatch, now);
+  assert.equal(over.status, 429);
+  const other = await handleReport(post({ ...report, site: 'eleven.example.com' }, '5.6.7.8'), { WAITLIST: kv }, dispatch, now);
+  assert.equal(other.status, 200);  // another sender isn't affected
+  const trusted = await handleReport(new Request('https://x', { method: 'POST', headers: { Authorization: 'Bearer t', 'CF-Connecting-IP': '1.2.3.4' },
+    body: JSON.stringify(report) }), { WAITLIST: kv, REPORT_TOKEN: 't' }, dispatch, now);
+  assert.equal(trusted.status, 200);  // the owner's app is never limited
+});

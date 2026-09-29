@@ -20,11 +20,34 @@ export function sanitize(report) {
   return { site, version: text(report.version, 20), fields };
 }
 
-export async function handleReport(request, env, dispatch) {
+// Untrusted reports (anyone can POST) are limited, since each one starts a GitHub Actions run: per sender per day,
+// and the same site + fields only once a week (later copies are accepted, not re-run). Kept in the site's KV
+// (WAITLIST, keys "report:…", expiring); without it (the bot's worker) there is no limit to apply.
+export const PER_SENDER_PER_DAY = 10;
+const WEEK = 7 * 24 * 3600;
+
+async function fingerprint(report) {
+  const data = new TextEncoder().encode(JSON.stringify([report.site, report.fields.map((f) => [f.label, f.reason])]));
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+  return [...digest.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function handleReport(request, env, dispatch, now = Date.now()) {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   const report = sanitize(await request.json().catch(() => ({})));
   if (!report) return Response.json({ ok: false, error: 'no mechanical failures in the report' }, { status: 400 });
   const trusted = !!env.REPORT_TOKEN && request.headers.get('Authorization') === `Bearer ${env.REPORT_TOKEN}`;
+  const kv = env.WAITLIST;
+  if (!trusted && kv) {
+    const sender = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const countKey = `report:sender:${sender}:${new Date(now).toISOString().slice(0, 10)}`;
+    const count = Number(await kv.get(countKey)) || 0;
+    if (count >= PER_SENDER_PER_DAY) return Response.json({ ok: false, error: 'too many reports today' }, { status: 429 });
+    await kv.put(countKey, String(count + 1), { expirationTtl: 2 * 24 * 3600 });
+    const seenKey = `report:seen:${await fingerprint(report)}`;
+    if (await kv.get(seenKey)) return Response.json({ ok: true, trusted, duplicate: true });
+    await kv.put(seenKey, '1', { expirationTtl: WEEK });
+  }
   await dispatch(env, { report: JSON.stringify(report), trusted: String(trusted) }, 'fill-failure-intake.yml');
   return Response.json({ ok: true, trusted });
 }

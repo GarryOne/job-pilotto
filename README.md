@@ -1029,7 +1029,15 @@ answers) into any file that gets committed to git.
 
 ## License and use
 
-Personal-use project; no warranty. It only reads public job-board and employer-feed APIs — no
-scraping of sites whose terms forbid it (LinkedIn, Glassdoor, levels.fyi, Reddit are deliberately
-excluded). Never configure it to submit applications automatically; every path that fills a form
-stops before Submit by design, and that's meant to stay true for any fork too.
+**Free to use, source available:** Job Pilotto is licensed under the [Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE.md).
+You may read, run and change it for yourself (and your company's internal use); you may not offer it, or anything built
+from it, as a competing product or service. Each version becomes Apache 2.0 two years after its release. It is not
+"open source" in the OSI sense, so don't call it that.
+
+No warranty. It only reads public job-board and employer-feed APIs, with no scraping of sites whose terms forbid it
+(LinkedIn, Glassdoor, levels.fyi, Reddit are deliberately excluded). **Fewer, better applications:** it drafts only
+from your own profile, never invents facts, and every path that fills a form stops before Submit by design. That is
+meant to stay true for any copy too.
+
+Contributions (job feeds, support for more application systems, form fixes, translations) are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md); a small contributor agreement keeps the license the same for everyone.
