@@ -1,6 +1,7 @@
 // The central employer index: GET /api/index (public, cacheable) is what every app and Always-on run downloads;
 // PUT /api/index (Bearer INDEX_PUBLISH_KEY) is the private central scout (repo GarryOne/job-pilotto-ops) publishing it.
 // Product data only: feeds, quality, last verified. Nothing about any user. Stored as one KV value (binding WAITLIST).
+import {REGIONS, ROLES} from './pool.js';
 const KEY = 'index:employers';
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'amazon', 'netflix'];
 const MAX_BYTES = 1_000_000;
@@ -19,6 +20,9 @@ function equal(a, b) {  // constant-time-ish string compare
 const number = (value, max) => Number.isFinite(value) ? Math.max(0, Math.min(max, Math.round(value))) : null;
 
 // kind: an employer's own career page, or a job portal (counted apart on the website).
+// Who a feed fits (fixed lists only): the scout publishes a tag only when many installs agree.
+const fitsOf = fits => ({roles: (fits?.roles || []).filter(r => ROLES.includes(r)), regions: (fits?.regions || []).filter(r => REGIONS.includes(r))});
+
 // Only the fields clients read, and only feeds an app knows how to crawl.
 export function clean(feeds) {
   const seen = new Set();
@@ -32,6 +36,7 @@ export function clean(feeds) {
     out.push({company: company.trim().slice(0, 120), ats, slug, kind: item.kind === 'board' ? 'board' : 'employer', tier: item.tier === 'Tier 1' ? 'Tier 1' : 'Standard',
       quality: number(item.quality, 100), jobs: number(item.jobs, 100000),
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
+      fits: fitsOf(item.fits),
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : []});
   }
   return out;

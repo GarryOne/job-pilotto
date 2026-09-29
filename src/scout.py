@@ -318,7 +318,32 @@ def job_places(jobs, limit=40):
     return [place for place, _ in counts.most_common(limit + 1) if place][:limit]
 
 
-def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8):
+MIN_INSTALLS = 2   # a contributed feed becomes a candidate when this many different installs sent it (the scout still verifies it)
+FIT_MIN_INSTALLS = 5   # a role / region tag is published for a feed only when this many different installs matched it
+
+
+def fetch_contributions(base_url, key, get=None):
+    """The opt-in aggregate from the website (`GET /api/contributions`, Bearer key); [] when unavailable: never fatal."""
+    def default_get(request):
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    request = urllib.request.Request(base_url.rsplit('/api/', 1)[0] + '/api/contributions',
+                                     headers={'Authorization': f'Bearer {key}', 'User-Agent': ats.USER_AGENT})
+    try:
+        return [f for f in (get or default_get)(request).get('feeds', []) if isinstance(f, dict)]
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: pool contributions not read ({type(error).__name__}: {error})')
+        return []
+
+
+def fits(contribution):
+    """Role and region tags backed by enough different installs; nothing rarer is ever published."""
+    out = {name: sorted(tag for tag, n in (contribution.get(name) or {}).items() if n >= FIT_MIN_INSTALLS)
+           for name in ('roles', 'regions')}
+    return {name: tags for name, tags in out.items() if tags}
+
+
+def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=()):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
     db.executescript(TABLES)
@@ -327,14 +352,20 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8):
              for s in starter}
     for row in db.execute('SELECT ats, slug, company, tier FROM feed_sources WHERE active = 1'):
         known[(row['ats'], row['slug'])] = {'company': row['company'], 'tier': row['tier']}
+    by_feed = {(c.get('ats'), c.get('slug')): c for c in contributions}
+    for key, c in by_feed.items():   # what apps contributed: verified below like everything else
+        if key not in known and key[0] in ats.FETCHERS and (c.get('installs') or 0) >= MIN_INSTALLS and c.get('company'):
+            known[key] = {'company': str(c['company'])[:120], 'tier': 'Standard'}
 
     def check(item):
         (system, slug), meta = item
         try:
             jobs = fetch(system, slug)
             score, _ = quality(jobs)
-            return {'company': meta['company'], 'ats': system, 'slug': slug, 'kind': 'employer', 'tier': meta['tier'], 'quality': score,
-                    'jobs': len(jobs), 'checked': today, 'places': job_places(jobs)}
+            entry = {'company': meta['company'], 'ats': system, 'slug': slug, 'kind': 'employer', 'tier': meta['tier'], 'quality': score,
+                     'jobs': len(jobs), 'checked': today, 'places': job_places(jobs)}
+            tags = fits(by_feed.get((system, slug), {}))
+            return {**entry, 'fits': tags} if tags else entry
         except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}
 
@@ -523,8 +554,10 @@ def main():
             key = os.getenv('INDEX_PUBLISH_KEY')
             if not key:
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
-            feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()))
-            count = publish_index(feeds_out, os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL, key)
+            index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
+            contributions = fetch_contributions(index_url, key)
+            feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions)
+            count = publish_index(feeds_out, index_url, key)
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     message = telegram_summary(summary, results)
     log['headline'] = cron_runs.plain(message).split('\n')[0]

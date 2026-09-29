@@ -189,3 +189,29 @@ class CentralLocationsTest(unittest.TestCase):
         self.assertTrue(any('zurich' in p for p in central['locations']['top_tier']))
         self.assertTrue(any('singapore' in p for p in central['locations']['top_tier']))
         self.assertEqual(central['remote_excluded_regions'], ['(?!x)x'])   # no region is excluded for the shared index
+
+
+class ContributionsTest(unittest.TestCase):
+    def fetch(self, system, slug):
+        return [{'id': '1', 'title': 'Site Reliability Engineer', 'location': 'Zurich, Switzerland', 'url': 'u',
+                 'date_posted': '2099-01-01', 'description': 'd', 'remote': False, 'salary': ''}]
+
+    def test_contributed_feeds_are_candidates_only_when_several_installs_sent_them_and_are_verified(self):
+        contributions = [
+            {'ats': 'lever', 'slug': 'popular', 'company': 'Popular', 'installs': 3, 'matched_installs': 3, 'roles': {'sre_devops': 5, 'data': 2}, 'regions': {'europe': 5}},
+            {'ats': 'lever', 'slug': 'lonely', 'company': 'Lonely', 'installs': 1, 'matched_installs': 1, 'roles': {'sre_devops': 1}, 'regions': {}},
+            {'ats': 'nonsense', 'slug': 'x', 'company': 'Bad', 'installs': 9, 'roles': {}, 'regions': {}}]
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'j.sqlite') as db:
+            feeds, failed = scout.build_index(db, [], self.fetch, today='2026-09-30', contributions=contributions)
+        self.assertEqual([f['slug'] for f in feeds], ['popular'])          # one install is not enough; unknown systems never
+        self.assertEqual(feeds[0]['fits'], {'roles': ['sre_devops'], 'regions': ['europe']})   # 'data' has 2 installs (< 5)
+
+    def test_a_tag_needs_five_installs(self):
+        self.assertEqual(scout.fits({'roles': {'qa': 4, 'data': 5}, 'regions': {'europe': 4}}), {'roles': ['data']})
+        self.assertEqual(scout.fits({}), {})
+
+    def test_reading_contributions_never_fails_the_scout(self):
+        def down(request):
+            raise OSError('offline')
+        self.assertEqual(scout.fetch_contributions('https://x.test/api/index', 'k', down), [])
+        self.assertEqual(scout.fetch_contributions('https://x.test/api/index', 'k', lambda r: {'feeds': [{'slug': 'a'}, 'junk']}), [{'slug': 'a'}])

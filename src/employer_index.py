@@ -42,7 +42,8 @@ def clean(feeds):
             places = item.get('places')
             out.append({'company': company, 'ats': system, 'slug': slug, 'quality': item.get('quality'),
                         'checked': item.get('checked'),
-                        'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None})
+                        'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None,
+                        'fits': item.get('fits') if isinstance(item.get('fits'), dict) else None})
     return out
 
 

@@ -35,7 +35,7 @@ test('publish, then anyone can download it: public, cacheable, ETag revalidation
   assert.equal(get.status, 200);
   assert.match(get.headers.get('Cache-Control'), /public, max-age=/);
   const body = await get.json();
-  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer'});
+  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer', fits: {roles: [], regions: []}});
   const again = await call(env(), 'GET', {'If-None-Match': get.headers.get('ETag')});
   assert.equal(again.status, 304);
 });
@@ -79,4 +79,12 @@ test('an entry can be marked as a job portal; anything else is an employer', asy
   await call(env(), 'PUT', auth, {feeds: [feed('a'), feed('b', {kind: 'board'}), feed('c', {kind: 'weird'})]});
   const kinds = (await (await call(env(), 'GET')).json()).feeds.map(f => f.kind);
   assert.deepEqual(kinds, ['employer', 'board', 'employer']);
+});
+
+test('the index keeps who a feed fits, from the fixed lists only', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a', {fits: {roles: ['sre_devops', 'my-secret'], regions: ['europe', 'Zurich']}}), feed('b')]});
+  const feeds = (await (await call(env(), 'GET')).json()).feeds;
+  assert.deepEqual(feeds[0].fits, {roles: ['sre_devops'], regions: ['europe']});
+  assert.deepEqual(feeds[1].fits, {roles: [], regions: []});
 });
