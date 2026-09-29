@@ -267,9 +267,9 @@ export const TASKS = {
   insight: {name: 'Insight', result: /^(Insight sent: |Insight: )/},
   weekly: {name: 'Weekly report', result: /^Weekly report sent: /},
   today: {name: "Today's list", result: /^(Digest ready: |No new jobs since|Sent \d+ Telegram message)/},
-  scout: {name: 'Find employers', result: /Source scout(<\/b>)? · checked|^Source scout is off/},
+  scout: {name: 'Find new employers', result: /Source scout(<\/b>)? · checked|^Source scout is off/},
 };
-export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Search');
+export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Jobs check');
 // Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
 export function scout(storage, onLine, trigger = 'you', batch = 15) {
   const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it

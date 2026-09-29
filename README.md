@@ -138,7 +138,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   job's Notion page (`src/ai/inbox.py`, about USD 0.005–0.01 each).
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update
   your applications by themselves; the evening before an interview you get a prep message.
-- ⌨️ **Commands**: `/run`, `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/scout`, `/status`, `/help`.
+- ⌨️ **Commands**: `/check` (a jobs check now; `/run` works too), `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/employers` (find new employers; `/scout` works too), `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
 - 🚀 **Three launchers, one CLI**: ChatGPT desktop, Codex CLI + Playwright, or Claude Code + Claude
@@ -871,8 +871,8 @@ tests/               Python tests; Worker tests live in worker/test/
 ## Commands
 
 ```sh
-python3 -m src daily                  # preview a digest locally (no send)
-python3 -m src daily --send --mode today
+python3 -m src check                  # the jobs check: preview a digest locally (no send; `daily` still works)
+python3 -m src check --send --mode today
 python3 -m src scout --batch 15       # probe candidate employers
 python3 -m src discover --pages 2 --max-companies 80
 python3 -m src feeds                  # employer feeds only, HTML report in reports/

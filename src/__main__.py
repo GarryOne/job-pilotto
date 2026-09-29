@@ -1,8 +1,9 @@
 """Command line entry point: python -m src <command> [options].
 
 Commands:
-  daily     run a digest (modes: scheduled, run, today, more, apply)
-  scout     probe a batch of candidate employers for job feeds
+  check     check for new jobs: crawl your sources, read and score new jobs, send the digest
+            (modes: scheduled, run, today, more, apply); "daily" is the old name and still works
+  scout     find new employers: probe a batch of candidate employers for public job feeds
   discover  crawl jobs.ch and TechTree for Swiss employers
   feeds     crawl employer feeds only and write a local HTML report
   enrich    run AI stage 1 on pending jobs
@@ -13,7 +14,7 @@ import sys
 
 def main():
     commands = {
-        'daily': 'src.daily', 'scout': 'src.scout', 'discover': 'src.sources.boards',
+        'check': 'src.daily', 'daily': 'src.daily', 'scout': 'src.scout', 'discover': 'src.sources.boards',
         'feeds': 'src.sources.feeds', 'enrich': 'src.ai.enrich', 'doctor': 'src.doctor',
     }
     if len(sys.argv) < 2 or sys.argv[1] not in commands:
@@ -22,7 +23,7 @@ def main():
     name = sys.argv.pop(1)
     sys.argv[0] = f'python -m src {name}'
     import importlib
-    if name in ('daily', 'scout', 'discover', 'feeds'):
+    if name in ('check', 'daily', 'scout', 'discover', 'feeds'):
         # One search at a time: the app and the terminal share the job cache (src/paths.py run_lock).
         from .paths import run_lock
         with run_lock():

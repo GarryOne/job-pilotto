@@ -490,7 +490,7 @@ function handlers() {
     }
   });
   // Every Telegram command, from the app (the answer also goes to Telegram when connected).
-  const COMMANDS = ['run', 'today', 'applied', 'saved', 'insight', 'weekly', 'mail', 'scout', 'status', 'add', 'help'];
+  const COMMANDS = ['check', 'employers', 'run', 'today', 'applied', 'saved', 'insight', 'weekly', 'mail', 'scout', 'status', 'add', 'help'];
   ipcMain.handle('command', async (_, name, arg = '') => {
     if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
     try { return await telegram.runCommand(storage, name, arg, log); } catch (error) { return {text: `⚠️ ${error.message}`}; }

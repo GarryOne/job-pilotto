@@ -49,8 +49,8 @@ function searchPhase(step = '') {
   if (/digest|telegram/i.test(step)) return 'Sending your digest';
   return step.length > 60 ? `${step.slice(0, 57)}…` : step;
 }
-export const KIND = {search: {icon: '🔎', name: 'New jobs check'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
-  weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find employers'},
+export const KIND = {search: {icon: '🔎', name: 'Jobs check'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
+  weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find new employers'},
   action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
   add: {icon: '➕', name: 'Tracked application'}, rejection: {icon: '🔍', name: 'Rejection review'}};
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
@@ -148,12 +148,12 @@ export function renderActivity(data) {
     $('activity-meta').textContent = [duration(running.startedAt, new Date().toISOString()), checked && `${checked} companies checked`].filter(Boolean).join(' · ');
   } else if (lastSearch || lastMail) {
     barLabel();
-    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last new jobs check' : 'Last new jobs check had problems') : 'No new jobs check yet';
+    $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last jobs check' : 'Last jobs check had problems') : 'No jobs check yet';
     $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
       (lastSearch.ok ? '' : ' · click to see why') : '';
-    $('activity-meta').textContent = [mailNote, nextSearchAt && `Next new jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
+    $('activity-meta').textContent = [mailNote, nextSearchAt && `Next jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
-    $('activity-title').textContent = 'No new jobs check yet';
+    $('activity-title').textContent = 'No jobs check yet';
     $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';
     $('activity-meta').textContent = mailNote;
   }
@@ -196,7 +196,7 @@ export function renderActivity(data) {
     item.append(el('span', 'muted', name), el('b', '', at ? (due ? 'due now' : `${new Date(at).toLocaleDateString([], {weekday: 'short'})} ${hhmm(at)}`) : none));
     return item;
   };
-  $('activity-schedule').replaceChildren(slot('Next new jobs check', nextSearchAt, cloud ? 'in the cloud' : 'only when you ask'),
+  $('activity-schedule').replaceChildren(slot('Next jobs check', nextSearchAt, cloud ? 'in the cloud' : 'only when you ask'),
     slot('Next Gmail check', nextMailAt, cloud ? 'in the cloud' : 'off'),
     ...(cloud ? [el('span', 'muted small', osText('☁️ runs in your GitHub repo'))] : []));
 

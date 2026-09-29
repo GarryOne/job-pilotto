@@ -10,7 +10,7 @@ import { handleExtension } from './extension.js';
 const HELP = [
   '✈️ <b>SRE Job Pilotto commands</b>',
   '',
-  '/run — crawl now and send the digest (~3 min)',
+  '/check — check for new jobs now: crawl, read and score them, send the digest (~3 min; /run works too)',
   '/today — send the current ranked list (~1 min)',
   '/applied — jobs you applied to, with stage; tap a number to record a reply (screening, interview, offer, rejection)',
   '/saved — jobs you saved with ⭐',
@@ -22,7 +22,7 @@ const HELP = [
   '🎤 After an interview: send the recording (only if everyone on the call agreed to it; a voice note, audio or video up to 20 MB) or the transcript file (.txt, .md, .srt, .vtt) with a caption like "Grafana, round 1", or /interview Grafana round 1 with your notes on the next lines',
   'Under a digest, tap a job number → ✅ Applied · ⭐ Save · ❌ Dismiss · 📝 Prepare (drafts a cover letter and form answers)',
   '/status — last workflow runs',
-  '/scout — look for new employer job feeds now (~1 min)',
+  '/employers — find new employers with a public job feed now (~1 min; /scout works too)',
 ].join('\n');
 
 const STAGE_EMOJI = {
@@ -255,6 +255,7 @@ export async function handleCommand(env, command) {
     case 'start':
     case 'help':
       return HELP;
+    case 'check':
     case 'run':
       await dispatch(env, { mode: 'run' });
       return '🔄 Crawling now. The digest arrives in about 3 minutes.';
@@ -278,6 +279,7 @@ export async function handleCommand(env, command) {
     case 'mail':
       await dispatch(env, { delay: '0' }, 'mail.yml');
       return '📧 Checking Gmail and Calendar; news arrives in about a minute (nothing if there is none).';
+    case 'employers':
     case 'scout':
       await dispatch(env, { batch: '15' }, 'scout.yml');
       return '🔎 Scouting 15 companies for new job feeds; the summary arrives in about a minute.';

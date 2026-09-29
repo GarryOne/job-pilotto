@@ -65,8 +65,8 @@ test('a run\'s page gives its result and technical log', async () => {
 test('every finished job is a notification wherever it ran; a quiet Gmail check and a button action are not', () => {
   assert.deepEqual(history.notice({kind: 'insight', where: 'github', ok: true, result: 'Insight sent: Skills — Go is in 40%'}),
     {title: 'Insight done (on GitHub)', body: 'Insight sent: Skills — Go is in 40%'});
-  assert.deepEqual(history.notice({kind: 'search', trigger: 'schedule', ok: true, new: 3}), {title: 'Scheduled search done', body: '3 new jobs found.'});
-  assert.deepEqual(history.notice({ok: true, new: 0}), {title: 'Search done', body: 'No new jobs this time.'});  // an older record without kind
+  assert.deepEqual(history.notice({kind: 'search', trigger: 'schedule', ok: true, new: 3}), {title: 'Scheduled jobs check done', body: '3 new jobs found.'});
+  assert.deepEqual(history.notice({ok: true, new: 0}), {title: 'Jobs check done', body: 'No new jobs this time.'});  // an older record without kind
   assert.equal(history.notice({kind: 'weekly', where: 'github', ok: false}).title, 'Weekly report had problems (on GitHub)');
   assert.deepEqual(history.notice({kind: 'mail', ok: true, updates: ['Grafana Labs: Rejected']}),
     {title: 'Gmail: 1 application update', body: 'Grafana Labs: Rejected'});
