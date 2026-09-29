@@ -1,0 +1,11 @@
+name: An idea
+description: Something that would make your job search better
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What you'd like, and the problem it solves for you.
+    validations:
+      required: true

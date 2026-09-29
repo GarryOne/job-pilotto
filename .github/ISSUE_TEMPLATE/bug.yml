@@ -1,0 +1,33 @@
+name: Something doesn't work
+description: A bug in the app, the extension or a job run
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks! Never paste keys, your CV, form answers or emails here: this is public."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Menu → Job Pilotto → About (e.g. 0.4.0-alpha.42)
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Computer
+      options: [Mac, Windows]
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Screenshot or technical log (optional)
+      description: Recent activity → the run → Technical log; remove anything personal first.

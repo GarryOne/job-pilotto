@@ -81,5 +81,7 @@ contribution is licensed under the same terms, and that the maintainer may also 
 Job Pilotto's license (including the Apache 2.0 future license). Welcome contributions: job feeds, support for more
 application systems, form-filling fixes, translations.
 
+Everyone here follows the [Code of Conduct](CODE_OF_CONDUCT.md). Security problems: [SECURITY.md](SECURITY.md) (report privately).
+
 More: [CLAUDE.md](CLAUDE.md) (project rules and data ownership), [AGENTS.md](AGENTS.md) (agents, form filling),
 [README.md](README.md) (what the product does).

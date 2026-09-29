@@ -1,0 +1,21 @@
+name: A form Job Pilotto couldn't fill
+description: An application form where a field stayed empty or took the wrong value
+labels: [form-report]   # not fill-failure: the daily fixer only takes those from the owner's app
+body:
+  - type: markdown
+    attributes:
+      value: "Never paste your answers or personal details: the site and the field are enough."
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      description: The form's address without the part after "?" (e.g. job-boards.greenhouse.io/company/jobs/123)
+    validations:
+      required: true
+  - type: textarea
+    id: field
+    attributes:
+      label: The field
+      description: Its label and type (dropdown, checkbox, text…), and what happened.
+    validations:
+      required: true
