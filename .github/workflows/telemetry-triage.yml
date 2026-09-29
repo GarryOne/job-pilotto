@@ -1,4 +1,4 @@
-name: App report triage
+name: App reports · Daily triage
 # Daily, started by the website's cron (site/src/telemetry.js → daily): the top problems Job Pilotto apps reported in
 # the last day. One GitHub issue per problem ("telemetry" label, fingerprint in the title): new ones are filed, known
 # ones get a comment when they spread (more users or a newer version). Claude Code (Haiku 4.5, capped turns) then adds

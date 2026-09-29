@@ -1,4 +1,4 @@
-name: Fill failure intake
+name: Form fills · Intake a report
 # Started by the Telegram bot's Worker (/report/fill-failure) when the Job Pilotto app reports a form field the
 # extension couldn't operate. The report is form structure only (no answers, no personal data). One issue per
 # site + field; a repeat adds a comment. Trusted reports (the owner's app) get "fill-failure" and are picked up

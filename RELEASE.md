@@ -49,6 +49,7 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 
 - **Stop it spreading:** promote the previous good build again: `tools/release-stable.sh desktop-v0.4.0-alpha.41`.
   Apps only offer *newer* versions, so friends who already updated stay on the bad one until a fixed build is promoted.
+- **Release list:** stable releases stay; only the newest 3 test builds keep a release page (`tools/prune-releases.sh`, run after each build). Tags are never deleted.
 - **Fix forward:** push the fix, let it build, promote it.
 - **Notion:** retired columns are deleted with their values, so retire only columns nothing reads (the run's page
   keeps the details).

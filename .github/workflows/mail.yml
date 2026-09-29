@@ -1,4 +1,4 @@
-name: Gmail and Calendar
+name: Pipeline · Gmail and Calendar
 run-name: mail${{ inputs.delay && inputs.delay != '0' && format(' (after {0} min)', inputs.delay) || '' }}
 
 # Read-only: Gmail and Calendar -> 📈 Application Events, Stage, Next interview, Telegram.

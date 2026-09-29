@@ -1,4 +1,4 @@
-name: Daily job discovery
+name: Pipeline · Find new jobs
 run-name: ${{ inputs.mode || 'scheduled' }}${{ inputs.job && format(' {0}', inputs.job) || '' }}
 
 on:

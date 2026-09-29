@@ -1,4 +1,4 @@
-name: site
+name: Release · Website
 
 # Deploys the landing page (site/public) to Cloudflare when it changes on main.
 # Live at https://www.jobpilotto.workers.dev (Workers static assets, free).

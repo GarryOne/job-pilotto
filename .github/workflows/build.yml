@@ -1,4 +1,4 @@
-name: build
+name: CI · Tests
 
 # Run the Python, Worker and desktop test suites on pushes and pull requests to the default branch.
 on:

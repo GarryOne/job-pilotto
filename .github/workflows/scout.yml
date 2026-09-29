@@ -1,4 +1,4 @@
-name: Source scout
+name: Pipeline · Find new employers
 run-name: scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
 
 # Grows the list of employer job feeds a small batch at a time. Probes public

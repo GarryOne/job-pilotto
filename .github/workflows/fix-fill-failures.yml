@@ -1,4 +1,4 @@
-name: Fix fill failures
+name: Form fills · Fix failures
 # Once a day: the oldest open "fill-failure" issue (from the owner's app, see fill-failure-intake.yml) goes to
 # Claude Code (Haiku 4.5, capped turns), which follows .claude/skills/improve-filling/SKILL.md, adds a test and
 # opens a PR for the owner to review. Nothing merges automatically. One issue per day to keep costs small.

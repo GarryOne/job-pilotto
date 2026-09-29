@@ -1,4 +1,4 @@
-name: desktop
+name: Release · Desktop app
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release, only when something that goes into the app changed on main. The release starts as a
@@ -187,3 +187,15 @@ jobs:
             echo "::warning::Windows build failed and no earlier release has a Windows installer."
           fi
           gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+
+  # Keep the release list short: stable releases stay, plus the newest 3 test builds (tools/prune-releases.sh).
+  prune:
+    needs: [build, windows, mac-only]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove older test builds (their tags stay)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/prune-releases.sh 3
