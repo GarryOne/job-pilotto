@@ -26,6 +26,7 @@ permissions:
   contents: write      # create the release
   id-token: write      # build provenance: GitHub signs "this file was built from this commit by this workflow"
   attestations: write  # (verify: gh attestation verify <file> -R GarryOne/job-pilotto)
+  actions: write       # start a fresh build of main when this one can't be released (see Release)
 
 # A release runs to the end (Mac, then the Windows installer), so the latest release always has both
 # downloads the website links to; newer pushes wait, and only the newest waiting one runs.
@@ -39,6 +40,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       version: ${{ steps.version.outputs.version }}
+      released: ${{ steps.release.outputs.released }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,10 +97,20 @@ jobs:
         with:
           subject-path: desktop/dist/Job-Pilotto-*-arm64.*
       - name: Release
+        id: release
         working-directory: desktop
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # GitHub refuses (HTTP 403) to let this run's token tag a commit whose workflow files differ from main's.
+          # When workflows changed on main during the build, a fresh build of main releases instead.
+          git fetch -q origin main
+          if ! git diff --quiet "$GITHUB_SHA" origin/main -- .github/workflows; then
+            echo "::warning::Workflows changed on main during this build: not released; a new build of main starts."
+            gh workflow run desktop.yml --ref main
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           version=$(node -p "require('./package.json').version")
           tag="desktop-v${version}"
           # Stable names too, so a download link can always point at the latest build.
@@ -112,9 +124,11 @@ jobs:
             --notes-file release-notes.md \
             --target "$GITHUB_SHA" \
             --draft   # published by the windows job once the .exe is there (or by mac-only if it fails)
+          echo "released=true" >> "$GITHUB_OUTPUT"
 
   windows:
     needs: build   # the release exists and has its version
+    if: needs.build.outputs.released == 'true'
     runs-on: windows-latest
     timeout-minutes: 40
     defaults:
@@ -180,7 +194,7 @@ jobs:
   # so the website's Windows link (latest release) keeps working until a Windows build passes again.
   mac-only:
     needs: [build, windows]
-    if: always() && needs.build.result == 'success' && needs.windows.result != 'success'
+    if: always() && needs.build.result == 'success' && needs.build.outputs.released == 'true' && needs.windows.result != 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Publish without the Windows installer
