@@ -70,6 +70,12 @@ function runStatus(run, warned) {
 }
 // The warnings in one plain sentence (the list is one click away).
 function warningSummary(warnings) {
+  // The Anthropic account's spending limit: jobs were left unscored. Said plainly, with what to do.
+  const limited = warnings.filter(text => /usage limits?|credit balance is too low|spend(ing)? limit/i.test(text));
+  if (limited.length) {
+    return `Your Anthropic API spending limit was reached, so ${plural(limited.length, 'job')} ${limited.length === 1 ? 'wasn\'t' : 'weren\'t'} scored. `
+      + 'Raise the limit at console.anthropic.com → Settings → Limits; the next check scores them.';
+  }
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
     return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';
   }
@@ -400,7 +406,9 @@ function renderRunCard(card) {
       words.append(el('b', '', item.title), el('span', 'muted', ` · ${item.company}`));
       const view = Object.assign(el('a', 'run-card-open', '↗'), {href: '#', title: 'Open the job posting'});
       view.dataset.link = item.url;
-      row.append(words, el('span', `run-card-fit${item.fit >= 70 ? ' is-high' : ''}`, String(item.fit)), view);
+      const fit = item.fit == null ? el('span', 'run-card-fit', '–') : el('span', `run-card-fit${item.fit >= 70 ? ' is-high' : ''}`, String(item.fit));
+      if (item.fit == null) fit.title = 'Not scored yet';
+      row.append(words, fit, ...(item.url ? [view] : []));
       return row;
     }));
     more = el('button', 'link', `View all ${card.items.length} in Jobs →`);

@@ -265,8 +265,10 @@ def _progress(line):
 
 
 def plain(html):
-    """A Telegram HTML message as plain text."""
-    return unescape(re.sub(r'<[^>]+>', '', html)).strip()
+    """A Telegram HTML message as plain text; a link keeps its address after its words ("Title (https://…)"), as the
+    app's Recent activity reads each job's link from it."""
+    linked = re.sub(r'<a\s+href="([^"]+)"[^>]*>(.*?)</a>', lambda m: f'{m.group(2)} ({unescape(m.group(1))})', html, flags=re.S)
+    return unescape(re.sub(r'<[^>]+>', '', linked)).strip()
 
 
 def extra_blocks(messages, lines):

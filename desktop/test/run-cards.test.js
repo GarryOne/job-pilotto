@@ -33,3 +33,17 @@ test('Find new employers: counts, one line per employer, the closing note', () =
 test('any other message stays text', () => {
   assert.equal(parseRunMessage('Weekly report: 9 applications'), null);
 });
+
+test('a jobs check from GitHub: no brand name, jobs without a fit (an AI limit reached) still make a card', () => {
+  // 29 Sep 2026: "✈️ · 🆕 173 new" (the brand variable unset on GitHub) and jobs left unscored showed as raw text.
+  const card = parseRunMessage(`✈️ · 🆕 173 new · top 10 of 50
+173 open · 85 🇨🇭 · 19 applied · 5 low fit
+🆕 New since last run
+1. DevOps Engineer (https://jobs.ch/1)
+   Consult & Pepper · Winterthur · 🌍 Remote?
+2. Site Reliability Engineer / Software Engineer · 🎯 71
+   Intelliact · Zürich`);
+  assert.deepEqual([card.kind, card.fresh, card.open, card.local, card.applied], ['digest', 173, 173, 85, 19]);
+  assert.deepEqual(card.items.map(item => [item.title, item.company, item.fit, item.url]),
+    [['DevOps Engineer', 'Consult & Pepper', null, 'https://jobs.ch/1'], ['Site Reliability Engineer / Software Engineer', 'Intelliact', 71, '']]);
+});

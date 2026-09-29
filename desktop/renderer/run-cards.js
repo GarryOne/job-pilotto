@@ -1,17 +1,19 @@
 // Recent activity: a run's message (the Telegram text) as a small card, for the two long ones: Today's list /
 // a jobs check's digest, and Find new employers. The parsers are plain (tested in test/run-cards.test.js); a message
 // they don't recognise stays text. Light on purpose: counts, then one line per item.
-const DIGEST_ITEM = /^(\d+)\.\s+(.+?)\s+\((https?:\/\/[^)\s]+)\)\s+·\s+🎯\s*(\d+)\s*$/;
+// A job line: "1. Title (https://…) · 🎯 78"; the link and the fit can be missing (a job not scored: an AI limit reached).
+const DIGEST_ITEM = /^(\d+)\.\s+(?:⭐\s*)?(.+?)(?:\s+\((https?:\/\/[^)\s]+)\))?(?:\s+·\s+🎯\s*(\d+))?\s*$/;
 const SCOUT_ITEM = /^(\d+)\.\s+(.+?)\s+·\s+(\w[\w ]*?)\s+·\s+quality\s+(\d+)(?:\s+·\s+⭐\s*(.+))?$/;
 const num = (text, pattern) => { const m = String(text).match(pattern); return m ? Number(m[1]) : null; };
 
 export function parseDigest(text) {
   const lines = String(text || '').split('\n');
-  if (!/^✈️ Job Pilotto/.test(lines[0] || '')) return null;
+  if (!/^✈️.*(🆕|jobs \d)/.test(lines[0] || '')) return null;  // with or without the brand name
   const items = [];
   lines.forEach((line, i) => {
     const m = line.match(DIGEST_ITEM);
-    if (m) items.push({title: m[2].replace(/\s*\|.*$/, ''), url: m[3], fit: Number(m[4]), company: (lines[i + 1] || '').trim().split(' · ')[0]});
+    if (m && /^\s/.test(lines[i + 1] || '')) items.push({title: m[2].replace(/\s*\|.*$/, ''), url: m[3] || '', fit: m[4] ? Number(m[4]) : null,
+      company: (lines[i + 1] || '').trim().split(' · ')[0]});
   });
   return {kind: 'digest', fresh: num(lines[0], /🆕\s*(\d+) new/), open: num(lines[1], /(\d+) open/),
     local: num(lines[1], /·\s*(\d+)\s*🇨🇭/), applied: num(lines[1], /(\d+) applied/), items};

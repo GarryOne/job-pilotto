@@ -137,3 +137,18 @@ class DailyHelpersTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PlainResultTest(unittest.TestCase):
+    def test_a_link_keeps_its_address_so_the_app_can_open_the_job(self):
+        from src.notion import cron_runs
+        html = '1. <a href="https://jobs.ch/1?a=1&amp;b=2">DevOps Engineer</a> · 🎯 <b>80</b>'
+        self.assertEqual(cron_runs.plain(html), '1. DevOps Engineer (https://jobs.ch/1?a=1&b=2) · 🎯 80')
+
+    def test_an_empty_brand_variable_falls_back_to_the_name(self):
+        import importlib, os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {'DIGEST_BRAND_NAME': ''}):
+            from src import digest
+            self.assertEqual(importlib.reload(digest).BRAND_NAME, 'Job Pilotto')
+        importlib.reload(digest)

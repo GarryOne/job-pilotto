@@ -20,7 +20,7 @@ export function hash(dir = DIR) {
     for (const name of fs.readdirSync(path.join(dir, sub)).sort()) {
       const rel = path.join(sub, name);
       if (fs.statSync(path.join(dir, rel)).isDirectory()) { walk(rel); continue; }
-      if (SKIP.has(rel)) continue;
+      if (SKIP.has(rel) || name.startsWith('.')) continue;  // hidden files (Finder's .DS_Store) aren't the extension
       let body = fs.readFileSync(path.join(dir, rel));
       if (rel === 'manifest.json') body = Buffer.from(JSON.stringify({...JSON.parse(body), version: ''}));
       sha.update(rel).update('\0').update(body).update('\0');
