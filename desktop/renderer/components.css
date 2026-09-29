@@ -128,6 +128,10 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .service-state { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--warn); }
 .service-state.is-on { color: var(--good); }
 .service-state svg { width: 16px; height: 16px; }
+.service-text { min-width: 0; }
+.service-state { max-width: 100%; }
+.service-state svg { flex: none; }
+.service-state-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Summary cards: icon + title, a line, label/value rows, an arrow link or a button. */
 .summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-5); }

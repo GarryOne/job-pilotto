@@ -92,7 +92,9 @@ function stateLine(on, detail = '', checking = false) {
     return line;
   }
   const line = el('span', `service-state${on ? ' is-on' : ''}`);
-  line.append(icon(on ? 'check' : 'info'), on ? `Connected${detail ? ` · ${detail}` : ''}` : 'Not connected');
+  const text = on ? `Connected${detail ? ` · ${detail}` : ''}` : 'Not connected';
+  line.append(icon(on ? 'check' : 'info'), el('span', 'service-state-text', text));  // long details end in "…"
+  line.title = text;
   return line;
 }
 function showAlert(prefix, missing) {
@@ -124,15 +126,13 @@ function renderConnections(status) {
   show($('conn-off-head'), listed.some(service => !connected(service)));
 }
 export async function renderOverview() {
-  // What's known now first (Connections and Overview drawn at once), then the slow checks, each as it answers:
-  // Google and the extension (a few seconds), your contact details (read from Notion).
-  renderServices(quickStatus());
-  checkingLine(true);
-  const backup = window.pilot.backupStatus().catch(() => ({}));
-  const contact = window.pilot.contact().catch(() => ({}));
+  // Each part as soon as it's known: the cards and the settings at once, then the backup, the contact details
+  // (read from Notion) and the Gmail / extension checks, each as it answers, none waiting for the others.
+  showServicesNow();
+  window.pilot.backupStatus().then(renderBackup, () => renderBackup({}));
+  window.pilot.contact().then(renderContact, () => renderContact(null));
   renderServices(await serviceStatus());
   checkingLine(false);
-  renderDetails(await backup, await contact);
 }
 // Under the Connections title: what's being checked right now, then when it was.
 function checkingLine(busy) {
@@ -150,6 +150,7 @@ export function showServicesNow() {
   if (!shared.state?.secrets) return;
   renderServices(quickStatus());
   checkingLine(true);
+  renderKnown();
 }
 function renderServices(status) {
   const {on, detail, missing, checking} = status;
@@ -158,25 +159,38 @@ function renderServices(status) {
   showAlert('ov', missing);
   $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
     const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
-    const text = el('span');
+    const text = el('span', 'service-text');
     text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id], checking[service.id]));
     card.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text);
     card.addEventListener('click', () => openSetting(service.id));
     return card;
   }));
 }
-function renderDetails(backup, contact) {
+// Overview's summaries. What this Mac knows is shown at once; the rest fills in as it answers.
+function renderKnown() {
   $('ov-cv').textContent = shared.state.settings.cvName || 'None yet';
-  const needed = {first_name: 'first name', last_name: 'last name', email: 'email', phone: 'phone'};
-  const gaps = Object.keys(needed).filter(key => !contact?.[key]).map(key => needed[key]);
-  const line = el('span', `service-state${gaps.length ? '' : ' is-on'}`);
-  line.append(icon(gaps.length ? 'info' : 'check'), gaps.length ? `Missing: ${gaps.join(', ')}` : 'Complete');
-  $('ov-contact').replaceChildren(line);
   const chosen = kind => document.querySelector(`[data-schedule="${kind}"]`)?.selectedOptions[0]?.textContent || '';
-  $('ov-search').textContent = chosen('search');
-  $('ov-kits').textContent = chosen('kits');
+  $('ov-search').textContent = chosen('search') || '—';
+  $('ov-kits').textContent = chosen('kits') || '—';
   $('ov-cloud').textContent = shared.state.settings.cloud?.repo ? `On — GitHub ${shared.state.settings.cloud.repo}` : 'Off — runs while the app is open';
-  $('ov-backup').textContent = backup.at ? new Date(backup.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
+  if (!$('ov-contact').firstChild) $('ov-contact').replaceChildren(stateLine(false, '', true));
+  if (!$('ov-backup').textContent) $('ov-backup').replaceChildren(stateLine(false, '', true));
+}
+function renderContact(contact) {
+  if (!contact) {
+    const line = el('span', 'service-state');
+    line.append(icon('info'), el('span', 'service-state-text', 'Couldn\'t read Notion just now'));
+    $('ov-contact').replaceChildren(line);
+    return;
+  }
+  const needed = {first_name: 'first name', last_name: 'last name', email: 'email', phone: 'phone'};
+  const gaps = Object.keys(needed).filter(key => !contact[key]).map(key => needed[key]);
+  const line = el('span', `service-state${gaps.length ? '' : ' is-on'}`);
+  line.append(icon(gaps.length ? 'info' : 'check'), el('span', 'service-state-text', gaps.length ? `Missing: ${gaps.join(', ')}` : 'Complete'));
+  $('ov-contact').replaceChildren(line);
+}
+function renderBackup(backup) {
+  $('ov-backup').textContent = backup?.at ? new Date(backup.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) : 'None yet';
 }
 // Automation: run mode (this Mac while open, or Always on in GitHub); both segments lead to the Always on card.
 export function showRunMode() {
