@@ -16,6 +16,7 @@ Progress lives in the table scout_candidates, so later runs continue where this
 one stopped. Nothing here applies to jobs; it only finds where jobs are posted.
 """
 import argparse
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from html import escape, unescape
@@ -135,11 +136,11 @@ def hacker_news_candidates(threads=HN_THREADS, get=_get_json):
 
 
 def whiteboards_candidates(get=_get_text):
-    """Companies from the open list poteto/hiring-without-whiteboards located in our places."""
+    """Companies from the open list poteto/hiring-without-whiteboards located in the configured places (or remote)."""
     readme = get('https://raw.githubusercontent.com/poteto/hiring-without-whiteboards/main/README.md')
     for line in readme.splitlines():
         match = re.match(r'- \[([^\]]+)\]\(([^)]+)\) \| ([^|]+)', line)
-        if not match or not re.search(r'z[uü]rich|switzerland|berlin|london|dubai|remote', match.group(3), re.I):
+        if not match or not LOCATION_WORDS.search(match.group(3)):
             continue
         name, url = match.group(1).strip(), match.group(2).strip()
         found = ats.detect(url)
@@ -310,6 +311,13 @@ def export_sources(tracker, path=CONFIG / 'sources.json', fetch=ats.fetch, today
 
 # ---------- the central index (published by the scout in the private ops repo) ----------
 
+def job_places(jobs, limit=40):
+    """Where a feed has SRE-type roles: its most common location strings, so a client can skip feeds with none in
+    its own places without downloading them."""
+    counts = Counter((j.get('location') or '').strip()[:60] for j in jobs if feeds.TITLES.search(j['title']))
+    return [place for place, _ in counts.most_common(limit + 1) if place][:limit]
+
+
 def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
@@ -326,7 +334,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8):
             jobs = fetch(system, slug)
             score, _ = quality(jobs)
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'tier': meta['tier'], 'quality': score,
-                    'jobs': len(jobs), 'checked': today}
+                    'jobs': len(jobs), 'checked': today, 'places': job_places(jobs)}
         except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}
 

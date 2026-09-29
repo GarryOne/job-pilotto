@@ -109,6 +109,28 @@ class MergeTest(unittest.TestCase):
                          {('lever', 'bigco'), ('greenhouse', 'oldco'), ('greenhouse', 'farco')})
 
 
+class RelevantTest(unittest.TestCase):
+    def test_only_feeds_with_roles_in_my_places_and_feeds_without_info(self):
+        from src.sources import feeds
+        index = [{'company': 'Zh', 'ats': 'lever', 'slug': 'zh', 'places': ['Zurich, Switzerland', 'Tokyo']},
+                 {'company': 'Jp', 'ats': 'lever', 'slug': 'jp', 'places': ['Tokyo, Japan']},
+                 {'company': 'Old', 'ats': 'lever', 'slug': 'old', 'places': None},
+                 {'company': 'Rem', 'ats': 'lever', 'slug': 'rem', 'places': ['Remote']}]
+        where = lambda job: 'zurich' in job['location'].lower() or 'remote' in job['location'].lower()  # noqa: E731
+        self.assertEqual([f['company'] for f in employer_index.relevant(index, where)], ['Zh', 'Old', 'Rem'])
+        self.assertEqual(employer_index.relevant(index, feeds.wanted_location)[1]['company'], 'Old')  # the real matcher
+
+    def test_daily_uses_the_filter_unless_asked_for_everything(self):
+        from src import daily
+        index = [{'company': 'Zh', 'ats': 'lever', 'slug': 'zh', 'places': ['Nowhere-land']}]
+        with mock.patch.object(employer_index, 'load', return_value=index), \
+                mock.patch.dict('os.environ', {'JOB_PILOTTO_INDEX_ALL': ''}):
+            self.assertEqual(daily.downloaded_index(), [])
+        with mock.patch.object(employer_index, 'load', return_value=index), \
+                mock.patch.dict('os.environ', {'JOB_PILOTTO_INDEX_ALL': '1'}):
+            self.assertEqual(len(daily.downloaded_index()), 1)
+
+
 class BuildAndPublishTest(unittest.TestCase):
     def fetch(self, system, slug):
         if slug == 'dead':
@@ -127,6 +149,7 @@ class BuildAndPublishTest(unittest.TestCase):
         self.assertEqual(feeds[1]['tier'], 'Tier 1')
         self.assertTrue(all(f['checked'] == '2026-09-30' and 0 < f['quality'] <= 100 for f in feeds))
         self.assertEqual([f['company'] for f in failed], ['Dead'])
+        self.assertEqual(feeds[0]['places'], ['Zurich, Switzerland'])
 
     def test_publish_sends_the_key_and_refuses_empty(self):
         seen = []
@@ -146,3 +169,15 @@ class BuildAndPublishTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CentralLocationsTest(unittest.TestCase):
+    def test_locations_file_replaces_places_only(self):
+        from src import paths
+        plain = paths.load_search_config()
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_LOCATIONS_FILE': str(paths.ROOT / 'config' / 'central_locations.json')}):
+            central = paths.load_search_config()
+        self.assertEqual(central['role_keywords'], plain['role_keywords'])
+        self.assertTrue(any('zurich' in p for p in central['locations']['top_tier']))
+        self.assertTrue(any('singapore' in p for p in central['locations']['top_tier']))
+        self.assertEqual(central['remote_excluded_regions'], ['(?!x)x'])   # no region is excluded for the shared index

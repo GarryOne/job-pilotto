@@ -226,7 +226,11 @@ def log_crawl(tracker, run):
 
 def downloaded_index():
     """The central employer index (cached, at most one download a day); [] when off or unreachable."""
-    return [] if features.disabled('index') else employer_index.load()
+    if features.disabled('index'):
+        return []
+    index = employer_index.load()
+    # Default: only feeds with roles in your places. JOB_PILOTTO_INDEX_ALL=1 crawls the whole worldwide index.
+    return index if os.getenv('JOB_PILOTTO_INDEX_ALL') else employer_index.relevant(index, feeds.wanted_location)
 
 
 def main():

@@ -74,7 +74,8 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   fields only; the cache is kept in step and only adds jobs a search couldn't write to Notion yet (marked).
 - **The employer index is product data, not user data:** the central scout (private repo `job-pilotto-ops`) publishes feeds +
   quality + last verified to our website (`GET /api/index`, `site/src/employers.js`); every run downloads it (`src/employer_index.py`,
-  cache `data/employer_index.json`, at most daily) and merges it with the starter `config/sources.json`. It never lives in
+  cache `data/employer_index.json`, at most daily) and merges it with the starter `config/sources.json`. Worldwide, each feed lists its places; a run crawls only feeds matching the user's own `search.json`
+  (`employer_index.relevant`). It never lives in
   users' Notion, and nothing about a user is sent to get it. The owner's Notion Employers & Sources stays their own list.
 - Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only
   after Notion confirmed it has it) and a test.

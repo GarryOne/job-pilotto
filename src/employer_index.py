@@ -39,8 +39,10 @@ def clean(feeds):
             continue
         system, slug, company = item.get('ats'), item.get('slug'), item.get('company')
         if system in ats.FETCHERS and isinstance(slug, str) and slug and isinstance(company, str) and company:
+            places = item.get('places')
             out.append({'company': company, 'ats': system, 'slug': slug, 'quality': item.get('quality'),
-                        'checked': item.get('checked')})
+                        'checked': item.get('checked'),
+                        'places': [p for p in places if isinstance(p, str)] if isinstance(places, list) else None})
     return out
 
 
@@ -94,3 +96,10 @@ def merge(starter, index, skip=lambda company: False):
         if key not in merged and not skip(source['company']):
             merged[key] = dict(source)
     return list(merged.values())
+
+
+def relevant(index, wanted_location):
+    """Only feeds with roles in the user's own places (their search.json), so a worldwide index doesn't cost every
+    crawl the time of feeds it would throw away. A feed with no place information (older index) is kept."""
+    return [f for f in index
+            if not f.get('places') or any(wanted_location({'location': place}) for place in f['places'])]

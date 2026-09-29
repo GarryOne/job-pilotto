@@ -5,6 +5,7 @@ const KEY = 'index:employers';
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'amazon', 'netflix'];
 const MAX_BYTES = 1_000_000;
 const MAX_FEEDS = 5000;
+const MAX_PLACES = 40;   // where a feed has roles: clients skip feeds with none in their own places
 
 const text = (status, body, headers = {}) => new Response(body, {status, headers});
 
@@ -29,7 +30,8 @@ export function clean(feeds) {
     seen.add(`${ats}:${slug}`);
     out.push({company: company.trim().slice(0, 120), ats, slug, tier: item.tier === 'Tier 1' ? 'Tier 1' : 'Standard',
       quality: number(item.quality, 100), jobs: number(item.jobs, 100000),
-      checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null});
+      checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
+      places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : []});
   }
   return out;
 }

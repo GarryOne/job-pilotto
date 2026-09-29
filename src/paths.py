@@ -150,7 +150,14 @@ def load_search_config():
     this project searches for and where — role_keywords/board_discovery_keywords/
     jobs_board_search_queries/quality_stack_keywords/locations.{top_tier,country_wide,abroad}/
     remote_excluded_regions. See README.md's Configuration section."""
-    return json.loads((CONFIG / 'search.json').read_text())
+    config = json.loads((CONFIG / 'search.json').read_text())
+    # The central scout (private repo job-pilotto-ops) judges feeds by Europe-wide places, not one user's: a file named
+    # in JOB_PILOTTO_LOCATIONS_FILE replaces the "locations" and "remote_excluded_regions" of this config.
+    override = os.getenv('JOB_PILOTTO_LOCATIONS_FILE')
+    if override:
+        extra = json.loads(Path(override).read_text())
+        config.update({k: extra[k] for k in ('locations', 'remote_excluded_regions') if k in extra})
+    return config
 
 
 def keyword_regex(fragments):

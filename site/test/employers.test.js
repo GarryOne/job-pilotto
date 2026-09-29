@@ -8,7 +8,7 @@ const env = () => ({INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response
   WAITLIST: {get: async key => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); }}});
 const call = (e, method, headers = {}, body) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index',
   {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, {});
-const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, checked: '2026-09-30', ...extra});
+const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland', 7], ...extra});
 const auth = {Authorization: 'Bearer k3y'};
 
 test('before anything is published: 404, so clients keep their starter list', async () => {
@@ -34,7 +34,7 @@ test('publish, then anyone can download it: public, cacheable, ETag revalidation
   assert.equal(get.status, 200);
   assert.match(get.headers.get('Cache-Control'), /public, max-age=/);
   const body = await get.json();
-  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30'});
+  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland']});
   const again = await call(env(), 'GET', {'If-None-Match': get.headers.get('ETag')});
   assert.equal(again.status, 304);
 });
