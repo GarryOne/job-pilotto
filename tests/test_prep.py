@@ -136,6 +136,7 @@ class LoggedRunTests(unittest.TestCase):
         tracker, row = job(INVITE + '\n' + ROLE)
         logged = []
         with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}), \
+                mock.patch('src.notion.cron_runs.begin', lambda t, run: None), \
                 mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append((run, failed))):
             result = prep.logged_build(tracker, row, client=Client(), now=NOW)
         self.assertTrue(result['ok'])
@@ -144,14 +145,21 @@ class LoggedRunTests(unittest.TestCase):
         self.assertGreater(run['interview']['usd'], 0)  # counted in the month's AI budget
         self.assertIn('Huxley · Principal SRE', run['headline'])
 
-    def test_asking_for_the_description_without_spending_is_not_a_run(self):
-        tracker, row = job(INVITE)
-        tracker._children = lambda block_id: []
-        logged = []
-        with mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append(run)):
-            self.assertTrue(prep.logged_build(tracker, row, client=Client(), now=NOW)['needs_description'])
-        self.assertEqual(logged, [])
+    def test_the_row_opens_as_running_and_a_failure_is_recorded_with_its_error(self):
+        tracker, row = job(INVITE + '\n' + ROLE)
+        opened, logged = [], []
 
+        def broken(*a, **k):
+            raise RuntimeError('Notion refused the page')
+        with mock.patch('src.notion.cron_runs.begin', lambda t, run: opened.append(run['mode'])), \
+                mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append((run, failed))), \
+                mock.patch.object(prep, 'build', broken):
+            result = prep.logged_build(tracker, row, client=Client(), now=NOW)
+        self.assertEqual(opened, ['prep'])  # Recent activity shows it while it runs
+        run, failed = logged[0]
+        self.assertTrue(failed)
+        self.assertIn('Notion refused the page', run['headline'])  # the error is kept, not only in the dialog
+        self.assertFalse(result['ok'])
 
 if __name__ == '__main__':
     unittest.main()
