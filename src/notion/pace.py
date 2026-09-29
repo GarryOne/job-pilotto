@@ -26,8 +26,11 @@ def pace_file(token):
     return os.path.join(tempfile.gettempdir(), f'job-pilotto-notion-{digest}.pace')
 
 
+clock = time.time  # the pace's clock; tests set a fake one, so waits don't depend on the machine's speed
+
+
 def _now():
-    return int(time.time() * 1000)
+    return int(clock() * 1000)
 
 
 def _locked(path, fn):

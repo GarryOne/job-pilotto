@@ -33,7 +33,9 @@ test('one pace for the whole app: calls take turns ~340 ms apart, and a 429 make
   const token = `pace-test-${process.pid}-${Date.now()}`;  // its own pace file: other test files run at the same time
   notion._pace.reset(token);
   const waits = [];
-  notion.useSleep(async ms => { waits.push(ms); });
+  let now = 1_000_000;  // a fake clock: sleeping moves it on, nothing depends on the machine's speed
+  notion.useClock(() => now);
+  notion.useSleep(async ms => { waits.push(ms); now += ms; });
   let calls = 0;
   const fetcher = async () => {
     calls += 1;
@@ -41,8 +43,8 @@ test('one pace for the whole app: calls take turns ~340 ms apart, and a 429 make
     return {ok: true, status: 200, json: async () => ({ok: true})};
   };
   await Promise.all([notion.call(token, 'GET', 'a', null, fetcher, {pace: true}), notion.call(token, 'GET', 'b', null, fetcher, {pace: true})]);
-  // Its turn is ~340 ms after the first; a slow machine (CI) spends part of it on the shared file, so allow for that.
-  assert.ok(waits.some(ms => ms > 100 && ms <= 340), `the second call waited for its turn: ${waits}`);
-  assert.ok(notion._pace.state().calmUntil > Date.now() + 1000, 'after the 429 the whole app pauses ~2 s');
+  assert.ok(waits.includes(340), `the second call waited exactly its turn: ${waits}`);
+  assert.ok(notion._pace.state().calmUntil >= 1_000_000 + 2000, 'after the 429 the whole app pauses 2 s');
+  notion.useClock(null);
   notion._pace.reset(token);
 });

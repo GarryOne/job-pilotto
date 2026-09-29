@@ -69,10 +69,10 @@ test('the app and the Python engine take turns through the same pace file', asyn
   const path = await import('node:path');
   assert.equal(path.basename(pace.paceFile('abc')), 'job-pilotto-notion-ba7816bf8f01.pace');  // src/notion/pace.py
   const token = `test-${Date.now()}`;
-  const first = await pace.claim(token), second = await pace.claim(token);
+  const clock = () => 5_000_000;  // a fixed clock: the result doesn't depend on how fast the machine is
+  const first = await pace.claim(token, clock), second = await pace.claim(token, clock);
   assert.equal(second - first, pace.GAP_MS);
-  const until = Date.now() + 2000;  // compared with this, not a later Date.now(): CI machines are slow
-  await pace.calmUntil(token, until);
-  assert.ok(await pace.claim(token) >= until);
+  await pace.calmUntil(token, 5_002_000);
+  assert.equal(await pace.claim(token, clock), 5_002_000);
   (await import('node:fs')).rmSync(pace.paceFile(token), {force: true});
 });

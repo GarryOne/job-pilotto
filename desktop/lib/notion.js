@@ -17,13 +17,16 @@ export const TEMPLATE = JSON.parse(fs.readFileSync(path.join(REPO, 'config', 'no
 const RETRY = new Set([429, 502, 503, 504]);
 let sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function useSleep(fn) { sleep = fn; }  // for tests
+// The clock the pace reads (tests pass a fake one, so waits don't depend on how busy the machine is).
+let clock = Date.now;
+export function useClock(fn) { clock = fn || Date.now; }
 // One pace for the whole app: Notion allows about 3 requests a second per integration, and fills in several tabs,
 // the background polls and statistics would otherwise burst past it (429). Each call waits for its turn (spaced
 // GAP_MS apart), and after a 429 every call waits out the pause Notion asked for, not only the one that got it.
 // The turns are shared with the other processes on this computer that use the same connection (lib/notion-pace.js).
 const GAP_MS = sharedPace.GAP_MS;
 let nextSlot = 0, calmUntil = 0;
-async function turn(token, now = Date.now) {
+async function turn(token, now = clock) {
   const shared = await sharedPace.claim(token, now);
   const at = shared ?? Math.max(nextSlot, calmUntil, now());
   if (shared === null) nextSlot = at + GAP_MS;
@@ -62,7 +65,7 @@ export async function call(token, method, route, body, fetcher = globalThis.fetc
       const after = Number(response.headers?.get?.('retry-after'));
       const wait = Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 500 * 2 ** attempt, 10_000);
       if (response.status === 429) {  // everyone waits it out: this app and the other processes
-        calmUntil = Math.max(calmUntil, Date.now() + wait);
+        calmUntil = Math.max(calmUntil, clock() + wait);
         if (pace) await sharedPace.calmUntil(token, calmUntil);
       }
       log('notion', `${response.status} on ${method} ${route.split('?')[0]}: retry ${attempt + 1}/${retries} in ${wait} ms`);

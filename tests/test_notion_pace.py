@@ -40,11 +40,12 @@ class SharedPaceTest(unittest.TestCase):
                 os.remove(path)
 
     def test_turns_are_spaced_and_a_429_pauses_everyone(self):
-        first, second = pace.claim(self.token), pace.claim(self.token)
+        with mock.patch.object(pace, 'clock', lambda: 1000.0):
+            first, second = pace.claim(self.token), pace.claim(self.token)
         self.assertEqual(second - first, pace.GAP_MS)
-        until = pace._now() + 2000  # compared with this, not a later clock reading: CI machines are slow
-        pace.calm_until(self.token, until)
-        self.assertGreaterEqual(pace.claim(self.token), until)
+        with mock.patch.object(pace, 'clock', lambda: 1000.0):
+            pace.calm_until(self.token, 1_002_000)
+            self.assertEqual(pace.claim(self.token), 1_002_000)
 
     def test_same_file_as_the_app(self):
         # desktop/lib/notion-pace.js: <tmp>/job-pilotto-notion-<sha256(token)[:12]>.pace
@@ -52,9 +53,10 @@ class SharedPaceTest(unittest.TestCase):
 
     def test_a_request_waits_for_its_turn(self):
         waits = []
-        pace.claim(self.token)
-        pace.wait_turn(self.token, waits.append)
-        self.assertTrue(waits and 0.2 < waits[0] <= 0.34, waits)
+        with mock.patch.object(pace, 'clock', lambda: 1000.0):  # a fixed clock: exactly one turn to wait
+            pace.claim(self.token)
+            pace.wait_turn(self.token, waits.append)
+        self.assertEqual(waits, [0.34])
 
 
 class KeptPageTest(unittest.TestCase):
