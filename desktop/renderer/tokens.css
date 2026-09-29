@@ -80,9 +80,59 @@
   /* Space: 4px steps */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
 
+  /* Lit panels (the website's departures-hall look): a dot grid, an amber glow from one corner, a thin amber edge.
+     .is-lit in components.css. */
+  --lit-dots: rgb(var(--shadow-rgb) / .08);
+  --lit-glow: rgb(255 178 36 / .24);
+  /* Company initials tiles: one hue per company, these lightnesses */
+  --logo-ink-l: 36%; --logo-bg-l: 94%; --logo-line-l: 86%;
+  --lit-line: rgb(var(--signal-rgb) / .32);
+
   /* Motion */
   --ease: cubic-bezier(.2, .8, .2, 1);
 
   font: var(--fs-base)/1.5 var(--font-sans);
   color: var(--ink);
+}
+
+/* Dark theme: the same tokens, night values. It follows the theme picked in Settings → Appearance
+   (System / Light / Dark); the app sets Electron's theme source, so this media query follows that choice. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #0b1016;
+    --surface: #121a23;
+    --surface-2: #17212c;
+    --ink: #e8ecf0;
+    --ink-2: #c3ccd6;
+    --muted: #93a1b0;
+    --line: #223040;
+    --line-strong: #2f3f51;
+
+    --navy: #0d131a;
+    --navy-hover: #16202b;
+    --navy-active: #1b2735;
+    --navy-line: #2f3f51;
+
+    --signal: #e8661b;
+    --signal-rgb: 232 102 27;
+    --signal-ink: #ffab76;
+    --signal-soft: #2a1a10;
+    --signal-line: #5c3218;
+    --teal: #2aa79c;
+    --teal-soft: #0f2a2a;
+    --teal-line: #1f5553;
+
+    --good: #5fd39a;  --good-soft: #0f2a1d;
+    --warn: #f0b44b;  --warn-soft: #2a2211;  --warn-line: #4d3d17;
+    --bad: #f07a70;   --bad-soft: #2e1514;   --bad-line: #5c2622;
+    --info: #7aa7ec;  --info-soft: #122238;  --info-line: #2a4a7a;
+    --violet: #a996ec; --violet-soft: #1d1733;
+
+    --shadow-rgb: 0 0 0;
+    --lit-dots: rgb(255 255 255 / .05);
+    --lit-glow: rgb(255 178 36 / .17);
+    --logo-ink-l: 74%; --logo-bg-l: 17%; --logo-line-l: 28%;
+    --lit-line: rgb(255 178 36 / .32);
+  }
 }

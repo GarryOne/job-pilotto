@@ -55,6 +55,13 @@ section('Tags', 'tag(text, {title, onClick, busy})', row(
   tag('Kubernetes'), tag('Observability'), tag('+3', {title: 'AWS, Go, Linux'}), tag('📝 Kit', {onClick: () => {}}),
   tag('📄 Tailored CV', {onClick: () => {}}), tag('✂️ Tailoring CV…', {busy: true})));
 
+section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, amber glow from the top-left, thin amber edge. The one thing on a page that says "start here"', (() => {
+  const box = document.createElement('div');
+  box.className = 'card is-lit';
+  box.style.padding = 'var(--sp-5)';
+  box.innerHTML = '<h3>Up next</h3><p class="muted">Lit like the website\'s departures hall. Used by the sidebar, Focus → Up next and Settings → Appearance.</p>';
+  return box;
+})());
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
 
 section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row', (() => {

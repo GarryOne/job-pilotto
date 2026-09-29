@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, nativeImage, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -81,10 +81,21 @@ function openNotion(url) {
   notionWindow.focus();
 }
 
+// Theme (Settings → Appearance): 'system', 'light' or 'dark'. Electron's theme source makes the window's
+// prefers-color-scheme follow it, so tokens.css switches; the window's own background matches (no flash).
+// JOB_PILOTTO_THEME=light|dark forces one (screenshots of the dark screens in demo mode).
+function applyTheme(value) {
+  const theme = ['light', 'dark'].includes(value) ? value : 'system';
+  nativeTheme.themeSource = theme;
+  if (window && !window.isDestroyed()) window.setBackgroundColor(windowBackground());
+  return theme;
+}
+function windowBackground() { return nativeTheme.shouldUseDarkColors ? '#0b1016' : '#eef3f7'; }
+
 function createWindow() {
   window = new BrowserWindow({
     width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: 'Job Pilotto', show: !process.env.JOB_PILOTTO_SMOKE,
-    backgroundColor: '#eef3f7',
+    backgroundColor: windowBackground(),
     webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false},
   });
   // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
@@ -653,6 +664,7 @@ function handlers() {
     fs.mkdirSync(storage.path('recordings'), {recursive: true});
     return shell.openPath(storage.path('recordings'));
   });
+  ipcMain.handle('setTheme', (_, value) => { const theme = applyTheme(value); storage.saveSettings({theme}); return theme; });
   ipcMain.handle('setAutomation', (_, patch) => {
     const allowed = {};
     if ('autoSearch' in patch) allowed.autoSearch = !!patch.autoSearch;
@@ -1002,6 +1014,7 @@ if (firstCopy) app.whenReady().then(() => {
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
   logTo(path.join(app.getPath('userData'), 'logs'));
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  applyTheme(process.env.JOB_PILOTTO_THEME || storage.settings().theme);
   reset.adoptKeys(storage);  // keys that came with an import: stored encrypted, plain file deleted
   pipeline.ensureConfig(storage);
   handlers();

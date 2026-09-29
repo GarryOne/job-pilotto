@@ -398,7 +398,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .company { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .company .name { font-weight: 600; font-size: var(--fs-md); line-height: 1.25; min-width: 0; overflow-wrap: break-word; }
 .logo { --hue: 200; width: 28px; height: 28px; flex: none; border-radius: var(--r-sm); display: grid; place-items: center; font: 700 var(--fs-xs) var(--font-sans);
-  color: hsl(var(--hue) 65% 36%); background: hsl(var(--hue) 70% 94%); border: 1px solid hsl(var(--hue) 50% 86%); }
+  color: hsl(var(--hue) 65% var(--logo-ink-l)); background: hsl(var(--hue) 70% var(--logo-bg-l)); border: 1px solid hsl(var(--hue) 50% var(--logo-line-l)); }
 .place { display: grid; gap: 5px; padding-top: 4px; font-size: var(--fs-sm); }
 .place-line { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
 .place-line .icon { width: 14px; height: 14px; color: var(--muted); margin-top: 1px; }
@@ -1170,5 +1170,6 @@ main { min-width: 0; }
   .sidebar-bottom { align-items: center; width: 100%; }
   .nav-sessions { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
   .nav-sessions .icon { display: none; }
+  .theme-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
   .nav-count { position: absolute; top: 2px; right: 2px; }
 }

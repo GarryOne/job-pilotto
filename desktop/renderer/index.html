@@ -257,6 +257,7 @@
     <div class="notion-links" id="notion-links" hidden></div>
     <div class="sidebar-bottom">
       <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
+      <button class="theme-toggle" id="theme-toggle" title="Switch theme"><i data-icon="moon"></i><span id="theme-toggle-label">Dark theme</span></button>
       <button class="palette-hint" id="palette-hint" title="Search every command"><kbd>⌘K</kbd><span>Search &amp; commands</span></button>
       <button class="nav-sessions" data-view="sessions" id="nav-sessions" hidden><span class="nav-sessions-dot" id="nav-sessions-badge"></span><span id="nav-sessions-text"></span><i data-icon="chevron"></i></button>
     </div>
@@ -325,7 +326,7 @@
       </header>
       <div class="focus-grid">
         <div class="focus-main">
-          <section class="card">
+          <section class="card is-lit">
             <div class="focus-card-head"><h2 id="focus-up-title">Up next</h2>
               <span class="focus-head-side"><span class="muted small" id="focus-count-note"></span><button class="link" id="focus-history-toggle">History</button></span></div>
             <ol class="focus-list" id="focus-list"></ol>
@@ -640,6 +641,7 @@
           <button data-settings-go="automation"><i data-icon="clock"></i>Automation</button>
           <button data-settings-go="connections"><i data-icon="link"></i>Connections<span class="nav-dot" id="connections-dot" hidden></span></button>
           <button data-settings-go="data"><i data-icon="database"></i>Data &amp; backup</button>
+          <button data-settings-go="appearance"><i data-icon="sun"></i>Appearance</button>
           <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
         </nav>
         <div class="settings-pages">
@@ -941,6 +943,16 @@
             </div>
             <p class="muted small" id="reports-how-text" hidden>When the extension can't operate a form field (an unusual dropdown, a field that won't take the answer),
               that form's <b>structure</b> is sent (site, field labels, types, options) so it gets fixed. Never your answers or personal details.</p>
+          </div>
+        </div>
+        <div class="settings-page" data-settings-page="appearance" hidden>
+          <div class="settings-page-head"><h2>Appearance</h2><p class="muted">How Job Pilotto looks on this Mac.</p></div>
+          <div class="setting panel is-lit" id="setting-theme">
+            <div class="summary-head"><i data-icon="sun"></i><h3>Theme</h3></div>
+            <div class="segmented" role="group" aria-label="Theme">
+              <button data-theme-choice="system">System</button><button data-theme-choice="light">Light</button><button data-theme-choice="dark">Dark</button>
+            </div>
+            <p class="muted" id="theme-text"></p>
           </div>
         </div>
         <div class="settings-page" data-settings-page="advanced" hidden>
