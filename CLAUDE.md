@@ -119,6 +119,9 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   Daily, `.github/workflows/fix-issues.yml` hands the oldest open `fill-failure` and `telemetry` issue each to Claude
   (Haiku 4.5, `--allowedTools` whitelist): it commits a tested fix or comments why; the workflow re-runs the tests, pushes
   `autofix/issue-<n>` and opens the PR. No commit and no comment → the job fails and the issue isn't labelled `fix-attempted`.
+  No AI before that (`tools/fix_issues.py`): fill-failure issues 2+ minor extension versions old are closed as stale
+  (intake reopens them on a newer report), only issues with a field snapshot go to Claude (others: `needs-snapshot`),
+  25 turns max; Claude's execution log is a 14-day artifact, its turns and permission denials are in the job summary.
 - Notion IDs have no defaults in code: they come from the environment (`.env`, repository variables, or the Desktop App).
 - **The terminal follows the Desktop App** (`src/paths.py` `follow_app`): when the app is set up on this computer,
   terminal runs use its Notion IDs and its `data/` + `config/` folders (one job cache); a line on stderr says so.

@@ -7,6 +7,10 @@ name: Issues · Fix automatically
 # no outcome). This workflow then checks the result itself: commits → the tests run here → branch pushed and a PR
 # opened (nothing merges automatically); no commits → Claude must have commented on the issue why. Neither → the
 # job fails and the issue stays unlabelled, so a silent run never consumes an issue.
+# No-AI steps first (tools/fix_issues.py): fill-failure issues from an extension 2+ minor versions behind are closed as
+# stale (fill-failure-intake.yml reopens one reported again from a newer version), and only a fill-failure issue with
+# a field snapshot goes to Claude (the others get "needs-snapshot" once; none left → green, no Claude call).
+# Claude's full execution log is kept as an artifact (14 days); turns and permission denials go in the job summary.
 on:
   schedule:
     - cron: '0 6 * * *'
@@ -22,20 +26,35 @@ permissions:
   id-token: write
 
 jobs:
+  stale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Close stale fill-failure issues (no AI)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: python3 tools/fix_issues.py stale --apply
+
   fix:
+    needs: stale
+    if: always()   # a failed stale step never blocks the fixes
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
         include:
           - label: fill-failure
-            extra_tools: ''
+            extra_tools: ',Bash(node tools/fill-fixture.mjs:*)'
             prompt: |
               It reports a form field the Job Pilotto Chrome extension could not operate.
-              Follow .claude/skills/improve-filling/SKILL.md, steps 2-3 (ignore its worktree and push advice): find the
-              cause in extension/page/fill.js (or extension/flow.js), fix it with a regression test in
-              worker/test/extension*.test.js, run `npm --prefix worker test`, and bump the version in
-              extension/manifest.json. If tools/browser-*.js changed, run `bash extension/sync.sh`.
+              Follow .claude/skills/improve-filling/SKILL.md, step 3 (ignore its worktree and push advice): the issue
+              carries the field's scrubbed HTML snapshot, so first make the failing fixture with
+              `node tools/fill-fixture.mjs <issue number> --answer "<representative answer>" --expect-picked "<option>"`
+              (or --expect-checked / --expect-value), check that `npm --prefix worker test` fails on it, then find the
+              cause in extension/page/fill.js (or extension/flow.js) and fix it until every test passes. Bump the
+              version in extension/manifest.json. If tools/browser-*.js changed, run `bash extension/sync.sh`.
           - label: telemetry
             extra_tools: ',Bash(python3 -m unittest:*),Bash(npm --prefix desktop test:*)'
             prompt: |
@@ -54,6 +73,7 @@ jobs:
       LABEL: ${{ matrix.label }}
       REPO: ${{ github.repository }}
     steps:
+      - uses: actions/checkout@v4
       - name: Pick today's issue
         id: pick
         env:
@@ -62,19 +82,14 @@ jobs:
           ISSUE: ${{ inputs.issue }}
         run: |
           if [ -n "$ONLY_LABEL" ] && [ "$ONLY_LABEL" != "$LABEL" ]; then echo "Skipped: only $ONLY_LABEL today."; exit 0; fi
-          if [ -n "$ISSUE" ]; then
-            number=$(gh issue view "$ISSUE" --repo "$REPO" --json number,labels,state \
-              -q "select(.state == \"OPEN\" and ([.labels[].name] | index(\"$LABEL\"))) | .number")
-          else
-            number=$(gh issue list --repo "$REPO" --state open --label "$LABEL" --search '-label:fix-attempted sort:created-asc' \
-              --json number -q '.[0].number')
-          fi
+          # Oldest open issue without fix-attempted; fill-failure: only one with a snapshot (the rest: needs-snapshot once).
+          args=(--label "$LABEL" --mark)
+          if [ -n "$ISSUE" ]; then args+=(--issue "$ISSUE"); fi
+          number=$(python3 tools/fix_issues.py pick "${args[@]}")
           case "$number" in ''|*[!0-9]*) echo "No open $LABEL issue to fix today."; exit 0 ;; esac
           echo "number=$number" >> "$GITHUB_OUTPUT"
           echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           echo "Fixing #$number ($LABEL)"
-      - uses: actions/checkout@v4
-        if: steps.pick.outputs.number != ''
       - uses: actions/setup-node@v4
         if: steps.pick.outputs.number != ''
         with:
@@ -97,7 +112,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
-            --model claude-haiku-4-5 --max-turns 40
+            --model claude-haiku-4-5 --max-turns 25
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh issue view ${{ steps.pick.outputs.number }}:*),Bash(gh issue comment ${{ steps.pick.outputs.number }}:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git checkout -b:*),Bash(git switch -c:*),Bash(git add:*),Bash(git commit:*),Bash(npm --prefix worker test:*),Bash(bash extension/sync.sh)${{ matrix.extra_tools }}"
             --disallowedTools "WebFetch,WebSearch,Bash(git push:*),Bash(gh pr:*)"
           prompt: |
@@ -115,6 +130,21 @@ jobs:
             One of the two (a commit or a comment) is required: a run that ends with neither counts as failed.
             Never make the extension click Submit, never change what counts as a consent/legal checkbox, and never edit
             .github/ or .claude/settings.json.
+      - name: Claude's log (turns, permission denials)
+        if: always() && steps.pick.outputs.number != ''
+        env:
+          LOG: ${{ steps.claude.outputs.execution_file || format('{0}/claude-execution-output.json', runner.temp) }}
+        run: |
+          { echo "### Claude on #${{ steps.pick.outputs.number }} ($LABEL)"; python3 tools/fix_issues.py log-summary "$LOG"; } \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -f "$LOG" ]; then cp "$LOG" "$RUNNER_TEMP/claude-log-$LABEL.json"; fi
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.pick.outputs.number != ''
+        with:
+          name: claude-execution-${{ matrix.label }}-issue-${{ steps.pick.outputs.number }}
+          path: ${{ runner.temp }}/claude-log-${{ matrix.label }}.json
+          retention-days: 14
+          if-no-files-found: warn
       - name: Check the outcome, open the PR, label the issue
         if: always() && steps.pick.outputs.number != ''
         env:
