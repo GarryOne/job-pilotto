@@ -27,6 +27,14 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 
+## Superpowers plugin (obra/superpowers, adopted 29 Sep 2026)
+Use its skills for the change loop: brainstorming → writing-plans → test-driven-development → verification-before-completion,
+plus systematic-debugging for bugs. This repo's rules win where they differ:
+- Worktrees: `tools/worktree.sh <topic>` (`.claude/worktrees/`), not `.worktrees/`.
+- Finish: rebase on `origin/main`, tests, push to `main` (no local merge, no PR unless asked), then Notion.
+- Small changes (a label, a style, a one-file fix): skip brainstorming and plans; edit → one suite → push.
+- Specs/plans go in `docs/superpowers/`; link big ones from the Notion Decision Log, don't copy them there.
+
 ## Data ownership: Notion is the source of truth (one copy of everything)
 Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
 - **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
