@@ -64,3 +64,15 @@ test('"close this form" reaches the matching page once, and the app hears that i
   assert.equal(await taken, true);
   assert.deepEqual(review.report(sessions, form()).commands, []);
 });
+
+test('a window that just loaded gets every form\'s last state (they are passed on only when they change)', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.setWatch('s1', [{id: 'w1', label: 'AI Policy for Application'}]);
+  review.report(sessions, form({left: 0, watch: [{id: 'w1', filled: true}]}));
+  review.report(sessions, form({left: 0, watch: [{id: 'w1', filled: true}]}));  // unchanged: not passed on again…
+  assert.equal(heard.length, 1);
+  const all = review.allStates();  // …but a reloaded window asks, and gets it
+  assert.deepEqual(all.map(state => [state.id, state.ready, state.states]), [['s1', true, {w1: true}]]);
+});

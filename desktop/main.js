@@ -21,7 +21,7 @@ import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
-import {logTo} from './lib/log.js';
+import {log as appLog, logTo} from './lib/log.js';
 import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as schema from './lib/schema.js';
@@ -770,7 +770,11 @@ function handlers() {
     return {choice: 'reset', reset, failed, kept: open.size};
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
-  ipcMain.handle('reviewWatch', (_, id, items) => review.setWatch(String(id), items));
+  ipcMain.handle('reviewStates', () => review.allStates());
+  ipcMain.handle('reviewWatch', (_, id, items) => {
+    appLog('review', `watch ${id}: ${(items || []).length} field(s)`, {labels: (items || []).map(item => String(item.label).slice(0, 60))});
+    return review.setWatch(String(id), items);
+  });
   // The extension first: the form page takes the request, brings its own tab forward and scrolls to the field (no
   // macOS permission needed, never the wrong tab). Only when no page answers does the app look for the tab itself.
   const showForm = async (id, label, url, company) => {
@@ -1025,7 +1029,10 @@ if (firstCopy) app.whenReady().then(() => {
     toWindow('session', 'open', {id});
     return true;
   });
-  review.setReporter(state => toWindow('review', state));
+  review.setReporter(state => {
+    appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
+    toWindow('review', state);
+  });
   server.setSessionReporter((id, info) => {
     const {session, needsYou} = terminals.report(id, info);
     if (session && needsYou) sessionNeedsYou(session);

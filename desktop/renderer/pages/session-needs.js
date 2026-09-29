@@ -14,11 +14,18 @@ import {toastMessage} from './startup.js';
 // Something only you can do, with its most likely action one click away: a judgement call (Claude's recommended
 // action, else "Looks right"; "Change…" tells Claude what to change) or an agreement (open the form to tick it).
 // A handled row stays, marked done, until the page is closed.
-const handled = new Map();  // `${session}|${text}` → what was done
+// What you did on each row ("Done", "Looks right", ticked in the form), kept across a reload (⌘R) and a restart: in this
+// window's local storage (a note of what you clicked, not data: Notion and the form hold the answers).
+const KEPT = 'jobpilotto.session-rows';
+const keptRows = (() => { try { return JSON.parse(localStorage.getItem(KEPT) || '{}'); } catch { return {}; } })();
+const keep = () => { try { localStorage.setItem(KEPT, JSON.stringify({handled: [...handled], synced: [...syncedDone], saved: [...savedAnswers]})); } catch {} };
+const remembered = (map, entries) => { for (const [key, value] of entries || []) map.set(key, value); return map; };
+const handled = remembered(new Map(), keptRows.handled);  // `${session}|${text}` → what was done
 const KEEP = /^(?:keep|leave|ok|fine|no change|looks right|as is|nothing)/i;
 const offline = item => (item.live === false ? 'The session has ended: resume it to send this to Claude' : '');
 function doneRow(li, key, outcome) {
   handled.set(key, outcome);
+  keep();
   li.classList.add('is-done');
   li.querySelector('.ss-need-actions')?.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${outcome}`));
   updateNeedsCount();
@@ -44,7 +51,7 @@ function smallButton(text, kind, run, title = '') {
 }
 // ---- In step with the form page (the extension's ring, extension/review.js; lib/review.js) ----
 export const reviewStates = new Map();  // session id → {left, total, ready, states: {watch id: ticked}}
-const syncedDone = new Set();    // rows ticked off because the form said so (untick there: back here)
+const syncedDone = new Set(keptRows.synced || []);    // rows ticked off because the form said so (untick there: back here)
 const watchId = text => `w${[...String(text)].reduce((hash, c) => (hash * 31 + c.codePointAt(0)) >>> 0, 7).toString(36)}`;
 // The question to find in the form: the bold label Claude gave ("AI Policy for Application"), else its first words.
 const agreeLabel = need => splitLabel(need.text).label || firstLine(need.text.replace(/\*\*/g, ''), 80).replace(/[:.]\s*$/, '');
@@ -76,6 +83,7 @@ export function applyFormStates(item) {
     if (ticked === false && syncedDone.has(key)) {  // unticked in the form: open again here
       syncedDone.delete(key);
       handled.delete(key);
+      keep();
       renderSessionPage();
       return;
     }
@@ -169,7 +177,7 @@ export function needRow(need, item) {
 }
 // A fact Claude couldn't find: its suggested answer (editable), and a tick that saves it to your standard answers
 // in Notion, so every later application has it. Type it in the form too: the form is already filled.
-const savedAnswers = new Map();  // question → the answer saved this session (the page redraws often)
+const savedAnswers = remembered(new Map(), keptRows.saved);  // question → the answer saved (the page redraws often)
 export function askRow(need, item) {
   const li = el('li', 'ss-need is-ask');
   const body = el('div', 'ss-need-body');
@@ -193,7 +201,7 @@ export function askRow(need, item) {
     tick.disabled = input.disabled = true;
     note.textContent = 'Saving to Notion…';
     const result = await window.pilot.rememberAnswer(need.question, value);
-    if (result.ok) { savedAnswers.set(need.question, value); note.textContent = 'Saved to your answers · type it in the form too'; box.classList.add('is-saved'); return; }
+    if (result.ok) { savedAnswers.set(need.question, value); keep(); note.textContent = 'Saved to your answers · type it in the form too'; box.classList.add('is-saved'); return; }
     tick.checked = tick.disabled = input.disabled = false;
     note.textContent = result.error || 'Couldn\'t save';
     box.classList.add('is-error');
@@ -227,6 +235,13 @@ export async function init() {
   $('ss-needs-card').querySelector('.ss-fact-head').addEventListener('click', () => {
     if ($('ss-needs-card').classList.contains('is-all-done')) $('ss-needs-card').classList.toggle('is-open');
   });
+  // A window that just loaded (⌘R, a restart) asks for every form's last state: the app passes them on only when they
+  // change, so without this the ticks from the form stayed away until something changed there.
+  window.pilot.reviewStates().then(states => {
+    for (const state of states || []) if (!reviewStates.has(state.id)) reviewStates.set(state.id, state);
+    renderDock();
+    if (!document.querySelector('.view[data-view="sessions"]').hidden) renderSessionPage();
+  }).catch(() => {});
   window.pilot.onReview(state => {
     const before = reviewStates.get(state.id);
     const changed = JSON.stringify(before?.missing || []) !== JSON.stringify(state.missing || []);

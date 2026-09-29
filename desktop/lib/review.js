@@ -63,4 +63,6 @@ export function report(sessions, payload, now = Date.now()) {
     note: session.note || '', live: session.live ?? !session.endedAt};
   return {matched: session.id, session: about, watch: watches.get(session.id) || [], commands: due.map(({focus, close}) => (close ? {close: true} : {focus}))};
 }
+// Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
+export const allStates = () => [...last.values()];
 export const _reset = () => { watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests
