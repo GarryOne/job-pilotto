@@ -71,7 +71,8 @@ test('the app and the Python engine take turns through the same pace file', asyn
   const token = `test-${Date.now()}`;
   const first = await pace.claim(token), second = await pace.claim(token);
   assert.equal(second - first, pace.GAP_MS);
-  await pace.calmUntil(token, Date.now() + 2000);
-  assert.ok(await pace.claim(token) >= Date.now() + 1900);
+  const until = Date.now() + 2000;  // compared with this, not a later Date.now(): CI machines are slow
+  await pace.calmUntil(token, until);
+  assert.ok(await pace.claim(token) >= until);
   (await import('node:fs')).rmSync(pace.paceFile(token), {force: true});
 });

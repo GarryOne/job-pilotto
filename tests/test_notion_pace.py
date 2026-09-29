@@ -42,8 +42,9 @@ class SharedPaceTest(unittest.TestCase):
     def test_turns_are_spaced_and_a_429_pauses_everyone(self):
         first, second = pace.claim(self.token), pace.claim(self.token)
         self.assertEqual(second - first, pace.GAP_MS)
-        pace.calm_until(self.token, pace._now() + 2000)
-        self.assertGreaterEqual(pace.claim(self.token), pace._now() + 1900)
+        until = pace._now() + 2000  # compared with this, not a later clock reading: CI machines are slow
+        pace.calm_until(self.token, until)
+        self.assertGreaterEqual(pace.claim(self.token), until)
 
     def test_same_file_as_the_app(self):
         # desktop/lib/notion-pace.js: <tmp>/job-pilotto-notion-<sha256(token)[:12]>.pace
