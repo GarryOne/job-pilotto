@@ -111,13 +111,11 @@ export async function attachTerminal(id) {
   }
   // Drawn only while the log is open: a terminal laid out while hidden has no size and stays blank.
   if ($('ss-log-body').hidden) { shared.termShownFor = null; return; }
-  // A finished session reads as its conversation (page text, full width); "Terminal view" shows the recorded screen.
+  // A finished session reads as its conversation (page text, full width); the terminal is for a running Claude
+  // (Resume brings it back). Without a transcript, the recorded screen.
   const item = sessionList.find(entry => entry.id === id);
   const talk = item && !isLive(item) ? await window.pilot.sessionTranscript(id).catch(() => null) : null;
-  const readable = !!talk?.length;
-  show($('ss-view'), readable);
-  const asText = readable && shared.logView !== 'terminal';
-  $('ss-view').textContent = asText ? 'Terminal view' : 'Transcript view';
+  const asText = !!talk?.length;
   show($('ss-transcript'), asText);
   show($('ss-terminal'), !asText);
   if (asText) { renderTranscript(talk); shared.termShownFor = id; return; }
@@ -177,12 +175,7 @@ export async function init() {
     toastMessage('Log copied', 'The session\'s output is on the clipboard.');
   });
   // The whole header bar opens and closes the log (Copy log does its own thing).
-  $('ss-log-head').addEventListener('click', event => { if (!event.target.closest('#ss-copy, #ss-view')) openLog($('ss-log-body').hidden); });
-  $('ss-view').addEventListener('click', () => {
-    shared.logView = shared.logView === 'terminal' ? 'transcript' : 'terminal';
-    shared.termShownFor = null;
-    attachTerminal(shared.openSessionId);
-  });
+  $('ss-log-head').addEventListener('click', event => { if (!event.target.closest('#ss-copy')) openLog($('ss-log-body').hidden); });
   $('ss-log-last').addEventListener('click', () => openLog(true));
   window.pilot.onSession((event, payload) => {
     if (event === 'data') {
