@@ -259,6 +259,7 @@
     <div class="notion-links" id="notion-links" hidden></div>
     <div class="sidebar-bottom">
       <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
+      <button class="nav" id="nav-feedback" title="Tell the maker what works and what doesn't"><i data-icon="chat"></i>Send feedback</button>
       <button class="theme-toggle" id="theme-toggle" title="Switch theme"><i data-icon="moon"></i><span id="theme-toggle-label">Dark theme</span></button>
       <button class="palette-hint" id="palette-hint" title="Search every command"><kbd>⌘K</kbd><span>Search &amp; commands</span></button>
       <button class="nav-update" id="nav-update" hidden><i data-icon="upload"></i><span id="nav-update-text">Update available</span></button>
@@ -1218,6 +1219,24 @@
     <div class="dialog-foot">
       <button class="ghost" value="cancel" formnovalidate>Not now</button>
       <button id="allowance-settings" type="button" class="primary" value="default">Open License settings</button>
+    </div>
+  </form>
+</dialog>
+<!-- Send feedback (pages/app-feedback.js → lib/app-feedback.js): a note to the maker. -->
+<dialog id="app-feedback-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="chat"></i></span><h2>Send feedback</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
+    <p class="dialog-lead">What works, what's confusing, what's missing? It goes straight to the maker, Igor. Your job data isn't sent: only
+      what you write here, the app version and a random install id.</p>
+    <label for="app-feedback-text">Your feedback</label>
+    <textarea id="app-feedback-text" rows="7" maxlength="2000" placeholder="e.g. Setup took 20 minutes; the Notion step was unclear…"></textarea>
+    <label for="app-feedback-contact">Email or handle, if you'd like a reply <span class="muted">(optional)</span></label>
+    <input id="app-feedback-contact" type="text" maxlength="200" autocomplete="email">
+    <p id="app-feedback-message" class="message"></p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button id="app-feedback-send" class="primary" value="default">Send</button>
     </div>
   </form>
 </dialog>

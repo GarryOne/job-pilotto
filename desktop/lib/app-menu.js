@@ -2,7 +2,9 @@
 // (Job Pilotto menu, under About); on Windows it sits in Help. Under it, once settings are loaded (testBuilds not
 // undefined): "Get Test Builds" (pre-releases, trialled one canary build at a time: lib/canary.js) and, when on, the
 // escape hatch "Update to the Newest Test Build Now".
-export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds, updateToNewest}) {
+// Help → Send Feedback… on both platforms (lib/app-feedback.js).
+export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds, updateToNewest, sendFeedback = () => {}}) {
+  const feedback = {label: 'Send Feedback…', click: sendFeedback};
   const check = [{label: 'Check for Updates…', click: checkForUpdates},
     ...(testBuilds === undefined ? [] : [
       {label: 'Get Test Builds', type: 'checkbox', checked: !!testBuilds, click: item => setTestBuilds(item.checked)},
@@ -11,7 +13,7 @@ export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds,
     ...(mac ? [{label: name, submenu: [{role: 'about'}, ...check, {type: 'separator'}, {role: 'services'}, {type: 'separator'},
       {role: 'hide'}, {role: 'hideOthers'}, {role: 'unhide'}, {type: 'separator'}, {role: 'quit'}]}] : []),
     {role: 'fileMenu'}, {role: 'editMenu'}, {role: 'viewMenu'}, {role: 'windowMenu'},
-    {role: 'help', submenu: mac ? [] : check},
+    {role: 'help', submenu: mac ? [feedback] : [feedback, ...check]},
   ];
 }
 

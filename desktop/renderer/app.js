@@ -30,6 +30,7 @@ import {init as prep} from './pages/prep.js';
 import {init as update} from './pages/update.js';
 import {init as telemetry} from './pages/telemetry.js';
 import {init as license} from './pages/license.js';
+import {init as appFeedback} from './pages/app-feedback.js';
 
 await core();
 await wizard();
@@ -48,6 +49,7 @@ await prep();
 await update();
 await telemetry();
 await license();
+await appFeedback();
 await cvChange();
 await data();
 await startup();

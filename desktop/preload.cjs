@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('pilot', {
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'),
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'),
   onUpdate: callback => ipcRenderer.on('update', (_, offer) => callback(offer)),
+  sendFeedback: call('sendFeedback'),
+  onOpenFeedback: callback => ipcRenderer.on('openFeedback', () => callback()),
   onUpdateStep: callback => ipcRenderer.on('updateStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),
   onDraftProgress: callback => ipcRenderer.on('draftProgress', (_, progress) => callback(progress)),

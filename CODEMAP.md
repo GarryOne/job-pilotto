@@ -12,6 +12,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Desktop app: main-process modules
 
+- `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
 - `desktop/lib/apply.js` — "Apply to N jobs": pick the N best open jobs and start applying.
@@ -66,6 +67,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 - `desktop/renderer/pages/actions.js` — Actions: every Telegram command.
 - `desktop/renderer/pages/activity.js` — Recent activity: the bar at the bottom of every screen and its panel.
+- `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/connections.js` — Settings → connections: Apply with Claude, the extension, how often, Always on.
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
 - `desktop/renderer/pages/cv-change.js` — A replaced CV and what follows it.

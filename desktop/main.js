@@ -24,6 +24,7 @@ import * as transcript from './lib/transcript.js';
 import * as quitDialog from './lib/quit-dialog.js';
 import {offerMove} from './lib/applications.js';
 import * as appMenu from './lib/app-menu.js';
+import * as appFeedback from './lib/app-feedback.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
@@ -141,7 +142,8 @@ function setTestBuilds(on) {
 function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin',
     checkForUpdates: checkForUpdatesNow, testBuilds: storage ? !!storage.settings().testBuilds : undefined,
-    setTestBuilds, updateToNewest: updateToNewestTestBuild})));
+    setTestBuilds, updateToNewest: updateToNewestTestBuild,
+    sendFeedback: () => { if (window && !window.isDestroyed()) { window.show(); toWindow('openFeedback'); } }})));
 }
 
 async function installUpdate() {
@@ -1013,6 +1015,9 @@ function handlers() {
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
   ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, trial: testBuild?.line || ''}));
   ipcMain.handle('updateInstall', () => installUpdate());
+  // Send feedback… (lib/app-feedback.js): to the owner, through the website. Demo mode sends nothing.
+  ipcMain.handle('sendFeedback', (_, text, contact) => DEMO ? {ok: true}
+    : appFeedback.send({text, contact}, {storage, version: app.getVersion()}));
   ipcMain.handle('extensionSeen', () => (server.extensionSeen() ? {...server.extensionSeen(), latest: server.latestExtension()} : null));
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));

@@ -7,9 +7,9 @@ import worker from '../src/index.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_feedback.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
-    all: async () => ({results: db.prepare(sql).all(...args)})});
+    all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
 }
 const kv = {get: async () => null, put: async () => {}, list: async () => ({keys: [{name: 'signup:someone@example.com', metadata: {at: new Date().toISOString(), role: 'SRE'}}]})};
