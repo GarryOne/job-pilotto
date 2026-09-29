@@ -2,6 +2,7 @@
 // stores them (D1 "telemetry", 90 days), /telemetry shows the problems users hit (same key as /stats), and a daily
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
+import {feedbackList} from './feedback.js';
 import {allowed, esc, remember} from './stats.js';
 
 export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health'];
@@ -115,6 +116,12 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 ${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">No counts yet: they arrive with each install\'s next daily report.</small>'}</section>
 <section class="card"><h2>Problems, most users first</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
+<section class="card" style="margin-top:12px"><h2>💬 Feedback, newest first</h2><small class="muted">From Send feedback in the app (also sent to the Job Pilotto Brain bot). Last ${data.days < 30 ? 30 : data.days} days.</small>
+<table style="margin-top:8px"><tr><th>When</th><th>Feedback</th><th>Reply to</th><th>Version</th></tr>
+${(data.feedback || []).map(row => `<tr><td class="muted" style="white-space:nowrap">${esc(String(row.at).slice(0, 16).replace('T', ' '))}</td>
+  <td style="white-space:pre-wrap">${esc(row.text)}</td><td>${row.contact ? esc(row.contact) : '<span class="muted">–</span>'}</td>
+  <td class="muted">${esc(row.version)} · ${esc(row.platform)}<br>${esc(String(row.install).slice(0, 8))}</td></tr>`).join('')
+  || '<tr><td colspan="4" class="muted">No feedback yet.</td></tr>'}</table></section>
 <p class="muted">Since ${esc(data.from)} (UTC). Scrubbed on each Mac before sending; no answers, CV, emails, names or keys. Kept ${KEEP_DAYS} days.</p>
 </main></body></html>`;
 }
@@ -125,7 +132,8 @@ export async function view(request, env, now = new Date()) {
   if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
-    return new Response(page(await problems(env.STATS, days, now)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    const [data, feedback] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => [])]);
+    return new Response(page({...data, feedback}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

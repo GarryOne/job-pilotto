@@ -30,6 +30,13 @@ export async function feedback(request, env, fetcher = fetch, now = new Date()) 
   return Response.json({ok: true});
 }
 
+// The owner's list on /telemetry (key only): newest first, with the contact when one was given.
+export async function feedbackList(db, days = 30, now = new Date()) {
+  const from = new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
+  return ((await db.prepare('SELECT at, version, platform, install, text, contact FROM feedback WHERE day >= ? ORDER BY at DESC LIMIT 200')
+    .bind(from).all()).results || []);
+}
+
 // The last feedback, for the product brain's signals (src/signals.js): newest first.
 export async function recentFeedback(db, days = 30, now = new Date()) {
   const from = new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);

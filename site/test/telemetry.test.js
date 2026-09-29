@@ -9,7 +9,7 @@ import {daily, describe} from '../src/telemetry.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_feedback.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)})});
   return {db, prepare: sql => statement(sql)};
@@ -105,4 +105,17 @@ test('/telemetry/version: per exact version, installs, health days, run counts a
   assert.deepEqual([stable.runs.ok, stable.runs.failed, stable.events.crash], [10, 2, 1]);
   const bad = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry/version?v=x%27%3B', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   assert.equal(bad.status, 400);
+});
+
+test('the private page lists feedback with its contact; without the key it is not found', async () => {
+  const e = env();
+  e.STATS.db.prepare('INSERT INTO feedback (at, day, install, version, platform, text, contact) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(new Date().toISOString(), new Date().toISOString().slice(0, 10), 'install-aaaa', '0.4.0-alpha.75', 'darwin', 'Setup took 20 <min>', 'ana@example.com');
+  const open = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {});
+  const html = await open.text();
+  assert.match(html, /💬 Feedback, newest first/);
+  assert.match(html, /Setup took 20 &lt;min&gt;/);
+  assert.match(html, /ana@example\.com/);
+  const closed = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry'), e, {});
+  assert.equal(closed.status, 404);
 });
