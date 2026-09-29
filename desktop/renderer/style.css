@@ -967,18 +967,30 @@ main { min-width: 0; }
 .ss-check-more .rich-p { margin: 0; }
 .ss-log-head { cursor: pointer; }
 .ss-audit-summary { margin: 0 0 var(--sp-2); }
-/* In the form: the bar always, the fields folded */
-.ss-form-bar { height: 6px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
-.ss-form-bar span { display: block; height: 100%; width: 0; background: var(--signal); transition: width .3s ease; }
+/* In the form (as on the website): where, the count and the bar always; the fields folded */
+.ss-form-head { display: flex; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-1); font-size: var(--fs-xs);
+  font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ss-form-progress { display: flex; align-items: center; gap: var(--sp-3); }
+.ss-form-count { display: flex; align-items: baseline; gap: var(--sp-1); flex: none; }
+.ss-form-count b { font-size: var(--fs-xl); line-height: 1.2; }
+.ss-form-count span { font-size: var(--fs-md); color: var(--ink-2); }
+.ss-form-count em { margin-left: var(--sp-2); font-style: normal; font-size: var(--fs-md); font-weight: 600; color: var(--good); }
+.ss-form-bar { flex: 1; height: 7px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.ss-form-bar span { display: block; height: 100%; width: 0; border-radius: var(--r-pill); background: var(--signal); transition: width .3s ease; }
 .ss-form.is-ready .ss-form-bar span { background: var(--good); }
-.ss-form.is-ready #ss-form-count { color: var(--good); }
-.ss-form-more { margin-top: var(--sp-2); }
-.ss-form-more summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); }
-.ss-form-fields { list-style: none; padding: 0; margin: var(--sp-2) 0 0; display: grid; gap: var(--sp-1); max-height: 260px; overflow: auto; }
-.ss-form-fields li { display: flex; gap: var(--sp-2); align-items: baseline; }
-.ss-form-time { width: 36px; flex: none; color: var(--muted); font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-radius: 0; background: none; }
+.ss-form-more > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
+  font-size: var(--fs-md); color: var(--ink-2); }
+.ss-form-more > summary::-webkit-details-marker { display: none; }
+.ss-form-more > summary::after { content: '▸'; font-size: var(--fs-xs); color: var(--muted); transition: transform .15s; }
+.ss-form-more[open] > summary::after { transform: rotate(90deg); }
+.ss-form-more > summary:hover { color: var(--ink); }
+.ss-form-fields { list-style: none; padding: var(--sp-2) 0 0; margin: var(--sp-2) 0 0; border-top: 1px solid var(--line);
+  display: grid; gap: 5px; max-height: 280px; overflow: auto; font-size: var(--fs-md); }
+.ss-form-fields li { display: grid; grid-template-columns: 40px 14px 1fr; gap: var(--sp-2); align-items: baseline; }
+.ss-form-time { color: var(--muted); font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; text-align: right; }
 .ss-form-fields .is-filled .ss-form-mark { color: var(--good); }
-.ss-form-fields .is-left { color: var(--muted); }
+.ss-form-fields .is-left .ss-form-mark, .ss-form-fields .is-left .ss-form-label { color: var(--warn); }
 .ss-audit-more { margin: 0; }
 .ss-audit-more > div { margin-top: var(--sp-2); color: var(--ink-2); }
 /* The session log: a dark bar with the last line; Expand shows the live terminal and quick replies. */

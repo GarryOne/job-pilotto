@@ -821,7 +821,7 @@ function handlers() {
     return {choice: 'reset', reset, failed, kept: open.size};
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
-  ipcMain.handle('reviewStates', () => review.allStates());
+  ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8')) : review.allStates()));
   ipcMain.handle('reviewWatch', (_, id, items) => {
     appLog('review', `watch ${id}: ${(items || []).length} field(s)`, {labels: (items || []).map(item => String(item.label).slice(0, 60))});
     return review.setWatch(String(id), items);

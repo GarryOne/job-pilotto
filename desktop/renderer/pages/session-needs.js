@@ -73,31 +73,37 @@ export function showFormState(item) {
   box.replaceChildren(state.ready ? pill('Form ready to submit', 'good', {dot: true})
     : pill(`Form: ${state.left} required left`, 'warn', {dot: true, title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists them)`}));
 }
-// "In the form": the bar and "7 / 9 required fields" always; each filled field (✓, when, since the session started) and
-// what's left (○) folded, since a long form is a long list.
+// "In the form", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded: what's left
+// first, then each filled one with its time since the fill started (the first field filled).
 const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 function showFormCard(item, state) {
   const card = $('ss-form-card');
   card.hidden = !state?.total;
   if (card.hidden) return;
   const done = state.total - state.left;
-  $('ss-form-count').textContent = state.ready ? 'Ready to submit' : `${done} / ${state.total} required fields`;
+  let host = '';
+  try { host = state.url ? new URL(state.url).hostname.replace(/^www\./, '') : ''; } catch {}
+  $('ss-form-where').textContent = host ? `Chrome · ${host}` : '';
+  const count = $('ss-form-count');
+  count.replaceChildren(el('b', '', String(done)), el('span', '', ` / ${state.total} required fields`));
+  if (state.ready) count.append(el('em', '', 'Ready to submit'));
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
-  const start = Date.parse(item.startedAt || 0) || 0;
-  // An extension older than 0.8.12 sends no filled fields: say what's left only, not "0 filled".
+  // An extension older than 0.8.12 sends no filled fields: then only what's left.
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
   const left = state.pending || state.missing || [];
-  $('ss-form-summary').textContent = ['Show fields', state.filled && `${filled.length} filled`, state.left && `${state.left} ${item.status === 'running' ? 'to go' : 'left'}`].filter(Boolean).join(' · ');
+  const start = filled[0]?.at || 0;
   $('ss-form-more').hidden = !filled.length && !left.length;
+  $('ss-form-summary').textContent = filled.length ? `Show the ${filled.length} filled field${filled.length === 1 ? '' : 's'}${left.length ? ` and ${left.length} ${item.status === 'running' ? 'to go' : 'left'}` : ''}`
+    : `Show the ${left.length} ${item.status === 'running' ? 'to go' : 'left'}`;
   const row = (kind, time, mark, label) => {
     const li = el('li', kind);
-    li.append(el('span', 'ss-form-time', time), el('span', 'ss-form-mark', mark), el('span', '', label));
+    li.append(el('span', 'ss-form-time', time), el('b', 'ss-form-mark', mark), el('span', 'ss-form-label', label));
     return li;
   };
   $('ss-form-fields').replaceChildren(
-    ...filled.map(field => row('is-filled', start ? clock(Math.max(0, field.at - start)) : '', '✓', field.label)),
-    ...left.map(label => row('is-left', '', '○', label)));
+    ...left.map(label => row('is-left', '', '○', label)),
+    ...filled.map(field => row('is-filled', clock(Math.max(0, field.at - start)), '✓', field.label)));
 }
 export function applyFormStates(item) {
   const state = reviewStates.get(item.id);
