@@ -1,0 +1,96 @@
+"""The central employer index: feeds found and verified by one scout for everyone, downloaded by every install.
+
+Nothing about the user goes up: a plain GET (an optional random install id header). The result is cached on
+disk and fetched at most once a day; if the service is down the cache is used (however old), else nothing, and
+`merge` then falls back to the small starter list config/sources.json, so a run never fails because of this.
+"""
+from datetime import datetime, timedelta, timezone
+import json
+import os
+import re
+import urllib.request
+
+from .paths import DATA
+from .sources import ats
+
+URL = 'https://www.jobpilotto.workers.dev/api/index'
+CACHE = DATA / 'employer_index.json'
+MAX_AGE = timedelta(hours=20)     # "at most daily", with slack for a run that starts a little early
+TIMEOUT = 10
+
+
+def _get(url, headers):
+    """(status, body text, etag); 304 has no body. Raises on network errors and other statuses."""
+    request = urllib.request.Request(url, headers={'User-Agent': ats.USER_AGENT, **headers})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            return response.status, response.read().decode('utf-8'), response.headers.get('ETag')
+    except urllib.error.HTTPError as error:
+        if error.code == 304:
+            return 304, '', None
+        raise
+
+
+def clean(feeds):
+    """Only well-formed entries for feeds we can crawl: unknown ATS names or missing slugs are dropped."""
+    out = []
+    for item in feeds if isinstance(feeds, list) else []:
+        if not isinstance(item, dict):
+            continue
+        system, slug, company = item.get('ats'), item.get('slug'), item.get('company')
+        if system in ats.FETCHERS and isinstance(slug, str) and slug and isinstance(company, str) and company:
+            out.append({'company': company, 'ats': system, 'slug': slug, 'quality': item.get('quality'),
+                        'checked': item.get('checked')})
+    return out
+
+
+def _read(cache):
+    try:
+        data = json.loads(cache.read_text())
+        return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds'))}
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def load(cache=None, url=None, get=_get, now=None, install_id=None):
+    """The downloaded index (list of feeds), from the cache when it is under a day old. Never raises."""
+    cache = cache or CACHE
+    url = url or os.getenv('JOB_PILOTTO_INDEX_URL') or URL
+    now = now or datetime.now(timezone.utc)
+    stored = _read(cache)
+    if stored and stored['fetched']:
+        try:
+            if now - datetime.fromisoformat(stored['fetched']) < MAX_AGE:
+                return stored['feeds']
+        except ValueError:
+            pass
+    headers = {'Accept': 'application/json'}
+    install_id = install_id or os.getenv('JOB_PILOTTO_INSTALL_ID')
+    if install_id and re.fullmatch(r'[A-Za-z0-9_-]{8,64}', install_id):
+        headers['X-Install-Id'] = install_id
+    if stored and stored['etag']:
+        headers['If-None-Match'] = stored['etag']
+    try:
+        status, body, etag = get(url, headers)
+        if status == 304 and stored:
+            feeds, etag = stored['feeds'], stored['etag']
+        else:
+            feeds = clean(json.loads(body).get('feeds'))
+        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'feeds': feeds}
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
+        return feeds
+    except Exception as error:  # noqa: BLE001 — the index is a bonus: any trouble means "use what we have"
+        print(f'Warning: employer index not downloaded ({type(error).__name__}: {error}); '
+              f'using {"the cache" if stored else "the starter list only"}')
+        return stored['feeds'] if stored else []
+
+
+def merge(starter, index, skip=lambda company: False):
+    """Starter list first (it keeps its names), then downloaded feeds not already in it, minus skipped companies."""
+    merged = {}
+    for source in [*starter, *index]:
+        key = (source.get('ats', 'greenhouse'), source.get('slug') or source['board'])
+        if key not in merged and not skip(source['company']):
+            merged[key] = dict(source)
+    return list(merged.values())

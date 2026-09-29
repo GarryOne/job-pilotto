@@ -26,6 +26,7 @@ FEATURES = (
     Feature('notion', 'Notion tracking (applications, matches, run log)', ('NOTION_TOKEN',), 'free',
             'create a Notion integration and the pages in docs/notion-schema.md'),
     Feature('scout', 'Source scout (finds new employer feeds)', (), 'free', 'on by default'),
+    Feature('index', 'Central employer index (downloaded feeds from the shared scout)', (), 'free', 'on by default'),
     Feature('enrich', 'AI stage 1: facts from each posting', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_ENRICH_MODEL'),
             'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_ENRICH_MODEL=claude-haiku-4-5'),
     Feature('score', 'AI stage 2: fit score against your Profile',

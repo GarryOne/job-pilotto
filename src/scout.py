@@ -26,7 +26,7 @@ import re
 import urllib.parse
 import urllib.request
 
-from . import store, telegram
+from . import employer_index, store, telegram
 from .notion import client as notion, cron_runs
 from .paths import JOBS_DB, CONFIG, keyword_regex, load_search_config
 from .sources import ats, feeds
@@ -242,10 +242,19 @@ def board_url(system, slug):
 
 # ---------- registry used by the 4-hourly crawl ----------
 
-def active_sources(db, tracker=None, static=()):
-    """Feeds for feeds.scan: static sources.json + local feed_sources + active Notion Employers & Sources rows."""
+def excluded_companies(seeds=None):
+    """Keys of companies this user never wants suggested or crawled (seed list + JOB_PILOTTO_EXCLUDED_COMPANIES)."""
+    extra = [name for name in os.getenv('JOB_PILOTTO_EXCLUDED_COMPANIES', '').split(',') if name.strip()]
+    return {key_for(name.strip()) for name in (seeds or {}).get('excluded', []) + extra}
+
+
+def active_sources(db, tracker=None, static=(), index=()):
+    """Feeds for feeds.scan: starter sources.json + the downloaded employer index + local feed_sources + active
+    Notion Employers & Sources rows (the owner's own list)."""
     db.executescript(TABLES)
-    sources = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): dict(s) for s in static}
+    skip = excluded_companies()
+    sources = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): dict(s)
+               for s in employer_index.merge(static, index, lambda company: key_for(company) in skip)}
     for row in db.execute('SELECT ats, slug, company FROM feed_sources WHERE active = 1'):
         sources.setdefault((row['ats'], row['slug']), {'company': row['company'], 'ats': row['ats'], 'slug': row['slug']})
     if tracker:
@@ -297,6 +306,51 @@ def export_sources(tracker, path=CONFIG / 'sources.json', fetch=ats.fetch, today
     kept = sorted((r for r in results if 'error' not in r), key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
     path.write_text(json.dumps(kept, indent=2, ensure_ascii=False) + '\n')
     return kept, [r for r in results if 'error' in r]
+
+
+# ---------- the central index (published by the scout in the private ops repo) ----------
+
+def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8):
+    """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
+    jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
+    db.executescript(TABLES)
+    today = today or now().date().isoformat()
+    known = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']): {'company': s['company'], 'tier': 'Standard'}
+             for s in starter}
+    for row in db.execute('SELECT ats, slug, company, tier FROM feed_sources WHERE active = 1'):
+        known[(row['ats'], row['slug'])] = {'company': row['company'], 'tier': row['tier']}
+
+    def check(item):
+        (system, slug), meta = item
+        try:
+            jobs = fetch(system, slug)
+            score, _ = quality(jobs)
+            return {'company': meta['company'], 'ats': system, 'slug': slug, 'tier': meta['tier'], 'quality': score,
+                    'jobs': len(jobs), 'checked': today}
+        except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
+            return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(check, known.items()))
+    kept = sorted((r for r in results if 'error' not in r), key=lambda r: (r['company'].lower(), r['ats'], r['slug']))
+    return kept, [r for r in results if 'error' in r]
+
+
+def publish_index(feeds, url, key, send=None):
+    """Upload the index to the website worker (PUT, Bearer key). Raises when the service refuses it."""
+    if not feeds:
+        raise ValueError('nothing to publish: no feed answered')
+    body = json.dumps({'feeds': feeds, 'generated': now().isoformat(timespec='seconds')}).encode()
+
+    def put(request):
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.status
+    request = urllib.request.Request(url, data=body, method='PUT', headers={
+        'Authorization': f'Bearer {key}', 'Content-Type': 'application/json', 'User-Agent': ats.USER_AGENT})
+    status = (send or put)(request)
+    if status != 200:
+        raise RuntimeError(f'index upload answered {status}')
+    return len(feeds)
 
 
 # ---------- Notion ----------
@@ -430,6 +484,9 @@ def main():
     parser.add_argument('--batch', type=int, default=15, help='candidates probed per run')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
     parser.add_argument('--log-run', action='store_true', help='log this run to Notion ⏱️ Search runs (the desktop app does)')
+    parser.add_argument('--publish-index', action='store_true',
+                        help='the central scout: after the run, verify every feed and upload the employer index '
+                             '(needs INDEX_PUBLISH_KEY; URL: JOB_PILOTTO_INDEX_URL or the default)')
     parser.add_argument('--export-sources', action='store_true',
                         help='write config/sources.json: the shared starter list of verified public feeds '
                              '(sources.json + Active Employers & Sources rows); needs NOTION_TOKEN')
@@ -454,6 +511,13 @@ def main():
     log = cron_runs.new_run('scout')
     with store.connect(args.db) as db:
         summary, results = run(db, args.batch, tracker)
+        if args.publish_index:
+            key = os.getenv('INDEX_PUBLISH_KEY')
+            if not key:
+                raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
+            feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()))
+            count = publish_index(feeds_out, os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL, key)
+            print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     message = telegram_summary(summary, results)
     log['headline'] = cron_runs.plain(message).split('\n')[0]
     if args.send and not disabled('telegram'):

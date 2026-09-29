@@ -10,7 +10,7 @@ import random
 import re
 import sys
 
-from . import digest, features, scout, store, telegram
+from . import digest, employer_index, features, scout, store, telegram
 from . import doctor
 from .ai import added, budget, cost, enrich, inbox, insights, interviews, kit, provenance, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
@@ -222,6 +222,11 @@ def log_crawl(tracker, run):
     url = cron_runs.log_run(tracker, run)
     if url:
         print(f'Cronjob run logged: {url}')  # the desktop app links its activity row to this
+
+
+def downloaded_index():
+    """The central employer index (cached, at most one download a day); [] when off or unreachable."""
+    return [] if features.disabled('index') else employer_index.load()
 
 
 def main():
@@ -449,7 +454,7 @@ def main():
             # The feed watcher and canonical store intentionally have different schemas.
             # Keep the source-specific history separate, then import the report.
             # sources.json plus every active feed the scout found (local table + Notion Source Registry).
-            feed_list = scout.active_sources(db, tracker, sources)
+            feed_list = scout.active_sources(db, tracker, sources, downloaded_index())
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
                 report = feeds.scan(feed_list, feed_db)
                 # Paid per search, so only full crawls use it; off without SERPAPI_API_KEY.

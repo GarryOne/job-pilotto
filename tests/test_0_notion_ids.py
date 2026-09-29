@@ -10,6 +10,8 @@ IDS = {name: f'test-{name.lower().replace("_", "-")}' for name in (
     'NOTION_PROFILE_PAGE_ID', 'NOTION_ANSWERS_PAGE_ID', 'NOTION_PIPELINE_PAGE')}
 for name, value in IDS.items():
     os.environ[name] = value
+# The employer index download must never leave the machine in tests: a refused connection means "use the starter list".
+os.environ.setdefault('JOB_PILOTTO_INDEX_URL', 'http://127.0.0.1:9/api/index')
 
 
 class NotionIdTests(unittest.TestCase):
