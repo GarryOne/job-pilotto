@@ -150,6 +150,10 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   invite itself); one recruiter by email and on LinkedIn stays one job. **It never guesses:** an email that doesn't
   name its job isn't attached to one; Focus asks "Is this about …?", and a job's ⋯ → **Undo an email update** puts a
   wrong update back. The evening before an interview you get a prep message.
+- 💸 **Every cent, shown.** Job Pilotto uses your own Anthropic key and records what each run cost (⏰ Cronjob Runs in
+  your Notion: every jobs check, Gmail check, Log box entry, kit, prep kit, review, report). The app's Recent
+  activity shows the cost next to each run, runs you started are tagged "By you", and a monthly budget
+  (`src/ai/budget.py`) pauses the optional AI steps at 90% and tells you.
 - ⌨️ **Commands**: `/check` (a jobs check now; `/run` works too), `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/employers` (find new employers; `/scout` works too), `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
