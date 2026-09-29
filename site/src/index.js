@@ -4,6 +4,7 @@
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
 import * as notion from './notion.js';
 import * as stats from './stats.js';
+import * as telemetry from './telemetry.js';
 import {handleReport} from '../../worker/src/report.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,10 +56,16 @@ export default {
     if (pathname === '/api/hit') return stats.hit(request, env);
     if (pathname === '/stats') return stats.stats(request, env);
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
+    if (pathname === '/report/telemetry') return telemetry.collect(request, env);
+    if (pathname === '/telemetry') return telemetry.view(request, env);
     if (pathname === '/api/waitlist') return waitlist(request, env);
     if (pathname === '/api/notion/start') return notion.start(request, env);
     if (pathname === notion.CALLBACK) return notion.callback(request, env);
     if (pathname === '/api/notion/token') return notion.collect(request, env);
     return env.ASSETS.fetch(request);
+  },
+  // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(telemetry.daily(env, dispatch).catch(error => console.error(`telemetry triage: ${error.message}`)));
   },
 };

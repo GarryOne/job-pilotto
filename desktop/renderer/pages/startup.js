@@ -46,7 +46,6 @@ export async function init() {
   window.pilot.onToast(toastMessage);
 
   // Help improve Job Pilotto (opt-in anonymous form reports).
-  $('share-reports').addEventListener('change', async () => { shared.state.settings = await window.pilot.saveSettings({shareFillReports: $('share-reports').checked}); });
   $('claude-consent').addEventListener('change', async () => {
     shared.state.settings = await window.pilot.saveSettings({claudeConsent: $('claude-consent').checked ? new Date().toISOString() : null});
   });

@@ -36,6 +36,13 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != ''
         with:
           node-version: '22'
+      - name: "Database migrations (site/migrations: stats, app reports)"
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        continue-on-error: true   # a token without D1 rights must not block the deploy; the warning says to apply by hand
+        working-directory: site
+        run: |
+          npx --yes wrangler@4 d1 migrations apply www-stats --remote \
+            || { echo "::warning::D1 migrations not applied (the token needs D1 Edit). Apply: cd site && npx wrangler@4 d1 migrations apply www-stats --remote"; exit 1; }
       - name: Deploy to Cloudflare
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: site

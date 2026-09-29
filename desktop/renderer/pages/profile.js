@@ -89,7 +89,6 @@ export async function loadSettings() {
   showCloud();
   showSchedule();
   showContact();
-  $('share-reports').checked = !!shared.state.settings.shareFillReports;
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = shared.state.secrets[line.dataset.secret];

@@ -43,6 +43,8 @@
         <li>Review the strategy it drafts for you</li>
       </ul>
       <div class="actions"><button class="primary" data-next>Start</button></div>
+      <p class="fine">Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
+        interviews) to improve it for everyone. Never your answers, CV, emails or names. Turn them off any time in Settings → Advanced.</p>
     </div>
 
     <div class="step" data-step="ai">
@@ -946,16 +948,6 @@
             <p class="muted panel-lead">The folder where Job Pilotto stores your data on this computer.</p>
             <div class="path-line"><code id="data-folder"></code><button class="secondary" id="open-data">Show in Finder</button></div>
           </div>
-          <div class="setting panel" id="setting-reports">
-            <div class="summary-head"><i data-icon="shield"></i><h3>Privacy</h3></div>
-            <div class="switch-line">
-              <label class="switch-row"><span class="switch"><input type="checkbox" id="share-reports"><span></span></span>
-                <span><span>Send anonymous form reports</span><span class="muted small">Form structure only; never your answers.</span></span></label>
-              <button class="arrow-link" id="reports-how">What is shared?</button>
-            </div>
-            <p class="muted small" id="reports-how-text" hidden>When the extension can't operate a form field (an unusual dropdown, a field that won't take the answer),
-              that form's <b>structure</b> is sent (site, field labels, types, options) so it gets fixed. Never your answers or personal details.</p>
-          </div>
         </div>
         <div class="settings-page" data-settings-page="appearance" hidden>
           <div class="settings-page-head"><h2>Appearance</h2><p class="muted">How Job Pilotto looks on this Mac.</p></div>
@@ -979,8 +971,9 @@
           <div class="setting panel" id="setting-telemetry">
             <div class="panel-top"><div class="summary-head"><i data-icon="shield"></i><h3>Technical reports</h3></div>
               <label class="switch-row"><input type="checkbox" id="telemetry-on"><span>Send</span></label></div>
-            <p class="muted panel-lead">Errors, failed runs and forms that trip Job Pilotto up, so it gets better for everyone.
-              Never your answers, CV, emails, names or keys: removed on this Mac before anything is sent.</p>
+            <p class="muted panel-lead">Errors, failed runs, forms that trip Job Pilotto up, and anonymous counts of how it helps
+              (matches, forms filled, replies, interviews, offers), so it gets better for everyone. Never your answers, CV, emails,
+              names, companies or keys: removed on this Mac before anything is sent.</p>
             <details class="telemetry-shown"><summary>See what's sent</summary><pre class="log" id="telemetry-events">Nothing sent yet.</pre></details>
           </div>
           <div class="setting panel" id="setting-setup">

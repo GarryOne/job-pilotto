@@ -1,7 +1,7 @@
 // "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
 // operate), send the form STRUCTURE (site, labels, types, options, reason, extension version) to the project's
-// Worker, which opens an issue for the daily fixer. Never answers or personal data. Opt-in (settings.shareFillReports);
-// each site + field is reported once.
+// Worker, which opens an issue for the daily fixer. Never answers or personal data. Part of the technical reports:
+// on unless the user turned them off (Settings → Advanced, settings.telemetry); each site + field is reported once.
 import {execFileSync} from 'node:child_process';
 
 // The owner's app signs its reports (trusted → the daily fixer takes them); the token is in the app's secrets
@@ -31,7 +31,7 @@ export function build(run, reported = {}) {
 
 export async function send(storage, run, fetcher = globalThis.fetch) {
   const settings = storage.settings();
-  if (!settings.shareFillReports) return null;
+  if (settings.telemetry === false) return null;
   const report = build(run, settings.reportedFailures || {});
   if (!report) return null;
   const token = reportToken(storage);

@@ -70,6 +70,8 @@ export function localEnv(storage) {
     NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || '',
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
     onRun: async run => {
+      // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
+      storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});
       const job = await find(run.url).catch(() => null);
       const added = await questions.collect(storage, run, job?.company || '').catch(error => {
         console.error('Open questions:', error.message);
@@ -77,7 +79,9 @@ export function localEnv(storage) {
       });
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
-      reports.send(storage, run).catch(error => console.error('Fill report:', error.message));
+      reports.send(storage, run).then(report => {  // each field also shows in the app reports (/telemetry)
+        for (const field of report?.fields || []) formIssue({site: report.site, label: field.label, type: field.type, reason: field.reason, version: report.version});
+      }).catch(error => console.error('Fill report:', error.message));
     },
   };
 }
@@ -204,6 +208,8 @@ export function setSessionReporter(fn) { sessionReporter = fn; }
 let reviewHandler = () => ({matched: null, watch: [], commands: []});
 export function setReviewHandler(fn) { reviewHandler = fn; }
 // The panel's "Open in Job Pilotto": the app comes forward on that session's page.
+let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)
+export function setFormIssueHandler(fn) { formIssue = fn; }
 let openHandler = () => false;
 export function setOpenHandler(fn) { openHandler = fn; }
 

@@ -26,3 +26,8 @@ binding = "STATS"
 database_name = "www-stats"
 database_id = "61f8d0f7-82c2-4afe-a6e5-508aaaf2cfa0"
 migrations_dir = "migrations"
+
+# Daily at 05:30 UTC: app reports (src/telemetry.js) older than 90 days are dropped, and the top problems of the last
+# day start .github/workflows/telemetry-triage.yml on GITHUB_REPO (one GitHub issue per problem).
+[triggers]
+crons = ["30 5 * * *"]

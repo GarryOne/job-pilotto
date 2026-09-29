@@ -54,7 +54,18 @@ function healthOnce() {
   const has = name => !!storage.secret(name);
   telemetry.record('health', {ai: has('ANTHROPIC_API_KEY'), notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
     serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
-    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length});
+    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings)});
+}
+// How much Job Pilotto helped, as anonymous counts (no company, no job title): open matches and good fits, forms the
+// extension filled, and the funnel (ever reached: applied, a human reply, screening, interviews, offers). From the
+// last Jobs and Focus reads (lib/view-cache.js), so nothing extra is read from Notion.
+function outcomes(settings) {
+  const jobs = viewCache.recall(storage, 'jobs')?.result?.jobs || [];
+  const steps = viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps || [];
+  const reached = name => steps.find(step => step.step.includes(name))?.reached ?? null;
+  return {matches: jobs.length, goodFits: jobs.filter(job => job.fit >= 70).length, formsFilled: settings.formsFilled || 0,
+    prepared: reached('Prepared'), applied: reached('Applied'), replies: reached('Human reply'), screenings: reached('Screening'),
+    interviews: reached('Interviews'), offers: reached('Offer')};
 }
 let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
 async function checkForUpdate(asked = false) {
@@ -1112,6 +1123,7 @@ if (firstCopy) app.whenReady().then(() => {
       telemetry.record('run_failed', {job: `${args[0]}${mode ? ` ${mode}` : ''}`, code, seconds, error,
         cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' ')), tail: tail.slice(-5)});
     });
+    server.setFormIssueHandler(fields => telemetry.record('form_issue', fields));
     setTimeout(() => { healthOnce(); telemetry.flush(); }, 60 * 1000);
     setInterval(() => { healthOnce(); telemetry.flush(); }, 10 * 60 * 1000);
   }

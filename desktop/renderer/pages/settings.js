@@ -224,7 +224,6 @@ export async function init() {
   document.querySelectorAll('[data-run-mode]').forEach(button => button.addEventListener('click', () => openSetting('cloud')));
   $('run-mode-more').addEventListener('click', () => openSetting('cloud'));
   // Data & backup and Advanced: explainers and the reset options open on demand; Diagnostics shows live status.
-  $('reports-how').addEventListener('click', () => { $('reports-how-text').hidden = !$('reports-how-text').hidden; });
   $('reset-review').addEventListener('click', () => { $('reset-options').hidden = !$('reset-options').hidden; });
   $('diag-troubleshoot').addEventListener('click', () => {
     settingsPage('connections');
