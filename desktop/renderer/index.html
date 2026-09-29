@@ -421,12 +421,14 @@
             <div class="ss-log-head" id="ss-log-head">
               <span class="ss-log-glyph">&gt;_</span><b>Session log</b><span id="ss-live-state"></span>
               <div class="ss-live-actions">
+                <button class="ghost small-button" id="ss-view" hidden>Terminal view</button>
                 <button class="ghost small-button" id="ss-copy">Copy log</button>
                 <button class="ghost small-button" id="ss-expand" aria-expanded="false">Expand log</button>
               </div>
             </div>
             <div class="ss-log-last" id="ss-log-last"></div>
             <div class="ss-log-body" id="ss-log-body" hidden>
+              <div class="ss-transcript" id="ss-transcript" hidden></div>
               <div class="ss-terminal" id="ss-terminal"></div>
               <div class="ss-chips ss-offline" id="ss-offline" hidden>
                 <span class="small">Claude isn't running (it closed with the app), so typing and replies go nowhere.</span>

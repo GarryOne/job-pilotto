@@ -7,6 +7,7 @@ export const shared = {
   xtermFit: null,
   dockOpen: true,
   termShownFor: null,
+  logView: 'transcript',  // a finished session's log: its conversation (page text) or the recorded terminal screen
   draft: null,
   allJobs: [],
   logLines: [],  // the running task's lines, live

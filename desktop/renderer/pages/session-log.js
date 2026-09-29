@@ -8,6 +8,7 @@ import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, ticking} from './sessions.js';
+import {richText} from './rich-text.js';
 import {toastMessage} from './startup.js';
 
 export async function openSession(id) {
@@ -110,6 +111,16 @@ export async function attachTerminal(id) {
   }
   // Drawn only while the log is open: a terminal laid out while hidden has no size and stays blank.
   if ($('ss-log-body').hidden) { shared.termShownFor = null; return; }
+  // A finished session reads as its conversation (page text, full width); "Terminal view" shows the recorded screen.
+  const item = sessionList.find(entry => entry.id === id);
+  const talk = item && !isLive(item) ? await window.pilot.sessionTranscript(id).catch(() => null) : null;
+  const readable = !!talk?.length;
+  show($('ss-view'), readable);
+  const asText = readable && shared.logView !== 'terminal';
+  $('ss-view').textContent = asText ? 'Terminal view' : 'Transcript view';
+  show($('ss-transcript'), asText);
+  show($('ss-terminal'), !asText);
+  if (asText) { renderTranscript(talk); shared.termShownFor = id; return; }
   // The session's screen at the size it was drawn for, then fitted to the log (a running Claude redraws for it).
   const {data, cols, rows} = await window.pilot.sessionSnapshot(id);
   shared.xterm.reset();
@@ -120,6 +131,28 @@ export async function attachTerminal(id) {
 // One font for every session, the page's size. A running Claude redraws for the log's width; a finished session is
 // a recording wrapped at the width it had, so it may leave room on the right (bigger text to fill it looked out of
 // place next to the page, 29 Sep 2026).
+const hhmm = iso => (iso ? new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '');
+function renderTranscript(talk) {
+  const box = $('ss-transcript');
+  box.replaceChildren(...talk.map(entry => {
+    if (entry.kind === 'steps') {
+      const fold = el('details', 'ss-tr-steps');
+      fold.append(el('summary', '', `${entry.steps.length} step${entry.steps.length === 1 ? '' : 's'} · ${entry.steps.at(-1)}`));
+      const list = el('ul');
+      list.append(...entry.steps.map(text => el('li', '', text)));
+      fold.append(list);
+      return fold;
+    }
+    const row = el('div', `ss-tr-msg is-${entry.kind}`);
+    const head = el('div', 'ss-tr-who');
+    head.append(el('b', '', entry.kind === 'you' ? 'You' : 'Claude'), el('span', '', hhmm(entry.at)));
+    const body = el('div', 'ss-tr-text');
+    body.append(...(entry.kind === 'claude' ? richText(entry.text) : [el('p', '', entry.text.length > 400 ? `${entry.text.slice(0, 400)}…` : entry.text)]));
+    row.append(head, body);
+    return row;
+  }));
+  box.scrollTop = box.scrollHeight;
+}
 export function fitTerminal() {
   if (!shared.xterm || document.querySelector('.view[data-view="sessions"]').hidden || $('ss-log-body').hidden) return;
   try { shared.xtermFit.fit(); } catch { return; }
@@ -143,7 +176,12 @@ export async function init() {
     toastMessage('Log copied', 'The session\'s output is on the clipboard.');
   });
   // The whole header bar opens and closes the log (Copy log does its own thing).
-  $('ss-log-head').addEventListener('click', event => { if (!event.target.closest('#ss-copy')) openLog($('ss-log-body').hidden); });
+  $('ss-log-head').addEventListener('click', event => { if (!event.target.closest('#ss-copy, #ss-view')) openLog($('ss-log-body').hidden); });
+  $('ss-view').addEventListener('click', () => {
+    shared.logView = shared.logView === 'terminal' ? 'transcript' : 'terminal';
+    shared.termShownFor = null;
+    attachTerminal(shared.openSessionId);
+  });
   $('ss-log-last').addEventListener('click', () => openLog(true));
   window.pilot.onSession((event, payload) => {
     if (event === 'data') {

@@ -17,6 +17,7 @@ import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
+import * as transcript from './lib/transcript.js';
 import * as quitDialog from './lib/quit-dialog.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
@@ -794,6 +795,11 @@ function handlers() {
       '\x1b[2m19:10:09\x1b[0m \x1b[33m!\x1b[0m Location: San Francisco, CA · On-site\r\n\x1b[2m19:10:11\x1b[0m \x1b[35m⏸\x1b[0m Paused before opening the form. Waiting for your reply…\r\n\r\n\x1b[1m>\x1b[0m ');
   ipcMain.handle('sessionOutput', (_, id) => (DEMO ? demoOutput() : terminals.output(String(id))));
   // The log's screen when it opens (see terminals.snapshot); JOB_PILOTTO_DEMO_OUTPUT replays a recorded session in demo mode.
+  // A finished session as a conversation (its Claude Code transcript), for the log's page-text view.
+  ipcMain.handle('sessionTranscript', (_, id) => {
+    const file = DEMO ? path.join(here, 'demo', 'transcript.jsonl') : terminals.record(String(id))?.transcript;
+    return file ? transcript.conversation(file) : null;
+  });
   ipcMain.handle('sessionSnapshot', (_, id) => (DEMO ? terminals.snapshotOf(demoOutput()) : terminals.snapshot(String(id))));
   ipcMain.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
   ipcMain.handle('sessionResize', (_, id, cols, rows) => terminals.resize(String(id), Number(cols), Number(rows)));

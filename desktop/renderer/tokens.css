@@ -20,6 +20,7 @@
   --navy-active: #1f3552;
   --navy-line: #3b5170;
   --on-navy: #e3ebf5;
+  --on-navy-muted: #93a4ba;  /* secondary text on navy (the session log's times and steps) */
   --on-navy-2: #b9c8dc;
   --on-navy-3: #8fa3bb;
 

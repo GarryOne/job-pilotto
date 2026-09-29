@@ -52,6 +52,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
+- `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
 
