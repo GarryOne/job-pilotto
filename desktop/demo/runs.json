@@ -1,5 +1,59 @@
 [
-  {"id": 1790620000000, "kind": "search", "trigger": "schedule", "startedAt": "2026-09-28T17:08:00Z", "endedAt": "2026-09-28T17:10:00Z", "ok": true, "found": 214, "new": 12, "changed": 3, "log": []},
-  {"id": 1790616000000, "kind": "mail", "trigger": "schedule", "startedAt": "2026-09-28T16:00:00Z", "endedAt": "2026-09-28T16:00:40Z", "ok": true, "updates": ["💬 Reply received · Acme Robotics — SRE"], "summary": "Mail: 6 new email(s) classified, 1 update(s)", "log": []},
-  {"id": 1790500000000, "kind": "weekly", "trigger": "schedule", "startedAt": "2026-09-28T06:00:00Z", "endedAt": "2026-09-28T06:01:00Z", "ok": true, "summary": "9 applications sent, 2 interviews landed", "log": []}
+  {
+    "id": 1790620000000,
+    "kind": "search",
+    "trigger": "schedule",
+    "startedAt": "2026-09-28T17:08:00Z",
+    "endedAt": "2026-09-28T17:10:00Z",
+    "ok": true,
+    "found": 214,
+    "new": 12,
+    "changed": 3,
+    "log": []
+  },
+  {
+    "id": 1790616000000,
+    "kind": "mail",
+    "trigger": "schedule",
+    "startedAt": "2026-09-28T16:00:00Z",
+    "endedAt": "2026-09-28T16:00:40Z",
+    "ok": true,
+    "updates": [
+      "💬 Reply received · Acme Robotics — SRE"
+    ],
+    "summary": "Mail: 6 new email(s) classified, 1 update(s)",
+    "log": []
+  },
+  {
+    "id": 1790500000000,
+    "kind": "weekly",
+    "trigger": "schedule",
+    "startedAt": "2026-09-28T06:00:00Z",
+    "endedAt": "2026-09-28T06:01:00Z",
+    "ok": true,
+    "summary": "9 applications sent, 2 interviews landed",
+    "log": []
+  },
+  {
+    "id": 1790590000000,
+    "kind": "scout",
+    "mode": "scout",
+    "trigger": "schedule",
+    "startedAt": "2026-09-28T08:15:00Z",
+    "endedAt": "2026-09-28T08:15:40Z",
+    "ok": true,
+    "log": [],
+    "message": "🔎 Source scout · checked 12 · 🆕 4 new sources\n1. Northwind AI · Ashby · quality 61 · ⭐ Tier 1\n   5 SRE-type roles · 3 in your places\n   Zurich\n2. Lakeside Payments · Greenhouse · quality 48 · ⭐ Tier 1\n   3 SRE-type roles · 2 in your places\n   Geneva\n3. Acme Robotics · Lever · quality 35\n   2 SRE-type roles · 1 in your places\n   Remote - Europe\n4. Example Labs · Greenhouse · quality 22\n   1 SRE-type roles · 0 in your places\n3 without public feed · 2 low relevance · 18 feeds crawled · 240 candidates queued"
+  },
+  {
+    "id": 1790580000000,
+    "kind": "today",
+    "mode": "today",
+    "trigger": "you",
+    "startedAt": "2026-09-28T07:30:00Z",
+    "endedAt": "2026-09-28T07:32:00Z",
+    "ok": true,
+    "log": [],
+    "message": "✈️ Job Pilotto · 🆕 0 new · top 10 of 24\n24 open · 5 🇨🇭 · 9 applied · 37 filtered · 80 low fit\n🎯 Best matches\n1. Staff SRE, Observability (https://example.com/jobs/alpine-1) · 🎯 84\n   Alpine Data · Remote (Europe) · Staff\n2. Platform Engineer, Developer Experience (https://example.com/jobs/northwind-2) · 🎯 78\n   Northwind AI · Zurich · Senior\n3. DevOps Engineer (https://example.com/jobs/lakeside-3) · 🎯 71\n   Lakeside Payments · Geneva · Mid\n4. Cloud Engineer (https://example.com/jobs/acme-4) · 🎯 66\n   Acme Robotics · Remote"
+  }
 ]

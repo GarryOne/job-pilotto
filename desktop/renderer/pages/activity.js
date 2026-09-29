@@ -2,6 +2,7 @@
 import {runWarnings} from '../run-warnings.js';
 import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
+import {parseRunMessage} from '../run-cards.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
@@ -309,8 +310,12 @@ export function renderActivity(data) {
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
   // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram.
-  $('activity-message').textContent = !run?.live && run?.message || '';
-  show($('activity-message'), !run?.live && !!run?.message);
+  // Today's list and Find new employers read better as a small card; anything else stays text.
+  const card = !run?.live && run?.message ? parseRunMessage(run.message) : null;
+  if (card) renderRunCard(card);
+  show($('activity-card'), !!card);
+  $('activity-message').textContent = !run?.live && !card && run?.message || '';
+  show($('activity-message'), !run?.live && !card && !!run?.message);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it.
   const warnings = detailWarnings;
   show($('activity-warnings'), warnings.length > 0);
@@ -349,6 +354,43 @@ let activityTimer = null;
 export function refreshActivity() {
   if (activityTimer) return;
   activityTimer = setTimeout(async () => { activityTimer = null; renderActivity(await window.pilot.runs()); }, 250);
+}
+// A run's message as a card: a row of counts, then one line per item (the full text: Open in Notion).
+function renderRunCard(card) {
+  // One light line of counts ("37 open · 2 in Switzerland · 18 applied"), then one line per item.
+  const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value ?? '–')), ` ${label}`); return cell; };
+  const stats = el('div', 'run-card-stats');
+  const rows = el('ol', 'run-card-rows');
+  let heading, more = null;
+  if (card.kind === 'digest') {
+    stats.append(stat(card.open, 'open'), stat(card.local, 'in Switzerland'), stat(card.applied, 'applied'), stat(card.fresh, 'new this run'));
+    heading = 'Top matches';
+    rows.append(...card.items.slice(0, 3).map(item => {
+      const row = el('li', 'run-card-row');
+      const words = el('span', 'run-card-words');
+      words.append(el('b', '', item.title), el('span', 'muted', ` · ${item.company}`));
+      const view = Object.assign(el('a', 'run-card-open', '↗'), {href: '#', title: 'Open the job posting'});
+      view.dataset.link = item.url;
+      row.append(words, el('span', `run-card-fit${item.fit >= 70 ? ' is-high' : ''}`, String(item.fit)), view);
+      return row;
+    }));
+    more = el('button', 'link', `View all ${card.items.length} in Jobs →`);
+    more.addEventListener('click', () => { openActivity(false); openView('jobs'); });
+  } else {
+    stats.append(stat(card.checked, 'employers checked'), stat(card.fresh, 'new job feeds'));
+    heading = 'New employers';
+    rows.append(...card.items.slice(0, 5).map(item => {
+      const row = el('li', 'run-card-row');
+      const words = el('span', 'run-card-words');
+      words.append(el('b', '', item.company), el('span', 'muted', ` · ${[item.ats, item.roles != null && `${item.roles} SRE role${item.roles === 1 ? '' : 's'}`,
+        item.yours != null && `${item.yours} in your places`].filter(Boolean).join(' · ')}`));
+      row.append(words, ...(item.tier ? [el('span', 'run-card-fit', item.tier.replace('Tier ', 'T'))] : []));
+      return row;
+    }));
+    const rest = card.items.length - 5;
+    more = el('span', 'muted small', [rest > 0 && `+${rest} more`, card.note].filter(Boolean).join(' · '));
+  }
+  $('activity-card').replaceChildren(stats, el('h4', 'run-card-title', heading), rows, ...(more && more.textContent ? [more] : []));
 }
 // The bar's action: hide the open panel, watch what's running, or see the details.
 function barLabel() {
