@@ -29,3 +29,10 @@ test('only GET counts; other methods are refused', async () => {
   assert.equal((await install(new Request('https://x/install', {method: 'POST'}), {}, null, count)).status, 405);
   assert.equal(rows.length, 0);
 });
+
+test('with a founder key (bash -s JP1.…) the installer leaves it for the app, private to the user', () => {
+  const text = script('https://www.jobpilotto.workers.dev');
+  assert.match(text, /key="\$\{1:-\}"/);
+  assert.match(text, /pending-license\.txt/);
+  assert.match(text, /umask 077/);
+});

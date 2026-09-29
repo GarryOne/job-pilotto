@@ -27,6 +27,7 @@ import * as appMenu from './lib/app-menu.js';
 import * as appFeedback from './lib/app-feedback.js';
 import * as aiTrial from './lib/ai-trial.js';
 import * as setupFunnel from './lib/setup-funnel.js';
+import * as pendingLicense from './lib/pending-license.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
@@ -1240,6 +1241,11 @@ if (firstCopy) app.whenReady().then(() => {
   // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.
   license = licenseLib.create(storage, {appliedNow: () => viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps
     ?.find(step => step.step.includes('Applied'))?.reached ?? 0});
+  // A founder key left by the one-command install (lib/pending-license.js): unlock + free AI credit, before setup.
+  if (!DEMO) {
+    const taken = pendingLicense.consume(app.getPath('userData'), {license, storage, licenseState});
+    if (taken) console.log(`Founder key from the installer: ${taken.ok ? `accepted${taken.trial ? ', free AI credit on' : ''}` : taken.error}`);
+  }
   telemetry = DEMO || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {

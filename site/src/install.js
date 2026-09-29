@@ -9,6 +9,7 @@ export function script(origin) {
   return `#!/bin/bash
 # Job Pilotto for Mac: installs (or updates) the app in Applications and opens it.
 #   curl -fsSL ${origin}/install | bash
+#   curl -fsSL ${origin}/install | bash -s JP1.…   (with a founder key from an invite)
 set -euo pipefail
 [ "$(uname -s)" = Darwin ] || { echo "This installer is for macOS. Windows: ${origin}/download/windows"; exit 1; }
 [ "$(uname -m)" = arm64 ] || { echo "Job Pilotto needs a Mac with Apple silicon (M1 or newer)."; exit 1; }
@@ -30,6 +31,19 @@ fi
 rm -rf "$APP"
 mv "$tmp/unpacked/Job Pilotto.app" "$APP"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
+
+# A founder key (invited testers: bash -s JP1.…): the app takes it at its next start, unlocks itself and starts
+# the \$1 free AI credit, so setup skips the AI step (desktop/lib/pending-license.js).
+key="\${1:-}"
+if [ -n "$key" ]; then
+  case "$key" in
+    JP1.*)
+      dir="$HOME/Library/Application Support/Job Pilotto"
+      mkdir -p "$dir" && (umask 077 && printf '%s' "$key" > "$dir/pending-license.txt")
+      echo 'Founder key saved: the app unlocks itself and starts with $1 of free AI.' ;;
+    *) echo "That isn't a Job Pilotto key (it starts with JP1.); installing without it." ;;
+  esac
+fi
 echo "Installed $(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo '') in Applications. Opening it…"
 open "$APP"
 `;

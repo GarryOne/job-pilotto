@@ -79,7 +79,8 @@ export async function init() {
   }));
   // Setup was done before (Run setup again, Rebuild from CV): leave the wizard any time, nothing changes.
   $('wizard-exit').addEventListener('click', () => { show($('wizard'), false); show($('app')); loadJobs(); });
-  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep('ai')));
+  // A key already there (e.g. the free credit from the one-command install): no AI step to do.
+  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(shared.state.secrets.ANTHROPIC_API_KEY ? 'notion' : 'ai')));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
     const current = STEPS.find(step => !document.querySelector(`.step[data-step="${step}"]`).hidden);
     goStep(STEPS[Math.max(0, STEPS.indexOf(current) - 1)]);
