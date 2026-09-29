@@ -1219,6 +1219,15 @@
         },
         "Source ID": {
           "type": "rich_text"
+        },
+        "Changes": {
+          "type": "rich_text"
+        },
+        "Needs you": {
+          "type": "checkbox"
+        },
+        "Suggested job": {
+          "type": "url"
         }
       }
     },

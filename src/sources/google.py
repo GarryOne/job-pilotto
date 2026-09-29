@@ -114,8 +114,16 @@ class Google:
             sent = parsedate_to_datetime(headers.get('date', '')).isoformat()
         except (TypeError, ValueError):
             sent = datetime.fromtimestamp(int(data.get('internalDate', 0)) / 1000, timezone.utc).isoformat()
-        return {'id': data['id'], 'from': headers.get('from', ''), 'to': headers.get('to', ''),
-                'subject': headers.get('subject', ''), 'date': sent, 'body': body_text(data['payload'])[:4000]}
+        email = {'id': data['id'], 'from': headers.get('from', ''), 'to': headers.get('to', ''),
+                 'subject': headers.get('subject', ''), 'date': sent, 'body': body_text(data['payload'])[:4000]}
+        # An emailed calendar invitation: its start comes from the invitation itself, never from the email's text
+        # (Outlook's text often has no date at all, only the meeting link).
+        ics = calendar_text(data['payload'], lambda attachment: self.get(
+            f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/attachments/{attachment}'))
+        start = invite_start(ics) if ics else None
+        if start:
+            email['invite_at'] = start
+        return email
 
     def profile(self):
         return self.get('https://gmail.googleapis.com/gmail/v1/users/me/profile')
@@ -135,6 +143,55 @@ def _decode(data):
 
 
 PLACEHOLDER_MAX = 60  # a plain part shorter than this, next to an HTML part, is a placeholder
+
+
+def calendar_text(payload, fetch_attachment=None):
+    """The text/calendar part (or the .ics attachment) of an email, else ''."""
+    found = []
+
+    def walk(part):
+        body = part.get('body') or {}
+        if part.get('mimeType', '').startswith('text/calendar') or part.get('filename', '').lower().endswith('.ics'):
+            if body.get('data'):
+                found.append(_decode(body['data']))
+            elif body.get('attachmentId') and fetch_attachment:
+                try:
+                    found.append(_decode(fetch_attachment(body['attachmentId']).get('data', '')))
+                except Exception:  # noqa: BLE001 — the email is still read without it
+                    pass
+        for child in part.get('parts', []) or []:
+            walk(child)
+    walk(payload)
+    return found[0] if found else ''
+
+
+# Outlook writes Windows time zone names in invitations.
+WINDOWS_ZONES = {'W. Europe Standard Time': 'Europe/Zurich', 'Romance Standard Time': 'Europe/Paris',
+                 'Central Europe Standard Time': 'Europe/Budapest', 'Central European Standard Time': 'Europe/Warsaw',
+                 'GMT Standard Time': 'Europe/London', 'Greenwich Standard Time': 'UTC', 'UTC': 'UTC',
+                 'E. Europe Standard Time': 'Europe/Chisinau', 'FLE Standard Time': 'Europe/Kiev',
+                 'Eastern Standard Time': 'America/New_York', 'Pacific Standard Time': 'America/Los_Angeles',
+                 'Arabian Standard Time': 'Asia/Dubai', 'India Standard Time': 'Asia/Kolkata'}
+
+
+def invite_start(ics, default_zone='Europe/Zurich'):
+    """The invitation's start as ISO 8601 with offset, from its DTSTART (UTC "Z", a TZID, or floating), else None."""
+    from zoneinfo import ZoneInfo
+    unfolded = re.sub(r'\r?\n[ \t]', '', ics)
+    event = unfolded.split('BEGIN:VEVENT', 1)[-1]
+    match = re.search(r'^DTSTART(?:;([^:\r\n]*))?:(\d{8}T\d{6})(Z?)', event, re.M)
+    if not match:
+        return None
+    params, stamp, utc = match.groups()
+    moment = datetime.strptime(stamp, '%Y%m%dT%H%M%S')
+    if utc:
+        return moment.replace(tzinfo=timezone.utc).isoformat()
+    zone = (re.search(r'TZID="?([^";]+)"?', params or '') or [None, ''])[1]
+    try:
+        tz = ZoneInfo(WINDOWS_ZONES.get(zone, zone) or default_zone)
+    except Exception:  # noqa: BLE001 — an unknown zone name: the owner's own zone
+        tz = ZoneInfo(default_zone)
+    return moment.replace(tzinfo=tz).isoformat()
 
 
 def body_text(payload):

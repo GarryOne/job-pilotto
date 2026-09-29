@@ -163,9 +163,12 @@ class MailTests(unittest.TestCase):
         google = FakeGoogle([email('m2', 'Thank you for applying to Canonical', '2026-09-26T01:26:30+02:00')])
         self.run_mail(tracker, google, [[result(0, 0, 'Confirmation received')]])
         self.assertEqual(tracker.created, [])
-        self.assertEqual(tracker.updates[-1:], [('ev-Confirmation received-2026-09-26T01:26:00+02:00',
-                                            {'Source ID': {'rich_text': [{'text': {'content': 'm2'}}]},
-                                             'At': {'date': {'start': '2026-09-26T01:26:30+02:00'}}})])
+        page = 'ev-Confirmation received-2026-09-26T01:26:00+02:00'
+        update = {k: v for p, u in tracker.updates if p == page for k, v in u.items()}
+        self.assertEqual((update['Source ID'], update['At']), ({'rich_text': [{'text': {'content': 'm2'}}]},
+                                                               {'date': {'start': '2026-09-26T01:26:30+02:00'}}))
+        changes = json.loads(update['Changes']['rich_text'][0]['text']['content'])
+        self.assertEqual(changes['fields']['Stage'], ['Applied', 'Confirmation received'])  # what "Not this job" undoes
         self.assertEqual(apps[0]['properties']['Stage']['select']['name'], 'Confirmation received')  # repair a partially saved event
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
@@ -214,7 +217,9 @@ class MailTests(unittest.TestCase):
         google = FakeGoogle([email('n2', 'Your call', sender='hello@cal.com')])
         tracker = FakeTracker(apps)
         _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='YuPe (via Cal.com)')]])
-        self.assertEqual((sent, tracker.created), ([], []))
+        [question] = tracker.created  # about a tracked process (a contact's domain) but no job named: asked, that one suggested
+        self.assertEqual(question['Suggested job'], {'url': 'https://x.test/p1'})
+        self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])
 
     def test_rejection_naming_no_role_at_a_tracked_company_asks_the_owner(self):
         apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden'), app('p2', 'Grafana Labs', 'Staff SRE | Germany')]
@@ -224,9 +229,12 @@ class MailTests(unittest.TestCase):
             sent = []
             mail.run(tracker, google, client=FakeClient([[result(0, -1, 'Rejected', company='Grafana Labs')]]), days=2,
                      send=sent.append, calendar=False, now=NOW, state_path=self.state, stats=stats)
-        self.assertEqual(tracker.created, [])
-        self.assertIn("doesn't say which role", sent[0])
+        [question] = tracker.created
+        self.assertEqual(question['Kind'], {'select': {'name': 'Rejected'}})
+        self.assertEqual(question['Suggested job'], {'url': 'https://x.test/p1'})
+        self.assertIn('which job', sent[0])
         self.assertIn('Rejected · Grafana Labs', stats['updates'][0])
+        self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])  # no job moved on a guess
 
     def test_a_role_named_in_email_but_not_tracked_becomes_an_application(self):
         apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote')]
@@ -306,6 +314,53 @@ class MailTests(unittest.TestCase):
         self.assertTrue(mail._names_it(ag, email('r', 'Re: DevOps Engineer', sender='agillard@agtalent.co.uk')))
         self.assertTrue(mail._names_it(ag, email('r', 'Hi', sender='x@other.io', body='Arjun Gillard, AG Talent')))
 
+    def test_one_recruiter_by_email_and_on_linkedin_is_one_job_at_the_invitations_time(self):
+        # 29 Sep 2026: Huxley's Teams invite and Jayantie's LinkedIn InMail about the same call made two jobs, and the
+        # invite's time was the email's (the text had no date; the .ics had it).
+        tracker = FakeTracker([])
+        invite = {**email('h1', 'Connect Igor / Jaya - SRE', '2026-09-29T14:35:00+02:00',
+                          sender='"Seosahai - Nejati, Jayantie" <j.nejati@huxley.com>', body='Microsoft Teams meeting'),
+                  'invite_at': '2026-09-30T10:30:00+04:00'}
+        inmail = email('l1', 'Message replied: Principal SRE - Remote opportunity for a global AI company',
+                       '2026-09-29T14:40:00+02:00', sender='LinkedIn <inmail-hit-reply@linkedin.com>',
+                       body='Jayantie Nejati: I have shared a calendar invite to speak tomorrow morning 08:30am CET')
+        made = []
+
+        def track(tracker_, lead, text_, **options):
+            made.append(lead)
+            row = app(f'new{len(made)}', '', lead['title'], stage='Screening', via=lead.get('recruiter_company', ''),
+                      contact=' · '.join(p for p in (lead.get('recruiter_name'), lead.get('recruiter_email')) if p))
+            return row, ''
+        with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
+                mock.patch('src.ai.opportunity.track', track):
+            self.run_mail(tracker, FakeGoogle([invite, inmail]), [[
+                result(0, -1, 'Interview scheduled', company='Huxley', interview_at='2026-09-29T14:35:00+02:00'),
+                result(1, -1, 'Interview scheduled', company='LinkedIn', interview_at='2026-09-30T08:30:00+01:00')]])
+        self.assertEqual(len(made), 1)  # one job: the InMail names the invite's sender
+        self.assertEqual((made[0]['recruiter_company'], made[0]['recruiter_name']), ('Huxley', 'Jayantie Nejati'))
+        dates = [u['Next interview']['date']['start'] for _, u in tracker.updates if 'Next interview' in u]
+        self.assertEqual(dates, ['2026-09-30T10:30:00+04:00'])  # the invitation's time (08:30 in Zurich), kept
+
+    def test_a_platform_is_never_the_agency(self):
+        self.assertEqual(mail._sender_org('LinkedIn <inmail-hit-reply@linkedin.com>'), '')
+        self.assertEqual(mail._sender_org('Jaya <j.nejati@huxley.com>'), 'Huxley')
+        self.assertEqual(mail.person_name('Seosahai - Nejati, Jayantie'), 'Jayantie Nejati')
+
+    def test_one_agency_two_of_your_roles_and_the_email_names_neither_is_asked(self):
+        apps = [app('p1', '', 'Senior DevOps Engineer', stage='Screening', via='AG Talent'),
+                app('p2', '', 'Platform Engineer (Kubernetes)', stage='Screening', via='AG Talent')]
+        tracker = FakeTracker(apps)
+        vague = email('a1', 'Quick call tomorrow?', sender='agillard@agtalent.co.uk', body='Hi Igor, are you free for a quick chat? AG Talent')
+        _, sent = self.run_mail(tracker, FakeGoogle([vague]), [[result(0, 1, ledger.REPLY, company='AG Talent')]])
+        [question] = tracker.created
+        self.assertEqual(question['Suggested job'], {'url': 'https://x.test/p2'})  # the AI's pick, offered, not applied
+        self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])
+        clear = email('a2', 'Platform Engineer role: next steps', sender='agillard@agtalent.co.uk', body='About the Kubernetes platform role')
+        tracker = FakeTracker(apps)
+        self.state.unlink(missing_ok=True)
+        self.run_mail(tracker, FakeGoogle([clear]), [[result(0, 1, 'Interview scheduled', company='AG Talent')]])
+        self.assertIn('p2', [page for page, _ in tracker.updates])  # it names the role: applied
+
     def test_an_interview_about_a_job_not_tracked_is_tracked_and_asks_which_job(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
         invite = email('h1', 'Connect Igor / Jaya - SRE', sender='Jaya <j.nejati@huxley.com>')
@@ -332,9 +387,11 @@ class MailTests(unittest.TestCase):
         google = FakeGoogle([email('m5', 'Jobs you may like'), email('m6', 'Thanks for applying to Zeta')])
         _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Other', relevant=False),
                                                    result(1, -1, 'Confirmation received', company='Zeta', summary='Applied')]])
-        self.assertEqual(tracker.created, [])
+        [question] = tracker.created  # not guessed, not dropped: asked (Focus → "Which job is this?")
+        self.assertTrue(question['Needs you']['checkbox'])
+        self.assertNotIn('Suggested job', question)
         self.assertIn('Zeta', sent[0])
-        self.assertIn('not tracked yet', sent[0])
+        self.assertIn('which job', sent[0])
 
     def test_calendar_match_by_contact_email_sets_interview_and_sends_prep_once(self):
         start = NOW + timedelta(hours=20)  # tomorrow 14:00 in Zurich

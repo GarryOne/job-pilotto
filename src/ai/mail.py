@@ -263,24 +263,20 @@ def _stage_for(kind, current):
     return target if RANK.get(target, 0) > RANK.get(current, 0) else None
 
 
-def record(tracker, row, kind, at, source, source_id, note, index, interview_at=None, now=None, feedback_text=''):
-    """Write one matched item: event (or link to a hand-logged twin), Stage forward, Next interview.
-    Returns a short description of what changed, or None when it was already known."""
-    key = row['id'].replace('-', '')
-    known, by_app = index
-    if source_id in known:
-        return None
-    if feedback_text and kind != 'Rejected':
-        kind = employer_feedback.RECEIVED
-    if kind == employer_feedback.RECEIVED and not feedback_text.strip():
-        return None  # no model guesses stored as employer evidence
-    twin = _near(by_app.get(key, []), kind, at) if kind != employer_feedback.RECEIVED else None
-    if twin and twin[1]:
-        return None
-    if feedback_text:
-        employer_feedback.receive(tracker, row, feedback_text)
-    event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note)
-    by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
+# The fields an email can move on a job, as (before, after) in the event's Changes: "Not this job" puts them back.
+UNDOABLE = ('Stage', 'Next interview', 'Feedback status', 'Confirmation email')
+
+
+def _value(row, name):
+    prop = row['properties'].get(name) or {}
+    if 'checkbox' in prop:
+        return bool(prop['checkbox'])
+    return _field(row, name) or None
+
+
+def advance(tracker, row, kind, interview_at=None, now=None, *, by_app=None, feedback_text=''):
+    """Move a job forward for one email (Stage forward only, Next interview, flags). Returns {field: [before, after]}."""
+    key, by_app = row['id'].replace('-', ''), by_app or {}
     changes = {}
     stage = _stage_for(kind, _field(row, 'Stage'))
     # A recruiter writing back after you answered their pitch: you're talking now (Screening), as when you say yes
@@ -299,12 +295,107 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         changes['Next interview'] = {'date': {'start': moment.isoformat()}}
     if kind == 'Confirmation received':
         changes['Confirmation email'] = {'checkbox': True}
+    before = {name: _value(row, name) for name in changes}
     if changes:
         tracker.update_page(row['id'], changes)
         row['properties'].update(changes)
+    return {name: [before[name], _value(row, name)] for name in changes}
+
+
+def changes_text(fields, interview_at=None, email=None, feedback=''):
+    """The event's Changes column (JSON): what it changed, when the interview is, and which email it was."""
+    data = {'fields': fields}
+    if interview_at:
+        data['interview_at'] = interview_at
+    if email:
+        data['from'], data['subject'] = email.get('from', '')[:200], email.get('subject', '')[:200]
+    if feedback:
+        data['feedback'] = feedback[:1200]
+    return {'rich_text': [{'text': {'content': json.dumps(data, ensure_ascii=False)[:1990]}}]}
+
+
+def record(tracker, row, kind, at, source, source_id, note, index, interview_at=None, now=None, feedback_text='', email=None):
+    """Write one matched item: event (or link to a hand-logged twin), Stage forward, Next interview.
+    Returns a short description of what changed, or None when it was already known."""
+    key = row['id'].replace('-', '')
+    known, by_app = index
+    if source_id in known:
+        return None
+    if feedback_text and kind != 'Rejected':
+        kind = employer_feedback.RECEIVED
+    if kind == employer_feedback.RECEIVED and not feedback_text.strip():
+        return None  # no model guesses stored as employer evidence
+    twin = _near(by_app.get(key, []), kind, at) if kind != employer_feedback.RECEIVED else None
+    if twin and twin[1]:
+        return None
+    if feedback_text:
+        employer_feedback.receive(tracker, row, feedback_text)
+    event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note)
+    by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
+    fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
     tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}})
+    _optional(tracker.update_page, event['id'], {'Changes': changes_text(fields, interview_at, email)})
     known.add(source_id)
+    stage = (fields.get('Stage') or [None, None])[1]
     return None if twin else stage or kind
+
+
+# ---- Not sure which job: ask ----
+# An email the check can't place for certain becomes an event on no job, with "Needs you" and the job it would
+# have picked ("Suggested job"): Focus asks "Is this about …?" and src/ai/reassign.py applies the answer.
+EVENT_KIND = {OUTREACH: opportunity.LEAD_STAGE}
+
+
+NEW_COLUMNS = ('Changes', 'Needs you', 'Suggested job')  # added 29 Sep 2026; the app adds them to older workspaces
+
+
+def _optional(write, *args):
+    """A write to a column a workspace may not have yet (NEW_COLUMNS): never fails the check."""
+    try:
+        write(*args)
+    except urllib.error.HTTPError as error:
+        print(f'Warning: not saved ({error.code}): the workspace may miss a new column; the app adds it.', file=sys.stderr)
+
+
+def ask(tracker, email, result, suggested, index, lines, stats):
+    kind = EVENT_KIND.get(result['kind'], result['kind'])
+    subject = email['subject'][:120]
+    properties = {
+        'Event': {'title': [{'text': {'content': f'❓ Which job? · {subject}'[:200]}}]},
+        'Kind': {'select': {'name': kind}}, 'At': {'date': {'start': email['date']}}, 'Source': {'select': {'name': 'Gmail'}},
+        'Note': {'rich_text': [{'text': {'content': f"{result.get('summary') or kind} (email: \"{subject}\")"[:1990]}}]},
+        'Source ID': {'rich_text': [{'text': {'content': email['id']}}]}, 'Needs you': {'checkbox': True},
+        'Changes': changes_text({}, result.get('interview_at') or None, email, result.get('feedback') or ''),
+    }
+    if suggested is not None and _field(suggested, 'Job URL'):
+        properties['Suggested job'] = {'url': _field(suggested, 'Job URL')}
+    try:
+        tracker.create_page(EVENTS_DATABASE_ID, properties)
+    except urllib.error.HTTPError:  # a workspace without the new columns yet (the app adds them): the question still
+        tracker.create_page(EVENTS_DATABASE_ID, {k: v for k, v in properties.items() if k not in NEW_COLUMNS})
+    index[0].add(email['id'])
+    guess = f" (maybe {_label(suggested)})" if suggested is not None else ''
+    lines.append(f"❓ {escape(result.get('company') or email['subject'][:60])}: {escape(result.get('summary') or kind)}"
+                 f" — which job{escape(guess)}? Answer in Job Pilotto (Focus).")
+    if stats is not None:
+        stats.setdefault('updates', []).append(f"❓ {kind} · {result.get('company') or subject[:60]} — which job?"[:140])
+
+
+ENDED = {'Rejected', 'Withdrawn', 'Closed', 'Dismissed', 'No response', 'Not seen'}
+STOP = {'senior', 'staff', 'lead', 'principal', 'engineer', 'the', 'and', 'for', 'with', 'remote', 'hybrid', 'of', 'm', 'f', 'd', 'w'}
+
+
+def _ambiguous(apps, row, email):
+    """True when the same employer or agency has another open role and the email doesn't name this one's title:
+    one agency, two of your roles — the AI's pick is a guess then."""
+    words = lambda text: set(re.findall(r'[a-z0-9]+', (text or '').lower()))
+    org = lambda r: ' '.join(sorted(words(_field(r, 'Company') or _field(r, 'Via'))))
+    mine = org(row)
+    if not mine or not any(r is not row and org(r) == mine and _field(r, 'Stage') not in ENDED for r in apps):
+        return False
+    title = words(_field(row, 'Job')) - STOP
+    text = words(f"{email.get('subject', '')} {email.get('body', '')[:6000]}")
+    return bool(title) and len(title & text) < max(1, (len(title) + 1) // 2)
 
 
 EMOJI = {'Confirmation received': '📬', REPLY: '💬', OUTREACH: '🤝', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•', employer_feedback.RECEIVED: '💬'}
@@ -343,13 +434,20 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     lines = []
     for i, email in enumerate(emails):
         result = results.get(i) or {'relevant': False}
+        if email.get('invite_at') and result.get('relevant'):
+            # The invitation's own start (its calendar part), never a time the AI read from the text.
+            result['interview_at'] = email['invite_at']
         row = apps[result['application']] if result.get('relevant') and 0 <= result.get('application', -1) < len(apps) else None
+        guess = None  # the job the AI picked but can't be trusted with: suggested when the owner is asked
         if row is not None and not _names_it(row, email):
             # The AI matched on the role alone (an SRE invitation from one agency, a DevOps pitch from another): an
-            # email is attached to a job only if it names that job's company, agency or a contact; else it's a job of
-            # its own (tracked below, and Focus asks for its details).
+            # email is attached to a job only if it names that job's company, agency or a contact.
             print(f"Not attached to {_label(row)}: the email ({email['from'][:60]}) names none of it", file=sys.stderr)
-            row = None
+            guess, row = row, None
+        elif row is not None and _ambiguous(apps, row, email):
+            # The same agency or employer has another of your roles, and the email doesn't say which: ask.
+            print(f"Not sure it's {_label(row)}: {_field(row, 'Via') or _field(row, 'Company')} has another open role", file=sys.stderr)
+            guess, row = row, None
         named = result.get('relevant') and not row and result.get('role') and result.get('company') \
             and result.get('kind') in TRACKABLE
         if result.get('relevant') and not row and not named:  # e.g. a scheduler email naming only the recruiter
@@ -368,8 +466,13 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                 lines += new_lead(tracker, client, model, email, apps, stats, on_new)
                 continue
             result['kind'] = REPLY  # the same recruiter again, about a role already tracked
+        if not row and result.get('kind') == 'Interview scheduled':
+            # The same recruiter about the same call, by email and on LinkedIn: the job that has this person.
+            same = [r for r in apps if _names_person(r, f"{email['from']} {email['subject']} {email['body'][:4000]}")]
+            if len(same) == 1:
+                row = same[0]
         if not row and result.get('kind') == 'Interview scheduled' and not _about_tracked(
-                apps, f"{result['company']} {email['from']} {email['subject']}"):
+                apps, f"{result['company']} {email['from']} {email['subject']} {email['body'][:1500]}"):
             # An interview for a job not tracked yet (often via an agency, the employer unnamed): track it from the
             # email and let Focus ask for the missing details, rather than drop it or name the job after the agency.
             row = interview_lead(tracker, client, model, email, apps, result, stats)
@@ -379,22 +482,16 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
         if not row and named:
             # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.
             row = _from_email(tracker, apps, result, email, stats, lines, on_new)
-        if not row and not _about_tracked(apps, f"{result['company']} {email['from']} {email['subject']}"):
-            lines.append(f"📧 {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
-                         " — not tracked yet; /add its job URL to follow it.")
-            continue
-        if not row and result['kind'] not in ('Rejected', 'Offer'):
-            continue  # about a tracked process but not matched to one role: nothing reliable to log
-        if not row:  # an outcome for a tracked company that names no single role: ask rather than guess
-            lines.append(f"❓ {escape(result['company'] or email['subject'][:60])}: {escape(result['summary'])}"
-                         f" — the email doesn't say which role; set its Stage ({escape(result['kind'])}) yourself.")
-            if stats is not None:
-                stats.setdefault('updates', []).append(
-                    f"❓ {result['kind']} · {result['company'] or email['subject'][:60]} — which role? Set its Stage")
+        if not row:
+            # Not sure which job (or whether it's one you track): never guess, ask. Focus shows "Is this about …?"
+            # with the likeliest job; the answer is applied by src/ai/reassign.py.
+            text = f"{result.get('company') or ''} {email['from']} {email['subject']} {email['body'][:1500]}"
+            candidates = [r for r in apps if _about_tracked([r], text)]
+            ask(tracker, email, result, guess or (candidates[0] if candidates else None), index, lines, stats)
             continue
         changed = record(tracker, row, result['kind'], email['date'], 'Gmail', email['id'],
                          f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now,
-                         feedback_text=verified_feedback(result.get('feedback'), email['body']))
+                         feedback_text=verified_feedback(result.get('feedback'), email['body']), email=email)
         if changed:
             when = _when(result['interview_at'] or '')
             extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''
@@ -499,7 +596,13 @@ def _sender_org(sender):
     """"Huxley" from "Jaya <j.nejati@huxley.com>": the agency or company an email comes from."""
     domain = (re.search(r'@([\w.-]+)', sender or '') or [None, ''])[1].lower()
     parts = [p for p in domain.split('.') if p not in ('mail', 'email', 'co', 'com', 'ch', 'de', 'io', 'uk', 'net', 'org')]
-    return parts[-1].capitalize() if parts else ''
+    org = parts[-1] if parts else ''
+    return '' if org in PLATFORMS else org.capitalize()
+
+
+# Where a message comes from, not who sends it: never an agency or employer.
+PLATFORMS = {'linkedin', 'gmail', 'googlemail', 'google', 'outlook', 'hotmail', 'live', 'yahoo', 'icloud', 'me', 'proton',
+             'protonmail', 'gmx', 'calendly', 'cal', 'zoom', 'teams', 'microsoft', 'xing', 'indeed', 'glassdoor'}
 
 
 def interview_lead(tracker, client, model, email, apps, result, stats):
@@ -512,10 +615,18 @@ def interview_lead(tracker, client, model, email, apps, result, stats):
     except Exception as error:  # noqa: BLE001 — the email's own facts are enough to track it
         print(f"Warning: interview email {email['id']} not read: {type(error).__name__}: {error}", file=sys.stderr)
         lead = {}
+    linkedin = 'linkedin.com' in email['from'].lower()
     lead = {**lead, 'title': lead.get('title') or result.get('role') or email['subject'][:120],
-            'company': lead.get('company') or '', 'platform': 'Email'}
+            'company': lead.get('company') or '', 'platform': 'LinkedIn' if linkedin else 'Email'}
+    if (lead.get('recruiter_company') or '').lower() in PLATFORMS:
+        lead['recruiter_company'] = ''
     if not lead.get('company') and not lead.get('recruiter_company'):
         lead['recruiter_company'] = _sender_org(email['from'])
+    if not linkedin and not lead.get('recruiter_email'):  # the next email from this person finds this job
+        parsed = re.match(r'\s*"?([^"<]*)"?\s*<([^>]+)>', email['from'])
+        name, address = parsed.groups() if parsed else ('', email['from'])
+        lead['recruiter_email'] = address.strip()
+        lead['recruiter_name'] = lead.get('recruiter_name') or person_name(name)
     try:
         row, _ = opportunity.track(tracker, lead, text, source='Gmail', event_source='Gmail', talking=True,
                                    at=email['date'], gmail_id=email['id'],
@@ -561,6 +672,27 @@ def _contact_names(row):
     return {m.lower() for m in re.findall(r"\b[A-Z][a-zà-ÿ'-]+ [A-Z][a-zà-ÿ'-]+\b", _field(row, 'Contact'))}
 
 
+def person_name(value):
+    """"Jayantie Nejati" from "Seosahai - Nejati, Jayantie" (Outlook's "Last, First" with a prefix)."""
+    value = (value or '').strip()
+    if ',' in value:
+        last, first = value.split(',', 1)
+        value = f"{first.strip()} {last.split('-')[-1].strip()}"
+    return re.sub(r'\s+', ' ', value).strip()
+
+
+def _names_person(row, text):
+    """True if the text names this job's contact person: first and last name both, in any order or format."""
+    words = set(re.findall(r'[a-zà-ÿ]+', text.lower()))
+    for person in _field(row, 'Contact').split(' · '):
+        if '@' in person:
+            continue
+        parts = {w for w in re.findall(r'[a-zà-ÿ]+', person_name(person).lower()) if len(w) >= 3}
+        if len(parts) >= 2 and len(parts & words) >= 2:
+            return True
+    return False
+
+
 def _names_it(row, email):
     """True if the email names the application: its company, agency, contact (name or email), or comes from the
     domain of one of its contacts. A job with nothing to name (no company, agency or contact) can't be checked."""
@@ -586,7 +718,8 @@ def _matches(row, text):
     names += [n.split()[0].lower() for n in names if len(n.split()[0]) >= 5]
     names += sorted(_contact_names(row))
     emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())
-    return any(re.search(rf'(?<![\w]){re.escape(n)}(?![\w])', text) for n in names) or any(e in text for e in emails)
+    return (any(re.search(rf'(?<![\w]){re.escape(n)}(?![\w])', text) for n in names) or any(e in text for e in emails)
+            or _names_person(row, text))
 
 
 def _by_mention(apps, text):
