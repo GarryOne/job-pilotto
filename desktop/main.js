@@ -1020,6 +1020,15 @@ function handlers() {
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
   ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, trial: testBuild?.line || ''}));
   ipcMain.handle('updateInstall', () => installUpdate());
+  // Why setup stopped (the quit question or "Stuck? Tell us"): a setup report; typed words also reach the owner.
+  ipcMain.handle('leaveReason', async (_, answer = {}) => {
+    const event = answer.reason ? setupFunnel.stopped(answer, storage.settings()) : null;
+    if (event && telemetry) { telemetry.record('setup', event); await telemetry.flush().catch(() => {}); }
+    if (event?.said) await appFeedback.send({text: `[Setup · ${event.where} · ${setupFunnel.REASONS[event.reason]}] ${event.said}`, contact: answer.contact || ''},
+      {storage, version: app.getVersion()}).catch(() => {});
+    if (answer.mode === 'quit') setTimeout(() => app.quit(), 100);
+    return {ok: true};
+  });
   // Send feedback… (lib/app-feedback.js): to the owner, through the website. Demo mode sends nothing.
   ipcMain.handle('sendFeedback', (_, text, contact) => DEMO ? {ok: true}
     : appFeedback.send({text, contact}, {storage, version: app.getVersion()}));
@@ -1413,6 +1422,15 @@ app.on('will-quit', () => terminals.shutdown());
 let quitting = false;
 app.on('before-quit', event => {
   if (quitting || DEMO || process.env.JOB_PILOTTO_SMOKE) return;
+  // Quitting mid-setup: once, ask why (lib/setup-funnel.js). The window answers with leaveReason, which quits again.
+  if (storage && window && !window.isDestroyed() && setupFunnel.shouldAskOnQuit(storage.settings(), !!telemetry?.enabled())) {
+    event.preventDefault();
+    storage.saveSettings({leaveAsked: true});
+    window.show();
+    toWindow('askWhyLeaving');
+    setTimeout(() => app.quit(), 5 * 60 * 1000);  // no answer: quit anyway
+    return;
+  }
   const busy = pipeline.running(), queue = pipeline.queued();
   // Claude sessions actively working. One waiting for you (a question, a filled form) is kept as it is: it comes
   // back at the next start, and Resume reopens its conversation.

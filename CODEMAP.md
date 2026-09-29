@@ -98,6 +98,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
 - `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads
+- `desktop/renderer/pages/why-stop.js` — Why setup stopped: asked once when quitting mid-setup ("Leaving setup?"), or any time from "Stuck? Tell us" in the
 - `desktop/renderer/pages/wizard.js` — The setup wizard.
 
 ## Desktop window: shared modules

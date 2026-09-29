@@ -23,6 +23,7 @@
       <li data-step="extras">Optional extras</li>
     </ol>
     <button class="wizard-exit" id="wizard-exit" hidden>✕ Back to the app</button>
+    <button class="link wizard-stuck" id="wizard-stuck" type="button">Stuck? Tell us</button>
     <p class="fine">Your data stays in your own accounts: this Mac and your Notion. Keys are encrypted with your Mac's Keychain.</p>
     <p class="fine app-version" data-version></p>
   </aside>
@@ -1203,6 +1204,29 @@
     <div class="dialog-foot">
       <button class="ghost" value="cancel" formnovalidate>Not now</button>
       <button id="allowance-settings" type="button" class="primary" value="default">Open License settings</button>
+    </div>
+  </form>
+</dialog>
+<!-- Why setup stopped (pages/why-stop.js): when quitting mid-setup, or "Stuck? Tell us" in the wizard. -->
+<dialog id="why-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="chat"></i></span><h2 id="why-title">Leaving setup? What stopped you?</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
+    <p class="dialog-lead" id="why-lead">One tap helps make setup easier for the next person. Optional.</p>
+    <div class="why-options" id="why-options">
+      <label><input type="radio" name="why" value="notion"> I don't use Notion</label>
+      <label><input type="radio" name="why" value="ai"> The AI key or its cost</label>
+      <label><input type="radio" name="why" value="time"> Setup takes too long</label>
+      <label><input type="radio" name="why" value="privacy"> Privacy concerns</label>
+      <label><input type="radio" name="why" value="looking"> Just looking, I'll come back</label>
+      <label><input type="radio" name="why" value="broke"> Something broke</label>
+      <label><input type="radio" name="why" value="other"> Other</label>
+    </div>
+    <label for="why-text">Anything to add? <span class="muted">(optional)</span></label>
+    <textarea id="why-text" rows="3" maxlength="500"></textarea>
+    <div class="dialog-foot">
+      <button class="ghost" id="why-skip" type="button">Just quit</button>
+      <button class="primary" id="why-send" type="button">Send &amp; quit</button>
     </div>
   </form>
 </dialog>

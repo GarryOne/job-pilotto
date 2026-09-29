@@ -31,6 +31,7 @@ import {init as update} from './pages/update.js';
 import {init as telemetry} from './pages/telemetry.js';
 import {init as license} from './pages/license.js';
 import {init as appFeedback} from './pages/app-feedback.js';
+import {init as whyStop} from './pages/why-stop.js';
 
 await core();
 await wizard();
@@ -50,6 +51,7 @@ await update();
 await telemetry();
 await license();
 await appFeedback();
+await whyStop();
 await cvChange();
 await data();
 await startup();

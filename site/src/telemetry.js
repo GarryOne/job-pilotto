@@ -81,6 +81,8 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   return {from, days, rows, installs, outcomes, reporting: health.length};
 }
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
+export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
+  looking: 'Just looking', broke: 'Something broke', other: 'Other'};  // = desktop/lib/setup-funnel.js REASONS
 export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];
 export async function funnel(db, days, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
@@ -88,9 +90,15 @@ export async function funnel(db, days, now = new Date()) {
   const furthest = {}, minutesDone = [];
   let trial = 0;
   const trialInstalls = new Set();
+  const stopped = {};  // step -> reason -> count ("Leaving setup?" and "Stuck? Tell us")
   for (const row of rows) {
     let data = {};
     try { data = JSON.parse(row.data); } catch {}
+    if (data.step === 'stopped') {
+      const at = String(data.where || '?'), why = String(data.reason || 'other');
+      (stopped[at] ||= {})[why] = (stopped[at][why] || 0) + 1;
+      continue;
+    }
     const index = SETUP_STEPS.indexOf(data.step);
     if (index < 0) continue;
     furthest[row.install] = Math.max(furthest[row.install] ?? -1, index);
@@ -100,7 +108,7 @@ export async function funnel(db, days, now = new Date()) {
   trial = trialInstalls.size;
   const reached = SETUP_STEPS.map((step, i) => ({step, n: Object.values(furthest).filter(max => max >= i).length}));
   minutesDone.sort((a, b) => a - b);
-  return {reached, started: Object.keys(furthest).length, medianMinutes: minutesDone.length ? minutesDone[Math.floor(minutesDone.length / 2)] : null, trial};
+  return {stopped, reached, started: Object.keys(furthest).length, medianMinutes: minutesDone.length ? minutesDone[Math.floor(minutesDone.length / 2)] : null, trial};
 }
 
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
@@ -141,7 +149,10 @@ ${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">
 ${data.funnel?.started ? `<table style="margin-top:8px">${data.funnel.reached.map(({step, n}, i, all) => `<tr><td style="width:110px">${esc(step)}</td>
   <td><div style="background:var(--amber);height:10px;border-radius:5px;width:${Math.round(n / all[0].n * 100)}%"></div></td>
   <td style="width:60px"><b>${n}</b></td><td class="muted" style="width:90px">${i && all[i - 1].n ? `${Math.round(n / all[i - 1].n * 100)}% of prev` : ''}</td></tr>`).join('')}</table>`
-  : '<p class="muted">No setups reported yet.</p>'}</section>
+  : '<p class="muted">No setups reported yet.</p>'}
+${Object.keys(data.funnel?.stopped || {}).length ? `<h2 style="margin-top:14px">Why they stopped</h2><table>${Object.entries(data.funnel.stopped)
+  .map(([at, reasons]) => `<tr><td style="width:110px">${esc(at)}</td><td>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
+    .map(([why, n]) => `${esc(STOP_REASONS[why] || why)} <b>×${n}</b>`).join(' · ')}</td></tr>`).join('')}</table>` : ''}</section>
 <section class="card"><h2>Problems, most users first</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 <section class="card" style="margin-top:12px"><h2>💬 Feedback, newest first</h2><small class="muted">From Send feedback in the app (also sent to the Job Pilotto Brain bot). Last ${data.days < 30 ? 30 : data.days} days.</small>

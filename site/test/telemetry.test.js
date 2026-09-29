@@ -137,3 +137,12 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   const f = await funnel(e.STATS, 30);
   assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1]);
 });
+
+test('why they stopped: reasons per step on the funnel', async () => {
+  const e = env();
+  const at = new Date().toISOString();
+  const stop = (install, step, reason) => ({kind: 'setup', install, version: '0.4.0-alpha.82', platform: 'darwin', at, step: 'stopped', where: step, reason});
+  await send(e, [stop('install-aaaa', 'notion', 'notion'), stop('install-bbbb', 'notion', 'notion'), stop('install-cccc', 'notion', 'privacy')]);
+  const {funnel} = await import('../src/telemetry.js');
+  assert.deepEqual((await funnel(e.STATS, 30)).stopped, {notion: {notion: 2, privacy: 1}});
+});

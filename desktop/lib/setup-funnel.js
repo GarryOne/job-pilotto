@@ -13,3 +13,19 @@ export function track(patch, before, now = Date.now()) {
   if (index > furthest) return {step: patch.wizardStep, index, minutes, ai};
   return null;
 }
+
+// Why people stop (the "Leaving setup?" question when quitting mid-setup, and "Stuck? Tell us" on every step):
+// one of these reasons, the step they were on, and optional words. Sent as a "setup" report with step "stopped".
+export const REASONS = {
+  notion: "I don't use Notion", ai: 'The AI key or its cost', time: 'Setup takes too long', privacy: 'Privacy concerns',
+  looking: "Just looking, I'll come back", broke: 'Something broke', other: 'Other',
+};
+
+export function stopped({reason, text = '', mode = 'quit'}, settings) {
+  if (!REASONS[reason]) return null;
+  return {step: 'stopped', where: settings.wizardStep || settings.setupFurthest || 'welcome', reason, mode,
+    ...(text.trim() ? {said: text.trim().slice(0, 500)} : {})};
+}
+
+// Ask when quitting only while setup isn't done, once per install, and only if reports are on.
+export const shouldAskOnQuit = (settings, reportsOn) => reportsOn && !settings.setupDone && !settings.leaveAsked;

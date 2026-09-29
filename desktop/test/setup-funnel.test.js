@@ -26,3 +26,15 @@ test('one report per step reached, only moving forward; one when setup finishes'
   assert.equal(track({setupDone: true}, {...before, setupDone: true}), null);
   assert.equal(track({theme: 'dark'}, before), null);
 });
+
+test('why they stopped: a known reason, the step they were on, optional words; asked once, only mid-setup', async () => {
+  const {stopped, shouldAskOnQuit} = await import('../lib/setup-funnel.js');
+  assert.deepEqual(stopped({reason: 'notion', text: ' no account '}, {wizardStep: 'notion'}),
+    {step: 'stopped', where: 'notion', reason: 'notion', mode: 'quit', said: 'no account'});
+  assert.equal(stopped({reason: 'nonsense'}, {}), null);
+  assert.equal(stopped({reason: 'time', mode: 'stuck'}, {setupFurthest: 'cv'}).where, 'cv');
+  assert.equal(shouldAskOnQuit({}, true), true);
+  assert.equal(shouldAskOnQuit({setupDone: true}, true), false);
+  assert.equal(shouldAskOnQuit({leaveAsked: true}, true), false);
+  assert.equal(shouldAskOnQuit({}, false), false);
+});
