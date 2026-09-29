@@ -3,6 +3,7 @@
 // tick in the form, and its "Open the form to tick it" makes the page scroll to that field.
 //   page -> app  POST /extension/review {url, title, left, total, missing: [label], watch: [{id, filled: true|false|null}]}
 //   app -> page  the reply: {matched, watch: [{id, label}], commands: [{focus: label}]}
+import fs from 'node:fs';
 import {scoreTab} from './form-tab.js';
 
 const MIN_SCORE = 50;          // the company in the title or an application-form host naming it, at least
@@ -12,6 +13,19 @@ const commands = new Map();    // session id -> [{focus, at}]
 const last = new Map();        // session id -> the last state passed on
 const waiting = new Map();     // session id -> resolvers waiting for a page to take a "show me this field"
 let reporter = () => {};
+let keptFile = '';             // the last states, on disk: a restarted app shows "Ready to submit" before the page reports again
+
+// Load the saved states (only for sessions that still exist), then save every change.
+export function persist(file, sessionIds = null) {
+  keptFile = file;
+  try {
+    for (const state of JSON.parse(fs.readFileSync(file, 'utf8'))) if (state?.id && (!sessionIds || sessionIds.includes(state.id))) last.set(state.id, state);
+  } catch {}
+}
+function save() {
+  if (!keptFile) return;
+  try { fs.writeFileSync(keptFile, JSON.stringify([...last.values()]), {mode: 0o600}); } catch {}
+}
 export const setReporter = fn => { reporter = fn; };
 
 // The session a form page belongs to: the best match by the job's URL, ID, company and site; the later start wins a tie.
@@ -54,7 +68,7 @@ export function report(sessions, payload, now = Date.now()) {
   const state = {id: session.id, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   state.ready = state.total > 0 && state.left === 0;
-  if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); reporter({...state, at: now}); }
+  if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);
   if (due.length) { for (const done of waiting.get(session.id) || []) done(); waiting.delete(session.id); }
@@ -65,4 +79,4 @@ export function report(sessions, payload, now = Date.now()) {
 }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
-export const _reset = () => { watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests
+export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests

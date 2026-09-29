@@ -76,3 +76,18 @@ test('a window that just loaded gets every form\'s last state (they are passed o
   const all = review.allStates();  // …but a reloaded window asks, and gets it
   assert.deepEqual(all.map(state => [state.id, state.ready, state.states]), [['s1', true, {w1: true}]]);
 });
+
+test('the last form states are saved and come back after a restart (only for sessions that still exist)', async () => {
+  const {mkdtempSync} = await import('node:fs');
+  const {tmpdir} = await import('node:os');
+  const file = `${mkdtempSync(`${tmpdir()}/review-`)}/review-states.json`;
+  review._reset();
+  review.persist(file);
+  review.report(sessions, form({left: 0, total: 14}));
+  review._reset();
+  review.persist(file, ['s1']);
+  assert.deepEqual(review.allStates().map(state => [state.id, state.ready]), [['s1', true]]);
+  review._reset();
+  review.persist(file, ['s2']);
+  assert.deepEqual(review.allStates(), []);
+});

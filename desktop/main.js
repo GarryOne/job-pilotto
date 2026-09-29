@@ -1036,6 +1036,8 @@ if (firstCopy) app.whenReady().then(() => {
       : `Chrome extension connection failed: ${error.message}`));
   }
   if (!DEMO) { terminals.persist(path.join(storage.dir, 'sessions.json')); terminals.restore(); }  // sessions of the last run
+  // Each form's last state (ready to submit?), so a restart shows it before Chrome's tabs report again.
+  if (!DEMO) review.persist(path.join(storage.dir, 'review-states.json'), terminals.list().map(session => session.id));
   // Each session's statistics on its Agent Runs row in Notion, a few seconds after each change (lib/session-runs.js).
   if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => ({
     call: (method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body),
