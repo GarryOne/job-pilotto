@@ -11,8 +11,8 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 - Main ↔ window: `preload.cjs` (window.pilot.*) ↔ `ipcMain.handle(...)` in `main.js`. `test/ipc.test.js` checks both halves.
 
 ## The loop (small change: 5–10 minutes)
-1. `git worktree add -q .claude/worktrees/<name> -b <branch> origin/main`, then
-   `ln -s /Users/mac/sre-watch/desktop/node_modules desktop/node_modules` (never `npm install` in a worktree).
+1. `tools/worktree.sh <topic>` (a worktree from origin/main with node_modules linked; never `npm install` in it);
+   `tools/worktree.sh --done <topic>` when landed.
 2. Edit with anchored replacements: check the anchor exists (`assert old in s`). **Never cut code by index ranges**
    (`s[a:b]`) without printing the range first: it once deleted a whole render block.
 3. `cd desktop && node scripts/stage.mjs >/dev/null && npm test` (builds `shared/`; ~20 s).

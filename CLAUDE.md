@@ -9,7 +9,9 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 4. **Code: read `CODEMAP.md` first** (every file → its purpose, generated, kept fresh by a test), then open only the file
    you need. Changing `desktop/`: follow the skill **desktop-change** (`.claude/skills/desktop-change/SKILL.md`): the fast
    edit → check → push loop and the traps that caused real bugs. Screens: skill **ui-look-and-feel**.
-5. New file: start it with a one-line comment (docstring in Python) saying what it's for; `node desktop/scripts/codemap.mjs`
+5. Humans and agents alike: [CONTRIBUTING.md](CONTRIBUTING.md) (the change loop, where things go) and
+   [RELEASE.md](RELEASE.md) (pre-releases, `tools/release-stable.sh`, what updates on a friend's side).
+6. New file: start it with a one-line comment (docstring in Python) saying what it's for; `node desktop/scripts/codemap.mjs`
    then updates `CODEMAP.md`.
 
 ## Working rules

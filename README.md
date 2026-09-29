@@ -933,6 +933,8 @@ run after 04:00 UTC sends the day's insight, or the weekly report on Mondays.
 
 ## Tests
 
+Contributing (the change loop, where things go): [CONTRIBUTING.md](CONTRIBUTING.md) · releases: [RELEASE.md](RELEASE.md).
+
 ```sh
 python3 -m unittest discover -s tests
 cd worker && npm test
