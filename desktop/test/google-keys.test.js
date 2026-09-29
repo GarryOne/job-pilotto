@@ -20,3 +20,15 @@ test('Always on sends the extra secrets (the Google sign-in) with the app\'s own
     assert.ok(!('GOOGLE_CLIENT_ID' in secrets));  // empty values are not sent
   } finally { github.setExtraSecrets(() => ({})); }
 });
+
+test("an installed app pins the user's repo to its own release (workflow and code); a source checkout keeps main", () => {
+  const storage = {settings: () => ({}), secret: () => '', readText: () => ''};
+  github.setEngineRef('desktop-v0.4.1');
+  try {
+    const daily = github.payload(storage).files['.github/workflows/daily.yml'];
+    assert.match(daily, /uses: GarryOne\/job-pilotto\/\.github\/workflows\/daily\.yml@desktop-v0\.4\.1/);
+    assert.match(daily, /code_ref: desktop-v0\.4\.1/);
+    assert.doesNotMatch(daily, /@main|code_ref: main/);
+  } finally { github.setEngineRef('main'); }
+  assert.match(github.payload(storage).files['.github/workflows/mail.yml'], /mail\.yml@main[\s\S]*code_ref: main/);
+});

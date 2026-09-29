@@ -29,6 +29,13 @@ export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_
 // main.js sets the reader; they go to the repo with the rest, so a Gmail check on GitHub can sign in.
 let extraSecrets = () => ({});
 export const setExtraSecrets = read => { extraSecrets = read; };
+// Which Job Pilotto code the user's repo runs: an installed app sets its own release tag (desktop-v<version>), so
+// the GitHub runs match the app and its Notion schema, and move on together when the app updates (the files are
+// rewritten at each start). A source checkout (the owner's) keeps "main".
+let engineRef = 'main';
+export const setEngineRef = ref => { engineRef = ref || 'main'; };
+const pinned = yaml => (engineRef === 'main' ? yaml
+  : yaml.replace(/(GarryOne\/job-pilotto\/\.github\/workflows\/[\w.-]+\.yml)@main/g, `$1@${engineRef}`).replace(/code_ref: main\b/g, `code_ref: ${engineRef}`));
 const MODEL_VARIABLES = {
   JOB_PILOTTO_ENRICH_MODEL: 'enrich', JOB_PILOTTO_SCORE_MODEL: 'score', JOB_PILOTTO_KIT_MODEL: 'kit',
   JOB_PILOTTO_INSIGHT_MODEL: 'insight', JOB_PILOTTO_MAIL_MODEL: 'enrich',
@@ -149,7 +156,7 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   const files = {};
   const schedule = crons(storage.settings());  // how often, as the user chose (Settings → How often)
   for (const name of fs.readdirSync(templatesDir).filter(name => name.endsWith('.yml'))) {
-    files[`.github/workflows/${name}`] = withSchedule(fs.readFileSync(path.join(templatesDir, name), 'utf8'), schedule[name]);
+    files[`.github/workflows/${name}`] = pinned(withSchedule(fs.readFileSync(path.join(templatesDir, name), 'utf8'), schedule[name]));
   }
   files['README.md'] = fs.readFileSync(path.join(templatesDir, 'README.md'), 'utf8');
   for (const name of CONFIG_FILES) {

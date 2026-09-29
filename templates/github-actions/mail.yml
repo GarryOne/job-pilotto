@@ -20,4 +20,5 @@ jobs:
       delay: ${{ inputs.delay || '0' }}
       days: ${{ inputs.days || '2' }}
       code_repository: GarryOne/job-pilotto
+      code_ref: main   # the Job Pilotto app writes its own release here, so this repo runs the code of the installed app
     secrets: inherit

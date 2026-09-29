@@ -9,6 +9,7 @@ on:
     inputs:
       batch: {type: string, default: '15'}
       code_repository: {type: string, default: ''}
+      code_ref: {type: string, default: '', description: 'the release tag of that code (the app pins its own version); empty: the default branch'}
   workflow_dispatch:
     inputs:
       batch:
@@ -54,6 +55,7 @@ jobs:
         # Called from a private repo (templates/github-actions): run this repo's code there.
         with:
           repository: ${{ inputs.code_repository || github.repository }}
+          ref: ${{ inputs.code_ref }}
       # Called from a private repo: its config/ (the user's search.json and preferences.json, written
       # by the Desktop App) replaces the defaults; files it doesn't have keep this repo's version.
       - name: Your settings

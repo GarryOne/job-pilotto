@@ -62,6 +62,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const DEMO = !!process.env.JOB_PILOTTO_DEMO;
 // Always on also gives the repo the Google sign-in (kept in the Keychain by the Python side, not the app's store).
 github.setExtraSecrets(() => (DEMO ? {} : googleSecrets()));
+// The user's repo runs this app's own release of the code (a source checkout: main), so both update together.
+github.setEngineRef(app.isPackaged ? `desktop-v${app.getVersion()}` : 'main');
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build
 // (scripts/stage.mjs --app); without it this is a development copy (npm start).
 const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();

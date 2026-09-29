@@ -14,6 +14,7 @@ on:
       note: {type: string, default: ''}
       interview: {type: string, default: ''}
       code_repository: {type: string, default: '', description: 'owner/repo whose code runs (this public repo)'}
+      code_ref: {type: string, default: '', description: 'the release tag of that code (the app pins its own version); empty: the default branch'}
   workflow_dispatch:
     inputs:
       mode:
@@ -83,6 +84,7 @@ jobs:
         # Called from a private repo (templates/github-actions): run this repo's code there.
         with:
           repository: ${{ inputs.code_repository || github.repository }}
+          ref: ${{ inputs.code_ref }}
       # Called from a private repo: its config/ (the user's search.json and preferences.json, written
       # by the Desktop App) replaces the defaults; files it doesn't have keep this repo's version.
       - name: Your settings
@@ -180,6 +182,7 @@ jobs:
           fi
           if [ -n "$JOB_PILOTTO_INSIGHT_MODEL" ] && [ "$MODE" = scheduled ]; then ai="$ai --insight"; fi
           # --log-run: every run leaves its ⏱️ Search runs row (running, then result and log), Telegram or not.
+          # shellcheck disable=SC2086  # $send and $ai are lists of flags, split on purpose
           python -m src daily $send --log-run --mode "$MODE" ${JOB:+--job "$JOB" --action "$ACTION"} ${PAGE:+--page "$PAGE"} ${SEED:+--seed "$SEED"} ${FILE:+--file "$FILE"} ${NOTE:+--note "$NOTE"} ${INTERVIEW:+--interview "$INTERVIEW"} $ai
       - name: Report failure to Telegram
         if: failure()
