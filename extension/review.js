@@ -88,13 +88,31 @@
     }
     return bestShare >= 0.7 && bestCount >= 3 ? best : null;
   }
+  // The page's highlight for fields (one stylesheet, added once, shared by fill.js and review.js): a soft amber ring
+  // and glow instead of a hard border or outline. "review": an answer the AI wrote (pulses 3 times, then stays soft);
+  // "flash": the field the panel or the app pointed at (pulses, removed after a few seconds).
+  const glowStyle = () => {
+    if (document.getElementById('jobpilotto-glow-style')) return;
+    const style = document.createElement('style');
+    style.id = 'jobpilotto-glow-style';
+    style.textContent = `
+      @keyframes jobpilotto-pulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(245,158,11,.45), 0 0 10px 2px rgba(245,158,11,.18); }
+        50% { box-shadow: 0 0 0 3px rgba(245,158,11,.75), 0 0 22px 6px rgba(245,158,11,.35); } }
+      .jobpilotto-review { box-shadow: 0 0 0 2px rgba(245,158,11,.45), 0 0 10px 2px rgba(245,158,11,.18) !important;
+        animation: jobpilotto-pulse 1.4s ease-in-out 3; transition: box-shadow .3s ease; }
+      .jobpilotto-flash { box-shadow: 0 0 0 3px rgba(240,112,20,.8), 0 0 24px 6px rgba(240,112,20,.35) !important;
+        animation: jobpilotto-pulse 1s ease-in-out 3; transition: box-shadow .3s ease; }
+      @media (prefers-reduced-motion: reduce) { .jobpilotto-review, .jobpilotto-flash { animation: none; } }`;
+    document.head.append(style);
+  };
   function flash(el) {
     el.scrollIntoView({behavior: 'smooth', block: 'center'});
     const target = el.closest('fieldset') || el;
-    const [outline, offset] = [target.style.outline, target.style.outlineOffset];
-    target.style.outline = '3px solid #f07014';
-    target.style.outlineOffset = '4px';
-    setTimeout(() => { target.style.outline = outline; target.style.outlineOffset = offset; }, 3500);
+    glowStyle();
+    target.classList.remove('jobpilotto-flash');
+    void target.offsetWidth;  // restart the pulse when the same field is shown again
+    target.classList.add('jobpilotto-flash');
+    setTimeout(() => target.classList.remove('jobpilotto-flash'), 3500);
     // The cursor goes into text fields only: a dropdown would open its menu, a box would look ticked-by-us.
     if (!['checkbox', 'radio', 'file'].includes(el.type) && el.getAttribute('role') !== 'combobox' && el.tagName !== 'SELECT') el.focus({preventScroll: true});
   }
