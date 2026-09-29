@@ -85,8 +85,11 @@ function showFormCard(item, state) {
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
   const start = Date.parse(item.startedAt || 0) || 0;
+  // An extension older than 0.8.12 sends no filled fields: say what's left only, not "0 filled".
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
-  $('ss-form-summary').textContent = `Show fields · ${filled.length} filled${state.left ? ` · ${state.left} left` : ''}`;
+  const left = state.pending || state.missing || [];
+  $('ss-form-summary').textContent = ['Show fields', state.filled && `${filled.length} filled`, state.left && `${state.left} left`].filter(Boolean).join(' · ');
+  $('ss-form-more').hidden = !filled.length && !left.length;
   const row = (kind, time, mark, label) => {
     const li = el('li', kind);
     li.append(el('span', 'ss-form-time', time), el('span', 'ss-form-mark', mark), el('span', '', label));
@@ -94,7 +97,7 @@ function showFormCard(item, state) {
   };
   $('ss-form-fields').replaceChildren(
     ...filled.map(field => row('is-filled', start ? clock(Math.max(0, field.at - start)) : '', '✓', field.label)),
-    ...(state.missing || []).map(label => row('is-left', '', '○', label)));
+    ...left.map(label => row('is-left', '', '○', label)));
 }
 export function applyFormStates(item) {
   const state = reviewStates.get(item.id);

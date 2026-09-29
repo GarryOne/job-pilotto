@@ -67,10 +67,12 @@ export function report(sessions, payload, now = Date.now()) {
   for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
   const state = {id: session.id, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
+  // What's left as the ring counts it (an older extension sends only the required ones, as missing).
+  if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
   state.ready = state.total > 0 && state.left === 0;
   // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
   const seen = new Map((last.get(session.id)?.filled || []).map(item => [item.label, item.at]));
-  state.filled = (Array.isArray(payload.filled) ? payload.filled : []).slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
+  if (Array.isArray(payload.filled)) state.filled = payload.filled.slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
     .map(label => ({label, at: seen.get(label) ?? now}));
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);

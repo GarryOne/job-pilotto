@@ -106,6 +106,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/scripts/adhoc-sign.cjs` — electron-builder afterPack hook: ad-hoc sign the whole app bundle.
 - `desktop/scripts/apply-demo.mjs` — The website's "How automatic apply works" videos, recorded in real time from staged pages (a Greenhouse-style form,
 - `desktop/scripts/codemap.mjs` — CODEMAP.md at the repo root: every source file and what it's for, from its own first comment (JS) or docstring
+- `desktop/scripts/extension-fingerprint.mjs` — The Chrome extension's fingerprint (extension/fingerprint.json): a hash of its files, with the version it shipped as.
 - `desktop/scripts/record-page.cjs` — Records a web page as frames while it animates (Electron offscreen, a fixed frame rate), for the website's videos.
 - `desktop/scripts/screenshots.mjs` — Screenshots and a short walkthrough video of the app for the website (site/public/images/app/),
 - `desktop/scripts/shot.mjs` — One screen, fast (~5 s), to check a change: npm run shot -- <page> [options]. Fictional demo data only (demo/).

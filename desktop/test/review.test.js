@@ -104,3 +104,16 @@ test('each filled field is ticked off with the time it was first seen, and keeps
   review.report(sessions, form({left: 3, filled: ['First name']}), 9500);  // emptied again: off the list
   assert.deepEqual(heard.at(-1).filled.map(item => item.label), ['First name']);
 });
+
+test('what is left comes as the ring counts it, and an older extension sends no filled list at all', () => {
+  review._reset();
+  const heard = [];
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({left: 1, missing: [], pending: ['Additional Information'], filled: ['Email']}), 1000);
+  assert.deepEqual(heard.at(-1).pending, ['Additional Information']);  // an emptied answer Claude wrote, not required
+  review._reset();
+  review.setReporter(state => heard.push(state));
+  review.report(sessions, form({left: 1, missing: []}), 2000);  // 0.8.11: no "filled", no "pending"
+  assert.equal(heard.at(-1).filled, undefined);  // unknown, not "0 filled"
+  assert.equal(heard.at(-1).pending, undefined);
+});
