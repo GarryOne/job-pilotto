@@ -1009,8 +1009,9 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .ss-form-fields .is-filled .ss-form-mark { color: var(--good); }
 .ss-form-fields .is-left .ss-form-mark, .ss-form-fields .is-left .ss-form-label { color: var(--warn); }
 /* A finished session's log as its conversation: page text on the log's dark ground, full width */
-/* The log keeps a terminal window's shape (16:10) at any zoom or window size, never taller than most of the window */
-.ss-transcript, .ss-terminal { aspect-ratio: 16 / 10; height: auto; max-height: 75vh; min-height: 240px; }
+/* The log keeps a terminal window's shape (16:10), full width, but never taller than 560 px or 75% of the window
+   (zoomed out on a wide screen it filled the whole page) */
+.ss-transcript, .ss-terminal { aspect-ratio: 16 / 10; height: auto; max-height: min(75vh, 560px); min-height: 240px; }
 .ss-transcript { overflow: auto; padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-3);
   color: var(--on-navy); font-size: var(--fs-md); line-height: 1.55; }
 .ss-tr-who { display: flex; gap: var(--sp-2); align-items: baseline; margin-bottom: 2px; font-size: var(--fs-sm); }
