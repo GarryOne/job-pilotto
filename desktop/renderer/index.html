@@ -10,6 +10,12 @@
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
+<!-- "Look around first" (lib/demo.js): shown only in that demo, above the whole window (pages/demo.js). -->
+<div class="demo-banner" id="demo-banner" role="status" hidden>
+  <i data-icon="eye"></i>
+  <span><b>You're looking at demo data</b> — nothing is real, nothing is sent.</span>
+  <button class="primary" id="demo-leave">Set up my own</button>
+</div>
 <!-- First run: the setup wizard -->
 <section id="wizard" class="wizard" hidden>
   <aside class="steps">
@@ -41,7 +47,10 @@
         <li>Choose your CV</li>
         <li>Check the goals and strategy it proposes from your CV</li>
       </ul>
-      <div class="actions"><button class="primary" data-next>Start</button></div>
+      <div class="actions">
+        <button class="secondary" data-look-around="welcome" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
+        <button class="primary" data-next>Start</button>
+      </div>
       <p class="fine">Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
         interviews) to improve it for everyone. Never your answers, CV, emails or names. Turn them off any time in Settings → Advanced.</p>
     </div>
@@ -112,6 +121,7 @@
       </details>
       <div class="actions">
         <button class="ghost" data-back>Back</button>
+        <button class="secondary" data-look-around="notion" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
         <button class="primary" id="notion-next" hidden>Continue</button>
       </div>
     </div>

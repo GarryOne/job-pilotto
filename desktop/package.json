@@ -50,6 +50,7 @@
       "lib/**",
       "cv/**",
       "renderer/**",
+    "demo/**",
       "shared/**",
       "package.json",
       "build-info.json"

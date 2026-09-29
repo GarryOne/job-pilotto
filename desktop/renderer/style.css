@@ -1374,3 +1374,11 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .why-options { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); }
 .why-options label { margin: 0; display: flex; align-items: center; justify-content: flex-start; gap: var(--sp-2); font-weight: 500; cursor: pointer; }
 .why-options input[type=radio] { width: auto; flex: none; margin: 0; }
+/* "Look around first" demo (pages/demo.js): one bar above the whole window, always there; app or wizard fill the rest. */
+.demo-banner { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5);
+  background: var(--warn-soft); border-bottom: 1px solid var(--warn-line); font-size: var(--fs-md); color: var(--ink); }
+.demo-banner[hidden] { display: none; }
+.demo-banner .icon { width: 18px; height: 18px; color: var(--warn); flex: none; }
+.demo-banner span { flex: 1; }
+body.is-demo { display: flex; flex-direction: column; }
+body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height: 0; }

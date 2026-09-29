@@ -1,4 +1,5 @@
 // Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
+import * as demo from './demo.js';
 import * as requestLog from './request-log.js';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
@@ -93,7 +94,11 @@ export function stopRunning() { for (const child of children) child.kill('SIGTER
 // Every finished run is told to these (technical reports: a failed run, with its last lines; lib/telemetry.js).
 const runEnd = new Set();
 export const onRunEnd = listener => runEnd.add(listener);
+// Demo mode (lib/demo.js): only jobs that read the demo folder run; the rest end at once, nothing sent.
+let demoMode = false;
+export const setDemo = on => { demoMode = !!on; };
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
+  if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
   const told = onLine;
   onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };

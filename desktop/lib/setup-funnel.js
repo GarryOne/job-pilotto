@@ -29,3 +29,9 @@ export function stopped({reason, text = '', mode = 'quit'}, settings) {
 
 // Ask when quitting only while setup isn't done, once per install, and only if reports are on.
 export const shouldAskOnQuit = (settings, reportsOn) => reportsOn && !settings.setupDone && !settings.leaveAsked;
+// "Look around first" (lib/demo.js) from a setup step: a "setup" report the funnel doesn't count as a step
+// (the website ignores unknown steps), so the owner sees how many looked at the demo before setting up.
+export function lookAround(from, before, now = Date.now()) {
+  const minutes = before.firstRunAt ? Math.max(0, Math.round((now - Date.parse(before.firstRunAt)) / 60000)) : null;
+  return {step: 'look_around', from: STEPS.includes(from) ? from : 'other', minutes};
+}

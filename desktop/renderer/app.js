@@ -5,6 +5,7 @@ import {init as core} from './pages/core.js';
 import {shared} from './pages/shared.js';
 import {sessionList} from './pages/sessions.js';
 import {init as wizard} from './pages/wizard.js';
+import {init as demo} from './pages/demo.js';
 import {init as activity} from './pages/activity.js';
 import {init as strategyReview} from './pages/strategy-review.js';
 import {init as settings} from './pages/settings.js';
@@ -35,6 +36,7 @@ import {init as whyStop} from './pages/why-stop.js';
 
 await core();
 await wizard();
+await demo();
 await activity();
 await strategyReview();
 await settings();

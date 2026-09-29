@@ -48,6 +48,7 @@ import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 import * as telegramCloud from './lib/telegram-cloud.js';
 import * as licenseLib from './lib/license.js';
+import * as demo from './lib/demo.js';
 
 // Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
 // GitHub that haven't opened their row yet.
@@ -184,7 +185,12 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
 // profile and jobs for screenshots (scripts/screenshots.mjs). Nothing is contacted: no Python, Telegram,
 // GitHub or local server, and the keys in demo/secrets.json are placeholders stored unencrypted.
-const DEMO = !!process.env.JOB_PILOTTO_DEMO;
+// "Look around first" (setup wizard, lib/demo.js) starts it too, with --job-pilotto-demo=<a fresh copy of demo/>:
+// the same, plus the banner with "Set up my own", and the actions that would reach outside answer "demo".
+const DEMO_FOLDER = demo.folderFrom(process.argv);
+const LOOK_AROUND = !!DEMO_FOLDER;
+const DEMO = !!process.env.JOB_PILOTTO_DEMO || LOOK_AROUND;
+pipeline.setDemo(DEMO);  // Python: only the jobs that read the demo folder
 // Always on also gives the repo the Google sign-in (kept in the Keychain by the Python side, not the app's store).
 github.setExtraSecrets(() => (DEMO ? {} : googleSecrets()));
 // The user's repo runs this app's own release of the code (a source checkout: main), so both update together.
@@ -380,6 +386,8 @@ function announceRuns() {
 }
 
 function handlers() {
+  // Demo mode: what would reach outside or change this computer answers "demo" instead (lib/demo.js BLOCKED).
+  if (DEMO) ipcMain.handle = demo.guard(ipcMain.handle.bind(ipcMain));
   ipcMain.handle('state', () => ({
     about,
     settings: storage.settings(), secrets: storage.secretsPresent(),
@@ -389,7 +397,27 @@ function handlers() {
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
     templateUrl: notion.TEMPLATE.template_url,
     notionTitles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages},
+    demo: DEMO ? {lookAround: LOOK_AROUND} : null,
   }));
+  // "Look around first" (setup wizard): restart on a fresh copy of the demo data. The user's own folder, keys and
+  // setup step stay as they are; "Set up my own" (leaveDemo) restarts back into them.
+  ipcMain.handle('lookAround', async (_, from = '') => {
+    let folder;
+    try { folder = demo.prepare(path.join(here, 'demo')); } catch (error) { return {ok: false, error: `The demo couldn't start: ${error.message}`}; }
+    if (telemetry) {
+      telemetry.record('setup', setupFunnel.lookAround(String(from), storage.settings()));
+      await Promise.race([telemetry.flush(), new Promise(resolve => setTimeout(resolve, 1500))]);  // else sent at the next start
+    }
+    app.relaunch({args: demo.restartArgs(process.argv, folder)});
+    app.exit(0);
+    return {ok: true};
+  });
+  ipcMain.handle('leaveDemo', () => {
+    if (!LOOK_AROUND) return {ok: false};
+    app.relaunch({args: demo.restartArgs(process.argv)});
+    app.exit(0);
+    return {ok: true};
+  });
   // Connect to the user's Notion with a token (pasted, or from "Connect with Notion"): find the workspace, or
   // build it from the schema (lib/notion-workspace.js; templateRoot: the page Notion just copied the template into).
   async function connectNotion(token, {templateRoot = null} = {}) {
@@ -1145,7 +1173,8 @@ function handlers() {
 for (const stream of [process.stdout, process.stderr]) stream?.on?.('error', () => {});
 
 // A separate data folder for tests and demos (JOB_PILOTTO_USER_DATA), so they never touch the real one.
-if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
+if (DEMO_FOLDER) app.setPath('userData', DEMO_FOLDER);
+else if (process.env.JOB_PILOTTO_USER_DATA) app.setPath('userData', process.env.JOB_PILOTTO_USER_DATA);
 
 // A reset asked for in Settings → Danger zone: the data folder is moved aside (or deleted) now, before anything
 // opens it; the app then starts like the first time (the setup wizard).
