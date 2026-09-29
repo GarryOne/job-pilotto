@@ -355,6 +355,7 @@ export function refreshActivity() {
   if (activityTimer) return;
   activityTimer = setTimeout(async () => { activityTimer = null; renderActivity(await window.pilot.runs()); }, 250);
 }
+let expandedCard = '';  // the employers card showing all its rows (by its companies)
 // A run's message as a card: a row of counts, then one line per item (the full text: Open in Notion).
 function renderRunCard(card) {
   // One light line of counts ("37 open · 2 in Switzerland · 18 applied"), then one line per item.
@@ -379,7 +380,9 @@ function renderRunCard(card) {
   } else {
     stats.append(stat(card.checked, 'employers checked'), stat(card.fresh, 'new job feeds'));
     heading = 'New employers';
-    rows.append(...card.items.slice(0, 5).map(item => {
+    // Five at first; "+2 more" shows the rest here (Show less folds them), and the Employers database has them all.
+    const all = card.items.length > 5 && expandedCard === card.items.map(item => item.company).join('|');
+    rows.append(...card.items.slice(0, all ? undefined : 5).map(item => {
       const row = el('li', 'run-card-row');
       const words = el('span', 'run-card-words');
       words.append(el('b', '', item.company), el('span', 'muted', ` · ${[item.ats, item.roles != null && `${item.roles} SRE role${item.roles === 1 ? '' : 's'}`,
@@ -387,10 +390,22 @@ function renderRunCard(card) {
       row.append(words, ...(item.tier ? [el('span', 'run-card-fit', item.tier.replace('Tier ', 'T'))] : []));
       return row;
     }));
+    more = el('div', 'run-card-foot');
     const rest = card.items.length - 5;
-    more = el('span', 'muted small', [rest > 0 && `+${rest} more`, card.note].filter(Boolean).join(' · '));
+    if (rest > 0) {
+      const toggle = el('button', 'link', all ? 'Show less' : `+${rest} more`);
+      toggle.addEventListener('click', () => { expandedCard = all ? '' : card.items.map(item => item.company).join('|'); renderRunCard(card); });
+      more.append(toggle);
+    }
+    const employers = shared.state?.notion?.NOTION_EMPLOYERS_DB;
+    if (employers) {
+      const open = Object.assign(el('a', 'arrow-link', 'All employers in Notion ↗'), {href: '#'});
+      open.addEventListener('click', event => { event.preventDefault(); window.pilot.openNotion(employers, event.metaKey || event.ctrlKey); });
+      more.append(open);
+    }
+    if (card.note) more.append(el('span', 'muted', card.note));
   }
-  $('activity-card').replaceChildren(stats, el('h4', 'run-card-title', heading), rows, ...(more && more.textContent ? [more] : []));
+  $('activity-card').replaceChildren(stats, el('h4', 'run-card-title', heading), rows, ...(more && more.childNodes.length ? [more] : []));
 }
 // The bar's action: hide the open panel, watch what's running, or see the details.
 function barLabel() {

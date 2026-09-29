@@ -1272,3 +1272,5 @@ main { min-width: 0; }
 .run-card-open { color: var(--muted); text-decoration: none; padding: 0 2px; }
 .run-card-open:hover { color: var(--signal-ink); }
 .run-card .link, .run-card > .muted { justify-self: start; font-size: var(--fs-sm); }
+.run-card-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+.run-card-foot .muted { flex-basis: 100%; }

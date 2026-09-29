@@ -43,7 +43,7 @@
     "endedAt": "2026-09-28T08:15:40Z",
     "ok": true,
     "log": [],
-    "message": "🔎 Source scout · checked 12 · 🆕 4 new sources\n1. Northwind AI · Ashby · quality 61 · ⭐ Tier 1\n   5 SRE-type roles · 3 in your places\n   Zurich\n2. Lakeside Payments · Greenhouse · quality 48 · ⭐ Tier 1\n   3 SRE-type roles · 2 in your places\n   Geneva\n3. Acme Robotics · Lever · quality 35\n   2 SRE-type roles · 1 in your places\n   Remote - Europe\n4. Example Labs · Greenhouse · quality 22\n   1 SRE-type roles · 0 in your places\n3 without public feed · 2 low relevance · 18 feeds crawled · 240 candidates queued"
+    "message": "🔎 Source scout · checked 12 · 🆕 7 new sources\n1. Northwind AI · Ashby · quality 61 · ⭐ Tier 1\n   5 SRE-type roles · 3 in your places\n   Zurich\n2. Lakeside Payments · Greenhouse · quality 48 · ⭐ Tier 1\n   3 SRE-type roles · 2 in your places\n   Geneva\n3. Acme Robotics · Lever · quality 35\n   2 SRE-type roles · 1 in your places\n   Remote - Europe\n4. Example Labs · Greenhouse · quality 22\n   1 SRE-type roles · 0 in your places\n5. Harbor Health · Ashby · quality 20\n   1 SRE-type roles · 1 in your places\n6. Pine Cloud · Greenhouse · quality 18\n   2 SRE-type roles · 0 in your places\n7. Summit Games · Lever · quality 15\n   1 SRE-type roles · 0 in your places\n3 without public feed · 2 low relevance · 18 feeds crawled · 240 candidates queued"
   },
   {
     "id": 1790580000000,
