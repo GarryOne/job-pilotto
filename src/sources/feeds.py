@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small, dependency-free job watcher. Python 3.10+."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import hashlib
 import html
@@ -91,14 +92,27 @@ def record(db, board, job, now):
     return status
 
 
+FETCH_WORKERS = 8   # feeds downloaded at once; the database work below stays sequential
+
+
+def _fetched(fetcher, source):
+    try:
+        return fetcher(source), None
+    except Exception as error:  # noqa: BLE001 — reported per source below
+        return None, error
+
+
 def scan(sources, db, fetcher=fetch, details=None):
     """Fetch every source, keep SRE-type titles in preferred locations, record seen history."""
+    with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
+        downloads = list(pool.map(lambda source: _fetched(fetcher, source), sources))
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     report = {"generated_at": now, "sources": [], "jobs": []}
-    for source in sources:
+    for source, (jobs, failure) in zip(sources, downloads):
         board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
         try:
-            jobs = fetcher(source)
+            if failure:
+                raise failure
             matched = []
             with db:
                 for job in jobs:
