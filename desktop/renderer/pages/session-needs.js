@@ -99,8 +99,10 @@ function showFormCard(item, state) {
   const left = state.pending || state.missing || [];
   const start = filled.find(field => field.at)?.at || 0;
   $('ss-form-more').hidden = !filled.length && !left.length;
-  $('ss-form-summary').textContent = filled.length ? `Show the ${filled.length} filled field${filled.length === 1 ? '' : 's'}${left.length ? ` and ${left.length} ${item.status === 'running' ? 'to go' : 'left'}` : ''}`
-    : `Show the ${left.length} ${item.status === 'running' ? 'to go' : 'left'}`;
+  const leftCount = Math.max(left.length, state.left);
+  const leftText = leftCount ? `${leftCount} ${item.status === 'running' ? 'to go' : 'left'}` : '';
+  $('ss-form-summary').textContent = filled.length ? `Show the ${filled.length} filled field${filled.length === 1 ? '' : 's'}${leftText ? ` and ${leftText}` : ''}`
+    : `Show the ${leftText}`;
   // Who filled it: you (after the fill was over) or the fill (Claude, the extension); the time only when the app saw it.
   const row = (kind, time, mark, label, by = '') => {
     const li = el('li', kind);
@@ -136,16 +138,24 @@ export function applyFormStates(item) {
 // Required fields the form page says are still empty and Claude's message didn't list (reworded counts as listed:
 // renderer/labels.js): the app finds them itself.
 export function emptyFields(item, needs) {
+  // What's left as the form's ring counts it (pending: required, or an answer Claude wrote that is empty again; an
+  // extension before 0.8.12 sends only the required ones), and never fewer than its count: "16 / 17" beside "All
+  // handled" was a contradiction.
+  const state = reviewStates.get(item.id);
   const listed = needs.flatMap(need => [agreeLabel(need), need.question, need.text]).filter(Boolean);
-  return (reviewStates.get(item.id)?.missing || []).filter(label => {
-    return label && !listed.some(text => sameQuestion(text, label));
-  });
+  const left = (state?.pending || state?.missing || []).filter(label => label && !listed.some(text => sameQuestion(text, label)));
+  const unnamed = (state?.left || 0) - (state?.pending || state?.missing || []).length;
+  if (unnamed > 0) left.push(`${unnamed} more field${unnamed === 1 ? '' : 's'}`);
+  return left;
 }
 export function emptyRow(label, item) {
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
-  body.append(el('div', '', `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
-  actions.append(smallButton('Show it in the form', 'primary', event => showInForm(item, label, event.currentTarget)));
+  const more = /^\d+ more fields?$/.test(label);
+  body.append(el('div', '', more ? `${label} ${label.startsWith('1 ') ? 'is' : 'are'} still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
+    : `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
+  actions.append(more ? smallButton('Open the form', 'primary', event => opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id)))
+    : smallButton('Show it in the form', 'primary', event => showInForm(item, label, event.currentTarget)));
   body.append(actions);
   li.append(el('span', 'ss-need-glyph', '✏️'), body);
   return li;
