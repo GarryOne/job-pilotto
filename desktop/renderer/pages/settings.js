@@ -1,6 +1,7 @@
 // Settings: its sub-pages.
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
+import {updateText} from '../update-text.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openView, remembered} from './nav.js';
@@ -156,6 +157,7 @@ function renderServices(status) {
   const {on, detail, missing, checking} = status;
   renderConnections(status);
   renderDiagnostics(status);
+  renderUpdate();
   showAlert('ov', missing);
   $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
     const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
@@ -208,9 +210,25 @@ function renderDiagnostics({on, detail, checking}) {
   $('diag-ext').replaceChildren(stateLine(on.extension, detail.extension, checking?.extension));
   $('diag-search').textContent = $('last-search').textContent;
 }
+// Updates: this version, and whether it's the latest (the app checks at start and every 6 hours; Check now asks GitHub).
+async function renderUpdate() {
+  const status = await window.pilot.updateStatus().catch(() => ({}));
+  const {latest, text} = updateText(status);
+  $('diag-update-text').replaceChildren(icon(latest ? 'check' : 'info'), ` ${text}`);
+  $('diag-update-text').className = `service-state${latest ? ' is-on' : ''}`;
+}
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  $('diag-update-check').addEventListener('click', async () => {
+    const button = $('diag-update-check');
+    button.disabled = true;
+    $('diag-update-text').replaceChildren(el('span', 'spinner'), ' Checking…');
+    const result = await window.pilot.updateCheck().catch(error => ({ok: false, text: error.message}));
+    button.disabled = false;
+    if (result?.ok === false) { $('diag-update-text').textContent = result.text; return; }
+    renderUpdate();
+  });
   document.addEventListener('click', event => {
     const go = event.target.closest('[data-settings-go]');
     if (go) { settingsPage(go.dataset.settingsGo); document.querySelector('main')?.scrollTo(0, 0); }

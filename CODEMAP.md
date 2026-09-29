@@ -12,6 +12,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Desktop app: main-process modules
 
+- `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
 - `desktop/lib/apply.js` — "Apply to N jobs": pick the N best open jobs and start applying.
 - `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
@@ -106,6 +107,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/run-warnings.js` — Lines of a run's log that are warnings (Notion busy, a step skipped or failed…), each once. A count of zero is not
 - `desktop/renderer/session-message.js` — Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only
 - `desktop/renderer/session-state.js` — A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's
+- `desktop/renderer/update-text.js` — Settings → Diagnostics → Updates: whether this is the latest version, from main's updateStatus.
 - `desktop/renderer/wheel.js` — The session log's mouse wheel. Claude Code turns on the terminal's mouse reporting and scrolls its own view, so
 
 ## Desktop scripts

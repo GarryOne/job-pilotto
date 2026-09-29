@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onLeadStep: callback => ipcRenderer.on('leadStep', (_, step) => callback(step)),
   onPrepStep: callback => ipcRenderer.on('prepStep', (_, step) => callback(step)),
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'),
-  updateState: call('updateState'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'),
+  updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'),
   onUpdate: callback => ipcRenderer.on('update', (_, offer) => callback(offer)),
   onUpdateStep: callback => ipcRenderer.on('updateStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),

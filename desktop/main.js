@@ -1,5 +1,5 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, clipboard, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +22,7 @@ import * as terminals from './lib/terminals.js';
 import * as transcript from './lib/transcript.js';
 import * as quitDialog from './lib/quit-dialog.js';
 import {offerMove} from './lib/applications.js';
+import * as appMenu from './lib/app-menu.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
@@ -72,15 +73,39 @@ function outcomes(settings) {
     interviews: reached('Interviews'), offers: reached('Offer')};
 }
 let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
+let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
 async function checkForUpdate(asked = false) {
   if (!app.isPackaged && !asked) return null;
   try {
     updateOffer = await updater.check(app.getVersion());
+    updateCheckedAt = new Date().toISOString();
     if (updateOffer) { appLog('update', `available: ${updateOffer.version}`); toWindow('update', updateOffer); }
     return {ok: true, offer: updateOffer, current: app.getVersion()};
   } catch (error) {
     return {ok: false, text: `Couldn't check for updates: ${error.message}`, current: app.getVersion()};
   }
+}
+
+async function installUpdate() {
+  if (!updateOffer) return {ok: false, text: 'No update to install.'};
+  try {
+    await updater.install(updateOffer, {exe: app.getPath('exe'), onStep: text => toWindow('updateStep', text),
+      quit: () => app.quit()});  // the quit dialog still asks if a job runs; the swap waits for the app to close
+    return {ok: true};
+  } catch (error) {
+    appLog('update', `install failed: ${error.message}`);
+    return {ok: false, text: error.message, url: updateOffer.url};
+  }
+}
+// Menu → Check for Updates…: always answers (up to date, an update to install, or why it couldn't check).
+async function checkForUpdatesNow() {
+  const shown = appMenu.answer(await checkForUpdate(true), app.getVersion());
+  const parent = window && !window.isDestroyed() ? window : undefined;
+  const {response} = await dialog.showMessageBox(parent, {type: shown.type, message: shown.message, detail: shown.detail,
+    buttons: shown.buttons, defaultId: 0, cancelId: shown.buttons.length - 1});
+  if (!shown.install || response !== 0) return;
+  const result = await installUpdate();
+  if (!result.ok) dialog.showMessageBox(parent, {type: 'warning', message: 'The update didn\'t install', detail: result.text, buttons: ['OK']});
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -917,17 +942,8 @@ function handlers() {
   ipcMain.handle('telemetrySet', (_, on) => { storage.saveSettings({telemetry: !!on}); if (!on) telemetry?.flush(); return {on: !!on}; });
   ipcMain.handle('updateState', () => updateOffer);
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
-  ipcMain.handle('updateInstall', async () => {
-    if (!updateOffer) return {ok: false, text: 'No update to install.'};
-    try {
-      await updater.install(updateOffer, {exe: app.getPath('exe'), onStep: text => toWindow('updateStep', text),
-        quit: () => app.quit()});  // the quit dialog still asks if a job runs; the swap waits for the app to close
-      return {ok: true};
-    } catch (error) {
-      appLog('update', `install failed: ${error.message}`);
-      return {ok: false, text: error.message, url: updateOffer.url};
-    }
-  });
+  ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt}));
+  ipcMain.handle('updateInstall', () => installUpdate());
   ipcMain.handle('extensionSeen', () => (server.extensionSeen() ? {...server.extensionSeen(), latest: server.latestExtension()} : null));
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));
@@ -1113,6 +1129,7 @@ process.on('uncaughtExceptionMonitor', error => {
 
 if (firstCopy) app.whenReady().then(() => {
   if (offerMove({app, dialog})) return;  // moving to Applications: Electron quits and opens the moved copy
+  Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin', checkForUpdates: checkForUpdatesNow})));
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));

@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {updateText} from '../renderer/update-text.js';
+
+test('Updates line: available, up to date (with when it was checked), or not checked yet', () => {
+  const now = Date.parse('2026-09-29T21:00:00Z');
+  assert.deepEqual(updateText({offer: {version: '0.4.0-alpha.66'}}, now),
+    {latest: false, text: 'Version 0.4.0-alpha.66 is available: use Update in the sidebar'});
+  assert.deepEqual(updateText({offer: null, checkedAt: '2026-09-29T20:59:00Z'}, now), {latest: true, text: 'Up to date · checked just now'});
+  assert.deepEqual(updateText({}, now), {latest: false, text: 'Not checked yet'});
+});
