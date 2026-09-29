@@ -63,8 +63,9 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
    isn't notarized yet): click **Done** (never Move to Bin), then **System Settings → Privacy & Security** → scroll to
    *"Job Pilotto" was blocked* → **Open Anyway** → confirm. Once only. (Right-click → Open no longer works on recent macOS.)
    Opened from the disk image by mistake? The app offers **Move to Applications** itself.
-   Keychain prompt: **Always Allow**. Builds share one signature (`MAC_SIGN_P12` secret, Keychain
-   `job-pilotto.mac-sign.*`), so it doesn't come back after updates.
+   Keychain prompt: **Always Allow** (login password). It comes back **once after each update** until the app has an
+   Apple Developer ID: macOS ties keychain access of apps without an Apple team ID to the exact build. Builds still share
+   one self-made signature (`MAC_SIGN_P12` secret, Keychain `job-pilotto.mac-sign.*`).
 3. The setup wizard does the rest: keys, Notion, CV, Profile; Always on is optional.
 
 <details><summary>Not done yet</summary>
