@@ -45,6 +45,9 @@ from pathlib import Path
 REPO = 'GarryOne/job-pilotto'
 MIN_AGE = timedelta(hours=48)
 CANARY_WINDOW = timedelta(days=7)   # a canary not promoted within 7 days is dropped; the next build takes over
+# Builds older than this can't pass the trial (no run counts in health reports, or no Get Test Builds in the app),
+# so they are never the canary and never block newer builds. Same value as desktop/lib/canary.js CANARY_FLOOR.
+CANARY_FLOOR = '0.4.0-alpha.69'
 ROOT = Path(__file__).resolve().parents[1]
 TELEMETRY_URL = 'https://www.jobpilotto.workers.dev/telemetry/version'
 KEY_ENV = 'JOB_PILOTTO_TELEMETRY_KEY'
@@ -96,11 +99,13 @@ def _newer_than_stable(releases):
                     and (stable is None or version_key(version_of(r['tagName'])) > stable_key)]
 
 
-def canary_of(releases, now, window=CANARY_WINDOW):
-    """The canary build: the oldest non-draft pre-release newer than the current stable, created within `window`.
+def canary_of(releases, now, window=CANARY_WINDOW, floor=CANARY_FLOOR):
+    """The canary build: the oldest non-draft pre-release newer than the current stable, created within `window`,
+    and not older than `floor` (builds that can't pass the trial never block newer ones).
     Same rule as desktop/lib/canary.js canaryOf (tests/fixtures/canary_builds.json pins both). None when there is none."""
     _, newer = _newer_than_stable(releases)
-    recent = [r for r in newer if now - parse_time(r['createdAt']) < window]
+    recent = [r for r in newer if now - parse_time(r['createdAt']) < window
+              and (not floor or version_key(version_of(r['tagName'])) >= version_key(floor))]
     return min(recent, key=lambda r: version_key(version_of(r['tagName'])), default=None)
 
 
@@ -111,7 +116,8 @@ def pick(releases, now, min_age=MIN_AGE):
         return None, stable, f"nothing newer than stable {stable['tagName'] if stable else '(none)'}"
     candidate = canary_of(releases, now)
     if not candidate:
-        return None, stable, f"no canary: every build newer than stable is over {CANARY_WINDOW.days} days old"
+        return None, stable, (f"no canary: every build newer than stable is over {CANARY_WINDOW.days} days old "
+                                     f"or older than {CANARY_FLOOR} (can't pass the trial)")
     age = now - parse_time(candidate.get('publishedAt') or candidate['createdAt'])
     if age < min_age:
         return None, stable, (f"canary {candidate['tagName']} is {age.total_seconds() / 3600:.0f} h old "

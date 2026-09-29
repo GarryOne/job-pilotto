@@ -1,44 +1,258 @@
 {
-  "_about": "Which release is 'the canary build' (tools/canary_promote.py canary_of, desktop/lib/canary.js canaryOf): the oldest non-draft pre-release newer than the current stable, created within the last 7 days. Both test suites read these cases, so the two implementations can't drift.",
-  "cases": [
-    {"name": "the oldest pre-release newer than stable", "now": "2026-10-05T12:00:00Z", "canary": "desktop-v0.4.0-alpha.65",
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.67", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-05T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.66", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.65", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-03T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.60", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-09-30T10:00:00Z"}]},
-    {"name": "drafts are builds still running", "now": "2026-10-05T12:00:00Z", "canary": "desktop-v0.4.0-alpha.66",
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.66", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.65", "isPrerelease": true, "isDraft": true, "isLatest": false, "createdAt": "2026-10-03T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.60", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-09-30T10:00:00Z"}]},
-    {"name": "after 7 days the canary is dropped and the next one takes over", "now": "2026-10-10T12:00:00Z", "canary": "desktop-v0.4.0-alpha.66",
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.67", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-05T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.66", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.65", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-03T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.60", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-09-30T10:00:00Z"}]},
-    {"name": "promoted: the canary is stable now, the next one is the canary", "now": "2026-10-05T12:00:00Z", "canary": "desktop-v0.4.0-alpha.66",
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.67", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-05T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.66", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.65", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-10-03T10:00:00Z"}]},
-    {"name": "nothing newer than stable: no canary", "now": "2026-10-05T12:00:00Z", "canary": null,
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.65", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-10-03T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.64", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-02T10:00:00Z"}]},
-    {"name": "every newer build is over 7 days old: no canary", "now": "2026-10-20T12:00:00Z", "canary": null,
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.66", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.60", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-09-30T10:00:00Z"}]},
-    {"name": "versions compare as numbers (alpha.10 is newer than alpha.9)", "now": "2026-10-05T12:00:00Z", "canary": "desktop-v0.4.0-alpha.10",
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.11", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.10", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-03T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.9", "isPrerelease": false, "isDraft": false, "isLatest": true, "createdAt": "2026-10-01T10:00:00Z"}]},
-    {"name": "no stable release yet: the oldest recent pre-release", "now": "2026-10-05T12:00:00Z", "canary": "desktop-v0.4.0-alpha.2",
-     "releases": [
-       {"tagName": "desktop-v0.4.0-alpha.3", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-04T10:00:00Z"},
-       {"tagName": "desktop-v0.4.0-alpha.2", "isPrerelease": true, "isDraft": false, "isLatest": false, "createdAt": "2026-10-03T10:00:00Z"}]}
-  ]
+ "_about": "Which release is 'the canary build' (tools/canary_promote.py canary_of, desktop/lib/canary.js canaryOf): the oldest non-draft pre-release newer than the current stable, created within the last 7 days. Both test suites read these cases, so the two implementations can't drift. A case's 'floor' (default none) is the minimum version a canary may have.",
+ "cases": [
+  {
+   "name": "the oldest pre-release newer than stable",
+   "now": "2026-10-05T12:00:00Z",
+   "canary": "desktop-v0.5.0-alpha.65",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.67",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-05T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.66",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.65",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-03T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.60",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-09-30T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "drafts are builds still running",
+   "now": "2026-10-05T12:00:00Z",
+   "canary": "desktop-v0.5.0-alpha.66",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.66",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.65",
+     "isPrerelease": true,
+     "isDraft": true,
+     "isLatest": false,
+     "createdAt": "2026-10-03T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.60",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-09-30T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "after 7 days the canary is dropped and the next one takes over",
+   "now": "2026-10-10T12:00:00Z",
+   "canary": "desktop-v0.5.0-alpha.66",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.67",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-05T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.66",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.65",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-03T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.60",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-09-30T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "promoted: the canary is stable now, the next one is the canary",
+   "now": "2026-10-05T12:00:00Z",
+   "canary": "desktop-v0.5.0-alpha.66",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.67",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-05T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.66",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.65",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-10-03T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "nothing newer than stable: no canary",
+   "now": "2026-10-05T12:00:00Z",
+   "canary": null,
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.65",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-10-03T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.64",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-02T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "every newer build is over 7 days old: no canary",
+   "now": "2026-10-20T12:00:00Z",
+   "canary": null,
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.66",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.60",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-09-30T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "versions compare as numbers (alpha.10 is newer than alpha.9)",
+   "now": "2026-10-05T12:00:00Z",
+   "canary": "desktop-v0.5.0-alpha.10",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.11",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.10",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-03T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.9",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-10-01T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "no stable release yet: the oldest recent pre-release",
+   "now": "2026-10-05T12:00:00Z",
+   "canary": "desktop-v0.5.0-alpha.2",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.3",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-04T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.2",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-10-03T10:00:00Z"
+    }
+   ]
+  },
+  {
+   "name": "builds below the floor are skipped, not blocking",
+   "now": "2026-09-30T12:00:00Z",
+   "floor": "0.5.0-alpha.69",
+   "canary": "desktop-v0.5.0-alpha.69",
+   "releases": [
+    {
+     "tagName": "desktop-v0.5.0-alpha.70",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-09-30T10:00:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.69",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-09-29T21:48:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.68",
+     "isPrerelease": true,
+     "isDraft": false,
+     "isLatest": false,
+     "createdAt": "2026-09-29T21:41:00Z"
+    },
+    {
+     "tagName": "desktop-v0.5.0-alpha.65",
+     "isPrerelease": false,
+     "isDraft": false,
+     "isLatest": true,
+     "createdAt": "2026-09-29T20:55:00Z"
+    }
+   ]
+  }
+ ]
 }

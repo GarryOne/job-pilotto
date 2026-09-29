@@ -4,6 +4,9 @@ import {REPO, asset, newer} from './updater.js';
 
 export const WINDOW_MS = 7 * 24 * 3600 * 1000;  // a canary not promoted within 7 days is dropped
 export const TRIAL_MS = 48 * 3600 * 1000;       // what canary_promote.py needs: reports spanning 48 h
+// Builds older than this can't pass the trial (no run counts / no Get Test Builds): never the canary, never block newer
+// ones. Same value as tools/canary_promote.py CANARY_FLOOR.
+export const CANARY_FLOOR = '0.4.0-alpha.69';
 
 // Releases in the `gh release list --json` shape: {tagName, isPrerelease, isDraft, isLatest, createdAt}.
 const newerThanStable = releases => {
@@ -14,8 +17,9 @@ const oldest = list => list.reduce((best, r) => (!best || newer(best.tagName, r.
 const newest = list => list.reduce((best, r) => (!best || newer(r.tagName, best.tagName) ? r : best), null);
 
 // The canary build: the oldest non-draft pre-release newer than the current stable, created within the last 7 days.
-export function canaryOf(releases, now = Date.now()) {
-  return oldest(newerThanStable(releases).newer.filter(r => now - Date.parse(r.createdAt) < WINDOW_MS));
+export function canaryOf(releases, now = Date.now(), floor = CANARY_FLOOR) {
+  const eligible = r => now - Date.parse(r.createdAt) < WINDOW_MS && (!floor || !newer(`desktop-v${floor}`, r.tagName));
+  return oldest(newerThanStable(releases).newer.filter(eligible));
 }
 
 const version = tag => String(tag || '').replace(/^desktop-v/, '');

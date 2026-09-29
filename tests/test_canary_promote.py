@@ -19,7 +19,7 @@ NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 def release(n, hours_ago, pre=True, latest=False, draft=False):
     at = datetime.fromtimestamp(NOW.timestamp() - hours_ago * 3600, timezone.utc).isoformat().replace('+00:00', 'Z')
-    return {'tagName': f'desktop-v0.4.0-alpha.{n}', 'isPrerelease': pre, 'isLatest': latest, 'isDraft': draft,
+    return {'tagName': f'desktop-v0.5.0-alpha.{n}', 'isPrerelease': pre, 'isLatest': latest, 'isDraft': draft,
             'publishedAt': at, 'createdAt': at}
 
 
@@ -73,7 +73,7 @@ class CanaryPromoteTests(unittest.TestCase):
     def test_promotes_a_clean_build_older_than_48_hours(self):
         result = canary.decide([release(66, 2), release(65, 50), STABLE], NOW, Facts())
         self.assertTrue(result['promote'])
-        self.assertEqual(result['tag'], 'desktop-v0.4.0-alpha.65')
+        self.assertEqual(result['tag'], 'desktop-v0.5.0-alpha.65')
 
     def test_waits_while_every_newer_build_is_under_48_hours(self):
         result = canary.decide([release(66, 2), release(65, 47), STABLE], NOW, Facts())
@@ -97,25 +97,25 @@ class CanaryPromoteTests(unittest.TestCase):
 
     def test_a_telemetry_problem_in_the_candidate_blocks(self):
         issue = {'number': 7, 'title': 'App report: crash [t:abc]', 'state': 'CLOSED',
-                 'body': 'versions 0.4.0-alpha.64', 'comments': [{'body': 'Back in a newer version. versions 0.4.0-alpha.65'}]}
+                 'body': 'versions 0.5.0-alpha.64', 'comments': [{'body': 'Back in a newer version. versions 0.5.0-alpha.65'}]}
         result = canary.decide([release(65, 50), STABLE], NOW, Facts(telemetry=[issue]))
         self.assertFalse(result['promote'])
         self.assertTrue(any('#7' in reason for reason in result['reasons']))
 
     def test_a_problem_stable_already_has_is_not_new(self):
-        issue = {'number': 8, 'title': 'App report: x', 'state': 'OPEN', 'body': 'Versions seen: 0.4.0-alpha.60,0.4.0-alpha.65'}
+        issue = {'number': 8, 'title': 'App report: x', 'state': 'OPEN', 'body': 'Versions seen: 0.5.0-alpha.60,0.5.0-alpha.65'}
         self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(telemetry=[issue]))['promote'])
 
     def test_versions_match_whole(self):
-        self.assertFalse(canary.mentions('versions 0.4.0-alpha.650', '0.4.0-alpha.65'))
-        self.assertFalse(canary.mentions('0.4.0-alpha.6', '0.4.0-alpha.65'))
-        self.assertTrue(canary.mentions('versions 0.4.0-alpha.64,0.4.0-alpha.65.', '0.4.0-alpha.65'))
+        self.assertFalse(canary.mentions('versions 0.5.0-alpha.650', '0.5.0-alpha.65'))
+        self.assertFalse(canary.mentions('0.5.0-alpha.6', '0.5.0-alpha.65'))
+        self.assertTrue(canary.mentions('versions 0.5.0-alpha.64,0.5.0-alpha.65.', '0.5.0-alpha.65'))
 
     def test_fill_failures_count_only_when_the_extension_changed(self):
         issue = {'number': 9, 'title': 'Fill failure: acme · Name', 'state': 'OPEN', 'body': 'Extension version: `0.8.16`'}
-        changed = {'desktop-v0.4.0-alpha.65': '0.8.16', 'desktop-v0.4.0-alpha.60': '0.8.15'}
+        changed = {'desktop-v0.5.0-alpha.65': '0.8.16', 'desktop-v0.5.0-alpha.60': '0.8.15'}
         self.assertFalse(canary.decide([release(65, 50), STABLE], NOW, Facts(fill=[issue], ext=changed))['promote'])
-        same = {'desktop-v0.4.0-alpha.65': '0.8.16', 'desktop-v0.4.0-alpha.60': '0.8.16'}
+        same = {'desktop-v0.5.0-alpha.65': '0.8.16', 'desktop-v0.5.0-alpha.60': '0.8.16'}
         self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(fill=[issue], ext=same))['promote'])
 
     def wait_with(self, text, **facts):
@@ -160,18 +160,18 @@ class CanaryPromoteTests(unittest.TestCase):
     def test_missing_key_or_unreachable_site_waits(self):
         self.wait_with('JOB_PILOTTO_TELEMETRY_KEY is not set', unavailable='JOB_PILOTTO_TELEMETRY_KEY is not set')
         with self.assertRaises(canary.EvidenceUnavailable):
-            canary.GitHub(key=None).usage('0.4.0-alpha.65', '0.4.0-alpha.60')
+            canary.GitHub(key=None).usage('0.5.0-alpha.65', '0.5.0-alpha.60')
 
     def test_the_canary_rule_matches_the_shared_fixture(self):
         # tests/fixtures/canary_builds.json is read by desktop/test/canary.test.js too: one rule, three users
         # (this script, tools/prune-releases.sh and the owner's app).
         for case in json.loads(FIXTURE.read_text())['cases']:
-            found = canary.canary_of(case['releases'], canary.parse_time(case['now']))
+            found = canary.canary_of(case['releases'], canary.parse_time(case['now']), floor=case.get('floor', ''))
             self.assertEqual(found and found['tagName'], case['canary'], case['name'])
 
     def test_the_candidate_is_the_canary_not_the_newest_aged_build(self):
         result = canary.decide([release(67, 60), release(66, 70), STABLE], NOW, Facts())
-        self.assertEqual(result['tag'], 'desktop-v0.4.0-alpha.66')
+        self.assertEqual(result['tag'], 'desktop-v0.5.0-alpha.66')
 
     def test_a_canary_that_failed_for_sure_is_dropped(self):
         red = [{'status': 'completed', 'conclusion': 'failure'}]
@@ -187,13 +187,19 @@ class CanaryPromoteTests(unittest.TestCase):
         releases = [dict(r, createdAt=datetime.now(timezone.utc).isoformat()) for r in case['releases']]
         out = subprocess.run([sys.executable, str(SCRIPT), '--canary'], input=json.dumps(releases),
                              capture_output=True, text=True, check=True).stdout.strip()
-        self.assertEqual(out, 'desktop-v0.4.0-alpha.65')
+        self.assertEqual(out, 'desktop-v0.5.0-alpha.65')
 
     def test_version_order(self):
         key = canary.version_key
-        self.assertGreater(key('0.4.0-alpha.10'), key('0.4.0-alpha.9'))
+        self.assertGreater(key('0.5.0-alpha.10'), key('0.5.0-alpha.9'))
         self.assertGreater(key('0.4.0'), key('0.4.0-alpha.99'))
         self.assertGreater(key('0.5.0-alpha.1'), key('0.4.0'))
+
+
+class CanaryFloorParityTest(unittest.TestCase):
+    def test_python_and_app_use_the_same_floor(self):
+        js = (Path(__file__).resolve().parents[1] / 'desktop' / 'lib' / 'canary.js').read_text()
+        self.assertIn(f"export const CANARY_FLOOR = '{canary.CANARY_FLOOR}';", js)
 
 
 if __name__ == '__main__':
