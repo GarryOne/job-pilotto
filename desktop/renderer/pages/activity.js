@@ -1,6 +1,7 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {runWarnings} from '../run-warnings.js';
 import {el, pill, tile} from '../components.js';
+import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
@@ -173,7 +174,8 @@ export function renderActivity(data) {
     $('activity-title').textContent = lastSearch ? (lastSearch.ok ? 'Last jobs check' : 'Last jobs check had problems') : 'No jobs check yet';
     $('activity-step').textContent = lastSearch ? `${clockTime(lastSearch.endedAt || lastSearch.startedAt)} · ${outcome(lastSearch)}` +
       (lastSearch.ok ? '' : ' · click to see why') : '';
-    $('activity-meta').textContent = [mailNote, nextSearchAt && `Next jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
+    // The next jobs check, unless the open panel's Upcoming checks already says it.
+    $('activity-meta').textContent = [mailNote, $('activity-panel').hidden && nextSearchAt && `Next jobs check ${hhmm(nextSearchAt)}`].filter(Boolean).join(' · ');
   } else {
     $('activity-title').textContent = 'No jobs check yet';
     $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';
@@ -220,23 +222,31 @@ export function renderActivity(data) {
     return date.toDateString() === today.toDateString() ? 'Today' : date.toDateString() === tomorrow.toDateString() ? 'Tomorrow'
       : date.toLocaleDateString([], {weekday: 'short'});
   };
-  const slot = (name, glyph, at, none) => {
-    const due = at && at <= Date.now();
-    const item = el('span', `ap-slot${at ? '' : ' is-off'}`);
-    const words = el('span', 'ap-slot-words');
-    words.append(el('span', 'muted', name), el('b', '', at ? (due ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
-    item.append(tile(glyph, at ? 'info' : 'neutral'), words);
-    return item;
-  };
+  const plan = {search: 4, mail: 3, scout: 'daily', ...(shared.state?.settings?.schedule || {})};
   // No time: "Off" only when Settings → Automation says so; else the app just doesn't know it yet (it was started
   // before an update: a restart fixes it), so it names where it runs.
-  const plan = {search: 4, mail: 3, scout: 'daily', ...(shared.state?.settings?.schedule || {})};
   const unknown = cloud ? 'On GitHub' : 'On this Mac';
-  $('activity-schedule').replaceChildren(slot('Jobs check', 'search', nextSearchAt, plan.search ? unknown : 'Only when you ask'),
-    slot('Gmail check', 'mail', nextMailAt, plan.mail ? unknown : 'Off'),
-    ...(cloud ? [slot('New employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off'),
-      Object.assign(el('span', 'ap-where', osText('☁️ On GitHub · Always on')), {title: 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.'})]
-      : [el('span', 'ap-where', 'On this Mac, while the app is open')]));
+  const items = [['Jobs', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
+    ...(cloud ? [['Employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off']] : [])];
+  const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
+  $('activity-schedule').replaceChildren(...items.map(([name, glyph, at, none]) => {
+    const item = el('span', `ap-item${at && at === soonest ? ' is-next' : ''}${at ? '' : ' is-off'}`);
+    const words = el('span', 'ap-item-words');
+    words.append(el('span', 'muted', name), el('b', '', at ? (at <= Date.now() ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
+    const mark = el('span', 'ap-item-icon');
+    mark.append(icon(glyph));
+    item.append(mark, words);
+    return item;
+  }));
+  // A narrow window shows the soonest one and "+2" (a click shows the rest).
+  const hiddenCount = items.filter(([, , at]) => !(at && at === soonest)).length;
+  $('ap-strip-more').textContent = `+${hiddenCount}`;
+  show($('ap-strip-more'), hiddenCount > 0);
+  $('ap-where').textContent = cloud ? osText('☁️ Runs on GitHub · Always on') : 'Runs on this Mac while the app is open';
+  $('ap-where').title = cloud ? 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.' : '';
+  // Check Gmail now: with a selected Gmail check, not in the schedule strip.
+  const selected = shown || (running ? null : last);
+  show($('check-mail'), !!selected && kindOf(selected) === 'mail');
 
   // The selected run (or the live / latest one): what it did, its phases, and its full log. A run read from
   // Notion brings its result and log from its page the first time it's shown.
@@ -351,6 +361,7 @@ export function openActivity(open) {
   $('activity-toggle').setAttribute('aria-expanded', open);
   if (open) $('log').scrollTop = $('log').scrollHeight;
   barLabel();
+  if (lastActivity) renderActivity(lastActivity);  // the bar drops "Next jobs check" while the panel shows it
 }
 
 let wasRunning = false;
@@ -430,6 +441,7 @@ export async function init() {
     event.preventDefault();
     if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
   });
+  $('ap-strip-more').addEventListener('click', () => $('ap-strip').classList.toggle('is-expanded'));
   $('check-mail').addEventListener('click', async () => {
     $('check-mail').disabled = true;
     shared.selectedRun = null;

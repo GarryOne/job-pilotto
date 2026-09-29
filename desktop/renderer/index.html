@@ -1034,6 +1034,7 @@
               <div class="ap-facts" id="activity-facts" hidden></div></div>
             <div class="ap-detail-actions">
               <button class="primary" id="activity-go" hidden></button>
+              <button class="secondary" id="check-mail" hidden>Check Gmail now</button>
               <a href="#" class="activity-notion" id="activity-notion" hidden>Open in Notion ↗</a>
               <a href="#" class="activity-notion" id="activity-github" hidden>Open on GitHub ↗</a>
               <button class="icon-btn ap-close" id="activity-close" aria-label="Close" title="Close (Esc)"><i data-icon="close"></i></button>
@@ -1047,11 +1048,15 @@
           <ol class="activity-phases ap-card" id="activity-phases"></ol>
           <pre class="activity-message" id="activity-message" hidden></pre>
           <details class="activity-log ap-card" id="activity-log"><summary><i data-icon="file"></i><b>Technical log</b><span class="muted" id="log-count"></span></summary><pre id="log" class="log"></pre></details>
-          <div class="ap-foot">
-            <span class="ap-foot-icon"><i data-icon="clock"></i></span>
-            <div id="activity-schedule" class="ap-schedule-line"></div>
-            <button class="link small" id="check-mail">Check Gmail now</button>
-            <a href="#" class="arrow-link" id="activity-manage" title="Settings → Automation">Manage schedule</a>
+          <!-- Upcoming checks: global (not about the run above); the soonest one is highlighted. -->
+          <div class="ap-upcoming">
+            <div class="ap-strip" id="ap-strip">
+              <span class="ap-strip-head"><i data-icon="clock"></i><span>Upcoming checks</span></span>
+              <div id="activity-schedule" class="ap-strip-items"></div>
+              <button class="ap-strip-more" id="ap-strip-more" hidden></button>
+              <a href="#" class="ap-strip-manage" id="activity-manage" title="Settings → Automation">Manage schedule ↗</a>
+            </div>
+            <p class="ap-where" id="ap-where"></p>
           </div>
         </section>
       </div>
