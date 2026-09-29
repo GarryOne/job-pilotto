@@ -113,13 +113,24 @@ export async function attachTerminal(id) {
   // The session's screen at the size it was drawn for, then fitted to the log (a running Claude redraws for it).
   const {data, cols, rows} = await window.pilot.sessionSnapshot(id);
   shared.xterm.reset();
+  shared.termCols = cols;  // the width the screen was drawn at (a finished session can't redraw for another)
   shared.xterm.resize(cols, rows);
   shared.xterm.write(data, () => { fitTerminal(); shared.xterm.scrollToBottom(); shared.xterm.refresh(0, shared.xterm.rows - 1); });
   shared.termShownFor = id;
 }
+const BASE_FONT = 12, MAX_FONT = 18;
 export function fitTerminal() {
   if (!shared.xterm || document.querySelector('.view[data-view="sessions"]').hidden || $('ss-log-body').hidden) return;
+  // A running Claude redraws for any width: the usual font, as many columns as fit. A finished session is a recording
+  // wrapped at the width it had: its text grows to fill the log instead of using the left half (zoomed out, wide window).
+  const item = sessionList.find(entry => entry.id === shared.openSessionId);
+  const font = shared.xterm.options.fontSize;
+  if (font !== BASE_FONT) shared.xterm.options.fontSize = BASE_FONT;
   try { shared.xtermFit.fit(); } catch { return; }
+  if (item && !isLive(item) && shared.termCols && shared.xterm.cols > shared.termCols) {
+    shared.xterm.options.fontSize = Math.min(MAX_FONT, Math.floor(BASE_FONT * shared.xterm.cols / shared.termCols * 10) / 10);
+    try { shared.xtermFit.fit(); } catch { return; }
+  }
   if (shared.openSessionId) window.pilot.sessionResize(shared.openSessionId, shared.xterm.cols, shared.xterm.rows);
 }
 // Typing a reply: the text, then Enter (Claude Code sends a message on Return).
