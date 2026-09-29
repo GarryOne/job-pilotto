@@ -256,18 +256,28 @@ export function renderActivity(data) {
     });
     read();
   }
-  const lines = shown ? shown.log || [] : liveLines || last?.log || [];
+  // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).
+  const lines = shown ? run?.log || [] : liveLines || run?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;
-  const where = run?.where === 'github' ? ' · ☁️ on GitHub' : run?.where === 'elsewhere' ? ' · elsewhere' : '';
   const detailWarnings = runWarnings(lines);
   const status = !run ? '' : run.live ? 'Running' : run.waiting ? 'Queued' : !run.ok || run.off ? 'Failed'
     : detailWarnings.length ? 'Completed with warnings' : 'Completed';
   $('activity-icon').textContent = kind?.icon || '';
   $('activity-selected').textContent = !run ? 'Nothing has run yet' : `${kind.name} · ${status}`;
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
-  $('activity-sub').textContent = !run ? '' : [run.live ? (searchPhase(run.step) || 'starting') : capital(outcome(run)),
-    checkedCount && `${checkedCount} companies checked`,
-    run.live ? `started ${hhmm(Date.parse(run.startedAt))}` : `finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`].filter(Boolean).join(' · ') + where;
+  // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
+  const said = run && !run.live ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
+  $('activity-sub').textContent = !run ? '' : [run.live ? (searchPhase(run.step) || 'starting') : said,
+    checkedCount && `${checkedCount} companies checked`].filter(Boolean).join(' · ');
+  // Small facts under it: when, how long, the AI cost, where it ran.
+  const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
+  const facts = !run ? [] : [
+    run.live ? `Started ${hhmm(Date.parse(run.startedAt))}` : `Finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`,
+    !run.live && seconds > 0 && (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`),
+    !run.live && run.usd > 0 && `AI $${run.usd.toFixed(3)}`,
+    run.where === 'github' ? osText('☁️ GitHub') : run.where === 'mac' ? 'This Mac' : ''].filter(Boolean);
+  $('activity-facts').replaceChildren(...facts.map(text => el('span', 'ap-fact', text)));
+  show($('activity-facts'), facts.length > 0);
   // A search that found new jobs: straight to them (newest first).
   const found = !run?.live && kindOf(run) === 'search' ? run?.new || 0 : 0;
   show($('activity-go'), found > 0);
@@ -311,7 +321,7 @@ export function renderActivity(data) {
   }
   $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
   const log = $('log');
-  const text = lines.join('\n') || 'Nothing to show yet.';
+  const text = lines.join('\n') || (run?.live ? 'Nothing to show yet.' : 'No log for this run.');
   if (log.textContent !== text) {
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
     log.replaceChildren(...linked(text));

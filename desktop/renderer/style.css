@@ -1216,3 +1216,8 @@ main { min-width: 0; }
 /* Where the scheduled jobs run: GitHub (Always on) or this Mac. */
 .ap-where { align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
 .activity-panel #activity-schedule { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* Recent activity → a run: small facts under its summary (finished, how long, AI cost, where it ran). */
+.ap-facts { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-2); }
+.ap-facts[hidden] { display: none; }
+.ap-fact { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--r-pill); padding: 2px 8px; }
