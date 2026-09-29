@@ -5,21 +5,21 @@ h1 { font-size: var(--fs-2xl); line-height: 1.15; margin: 4px 0 8px; letter-spac
 h2 { font-size: var(--fs-xl); margin: 0 0 6px; }
 h3 { font-size: var(--fs-base); margin: 0 0 4px; }
 p { margin: 0 0 8px; }
-a { color: var(--signal); }
+a { color: var(--signal-ink); }
 code { font: var(--fs-sm) var(--font-mono); background: var(--sky); padding: 2px 6px; border-radius: var(--r-sm); word-break: break-all; }
 .muted { color: var(--muted); }
 .small, .fine { font-size: var(--fs-sm); }
 .fine { color: var(--muted); }
 .lede { font-size: var(--fs-base); color: var(--muted); max-width: 60ch; }
-.eyebrow { font: 600 var(--fs-xs) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--signal); }
+.eyebrow { font: 600 var(--fs-xs) var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--signal-ink); }
 :focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
 
 button { font: 600 var(--fs-md) var(--font-sans); border-radius: var(--r-md); padding: 8px 14px; cursor: pointer; border: 1px solid transparent; }
-button.primary { background: var(--signal); color: var(--on-accent); }
+button.primary { background: var(--signal); color: var(--on-signal); }
 button.primary:hover { filter: brightness(1.05); }
 button.secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
 button.ghost { background: transparent; color: var(--muted); }
-button.link { background: none; border: 0; padding: 0; color: var(--signal); font-weight: 600; }
+button.link { background: none; border: 0; padding: 0; color: var(--signal-ink); font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
 label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; }
 input, select, textarea { width: 100%; font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
@@ -120,7 +120,7 @@ main { overflow-y: auto; padding: 28px 32px; }
 .recent-row[data-state="error"] .activity-dot { background: var(--bad); }
 .recent-row[data-state="busy"] .activity-dot { background: var(--signal); animation: pulse 1.2s ease-in-out infinite; }
 .activity-selected { margin: 4px 0 8px; font-weight: 600; font-size: var(--fs-base); }
-.activity-notion { font-weight: 500; font-size: var(--fs-md); margin-left: 8px; color: var(--signal); }
+.activity-notion { font-weight: 500; font-size: var(--fs-md); margin-left: 8px; color: var(--signal-ink); }
 .activity-phases li.update::before { content: '•'; color: var(--signal); }
 .activity-phases { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; font-size: var(--fs-base); }
 .activity-phases li::before { display: inline-block; width: 22px; }
@@ -233,11 +233,11 @@ details.questions > p { margin: 0 0 6px; }
 .toast b { font-size: var(--fs-base); } .toast small { color: var(--on-navy-2); }
 /* Row main button: one colour per step, so the next action stands out. */
 .row-actions .row-main { border-radius: var(--r-md); font-weight: 700; border: 1.5px solid transparent; }
-.row-actions .state-prepare { background: var(--surface); color: var(--signal); border-color: var(--signal); }
+.row-actions .state-prepare { background: var(--surface); color: var(--signal-ink); border-color: var(--signal); }
 .row-actions .state-prepare:hover { background: var(--signal-soft); }
 .row-actions .state-busy { background: var(--signal-soft); color: var(--signal-ink); border-color: var(--signal-line); }
 .row-actions .row-main.state-busy::before { border-color: color-mix(in srgb, var(--signal-ink) 30%, transparent); border-top-color: var(--signal-ink); }
-.row-actions .state-apply { background: var(--signal); color: var(--on-accent); }
+.row-actions .state-apply { background: var(--signal); color: var(--on-signal); }
 .row-actions .state-apply:hover { filter: brightness(1.08); }
 .row-actions .state-opened { background: var(--teal-soft); color: var(--teal); border-color: var(--teal-line); }
 @keyframes pulse { 50% { opacity: 0.45; } }
@@ -390,7 +390,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .fit-label { display: none; font-size: var(--fs-xs); font-weight: 600; color: color-mix(in srgb, var(--tone) 80%, var(--ink)); white-space: nowrap; }
 .title-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .role a { color: var(--ink); font-weight: 700; font-size: var(--fs-md); text-decoration: none; line-height: 1.3; }
-.role a:hover { color: var(--signal); }
+.role a:hover { color: var(--signal-ink); }
 .reason { color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; margin-top: 2px;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
@@ -406,12 +406,12 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .row-actions { flex-wrap: nowrap; gap: 6px; padding-top: 2px; justify-content: flex-end; align-items: center; }
 /* Wide enough for the longest label ("Apply with Claude"); every row shares it so the rows line up. */
 .row-actions .row-main { width: 10em; padding: 7px 6px; font-size: var(--fs-sm); border-radius: var(--r-sm); overflow: hidden; text-overflow: ellipsis; }
-.row-actions .state-prepare { background: var(--signal); color: var(--on-accent); border-color: var(--signal); }
+.row-actions .state-prepare { background: var(--signal); color: var(--on-signal); border-color: var(--signal); }
 .row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
 .icon-btn { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
 .icon-btn:hover { background: var(--bg); }
 .bookmark { display: none; }
-.bookmark.on { color: var(--signal); opacity: 1; }
+.bookmark.on { color: var(--signal-ink); opacity: 1; }
 .bookmark.on .icon { fill: currentColor; }
 
 /* The list, compact: ring + match label | title, company line, one-line reason, tags | save, main, more */
@@ -624,7 +624,7 @@ details.manual { margin-top: 18px; }
 .review .icon-btn { background: transparent; border: 0; color: var(--muted); font-size: var(--fs-lg); padding: 2px 6px; cursor: pointer; }
 .review input.add { font-size: var(--fs-md); padding: 6px 10px; }
 .review .questions-card { background: var(--signal-soft); border-color: var(--signal-line); }
-.review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal); color: var(--on-accent); font-size: var(--fs-md); margin-right: 4px; }
+.review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal); color: var(--on-signal); font-size: var(--fs-md); margin-right: 4px; }
 .review .q-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; background: var(--surface); border-radius: var(--r-md); padding: 8px 12px; font-size: var(--fs-base); }
 .review .q-row + .q-row { margin-top: 6px; }
 .review .q-row input { grid-column: 2 / 4; font-size: var(--fs-md); }
@@ -1016,7 +1016,7 @@ main { min-width: 0; }
 .task-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
-.task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; background: var(--signal); color: var(--on-accent); border-color: transparent; }
+.task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; background: var(--signal); color: var(--on-signal); border-color: transparent; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }
 .runs-row { display: grid; grid-template-columns: 32px 200px 120px 130px minmax(0, 1fr) 16px; align-items: center; gap: var(--sp-3);

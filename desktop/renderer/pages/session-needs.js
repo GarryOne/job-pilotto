@@ -102,7 +102,7 @@ export function emptyRow(label, item) {
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
   body.append(el('div', '', `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
-  actions.append(smallButton('Show it in the form', 'primary', event => showInForm(item, label, event.currentTarget)));
+  actions.append(smallButton('Show it in the form', 'secondary', event => showInForm(item, label, event.currentTarget)));
   body.append(actions);
   li.append(el('span', 'ss-need-glyph', '✏️'), body);
   return li;
@@ -147,12 +147,12 @@ export function needRow(need, item) {
   const name = need.label || 'this';
   if (need.kind === 'agree') {
     // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
-    actions.append(smallButton('Show it in the form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
+    actions.append(smallButton('Show it in the form', 'secondary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
       smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
     li.dataset.watch = watchId(need.text);
   } else {
     const change = !!need.recommended && !KEEP.test(need.recommended);
-    actions.append(smallButton(need.recommended ? `✓ ${need.recommended}` : '✓ Looks right', 'primary', () => {
+    actions.append(smallButton(need.recommended ? `✓ ${need.recommended}` : '✓ Looks right', 'secondary', () => {
       if (change) say(`${name}: ${need.recommended}. Change it in the form, then tell me.`);
       doneRow(li, key, change ? `Asked Claude: ${need.recommended}` : 'Checked');
     }, change ? offline(item) : ''));
@@ -211,7 +211,7 @@ export function askRow(need, item) {
   const key = `${item.id}|${need.text}`;
   li.dataset.key = key;
   li.dataset.watch = watchId(need.text);  // the form page says when it has an answer
-  const fill = smallButton('Fill it in', 'primary', () => {
+  const fill = smallButton('Fill it in', 'secondary', () => {
     const value = input.value.trim();
     if (!value) { note.textContent = 'Write an answer first'; input.focus(); return; }
     say(`Fill "${need.question}" in the form with: ${value}`);

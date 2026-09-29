@@ -33,11 +33,12 @@
   --on-rail-3: #8b94a3;
 
   /* Brand accent: orange (actions), teal (done), amber (the board) */
-  --signal: #d9540b;
-  --signal-rgb: 217 84 11;
-  --signal-ink: #a3470f;    /* orange text on the soft background */
-  --signal-soft: #fdeee4;
-  --signal-line: #f5c9ab;
+  --signal: #f5a524;        /* the accent: board amber (was orange) */
+  --signal-rgb: 245 165 36;
+  --on-signal: #1d1504;     /* text on an amber fill (buttons) */
+  --signal-ink: #8a5800;    /* amber as text: links, labels (readable on white) */
+  --signal-soft: #fdf3dc;
+  --signal-line: #f1d79c;
   --teal: #0e7c7b;
   --teal-soft: #e3f3f2;
   --teal-line: #a9d8d6;
@@ -114,11 +115,12 @@
     --navy-active: #1b2735;
     --navy-line: #2f3f51;
 
-    --signal: #e8661b;
-    --signal-rgb: 232 102 27;
-    --signal-ink: #ffab76;
-    --signal-soft: #2a1a10;
-    --signal-line: #5c3218;
+    --signal: #ffb224;
+    --signal-rgb: 255 178 36;
+    --on-signal: #1d1504;
+    --signal-ink: #ffc95c;
+    --signal-soft: #2a2210;
+    --signal-line: #5a4516;
     --teal: #2aa79c;
     --teal-soft: #0f2a2a;
     --teal-line: #1f5553;
