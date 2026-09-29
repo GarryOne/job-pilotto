@@ -23,7 +23,9 @@ export function hash(dir = DIR) {
       if (SKIP.has(rel) || name.startsWith('.')) continue;  // hidden files (Finder's .DS_Store) aren't the extension
       let body = fs.readFileSync(path.join(dir, rel));
       if (rel === 'manifest.json') body = Buffer.from(JSON.stringify({...JSON.parse(body), version: ''}));
-      sha.update(rel).update('\0').update(body).update('\0');
+      // The same on every system: "/" in paths, and text files with \n line endings (a Windows checkout has \r\n).
+      if (/\.(js|json|html|css|md|txt)$/.test(name)) body = Buffer.from(body.toString('utf8').replace(/\r\n/g, '\n'));
+      sha.update(rel.split(path.sep).join('/')).update('\0').update(body).update('\0');
     }
   };
   walk('');
