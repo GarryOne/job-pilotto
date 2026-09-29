@@ -24,7 +24,9 @@ button:disabled { opacity: .5; cursor: default; }
 label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; }
 input, select, textarea { width: 100%; font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 8px 10px; }
-textarea { font: var(--fs-md)/1.5 var(--font-mono); resize: vertical; }
+textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
+/* Mono only where the content is code or a transcript. */
+#iv-text, #draft-profile, #draft-answers, .review textarea { font-family: var(--font-mono); }
 #feedback-text { font: var(--fs-md)/1.5 var(--font-sans); }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
 .message { min-height: 1.4em; margin-top: 8px; }
@@ -34,7 +36,7 @@ textarea { font: var(--fs-md)/1.5 var(--font-mono); resize: vertical; }
 .mark { width: 30px; height: 30px; border-radius: var(--r-md); display: block; }
 
 /* Wizard */
-.wizard { display: grid; grid-template-columns: 250px 1fr; height: 100vh; }
+.wizard { display: grid; grid-template-columns: 250px 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; }
 .steps { background: var(--navy); color: var(--on-navy); padding: 28px 22px; display: flex; flex-direction: column; -webkit-app-region: drag; }
 .steps .brand { color: var(--on-accent); }
 .steps ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; counter-reset: s; flex: 1; align-content: start; }
@@ -45,7 +47,8 @@ textarea { font: var(--fs-md)/1.5 var(--font-mono); resize: vertical; }
 .steps li.current { background: var(--navy-active); color: var(--on-accent); }
 .steps li.current::before { border-color: var(--amber); color: var(--amber); }
 .steps .fine { color: var(--on-navy-3); }
-.step-body { overflow-y: auto; padding: 48px 56px; }
+.step-body { overflow-y: auto; padding: 48px 56px var(--sp-6); }
+.step-body::after { content: ""; display: block; height: var(--sp-6); }
 .step { max-width: 720px; }
 .checks { padding-left: 20px; color: var(--muted); }
 .howto { padding-left: 20px; color: var(--muted); }
@@ -304,9 +307,9 @@ button.danger:hover { background: var(--bad-soft); }
 main { padding: 20px 24px; }
 
 /* Header: title, last search, run a search */
-.jobs-head { align-items: center; margin-bottom: 14px; }
-.jobs-head h1 { font-size: var(--fs-2xl); margin: 0 0 2px; }
-.jobs-head .subtitle { font-size: var(--fs-md); margin: 0; }
+.view:not([data-view="sessions"]) .view-head { align-items: center; margin-bottom: 14px; }
+.view:not([data-view="sessions"]) .view-head h1 { font-size: var(--fs-2xl); margin: 0 0 2px; }
+.view:not([data-view="sessions"]) .view-head p { font-size: var(--fs-md); margin: 0; }
 .head-actions { align-items: center; gap: 8px; }
 .last-search { display: flex; align-items: flex-start; align-self: center; gap: 8px; margin-right: 6px; max-width: 260px; min-width: 0;
   height: auto; min-height: 0; line-height: 1.35; background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
@@ -573,7 +576,9 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-detail .log { font-size: var(--fs-xs); padding: 6px 10px; margin-bottom: 6px; }
 
 /* Settings → Danger zone */
-.setting.danger-zone { border-color: var(--bad-line); background: var(--bad-soft); }
+.setting.danger-zone { border-color: var(--bad-line); background: var(--bad-soft); padding: var(--sp-5); gap: var(--sp-3); font-size: var(--fs-md); }
+.setting.danger-zone .small { font-size: var(--fs-md); }
+.setting.danger-zone p { margin: 0; }
 .setting.danger-zone h3 { color: var(--bad); }
 button.danger-solid { background: var(--bad); color: var(--on-accent); border-color: var(--bad); }
 button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
@@ -869,7 +874,7 @@ main { min-width: 0; }
    the white status bar below; its cards stay white. */
 .sessions-dock { grid-column: 2; position: relative; z-index: 2;
   border: 0; border-top: 2px solid var(--info-line); border-radius: 0;
-  background: color-mix(in srgb, var(--info-soft) 75%, var(--info-line));
+  background: var(--dock-bg);
   padding: var(--sp-3) var(--sp-5) var(--sp-4); box-shadow: 0 -12px 32px rgb(var(--shadow-rgb) / .16); }
 .sessions-dock .sd-title b { font-size: var(--fs-lg); }
 .sessions-dock #sd-summary { display: inline-flex; gap: var(--sp-2); }
@@ -896,7 +901,7 @@ main { min-width: 0; }
 .crumbs a { color: var(--info); text-decoration: none; }
 .ss-title h1 { margin: 0; }
 .ss-subtitle { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); font-size: var(--fs-base); }
-.ss-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.ss-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
 /* The session page reads like Jobs: 13 px text, less padding in the cards nested in the main card (it felt oversized
    at 100%, 29 Sep 2026) */
 .view[data-view="sessions"] .ss-grid { font-size: var(--fs-md); }
@@ -910,7 +915,9 @@ main { min-width: 0; }
 .ss-row.is-current { background: var(--signal-soft); border-color: var(--signal-line); border-left-color: var(--signal); }
 .ss-row .logo { width: 30px; height: 30px; margin-top: 2px; }
 .ss-row-words { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.ss-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); width: 100%; }
+.ss-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); width: 100%; min-width: 0; }
+.ss-row-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-row-top .muted { flex: none; white-space: nowrap; }
 .ss-main { display: flex; flex-direction: column; gap: var(--sp-3); }
 .ss-job-card { display: flex; align-items: center; gap: var(--sp-3); }
 .ss-job-card .logo { width: 34px; height: 34px; }
@@ -1232,7 +1239,8 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .sidebar .nav.active { background: var(--rail-active); color: var(--on-rail); border-color: var(--rail-line); border-left-color: var(--amber);
   box-shadow: -4px 0 18px rgb(var(--amber-rgb) / .28); }
 .sidebar .nav.active .icon { color: var(--amber); }
-.nav-count { background: rgb(var(--amber-rgb) / .16); color: var(--amber); padding: 0 8px; }
+/* A plain count (new jobs this week) is neutral; the amber/blue/green badge above means "needs you / running / done". Same pill shape and size. */
+.nav-count { background: var(--rail-line); color: var(--on-rail); }
 .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--rail-line); }
 .sidebar .palette-hint { margin: 0; display: flex; align-items: center; gap: 10px; border-color: var(--rail-line); color: var(--on-rail-3);
   font-size: var(--fs-md); padding: 8px 10px; }

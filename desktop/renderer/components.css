@@ -164,7 +164,9 @@ button.danger-outline:hover { border-color: var(--bad); }
 button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signal-line); }
 
 /* The current CV: file tile, name, actions. */
-.cv-card { display: flex !important; align-items: center; gap: var(--sp-4); padding: var(--sp-5); }
+.cv-card { display: flex !important; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-4); }
+.cv-card .message { margin: 0; }
+.cv-card .message:empty { display: none; }
 .cv-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cv-card-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-tile { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
