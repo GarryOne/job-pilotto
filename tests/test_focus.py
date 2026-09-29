@@ -134,10 +134,14 @@ class AddDetailsTests(unittest.TestCase):
         self.assertIn('prepare', [i['kind'] for i in items])  # still reminded to prepare
 
     def test_a_named_employer_without_pay_or_posting_still_asks(self):
-        lead = row('l1', 'Acme', 'SRE', stage='Screening')
+        lead = row('l1', 'Acme', 'SRE', stage='Interview scheduled')
         lead['properties']['Job URL'] = {'type': 'url', 'url': 'https://www.linkedin.com/messaging/#jp-abc'}
         asks = [i for i in focus.build([lead], [], target=0, now=NOW)['items'] if i['kind'] == 'details']
         self.assertEqual(asks[0]['missing'], ['salary', 'job description'])
+
+    def test_only_talking_to_an_agency_with_a_hidden_employer_is_not_a_to_do(self):
+        pitch = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent', Salary='€70k–90k')
+        self.assertFalse([i for i in focus.build([pitch], [], target=0, now=NOW)['items'] if i['kind'] == 'details'])
 
 
 class ParallelReadsTests(unittest.TestCase):

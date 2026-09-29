@@ -118,7 +118,7 @@ def present(item):
                 'feedback_review': 'Employer feedback, separate from AI guesses'}[kind]]
     elif kind == 'details':
         icon, badge, tone = 'info', 'Add details', 'bad' if item['stage'] == 'Interview scheduled' else 'warn'
-        headline = f"Tell Job Pilotto about {who}" if item['company'] else f'Which job is the {who} interview for?'
+        headline = f"Tell Job Pilotto about the {who} interview" if item['company'] else f'Which job is the {who} interview for?'
         meta = [_short(item['job'], 40), 'missing: ' + ', '.join(item.get('missing', []))]
     elif kind == 'apply':
         done, left, kits = item.get('applied', 0), item.get('left', 0), item.get('kits', 0)
@@ -228,7 +228,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         # Talking or interviewing, but the employer isn't known (an agency's invitation, a hidden client): ask the
         # owner for the details (the app opens its Log box on this job: paste the LinkedIn chat or the job link).
         missing = thin(row)
-        if stage in ('Screening', 'Interview scheduled', 'Interviewing') and missing:
+        # Only once an interview is booked: an agency keeping the employer hidden while you're only talking is normal.
+        if stage in ('Interview scheduled', 'Interviewing') and missing:
             coming_at = _when(_field(row, 'Next interview'))
             when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
             who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
