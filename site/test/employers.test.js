@@ -67,6 +67,7 @@ test('the landing page reads the pool size from this same route and says users c
   const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(page, /fetch\('\/api\/index'\)/);
   assert.match(page, /id="pool-count"/);
+  assert.match(page, /open jobs/);
   assert.match(page, /Can I add my own employers\?/);
   assert.doesNotMatch(page, /maintained (employer )?index/i);
 });

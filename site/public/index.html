@@ -443,8 +443,9 @@
 <script>
 // The shared employer pool's size, read from the same public list every app downloads; the sentence works without it.
 fetch('/api/index').then(r => r.ok ? r.json() : null).then(data => {
-  const n = data && data.feeds ? data.feeds.length : 0;
-  if (n) document.getElementById('pool-count').textContent = n + ' employers';
+  const feeds = data && data.feeds ? data.feeds : [];
+  const jobs = feeds.reduce((sum, feed) => sum + (feed.jobs || 0), 0);   // every open posting in the pool, all roles
+  if (feeds.length) document.getElementById('pool-count').textContent = feeds.length + ' employers with ' + jobs.toLocaleString('en-US') + ' open jobs';
 }).catch(() => {});
 // Copy buttons (the install command): "Copied" for a moment; the command stays selectable if the clipboard is blocked.
 for (const button of document.querySelectorAll('[data-copy]')) button.addEventListener('click', async () => {
