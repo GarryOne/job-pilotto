@@ -2,6 +2,7 @@
 import {runWarnings} from '../run-warnings.js';
 import {el, pill, tile} from '../components.js';
 import {shared} from './shared.js';
+import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, osText, show} from './core.js';
 import {loadJobs, renderJobs} from './jobs.js';
@@ -127,6 +128,9 @@ function showAwaitedResult(runs) {
 export function renderActivity(data) {
   renderActionsPage(data);
   lastActivity = data;
+  // Settings → Automation shows the same next times beside each schedule.
+  shared.nextRuns = {search: data.nextSearchAt, mail: data.nextMailAt, scout: data.nextScoutAt};
+  showScheduleState(shared.nextRuns);
   showAwaitedResult(data.runs);
   const {running, runs, nextSearchAt, nextMailAt, nextScoutAt} = data;
   if (!running) shared.idleSeen = true;

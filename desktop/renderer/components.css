@@ -193,7 +193,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 
 /* A table of tasks: name + hint on the left, its control on the right. */
 .task-table { display: flex; flex-direction: column; }
-.task-row { display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: center; gap: var(--sp-4);
+.task-row { display: grid; grid-template-columns: minmax(0, 1fr) 240px 200px; align-items: center; gap: var(--sp-4);
   padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
 .task-row.is-head { font-size: var(--fs-sm); color: var(--muted); padding-top: 0; border-top: 0; }
 .task-row > span:first-child { display: flex; flex-direction: column; gap: 2px; }
@@ -323,3 +323,12 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .theme-toggle:hover { background: var(--rail-hover); }
 .theme-toggle:hover .icon { color: var(--amber); }
 #setting-theme { display: grid; gap: var(--sp-3); justify-items: start; }
+
+/* Automation → Schedules: is each task on, where it runs and when next ("● On · GitHub · Today 15:30"). */
+.task-state { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.task-state::before { content: ''; width: 8px; height: 8px; border-radius: 50%; flex: none; border: 2px solid var(--line-strong); }
+.task-state.is-on { color: var(--good); }
+.task-state.is-on::before { background: var(--good); border-color: var(--good); }
+.task-state.is-warn { color: var(--warn); }
+.task-state.is-warn::before { background: var(--warn-bright); border-color: var(--warn-bright); }
+.task-state small { font-weight: 500; color: var(--muted); }

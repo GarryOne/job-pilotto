@@ -766,26 +766,26 @@
           <div class="setting panel" id="setting-schedule">
             <h3>Schedules</h3>
             <div class="task-table">
-              <div class="task-row is-head"><span>Task</span><span>Frequency</span></div>
+              <div class="task-row is-head"><span>Task</span><span>Frequency</span><span>Status</span></div>
               <label class="task-row"><span><b>Search for new jobs</b><small>Crawl, AI scoring, Telegram digest</small></span>
                 <select data-schedule="search">
                   <option value="1">Every hour</option><option value="2">Every 2 hours</option><option value="3">Every 3 hours</option>
                   <option value="4">Every 4 hours</option><option value="6">Every 6 hours</option><option value="8">Every 8 hours</option>
-                  <option value="12">Twice a day</option><option value="24">Once a day (07:30)</option><option value="0">Only when I ask</option></select></label>
+                  <option value="12">Twice a day</option><option value="24">Once a day (07:30)</option><option value="0">Only when I ask</option></select><span class="task-state" data-schedule-state="search"></span></label>
               <label class="task-row"><span><b>Draft application kits</b><small>Cover letter and form answers for the best new matches; uses your AI key</small></span>
                 <select data-schedule="kits">
                   <option value="0">On demand</option><option value="1">Best new match, each search</option>
-                  <option value="3">3 best new matches, each search</option><option value="5">5 best new matches, each search</option></select></label>
+                  <option value="3">3 best new matches, each search</option><option value="5">5 best new matches, each search</option></select><span class="task-state" data-schedule-state="kits"></span></label>
               <label class="task-row"><span><b>Find new employers</b><small>Add job feeds from new companies</small></span>
                 <select data-schedule="scout">
-                  <option value="daily">Daily at 08:15</option><option value="weekly">Mondays at 08:15</option><option value="off">Off</option></select></label>
+                  <option value="daily">Daily at 08:15</option><option value="weekly">Mondays at 08:15</option><option value="off">Off</option></select><span class="task-state" data-schedule-state="scout"></span></label>
               <label class="task-row"><span><b>Insights</b><small>What's working and what to change; weekly report on Mondays</small></span>
                 <select data-schedule="insights">
-                  <option value="daily">Every morning</option><option value="off">Off</option></select></label>
+                  <option value="daily">Every morning</option><option value="off">Off</option></select><span class="task-state" data-schedule-state="insights"></span></label>
               <label class="task-row"><span><b>Check Gmail &amp; Calendar</b><small>Replies, interviews, reminders; needs Google connected</small></span>
                 <select data-schedule="mail">
                   <option value="1">Once daily (08:00)</option><option value="3">3 times daily</option>
-                  <option value="6">6 times daily</option><option value="0">Off</option></select></label>
+                  <option value="6">6 times daily</option><option value="0">Off</option></select><span class="task-state" data-schedule-state="mail"></span></label>
             </div>
           </div>
           <div class="setting panel" id="setting-focus">

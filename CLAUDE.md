@@ -11,6 +11,11 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Code changes happen in a git worktree on their own branch (see AGENTS.md → Working with git); other agents work on this repo at the same time.
 - After each change: tests pass → commit → push to `main` → update Notion (hub current state, Run Log, Technical Reference; Decision Log when a decision changes; Handoff "Current state" / "Open threads" at the end of a session).
 - Ask before spending money on AI (new model or large re-runs); show measured cost.
+- **Every fix works for any user, through the Desktop App.** When something is set up, repaired or unblocked by hand
+  (a terminal command, a Keychain read, `gh secret set`, a Notion edit), that was a product bug: build the same step
+  into the app (automatic where possible, else one clear button or wizard step) and test it, then say which. Nothing may
+  depend on the owner's machine, CLI tools or access. Example: Always on now copies the Google sign-in to the user's
+  GitHub repo itself (`desktop/lib/google-keys.js`), after it was once set with `gh secret set` by hand.
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 

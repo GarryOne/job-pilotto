@@ -6,6 +6,7 @@ import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
+import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
@@ -47,6 +48,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // profile and jobs for screenshots (scripts/screenshots.mjs). Nothing is contacted: no Python, Telegram,
 // GitHub or local server, and the keys in demo/secrets.json are placeholders stored unencrypted.
 const DEMO = !!process.env.JOB_PILOTTO_DEMO;
+// Always on also gives the repo the Google sign-in (kept in the Keychain by the Python side, not the app's store).
+github.setExtraSecrets(() => (DEMO ? {} : googleSecrets()));
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build
 // (scripts/stage.mjs --app); without it this is a development copy (npm start).
 const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();
@@ -831,6 +834,8 @@ function handlers() {
   ipcMain.handle('googleConnect', async () => {
     const lines = [];
     const {code} = await pipeline.run(storage, ['src.sources.google', 'auth'], line => lines.push(line));
+    // Always on: the new sign-in goes to the GitHub repo too, so the Gmail check there can use it.
+    if (code === 0 && cloud()) github.updateRepo(storage).catch(error => log(`Google sign-in not sent to GitHub: ${error.message}`));
     return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
   });
   ipcMain.handle('openTabs', () => server.openTabs());
@@ -1089,7 +1094,8 @@ if (firstCopy) app.whenReady().then(() => {
       pendingCloud.push({id: Date.now(), mode, kind, live: true, where: 'github', trigger: 'you', startedAt: new Date().toISOString(), step: 'Starting on GitHub…'});
       setTimeout(readRuns, 20000);
     });
-    // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched.
+    // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched;
+    // keys kept outside the app's store (the Google sign-in) go along.
     if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
       error => log(`GitHub repo not updated: ${error.message}`));
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };

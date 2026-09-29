@@ -25,6 +25,10 @@ const API = 'https://api.github.com';
 
 // Keys the cloud runs need (secrets), and what the app's own runs set (variables): same values as pipelineEnv.
 export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY'];
+// Secrets kept outside the app's own store, e.g. the Google sign-in (the Python side keeps it in the Keychain):
+// main.js sets the reader; they go to the repo with the rest, so a Gmail check on GitHub can sign in.
+let extraSecrets = () => ({});
+export const setExtraSecrets = read => { extraSecrets = read; };
 const MODEL_VARIABLES = {
   JOB_PILOTTO_ENRICH_MODEL: 'enrich', JOB_PILOTTO_SCORE_MODEL: 'score', JOB_PILOTTO_KIT_MODEL: 'kit',
   JOB_PILOTTO_INSIGHT_MODEL: 'insight', JOB_PILOTTO_MAIL_MODEL: 'enrich',
@@ -154,6 +158,7 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   }
   const settings = storage.settings();
   const secrets = Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value));
+  for (const [name, value] of Object.entries(extraSecrets() || {})) if (value) secrets[name] = value;
   if (settings.telegramChatId) secrets.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
   const removed = [];
@@ -203,6 +208,9 @@ export async function updateRepo(storage, {fetcher} = {}) {
   for (const [file, content] of Object.entries(payload(storage).files)) {
     if (await putFile(api, repo, file, content, `Job Pilotto: ${file}`)) changed.push(file);
   }
+  // Keys added since Always on was turned on (e.g. Google connected later) reach the repo too.
+  const extra = Object.fromEntries(Object.entries(extraSecrets() || {}).filter(([, value]) => value));
+  if (Object.keys(extra).length) { await setSecrets(api, repo, extra); changed.push(...Object.keys(extra).map(name => `secret ${name}`)); }
   return changed;
 }
 
