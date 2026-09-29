@@ -1,4 +1,5 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
+import {runWarnings} from '../run-warnings.js';
 import {el, pill} from '../components.js';
 import {shared} from './shared.js';
 import {answer} from './actions.js';
@@ -61,9 +62,6 @@ function runStatus(run, warned) {
   if (!run.ok || run.off) return ['Failed', 'bad'];
   return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
 }
-// Lines of a run's log that are warnings (Notion busy, a step skipped…), each once.
-const runWarnings = lines => [...new Set(lines.filter(line => /^Warning|\b429\b|Too Many Requests|skipped|failed/i.test(line))
-  .map(line => line.replace(/^Warning:\s*/i, '').slice(0, 180)))];
 // The warnings in one plain sentence (the list is one click away).
 function warningSummary(warnings) {
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
