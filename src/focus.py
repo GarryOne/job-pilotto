@@ -296,7 +296,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             if hours <= 14 * 24:
                 items.append(_item(1 if hours <= SOON_HOURS else 2, 'prepare', '🎤', f'Prepare: {label}',
                                    f"Interview {coming.astimezone(TZ):%a %d %b, %H:%M}. Read the posting and your kit, "
-                                   'and practise the topics you answered weakly before.', row, at=coming.isoformat()))
+                                   'and practise the topics you answered weakly before.', row, at=coming.isoformat(),
+                                   prep_at=_field(row, 'Interview prep')))
                 continue
         if coming and now - timedelta(days=3) < coming <= now and interviewed.get(key, '') < coming.astimezone(TZ).date().isoformat():
             items.append(_item(2, 'review', '📝', f'Review the interview: {label}',

@@ -376,6 +376,15 @@ export async function focusHistory(storage) {
   catch { return {ok: false, error: 'Notion could not be read. Try again.', items: []}; }
 }
 const lastJson = (stdout, fallback) => { try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return fallback; } };
+// Interview prep kit (src/ai/prep.py): built on the job's Notion page; needs_description when the role is unknown.
+export async function interviewPrep(storage, pageId, onLine = () => {}) {
+  const {stdout} = await run(storage, ['src.ai.prep', 'build', pageId], onLine);
+  return lastJson(stdout, {ok: false, text: 'The prep kit could not be built. Try again.'});
+}
+export async function describeJob(storage, pageId, text = '', url = '') {
+  const {stdout} = await run(storage, ['src.ai.prep', 'describe', pageId, ...(text ? ['--text', text] : []), ...(url ? ['--url', url] : [])]);
+  return lastJson(stdout, {ok: false, text: 'The description could not be saved to Notion. Try again.'});
+}
 // An email the Gmail check placed, or wasn't sure where to place: move it to a job ("new", "none" or a job URL).
 export async function reassignEmail(storage, eventId, target) {
   const {stdout} = await run(storage, ['src.ai.reassign', 'move', eventId, target]);

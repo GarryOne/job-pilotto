@@ -1171,6 +1171,29 @@
     </div>
   </form>
 </dialog>
+<!-- Interview prep kit (pages/prep.js → src/ai/prep.py): progress, and the job description when it's unknown. -->
+<dialog id="prep-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mic"></i></span>
+      <h2 id="prep-title">Interview prep kit</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p id="prep-context" class="dialog-lead"></p>
+    <div id="prep-describe" hidden>
+      <p class="muted small">To prepare you, Job Pilotto needs to know the role. Paste the job description (or what the recruiter told you), or the posting's link.</p>
+      <label for="prep-text">Job description</label>
+      <textarea id="prep-text" rows="8" placeholder="What the role does, its stack, the team, requirements…"></textarea>
+      <label for="prep-url">Or the posting's link</label>
+      <input id="prep-url" type="url" placeholder="https://…">
+    </div>
+    <p id="prep-message" class="message"></p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Close</button>
+      <button id="prep-open" type="button" class="secondary" hidden>Open in Notion</button>
+      <button id="prep-go" class="primary" value="default">Build prep kit</button>
+    </div>
+  </form>
+</dialog>
 <!-- "Is this about …?" and "Not this job": where an email belongs (pages/reassign.js → src/ai/reassign.py). -->
 <dialog id="reassign-dialog" class="panel-dialog">
   <form method="dialog">

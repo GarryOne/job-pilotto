@@ -9,6 +9,7 @@ import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {openFeedback, saveFeedbackAction} from './feedback.js';
 import {moveEmail, whichJob} from './reassign.js';
+import {openPrep} from './prep.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -116,7 +117,11 @@ function focusCard(item) {
   }
   if (item.kind === 'apply') actions.append(focusButton('Browse jobs', 'primary', () => openView('jobs')));
   if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
-  if (!item.link && ['reply', 'book', 'offer', 'prepare', 'nudge'].includes(item.kind) && item.notion_url) {
+  if (item.kind === 'prepare' && item.page_id) {  // the prep kit: built on the job's page, then opened there
+    if (item.prep_at) actions.append(focusButton('Open prep kit', 'primary', event => openLink(item.notion_url, event)));
+    else actions.append(focusButton('Build prep kit', 'primary', () => openPrep(item)));
+  }
+  if (!item.link && ['reply', 'book', 'offer', 'nudge'].includes(item.kind) && item.notion_url) {
     actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
   }
   if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', async event => {
@@ -134,6 +139,7 @@ function focusCard(item) {
   if (item.notion_url) more.push({label: '🗂 Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({label: '↗ Open posting', run: () => window.pilot.openExternal(item.job_url)});
   if (item.kind === 'which_job') more.push({label: 'Not about a job', run: () => moveEmail(item.event_id, 'none')});
+  if (item.kind === 'prepare' && item.prep_at) more.push({label: '↻ Build the prep kit again', run: () => openPrep(item)});
   if (item.kind === 'apply') more.push({label: '🎯 Change the daily target', run: () => editTarget()});
   if (item.detail) more.push({label: 'ℹ️ Details', run: () => toastMessage(item.headline || item.title, item.detail)});
   if (more.length) actions.append(moreButton(more, 'More'));

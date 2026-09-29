@@ -41,12 +41,14 @@ EMOJI = {**mail.EMOJI, OUTREACH: '🤝', APPLIED: '📨'}
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback'] + opportunity.SCHEMA['required'],
+    'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback', 'job_description']
+                + opportunity.SCHEMA['required'],
     'properties': {
         'kind': {'type': 'string', 'enum': KINDS},
         'match': {'type': 'integer', 'description': 'Index of the job in the list this is about, or -1 if none fits'},
         'role': {'type': 'string', 'description': 'Role title the item names, else ""'},
         'when': {'type': 'string', 'description': 'ISO 8601 date/time the message was sent if shown, else ""'},
+        'job_description': {'type': 'string', 'description': 'Everything the item says about the role itself, as written (for screenshots: transcribed): responsibilities, stack, team, requirements, the company or client, location, work mode, contract, pay, interview process. Not greetings or small talk. "" if it says nothing about the role'},
         'first_contact': {'type': 'string', 'description': 'ISO 8601 date of the earliest message shown in the conversation (the first time they talked), else ""'},
         'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a call/interview with a fixed time, with offset, else ""'},
         'feedback': {'type': 'string', 'description': 'Specific employer feedback quoted verbatim, else empty; no generic rejections or inferred reasons.'},
@@ -198,6 +200,8 @@ def _row_for(tracker, url):
 
 
 GAPS = {'Company': 'company', 'Location': 'location', 'Salary': 'salary'}
+DESCRIPTION_HEADING = '🧾 Job description'  # on the job's page: what messages and screenshots said about the role
+MIN_ABOUT = 80
 
 
 def _fill_gaps(tracker, row, item):
@@ -322,6 +326,21 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
 
     stage, url = plain(row['properties'].get('Stage')), plain(row['properties'].get('Job URL'))
     filled = _fill_gaps(tracker, row, item) if not created else []
+    about = (item.get('job_description') or '').strip()
+    if len(about) >= MIN_ABOUT:
+        # What the message says about the role, kept as the job's description (the prep kit and fit score read it).
+        step('Saving the job description on the job')
+        try:
+            tracker.replace_after_heading(row['id'], DESCRIPTION_HEADING,
+                                          [_block('paragraph', part) for part in re.split(r'\n\s*\n', about)[:60] if part.strip()])
+            filled.append('the job description')
+        except Exception as error:  # noqa: BLE001 — the update itself matters more
+            print(f'Warning: job description not saved: {type(error).__name__}: {error}', file=sys.stderr)
+        if not created and not (row['properties'].get('Fit score') or {}).get('number'):
+            step('Scoring how well the job fits you')
+            fit = _rich(on_new, row, {**item, 'summary': about}, about)
+            if fit:
+                filled.append(f'fit {fit}')
     label = mail._label(row)
     changed = None
     if kind == OUTREACH and stage not in EARLY:  # the same pitch again (a follow-up would read as a reply)
@@ -353,7 +372,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     _keep(tracker, row, text, image, summary, when)
     fit = _rich(on_new, row, item, text) if created and not job else None  # an open job was scored by its search
     verb = 'Tracked' if created else 'Updated'
-    return f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
+    return (f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
+            + (f" Added {', '.join(filled)}." if filled else ''))
 
 
 def _rich(on_new, row, item, text):

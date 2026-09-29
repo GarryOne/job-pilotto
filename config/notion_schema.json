@@ -416,6 +416,9 @@
         },
         "Employer feedback": {
           "type": "rich_text"
+        },
+        "Interview prep": {
+          "type": "date"
         }
       }
     },

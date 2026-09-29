@@ -706,6 +706,14 @@ function handlers() {
       {at: at(1, 11), kind: 'Feedback requested', emoji: '🙋', title: 'Asked Example Labs for feedback', note: '', url: ''},
       {at: at(3, 15), kind: 'Feedback skipped', emoji: '⏭️', title: 'Skipped asking Acme Robotics for feedback', note: '', url: ''}]};
   };
+  // Interview prep kit (Focus → Prepare): runs here (you wait for it), steps shown in its dialog.
+  ipcMain.handle('interviewPrep', (_, pageId) => {
+    if (DEMO) return {ok: true, text: 'Prep kit ready (demo): nothing was written.'};
+    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'The prep kit needs your Anthropic API key (Settings).'};
+    return pipeline.interviewPrep(storage, String(pageId), line => { log(line); if (/^⏳/.test(line)) toWindow('prepStep', line.replace(/^⏳\s*/, '')); });
+  });
+  ipcMain.handle('describeJob', (_, pageId, text = '', url = '') => (DEMO ? {ok: true, text: 'Saved (demo).'}
+    : pipeline.describeJob(storage, String(pageId), String(text || ''), String(url || ''))));
   // Where an email belongs: Focus → "Is this about …?", a job's ⋯ → Undo an email update (src/ai/reassign.py).
   ipcMain.handle('reassignEmail', (_, eventId, target) => (DEMO ? {ok: true, text: 'Moved (demo): nothing was written.'}
     : pipeline.reassignEmail(storage, String(eventId), String(target))));

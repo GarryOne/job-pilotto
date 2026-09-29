@@ -54,5 +54,37 @@ class FillGapsTest(unittest.TestCase):
         self.assertEqual(tracker.updates, [])
 
 
+
+class DescriptionTest(unittest.TestCase):
+    def test_a_chat_describing_the_role_becomes_the_jobs_description(self):
+        import json
+        from types import SimpleNamespace
+        from unittest import mock
+        row = {'id': 'h1', 'created_time': '2026-09-29T12:41:00Z', 'properties': {
+            'Job': {'type': 'title', 'title': [{'plain_text': 'SRE'}]}, 'Stage': {'type': 'select', 'select': {'name': 'Interview scheduled'}},
+            'Job URL': {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}, 'Company': text(''), 'Via': text('Huxley')}}
+        about = 'Principal SRE for a global AI company. Own AWS and Kubernetes reliability, incident management, Kafka, ArgoCD.'
+        reading = {'kind': 'Reply received', 'match': 0, 'role': 'Principal SRE', 'when': '', 'first_contact': '', 'interview_at': '',
+                   'feedback': '', 'job_description': about, 'summary': 'hands-on SRE', 'platform': 'LinkedIn'}
+        saved, scored = [], []
+
+        class Tracker(FakeTracker):
+            def replace_after_heading(self, page_id, heading, blocks):
+                saved.append((heading, blocks))
+
+            def append_blocks(self, *args):
+                pass
+        with mock.patch.object(inbox, 'candidates', lambda t: [{'url': 'https://mail.google.com/mail/u/0/#all/h1', 'stage': 'Interview scheduled'}]), \
+                mock.patch.object(inbox, 'read', lambda *a, **k: reading), \
+                mock.patch.object(inbox, '_row_for', lambda t, url: row), \
+                mock.patch.object(inbox.mail, '_events_index', lambda t: (set(), {})), \
+                mock.patch.object(inbox.mail, 'record', lambda *a, **k: None):
+            line = inbox.log(Tracker(), text='x' * 50, client=object(), target='https://mail.google.com/mail/u/0/#all/h1',
+                             on_new=lambda url, job, r=None: scored.append(job['description']) or '78/100')
+        self.assertEqual(saved[0][0], inbox.DESCRIPTION_HEADING)
+        self.assertEqual(scored, [about])
+        self.assertIn('the job description', line)
+
+
 if __name__ == '__main__':
     unittest.main()
