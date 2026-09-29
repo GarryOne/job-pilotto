@@ -710,7 +710,12 @@ function handlers() {
   ipcMain.handle('interviewPrep', (_, pageId) => {
     if (DEMO) return {ok: true, text: 'Prep kit ready (demo): nothing was written.'};
     if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'The prep kit needs your Anthropic API key (Settings).'};
-    return pipeline.interviewPrep(storage, String(pageId), line => { log(line); if (/^⏳/.test(line)) toWindow('prepStep', line.replace(/^⏳\s*/, '')); });
+    // Its lines and result also go to logs/app.log (a failed kit left no trace before).
+    return pipeline.interviewPrep(storage, String(pageId), line => {
+      log(line);
+      appLog('prep', line);
+      if (/^⏳/.test(line)) toWindow('prepStep', line.replace(/^⏳\s*/, ''));
+    }).then(result => { appLog('prep', `${pageId}: ${result?.ok ? 'ready' : 'failed'}`, {text: result?.text || result?.error}); return result; });
   });
   ipcMain.handle('describeJob', (_, pageId, text = '', url = '') => (DEMO ? {ok: true, text: 'Saved (demo).'}
     : pipeline.describeJob(storage, String(pageId), String(text || ''), String(url || ''))));

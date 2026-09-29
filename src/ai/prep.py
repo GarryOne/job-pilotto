@@ -221,10 +221,13 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
              if coming else 'Interview: time unknown',
              ] + history
     response = client.messages.create(
-        model=model, max_tokens=3000, system=SYSTEM,
+        # Room for the model's thinking plus a full kit (3000 cut one off mid-answer); medium effort, as the kits.
+        model=model, max_tokens=8000, system=SYSTEM,
         messages=[{'role': 'user', 'content': '\n'.join(facts) + f'\n\n# The job\n{role[:12000]}\n\n# Owner\'s Profile\n{profile[:12000]}'}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}})
+        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
     cost.add(stats, model, response.usage)
+    if getattr(response, 'stop_reason', None) == 'max_tokens':  # a cut-off answer is no kit: say so, not a JSON error
+        raise RuntimeError('The prep kit came back cut off (too long for one answer). Try again; if it repeats, the job text is very long.')
     kit = json.loads(next(b.text for b in response.content if b.type == 'text'))
     usd = cost.usd(model, response.usage)
     tracker.replace_after_heading(row['id'], HEADING, blocks(kit, now, usd))

@@ -110,6 +110,20 @@ class PrepTests(unittest.TestCase):
         self.assertEqual(tracker.written[0][1], prep.DESCRIPTION_HEADING)  # kept as the job's description
         self.assertIn('ArgoCD', client.calls[1]['messages'][0]['content'])
 
+    def test_a_cut_off_answer_says_so_and_writes_nothing(self):
+        tracker, row = job(INVITE + '\n' + ROLE)
+        tracker.database_id = 'apps'
+        tracker.query_database = lambda db, filter_=None: []
+        client = Client()
+        cut = SimpleNamespace(content=[SimpleNamespace(type='text', text='{"interview_type": "technical", "assess": ["SL')],
+                              usage=SimpleNamespace(input_tokens=4000, output_tokens=8000, cache_read_input_tokens=0, cache_creation_input_tokens=0),
+                              stop_reason='max_tokens')
+        client.create = lambda **params: cut
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+            with self.assertRaisesRegex(RuntimeError, 'cut off'):
+                prep.build(tracker, row, client=client, now=NOW)
+        self.assertEqual(tracker.written, [])
+
     def test_a_pasted_description_is_saved_on_the_job(self):
         tracker, row = job(INVITE)
         self.assertTrue(prep.describe(tracker, row, text=ROLE.split('\n', 1)[1])['ok'])
