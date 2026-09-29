@@ -117,9 +117,11 @@ def present(item):
                 'feedback_wait': 'Gmail checks for replies · or add feedback here',
                 'feedback_review': 'Employer feedback, separate from AI guesses'}[kind]]
     elif kind == 'details':
-        icon, badge, tone = 'info', 'Add details', 'bad' if item['stage'] == 'Interview scheduled' else 'warn'
+        at = _when(item.get('at', ''))
+        icon = 'info'
+        badge, tone = (f"Interview {at.astimezone(TZ):%a %H:%M}", 'bad') if at else ('Add details', 'warn')
         headline = f"Tell Job Pilotto about the {who} interview" if item['company'] else f'Which job is the {who} interview for?'
-        meta = [_short(item['job'], 40), 'missing: ' + ', '.join(item.get('missing', []))]
+        meta = [_short(item['job'], 40), 'add ' + ', '.join(item.get('missing', [])) + ' before you prepare']
     elif kind == 'apply':
         done, left, kits = item.get('applied', 0), item.get('left', 0), item.get('kits', 0)
         icon, badge, tone = 'briefcase', 'Next step', 'info'
@@ -199,6 +201,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(TZ).date()
     by_app, interviewed, items = _events_by_app(events), _interviewed(interviews), []
+    asked = set()  # jobs Focus asks details for: their Prepare waits
     for row in rows:
         stage, key = _field(row, 'Stage'), row['id'].replace('-', '')
         history = by_app.get(key, [])
@@ -233,10 +236,11 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             coming_at = _when(_field(row, 'Next interview'))
             when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
             who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
+            asked.add(row['id'])
             items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_field(row, 'Job')[:70]}",
                                f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
                                "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
-                               row, missing=missing))
+                               row, missing=missing, at=coming_at.isoformat() if coming_at and coming_at > now else ''))
         last = history[-1] if history else None
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
         label = f"{company} — {_field(row, 'Job')[:70]}"
@@ -264,6 +268,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    lead=last['kind'] == 'Recruiter lead'))
             continue
         coming = _when(_field(row, 'Next interview'))
+        if coming and coming > now and row['id'] in asked:
+            continue  # one card per job: Add details (with the interview time) comes first, then Prepare
         if coming and coming > now:
             hours = (coming - now).total_seconds() / 3600
             if hours <= 14 * 24:
@@ -276,7 +282,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                f"It was {coming.astimezone(TZ):%a %d %b}. Import the recording or transcript (Interviews) "
                                'while you remember it: you get a review of every answer.', row))
             continue
-        if stage in ('Screening', 'Interview scheduled') and not (coming and coming > now):
+        if stage in ('Screening', 'Interview scheduled') and not (coming and coming > now) and row['id'] not in asked:
             quiet = (now - last['at']).days if last and last['at'] else QUIET_DAYS
             if quiet >= QUIET_DAYS or stage == 'Interview scheduled':
                 items.append(_item(2, 'nudge', '🤝', f'Move it forward: {label}',

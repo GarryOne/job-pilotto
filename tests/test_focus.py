@@ -131,7 +131,9 @@ class AddDetailsTests(unittest.TestCase):
         self.assertEqual(asks[0]['title'], 'Add details: Huxley — Connect Igor / Jaya - SRE')
         self.assertEqual(asks[0]['missing'], ['company', 'salary', 'job description'])
         self.assertIn('Wed 30 Sep, 08:30', asks[0]['detail'])
-        self.assertIn('prepare', [i['kind'] for i in items])  # still reminded to prepare
+        self.assertNotIn('prepare', [i['kind'] for i in items if i['page_id'] == 'h1'])  # one card per job
+        self.assertEqual(asks[0]['badge'], 'Interview Wed 08:30')
+        self.assertIn('prepare', [i['kind'] for i in items if i['page_id'] == 'k1'])
 
     def test_a_named_employer_without_pay_or_posting_still_asks(self):
         lead = row('l1', 'Acme', 'SRE', stage='Interview scheduled')
