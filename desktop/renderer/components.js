@@ -35,7 +35,7 @@ export function tile(glyph, tone = 'signal') {
 }
 
 // ⋯ menu: one floating list for the whole window, closed by Esc, a click outside, scrolling or picking an item.
-// Items: {label, run(event), title?, danger?} or '-' for a divider.
+// Items: {label, run(event), title?, danger?, icon?} (icon: a name from icons.js) or '-' for a divider.
 const menu = el('div', 'ui-menu');
 menu.hidden = true;
 menu.setAttribute('role', 'menu');
@@ -50,7 +50,8 @@ export function openMenu(anchor, items) {
   if (wasOpen) return;
   menu.replaceChildren(...items.map(item => {
     if (item === '-') return document.createElement('hr');
-    const button = el('button', item.danger ? 'danger' : '', item.label);
+    const button = el('button', `${item.danger ? 'danger' : ''}${item.icon ? ' with-menu-icon' : ''}`.trim(), item.icon ? icon(item.icon) : null);
+    if (item.icon) button.append(item.label); else button.textContent = item.label;
     button.title = item.title || '';
     button.setAttribute('role', 'menuitem');
     button.addEventListener('click', event => { closeMenu(); item.run(event); });

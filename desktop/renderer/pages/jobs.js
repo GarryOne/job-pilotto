@@ -171,7 +171,7 @@ export function renderJobs() {
           open.title = live.note || 'Open this Claude session';
           open.addEventListener('click', () => openSession(live.id));
           box.append(open);
-          menu.push({label: '🧩 Fill in Chrome', run: () => fillInChrome()});
+          menu.push({icon: 'puzzle', label: 'Fill in Chrome', run: () => fillInChrome()});
         }
         const started = !live && claudeStarted.has(pageKey(job.url));
         const claude = live ? null : Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
@@ -189,7 +189,7 @@ export function renderJobs() {
           if (/kit/i.test(result.error || '')) { claude.textContent = 'Prepare first'; loadJobs(); } else claude.textContent = 'Not ready';
         });
         if (claude) box.append(claude);
-        if (claude) menu.push({label: opened ? '🧩 Fill in Chrome again' : '🧩 Fill in Chrome', run: () => fillInChrome(),
+        if (claude) menu.push({icon: 'puzzle', label: opened ? 'Fill in Chrome again' : 'Fill in Chrome', run: () => fillInChrome(),
           title: 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
       } else {
         const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened in Chrome ↻' : 'Apply'), {
@@ -208,8 +208,8 @@ export function renderJobs() {
         prepare.title = 'Drafting the kit: usually 15–30 s';
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
         prepare.classList.remove('busy', 'state-busy');
-        // On GitHub (Always on): Recent activity follows it; the list reloads when it's done.
-        if (result.cloud) { prepare.textContent = 'Preparing on GitHub…'; openActivity(true); return; }
+        // On GitHub (Always on): the row says so; the list reloads when it's done.
+        if (result.cloud) { prepare.textContent = 'Preparing…'; prepare.title = 'Preparing on GitHub: the list reloads when it is done'; return; }
         if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
       });
       box.append(prepare);
@@ -230,28 +230,28 @@ export function renderJobs() {
       renderJobs();
       try { await work(); } finally { busyNotes.delete(job.url); renderJobs(); }
     };
-    if (job.notion_url) menu.push({label: job.kit ? '📝 Open kit in Notion' : '🗂 Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
+    if (job.notion_url) menu.push({icon: job.kit ? 'file-text' : 'layers', label: job.kit ? 'Open kit in Notion' : 'Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
       title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});
-    menu.push({label: '↗ Open posting', run: () => window.pilot.openExternal(job.url), title: 'The job posting'});
+    menu.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(job.url), title: 'The job posting'});
     if (job.kit && job.code) {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
       const earlier = String(job.kit_state || '').startsWith('earlier');
-      menu.push({label: earlier ? '↻ Redraft kit (earlier inputs)' : '↻ Redraft kit',
+      menu.push({icon: 'refresh', label: earlier ? 'Redraft kit (earlier inputs)' : 'Redraft kit',
         title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s, about 4¢); replaces it in Notion', run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
         })});
     }
-    if (job.page_id) menu.push({label: '💬 Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
+    if (job.page_id) menu.push({icon: 'chat', label: 'Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
     // The Gmail check put an email on the wrong job: this job goes back as it was, the email goes where you say.
-    if (job.page_id && job.stage) menu.push({label: '↩ Undo an email update…', title: 'An email landed on the wrong job: put this job back and move the email',
+    if (job.page_id && job.stage) menu.push({icon: 'undo', label: 'Undo an email update…', title: 'An email landed on the wrong job: put this job back and move the email',
       run: () => undoEmailUpdate(job)});
-    if (job.employer_feedback && job.page_id) menu.push({label: '💬 Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
+    if (job.employer_feedback && job.page_id) menu.push({icon: 'chat', label: 'Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.
-      menu.push({label: job.rejection ? '↻ Review the rejection again' : '🔎 Why was I rejected?',
+      menu.push({icon: 'search', label: job.rejection ? 'Review the rejection again' : 'Why was I rejected?',
         title: 'Claude reviews this application: presentation, hard skills, soft skills, or not on you (~20 s, a few cents)',
         run: () => background('🔎 Reviewing the rejection…', async () => {
           const result = await window.pilot.reviewRejection(job.url);
@@ -261,7 +261,7 @@ export function renderJobs() {
     }
     if (job.code) {
       // A CV tailored to this posting (reworded, reordered bullets from your own CV; the extension uploads it here).
-      menu.push({label: job.tailored ? '↻ Re-tailor CV' : '✂️ Tailor CV',
+      menu.push({icon: 'scissors', label: job.tailored ? 'Re-tailor CV' : 'Tailor CV',
         title: 'Make a version of your CV for this job: bullets reordered and reworded toward the posting, only from facts in your CV (about 1–2 min, ~10–15¢)',
         run: () => background('✂️ Tailoring CV…', async () => {
           const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
@@ -270,17 +270,17 @@ export function renderJobs() {
     }
     // Actions read as verbs (the Status column shows where a job stands).
     menu.push('-');
-    if (job.status !== 'saved') menu.push({label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
+    if (job.status !== 'saved') menu.push({icon: 'bookmark', label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
     if (job.stage === 'Applying') {  // the session is over or was closed: say what happened, instead of staying Applying
-      menu.push({label: '✅ I submitted it', run: setStatus('applied'), title: 'Mark it Applied in Notion'});
-      menu.push({label: '↩ Not submitted', title: 'Back to Kit ready', run: async () => {
+      menu.push({icon: 'tick', label: 'I submitted it', run: setStatus('applied'), title: 'Mark it Applied in Notion'});
+      menu.push({icon: 'undo', label: 'Not submitted', title: 'Back to Kit ready', run: async () => {
         const result = await window.pilot.unapplyJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
         job.stage = 'Kit ready';
         renderJobs();
       }});
-    } else if (job.status !== 'applied') menu.push({label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
-    if (job.status !== 'dismissed') menu.push({label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
+    } else if (job.status !== 'applied') menu.push({icon: 'tick', label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
+    if (job.status !== 'dismissed') menu.push({icon: 'close', label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);

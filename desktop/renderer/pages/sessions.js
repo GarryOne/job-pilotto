@@ -96,7 +96,7 @@ export function renderDock() {
   }));
 }
 export function sessionMenu(item) {
-  const menu = [{label: '↗ Open posting', run: () => window.pilot.openExternal(item.url)}];
+  const menu = [{icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.url)}];
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
   if (item.resumable) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
   if (isLive(item)) menu.push({label: '⏹ Stop Claude', run: () => window.pilot.sessionStop(item.id)});

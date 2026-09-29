@@ -13,6 +13,15 @@ export const savedAgo = iso => {
   return !Number.isFinite(minutes) || minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.floor(minutes / 60)} h ago` : ago(iso);
 };
 
+// "Today 19:10", "Mon 19:10", or a date once it is older than a week.
+export function runWhen(iso) {
+  const at = new Date(iso), today = new Date();
+  const time = at.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+  if (at.toDateString() === today.toDateString()) return `Today ${time}`;
+  if (today - at > 7 * 86400000) return `${at.toLocaleDateString([], {day: 'numeric', month: 'short'})} ${time}`;
+  return `${at.toLocaleDateString([], {weekday: 'short'})} ${time}`;
+}
+
 // ---------- helpers ----------
 export function show(element, visible = true) { element.hidden = !visible; }
 export function message(id, text, tone = '') { const el = $(id); el.textContent = text || ''; el.className = `message ${tone}`; }

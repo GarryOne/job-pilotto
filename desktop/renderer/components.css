@@ -29,6 +29,9 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
   border-radius: var(--r-md); padding: 5px; box-shadow: var(--shadow-lg); }
 .ui-menu button { background: transparent; text-align: left; font-weight: 500; font-size: var(--fs-sm); padding: 7px 9px;
   border-radius: var(--r-sm); color: var(--ink); }
+.ui-menu button.with-menu-icon { display: flex; align-items: center; gap: var(--sp-2); }
+.ui-menu button.with-menu-icon .icon { width: 15px; height: 15px; color: var(--muted); }
+.ui-menu button.danger .icon { color: inherit; }
 .ui-menu button:hover, .ui-menu button:focus-visible { background: var(--bg); outline: none; }
 .ui-menu button.danger { color: var(--bad); }
 .ui-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px; }
@@ -164,7 +167,9 @@ button.danger-outline:hover { border-color: var(--bad); }
 button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signal-line); }
 
 /* The current CV: file tile, name, actions. */
-.cv-card { display: flex !important; align-items: center; gap: var(--sp-4); padding: var(--sp-5); }
+.cv-card { display: flex !important; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-4); }
+.cv-card .message { margin: 0; }
+.cv-card .message:empty { display: none; }
 .cv-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cv-card-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-tile { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none;
@@ -234,7 +239,10 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .path-line code { flex: 1; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .summary-rows.is-lined { grid-template-columns: 200px minmax(0, 1fr); gap: 0; margin: 0; }
 .summary-rows.is-lined dt, .summary-rows.is-lined dd { padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
-.dev-options summary { display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer; }
+.dev-options summary { display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer; list-style: none; position: relative; padding-right: var(--sp-6); }
+.dev-options summary::-webkit-details-marker { display: none; }
+.dev-options summary::after { content: '▸'; position: absolute; right: var(--sp-2); top: var(--sp-2); color: var(--muted); transition: transform .15s; }
+.dev-options[open] summary::after { transform: rotate(90deg); }
 .dev-options[open] summary { margin-bottom: var(--sp-3); }
 .dev-options h4 { margin: var(--sp-3) 0 var(--sp-1); }
 
@@ -278,6 +286,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 
 /* Settings → Application profile parts. */
 .cv-card-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
+.cv-card-links { display: inline-flex; align-items: center; gap: var(--sp-3); }
 .info-bar { display: flex !important; align-items: center; gap: var(--sp-3); background: var(--info-soft); border-color: var(--info-line); }
 .info-bar > span { flex: 1; }
 .info-bar svg { width: 20px; height: 20px; color: var(--info); }
@@ -338,3 +347,23 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .task-state small { font-weight: 500; color: var(--muted); }
 .diag-update { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 #allowance-dialog .inline { margin-top: var(--sp-4); }
+
+/* Always on (Settings → Automation): a service row inside a card: tile, name + status pill + detail, actions; a body underneath. */
+.aon-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-4); row-gap: var(--sp-3); align-items: center;
+  padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.aon-row[hidden] { display: none; }
+.aon-title { display: flex; align-items: center; gap: var(--sp-3); }
+.aon-text p { margin: var(--sp-1) 0 0; overflow-wrap: anywhere; }
+.aon-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.aon-actions [hidden] { display: none; }
+.aon-body { grid-column: 2 / -1; display: grid; gap: var(--sp-3); }
+.aon-body:not(:has(:not([hidden]):not(:empty))) { display: none; }
+.aon-body .message { margin: 0; }
+.aon-body .message:empty { display: none; }
+.aon-body details { margin: 0; padding: 0; border: 0; background: none; }
+.aon-body details[open] summary { margin-bottom: var(--sp-2); }
+.aon-sub { background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-4); display: grid; gap: var(--sp-3); }
+.aon-sub[hidden] { display: none; }
+.aon-sub p, .aon-sub ol { margin: 0; }
+.aon-sub a { color: var(--signal-ink); font-weight: 600; text-decoration: none; }
+.aon-sub a:hover { text-decoration: underline; }

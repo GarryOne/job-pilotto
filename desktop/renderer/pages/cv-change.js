@@ -28,7 +28,7 @@ export async function openCvChange() {
   message('cv-review-message', '');
   $('cv-compare').disabled = !change.comparable;
   if (!change.comparable) $('cv-profile-text').textContent = 'The previous CV is not on this computer, so there is nothing to compare. Edit the Profile in Notion if needed.';
-  $('cv-base-text').textContent = change.base ? 'made from the previous CV. Read the new one so tailored CVs start from it.' : 'read from this CV on your first ✂️ Tailor CV. Nothing to do.';
+  $('cv-base-text').textContent = change.base ? 'made from the previous CV. Read the new one so tailored CVs start from it.' : 'read from this CV on your first Tailor CV. Nothing to do.';
   show($('cv-base-actions'), change.base);
   const kits = shared.allJobs.filter(job => job.kit && job.code && job.status !== 'applied' && job.status !== 'dismissed');
   $('cv-kits').replaceChildren(...kits.map(job => {

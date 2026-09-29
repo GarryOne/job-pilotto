@@ -1,6 +1,7 @@
 // Settings → connections: Apply with Claude, the extension, how often, Always on.
 import {shared} from './shared.js';
 import {$, message, osText, show} from './core.js';
+import {moreButton, pill} from '../components.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {refreshServices, renderOverview, showRunMode} from './settings.js';
@@ -133,11 +134,17 @@ export function showCloud() {
   const cloud = shared.state.settings.cloud;
   showRunMode();
   $('cloud-status').textContent = cloud?.repo
-    ? osText(`✓ On: running from ${cloud.repo} on the schedule above, even with the Mac off.`) : 'Off: jobs run on this Mac while the app is open.';
+    ? osText(`${cloud.repo} · runs the schedule above, even with the Mac off`) : 'Jobs run on this Mac while the app is open.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
-  $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
+  $('cloud-open').hidden = $('cloud-more').hidden = !cloud?.repo;
+  $('cloud-more').replaceChildren(...(cloud?.repo ? [moreButton([{label: 'Turn off Always on', danger: true, run: () => $('cloud-off').click()}])] : []));
+  showCloudPill();
   $('auto-search').disabled = !!cloud?.repo;
   showTelegramCloud();
+}
+function showCloudPill() {
+  const on = !!shared.state.settings.cloud?.repo;
+  $('cloud-pill').replaceChildren(cloudWaiting && !on ? pill('Setting up', 'info', {dot: true}) : on ? pill('On', 'good', {dot: true}) : pill('Off', 'neutral'));
 }
 
 // "Connected to …", or, when the setup found a repository from an earlier setup, which one and since when.
@@ -151,12 +158,16 @@ function connectedTo(result) {
 function showTelegramCloud() {
   const on = shared.state.settings.telegramCloud;
   show($('tg-cloud'), !!shared.state.settings.cloud?.repo);
-  $('tg-cloud-status').textContent = on ? osText(`✓ On: your bot answers from Cloudflare, even with the Mac off (${on.url.replace('https://', '')}).`)
-    : 'Off: your bot answers buttons and commands only while this app is open.';
-  show($('tg-cloud-howto'), !on);
-  show($('tg-cloud-token'), !on);
+  $('tg-cloud-status').textContent = on ? osText(`${on.url.replace('https://', '')} · your bot answers from Cloudflare, even with the Mac off`)
+    : 'Your bot answers buttons and commands only while this app is open.';
+  $('tg-cloud-pill').replaceChildren(on ? pill('On', 'good', {dot: true}) : pill('Off', 'neutral'));
+  // Off: "Set up" opens the steps and the token field (Turn on sits beside the field). On: Update in the row, Turn off in ⋯.
+  show($('tg-cloud-setup'), !on);
+  if (on) show($('tg-cloud-form'), false);
+  if (on) $('tg-cloud-actions').prepend($('tg-cloud-on')); else $('tg-cloud-form').querySelector('.inline').append($('tg-cloud-on'));
   $('tg-cloud-on').textContent = on ? 'Update' : 'Turn on';
-  show($('tg-cloud-off'), !!on);
+  show($('tg-cloud-more'), !!on);
+  $('tg-cloud-more').replaceChildren(...(on ? [moreButton([{label: 'Turn off Telegram buttons', danger: true, run: () => $('tg-cloud-off').click()}])] : []));
   refreshServices();  // Settings → Connections: the GitHub and Cloudflare cards move between Available and Connected
 }
 let cloudUrls = null;
@@ -183,6 +194,11 @@ export async function init() {
   document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', () => { saveSchedule(select); showScheduleState(); }));
   $('set-remind').addEventListener('change', saveReminders);
   $('set-target').addEventListener('change', saveTarget);
+  $('tg-cloud-setup').addEventListener('click', () => {
+    const form = $('tg-cloud-form');
+    show(form, form.hidden);
+    if (!form.hidden) $('tg-cloud-token').focus();
+  });
   $('tg-cloud-on').addEventListener('click', async () => {
     $('tg-cloud-on').disabled = true;
     message('tg-cloud-message', 'Setting up your bot helper on Cloudflare…');
@@ -211,11 +227,13 @@ export async function init() {
       if (!cloudWaiting) { window.pilot.openExternal(result.installUrl); cloudSince = Date.now(); }
       message('cloud-message', 'Signed in to GitHub ✓ Now pick the repository on GitHub. Waiting for the install…', 'waiting');
       cloudWaiting = true;
+      showCloudPill();
       if (Date.now() - cloudSince < 10 * 60 * 1000) setTimeout(() => $('cloud-connect').click(), 5000);
-      else { cloudWaiting = false; message('cloud-message', 'Still not installed. Install Job Pilotto on a repository on GitHub, then press Turn on again.', 'error'); }
+      else { cloudWaiting = false; showCloudPill(); message('cloud-message', 'Still not installed. Install Job Pilotto on a repository on GitHub, then press Turn on again.', 'error'); }
       return;
     }
     cloudWaiting = false;
+    showCloudPill();
     if (result.needsChoice) {
       show($('cloud-steps'), false);
       $('cloud-repo').replaceChildren(...result.repos.map(name => Object.assign(document.createElement('option'), {value: name, textContent: name})));

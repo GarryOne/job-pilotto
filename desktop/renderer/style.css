@@ -24,7 +24,9 @@ button:disabled { opacity: .5; cursor: default; }
 label { display: block; font-weight: 600; font-size: var(--fs-md); margin: 12px 0 4px; }
 input, select, textarea { width: 100%; font: var(--fs-base) var(--font-sans); color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 8px 10px; }
-textarea { font: var(--fs-md)/1.5 var(--font-mono); resize: vertical; }
+textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
+/* Mono only where the content is code or a transcript. */
+#iv-text, #draft-profile, #draft-answers, .review textarea { font-family: var(--font-mono); }
 #feedback-text { font: var(--fs-md)/1.5 var(--font-sans); }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
 .message { min-height: 1.4em; margin-top: 8px; }
@@ -34,7 +36,7 @@ textarea { font: var(--fs-md)/1.5 var(--font-mono); resize: vertical; }
 .mark { width: 30px; height: 30px; border-radius: var(--r-md); display: block; }
 
 /* Wizard */
-.wizard { display: grid; grid-template-columns: 250px 1fr; height: 100vh; }
+.wizard { display: grid; grid-template-columns: 250px 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; }
 .steps { background: var(--navy); color: var(--on-navy); padding: 28px 22px; display: flex; flex-direction: column; -webkit-app-region: drag; }
 .steps .brand { color: var(--on-accent); }
 .steps ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; counter-reset: s; flex: 1; align-content: start; }
@@ -45,7 +47,8 @@ textarea { font: var(--fs-md)/1.5 var(--font-mono); resize: vertical; }
 .steps li.current { background: var(--navy-active); color: var(--on-accent); }
 .steps li.current::before { border-color: var(--amber); color: var(--amber); }
 .steps .fine { color: var(--on-navy-3); }
-.step-body { overflow-y: auto; padding: 48px 56px; }
+.step-body { overflow-y: auto; padding: 48px 56px var(--sp-6); }
+.step-body::after { content: ""; display: block; height: var(--sp-6); }
 .step { max-width: 720px; }
 .checks { padding-left: 20px; color: var(--muted); }
 .howto { padding-left: 20px; color: var(--muted); }
@@ -68,6 +71,8 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 details textarea { margin-top: 8px; }
 .extra { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; margin-top: 10px; }
 .extra p { color: var(--muted); margin: 0; }
+.extra h3 { display: flex; align-items: center; gap: var(--sp-2); }
+.extra h3 .icon { color: var(--muted); }
 .extra-stack { align-items: flex-start; }
 .prereqs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .prereqs li { color: var(--muted); }
@@ -304,9 +309,9 @@ button.danger:hover { background: var(--bad-soft); }
 main { padding: 20px 24px; }
 
 /* Header: title, last search, run a search */
-.jobs-head { align-items: center; margin-bottom: 14px; }
-.jobs-head h1 { font-size: var(--fs-2xl); margin: 0 0 2px; }
-.jobs-head .subtitle { font-size: var(--fs-md); margin: 0; }
+.view:not([data-view="sessions"]) .view-head { align-items: center; margin-bottom: 14px; }
+.view:not([data-view="sessions"]) .view-head h1 { font-size: var(--fs-2xl); margin: 0 0 2px; }
+.view:not([data-view="sessions"]) .view-head p { font-size: var(--fs-md); margin: 0; }
 .head-actions { align-items: center; gap: 8px; }
 .last-search { display: flex; align-items: flex-start; align-self: center; gap: 8px; margin-right: 6px; max-width: 260px; min-width: 0;
   height: auto; min-height: 0; line-height: 1.35; background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
@@ -409,8 +414,11 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .row-actions { flex-wrap: nowrap; gap: 6px; padding-top: 2px; justify-content: flex-end; align-items: center; }
 /* Wide enough for the longest label ("Apply with Claude"); every row shares it so the rows line up. */
 .row-actions .row-main { width: 10em; padding: 7px 6px; font-size: var(--fs-sm); border-radius: var(--r-sm); overflow: hidden; text-overflow: ellipsis; }
-.row-actions .state-prepare { background: var(--signal); color: var(--on-accent); border-color: var(--signal); }
-.row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
+/* One filled orange button in the list: the top row's. The other rows' next step is an outline button. */
+.job-row:first-child .row-actions .state-prepare { background: var(--signal); color: var(--on-accent); border-color: var(--signal); }
+.job-row:first-child .row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
+.job-row:not(:first-child) .row-actions .state-apply { background: var(--surface); color: var(--signal); border-color: var(--signal); }
+.job-row:not(:first-child) .row-actions .state-apply:hover { background: var(--signal-soft); filter: none; }
 .icon-btn { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
 .icon-btn:hover { background: var(--bg); }
 .bookmark { display: none; }
@@ -573,7 +581,9 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-detail .log { font-size: var(--fs-xs); padding: 6px 10px; margin-bottom: 6px; }
 
 /* Settings → Danger zone */
-.setting.danger-zone { border-color: var(--bad-line); background: var(--bad-soft); }
+.setting.danger-zone { border-color: var(--bad-line); background: var(--bad-soft); padding: var(--sp-5); gap: var(--sp-3); font-size: var(--fs-md); }
+.setting.danger-zone .small { font-size: var(--fs-md); }
+.setting.danger-zone p { margin: 0; }
 .setting.danger-zone h3 { color: var(--bad); }
 button.danger-solid { background: var(--bad); color: var(--on-accent); border-color: var(--bad); }
 button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
@@ -871,7 +881,7 @@ main { min-width: 0; }
    the white status bar below; its cards stay white. */
 .sessions-dock { grid-column: 2; position: relative; z-index: 2;
   border: 0; border-top: 2px solid var(--info-line); border-radius: 0;
-  background: color-mix(in srgb, var(--info-soft) 75%, var(--info-line));
+  background: var(--dock-bg);
   padding: var(--sp-3) var(--sp-5) var(--sp-4); box-shadow: 0 -12px 32px rgb(var(--shadow-rgb) / .16); }
 .sessions-dock .sd-title b { font-size: var(--fs-lg); }
 .sessions-dock #sd-summary { display: inline-flex; gap: var(--sp-2); }
@@ -898,7 +908,7 @@ main { min-width: 0; }
 .crumbs a { color: var(--info); text-decoration: none; }
 .ss-title h1 { margin: 0; }
 .ss-subtitle { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); font-size: var(--fs-base); }
-.ss-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.ss-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
 /* The session page reads like Jobs: 13 px text, less padding in the cards nested in the main card (it felt oversized
    at 100%, 29 Sep 2026) */
 .view[data-view="sessions"] .ss-grid { font-size: var(--fs-md); }
@@ -912,7 +922,9 @@ main { min-width: 0; }
 .ss-row.is-current { background: var(--signal-soft); border-color: var(--signal-line); border-left-color: var(--signal); }
 .ss-row .logo { width: 30px; height: 30px; margin-top: 2px; }
 .ss-row-words { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.ss-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); width: 100%; }
+.ss-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); width: 100%; min-width: 0; }
+.ss-row-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-row-top .muted { flex: none; white-space: nowrap; }
 .ss-main { display: flex; flex-direction: column; gap: var(--sp-3); }
 .ss-job-card { display: flex; align-items: center; gap: var(--sp-3); }
 .ss-job-card .logo { width: 34px; height: 34px; }
@@ -952,7 +964,8 @@ main { min-width: 0; }
 .ss-needs { border-color: var(--warn-line); }
 .ss-needs .ss-fact-head .icon { color: var(--warn); }
 .ss-need { display: flex; gap: var(--sp-2); padding: 6px 0; border-top: 1px solid var(--line); }
-.ss-need-glyph { flex: none; width: 22px; }
+.ss-need-glyph { flex: none; width: 22px; color: var(--muted); }
+.ss-need-glyph .icon { width: 18px; height: 18px; }
 .ss-need-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1; }
 .ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .ss-need-button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
@@ -1095,7 +1108,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .task-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
-.task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; background: var(--signal); color: var(--on-accent); border-color: transparent; }
+.task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }
 .runs-row { display: grid; grid-template-columns: 32px 200px 120px 130px minmax(0, 1fr) 16px; align-items: center; gap: var(--sp-3);
@@ -1143,13 +1156,14 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-head { margin: 0 0 var(--sp-3) var(--sp-2); }
 .activity-panel .ap-head h3 { font-size: var(--fs-lg); }
 .activity-panel .activity-recent { display: flex; flex-direction: column; gap: 0; margin: 0; }
-.activity-panel .recent-row { grid-template-columns: 18px 28px minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: var(--sp-3);
+.activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: var(--sp-3);
   border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 0; font-size: var(--fs-md); }
 .activity-panel .recent-row.current { background: var(--info-soft); border-color: var(--info-line); border-radius: var(--r-md); }
 .activity-panel .recent-row[data-state="warn"] .run-status { background: var(--warn-bright); }
 .activity-panel .recent-row[data-state="warn"] .run-status::after { content: '!'; }
 .activity-panel .run-status { width: 18px; height: 18px; font-size: var(--fs-xs); }
-.activity-panel .run-icon { font-size: var(--fs-lg); text-align: center; }
+.activity-panel .run-icon { display: grid; place-items: center; color: var(--muted); }
+.activity-panel .run-icon .icon { width: 20px; height: 20px; }
 .activity-panel .run-words { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .activity-panel .run-kind { font-weight: 600; }
 .activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1160,6 +1174,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
 .activity-panel .ap-detail-icon { font-size: var(--fs-xl); width: 40px; height: 40px; display: grid; place-items: center;
   border-radius: 50%; background: var(--surface-2); flex: none; }
+.activity-panel .ap-detail-icon .icon { width: 22px; height: 22px; color: var(--muted); }
 .activity-panel .ap-detail-title { flex: 1; min-width: 0; }
 .activity-panel .ap-detail-title h3 { margin: 0; font-size: var(--fs-xl); }
 .activity-panel .ap-detail-title p { margin: var(--sp-1) 0 0; }
@@ -1234,7 +1249,8 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .sidebar .nav.active { background: var(--rail-active); color: var(--on-rail); border-color: var(--rail-line); border-left-color: var(--amber);
   box-shadow: -4px 0 18px rgb(var(--amber-rgb) / .28); }
 .sidebar .nav.active .icon { color: var(--amber); }
-.nav-count { background: rgb(var(--amber-rgb) / .16); color: var(--amber); padding: 0 8px; }
+/* A plain count (new jobs this week) is neutral; the amber/blue/green badge above means "needs you / running / done". Same pill shape and size. */
+.nav-count { background: var(--rail-line); color: var(--on-rail); }
 .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--rail-line); }
 .sidebar .palette-hint { margin: 0; display: flex; align-items: center; gap: 10px; border-color: var(--rail-line); color: var(--on-rail-3);
   font-size: var(--fs-md); padding: 8px 10px; }
@@ -1287,7 +1303,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .conn-status.is-done { color: var(--good); }
 .conn-status .icon { width: 14px; height: 14px; }
 /* Where the scheduled jobs run: GitHub (Always on) or this Mac. */
-.ap-where { align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.ap-where { display: inline-flex; align-items: center; gap: var(--sp-1); align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
 .activity-panel #activity-schedule { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 /* Recent activity → a run: small facts under its summary (finished, how long, AI cost, where it ran). */
 .ap-facts { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-2); }

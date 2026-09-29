@@ -3,7 +3,7 @@ import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {showCloud, showExtensionStatus, showGoogle, showSchedule} from './connections.js';
-import {$, message, osText, show} from './core.js';
+import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
@@ -73,9 +73,9 @@ function renderNotionLinks() {
 export async function loadCvSetting() {
   const status = await window.pilot.cvStatus();
   // One glance: ready (and which design), or not read yet. ✂️ Tailor CV on a job uses it.
-  $('cv-state').textContent = status.base ? `· ✅ ready · ${status.custom ? '🎨 your design' : 'default design'}` : '· ⚪ read on your first ✂️ Tailor CV';
+  $('cv-state').textContent = status.base ? `· ready · ${status.custom ? 'your design' : 'default design'}` : '· not read yet: it happens on your first Tailor CV';
   $('cv-view').hidden = !status.base;
-  $('cv-import').textContent = status.base ? '🔄 Read my CV PDF again' : '🔄 Read my CV PDF';
+  $('cv-import').querySelector('span').textContent = status.base ? 'Read my CV PDF again' : 'Read my CV PDF';
 }
 
 export async function loadSettings() {
@@ -104,7 +104,7 @@ export async function loadSettings() {
   $('auto-search').checked = shared.state.settings.autoSearch !== false;
   $('open-login').checked = !!shared.state.settings.openAtLogin;
   $('last-search').textContent = shared.state.settings.lastSearchAt
-    ? `${new Date(shared.state.settings.lastSearchAt).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})}${shared.state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
+    ? `${runWhen(shared.state.settings.lastSearchAt)}${shared.state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
     : 'No search yet';
   if (shared.state.settings.telegramBot && shared.state.secrets.TELEGRAM_BOT_TOKEN) {
     const line = document.querySelector('[data-secret="TELEGRAM_BOT_TOKEN"]');

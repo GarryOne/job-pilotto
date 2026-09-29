@@ -853,7 +853,7 @@ function handlers() {
     return {ok: true, focus: JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8'))};
   });
   // The daily applications target lives on ⚙️ Search settings in Notion (Focus, Settings and the wizard set it).
-  ipcMain.handle('dailyTarget', () => ({target: strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
+  ipcMain.handle('dailyTarget', () => ({target: DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8')).today.target : strategy.dailyTarget(storage), reminders: storage.settings().focusReminders !== false}));
   ipcMain.handle('setDailyTarget', async (_, value) => {
     if (DEMO) return {ok: true, target: strategy.clampTarget(value)};
     try {

@@ -3,6 +3,7 @@
    when a stylesheet uses a colour, corner radius or font size that isn't one of them. */
 :root {
   /* Surfaces and text */
+  --dock-bg: color-mix(in srgb, var(--info-soft) 75%, var(--info-line)); /* the Application sessions dock */
   --bg: #eef3f7;            /* the page behind cards */
   --sky: var(--bg);         /* older name */
   --surface: #ffffff;       /* cards, inputs, menus */
@@ -106,6 +107,7 @@
     color-scheme: dark;
     --strip: #131b24;  --strip-item: #18222d;  --next: #33280f;  --next-line: #6b5220;
     --next-shadow: 0 2px 10px rgb(0 0 0 / .45);
+    --dock-bg: var(--surface-2);
     --bg: #0b1016;
     --surface: #121a23;
     --surface-2: #17212c;

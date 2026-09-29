@@ -426,6 +426,4 @@ export async function init() {
   $('finish').addEventListener('click', finishSetup);
   $('back-to-setup-go').addEventListener('click', () => { show($('back-to-setup'), false); show($('app'), false); show($('wizard')); goStep('extras'); });
   $('back-to-setup-close').addEventListener('click', () => show($('back-to-setup'), false));
-  // Back through the wizard with everything already filled in (keys, Notion, CV, answers, the last draft).
-  $('rerun-setup').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
 }

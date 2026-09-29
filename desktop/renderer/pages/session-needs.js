@@ -47,6 +47,7 @@ export function updateNeedsCount() {
   const head = $('ss-needs-card').querySelector('.ss-fact-head .icon');
   if (head && head.dataset.state !== String(!open.length)) { const glyph = icon(open.length ? 'alert' : 'check'); glyph.dataset.state = String(!open.length); head.replaceWith(glyph); }
 }
+const capital = text => text.replace(/^./, c => c.toUpperCase());
 function smallButton(text, kind, run, title = '') {
   const button = el('button', `${kind} ss-need-button`, text);
   if (title) { button.disabled = true; button.title = title; }
@@ -155,9 +156,9 @@ export function emptyRow(label, item) {
   body.append(el('div', '', more ? `${label} ${label.startsWith('1 ') ? 'is' : 'are'} still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
     : `Still empty in the form: ${(text => (text.length > 90 ? `${text.slice(0, 89).replace(/\s+\S*$/, '')}…` : text))(label.replace(/\s*\*\s*$/, ''))}`));
   actions.append(more ? smallButton('Open the form', 'primary', event => opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id)))
-    : smallButton('Show it in the form', 'primary', event => showInForm(item, label, event.currentTarget)));
+    : smallButton('Show it in the form', 'secondary', event => showInForm(item, label, event.currentTarget)));
   body.append(actions);
-  li.append(el('span', 'ss-need-glyph', '✏️'), body);
+  li.append(el('span', 'ss-need-glyph', icon('edit')), body);
   return li;
 }
 // A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to fix it.
@@ -200,12 +201,12 @@ export function needRow(need, item) {
   const name = need.label || 'this';
   if (need.kind === 'agree') {
     // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
-    actions.append(smallButton('Show it in the form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
+    actions.append(smallButton('Show it in the form', 'secondary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
       smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
     li.dataset.watch = watchId(need.text);
   } else {
     const change = !!need.recommended && !KEEP.test(need.recommended);
-    actions.append(smallButton(need.recommended ? `✓ ${need.recommended}` : '✓ Looks right', 'primary', () => {
+    actions.append(smallButton(need.recommended ? `✓ ${capital(need.recommended)}` : '✓ Looks right', 'secondary', () => {
       if (change) say(`${name}: ${need.recommended}. Change it in the form, then tell me.`);
       doneRow(li, key, change ? `Asked Claude: ${need.recommended}` : 'Checked');
     }, change ? offline(item) : ''));
@@ -224,7 +225,7 @@ export function needRow(need, item) {
     actions.append(ask);
   }
   body.append(words, actions);
-  li.append(el('span', 'ss-need-glyph', need.kind === 'agree' ? '⚖️' : '👀'), body);
+  li.append(el('span', 'ss-need-glyph', icon(need.kind === 'agree' ? 'scale' : 'eye')), body);
   if (handled.has(key)) doneRow(li, key, handled.get(key));
   return li;
 }
@@ -284,7 +285,7 @@ export function askRow(need, item) {
   actions.append(fill);
   line.append(input, actions, box);
   body.append(head, line);
-  li.append(el('span', 'ss-need-glyph', '❓'), body);
+  li.append(el('span', 'ss-need-glyph', icon('help')), body);
   if (handled.has(key)) { li.classList.add('is-done'); actions.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${handled.get(key)}`)); }
   return li;
 }
