@@ -23,7 +23,10 @@ export function fromRow(page, now = Date.now()) {
   const summary = text(p.Summary);
   const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS;
   const ended = !running && seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : (running ? undefined : startedAt);
-  const record = {id: Date.parse(startedAt), pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind: KIND[mode] || 'action', mode,
+  // Notion keeps start times to the minute: two runs started in the same minute (a scheduled Gmail check and one you
+  // started) would share an id, and the activity list would select both. A tie-breaker from the page id (< 1 s).
+  const tie = parseInt(String(page.id).replace(/-/g, '').slice(-6), 16) % 1000 || 0;
+  const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind: KIND[mode] || 'action', mode,
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
   if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported

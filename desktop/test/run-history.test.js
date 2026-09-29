@@ -76,3 +76,11 @@ test('every finished job is a notification wherever it ran; a quiet Gmail check 
   assert.equal(history.notice({kind: 'mail', ok: true, result: 'Gmail check: 3 new email(s) read, 0 update(s) recorded'}), null);
   assert.equal(history.notice({kind: 'action', ok: true}), null);
 });
+
+test('two runs started in the same minute keep apart (the activity list selects one, not both)', () => {
+  const props = {started: '2026-09-29T12:50:00Z', mode: 'mail', status: 'OK', trigger: 'Schedule', seconds: 5};
+  const a = history.fromRow(row('3ea62be8-fd86-8145-b7a4-f8301f01b089', props), NOW);
+  const b = history.fromRow(row('3ea62be8-fd86-81c2-9d33-01e5c7a2c4d1', props), NOW);
+  assert.notEqual(a.id, b.id);
+  assert.ok(Math.abs(a.id - Date.parse(props.started)) < 1000 && Math.abs(b.id - Date.parse(props.started)) < 1000);
+});
