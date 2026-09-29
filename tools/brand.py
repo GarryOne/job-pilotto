@@ -68,11 +68,11 @@ def ink_mark(mark):
     return Image.fromarray(np.dstack([out, rgba[:, :, 3]]).astype(np.uint8), 'RGBA')
 
 
-def ink_tile(mark, size, inset, radius, fill, glow=True):
+def ink_tile(mark, size, inset, radius, fill, glow=True, line=None):
     """The Ink tile: amber glow behind, near-black rounded square, thin amber outline, the mark centred."""
     out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     box = (inset, inset, size - 1 - inset, size - 1 - inset)
-    line = max(1, round(size / 90))
+    line = line or max(1, round(size / 90))
     if glow:
         halo = Image.new('RGBA', (size, size), (0, 0, 0, 0))
         ImageDraw.Draw(halo).rounded_rectangle(box, radius, outline=AMBER + (150,), width=line * 3)
@@ -92,7 +92,9 @@ def main():
     ink = ink_mark(app_mark)
     ink_tile(ink, 1024, 100, 185, 0.70).save(BRAND / 'app-icon.png')  # macOS icon margins
     ink_tile(ink, 128, 3, 26, 0.80, glow=False).save(BRAND / 'app-logo-128.png')
-    # The website's header: the mark alone (no tile) on the dark site, 96 px high for sharp retina.
+    # The website's header: the Ink tile with a solid amber border (thick enough to read at 34 px).
+    ink_tile(ink, 136, 4, 30, 0.78, glow=False, line=7).save(BRAND / 'site-logo.png')
+    # The mark alone (no tile), 96 px high, kept for places on a dark background that want no frame.
     alone = ink.copy()
     alone.thumbnail((10_000, 96), Image.LANCZOS)
     alone.save(BRAND / 'logo-mark-ink.png')
@@ -103,7 +105,7 @@ def main():
     for size in (16, 32, 48, 128, 180, 512):
         ink_tile(ink, size, 0, max(3, size // 5), 0.80, glow=False).save(BRAND / f'icon-{size}.png')
 
-    copies = {'logo-mark-ink.png': ['site/public/images/logo-mark.png'], 'app-icon.png': ['desktop/assets/icon.png'], 'app-logo-128.png': ['desktop/renderer/logo.png'],
+    copies = {'logo-mark-ink.png': ['site/public/images/logo-mark.png'], 'site-logo.png': ['site/public/images/site-logo.png'], 'app-icon.png': ['desktop/assets/icon.png'], 'app-logo-128.png': ['desktop/renderer/logo.png'],
               'icon-128.png': ['site/public/images/logo.png', 'extension/icons/icon-128.png'],
               'icon-32.png': ['site/public/favicon-32.png', 'extension/icons/icon-32.png'],
               'icon-16.png': ['extension/icons/icon-16.png'], 'icon-48.png': ['extension/icons/icon-48.png'],
