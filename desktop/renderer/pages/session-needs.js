@@ -88,7 +88,7 @@ function showFormCard(item, state) {
   // An extension older than 0.8.12 sends no filled fields: say what's left only, not "0 filled".
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
   const left = state.pending || state.missing || [];
-  $('ss-form-summary').textContent = ['Show fields', state.filled && `${filled.length} filled`, state.left && `${state.left} left`].filter(Boolean).join(' · ');
+  $('ss-form-summary').textContent = ['Show fields', state.filled && `${filled.length} filled`, state.left && `${state.left} ${item.status === 'running' ? 'to go' : 'left'}`].filter(Boolean).join(' · ');
   $('ss-form-more').hidden = !filled.length && !left.length;
   const row = (kind, time, mark, label) => {
     const li = el('li', kind);

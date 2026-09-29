@@ -234,8 +234,11 @@
     const claudeFilling = session?.live && session.status === 'running';
     $('.fill-box').hidden = claudeFilling || (ready && !filling);  // nothing left to fill
     $('.fill').disabled = filling;
-    // what's left
-    $('.left').hidden = !left;
+    // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
+    // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
+    const busy = filling || claudeFilling || $('.fill').classList.contains('is-busy');
+    const over = filledOnce || ['done', 'input'].includes(session?.status);
+    $('.left').hidden = !left || busy || !over;
     $('.list').replaceChildren(...shown.slice(0, 30).map(field => {
       const row = Object.assign(document.createElement('button'), {className: 'item'});
       row.append(Object.assign(document.createElement('i'), {textContent: AGREE.test(field.label) ? '⚖️' : '○'}),
@@ -257,8 +260,9 @@
   // ---- actions ----
   // What the fill is doing, shown in the button. A fill started elsewhere (Claude's session, the popup) sends steps but
   // no end: the button comes back a few seconds after its last step.
-  let stepTimer = null, filledOnce = false;
+  let stepTimer = null, filledOnce = false, stepped = false;
   function showStep(text) {
+    stepped = true;
     const button = $('.fill');
     button.classList.add('is-busy');
     button.setAttribute('aria-busy', 'true');
@@ -273,7 +277,9 @@
     button.classList.remove('is-busy');
     button.removeAttribute('aria-busy');
     button.title = '';
+    if (stepped) filledOnce = true;  // a fill ran here (this button, Claude's session or the popup) and is over
     $('.fill .label').textContent = filledOnce ? 'Fill again' : 'Fill this form';
+    render();
   }
   async function fill(force = false) {
     filling = true;
