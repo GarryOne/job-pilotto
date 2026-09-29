@@ -306,3 +306,20 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 /* Warnings of a run, shown above its technical log (Recent activity). */
 .activity-warnings { margin: var(--sp-2) 0; }
 .activity-warnings ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-5); }
+
+/* Lit panel: the website's departures-hall look. A dot grid, an amber glow from the top-left corner and a thin
+   amber edge, on a card (.card.is-lit) or any panel. Use it for the one thing on a page that says "start here". */
+/* Also .card/.panel.is-lit: those set their own background later in style.css, so the pair wins. */
+.is-lit, .card.is-lit, .panel.is-lit {
+  border: 1px solid var(--lit-line);
+  background: radial-gradient(70% 90% at 0% 0%, var(--lit-glow), transparent 60%),
+              var(--surface) radial-gradient(var(--lit-dots) 1px, transparent 1.4px) 0 0 / 16px 16px;
+}
+
+/* Theme switch in the sidebar: one click flips light ↔ dark (Settings → Appearance also has System). */
+.theme-toggle { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid transparent;
+  border-left-width: 3px; border-radius: var(--r-md); background: transparent; color: var(--on-rail); font: 600 var(--fs-md) var(--font-sans); cursor: pointer; text-align: left; }
+.theme-toggle .icon { width: 18px; height: 18px; color: var(--on-rail); }
+.theme-toggle:hover { background: var(--rail-hover); }
+.theme-toggle:hover .icon { color: var(--amber); }
+#setting-theme { display: grid; gap: var(--sp-3); justify-items: start; }
