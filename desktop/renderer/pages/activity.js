@@ -144,7 +144,24 @@ function showKeptStatusBar() {
   $('activity-step').textContent = kept.step;
   $('activity-meta').textContent = kept.meta;
 }
-export function renderActivity(data) {
+// Recent activity kept on this Mac: until the run history has been read from Notion (the runs of GitHub and Telegram
+// live there), the panel shows the list from last time, with this Mac's newer runs on top, instead of an empty panel.
+const ACTIVITY_KEPT = 'recentActivity';
+function withKept(data) {
+  if (data.historyLoaded) {
+    try { localStorage.setItem(ACTIVITY_KEPT, JSON.stringify(data.runs.slice(0, 20))); } catch {}
+    return data;
+  }
+  let kept = [];
+  try { kept = JSON.parse(localStorage.getItem(ACTIVITY_KEPT) || '[]'); } catch {}
+  if (!kept.length) return data;
+  const byId = new Map(kept.map(run => [run.id, run]));
+  for (const run of data.runs) byId.set(run.id, run);  // this Mac's copy is the newer one
+  const runs = [...byId.values()].sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')));
+  return {...data, runs};
+}
+export function renderActivity(fresh) {
+  const data = withKept(fresh);
   renderActionsPage(data);
   lastActivity = data;
   // Settings → Automation shows the same next times beside each schedule.
@@ -539,6 +556,7 @@ export async function init() {
   });
   // Close it with Escape, its ✕, or the bar ("Hide activity").
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
+  window.pilot.runs().then(renderActivity).catch(() => {});  // at once, not after the first 2 s tick
   setInterval(async () => {
     if ($('app').hidden) return;
     const runsNow = await window.pilot.runs();

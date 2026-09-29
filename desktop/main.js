@@ -219,7 +219,7 @@ function activity() {
   const cloud = cloudNextAt(settings);  // Always on: GitHub's schedule (the Mac's own is off then)
   return {runs, running: pipeline.running() || live, queued: pipeline.queued(), lastSearchAt: settings.lastSearchAt || null,
     nextSearchAt: nextAt(settings) ?? cloud.search, nextMailAt: nextMailAt(settings) ?? cloud.mail, nextScoutAt: cloud.scout,
-    cloud: !!settings.cloud?.repo};
+    cloud: !!settings.cloud?.repo, historyLoaded: !!notionRuns};  // false until the run history was read from Notion
 }
 
 // While the app is open, every finished job is a notification, wherever it ran (this Mac, GitHub, a Telegram
