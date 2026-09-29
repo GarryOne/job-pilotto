@@ -80,7 +80,15 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build
         working-directory: desktop
-        run: npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
+        env:
+          # The release certificate (scripts/sign.cjs): the same signature on every build keeps the keychain's
+          # "Always Allow" across updates.
+          MAC_SIGN_P12: ${{ secrets.MAC_SIGN_P12 }}
+          MAC_SIGN_PASSWORD: ${{ secrets.MAC_SIGN_PASSWORD }}
+        run: |
+          npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
+          codesign -dvv dist/mac-arm64/*.app 2>&1 | grep -q "Authority=Job Pilotto Self-Signed" \
+            || { echo "::error::The app isn't signed with the release certificate"; exit 1; }
       - name: Release
         working-directory: desktop
         env:

@@ -61,10 +61,13 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 2. Mac: drag it to **Applications** (updates need it there). The first open shows **"Job Pilotto" Not Opened** (the app
    isn't notarized yet): click **Done** (never Move to Bin), then **System Settings → Privacy & Security** → scroll to
    *"Job Pilotto" was blocked* → **Open Anyway** → confirm. Once only. (Right-click → Open no longer works on recent macOS.)
+   Opened from the disk image by mistake? The app offers **Move to Applications** itself.
+   Keychain prompt: **Always Allow**. Builds share one signature (`MAC_SIGN_P12` secret, Keychain
+   `job-pilotto.mac-sign.*`), so it doesn't come back after updates.
 3. The setup wizard does the rest: keys, Notion, CV, Profile; Always on is optional.
 
 <details><summary>Not done yet</summary>
 
 - Redeploy a friend's Cloudflare Telegram bot when its code changes.
-- Apple Developer ID ($99/year, the owner's call): signed, notarized, silent updates; no "right-click → Open".
+- Apple Developer ID ($99/year, the owner's call): notarized, so no "Open Anyway" on first install.
 </details>

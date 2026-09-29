@@ -109,6 +109,6 @@
       "shortcutName": "Job Pilotto"
     },
     "artifactName": "Job-Pilotto-${version}-${arch}.${ext}",
-    "afterPack": "scripts/adhoc-sign.cjs"
+    "afterPack": "scripts/sign.cjs"
   }
 }

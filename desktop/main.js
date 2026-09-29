@@ -21,6 +21,7 @@ import * as server from './lib/server.js';
 import * as terminals from './lib/terminals.js';
 import * as transcript from './lib/transcript.js';
 import * as quitDialog from './lib/quit-dialog.js';
+import {offerMove} from './lib/applications.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
@@ -1111,6 +1112,7 @@ process.on('uncaughtExceptionMonitor', error => {
 });
 
 if (firstCopy) app.whenReady().then(() => {
+  if (offerMove({app, dialog})) return;  // moving to Applications: Electron quits and opens the moved copy
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
