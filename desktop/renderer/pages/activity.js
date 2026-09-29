@@ -206,9 +206,13 @@ export function renderActivity(data) {
     item.append(tile(glyph, at ? 'info' : 'neutral'), words);
     return item;
   };
-  $('activity-schedule').replaceChildren(slot('Jobs check', 'search', nextSearchAt, 'Only when you ask'),
-    slot('Gmail check', 'mail', nextMailAt, 'Off'),
-    ...(cloud ? [slot('New employers', 'building', nextScoutAt, 'Off'),
+  // No time: "Off" only when Settings → Automation says so; else the app just doesn't know it yet (it was started
+  // before an update: a restart fixes it), so it names where it runs.
+  const plan = {search: 4, mail: 3, scout: 'daily', ...(shared.state?.settings?.schedule || {})};
+  const unknown = cloud ? 'On GitHub' : 'On this Mac';
+  $('activity-schedule').replaceChildren(slot('Jobs check', 'search', nextSearchAt, plan.search ? unknown : 'Only when you ask'),
+    slot('Gmail check', 'mail', nextMailAt, plan.mail ? unknown : 'Off'),
+    ...(cloud ? [slot('New employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off'),
       Object.assign(el('span', 'ap-where', osText('☁️ On GitHub · Always on')), {title: 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.'})]
       : [el('span', 'ap-where', 'On this Mac, while the app is open')]));
 
