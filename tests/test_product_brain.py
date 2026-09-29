@@ -64,6 +64,22 @@ class PostTest(unittest.TestCase):
             brain.post(file.name, dt.date(2026, 9, 30))
 
 
+class RequestTest(unittest.TestCase):
+    def test_a_reset_connection_is_retried_once_then_reported(self):
+        calls = []
+        def boom(req, timeout):
+            calls.append(1)
+            raise ConnectionResetError(104, 'Connection reset by peer')
+        real = brain.urllib.request.urlopen
+        brain.urllib.request.urlopen = boom
+        try:
+            with self.assertRaises(SystemExit):
+                brain._request('https://example.test/x')
+        finally:
+            brain.urllib.request.urlopen = real
+        self.assertEqual(len(calls), 2)
+
+
 class StatusTest(unittest.TestCase):
     def test_only_known_statuses(self):
         with self.assertRaises(SystemExit):

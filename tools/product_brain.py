@@ -42,11 +42,15 @@ def _request(url: str, method: str = 'GET', body: dict | None = None, headers: d
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers={  # Cloudflare blocks the default Python agent (1010)
         'Content-Type': 'application/json', 'User-Agent': 'job-pilotto-product-brain', **(headers or {})})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            return json.loads(response.read() or b'{}')
-    except urllib.error.HTTPError as error:
-        raise SystemExit(f'{method} {url.split("?")[0]} failed: {error.code} {error.read()[:300]!r}')
+    for attempt in (1, 2):  # one retry: a reset connection now and then shouldn't cost the brief
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                return json.loads(response.read() or b'{}')
+        except urllib.error.HTTPError as error:
+            raise SystemExit(f'{method} {url.split("?")[0]} failed: {error.code} {error.read()[:300]!r}')
+        except (urllib.error.URLError, OSError) as error:
+            if attempt == 2:
+                raise SystemExit(f'{method} {url.split("?")[0]} failed: {error}')
 
 
 def notion(path: str, method: str = 'GET', body: dict | None = None) -> dict:
