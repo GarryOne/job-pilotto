@@ -178,7 +178,14 @@ class CentralLocationsTest(unittest.TestCase):
         plain = paths.load_search_config()
         with mock.patch.dict('os.environ', {'JOB_PILOTTO_LOCATIONS_FILE': str(paths.ROOT / 'config' / 'central_locations.json')}):
             central = paths.load_search_config()
-        self.assertEqual(central['role_keywords'], plain['role_keywords'])
+        self.assertNotEqual(central['role_keywords'], plain['role_keywords'])   # engineering and IT, not the example profile
+        from src.sources import feeds as f
+        rx = paths.keyword_regex(central['role_keywords'])
+        for title in ('Site Reliability Engineer', 'Senior Backend Developer', 'Data Scientist', 'Engineering Manager', 'iOS Engineer'):
+            self.assertTrue(rx.search(title), title)
+        excl = paths.keyword_regex(central['title_exclude_keywords'])
+        for title in ('Sales Engineer', 'Mechanical Engineer', 'Marketing Manager'):
+            self.assertTrue(excl.search(title), title)
         self.assertTrue(any('zurich' in p for p in central['locations']['top_tier']))
         self.assertTrue(any('singapore' in p for p in central['locations']['top_tier']))
         self.assertEqual(central['remote_excluded_regions'], ['(?!x)x'])   # no region is excluded for the shared index
