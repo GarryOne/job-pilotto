@@ -137,7 +137,8 @@ function renderTranscript(talk) {
   box.replaceChildren(...talk.map(entry => {
     if (entry.kind === 'steps') {
       const fold = el('details', 'ss-tr-steps');
-      fold.append(el('summary', '', `${entry.steps.length} step${entry.steps.length === 1 ? '' : 's'} · ${entry.steps.at(-1)}`));
+      const count = entry.count || entry.steps.length;
+      fold.append(el('summary', '', `${count} step${count === 1 ? '' : 's'} · ${entry.steps.at(-1)}`));
       const list = el('ul');
       list.append(...entry.steps.map(text => el('li', '', text)));
       fold.append(list);
@@ -145,7 +146,7 @@ function renderTranscript(talk) {
     }
     const row = el('div', `ss-tr-msg is-${entry.kind}`);
     const head = el('div', 'ss-tr-who');
-    head.append(el('b', '', entry.kind === 'you' ? 'You' : 'Claude'), el('span', '', hhmm(entry.at)));
+    head.append(el('b', '', entry.kind === 'you' ? 'You' : 'Claude'), el('span', '', entry.time || hhmm(entry.at)));
     const body = el('div', 'ss-tr-text');
     body.append(...(entry.kind === 'claude' ? richText(entry.text) : [el('p', '', entry.text.length > 400 ? `${entry.text.slice(0, 400)}…` : entry.text)]));
     row.append(head, body);

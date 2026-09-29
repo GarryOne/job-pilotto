@@ -809,8 +809,12 @@ function handlers() {
   // The log's screen when it opens (see terminals.snapshot); JOB_PILOTTO_DEMO_OUTPUT replays a recorded session in demo mode.
   // A finished session as a conversation (its Claude Code transcript), for the log's page-text view.
   ipcMain.handle('sessionTranscript', (_, id) => {
-    const file = DEMO ? path.join(here, 'demo', 'transcript.jsonl') : terminals.record(String(id))?.transcript;
-    return file ? transcript.conversation(file) : null;
+    const record = DEMO ? null : terminals.record(String(id));
+    const file = DEMO ? path.join(here, 'demo', 'transcript.jsonl') : record?.transcript;
+    const talk = file ? transcript.conversation(file) : null;
+    if (talk?.length || DEMO || !record?.runPage) return talk;
+    // The Mac's transcript is gone (Claude Code deletes old ones): the copy on the session's Agent Runs row.
+    return transcript.load((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), record.runPage).catch(() => null);
   });
   ipcMain.handle('sessionSnapshot', (_, id) => (DEMO ? terminals.snapshotOf(demoOutput()) : terminals.snapshot(String(id))));
   ipcMain.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
@@ -1135,12 +1139,27 @@ if (firstCopy) app.whenReady().then(() => {
   if (!DEMO) { terminals.persist(path.join(storage.dir, 'sessions.json')); terminals.restore(); }  // sessions of the last run
   // Each form's last state (ready to submit?), so a restart shows it before Chrome's tabs report again.
   if (!DEMO) review.persist(path.join(storage.dir, 'review-states.json'), terminals.list().map(session => session.id));
+  // A session's conversation (its Claude Code transcript) on its Agent Runs row, folded: the Mac's file doesn't last.
+  const saveConversation = session => {
+    if (!session.runPage || !session.transcript) return;
+    const talk = transcript.conversation(session.transcript);
+    if (!talk?.length || talk.length === session.conversationSaved) return;
+    transcript.save((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), session.runPage, talk)
+      .then(count => { session.conversationSaved = count; terminals.saveNow(); }).catch(error => log(`conversation not saved to Notion: ${error.message}`));
+  };
   // Each session's statistics on its Agent Runs row in Notion, a few seconds after each change (lib/session-runs.js).
   if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => ({
     call: (method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body),
     db: storage.settings().notionIds?.NOTION_AGENT_RUNS_DB,
     create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || ''),
-  }), page => { session.runPage = page; terminals.saveNow(); }));
+  }), page => {
+    session.runPage = page;
+    terminals.saveNow();
+    // Once it ended, its conversation goes on the row too (again if it was resumed and said more since).
+    if (/^decided|^ended|^failed/.test(session.events?.at(-1)?.status || '')) saveConversation(session);
+  }));
+  // Sessions that ended before this was saved (or while Notion was busy): at start-up, none of them is running.
+  if (!DEMO) for (const session of terminals.list()) { const record = terminals.record(session.id); if (record) saveConversation(record); }
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));

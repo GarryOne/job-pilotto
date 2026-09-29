@@ -27,19 +27,27 @@ export function richText(text) {
     }
     return nodes;
   };
+  // Lists nest by indentation ("- Filled:" then "  - Contact details" under it), as Claude writes them.
   const blocks = [];
-  let list = null;
+  let stack = [];  // open lists, outermost first: {indent, list, last}
   for (const raw of String(text).split(/\n/)) {
     const line = raw.trim();
     const item = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
     if (item) {
-      if (!list) { list = el(/^\d/.test(line) ? 'ol' : 'ul', 'rich-list'); blocks.push(list); }
+      const indent = raw.match(/^\s*/)[0].replace(/\t/g, '  ').length;
+      while (stack.length && stack.at(-1).indent > indent) stack.pop();
+      if (!stack.length || indent > stack.at(-1).indent) {
+        const list = el(/^\d/.test(line) ? 'ol' : 'ul', 'rich-list');
+        if (stack.length && stack.at(-1).last) stack.at(-1).last.append(list); else blocks.push(list);
+        stack.push({indent, list, last: null});
+      }
       const li = el('li');
       li.append(...inline(item[1]));
-      list.append(li);
+      stack.at(-1).list.append(li);
+      stack.at(-1).last = li;
       continue;
     }
-    list = null;
+    stack = [];
     if (!line) continue;
     const p = el('p', 'rich-p');
     p.append(...inline(line.replace(/^#+\s*/, '')));

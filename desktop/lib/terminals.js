@@ -157,7 +157,7 @@ export async function resume(id, launch) {
 export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
   claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
-  decidedAt: s.decidedAt || null, runPage: s.runPage || '', status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
+  decidedAt: s.decidedAt || null, runPage: s.runPage || '', conversationSaved: s.conversationSaved || 0, status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
   screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
