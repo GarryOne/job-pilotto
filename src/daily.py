@@ -24,6 +24,16 @@ from .sources import ats, describe, feeds, google_jobs
 new_cron_run = cron_runs.new_run  # kept for callers and tests
 
 
+
+def left_out(stats, what):
+    """A warning when an AI step left jobs out (each failed, or the run stopped at the Anthropic spending limit), so the
+    run shows "Warnings" in ⏱️ Search runs and the app, not a green "Completed" (29 Sep 2026: 23 jobs unscored)."""
+    left = (stats.get('pending') or 0) - (stats.get('done') or 0)
+    if left <= 0:
+        return []
+    why = 'the Anthropic API spending limit was reached' if stats.get('limit') else 'the AI call failed'
+    return [f'{left} job(s) not {what}: {why}']
+
 def crawl_counts(report, statuses):
     """Feed and import numbers for the run report."""
     counted = Counter(statuses)
@@ -470,6 +480,7 @@ def main():
             try:
                 run['enrich'] = {}
                 print(enrich.run(db, enrich.DEFAULT_MODEL, args.enrich_max, stats=run['enrich']))
+                run['warnings'] += left_out(run['enrich'], 'read by AI')
             except Exception as error:
                 print(f'Warning: enrichment skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'enrichment skipped: {type(error).__name__}')
@@ -481,6 +492,7 @@ def main():
                 candidates, _ = digest.eligible_jobs(db, hidden)
                 run['score'] = {}
                 print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score']))
+                run['warnings'] += left_out(run['score'], 'scored')
             except Exception as error:
                 print(f'Warning: scoring skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'scoring skipped: {type(error).__name__}')

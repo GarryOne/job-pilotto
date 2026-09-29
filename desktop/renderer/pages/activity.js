@@ -1,5 +1,5 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
-import {runWarnings} from '../run-warnings.js';
+import {groupWarnings, limitedJobs, runWarnings} from '../run-warnings.js';
 import {el, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {parseRunMessage} from '../run-cards.js';
@@ -71,9 +71,9 @@ function runStatus(run, warned) {
 // The warnings in one plain sentence (the list is one click away).
 function warningSummary(warnings) {
   // The Anthropic account's spending limit: jobs were left unscored. Said plainly, with what to do.
-  const limited = warnings.filter(text => /usage limits?|credit balance is too low|spend(ing)? limit/i.test(text));
-  if (limited.length) {
-    return `Your Anthropic API spending limit was reached, so ${plural(limited.length, 'job')} ${limited.length === 1 ? 'wasn\'t' : 'weren\'t'} scored. `
+  const limited = limitedJobs(warnings);
+  if (limited) {
+    return `Your Anthropic API spending limit was reached, so ${plural(limited, 'job')} ${limited === 1 ? 'wasn\'t' : 'weren\'t'} scored. `
       + 'Raise the limit at console.anthropic.com → Settings → Limits; the next check scores them.';
   }
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
@@ -231,7 +231,8 @@ export function renderActivity(fresh) {
     button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
     // Status circle, its icon, what ran and (under it) when, what it found and who started it; its status pill.
-    const warned = !run.live && !run.waiting && run.ok && !run.off && runWarnings(run.log || []).length > 0;
+    // Its warnings: from the log (a run on this Mac), else the row's Status in Notion (a GitHub run: no log until opened).
+    const warned = !run.live && !run.waiting && run.ok && !run.off && (run.warned || runWarnings(run.log || []).length > 0);
     if (warned) button.dataset.state = 'warn';
     const words = el('span', 'run-words');
     words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
@@ -359,8 +360,9 @@ export function renderActivity(fresh) {
     const listShown = !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id);
     $('activity-warnings-list').dataset.for = String(run?.id);
     show($('activity-warnings-list'), listShown);
-    $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${warnings.length} detail${warnings.length === 1 ? '' : 's'}`;
-    $('activity-warnings-list').replaceChildren(...warnings.map(text => el('li', '', text)));
+    const grouped = groupWarnings(warnings);
+    $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;
+    $('activity-warnings-list').replaceChildren(...grouped.map(text => el('li', '', text)));
   }
   // The full log stays folded (the stages come first); open by itself only when the task went wrong.
   const failed = run && !run.live && (!run.ok || run.off);

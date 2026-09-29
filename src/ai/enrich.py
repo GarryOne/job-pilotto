@@ -205,6 +205,14 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
                     pending.cancel()
                 break
             except (*permanent, RuntimeError, json.JSONDecodeError, StopIteration) as error:
+                if cost.limit_reached(error):
+                    # The account's spend limit: every other call would fail the same way. Stop; the next run continues.
+                    if stats is not None:
+                        stats['limit'] = True
+                    print(f'AI limit reached: Anthropic API spending limit, {len(jobs) - enriched - failures} job(s) left for the next check')
+                    for pending in futures:
+                        pending.cancel()
+                    break
                 failures += 1
                 print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
                 continue

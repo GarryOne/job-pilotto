@@ -30,7 +30,7 @@ export function fromRow(page, now = Date.now()) {
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
   if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
-  return {...record, endedAt: ended, ok, new: p['New jobs']?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
+  return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
     result: result(summary, status, p['New jobs']?.number, mode)};
 }
 

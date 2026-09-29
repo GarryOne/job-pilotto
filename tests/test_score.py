@@ -146,3 +146,22 @@ class KitProvenanceTests(unittest.TestCase):
             cv.write_bytes(b'%PDF two')
             self.assertEqual(provenance.kit_state(recorded, provenance.kit_inputs('# Goals\n- SRE', '# A\n- x', cv)), 'earlier:cv')
         self.assertEqual(provenance.kit_state('', 'cv:a profile:b answers:c'), 'unknown')
+
+
+class SpendLimitTests(unittest.TestCase):
+    def test_the_spend_limit_stops_scoring_and_the_run_says_what_was_left_out(self):
+        # 29 Sep 2026: every remaining job was still sent and failed the same way (23 raw errors), and the run was "OK".
+        class Limited(FakeClient):
+            def create(self, **params):
+                self.requests.append(params)
+                raise RuntimeError('Error code: 400 - You have reached your specified API usage limits.')
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                seed_jobs(db, 8)
+                candidates, _ = digest.eligible_jobs(db)
+                client, stats = Limited(), {}
+                score.run(db, candidates, 'Profile', 'm', 10, client=client, workers=1, stats=stats)
+                self.assertLess(len(client.requests), 8)  # stopped, not one call per job
+                self.assertTrue(stats['limit'])
+                self.assertEqual(daily.left_out(stats, 'scored'), ['8 job(s) not scored: the Anthropic API spending limit was reached'])
+                self.assertEqual(daily.left_out({'pending': 3, 'done': 3}, 'scored'), [])
