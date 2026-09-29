@@ -1,7 +1,9 @@
 // The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 // tools/notion_schema.py): a missing column is added, a missing database or page is created next to the
 // Profile page, so a workspace can always be rebuilt from scratch and never drifts from what the code needs.
-// Runs when Notion is connected and at start-up. Nothing is ever deleted or renamed; views aren't in the API.
+// Runs when Notion is connected and at start-up. Nothing is renamed; the only deletions are columns the schema lists
+// as "retired" (a column the code stopped writing, e.g. Cronjob Runs' per-step costs), so every workspace follows.
+// Views aren't in the API.
 import fs from 'node:fs';
 import path from 'node:path';
 import {call} from './notion.js';
@@ -94,6 +96,14 @@ export async function repair(token, ids, schema = load(), fetcher, root = null) 
         ...current.map(({id, name: label}) => ({id, name: label})), ...missing.map(({name: label, color}) => ({name: label, color}))]}}}});
       out.columns.push(...missing.map(option => `${db.title}: ${name} → ${option.name}`));
     }
+  }
+
+  // Retired columns (the schema's "retired" list): removed where they still exist, in every workspace.
+  for (const [env, db] of Object.entries(schema.databases)) {
+    const gone = (db.retired || []).filter(name => existing[env]?.[name] && !db.columns[name]);
+    if (!gone.length) continue;
+    await api('PATCH', `databases/${out.ids[env]}`, {properties: Object.fromEntries(gone.map(name => [name, null]))});
+    out.columns.push(...gone.map(name => `${db.title}: ${name} (removed)`));
   }
 
   // Pages the code reads (the app's own pages, like Search settings, are made by their modules).

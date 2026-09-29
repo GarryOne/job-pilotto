@@ -308,7 +308,9 @@ def main():
             reply = f'⚠️ {escape(str(error))}'
         failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
         run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
-        log_ai_run(tracker, run, args, failed=failed)
+        # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
+        if not (failed and not cron_runs.total_usd(run)):
+            log_ai_run(tracker, run, args, failed=failed)
         print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
             telegram.send(reply, *telegram.credentials())
@@ -346,7 +348,9 @@ def main():
             reply = f'⚠️ {escape(str(error))}'
         failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
         run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
-        log_ai_run(tracker, run, args, failed=failed)
+        # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
+        if not (failed and not cron_runs.total_usd(run)):
+            log_ai_run(tracker, run, args, failed=failed)
         print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
             telegram.send(reply, *telegram.credentials())

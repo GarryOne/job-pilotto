@@ -38,6 +38,7 @@ function fakeWorkspace(databases, choices = {}) {
     } else if (init.method === 'PATCH' && route.startsWith('databases/')) {
       const id = route.split('/')[1];
       for (const [name, prop] of Object.entries(body.properties)) {
+        if (prop === null) { databases[id].delete(name); continue; }  // a retired column removed
         if (prop.select && databases[id].has(name)) { choices[`${id}/${name}`] = prop.select.options.map(o => o.name); continue; }
         if (prop.name) { databases[id].delete(name); databases[id].add(prop.name); continue; }
         databases[id].add(name);
@@ -76,6 +77,18 @@ test('an existing select column gets the choices the schema added, keeping its o
   const again = await repair('ntn_x', fixed.ids, schema, fetcher);
   assert.deepEqual(again.columns, []);
   assert.ok(!calls.some(call => call.startsWith('DELETE')));
+});
+
+test('columns the schema retired are removed where they still exist, once; other columns stay', async () => {
+  const databases = {runs: new Set(['Run', 'AI cost (USD)', 'Cost mail (USD)', 'Emails', 'My own column'])};
+  const {fetcher} = fakeWorkspace(databases);
+  const schema = {databases: {RUNS: {title: 'Cronjob Runs', columns: {Run: {type: 'title'}, 'AI cost (USD)': {type: 'number'}, Details: {type: 'rich_text'}},
+    retired: ['Cost mail (USD)', 'Emails', 'Kits']}}, pages: {}};
+  const fixed = await repair('ntn_x', {RUNS: 'runs', NOTION_PROFILE_PAGE_ID: 'profile'}, schema, fetcher);
+  assert.deepEqual(fixed.columns.sort(), ['Cronjob Runs: Cost mail (USD) (removed)', 'Cronjob Runs: Details', 'Cronjob Runs: Emails (removed)']);
+  assert.deepEqual([...databases.runs].sort(), ['AI cost (USD)', 'Details', 'My own column', 'Run']);  // the user's own column kept
+  const again = await repair('ntn_x', fixed.ids, schema, fetcher);
+  assert.deepEqual(again.columns, []);
 });
 
 test('the committed schema (once snapshotted) covers every column the app requires', () => {

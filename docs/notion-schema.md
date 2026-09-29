@@ -251,6 +251,8 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Kits | Number |  |
 | New jobs | Number |  |
 | Scored | Number |  |
+| Application | Relation | To NOTION_APPLICATIONS_DB |
+| Updates | Number |  |
 
 Views: **Latest runs** (newest first), **AI cost per day** (column chart).
 

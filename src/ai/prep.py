@@ -260,6 +260,7 @@ def logged_build(tracker, row, client=None, now=None):
     from ..notion import cron_runs
     run = cron_runs.new_run('prep')
     run['subject'] = mail._field(row, 'Company') or mail._field(row, 'Via')  # the row's title names the employer
+    run['application'] = row['id']  # the run links to the job it was for
     run['headline'] = f"{mail._field(row, 'Company') or mail._field(row, 'Via')} · {mail._field(row, 'Job')}"[:200]
     started = datetime.now(timezone.utc)
     cron_runs.begin(tracker, run)

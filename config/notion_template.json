@@ -115,21 +115,13 @@
     ],
     "NOTION_CRON_RUNS_DB": [
       "AI cost (USD)",
+      "Application",
       "Changed jobs",
       "Closed stale",
-      "Cost enrich (USD)",
-      "Cost insight (USD)",
-      "Cost interview (USD)",
-      "Cost kits (USD)",
-      "Cost mail (USD)",
-      "Cost score (USD)",
       "Duration (s)",
       "Emails",
-      "Enriched",
       "Feed errors",
       "Feeds",
-      "Insights",
-      "Interviews",
       "Kits",
       "Mode",
       "New jobs",
@@ -142,7 +134,8 @@
       "Telegram",
       "Tokens (total)",
       "Top new score",
-      "Trigger"
+      "Trigger",
+      "Updates"
     ],
     "NOTION_EVENTS_DB": [
       "Application",

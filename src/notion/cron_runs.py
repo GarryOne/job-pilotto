@@ -14,6 +14,7 @@ import re
 import sys
 
 CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '')
+# (run key, the old per-step column (retired: each step's cost is on the run's page now), its label).
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
           ('kits', 'Cost kits (USD)', 'Kits'), ('insight', 'Cost insight (USD)', 'Insights'),
           ('interview', 'Cost interview (USD)', 'Interviews'), ('mail', 'Cost mail (USD)', 'Emails'))
@@ -144,11 +145,12 @@ def title(run):
 
 
 def run_page(run):
-    """(properties, children) for one Cronjob Runs row. Only what applies to this kind of run is filled: a prep kit
-    or a Gmail check leaves the crawl counters and the other stages' costs empty (hidden in Notion), not 0."""
+    """(properties, children) for one Cronjob Runs row. The core columns every run fills; the rest belong to one kind
+    of run and stay empty on the others (hidden in Notion): a jobs check's crawl numbers, a Gmail check's emails, the
+    Application a one-job run was for. Each AI step (model, tokens, cost), the report and the log are on the page."""
     lines = report_lines(run)
-    crawl = run['mode'] in CRAWL_MODES
-    count = lambda value: {'number': value if crawl else None}
+    crawl, mail = run['mode'] in CRAWL_MODES, run['mode'] == 'mail'
+    only = lambda applies, value: {'number': value if applies else None}
     properties = {
         'Run': {'title': [{'text': {'content': title(run)}}]},
         'Started': {'date': {'start': run['started_at']}},
@@ -156,23 +158,25 @@ def run_page(run):
         'Mode': {'select': {'name': run['mode']}},
         'Trigger': {'select': {'name': run.get('trigger', 'Local')}},
         'Status': {'select': {'name': status(run)}},
-        'Feeds': count(run.get('feeds', 0)),
-        'Feed errors': count(run.get('feed_errors', 0)),
-        'New jobs': count(run.get('new', 0)),
-        'Changed jobs': count(run.get('changed', 0)),
-        'Closed stale': count(run.get('closed_stale', 0)),
         'AI cost (USD)': {'number': round(total_usd(run), 4)},
         'Tokens (total)': {'number': total_tokens(run)},
         'Telegram': _text(run.get('telegram', '')),
         'Summary': _text(lines[0]),
+        # A jobs check
+        'Feeds': only(crawl, run.get('feeds', 0)),
+        'Feed errors': only(crawl, run.get('feed_errors', 0)),
+        'New jobs': only(crawl, run.get('new', 0)),
+        'Changed jobs': only(crawl, run.get('changed', 0)),
+        'Closed stale': only(crawl, run.get('closed_stale', 0)),
+        'Scored': only(crawl, (run.get('score') or {}).get('done', 0)),
+        'Kits': only(crawl or run['mode'] == 'prepare', (run.get('kits') or {}).get('done', 0)),
+        'Top new score': only(crawl and run.get('top_new'), run['top_new'][0][2] if run.get('top_new') else None),
+        # A Gmail check
+        'Emails': only(mail, (run.get('mail') or {}).get('done', 0)),
+        'Updates': only(mail, len(run.get('updates') or [])),
     }
-    for stage, cost_name, count_name in STAGES:
-        info = run.get(stage) or {}
-        used = bool(info.get('usd') or info.get('done') or info.get('pending') or (crawl and stage in ('enrich', 'score', 'kits')))
-        properties[cost_name] = {'number': round(info.get('usd', 0.0), 4) if used else None}
-        properties[count_name] = {'number': info.get('done', 0) if used and (info.get('done') or info.get('pending') or crawl) else None}
-    if run.get('top_new'):
-        properties['Top new score'] = {'number': run['top_new'][0][2]}
+    if run.get('application'):  # a run about one job (prep kit, application kit, interview review): its Applications row
+        properties['Application'] = {'relation': [{'id': run['application']}]}
     if run.get('run_url'):
         properties['Run URL'] = {'url': run['run_url']}
     children = [_para('Report', 'heading_3')] + [_para(line, 'bulleted_list_item') for line in lines]
