@@ -169,7 +169,10 @@ async function loadHistory() {
       open.addEventListener('click', event => window.pilot.openNotion(item.url, event.metaKey));
       side.append(open);
     }
-    row.append(el('span', 'focus-history-emoji', item.emoji || '✓'), words, side);
+    // Done: a green tick (what kind of to-do it was is in its title).
+    const done = el('span', 'focus-history-done');
+    done.append(icon('tick'));
+    row.append(done, words, side);
     rows.push(row);
   }
   list.replaceChildren(...rows);
