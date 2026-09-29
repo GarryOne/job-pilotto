@@ -67,7 +67,7 @@ test('/stats needs the key, then keeps it in a cookie and out of the address bar
   const first = await worker.fetch(request('/stats?key=k3y&days=7'), e, {});
   assert.equal(first.status, 302);
   assert.equal(first.headers.get('Location'), '/stats?days=7');
-  assert.match(first.headers.get('Set-Cookie'), /jp_stats=k3y; Path=\/stats;.*HttpOnly; Secure/);
+  assert.match(first.headers.get('Set-Cookie'), /jp_stats=k3y; Path=\/;.*HttpOnly; Secure/);
   assert.equal((await worker.fetch(request('/stats', {headers: {Cookie: 'jp_stats=k3y'}}), {...e, STATS_KEY: ''}, {})).status, 404);
 });
 

@@ -168,15 +168,19 @@ ${list.map(row => `<tr><td>${esc(row.email)}</td><td class="muted">${esc(row.rol
 </main></body></html>`;
 }
 
+// ?key=… once: saved in a cookie for every private page (/stats and /telemetry: Path=/), then taken out of the
+// address bar and history.
+export function remember(url, env) {
+  url.searchParams.delete('key');
+  return new Response(null, {status: 302, headers: {Location: url.pathname + url.search,
+    'Set-Cookie': `${KEY_COOKIE}=${env.STATS_KEY}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`}});
+}
+
 // GET /stats?days=30
 export async function stats(request, env, now = new Date()) {
   if (!allowed(request, env)) return new Response('Not found', {status: 404});
   const url = new URL(request.url);
-  if (url.searchParams.has('key')) {  // keep the key out of the address bar and history
-    url.searchParams.delete('key');
-    return new Response(null, {status: 302, headers: {Location: url.pathname + url.search,
-      'Set-Cookie': `${KEY_COOKIE}=${env.STATS_KEY}; Path=/stats; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`}});
-  }
+  if (url.searchParams.has('key')) return remember(url, env);
   const days = [7, 30, 90].includes(Number(url.searchParams.get('days'))) ? Number(url.searchParams.get('days')) : 30;
   const [data, list] = await Promise.all([report(env.STATS, days, now), signups(env.WAITLIST)]);
   return new Response(page(data, list), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',

@@ -29,7 +29,7 @@ test('reports are stored, and the same problem from two users (other line number
   const rows = e.STATS.db.prepare('SELECT fingerprint, summary, data FROM telemetry').all();
   assert.equal(new Set(rows.filter(r => r.summary.startsWith('TypeError')).map(r => r.fingerprint)).size, 1);
   assert.ok(!rows.some(r => r.data.includes('igor@gmail.com')));  // scrubbed again on the server
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?key=k3y&days=7'), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /TypeError: Cannot read properties/);
   assert.match(html, /<td><b>2<\/b><\/td>/);  // two users
   assert.match(html, /src\.ai\.prep build: JSONDecodeError/);
@@ -64,8 +64,17 @@ test('How it helped: each install\'s latest daily totals, summed', async () => {
   const e = env();
   const health = (install, at, applied, interviews) => ({kind: 'health', install, version: '0.4.1', platform: 'darwin', at, applied, interviews, offers: 0, formsFilled: 3});
   await send(e, [health('install-aaaa', '2026-09-28T08:00:00Z', 5, 0), health('install-aaaa', '2026-09-29T08:00:00Z', 7, 1), health('install-bbbb', '2026-09-29T09:00:00Z', 2, 1)]);
-  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?key=k3y&days=7'), e, {})).text();
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /📨 Applications<\/span><b>9<\/b>/);   // 7 (latest of the first install) + 2
   assert.match(html, /🧑‍💻 Interviews<\/span><b>2<\/b>/);
   assert.match(html, /all 2 installs reporting/);
+});
+
+test('the key, given once on either page, opens both (the cookie is for the whole site)', async () => {
+  const e = env();
+  const first = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/stats?key=k3y'), e, {});
+  const cookie = first.headers.get('Set-Cookie');
+  assert.match(cookie, /Path=\/;/);
+  const later = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Cookie: cookie.split(';')[0]}}), e, {});
+  assert.equal(later.status, 200);
 });

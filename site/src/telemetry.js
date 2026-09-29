@@ -2,7 +2,7 @@
 // stores them (D1 "telemetry", 90 days), /telemetry shows the problems users hit (same key as /stats), and a daily
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
-import {allowed, esc} from './stats.js';
+import {allowed, esc, remember} from './stats.js';
 
 export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health'];
 const MAX_EVENTS = 50, MAX_BYTES = 8000, PER_INSTALL_PER_DAY = 1000, KEEP_DAYS = 90;
@@ -117,6 +117,7 @@ ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></t
 // GET /telemetry?days=7 (same key or cookie as /stats)
 export async function view(request, env, now = new Date()) {
   if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
     return new Response(page(await problems(env.STATS, days, now)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
