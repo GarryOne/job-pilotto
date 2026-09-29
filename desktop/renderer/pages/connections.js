@@ -4,6 +4,7 @@ import {$, message, osText, show} from './core.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {refreshServices, renderOverview, showRunMode} from './settings.js';
+import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
 
 // ---------- Apply with Claude: what only the user can install (wizard, Optional extras) ----------
@@ -48,7 +49,55 @@ export function showSchedule() {
 }
 // Automation: the schedules, the daily target and reminders are saved together with Save changes (enabled once
 // something changed); with Always on, the GitHub repo is updated to the new schedule too.
-export const automationChanged = () => { $('automation-save').disabled = false; message('schedule-message', ''); };
+// Automation saves each change at once (no Save button). A small toast says what was saved; with Always on, the GitHub
+// repository is brought up to date once, a moment after the last change (several changes → one update).
+const REPO_DELAY = 1500;
+let repoTimer = null;
+let lastToast = null;
+function savedToast(title, body = '') {
+  lastToast?.remove();
+  const toast = lastToast = toastMessage(title, body);
+  setTimeout(() => toast.remove(), 3000);
+}
+const saveState = text => { $('automation-state').textContent = text || 'Changes save automatically'; };
+function updateRepo() {
+  if (!shared.state.settings.cloud?.repo) return;
+  clearTimeout(repoTimer);
+  repoTimer = setTimeout(async () => {
+    saveState(`Updating ${shared.state.settings.cloud.repo}…`);
+    const result = await window.pilot.cloudConnect();
+    saveState('');
+    if (result.ok) savedToast('GitHub updated ✓', `${result.repo} follows the new settings.`);
+    else toastMessage('GitHub not updated', `${result.error} Your change is saved on this Mac; change a setting again to retry.`);
+  }, REPO_DELAY);
+}
+async function saveSchedule(select) {
+  const schedule = {...SCHEDULE_DEFAULTS, ...(shared.state.settings.schedule || {})};
+  schedule[select.dataset.schedule] = /^\d+$/.test(select.value) ? Number(select.value) : select.value;
+  await window.pilot.saveSettings({schedule});
+  shared.state = await window.pilot.state();
+  const task = select.closest('.task-row')?.querySelector('b')?.textContent || 'Schedule';
+  savedToast('Saved ✓', `${task}: ${select.selectedOptions[0]?.textContent}`);
+  updateRepo();
+}
+async function saveReminders() {
+  await window.pilot.saveSettings({focusReminders: $('set-remind').checked});
+  $('focus-remind').checked = $('set-remind').checked;
+  shared.state = await window.pilot.state();
+  savedToast('Saved ✓', `Focus reminders ${$('set-remind').checked ? 'on' : 'off'}`);
+}
+// The target lives in Notion's ⚙️ Search settings: written only when it really changed (it's a slow round trip).
+async function saveTarget() {
+  const input = $('set-target');
+  if (!input.value || input.value === input.dataset.saved) return;
+  saveState('Saving the daily target to Notion…');
+  const ok = await saveDailyTarget(input);
+  saveState('');
+  if (!ok) { input.value = input.dataset.saved || ''; return; }
+  input.dataset.saved = input.value;
+  savedToast('Saved ✓', `Daily application target: ${input.value}`);
+  updateRepo();
+}
 
 // ---------- Always on: runs in the user's private GitHub repo, even with the Mac off ----------
 export function showCloud() {
@@ -102,23 +151,9 @@ export async function init() {
     showExtensionStatus();
     if (!document.querySelector('[data-settings-page="overview"]').hidden) renderOverview().catch(() => {});
   }, 10000);
-  document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', automationChanged));
-  $('automation-save').addEventListener('click', async () => {
-    $('automation-save').disabled = true;
-    const schedule = {...SCHEDULE_DEFAULTS, ...(shared.state.settings.schedule || {})};
-    document.querySelectorAll('[data-schedule]').forEach(select => {
-      schedule[select.dataset.schedule] = /^\d+$/.test(select.value) ? Number(select.value) : select.value;
-    });
-    await window.pilot.saveSettings({schedule, focusReminders: $('set-remind').checked});
-    $('focus-remind').checked = $('set-remind').checked;
-    if (!(await saveDailyTarget($('set-target')))) { $('automation-save').disabled = false; return; }
-    shared.state = await window.pilot.state();
-    if (!shared.state.settings.cloud?.repo) { message('schedule-message', 'Saved ✓', 'ok'); return; }
-    message('schedule-message', `Updating ${shared.state.settings.cloud.repo}…`);
-    const result = await window.pilot.cloudConnect();
-    message('schedule-message', result.ok ? `Saved ✓ ${result.repo} follows the new schedule.` : result.error, result.ok ? 'ok' : 'error');
-    if (!result.ok) $('automation-save').disabled = false;
-  });
+  document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', () => saveSchedule(select)));
+  $('set-remind').addEventListener('change', saveReminders);
+  $('set-target').addEventListener('change', saveTarget);
   $('tg-cloud-on').addEventListener('click', async () => {
     $('tg-cloud-on').disabled = true;
     message('tg-cloud-message', 'Setting up your bot helper on Cloudflare…');

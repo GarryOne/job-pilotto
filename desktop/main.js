@@ -458,6 +458,8 @@ function handlers() {
   // Always on: sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
   ipcMain.handle('cloudConnect', async (_, chosen = '') => {
+    if (DEMO) return {ok: true, repo: storage.settings().cloud?.repo || 'alexmorgan/job-pilotto-private', existing: null,
+      secrets: ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'], variables: []};  // never the real GitHub
     try {
       let token = storage.secret('GITHUB_TOKEN');
       if (!token) {

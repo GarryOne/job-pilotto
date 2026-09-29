@@ -2,7 +2,6 @@
 import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
-import {automationChanged} from './connections.js';
 import {$, savedAgo, show} from './core.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
@@ -279,9 +278,7 @@ export async function init() {
   $('focus-target').addEventListener('change', async () => {
     if (await saveDailyTarget($('focus-target'))) { show($('focus-target-row'), false); loadFocus(); }
   });
-  $('set-target').addEventListener('input', automationChanged);
-  $('set-remind').addEventListener('change', automationChanged);
-  $('focus-remind').addEventListener('change', async () => {  // the Focus page saves at once; Settings with Save changes
+  $('focus-remind').addEventListener('change', async () => {  // the Focus page and Settings both save at once
     const on = $('focus-remind').checked;
     await window.pilot.saveSettings({focusReminders: on});
     $('set-remind').checked = on;

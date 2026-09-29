@@ -26,9 +26,8 @@ export function openView(name) {
   if (name === 'settings') {
     settingsPage('overview');
     showServicesNow();
-    $('automation-save').disabled = true;
     loadSettings();
-    window.pilot.dailyTarget().then(setting => { $('set-target').value = setting.target; $('set-remind').checked = setting.reminders; });
+    window.pilot.dailyTarget().then(setting => { $('set-target').value = $('set-target').dataset.saved = setting.target; $('set-remind').checked = setting.reminders; });
   }
   if (name === 'interviews') loadInterviews();
   if (name === 'focus') loadFocus();
