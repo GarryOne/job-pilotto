@@ -291,6 +291,23 @@
     </div>
   </section>
 
+  <section class="block reveal" id="trust">
+    <div class="section-head">
+      <span class="eyebrow">Trust</span>
+      <h2>Why you can trust the download</h2>
+      <p class="lede">You don't have to take our word for it: the code is open and every download can be checked.</p>
+    </div>
+    <ul class="trust-grid">
+      <li><b>📖 Open code</b><span>Every line is public: what it reads, what it sends, where your keys go. <a href="https://github.com/GarryOne/job-pilotto">Read it on GitHub</a></span></li>
+      <li><b>🏗️ Built in public</b><span>Each download is built by GitHub Actions from a tagged commit, not on anyone's laptop. The build logs are public.</span></li>
+      <li><b>✅ Checkable</b><span>GitHub signs each download with the commit it was built from. With the <a href="https://cli.github.com">GitHub CLI</a>:</span>
+        <code class="trust-cmd">gh attestation verify Job-Pilotto-mac-arm64.dmg -R GarryOne/job-pilotto</code></li>
+      <li><b>🔒 No server holds your data</b><span>Keys stay encrypted on your Mac; your jobs live in your own Notion. <a href="#privacy">What it can access</a></span></li>
+      <li><b>✋ You submit</b><span>It fills forms and never presses Submit or applies in bulk.</span></li>
+      <li><b>⚠️ Not Apple-signed yet</b><span>That's why macOS asks once ("Open Anyway"). Apple signing is next. Found a problem? <a href="https://github.com/GarryOne/job-pilotto/security/policy">Report it privately</a></span></li>
+    </ul>
+  </section>
+
   <section class="block reveal" id="setup">
     <div class="section-head">
       <span class="eyebrow">Setup</span>

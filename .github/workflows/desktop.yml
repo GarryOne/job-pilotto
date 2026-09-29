@@ -23,7 +23,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # create the release
+  contents: write      # create the release
+  id-token: write      # build provenance: GitHub signs "this file was built from this commit by this workflow"
+  attestations: write  # (verify: gh attestation verify <file> -R GarryOne/job-pilotto)
 
 # A release runs to the end (Mac, then the Windows installer), so the latest release always has both
 # downloads the website links to; newer pushes wait, and only the newest waiting one runs.
@@ -81,14 +83,17 @@ jobs:
       - name: Build
         working-directory: desktop
         env:
-          # The release certificate (scripts/sign.cjs): the same signature on every build keeps the keychain's
-          # "Always Allow" across updates.
+          # The release certificate (scripts/sign.cjs): every build carries the same self-made signature.
           MAC_SIGN_P12: ${{ secrets.MAC_SIGN_P12 }}
           MAC_SIGN_PASSWORD: ${{ secrets.MAC_SIGN_PASSWORD }}
         run: |
           npm run build -- -c.buildVersion="${{ github.run_number }}"   # CFBundleVersion = the release build number
           codesign -dvv dist/mac-arm64/*.app 2>&1 | grep -q "Authority=Job Pilotto Self-Signed" \
             || { echo "::error::The app isn't signed with the release certificate"; exit 1; }
+      - name: Build provenance (anyone can verify the download was built here, from this commit)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: desktop/dist/Job-Pilotto-*-arm64.*
       - name: Release
         working-directory: desktop
         env:
@@ -99,7 +104,9 @@ jobs:
           # Stable names too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${version}-arm64.dmg" dist/Job-Pilotto-mac-arm64.dmg
           cp "dist/Job-Pilotto-${version}-arm64.zip" dist/Job-Pilotto-mac-arm64.zip
-          { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; } > release-notes.md
+          { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; echo
+            echo "Built by GitHub Actions from ${GITHUB_SHA::7}. Check a download: \`gh attestation verify <file> -R ${GITHUB_REPOSITORY}\`"
+          } > release-notes.md
           gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
             --title "$(scripts/release-title.sh "$version")" \
             --notes-file release-notes.md \
@@ -147,6 +154,10 @@ jobs:
       - name: Smoke test the installed app (install, bundled Python, Credential Manager, three screens)
         working-directory: desktop
         run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke
+      - name: Build provenance (anyone can verify the download was built here, from this commit)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: desktop/dist/Job-Pilotto-*-x64.exe
       - name: Keep the Windows screenshots
         if: always()
         uses: actions/upload-artifact@v4
