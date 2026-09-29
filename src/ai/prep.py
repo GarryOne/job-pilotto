@@ -136,16 +136,81 @@ def what_you_learned(tracker, row):
     return lines
 
 
+READ_MODEL = os.getenv('JOB_PILOTTO_INBOX_MODEL', 'claude-haiku-4-5')
+MAX_SHOTS = 5
+
+
+def _ask():
+    return {'ok': False, 'needs_description': True,
+            'text': 'To prepare you, Job Pilotto needs the job description: paste it, or the posting link.'}
+
+
+def screenshots(tracker, row, fetch=True, opener=None):
+    """The images on the job's page (logged screenshots, also inside folded log entries), newest last, as
+    (name, bytes, media type); with fetch=False only their URLs."""
+    import urllib.request
+    found = []
+
+    def walk(blocks, depth=0):
+        for block in blocks:
+            if block.get('type') == 'image':
+                image = block['image']
+                url = (image.get('file') or {}).get('url') or (image.get('external') or {}).get('url')
+                if url:
+                    found.append(url)
+            elif block.get('has_children') and depth < 1:
+                walk(tracker._children(block['id']), depth + 1)
+    walk(tracker._children(row['id']))
+    found = found[-MAX_SHOTS:]
+    if not fetch:
+        return found
+    shots = []
+    for number, url in enumerate(found, 1):
+        try:
+            with (opener or urllib.request.urlopen)(url, timeout=30) as response:
+                data, kind = response.read(), (response.headers.get('Content-Type') or 'image/png').split(';')[0]
+            shots.append((f'shot-{number}', data, kind if kind.startswith('image/') else 'image/png'))
+        except Exception as error:  # noqa: BLE001 — one unreadable picture doesn't stop the others
+            print(f'Warning: screenshot {number} not read: {type(error).__name__}: {error}', file=sys.stderr)
+    return shots
+
+
+def role_from_screenshots(tracker, row, client, stats=None):
+    """What the job's screenshots say about the role, transcribed (Claude reads them together), else ''."""
+    shots = screenshots(tracker, row)
+    if not shots:
+        return ''
+    print(f'⏳ Reading the {len(shots)} screenshots on the job for its description', file=sys.stderr, flush=True)
+    import base64
+    content = [{'type': 'image', 'source': {'type': 'base64', 'media_type': kind, 'data': base64.b64encode(data).decode()}}
+               for _, data, kind in shots]
+    content.append({'type': 'text', 'text': 'These screenshots are about one job (e.g. a chat with a recruiter). Transcribe '
+                    'everything they say about the role itself: company or client, responsibilities, stack, team, '
+                    'requirements, location, work mode, contract, pay, interview process. Plain text, no commentary; '
+                    'nothing if they say nothing about the role.'})
+    response = client.messages.create(model=READ_MODEL, max_tokens=2000, messages=[{'role': 'user', 'content': content}])
+    cost.add(stats, READ_MODEL, response.usage)
+    return next((b.text for b in response.content if b.type == 'text'), '').strip()
+
+
 def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, db_path=None):
     from . import interviews
     now = now or datetime.now(timezone.utc)
     role = role_text(tracker, row, db_path)
-    if about_role(role) < MIN_ROLE:
-        return {'ok': False, 'needs_description': True,
-                'text': 'To prepare you, Job Pilotto needs the job description: paste it, or the posting link.'}
+    if client is None and about_role(role) < MIN_ROLE and not screenshots(tracker, row, fetch=False):
+        return _ask()
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
+    if about_role(role) < MIN_ROLE:
+        # Screenshots you logged on the job (e.g. a LinkedIn chat, before the Log box kept its text) say what the
+        # role is: read them, keep that as the job's description, and go on instead of asking you again.
+        read = role_from_screenshots(tracker, row, client, stats)
+        if about_role(read) >= MIN_ROLE // 2:
+            describe(tracker, row, text=read)
+            role = f'{read}\n\n{role}'.strip()
+    if about_role(role) < MIN_ROLE // 2:
+        return _ask()
     profile = tracker.page_text()
     history = what_you_learned(tracker, row)
     coming = mail._when(mail._field(row, 'Next interview'))

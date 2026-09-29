@@ -53,6 +53,7 @@ class Client:
 class PrepTests(unittest.TestCase):
     def test_an_invite_alone_is_not_a_role_it_asks_for_the_description(self):
         tracker, row = job(INVITE)
+        tracker._children = lambda block_id: []  # no screenshots on the page either
         client = Client()
         result = prep.build(tracker, row, client=client, now=NOW)
         self.assertTrue(result['needs_description'])
@@ -78,6 +79,36 @@ class PrepTests(unittest.TestCase):
         self.assertEqual(heading, prep.HEADING)
         self.assertIn('Still unknown: ask the recruiter', [b[b['type']]['rich_text'][0]['text']['content'] for b in blocks if b['type'] == 'heading_3'])
         self.assertEqual(tracker.updates[0][1], {'Interview prep': {'date': {'start': '2026-09-29'}}})
+
+    def test_screenshots_logged_on_the_job_are_read_instead_of_asking(self):
+        # 29 Sep 2026: the Huxley chat was logged as 4 images before the Log box kept its text; the kit asked anyway.
+        tracker, row = job(INVITE)
+        folded = {'id': 'log1', 'type': 'toggle', 'has_children': True}
+        image = lambda n: {'id': f'i{n}', 'type': 'image', 'image': {'type': 'file', 'file': {'url': f'https://files.test/{n}.png'}}}
+        tracker._children = lambda block_id: [image(1), folded] if block_id == 'h1' else [image(2)]
+        read = ROLE.split('\n', 1)[1]
+
+        class Reads(Client):
+            def create(self, **params):
+                if params['model'] == prep.READ_MODEL:
+                    self.calls.append(params)
+                    return SimpleNamespace(content=[SimpleNamespace(type='text', text=read)],
+                                           usage=SimpleNamespace(input_tokens=5000, output_tokens=300, cache_read_input_tokens=0, cache_creation_input_tokens=0))
+                return super().create(**params)
+
+        class Image:
+            headers = {'Content-Type': 'image/png'}
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b'png'
+        client = Reads()
+        with mock.patch('urllib.request.urlopen', lambda url, timeout=30: Image()), \
+                mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+            result = prep.build(tracker, row, client=client, now=NOW)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(len([b for b in client.calls[0]['messages'][0]['content'] if b['type'] == 'image']), 2)  # both, the folded one too
+        self.assertEqual(tracker.written[0][1], prep.DESCRIPTION_HEADING)  # kept as the job's description
+        self.assertIn('ArgoCD', client.calls[1]['messages'][0]['content'])
 
     def test_a_pasted_description_is_saved_on_the_job(self):
         tracker, row = job(INVITE)
