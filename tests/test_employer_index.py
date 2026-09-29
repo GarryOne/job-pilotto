@@ -139,9 +139,9 @@ class BuildAndPublishTest(unittest.TestCase):
         self.assertEqual(seen[0].get_header('Authorization'), 'Bearer k3y')
         self.assertEqual(json.loads(seen[0].data)['feeds'][0]['slug'], 'a')
         with self.assertRaises(ValueError):
-            scout.publish_index([], 'u', 'k', send)
+            scout.publish_index([], 'https://x.test/i', 'k', send)
         with self.assertRaises(RuntimeError):
-            scout.publish_index([{'company': 'A', 'ats': 'lever', 'slug': 'a'}], 'u', 'k', lambda r: 401)
+            scout.publish_index([{'company': 'A', 'ats': 'lever', 'slug': 'a'}], 'https://x.test/i', 'k', lambda r: 401)
 
 
 if __name__ == '__main__':
