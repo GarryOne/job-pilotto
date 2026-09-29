@@ -7,6 +7,7 @@ import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
+import * as telemetryLib from './lib/telemetry.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
@@ -44,6 +45,17 @@ import * as telegramCloud from './lib/telegram-cloud.js';
 let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
+let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
+// Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
+function healthOnce() {
+  const settings = storage.settings(), today = new Date().toISOString().slice(0, 10);
+  if (!telemetry?.enabled() || settings.telemetryHealthAt === today) return;
+  storage.saveSettings({telemetryHealthAt: today});
+  const has = name => !!storage.secret(name);
+  telemetry.record('health', {ai: has('ANTHROPIC_API_KEY'), notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
+    serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
+    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length});
+}
 let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
 async function checkForUpdate(asked = false) {
   if (!app.isPackaged && !asked) return null;
@@ -880,6 +892,10 @@ function handlers() {
   });
   ipcMain.handle('openTabs', () => server.openTabs());
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
+  // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
+  ipcMain.handle('telemetryRecord', (_, kind, fields) => { telemetry?.record(String(kind), fields || {}); return true; });
+  ipcMain.handle('telemetryShown', () => ({on: telemetry?.enabled() ?? false, events: telemetry?.shown() || []}));
+  ipcMain.handle('telemetrySet', (_, on) => { storage.saveSettings({telemetry: !!on}); if (!on) telemetry?.flush(); return {on: !!on}; });
   ipcMain.handle('updateState', () => updateOffer);
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
   ipcMain.handle('updateInstall', async () => {
@@ -1069,6 +1085,11 @@ app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,
 process.on('unhandledRejection', reason => {
   if (String(reason?.message || reason) === 'Failed to get sources.') return;
   console.error('Unhandled rejection:', reason);
+  telemetry?.record('crash', {where: 'main', type: reason?.name || 'Rejection', message: reason?.message || String(reason), stack: reason?.stack});
+});
+// A crash in the main process, reported without changing what Electron does with it (the monitor only watches).
+process.on('uncaughtExceptionMonitor', error => {
+  telemetry?.record('crash', {where: 'main', type: error?.name || 'Error', message: error?.message || String(error), stack: error?.stack});
 });
 
 if (firstCopy) app.whenReady().then(() => {
@@ -1077,6 +1098,19 @@ if (firstCopy) app.whenReady().then(() => {
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
   logTo(path.join(app.getPath('userData'), 'logs'));
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode.
+  telemetry = DEMO ? null : telemetryLib.create(storage, {version: app.getVersion()});
+  if (telemetry) {
+    pipeline.onRunEnd(({args, code, seconds, tail}) => {
+      if (code === 0) return;
+      const error = [...tail].reverse().find(line => /error|exception|traceback|failed|refused/i.test(line)) || tail.at(-1) || '';
+      const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : /^[a-z_]+$/.test(args[1] || '') ? args[1] : '';
+      telemetry.record('run_failed', {job: `${args[0]}${mode ? ` ${mode}` : ''}`, code, seconds, error,
+        cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' ')), tail: tail.slice(-5)});
+    });
+    setTimeout(() => { healthOnce(); telemetry.flush(); }, 60 * 1000);
+    setInterval(() => { healthOnce(); telemetry.flush(); }, 10 * 60 * 1000);
+  }
   applyTheme(process.env.JOB_PILOTTO_THEME || storage.settings().theme);
   reset.adoptKeys(storage);  // keys that came with an import: stored encrypted, plain file deleted
   pipeline.ensureConfig(storage);

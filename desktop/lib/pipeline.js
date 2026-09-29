@@ -86,7 +86,13 @@ export function stopRunning() { for (const child of children) child.kill('SIGTER
 
 // Run `python -m <args>` in the repo; resolve with {code, stdout}; each output line goes to onLine (made readable).
 // stdout itself stays as printed, for the callers that parse it.
+// Every finished run is told to these (technical reports: a failed run, with its last lines; lib/telemetry.js).
+const runEnd = new Set();
+export const onRunEnd = listener => runEnd.add(listener);
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
+  const started = Date.now(), tail = [];
+  const told = onLine;
+  onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };
   return new Promise((resolve, reject) => {
     const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
     children.add(child);
@@ -101,7 +107,11 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
     child.stdout.on('data', data => { stdout += data; lines(String(data)); });
     child.stderr.on('data', data => lines(String(data)));
     child.on('error', reject);
-    child.on('close', code => { if (buffer) onLine(readable(buffer)); resolve({code, stdout}); });
+    child.on('close', code => {
+      if (buffer) onLine(readable(buffer));
+      for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail]}); } catch {} }
+      resolve({code, stdout});
+    });
   });
 }
 

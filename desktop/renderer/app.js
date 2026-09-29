@@ -28,6 +28,7 @@ import {init as runsPage} from './pages/runs-page.js';
 import {init as reassign} from './pages/reassign.js';
 import {init as prep} from './pages/prep.js';
 import {init as update} from './pages/update.js';
+import {init as telemetry} from './pages/telemetry.js';
 
 await core();
 await wizard();
@@ -44,6 +45,7 @@ await actions();
 await reassign();
 await prep();
 await update();
+await telemetry();
 await cvChange();
 await data();
 await startup();

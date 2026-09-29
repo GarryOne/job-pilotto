@@ -51,6 +51,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
+- `desktop/lib/telemetry.js` — Technical reports (on by default; Settings → Advanced turns them off): crashes, failed runs, form issues and a
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
@@ -82,6 +83,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/startup.js` — Start-up: what the window opens on.
 - `desktop/renderer/pages/strategy-review.js` — Setup step 5: review the drafted strategy.
 - `desktop/renderer/pages/strategy.js` — Strategy page.
+- `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
 - `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads
 - `desktop/renderer/pages/wizard.js` — The setup wizard.
