@@ -12,6 +12,7 @@ on:
       - 'desktop/**'
       - 'src/**'
       - 'config/**'
+      - 'templates/**'
       - 'tools/**'
       - 'extension/**'
       - 'worker/src/**'
@@ -119,11 +120,24 @@ jobs:
           { echo "**Version ${version}**"; echo; scripts/release-notes.sh "$GITHUB_SHA"; echo
             echo "Built by GitHub Actions from ${GITHUB_SHA::7}. Check a download: \`gh attestation verify <file> -R ${GITHUB_REPOSITORY}\`"
           } > release-notes.md
-          gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
+          if ! gh release create "$tag" dist/Job-Pilotto-*.dmg dist/Job-Pilotto-*.zip \
             --title "$(scripts/release-title.sh "$version")" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA" \
-            --draft   # published by the windows job once the .exe is there (or by mac-only if it fails)
+            --draft 2> release-error.txt; then   # published by the windows job once the .exe is there (or by mac-only if it fails)
+            cat release-error.txt >&2
+            # The same 403 when workflows changed on main in the seconds after the check above: hand over to a fresh
+            # build of main instead of failing. Only when main has moved, so a real 403 on main itself still fails.
+            git fetch -q origin main
+            if grep -q 'HTTP 403' release-error.txt && [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+              gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true   # a half-made draft, if any
+              echo "::warning::Release refused (403) after main moved: not released; a new build of main starts."
+              gh workflow run desktop.yml --ref main
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            exit 1
+          fi
           echo "released=true" >> "$GITHUB_OUTPUT"
 
   windows:
