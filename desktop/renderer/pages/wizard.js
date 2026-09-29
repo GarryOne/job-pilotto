@@ -9,7 +9,7 @@ import {showDraftCost, toDraft} from './strategy-review.js';
 export function goStep(name) {
   const index = STEPS.indexOf(name);
   window.pilot.saveSettings({wizardStep: name});  // reopening the app continues here
-  if (name === 'goals') showDraftCost();
+  if (name === 'cv') showDraftCost();
   if (name === 'ai' && shared.state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value) {
     message('ai-message', '✓ Your key is saved. Continue, or paste a new key to replace it.', 'ok');
     // The saved key, masked (dots and its last 4 characters), as in Settings.

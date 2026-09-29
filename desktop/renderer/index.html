@@ -19,7 +19,6 @@
       <li data-step="ai">AI key</li>
       <li data-step="notion">Notion</li>
       <li data-step="cv">Your CV</li>
-      <li data-step="goals">What you're looking for</li>
       <li data-step="draft">Your strategy</li>
       <li data-step="extras">Optional extras</li>
     </ol>
@@ -30,7 +29,7 @@
 
   <div class="step-body">
     <div class="review-mode" id="review-mode" hidden>🔒 <span><b>Your setup is done.</b> You're looking at it: nothing changes here unless you replace your
-      strategy at step 5, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</span></div>
+      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</span></div>
     <div class="step" data-step="welcome">
       <span class="eyebrow">Check-in · about 5 minutes</span>
       <h1>Let's set up your job search</h1>
@@ -39,8 +38,7 @@
         <li>Add your AI key (Anthropic)</li>
         <li>Set up your Job Pilotto workspace in Notion (free)</li>
         <li>Choose your CV</li>
-        <li>Say what you're looking for</li>
-        <li>Review the strategy it drafts for you</li>
+        <li>Check the goals and strategy it proposes from your CV</li>
       </ul>
       <div class="actions"><button class="primary" data-next>Start</button></div>
       <p class="fine">Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
@@ -48,7 +46,7 @@
     </div>
 
     <div class="step" data-step="ai">
-      <span class="eyebrow">Step 1 of 6</span>
+      <span class="eyebrow">Step 1 of 5</span>
       <h1>Connect your AI</h1>
       <p class="lede">Job Pilotto uses Claude to read job postings, score them and draft answers. It runs on this computer with your own key,
         and you pay Anthropic directly: usually a few dollars a month during an active search, capped by the monthly budget you set.</p>
@@ -78,7 +76,7 @@
     </div>
 
     <div class="step" data-step="notion">
-      <span class="eyebrow">Step 2 of 6</span>
+      <span class="eyebrow">Step 2 of 5</span>
       <h1>Your Job Pilotto workspace in Notion</h1>
       <p class="lede">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p>
       <div class="oauth">
@@ -118,61 +116,28 @@
     </div>
 
     <div class="step" data-step="cv">
-      <span class="eyebrow">Step 3 of 6</span>
+      <span class="eyebrow">Step 3 of 5</span>
       <h1>Your CV</h1>
-      <p class="lede">It's used to score jobs, draft your answers and attach to applications. It stays on this Mac; only the AI reads it when building your strategy.</p>
+      <p class="lede">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
+        It stays on this Mac and in your Notion; only the AI reads it when building your strategy.</p>
       <div class="dropzone">
         <div class="file-icon">📄</div>
         <div id="cv-name" class="muted">No CV chosen yet</div>
         <button class="secondary" id="cv-choose">Choose PDF…</button>
       </div>
+      <label for="q-more">Anything else I should know? <span class="muted">(optional)</span></label>
+      <textarea id="q-more" rows="3" placeholder="e.g. only remote jobs, no on-call, moving to Berlin in spring, skip my current employer"></textarea>
       <div class="actions">
         <button class="ghost" data-back>Back</button>
-        <button class="primary" id="cv-next" disabled>Continue</button>
+        <button class="primary" id="cv-next" disabled>Build my strategy</button>
       </div>
-    </div>
-
-    <div class="step" data-step="goals">
-      <span class="eyebrow">Step 4 of 6</span>
-      <h1>What are you looking for?</h1>
-      <p class="lede">Short answers are fine. The AI turns them and your CV into search settings you can review.</p>
-      <form id="goals-form" class="grid">
-        <div class="full"><label for="q-roles">Roles you want</label>
-          <input id="q-roles" placeholder="e.g. Site Reliability Engineer, Platform Engineer, DevOps"></div>
-        <div><label for="q-seniority">Seniority</label>
-          <select id="q-seniority"><option>Junior</option><option>Mid</option><option selected>Senior</option><option>Staff / Principal</option><option>Lead / Manager</option></select></div>
-        <div><label for="q-remote">Work mode</label>
-          <select id="q-remote"><option>On-site, hybrid or remote</option><option>Hybrid or remote</option><option>Remote only</option><option>On-site or hybrid</option></select></div>
-        <div class="full"><label for="q-places">Places, most wanted first</label>
-          <input id="q-places" placeholder="e.g. Zurich, anywhere in Switzerland, Berlin, remote in Europe"></div>
-        <div><label for="q-relocate">Open to relocating?</label>
-          <select id="q-relocate"><option>Yes</option><option>No</option><option>Maybe, for the right role</option></select></div>
-        <div><label for="q-permit">Work permit / citizenship</label>
-          <input id="q-permit" placeholder="e.g. EU citizen, Swiss B permit"></div>
-        <div class="full"><label for="q-languages">Languages and level</label>
-          <input id="q-languages" placeholder="e.g. English fluent, German A2, Romanian native"></div>
-        <div><label for="q-salary">Minimum salary</label>
-          <input id="q-salary" placeholder="e.g. CHF 140,000 a year"></div>
-        <div><label for="q-notice">Notice period</label>
-          <input id="q-notice" placeholder="e.g. 1 month"></div>
-        <div><label for="q-target">Applications a day you aim for</label>
-          <input id="q-target" type="number" min="1" max="200" placeholder="30" title="Focus counts toward it and reminds you when you're behind. Change it any time."></div>
-        <div class="full"><label for="q-skip">Companies to skip</label>
-          <input id="q-skip" placeholder="e.g. my current employer"></div>
-        <div class="full"><label for="q-more">Anything else that matters</label>
-          <textarea id="q-more" rows="3" placeholder="e.g. no on-call, interested in AI infrastructure"></textarea></div>
-      </form>
-      <div class="actions">
-        <button class="ghost" data-back>Back</button>
-        <button class="primary" id="goals-next">Build my strategy</button>
-      </div>
-      <p class="muted small" id="goals-cost" hidden>Rebuilding reads your CV and these answers with Claude Sonnet 5: about $0.10–$0.20.
+      <p class="muted small" id="goals-cost" hidden>Rebuilding reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20.
         Nothing in your strategy changes until you review the result and pick what to apply.</p>
     </div>
 
     <div class="step" data-step="draft">
       <div class="review-head">
-        <div><span class="eyebrow">Step 5 of 6</span>
+        <div><span class="eyebrow">Step 4 of 5</span>
           <h1 id="draft-title">Your strategy</h1>
           <p class="muted" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
         <span class="pill-ai" id="draft-cost" hidden></span>
@@ -189,7 +154,8 @@
       <div id="draft-view" class="review" hidden>
         <section class="card overview">
           <div class="card-head"><div><h2>Your search strategy</h2><p class="muted" id="draft-summary"></p></div>
-            <button class="link" data-goto-step="goals">✎ Edit preferences</button></div>
+            <button class="link" data-goto-step="cv">✎ CV or note</button></div>
+          <p class="muted small goals-hint">Your goals, proposed from your CV. Click a value to correct it.</p>
           <div class="tiles" id="draft-tiles"></div>
         </section>
         <div class="review-grid">
@@ -230,7 +196,7 @@
     </div>
 
     <div class="step" data-step="extras">
-      <span class="eyebrow">Step 6 of 6 · optional</span>
+      <span class="eyebrow">Step 5 of 5 · optional</span>
       <h1>Optional extras</h1>
       <p class="lede">Everything works without these. You can add them later in Settings.</p>
       <div class="extra">

@@ -16,7 +16,7 @@ const profile = fs.readFileSync(path.join(desktop, 'demo', 'profile.md'), 'utf8'
 
 // Page scripts: show a wizard step with sample input (as a user would have filled it), or open a view.
 const step = (name, then = '') => `(() => {
-  const steps = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras'], i = steps.indexOf('${name}');
+  const steps = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras'], i = steps.indexOf('${name}');
   document.querySelectorAll('.step').forEach(s => { s.hidden = s.dataset.step !== '${name}'; });
   document.querySelectorAll('#step-list li').forEach((li, j) => { li.classList.toggle('current', j === i); li.classList.toggle('done', j < i); });
   const $ = id => document.getElementById(id);
@@ -24,9 +24,7 @@ const step = (name, then = '') => `(() => {
   ${then}
 })()`;
 const view = (name, then = '') => `document.querySelector('.nav[data-view=${name}]').click(); ${then}`;
-const GOALS = {'q-roles': 'Site Reliability Engineer, Platform Engineer', 'q-places': 'Zurich, anywhere in Switzerland, remote in Europe',
-  'q-permit': 'EU citizen', 'q-languages': 'English fluent, German B1, Spanish native', 'q-salary': 'CHF 130,000 a year',
-  'q-notice': '2 months', 'q-skip': 'Acme Corp', 'q-more': 'Prefer Kubernetes and AWS; interested in observability'};
+const NOTE = 'Prefer Kubernetes and AWS; interested in observability. Skip Acme Corp.';
 
 const FRAMES = [
   {name: 'welcome', fresh: true, js: step('welcome')},
@@ -35,8 +33,7 @@ const FRAMES = [
     const list = $('notion-found'); list.hidden = false; list.replaceChildren(...${JSON.stringify(titles)}.map(t =>
       Object.assign(document.createElement('div'), {className: 'yes', textContent: '✓ ' + t})));
     say('notion-message', 'Connected ✓ Your workspace is ready.', 'ok');`)},
-  {name: 'wizard-cv', fresh: true, js: step('cv', `$('cv-name').textContent = '✓ CV_Alex_Morgan.pdf'; $('cv-next').disabled = false;`)},
-  {name: 'wizard-goals', fresh: true, js: step('goals', `Object.entries(${JSON.stringify(GOALS)}).forEach(([id, v]) => { $(id).value = v; });`)},
+  {name: 'wizard-cv', fresh: true, js: step('cv', `$('cv-name').textContent = '✓ CV_Alex_Morgan.pdf'; $('cv-next').disabled = false; $('q-more').value = ${JSON.stringify(NOTE)};`)},
   {name: 'wizard-strategy', fresh: true, js: step('draft', `$('draft-loading').hidden = true; $('draft-view').hidden = false;
     $('draft-summary').textContent = 'Senior SRE and platform roles in Zurich first, then Switzerland and remote in Europe. Jobs that need fluent German or French are hidden.';
     const chips = (id, items) => $(id).replaceChildren(...items.map(t => Object.assign(document.createElement('span'), {className: 'chip', textContent: t})));
@@ -58,7 +55,7 @@ const FRAMES = [
   {name: 'cloud', js: view('settings', `document.getElementById('setting-cloud').scrollIntoView()`)},
 ];
 // On the page: the stills; in the video: the setup, then the app in use.
-const STILLS = ['wizard-goals', 'wizard-strategy', 'jobs', 'interviews', 'schedule'];
+const STILLS = ['wizard-cv', 'wizard-strategy', 'jobs', 'interviews', 'schedule'];
 const VIDEO = FRAMES.map(frame => frame.name);  // every screen, in order: the setup, then the app
 
 const frames = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-frames-'));

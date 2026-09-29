@@ -38,7 +38,8 @@ export async function init() {
     } else openView('focus');
   } else {
     show($('wizard'));
-    const resume = shared.state.settings.setupDone ? 'notion' : shared.state.settings.wizardStep || 'welcome';
+    const saved = shared.state.settings.wizardStep === 'goals' ? 'cv' : shared.state.settings.wizardStep;  // the old goals step: now part of the CV step
+    const resume = shared.state.settings.setupDone ? 'notion' : saved || 'welcome';
     if (resume === 'draft') toDraft(); else goStep(resume);
   }
 

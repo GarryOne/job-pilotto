@@ -484,9 +484,8 @@ export function refreshCv() {
   $('cv-next').disabled = !shared.state.hasCv;
 }
 
-const QUESTIONS = {roles: 'q-roles', seniority: 'q-seniority', work_mode: 'q-remote', places_in_order: 'q-places',
-  relocate: 'q-relocate', work_permit: 'q-permit', languages: 'q-languages', minimum_salary: 'q-salary',
-  notice_period: 'q-notice', companies_to_skip: 'q-skip', anything_else: 'q-more', applications_per_day: 'q-target'};
+// The wizard asks nothing but an optional note (CV step): the AI proposes the goals from the CV, the review corrects them.
+const QUESTIONS = {anything_else: 'q-more'};
 export const currentAnswers = () => Object.fromEntries(Object.entries(QUESTIONS).map(([key, id]) => [key, $(id).value.trim()]));
 let answersTimer;
 
@@ -501,7 +500,7 @@ export async function buildDraft() {
     show($('draft-error'));
     return;
   }
-  const answers = Object.fromEntries(Object.entries(QUESTIONS).map(([key, id]) => [key, $(id).value.trim()]));
+  const answers = currentAnswers();
   // Progress while Claude writes: the part it's on, how much has arrived, and the time so far.
   const started = Date.now();
   $('draft-part').textContent = 'Reading your CV'; $('draft-percent').textContent = ''; $('draft-bar').style.width = '2%';
@@ -594,11 +593,9 @@ export async function init() {
     const name = await window.pilot.chooseCv();
     if (name) { shared.state = await window.pilot.state(); refreshCv(); }
   });
-  $('cv-next').addEventListener('click', () => goStep('goals'));
   for (const [key, id] of Object.entries(QUESTIONS)) if (shared.state.settings.questionnaire?.[key]) $(id).value = shared.state.settings.questionnaire[key];
   for (const id of Object.values(QUESTIONS)) $(id).addEventListener('input', () => {
     clearTimeout(answersTimer);
-    answersTimer = setTimeout(() => window.pilot.saveSettings({questionnaire: currentAnswers()}), 400);
+    answersTimer = setTimeout(() => window.pilot.saveSettings({questionnaire: {...shared.state.settings.questionnaire, ...currentAnswers()}}), 400);
   });
-  $('q-seniority').addEventListener('change', () => window.pilot.saveSettings({questionnaire: currentAnswers()}));
 }

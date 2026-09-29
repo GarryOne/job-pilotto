@@ -469,10 +469,17 @@ function handlers() {
   });
   ipcMain.handle('cvChangeDone', () => { storage.saveSettings({cvChange: null}); return true; });
   ipcMain.handle('draftStrategy', async (_, answers) => {
-    storage.saveSettings({questionnaire: answers});
-    const kb = Math.round(fs.statSync(storage.path('cv.pdf')).size / 1024);
+    storage.saveSettings({questionnaire: {...storage.settings().questionnaire, ...answers}});  // the note (older fields kept)
     const send = progress => toWindow('draftProgress', progress);
-    const sent = `Sent your CV (${kb} KB) and your answers to Claude (${strategy.MODEL})`;
+    // Demo mode: the fictional draft in demo/draft.json after a short pretend run; no AI is called.
+    if (DEMO) {
+      const demo = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'draft.json'), 'utf8')).draft;
+      send({part: 'Proposing your goals', percent: 20, notes: ['Sent your CV to Claude (demo: nothing is sent)', 'Claude read your CV']});
+      await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) || 300));
+      return demo;
+    }
+    const kb = Math.round(fs.statSync(storage.path('cv.pdf')).size / 1024);
+    const sent = `Sent your CV (${kb} KB)${answers.anything_else ? ' and your note' : ''} to Claude (${strategy.MODEL})`;
     // Before Claude writes anything it reads the CV (about 25 s): the bar moves by time, up to 10%.
     const started = Date.now();
     let writing = false;

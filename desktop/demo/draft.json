@@ -1,0 +1,97 @@
+{
+ "answers": {
+  "anything_else": ""
+ },
+ "draft": {
+  "summary": "Senior SRE and platform roles in Zurich first, then anywhere in Switzerland and remote in Europe. Jobs that need fluent German or French are hidden.",
+  "goals": {
+   "seniority": "Senior",
+   "work_mode": "On-site, hybrid or remote",
+   "minimum_salary": "CHF 130,000 a year (estimate)",
+   "languages": "English (fluent), Spanish (native), German (B1)"
+  },
+  "profile_markdown": "# Hard constraints\n\n| Constraint | Value |\n|---|---|\n| Countries | Switzerland (anywhere), remote within Europe |\n| Home base | Zurich; open to relocating within Europe for the right role |\n| Work mode | On-site, hybrid or remote |\n| Work permit / visa | EU citizen |\n| Languages I can work in | English (fluent), Spanish (native), German (B1) |\n| Languages that disqualify a job if required | Fluent German, French |\n| Minimum seniority | Senior |\n| Workload | 100% |\n| Employment type | Permanent |\n| Recruiter listings | Down-rank |\n\n# Compensation\n\n- Target: CHF 140,000–160,000 a year, gross (estimate)\n- Minimum acceptable: CHF 130,000 a year (estimate)\n\n# Preferences (soft, used for ranking)\n\n| Preference | Value |\n|---|---|\n| Role types, most wanted first | Site Reliability Engineer, Platform Engineer, DevOps Engineer |\n| On-call | ❓ |\n| Company size | ❓ |\n| Start date / notice period | ❓ |\n\n# Summary (from CV)\n\nSenior Site Reliability Engineer with 8 years running Kubernetes on AWS at scale, strong in observability and incident response.\n\n# Core skills\n\n- Cloud: AWS (EKS, IAM, networking)\n- Containers and IaC: Kubernetes, Terraform, Argo CD\n- Observability: Prometheus, Grafana, OpenTelemetry\n",
+  "answers_markdown": "# Eligibility\n\n- Work permit: EU citizen, no sponsorship needed in Switzerland or the EU\n- Notice period: ❓\n\n# Cover letter style\n\nShort, concrete, numbers first.\n",
+  "open_questions": [
+   "Is CHF 130,000 a year right as your minimum?",
+   "How much on-call is acceptable?",
+   "What is your notice period?"
+  ],
+  "search": {
+   "role_keywords": [
+    "site reliability",
+    "\\bsre\\b",
+    "platform engineer",
+    "devops engineer",
+    "infrastructure engineer"
+   ],
+   "title_exclude_keywords": [
+    "intern",
+    "junior"
+   ],
+   "board_discovery_keywords": [
+    "devops",
+    "sre"
+   ],
+   "jobs_board_search_queries": [
+    "site reliability engineer",
+    "platform engineer",
+    "devops engineer"
+   ],
+   "quality_stack_keywords": [
+    "kubernetes",
+    "aws",
+    "terraform",
+    "prometheus"
+   ],
+   "locations": {
+    "top_tier": [
+     "z[uü]rich"
+    ],
+    "country_wide": [
+     "switzerland",
+     "schweiz"
+    ],
+    "abroad": []
+   },
+   "remote_excluded_regions": [
+    "\\busa?\\b"
+   ],
+   "google_jobs": {
+    "queries": [
+     "site reliability engineer"
+    ],
+    "country": "ch",
+    "locations": [
+     {
+      "location": "Zurich,Zurich,Switzerland",
+      "language": "de"
+     }
+    ]
+   }
+  },
+  "preferences": {
+   "disqualifying_languages": [
+    "German (fluent)",
+    "French (fluent)"
+   ],
+   "excluded_companies": [
+    "Acme Corp"
+   ]
+  },
+  "contact": {
+   "first_name": "Alex",
+   "last_name": "Morgan",
+   "full_name": "Alex Morgan",
+   "email": "alex.morgan@example.com",
+   "phone": "",
+   "location": "Zurich",
+   "linkedin": "",
+   "github": "",
+   "website": ""
+  },
+  "usd": 0.14
+ },
+ "cv": "",
+ "at": "2099-01-01T08:00:00.000Z"
+}

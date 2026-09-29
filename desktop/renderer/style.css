@@ -618,6 +618,8 @@ details.manual { margin-top: 18px; }
 .review #draft-summary.open { -webkit-line-clamp: unset; }
 .review .card-head .link { white-space: nowrap; }
 .review .tile b { font-size: var(--fs-md); }
+.review .goals-hint { margin: 0; }
+#q-more { font-family: var(--font-sans); }
 .review .chip .x:hover { color: var(--bad); }
 .review .chip.more { border-style: dashed; background: transparent; color: var(--muted); cursor: pointer; }
 .review .chips.bad .chip.removable { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
@@ -648,9 +650,9 @@ details.manual { margin-top: 18px; }
 .saved-note { margin-right: auto; color: var(--teal); font-size: var(--fs-md); }
 
 /* Step 5: values edit in place */
-.review .doc-view .editable { cursor: text; border-radius: var(--r-sm); }
-.review .doc-view .editable:hover { outline: 1px dashed var(--line); outline-offset: 2px; }
-.review .doc-view .editable[contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
+.review .doc-view .editable, .review .tile .editable { cursor: text; border-radius: var(--r-sm); }
+.review .doc-view .editable:hover, .review .tile .editable:hover { outline: 1px dashed var(--line); outline-offset: 2px; }
+.review .doc-view .editable[contenteditable="plaintext-only"], .review .tile .editable[contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
 
 .review .doc-view li.ask, .review .doc-view p.ask { background: var(--warn-soft); }
 

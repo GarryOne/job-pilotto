@@ -6,6 +6,13 @@ import {STEPS, track} from '../lib/setup-funnel.js';
 test('the steps match the wizard', () => {
   const core = fs.readFileSync(new URL('../renderer/pages/core.js', import.meta.url), 'utf8');
   assert.match(core, new RegExp(`STEPS = \\[${STEPS.map(s => `'${s}'`).join(', ')}\\]`));
+  // The website's funnel (/telemetry) counts the same steps, then "done".
+  const site = fs.readFileSync(new URL('../../site/src/telemetry.js', import.meta.url), 'utf8');
+  assert.match(site, new RegExp(`SETUP_STEPS = \\[${[...STEPS, 'done'].map(s => `'${s}'`).join(', ')}\\]`));
+  // Every step has its page in the wizard, and the sidebar lists exactly these.
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  assert.deepEqual([...html.matchAll(/<li data-step="([a-z]+)"/g)].map(m => m[1]), STEPS);
+  for (const step of STEPS) assert.match(html, new RegExp(`class="step" data-step="${step}"`));
 });
 
 test('one report per step reached, only moving forward; one when setup finishes', () => {

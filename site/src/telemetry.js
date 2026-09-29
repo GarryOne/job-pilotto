@@ -81,7 +81,7 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   return {from, days, rows, installs, outcomes, reporting: health.length};
 }
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
-export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras', 'done'];
+export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras', 'done'];
 export async function funnel(db, days, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const rows = (await db.prepare("SELECT install, data FROM telemetry WHERE kind = 'setup' AND day >= ?").bind(from).all()).results || [];

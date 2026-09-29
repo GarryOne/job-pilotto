@@ -171,10 +171,50 @@ test('draft progress: 10% once Claude starts writing, then each part by its shar
   assert.equal(strategy.progress('{"summary":"x","profile_markdown":"y","answers_markdown":"z', {}).part, 'Writing your standard answers');
   // A short Profile that's finished counts in full once the answers start (it used to count by length: bar ended ~45%).
   assert.equal(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(3000) + '","answers_markdown":"', {}).percent, 53);
-  const done = summary + '"profile_markdown":"y","answers_markdown":"z","open_questions":[],"search":{},"preferences":{},"contact":{"email":"a"';
+  const done = summary + '"goals":{"seniority":"Senior"},"profile_markdown":"y","answers_markdown":"z","open_questions":[],"search":{},"preferences":{},"contact":{"email":"a"';
   assert.ok(strategy.progress(done, {}).percent >= 97);
   assert.ok(strategy.progress(summary + '"profile_markdown":"' + 'y'.repeat(99999) + '","answers_markdown":"' + 'z'.repeat(99999)
     + '","open_questions":[],"search":{' + 'q'.repeat(9999) + '},"preferences":{' + 'p'.repeat(999) + '},"contact":{' + 'c'.repeat(999), {}).percent <= 99);
+});
+
+test('setup asks no questionnaire: the AI proposes the goals from the CV, the optional note wins', async () => {
+  const storage = tempStorage();
+  pipeline.ensureConfig(storage);
+  storage.writeText('cv.pdf', '%PDF-1.4 fake');
+  assert.deepEqual(strategy.DRAFT_SCHEMA.properties.goals.required, ['seniority', 'work_mode', 'minimum_salary', 'languages']);
+  assert.ok(strategy.DRAFT_SCHEMA.required.includes('goals'));
+  const seen = [];
+  const client = {messages: {create: async request => { seen.push(request); return {stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: '{}'}]}; }}};
+  await strategy.draft(storage, {anything_else: 'Remote only, please'}, 'sk-ant-x', client);
+  await strategy.draft(storage, {}, 'sk-ant-x', client);
+  assert.match(seen[0].messages[0].content[1].text, /<note_from_user>\nRemote only, please\n<\/note_from_user>/);
+  assert.match(seen[1].messages[0].content[1].text, /propose everything from the CV/);
+  assert.doesNotMatch(seen[1].messages[0].content[1].text, /questionnaire/);
+  assert.match(seen[0].system, /propose what they are looking for from the CV/);
+  const text = '{"summary":"x","goals":{"seniority":"Senior","work_mode":"Remote only","minimum_salary":"CHF 130,000 (estimate)","languages":"English"},"profile_markdown":"';
+  assert.ok(strategy.notes(text).includes('Proposed goals: Senior · Remote only · CHF 130,000 (estimate) · English'));
+  assert.equal(strategy.progress(text).part, 'Writing your Profile');
+});
+
+test('a goal corrected in the review lands in the drafted Profile (its row, else a Confirmed during setup section)', async () => {
+  const {applyGoal} = await import('../renderer/markdown-edit.js');
+  const md = '# Hard constraints\n\n| Constraint | Value |\n|---|---|\n| Work mode | Hybrid |\n| Minimum seniority | Senior |\n\n# Compensation\n\n- Target: x\n- Minimum acceptable: CHF 1 (estimate)\n';
+  let out = applyGoal(md, 'work_mode', 'Remote only');
+  assert.match(out, /\| Work mode \| Remote only \|/);
+  out = applyGoal(out, 'seniority', 'Staff');
+  assert.match(out, /\| Minimum seniority \| Staff \|/);
+  out = applyGoal(out, 'minimum_salary', 'CHF 150,000');
+  assert.match(out, /- Minimum acceptable: CHF 150,000\n/);
+  out = applyGoal(out, 'languages', 'English');
+  out = applyGoal(out, 'languages', 'English, German');
+  assert.match(out, /# Confirmed during setup\n\n- Languages I can work in: English, German\n$/);
+  assert.equal(out.match(/Languages I can work in/g).length, 1);
+});
+
+test('demo mode has a fictional draft with proposed goals (the setup review renders without AI)', () => {
+  const demo = JSON.parse(fs.readFileSync(new URL('../demo/draft.json', import.meta.url), 'utf8'));
+  for (const key of strategy.DRAFT_SCHEMA.required) assert.ok(key in demo.draft, key);
+  assert.deepEqual(Object.keys(demo.draft.goals), strategy.DRAFT_SCHEMA.properties.goals.required);
 });
 
 test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, () => {

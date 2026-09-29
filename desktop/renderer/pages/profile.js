@@ -136,7 +136,7 @@ export async function init() {
   $('open-profile').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
   $('open-answers').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));
   renderNotionLinks();
-  $('strategy-redo').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('goals'); });
+  $('strategy-redo').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('cv'); });
   $('cv-view').addEventListener('click', async () => {
     const result = await window.pilot.viewBaseCv();
     $('cv-message').textContent = !result.ok ? result.error : result.overflow?.length ? `Page ${result.overflow.join(', ')} is too full: its end is cut off.` : '';

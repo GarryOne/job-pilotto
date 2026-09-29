@@ -1,6 +1,6 @@
 // Setup step 5: review the drafted strategy.
 import {el, pill} from '../components.js';
-import {replaceCell, replaceLine, withLine} from '../markdown-edit.js';
+import {applyGoal, replaceCell, replaceLine, withLine} from '../markdown-edit.js';
 import {shared} from './shared.js';
 import {buildDraft, currentAnswers, showSearchStatus} from './activity.js';
 import {$, message, osText, readable, show} from './core.js';
@@ -197,28 +197,60 @@ function renderQuestions() {
   more.textContent = expanded ? 'Show fewer' : `Show ${questions.length - 3} more`;
 }
 
+// The goals the AI proposed from the CV, as tiles; a click edits one (Enter or click away saves, Esc cancels). The
+// correction goes into the drafted Profile (markdown-edit.js applyGoal), which is what's saved to Notion.
+// A draft from before goals were proposed (a whole questionnaire then) shows the questionnaire's answers, read-only.
+const GOAL_TILES = [['seniority', '👤', 'Target level'], ['work_mode', '🏢', 'Work mode'], ['minimum_salary', '💰', 'Minimum salary'],
+  ['languages', '🗣️', 'Languages you work in']];
+function renderGoals() {
+  const goals = shared.draft.goals, old = shared.state.settings.questionnaire || {};
+  $('draft-tiles').replaceChildren(...GOAL_TILES.map(([key, icon, label]) => {
+    const box = el('div', 'tile');
+    box.dataset.goal = key;
+    const value = el('b', '', (goals ? goals[key] : old[key]) || '—');
+    box.append(el('span', 'tile-icon', icon), el('div'));
+    box.lastChild.append(el('small', '', label), value);
+    if (!goals) return box;
+    value.classList.add('editable');
+    value.title = 'Click to correct';
+    value.addEventListener('click', () => {
+      if (value.isContentEditable) return;
+      value.contentEditable = 'plaintext-only';
+      value.focus();
+      getSelection().selectAllChildren(value);
+      let done = false;
+      const finish = keep => {
+        if (done) return;
+        done = true;
+        value.contentEditable = 'false';
+        const text = value.textContent.trim();
+        if (keep && text && text !== goals[key]) {
+          goals[key] = text;
+          shared.draft.profile_markdown = applyGoal(shared.draft.profile_markdown, key, text);
+          draftChanged(['goals', 'profile_markdown']);
+          renderDocs();
+        }
+        renderGoals();
+      };
+      value.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+        if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+      });
+      value.addEventListener('blur', () => finish(true), {once: true});
+    });
+    return box;
+  }));
+}
+
 export function renderDraft() {
   show($('draft-loading'), false); show($('draft-error'), false); show($('draft-view'));
   $('draft-title').textContent = 'Review your strategy';
   show($('draft-subtitle'));
   $('draft-cost').textContent = `✦ AI draft · $${shared.draft.usd.toFixed(2)}`;
   show($('draft-cost'));
-  const q = shared.state.settings.questionnaire || currentAnswers();
   $('draft-summary').textContent = shared.draft.summary;
   $('draft-summary').title = 'Click to show all';
-  const tile = (icon, label, value) => {
-    const box = Object.assign(document.createElement('div'), {className: 'tile'});
-    box.append(Object.assign(document.createElement('span'), {className: 'tile-icon', textContent: icon}),
-      Object.assign(document.createElement('div'), {innerHTML: ''}));
-    box.lastChild.append(Object.assign(document.createElement('small'), {textContent: label}), Object.assign(document.createElement('b'), {textContent: value || '—'}));
-    return box;
-  };
-  const market = shared.draft.search.locations.country_wide[0] || shared.draft.search.locations.top_tier[0] || '';
-  $('draft-tiles').replaceChildren(
-    tile('👤', 'Target level', q.seniority ? (q.seniority === 'Junior' ? 'Junior' : `${q.seniority} and above`) : ''),
-    tile('📍', 'Primary market', titleCase(readable(market))),
-    tile('🏢', 'Work mode', q.work_mode),
-    tile('🧰', 'Core stack', (shared.draft.search.quality_stack_keywords || []).slice(0, 4).map(k => titleCase(readable(k))).join(', ')));
+  renderGoals();
   document.querySelectorAll('.review .chips').forEach(box => { box.dataset.expanded = ''; });
   renderLists();
   $('open-list').dataset.expanded = '';
@@ -231,14 +263,14 @@ export function renderDraft() {
 // first setup an out-of-date draft is redrafted; once setup is done, the user decides (Redraft), nothing automatic.
 export async function toDraft() {
   const cached = await window.pilot.cachedDraft();
-  const answersChanged = cached && JSON.stringify(cached.answers) !== JSON.stringify(currentAnswers());
+  const answersChanged = cached && (cached.answers?.anything_else || '') !== currentAnswers().anything_else;
   const stale = cached && (answersChanged || cached.cvChanged);
   if (!cached || (stale && !shared.state.settings.setupDone)) { buildDraft(); return; }
   shared.draft = cached.draft;
   goStep('draft');
   renderDraft();
   $('draft-stale-text').textContent = cached.cvChanged ? 'Your CV changed since this strategy was drafted.'
-    : answersChanged ? 'Your answers changed since this strategy was drafted.' : '';
+    : answersChanged ? 'Your note changed since this strategy was drafted.' : '';
   show($('draft-stale'), !!stale);
 }
 // Rebuild from CV (setup done before): say what drafting costs before it runs; nothing changes until the review.
@@ -361,7 +393,7 @@ export async function init() {
   for (const [id, field] of [['draft-profile', 'profile_markdown'], ['draft-answers', 'answers_markdown']]) {
     $(id).addEventListener('input', () => { shared.draft[field] = $(id).value; draftChanged([field]); });
   }
-  $('goals-next').addEventListener('click', toDraft);
+  $('cv-next').addEventListener('click', toDraft);
   $('draft-again').addEventListener('click', buildDraft);
   // First setup: save straight away. Setup done before (Rebuild from CV): review what changes, grouped by what each
   // change triggers (lib/strategy.js rebuildGroups), with the impact and AI cost; only the ticked groups are saved.

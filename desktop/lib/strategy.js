@@ -1,5 +1,5 @@
-// Strategy builder: CV (PDF) + the wizard's answers -> a draft Profile, standard answers and search
-// settings, in one Claude call. Nothing is saved until the user reviews and accepts the draft.
+// Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
+// and search settings, in one Claude call. Nothing is saved until the user reviews (and corrects) the draft.
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,8 +13,11 @@ const PRICE = {input: 2, output: 10}; // USD per million tokens, claude-sonnet-5
 export const CONTACT_FIELDS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'location', 'linkedin', 'github', 'website'];
 const list = {type: 'array', items: {type: 'string'}};
 const object = (properties) => ({type: 'object', additionalProperties: false, required: Object.keys(properties), properties});
+// The goals the review shows as tiles (roles and places are the search lists): proposed from the CV, corrected by the user.
+export const GOALS = {seniority: 'Target level', work_mode: 'Work mode', minimum_salary: 'Minimum salary', languages: 'Languages you work in'};
 export const DRAFT_SCHEMA = object({
   summary: {type: 'string'},
+  goals: object(Object.fromEntries(Object.keys(GOALS).map(key => [key, {type: 'string'}]))),
   profile_markdown: {type: 'string'},
   answers_markdown: {type: 'string'},
   open_questions: list,
@@ -32,31 +35,46 @@ export const DRAFT_SCHEMA = object({
   contact: object(Object.fromEntries(CONTACT_FIELDS.map(field => [field, {type: 'string'}]))),
 });
 
+export function userNote(answers = {}) {
+  const note = String(answers.anything_else || '').trim();
+  return note ? `<note_from_user>\n${note}\n</note_from_user>\n\n` : '<note_from_user>(none: propose everything from the CV)</note_from_user>\n\n';
+}
+
 function template() {
   const text = fs.readFileSync(path.join(REPO, 'docs', 'notion-profile-template.md'), 'utf8');
   return text.slice(text.indexOf('## 👤'));
 }
 
-const INSTRUCTIONS = `You set up Job Pilotto, a job-search assistant, for a new user from their CV and their answers to a short questionnaire.
+const INSTRUCTIONS = `You set up Job Pilotto, a job-search assistant, for a new user from their CV and, if they wrote one, a short note. They did not fill in a questionnaire: you propose what they are looking for from the CV, and they correct it in a review before anything is saved.
+
+First decide their goals from the CV (the note wins where it says something):
+- Target roles: their current role family at their current level, plus close titles the CV clearly supports.
+- Level: the seniority their experience shows (e.g. "Senior", "Staff / Principal").
+- Places: where they live now (from the CV), then the rest of that country, then remote in their region; abroad only if the CV shows moves or the note asks.
+- Work mode: "On-site, hybrid or remote" unless the CV or note says otherwise.
+- Minimum salary: a realistic floor for that level and market, in the local currency, a year, ending with "(estimate)". Never present it as their own figure.
+- Languages they can work in, with level, from the CV. Jobs requiring any other language well are disqualifying.
+- Companies to skip: their current employer.
 
 Write:
-1. profile_markdown: the user's Profile, following the "Profile — CV and Preferences" template's headings. Facts only from the CV and the answers; mark anything unknown with ❓ (the app treats ❓ as "ask the user", never as a fact).
+0. goals: those proposals in a few words each (seniority, work_mode, minimum_salary, languages). The same values go into the Profile below.
+1. profile_markdown: the user's Profile, following the "Profile — CV and Preferences" template's headings. Facts only from the CV and the note, plus the goals above (keep the template's row names "Work mode", "Languages I can work in", "Minimum seniority" and the Compensation line "Minimum acceptable:", so the user's corrections land in the right place). Mark anything else unknown (work permit, notice period…) with ❓ (the app treats ❓ as "ask the user", never as a fact).
 2. answers_markdown: their standard application answers, following the "Application Answers" template, same rule for ❓. Include a short "Cover letter style" section inferred from how the CV is written.
 3. search: what the job crawler looks for. Values in role_keywords, title_exclude_keywords, board_discovery_keywords, quality_stack_keywords, locations and remote_excluded_regions are case-insensitive regex fragments in the style of the example (e.g. "z[uü]rich", "\\\\bsre\\\\b", "platform engineer"). jobs_board_search_queries and google_jobs.queries are plain search phrases (3 to 6). locations.top_tier holds the cities they want most, country_wide the rest of that country, abroad other cities they'd move to. remote_excluded_regions lists regions whose "remote" jobs exclude them. google_jobs.locations uses SerpApi canonical names ("Zurich,Zurich,Switzerland") with the place's own language code ("de" for Zurich, "fr" for Geneva, "en" for London).
-4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies they asked to skip (e.g. their current employer).
+4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies to skip (their current employer, and any the note names).
 5. summary: 2 to 3 plain sentences telling the user what you set up. open_questions: what they should still answer, short.
 6. contact: the user's contact details exactly as written in the CV (city for location; full URLs for LinkedIn, GitHub and website). Empty string for anything the CV doesn't show; never guess.`;
 
 // The draft streams in, in schema order; progress is how much of it has arrived and which part is being
 // written. The expected length starts at a typical draft and then follows this user's last one.
-const PARTS = [['"summary"', 'Writing the summary'], ['"profile_markdown"', 'Writing your Profile'],
+const PARTS = [['"summary"', 'Writing the summary'], ['"goals"', 'Proposing your goals'], ['"profile_markdown"', 'Writing your Profile'],
   ['"answers_markdown"', 'Writing your standard answers'], ['"open_questions"', 'Listing what to check'],
   ['"search"', 'Choosing search settings'], ['"preferences"', 'Setting filters']];
 
 // The bar: 0-10% while Claude reads the CV (main.js ticks it by time), then each part of the answer has its
 // share, in the fixed order Claude writes them; inside a part, its length so far against its usual length
 // (learned from the user's last draft: settings.draftSections).
-export const SECTIONS = [['summary', 3, 400], ['profile_markdown', 40, 15000], ['answers_markdown', 22, 9000],
+export const SECTIONS = [['summary', 3, 400], ['goals', 2, 250], ['profile_markdown', 40, 15000], ['answers_markdown', 20, 9000],
   ['open_questions', 3, 500], ['search', 17, 3500], ['preferences', 3, 300], ['contact', 2, 300]];
 export const READING = 10;
 export function sectionLengths(text) {
@@ -89,6 +107,11 @@ export function notes(text) {
   };
   const summary = text.match(/"summary"\s*:\s*"((?:[^"\\]|\\.)*)"/);
   if (summary) out.push(`Summary: ${unescape(summary[1]).slice(0, 140)}`);
+  const goals = text.match(/"goals"\s*:\s*\{((?:[^}"]|"(?:[^"\\]|\\.)*")*)\}/);
+  if (goals) {
+    const values = Object.keys(GOALS).map(key => (goals[1].match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`)) || [])[1]).filter(Boolean);
+    out.push(`Proposed goals: ${values.map(unescape).join(' · ')}`);
+  }
   for (const [key, label, next] of [['profile_markdown', 'Profile', ['answers_markdown']], ['answers_markdown', 'Standard answers', ['open_questions', 'search']]]) {
     const piece = region(key, next);
     if (!piece) continue;
@@ -112,6 +135,7 @@ export function notes(text) {
   return out;
 }
 
+// answers: {anything_else} from the wizard's CV step (optional; older drafts had a whole questionnaire).
 export async function draft(storage, answers, apiKey, client = null, onProgress = null) {
   const cv = fs.readFileSync(storage.path('cv.pdf'));
   const example = fs.readFileSync(path.join(REPO, 'config', 'search.json'), 'utf8');
@@ -122,7 +146,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
     system: INSTRUCTIONS,
     messages: [{role: 'user', content: [
       {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: cv.toString('base64')}},
-      {type: 'text', text: `<questionnaire>\n${JSON.stringify(answers, null, 2)}\n</questionnaire>\n\n<templates>\n${template()}\n</templates>\n\n<example_search_settings>\n${example}\n</example_search_settings>`},
+      {type: 'text', text: `${userNote(answers)}<templates>\n${template()}\n</templates>\n\n<example_search_settings>\n${example}\n</example_search_settings>`},
     ]}],
     output_config: {format: {type: 'json_schema', schema: DRAFT_SCHEMA}},
   };

@@ -123,6 +123,7 @@ test('the private page lists feedback with its contact; without the key it is no
 test('setup funnel: furthest step per install, never counted as a problem', async () => {
   const e = env();
   const at = new Date().toISOString();
+  // 'goals' below: an older app's step (now part of cv), ignored by the funnel.
   const step = (install, s, extra = {}) => ({kind: 'setup', install, version: '0.4.0-alpha.76', platform: 'darwin', at, step: s, ...extra});
   await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
     step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
@@ -134,5 +135,5 @@ test('setup funnel: furthest step per install, never counted as a problem', asyn
   assert.match(html, /No problems reported/);  // setup steps are not problems
   const {funnel} = await import('../src/telemetry.js');
   const f = await funnel(e.STATS, 30);
-  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1, 1]);
+  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1]);
 });
