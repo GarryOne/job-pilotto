@@ -36,3 +36,16 @@ test('with the key: website, app and waitlist counts, never an email or a proble
   assert.ok('visits' in body.website && 'downloads' in body.website);
   assert.doesNotMatch(JSON.stringify(body), /someone@example\.com/);
 });
+
+test('license ids seen on health lines: the last time and version per id, never anything else', async () => {
+  const e = env();
+  const send = events => worker.fetch(new Request('https://www.jobpilotto.workers.dev/report/telemetry',
+    {method: 'POST', body: JSON.stringify({events})}), e, {});
+  const health = (install, at, licenseId, version) => ({kind: 'health', install, version, platform: 'darwin', at, licensed: true, licenseId});
+  const today = new Date().toISOString().slice(0, 10);
+  await send([health('install-aaaa', `${today}T08:00:00Z`, '43e5be04', '0.4.0-alpha.74'), health('install-aaaa', `${today}T09:00:00Z`, '43e5be04', '0.4.0-alpha.75'),
+    health('install-bbbb', `${today}T09:30:00Z`, 'not-an-id', '0.4.0-alpha.75')]);
+  const body = await (await get(e, {Authorization: 'Bearer k3y'})).json();
+  assert.deepEqual(Object.keys(body.licenses), ['43e5be04']);
+  assert.equal(body.licenses['43e5be04'].version, '0.4.0-alpha.75');
+});

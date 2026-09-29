@@ -53,7 +53,7 @@ let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
-const HEALTH_VERSION = 4;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance)
+const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
 // Where the user stands (demo mode: a fixed fictional state for screenshots).
 const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 30, daysLeft: 41, ended: false} : license.state());
 // Guard for what starts NEW work (Prepare kit, Fill in Chrome / Apply with Claude, manual searches): once the free allowance
@@ -75,11 +75,12 @@ function healthOnce() {
     serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
     sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings), ...allowanceHealth(), ...telemetry.takeRuns()});
 }
-// The allowance on the health line, to measure it: licensed or not, the license kind (never its name or id),
+// The allowance on the health line, to measure it: licensed or not, the license kind and its random id (never the
+// name: only the owner can map an id to a person, in his private Notion 🔑 Licenses via tools/license.py sync),
 // applications used, days left, and whether the free allowance has ended.
 function allowanceHealth() {
   const state = licenseState();
-  return {licensed: state.licensed, licenseKind: state.license?.kind || 'none', applicationsUsed: state.used, freeDaysLeft: state.daysLeft, allowanceEnded: state.ended};
+  return {licensed: state.licensed, licenseKind: state.license?.kind || 'none', licenseId: state.license?.id || '', applicationsUsed: state.used, freeDaysLeft: state.daysLeft, allowanceEnded: state.ended};
 }
 // How much Job Pilotto helped, as anonymous counts (no company, no job title): open matches and good fits, forms the
 // extension filled, and the funnel (ever reached: applied, a human reply, screening, interviews, offers). From the
