@@ -5,7 +5,7 @@
 import {feedbackList} from './feedback.js';
 import {allowed, esc, remember} from './stats.js';
 
-export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health'];
+export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup'];
 const MAX_EVENTS = 50, MAX_BYTES = 8000, PER_INSTALL_PER_DAY = 1000, KEEP_DAYS = 90;
 const day = date => date.toISOString().slice(0, 10);
 const text = (value, max = 300) => String(value ?? '').slice(0, max);
@@ -64,7 +64,7 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const rows = (await db.prepare(`SELECT fingerprint, kind, MAX(summary) AS summary, COUNT(*) AS n, COUNT(DISTINCT install) AS users,
       GROUP_CONCAT(DISTINCT version) AS versions, MIN(day) AS first, MAX(at) AS last, MAX(data) AS sample
-    FROM telemetry WHERE day >= ? AND kind != 'health' GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
+    FROM telemetry WHERE day >= ? AND kind NOT IN ('health', 'setup') GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
   const installs = (await db.prepare(`SELECT version, platform, COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ?
     GROUP BY version, platform ORDER BY n DESC`).bind(from).all()).results || [];
   // How it helped: each install's latest daily health line, summed (anonymous counts; "ever reached" for the funnel).
@@ -80,6 +80,29 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   outcomes.counted = counted;
   return {from, days, rows, installs, outcomes, reporting: health.length};
 }
+// Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
+export const SETUP_STEPS = ['welcome', 'ai', 'notion', 'cv', 'goals', 'draft', 'extras', 'done'];
+export async function funnel(db, days, now = new Date()) {
+  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
+  const rows = (await db.prepare("SELECT install, data FROM telemetry WHERE kind = 'setup' AND day >= ?").bind(from).all()).results || [];
+  const furthest = {}, minutesDone = [];
+  let trial = 0;
+  const trialInstalls = new Set();
+  for (const row of rows) {
+    let data = {};
+    try { data = JSON.parse(row.data); } catch {}
+    const index = SETUP_STEPS.indexOf(data.step);
+    if (index < 0) continue;
+    furthest[row.install] = Math.max(furthest[row.install] ?? -1, index);
+    if (data.step === 'done' && typeof data.minutes === 'number') minutesDone.push(data.minutes);
+    if (data.ai === 'trial') trialInstalls.add(row.install);
+  }
+  trial = trialInstalls.size;
+  const reached = SETUP_STEPS.map((step, i) => ({step, n: Object.values(furthest).filter(max => max >= i).length}));
+  minutesDone.sort((a, b) => a - b);
+  return {reached, started: Object.keys(furthest).length, medianMinutes: minutesDone.length ? minutesDone[Math.floor(minutesDone.length / 2)] : null, trial};
+}
+
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
 
 function page(data) {
@@ -114,6 +137,11 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
     return `<div class="tile"><span class="muted">${label}</span><b>${n ? data.outcomes[name] : '–'}</b>${n && n < data.reporting
       ? `<small class="muted">${n} of ${data.reporting} installs</small>` : ''}</div>`; }).join('')}</div>
 ${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">No counts yet: they arrive with each install\'s next daily report.</small>'}</section>
+<section class="card" style="margin-bottom:12px"><h2>🚦 Setup funnel</h2><small class="muted">installs that reached each step (last ${data.days < 30 ? 30 : data.days} days)${data.funnel?.medianMinutes != null ? ` · median time to finish: ${data.funnel.medianMinutes} min` : ''}${data.funnel?.trial ? ` · ${data.funnel.trial} used the free AI credit` : ''}</small>
+${data.funnel?.started ? `<table style="margin-top:8px">${data.funnel.reached.map(({step, n}, i, all) => `<tr><td style="width:110px">${esc(step)}</td>
+  <td><div style="background:var(--amber);height:10px;border-radius:5px;width:${Math.round(n / all[0].n * 100)}%"></div></td>
+  <td style="width:60px"><b>${n}</b></td><td class="muted" style="width:90px">${i && all[i - 1].n ? `${Math.round(n / all[i - 1].n * 100)}% of prev` : ''}</td></tr>`).join('')}</table>`
+  : '<p class="muted">No setups reported yet.</p>'}</section>
 <section class="card"><h2>Problems, most users first</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 <section class="card" style="margin-top:12px"><h2>💬 Feedback, newest first</h2><small class="muted">From Send feedback in the app (also sent to the Job Pilotto Brain bot). Last ${data.days < 30 ? 30 : data.days} days.</small>
@@ -132,8 +160,9 @@ export async function view(request, env, now = new Date()) {
   if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
-    const [data, feedback] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => [])]);
-    return new Response(page({...data, feedback}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    const [data, feedback, setup] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
+      funnel(env.STATS, Math.max(days, 30), now).catch(() => null)]);
+    return new Response(page({...data, feedback, funnel: setup}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

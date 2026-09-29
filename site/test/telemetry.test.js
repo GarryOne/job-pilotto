@@ -119,3 +119,20 @@ test('the private page lists feedback with its contact; without the key it is no
   const closed = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry'), e, {});
   assert.equal(closed.status, 404);
 });
+
+test('setup funnel: furthest step per install, never counted as a problem', async () => {
+  const e = env();
+  const at = new Date().toISOString();
+  const step = (install, s, extra = {}) => ({kind: 'setup', install, version: '0.4.0-alpha.76', platform: 'darwin', at, step: s, ...extra});
+  await send(e, [step('install-aaaa', 'welcome'), step('install-aaaa', 'ai'), step('install-aaaa', 'notion'),
+    step('install-bbbb', 'welcome'), step('install-bbbb', 'ai', {ai: 'trial'}), step('install-bbbb', 'notion'), step('install-bbbb', 'cv'),
+    step('install-bbbb', 'goals'), step('install-bbbb', 'draft'), step('install-bbbb', 'extras'), step('install-bbbb', 'done', {minutes: 12})]);
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  assert.match(html, /🚦 Setup funnel/);
+  assert.match(html, /median time to finish: 12 min/);
+  assert.match(html, /1 used the free AI credit/);
+  assert.match(html, /No problems reported/);  // setup steps are not problems
+  const {funnel} = await import('../src/telemetry.js');
+  const f = await funnel(e.STATS, 30);
+  assert.deepEqual(f.reached.map(r => r.n), [2, 2, 2, 1, 1, 1, 1, 1]);
+});

@@ -26,6 +26,7 @@ import {offerMove} from './lib/applications.js';
 import * as appMenu from './lib/app-menu.js';
 import * as appFeedback from './lib/app-feedback.js';
 import * as aiTrial from './lib/ai-trial.js';
+import * as setupFunnel from './lib/setup-funnel.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
@@ -146,6 +147,14 @@ function buildMenu() {
     checkForUpdates: checkForUpdatesNow, testBuilds: storage ? !!storage.settings().testBuilds : undefined,
     setTestBuilds, updateToNewest: updateToNewestTestBuild,
     sendFeedback: () => { if (window && !window.isDestroyed()) { window.show(); toWindow('openFeedback'); } }})));
+}
+
+// Setup funnel (lib/setup-funnel.js): the furthest step each install reached, sent at once so a quit mid-setup still counts.
+function trackSetup(patch, before) {
+  const event = setupFunnel.track(patch, before);
+  if (!event) return;
+  if (event.step !== 'done') storage.saveSettings({setupFurthest: event.step});
+  if (telemetry) { telemetry.record('setup', event); telemetry.flush(); }
 }
 
 async function installUpdate() {
@@ -434,7 +443,12 @@ function handlers() {
     return {...await connectNotion(signedIn.access_token, {templateRoot: root}), workspace: signedIn.workspace_name};
   });
   ipcMain.handle('notionOAuthCancel', () => notionOAuth.cancel());
-  ipcMain.handle('saveSettings', (_, patch) => storage.saveSettings(patch));
+  ipcMain.handle('saveSettings', (_, patch) => {
+    const before = storage.settings();
+    const saved = storage.saveSettings(patch);
+    trackSetup(patch, before);
+    return saved;
+  });
   ipcMain.handle('contact', () => (DEMO ? {} : contactDetails.read(storage)));
   ipcMain.handle('saveContact', (_, contact) => contactDetails.save(storage, contact).then(saved => { server.contactSaved(storage, saved || contact); return {ok: true}; })
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
@@ -558,7 +572,7 @@ function handlers() {
       step('search');
       if (take('search') || take('filters')) await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       step('search', {finished: true});
-      storage.saveSettings({setupDone: true});
+      { const before = storage.settings(); storage.saveSettings({setupDone: true}); trackSetup({setupDone: true}, before); }
       syncCv();  // the CV to the Profile page (Notion keeps every version)
       return {ok: true};
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
@@ -1227,6 +1241,7 @@ if (firstCopy) app.whenReady().then(() => {
   license = licenseLib.create(storage, {appliedNow: () => viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps
     ?.find(step => step.step.includes('Applied'))?.reached ?? 0});
   telemetry = DEMO || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
+  if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
     pipeline.onRunEnd(({args, code, seconds, tail}) => {
       telemetry.countRun(code === 0);  // the health line's runsOk / runsFailed (release check evidence)
