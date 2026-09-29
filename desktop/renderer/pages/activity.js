@@ -161,6 +161,9 @@ function withKept(data) {
   const runs = [...byId.values()].sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')));
   return {...data, runs};
 }
+// Recent activity lists what Job Pilotto ran (schedules, checks, background AI work), not what you did yourself:
+// a Log box entry (kind "add") is on the job's page and in Notion's run history, and a failed one still notifies.
+export const scheduled = run => kindOf(run) !== 'add';
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -209,7 +212,7 @@ export function renderActivity(fresh) {
   const queue = data.queued || [];
   const waiting = queue.map((run, i) => ({...run, waiting: true,
     after: i ? KIND[kindOf(queue[i - 1])].name : running ? KIND[kindOf(running)].name : 'the current task'})).reverse();
-  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, 8));
+  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.filter(scheduled).slice(0, 8));
   $('activity-count').textContent = `${recent.length} recent`;
   $('activity-recent').replaceChildren(...recent.map(run => {
     const item = document.createElement('li');

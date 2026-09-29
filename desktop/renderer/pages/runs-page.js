@@ -2,7 +2,7 @@
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
-import {KIND, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity} from './activity.js';
+import {KIND, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity, scheduled} from './activity.js';
 import {$, show} from './core.js';
 import {openView} from './nav.js';
 
@@ -53,7 +53,7 @@ export function renderActionsPage(data) {
     $('run-banner-title').textContent = `${TASK_TITLE[kind] || KIND[kind]?.name || 'A task'} is running`;
     $('run-banner-step').textContent = `Started ${new Date(running.startedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · ${running.step || 'starting'}`;
   }
-  const rows = runs.slice(0, 5).map(run => {
+  const rows = runs.filter(scheduled).slice(0, 5).map(run => {
     const kind = kindOf(run);
     const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
     const li = el('li', 'runs-row');
