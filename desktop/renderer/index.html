@@ -50,11 +50,14 @@
     <div class="step" data-step="ai">
       <span class="eyebrow">Step 1 of 6</span>
       <h1>Connect your AI</h1>
-      <p class="lede">Job Pilotto uses Claude to read job postings, score them and draft answers. You pay Anthropic directly, usually a few dollars a month.</p>
+      <p class="lede">Job Pilotto uses Claude to read job postings, score them and draft answers. It runs on this computer with your own key,
+        and you pay Anthropic directly: usually a few dollars a month during an active search, capped by the monthly budget you set.</p>
       <ol class="howto">
-        <li>Open <a href="#" data-link="https://console.anthropic.com/settings/keys">console.anthropic.com → API keys</a> and sign in.</li>
-        <li>Click <b>Create Key</b>, name it "Job Pilotto", copy it.</li>
-        <li>Paste it here.</li>
+        <li>Open <a href="#" data-link="https://console.anthropic.com/settings/keys">console.anthropic.com → API keys</a> and sign up or sign in
+          (a separate account from a Claude.ai subscription).</li>
+        <li>New account? Go to <a href="#" data-link="https://console.anthropic.com/settings/billing">Billing</a> and add a small amount
+          of credit, e.g. $5: it lasts weeks. Keys don't work without credit.</li>
+        <li>Back in <b>API keys</b>: click <b>Create Key</b>, name it "Job Pilotto", copy it, and paste it here.</li>
       </ol>
       <label for="anthropic-key">Anthropic API key</label>
       <input id="anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off">
