@@ -10,7 +10,10 @@ test('each request is one tab-separated line: time, who, method, route (no query
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'reqlog-')), 'notion-requests.log');
   setFile(file);
   write({method: 'GET', route: 'pages/abc?filter=x', status: 429, ms: 183, attempt: 0, who: 'app:extension'});
-  await new Promise(resolve => setTimeout(resolve, 50));
+  // The line is appended asynchronously: wait for it (up to 2 s; a slow Windows runner once needed more than 50 ms).
+  for (let waited = 0; waited < 2000 && !(fs.existsSync(file) && fs.readFileSync(file, 'utf8').trim()); waited += 20) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
   const [line] = fs.readFileSync(file, 'utf8').trim().split('\n');
   assert.deepEqual(line.split('\t').slice(1), ['app:extension', 'GET', 'pages/abc', '429', '183ms', 'try 1']);
   setFile(null);
