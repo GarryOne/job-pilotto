@@ -253,6 +253,28 @@ def blocks(kit, now, usd):
     return out[:95]
 
 
+def logged_build(tracker, row, client=None, now=None):
+    """build(), recorded as a run (⏰ Cronjob Runs: duration, AI cost, result), like every AI job: it shows in the app's
+    Recent activity (marked as started by you) and counts toward the month's AI budget. A request that spent nothing
+    (it asked for the description right away) isn't recorded."""
+    from ..notion import cron_runs
+    run = cron_runs.new_run('prep')
+    started = datetime.now(timezone.utc)
+    try:
+        result = build(tracker, row, client=client, stats=run.setdefault('interview', {}), now=now)
+    except Exception as error:  # noqa: BLE001 — recorded as failed, then shown in the dialog
+        result = {'ok': False, 'text': f'{type(error).__name__}: {error}'[:300]}
+    if result.get('ok') or cron_runs.total_usd(run) > 0:
+        run['headline'] = (f"{mail._field(row, 'Company') or mail._field(row, 'Via')} · {mail._field(row, 'Job')}: "
+                           f"{result.get('text', '')}")[:300]
+        run['seconds'] = int((datetime.now(timezone.utc) - started).total_seconds())
+        try:
+            cron_runs.log_run(tracker, run, failed=not result.get('ok') and not result.get('needs_description'))
+        except Exception as error:  # noqa: BLE001 — the kit matters more than its log line
+            print(f'Warning: run not recorded: {type(error).__name__}: {error}', file=sys.stderr)
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -272,7 +294,7 @@ def main(argv=None):
             result = describe(tracker, row, args.text, args.url)
         else:
             print('⏳ Reading the job and your Profile', file=sys.stderr, flush=True)
-            result = build(tracker, row)
+            result = logged_build(tracker, row)
     except Exception as error:  # noqa: BLE001 — the app shows the reason
         result = {'ok': False, 'text': f'{type(error).__name__}: {error}'[:300]}
     print(json.dumps(result, ensure_ascii=False))

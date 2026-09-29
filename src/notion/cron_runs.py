@@ -35,7 +35,7 @@ def new_run(mode):
 
 
 # The jobs that always end with a row (log_run), so opening one at the start is safe (see begin()).
-LOGGED_MODES = {'scheduled', 'run', 'today', 'prepare', 'add', 'interview', 'insight', 'weekly', 'mail', 'rejection', 'scout'}
+LOGGED_MODES = {'scheduled', 'run', 'today', 'prepare', 'add', 'interview', 'insight', 'weekly', 'mail', 'rejection', 'scout', 'prep'}
 _auto = {}
 
 
@@ -83,8 +83,8 @@ def mail_lines(run):
 
 
 # One-off jobs (not crawls): their name when they finish without a result line of their own.
-ONE_OFF = {'add': 'Tracked application', 'insight': 'Insight', 'weekly': 'Weekly report', 'interview': 'Interview review',
-           'prepare': 'Application kit', 'apply': 'Marked applied', 'scout': 'Find employers'}
+ONE_OFF = {'add': 'Logged activity', 'insight': 'Insight', 'weekly': 'Weekly report', 'interview': 'Interview review',
+           'prepare': 'Application kit', 'apply': 'Marked applied', 'scout': 'Find employers', 'prep': 'Interview prep kit'}
 
 
 def report_lines(run):

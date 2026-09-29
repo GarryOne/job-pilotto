@@ -34,7 +34,7 @@ class CostTest(unittest.TestCase):
 
 class ReportTest(unittest.TestCase):
     def test_a_one_off_job_never_gets_a_crawls_summary(self):
-        self.assertEqual(cron_runs.report_lines({'mode': 'add', 'warnings': []})[0], 'Tracked application done (AI cost $0.000)')
+        self.assertEqual(cron_runs.report_lines({'mode': 'add', 'warnings': []})[0], 'Logged activity done (AI cost $0.000)')
         self.assertTrue(cron_runs.report_lines({'mode': 'weekly', 'headline': '9 applications sent', 'warnings': []})[0]
                         .startswith('9 applications sent'))
         self.assertTrue(cron_runs.report_lines({'mode': 'scheduled', 'warnings': []})[0].startswith('Quiet run'))

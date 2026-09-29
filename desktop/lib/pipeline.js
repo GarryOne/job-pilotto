@@ -378,7 +378,7 @@ export async function focusHistory(storage) {
 const lastJson = (stdout, fallback) => { try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return fallback; } };
 // Interview prep kit (src/ai/prep.py): built on the job's Notion page; needs_description when the role is unknown.
 export async function interviewPrep(storage, pageId, onLine = () => {}) {
-  const {stdout} = await run(storage, ['src.ai.prep', 'build', pageId], onLine);
+  const {stdout} = await run(storage, ['src.ai.prep', 'build', pageId], onLine, triggerEnv('you'));
   return lastJson(stdout, {ok: false, text: 'The prep kit could not be built. Try again.'});
 }
 export async function describeJob(storage, pageId, text = '', url = '') {

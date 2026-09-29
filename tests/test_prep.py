@@ -131,5 +131,27 @@ class PrepTests(unittest.TestCase):
         self.assertFalse(prep.describe(tracker, row, text='SRE role')['ok'])
 
 
+class LoggedRunTests(unittest.TestCase):
+    def test_a_kit_is_recorded_as_a_run_with_its_ai_cost(self):
+        tracker, row = job(INVITE + '\n' + ROLE)
+        logged = []
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}), \
+                mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append((run, failed))):
+            result = prep.logged_build(tracker, row, client=Client(), now=NOW)
+        self.assertTrue(result['ok'])
+        run, failed = logged[0]
+        self.assertEqual((run['mode'], failed), ('prep', False))
+        self.assertGreater(run['interview']['usd'], 0)  # counted in the month's AI budget
+        self.assertIn('Huxley · Principal SRE', run['headline'])
+
+    def test_asking_for_the_description_without_spending_is_not_a_run(self):
+        tracker, row = job(INVITE)
+        tracker._children = lambda block_id: []
+        logged = []
+        with mock.patch('src.notion.cron_runs.log_run', lambda t, run, failed=False: logged.append(run)):
+            self.assertTrue(prep.logged_build(tracker, row, client=Client(), now=NOW)['needs_description'])
+        self.assertEqual(logged, [])
+
+
 if __name__ == '__main__':
     unittest.main()

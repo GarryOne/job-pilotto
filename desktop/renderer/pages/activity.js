@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {runWarnings} from '../run-warnings.js';
-import {el, pill, tile} from '../components.js';
+import {el, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {parseRunMessage} from '../run-cards.js';
 import {shared} from './shared.js';
@@ -56,7 +56,8 @@ function searchPhase(step = '') {
 export const KIND = {search: {icon: '🔎', name: 'Jobs check'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
   weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find new employers'},
   action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
-  add: {icon: '➕', name: 'Tracked application'}, rejection: {icon: '🔍', name: 'Rejection review'}};
+  add: {icon: '📥', name: 'Logged activity'}, rejection: {icon: '🔍', name: 'Rejection review'},
+  prep: {icon: '🎤', name: 'Interview prep kit'}};
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
 const WHERE = {github: '☁️ GitHub', mac: 'this Mac'};  // where a run ran, after who started it
@@ -161,9 +162,10 @@ function withKept(data) {
   const runs = [...byId.values()].sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')));
   return {...data, runs};
 }
-// Recent activity lists what Job Pilotto ran (schedules, checks, background AI work), not what you did yourself:
-// a Log box entry (kind "add") is on the job's page and in Notion's run history, and a failed one still notifies.
-export const scheduled = run => kindOf(run) !== 'add';
+// Recent activity lists every run that took time or AI money, scheduled or started by you; the ones you started
+// (a Log box entry, an interview prep kit, a Check now) carry a "By you" tag, and every row shows its AI cost.
+const byYou = run => run.trigger === 'you' && !run.live && !run.waiting;
+const costOf = run => (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '');
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -212,7 +214,7 @@ export function renderActivity(fresh) {
   const queue = data.queued || [];
   const waiting = queue.map((run, i) => ({...run, waiting: true,
     after: i ? KIND[kindOf(queue[i - 1])].name : running ? KIND[kindOf(running)].name : 'the current task'})).reverse();
-  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.filter(scheduled).slice(0, 8));
+  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, 8));
   $('activity-count').textContent = `${recent.length} recent`;
   $('activity-recent').replaceChildren(...recent.map(run => {
     const item = document.createElement('li');
@@ -227,7 +229,10 @@ export function renderActivity(fresh) {
     words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
       ? `Waiting · starts after ${run.after}`
       : [clockTime(run.endedAt || run.startedAt), capital(outcome(run)), WHO[run.trigger] || run.trigger, WHERE[run.where]].filter(Boolean).join(' · ')));
-    button.append(el('span', 'run-status'), el('span', 'run-icon', kind.icon), words, pill(...runStatus(run, warned)));
+    if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
+    const cost = el('span', 'run-cost', costOf(run));
+    cost.title = run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI cost';
+    button.append(el('span', 'run-status'), el('span', 'run-icon', kind.icon), words, cost, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;

@@ -1014,6 +1014,22 @@
             {
               "name": "mail",
               "color": "red"
+            },
+            {
+              "name": "add",
+              "color": "gray"
+            },
+            {
+              "name": "rejection",
+              "color": "red"
+            },
+            {
+              "name": "scout",
+              "color": "brown"
+            },
+            {
+              "name": "prep",
+              "color": "purple"
             }
           ]
         },
