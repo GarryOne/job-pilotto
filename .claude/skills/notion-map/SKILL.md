@@ -15,38 +15,49 @@ the state.
 ## Hierarchy
 
 ```
-Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
-├── 1 · Job Search (3e562be8fd8681439762d07ec7042f7b)
-│   ├── Applications — Job Tracker [database] (f56b68942d3b43cbb85a7b1ebfe2df1b)
-│   ├── Job Matches — AI Scored [database] (2d8077c592fd45db8d6d5c8e2eea75cb)
-│   ├── 🤖 Agent Runs [database] (6a89d3b5faf44b6290f0108afcbf8ce9)
-│   ├── ⏰ Cronjob Runs [database] (98543553a1024a61bd784ada69b2a45d)
-│   ├── 📈 Application Events [database] (95ae2d6b81804e838985d0de5cbd945b)
-│   ├── 💡 Insights [database] (4c79aec091df4dcc8a8827cd4d43a5ef)
-│   ├── 🎤 Interviews [database] (78fb76fd0f2c4b9ea0a9e040c48642ba)
-│   ├── Employers & Sources [database] (c7fe8570c2ff414086ae9bb1ee2dbf64)
-│   ├── Profile — CV and Preferences (3e562be8fd8681579078d09829921b8c)
-│   └── Application Answers — Standard Form Fields (3e562be8fd868108ae38d1f47d52a811)
-├── 2 · System & Architecture (3e562be8fd8681d89bd9e618ff7ea048)
-│   ├── Technical Reference — Implementation (3e562be8fd868124a28ee7c044dc83dc)
-│   ├── 🧠 How Job Pilotto Learns — the smartness, end to end (3ea62be8fd8681818a8ddbf84ba6c262) (internal: what learns from what, guardrails)
-│   ├── Application Strategy — Decision and Automation Map (3e562be8fd8681e68244d641a0a200e1) (moved here 27 Sep 2026)
+🇨🇭 Job Pilotto — Project Hub (3e462be8fd86816ebef1c94a62a56c20)   (reorganized 29 Sep 2026: why / what / for whom / how / what happened)
+├── Session Handoff — Start Here (for Claude) (3e562be8fd8681af9a4dd8732964fd94)
+├── 🧭 Strategy (3ea62be8fd868178a491d0dbe02b6a14)   [shared with the Job Pilotto Brain connection]
+│   ├── 📍 Product Compass (3ea62be8fd868115b9c5ef86331b72cb) (the owner's phase, north star, goal, bets)
+│   ├── Marketing Strategy — Free vs Premium (3e862be8fd868172a5c7f1056b745d6e)
+│   ├── Market & Competitors [Simplify, Teal, Huntr, JobCopilot, LazyApply; pricing; positioning] (3e862be8fd8681d5bdc5d29d50e085ae)
+│   ├── 🧭 Product Brain · Decisions [database] (d415820e35ca481ab3957a46d2a5caf6)
 │   ├── Decision Log [database] (e4d099e66ee84f728d640d225f253210)
+│   └── Application Strategy — Decision and Automation Map (3e562be8fd8681e68244d641a0a200e1)
+├── 🗺️ Product (3ea62be8fd86813d8a20dc5492caae2a)   [shared with the Job Pilotto Brain connection]
+│   ├── ✨ Feature catalog (3e962be8fd868133aa3ed99f1b0debcd)
+│   ├── UI/UX Backlog — Design Ideas (3ea62be8fd8681c690b5f0e8bf1eabb4)
 │   ├── AI Roadmap — Stages 1 to 5 (3e562be8fd86819d882cd6e7b94bef9b)
-│   └── Archive (old Source Registry [database], 319f2372dd8649699415b672d3111d4c — not read by code)
-├── 3 · Progress (3e562be8fd86814baa1bd914ae8f8c69)
+│   ├── Release stages — Alpha → Beta → RC → 1.0 (3e962be8fd86813c9a32fbed2aaff2fa)
+│   └── 🧠 How Job Pilotto Learns — the smartness, end to end (3ea62be8fd8681818a8ddbf84ba6c262)
+├── 🚀 Users & Launch (3e562be8fd8681378229ef71e8420542)   (was 4 · Productization)
+│   ├── First Customer Onboarding (3e862be8fd8681e78558d784c7cb9c81)
+│   ├── Job Pilotto [public template: every database and page, no data; published at https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c] (3e862be8fd868143b431df70d505ed7c)
+│   └── Setup Guide, User Guide
+├── ⚙️ Engineering (3e562be8fd8681d89bd9e618ff7ea048)   (was 2 · System & Architecture)
+│   ├── Technical Reference — Implementation (3e562be8fd868124a28ee7c044dc83dc)
+│   ├── Infrastructure, Architecture, Application Tracking, Data Model, Cloudflare Workers
+│   ├── Security audit — what ships, what leaks (3ea62be8fd86818db652c716066d2068)
+│   └── Technical reports (telemetry) — design (3ea62be8fd8681c680efd1b81b633b05)
+├── 📈 Progress (3e562be8fd86814baa1bd914ae8f8c69)   (was 3 · Progress)   [shared with the Job Pilotto Brain connection]
 │   ├── Rollout — 1% to 100% [database] (6051151f0cc34c00b02007d467d92ba6)
 │   ├── Rollout Guide — Acceptance Gates and Next Sprint (3e462be8fd8681eb914ee988de2c8e5a)
 │   ├── Run Log (3e462be8fd868196b353cd0f0886ce57)
 │   │   └── Run Log archive — 24–28 Sep 2026 (3ea62be8fd868132afabca700bb4c5aa) (Run Log keeps ~1 week; move older entries to an archive subpage)
 │   └── Costs — Spending and Free-Tier Limits (3e562be8fd868106bb17d4bea0723fce)
-├── 4 · Productization (3e562be8fd8681378229ef71e8420542)
-│   ├── Marketing Strategy — Free vs Premium (3e862be8fd868172a5c7f1056b745d6e)
-│   ├── Market & Competitors [Simplify, Teal, Huntr, JobCopilot, LazyApply; pricing; positioning; checked 28 Sep 2026] (3e862be8fd8681d5bdc5d29d50e085ae)
-│   ├── First Customer Onboarding (3e862be8fd8681e78558d784c7cb9c81)
-│   ├── Job Pilotto [public template: every database and page, no data; published at https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c] (3e862be8fd868143b431df70d505ed7c)
-│   └── Setup Guide, User Guide
-└── Session Handoff — Start Here (for Claude) (3e562be8fd8681af9a4dd8732964fd94)
+└── 🗄️ Archive (3ea62be8fd86816c82d8fd62e966a057)
+    ├── Archive (old Source Registry [database], 319f2372dd8649699415b672d3111d4c — not read by code)
+    └── [Backup, Obsolete] 1 · Job Search (3e562be8fd8681439762d07ec7042f7b)
+        ├── Applications — Job Tracker [database] (f56b68942d3b43cbb85a7b1ebfe2df1b)
+        ├── Job Matches — AI Scored [database] (2d8077c592fd45db8d6d5c8e2eea75cb)
+        ├── 🤖 Agent Runs [database] (6a89d3b5faf44b6290f0108afcbf8ce9)
+        ├── ⏰ Cronjob Runs [database] (98543553a1024a61bd784ada69b2a45d)
+        ├── 📈 Application Events [database] (95ae2d6b81804e838985d0de5cbd945b)
+        ├── 💡 Insights [database] (4c79aec091df4dcc8a8827cd4d43a5ef)
+        ├── 🎤 Interviews [database] (78fb76fd0f2c4b9ea0a9e040c48642ba)
+        ├── Employers & Sources [database] (c7fe8570c2ff414086ae9bb1ee2dbf64)
+        ├── Profile — CV and Preferences (3e562be8fd8681579078d09829921b8c)
+        └── Application Answers — Standard Form Fields (3e562be8fd868108ae38d1f47d52a811)
 ```
 
 ## Quick lookup — which page for which need
@@ -58,7 +69,8 @@ Switzerland Job Search — Project Hub (3e462be8fd86816ebef1c94a62a56c20)
 | Why a decision was made, alternatives rejected | Decision Log database (`e4d099e6...`) |
 | Dated history of every change, commit references | Run Log (`...86ce57`) |
 | Competitors, their prices, where Job Pilotto differs | Market & Competitors (`...e085ae`) |
-| Milestone status, what's Done vs In progress, key numbers | 3 · Progress (`...ae8f8c69`) + Rollout database |
+| Milestone status, what's Done vs In progress, key numbers | 📈 Progress (`...ae8f8c69`) + Rollout database |
+| The product's phase, goal and bets (what to work on) | 📍 Product Compass (`...86331b72cb`) in 🧭 Strategy |
 | Candidate's real facts the scorer/kit drafts against | Profile — CV and Preferences (`...9921b8c`) — editing it re-scores every open job |
 | Standard form answers (permit, notice, sponsorship, style) | Application Answers (`...868108`) — editing it does NOT re-score |
 | Why/how much to automate applying, what's built vs planned | Application Strategy — Decision and Automation Map (`...a0a200e1`) |

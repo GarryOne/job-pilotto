@@ -114,7 +114,7 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 
 One action a day, in the **Job Pilotto Brain** Telegram bot: ✅ Explore it → a plan in Notion → ✅ Approve plan. Nothing
 is explored, built or published without a tap. Workflow `product-brain.yml` (05:00 UTC), plumbing `tools/product_brain.py`,
-buttons `site/src/brain.js`, decisions in Notion **🧭 Product Brain · Decisions** (Project Hub → 4 · Productization).
+buttons `site/src/brain.js`, decisions in Notion **🧭 Product Brain · Decisions** (Project Hub → 🧭 Strategy).
 
 <details><summary>Setup (once)</summary>
 
