@@ -64,7 +64,7 @@
       "company": "Acme Observability",
       "job": "Staff SRE",
       "page_id": "demo-feedback",
-      "draft": "Thank you for your time and consideration. Could you share what mainly influenced the decision? Compensation expectations, technical fit, communication, or something else? Even a few words would be really helpful.",
+      "draft": "Thank you for your time and consideration.\n\nCould you share what mainly influenced the decision? Compensation expectations, technical fit, communication, or something else?\n\nEven a few words would be really helpful.",
       "link": "https://mail.google.com/",
       "notion_url": "",
       "job_url": ""

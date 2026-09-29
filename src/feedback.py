@@ -35,9 +35,9 @@ def history_for(tracker, row):
 
 
 def draft(row):
-    return ('Thank you for your time and consideration. '
+    return ('Thank you for your time and consideration.\n\n'
             'Could you share what mainly influenced the decision? '
-            'Compensation expectations, technical fit, communication, or something else? '
+            'Compensation expectations, technical fit, communication, or something else?\n\n'
             'Even a few words would be really helpful.')
 
 
