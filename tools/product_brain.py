@@ -40,7 +40,8 @@ def lens_of_the_day(day: dt.date) -> str:
 
 def _request(url: str, method: str = 'GET', body: dict | None = None, headers: dict | None = None) -> dict:
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={'Content-Type': 'application/json', **(headers or {})})
+    req = urllib.request.Request(url, data=data, method=method, headers={  # Cloudflare blocks the default Python agent (1010)
+        'Content-Type': 'application/json', 'User-Agent': 'job-pilotto-product-brain', **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             return json.loads(response.read() or b'{}')
@@ -137,7 +138,10 @@ def past_decisions(limit: int = 30) -> list[dict]:
 
 def signals(out: str, today: dt.date) -> None:
     key = os.environ.get('JOB_PILOTTO_TELEMETRY_KEY')
-    numbers = _request(SIGNALS_URL, headers={'Authorization': f'Bearer {key}'}) if key else {'error': 'JOB_PILOTTO_TELEMETRY_KEY missing'}
+    try:  # one missing source is said in the signals, not a failed brief
+        numbers = _request(SIGNALS_URL, headers={'Authorization': f'Bearer {key}'}) if key else {'error': 'JOB_PILOTTO_TELEMETRY_KEY missing'}
+    except SystemExit as error:
+        numbers = {'error': f'website/app numbers not available: {error}'}
     since = (today - dt.timedelta(days=7)).isoformat()
     sections = [
         f'# Signals for {today.isoformat()} ({today.strftime("%A")}) · lens of the day: {lens_of_the_day(today)}',
