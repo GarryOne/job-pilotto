@@ -7,7 +7,7 @@ import {loadInterviews} from './interviews.js';
 import {loadSettings} from './profile.js';
 import {openSession} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
-import {settingsPage} from './settings.js';
+import {settingsPage, showServicesNow} from './settings.js';
 import {loadStrategy} from './strategy.js';
 
 // ---------- app ----------
@@ -25,6 +25,7 @@ export function openView(name) {
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
   if (name === 'settings') {
     settingsPage('overview');
+    showServicesNow();
     $('automation-save').disabled = true;
     loadSettings();
     window.pilot.dailyTarget().then(setting => { $('set-target').value = setting.target; $('set-remind').checked = setting.reminders; });

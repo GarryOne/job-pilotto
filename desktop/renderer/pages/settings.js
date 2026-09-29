@@ -53,16 +53,31 @@ const SERVICES = [
     why: 'Daily digests and reminders need a bot connection.'},
   {id: 'serpapi', name: 'Google Jobs (SerpApi)', icon: 'search', what: 'Additional job results', connect: 'Add key'},
 ];
+// Each service's state. Keys are known at once (this Mac); Google (a Python check) and the extension answer later, so
+// their last answer is remembered here and shown meanwhile ("Checking…" the very first time).
+const SERVICE_CACHE = 'serviceChecks';
+const lastChecks = () => { try { return JSON.parse(localStorage.getItem(SERVICE_CACHE) || 'null'); } catch { return null; } };
+function statusFrom(google, extension) {
+  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY,
+    telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: !!extension?.on};
+  const detail = {google: google?.connected && google.email, extension: extension?.on && extension.version && `v${extension.version}`,
+    telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`};
+  const checking = {google: !google, extension: !extension};
+  return {on, detail, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
+}
+const quickStatus = () => { const last = lastChecks(); return statusFrom(last?.google, last?.extension); };
 async function serviceStatus() {
   const [google, seen] = await Promise.all([window.pilot.googleStatus().catch(() => ({})), window.pilot.extensionSeen().catch(() => null)]);
-  const extensionOn = !!seen && Date.now() - seen.at < 90 * 1000;
-  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY,
-    telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google.connected, extension: extensionOn};
-  const detail = {google: google.connected && google.email, extension: extensionOn && seen.version && `v${seen.version}`,
-    telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`};
-  return {on, detail, missing: SERVICES.find(service => service.required && !on[service.id]) || null};
+  const extension = {on: !!seen && Date.now() - seen.at < 90 * 1000, version: seen?.version};
+  try { localStorage.setItem(SERVICE_CACHE, JSON.stringify({google: {connected: !!google.connected, email: google.email || ''}, extension})); } catch {}
+  return statusFrom(google, extension);
 }
-function stateLine(on, detail = '') {
+function stateLine(on, detail = '', checking = false) {
+  if (checking) {
+    const line = el('span', 'service-state is-checking');
+    line.append(el('span', 'spinner'), 'Checking…');
+    return line;
+  }
   const line = el('span', `service-state${on ? ' is-on' : ''}`);
   line.append(icon(on ? 'check' : 'info'), on ? `Connected${detail ? ` · ${detail}` : ''}` : 'Not connected');
   return line;
@@ -75,38 +90,64 @@ function showAlert(prefix, missing) {
   $(`${prefix}-alert-go`).textContent = prefix === 'ov' ? `Connect ${missing.name}` : `Set up ${missing.name}`;
   $(`${prefix}-alert-go`).onclick = () => openSetting(missing.id);
 }
-async function renderConnections(status) {
-  const {on, detail, missing} = status || await serviceStatus();
+function renderConnections(status) {
+  const {on, detail, missing, checking = {}} = status;
   show($('connections-dot'), !!missing);
   showAlert('conn', missing);
   const card = service => {
     const box = el('div', 'service-card is-row');
     const text = el('span', 'service-text');
-    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id]), el('span', 'muted small', service.what));
+    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id], checking[service.id]), el('span', 'muted small', service.what));
     const button = el('button', on[service.id] ? 'secondary' : 'secondary is-signal', on[service.id] ? 'Manage' : service.connect || 'Connect');
     button.addEventListener('click', () => openSetting(service.id));
     box.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text, button);
     return box;
   };
-  $('conn-on').replaceChildren(...SERVICES.filter(service => on[service.id]).map(card));
-  $('conn-off').replaceChildren(...SERVICES.filter(service => !on[service.id]).map(card));
-  show($('conn-off-head'), SERVICES.some(service => !on[service.id]));
+  // A service still being checked sits with the connected ones until it answers (it usually is).
+  const connected = service => on[service.id] || checking[service.id];
+  $('conn-on').replaceChildren(...SERVICES.filter(connected).map(card));
+  $('conn-off').replaceChildren(...SERVICES.filter(service => !connected(service)).map(card));
+  show($('conn-off-head'), SERVICES.some(service => !connected(service)));
 }
 export async function renderOverview() {
-  const [status, backup, contact] = await Promise.all([serviceStatus(), window.pilot.backupStatus().catch(() => ({})),
-    window.pilot.contact().catch(() => ({}))]);
-  const {on, detail, missing} = status;
+  // What's known now first (Connections and Overview drawn at once), then the slow checks, each as it answers:
+  // Google and the extension (a few seconds), your contact details (read from Notion).
+  renderServices(quickStatus());
+  checkingLine(true);
+  const backup = window.pilot.backupStatus().catch(() => ({}));
+  const contact = window.pilot.contact().catch(() => ({}));
+  renderServices(await serviceStatus());
+  checkingLine(false);
+  renderDetails(await backup, await contact);
+}
+// Under the Connections title: what's being checked right now, then when it was.
+function checkingLine(busy) {
+  const line = $('conn-status');
+  if (busy) line.replaceChildren(el('span', 'spinner small'), 'Checking Gmail and the Chrome extension…');
+  else line.replaceChildren(icon('check'), 'Checked just now');
+  line.classList.toggle('is-done', !busy);
+}
+// Settings opened: the service cards from what's known now, before the page's other reads.
+export function showServicesNow() {
+  if (!shared.state?.secrets) return;
+  renderServices(quickStatus());
+  checkingLine(true);
+}
+function renderServices(status) {
+  const {on, detail, missing, checking} = status;
   renderConnections(status);
   renderDiagnostics(status);
   showAlert('ov', missing);
   $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
     const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
     const text = el('span');
-    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id]));
+    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id], checking[service.id]));
     card.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text);
     card.addEventListener('click', () => openSetting(service.id));
     return card;
   }));
+}
+function renderDetails(backup, contact) {
   $('ov-cv').textContent = shared.state.settings.cvName || 'None yet';
   const needed = {first_name: 'first name', last_name: 'last name', email: 'email', phone: 'phone'};
   const gaps = Object.keys(needed).filter(key => !contact?.[key]).map(key => needed[key]);
@@ -128,11 +169,11 @@ export function showRunMode() {
   $('run-mode-more').textContent = repo ? 'Manage Always on' : 'Learn about Always on';
   $('tz-note').textContent = `Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`;
 }
-function renderDiagnostics({on, detail}) {
+function renderDiagnostics({on, detail, checking}) {
   const version = document.querySelector('[data-version]')?.textContent?.trim();
   $('diag-app').replaceChildren(stateLine(true, version));
   $('diag-app').firstChild.lastChild.textContent = `Running${version ? ` · ${version}` : ''}`;
-  $('diag-ext').replaceChildren(stateLine(on.extension, detail.extension));
+  $('diag-ext').replaceChildren(stateLine(on.extension, detail.extension, checking?.extension));
   $('diag-search').textContent = $('last-search').textContent;
 }
 
