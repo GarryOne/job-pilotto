@@ -58,8 +58,9 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 1. Send the stable download: **Mac** `…/releases/latest/download/Job-Pilotto-mac-arm64.dmg`,
    **Windows** `…/releases/latest/download/Job-Pilotto-windows-x64.exe`
    (`https://github.com/GarryOne/job-pilotto/…`).
-2. Mac: drag it to **Applications** (updates need it there), then right-click → Open the first time (the app isn't
-   notarized yet).
+2. Mac: drag it to **Applications** (updates need it there). The first open shows **"Job Pilotto" Not Opened** (the app
+   isn't notarized yet): click **Done** (never Move to Bin), then **System Settings → Privacy & Security** → scroll to
+   *"Job Pilotto" was blocked* → **Open Anyway** → confirm. Once only. (Right-click → Open no longer works on recent macOS.)
 3. The setup wizard does the rest: keys, Notion, CV, Profile; Always on is optional.
 
 <details><summary>Not done yet</summary>
