@@ -1,7 +1,10 @@
 // Fill-failure reports from the Job Pilotto app: form STRUCTURE only (site, field labels, types, options, why a
-// field couldn't be filled, extension version); never answers or personal data. A report signed with
+// field couldn't be filled, extension version, and a scrubbed HTML snapshot of the field for replay tests: see
+// snapshot.js, which scrubs it again here); never answers or personal data. A report signed with
 // REPORT_TOKEN (the owner's app) is trusted and queued for the daily fixer; anything else lands as triage and
 // waits for the owner. The Worker only starts the intake workflow on the public repo (existing GITHUB_TOKEN).
+import { snapshotFromReport } from './snapshot.js';
+
 const MECHANICAL = [
   'dropdown clicked, but no option matched',
   'dropdown that opens only on a real click',
@@ -9,13 +12,22 @@ const MECHANICAL = [
 ];
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
+// All snapshots of one report together stay under this, so the intake workflow's input (64 KB) always fits.
+export const SNAPSHOTS_MAX = 32 * 1024;
+
 export function sanitize(report) {
   const site = text(report.site, 80).toLowerCase();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(site)) return null;
+  let room = SNAPSHOTS_MAX;
   const fields = (Array.isArray(report.fields) ? report.fields : []).slice(0, 20)
     .filter((f) => MECHANICAL.includes(f.reason))
-    .map((f) => ({ label: text(f.label, 120), type: text(f.type, 30), required: !!f.required, reason: f.reason,
-      options: (Array.isArray(f.options) ? f.options : []).slice(0, 30).map((o) => text(o, 60)) }));
+    .map((f) => {
+      const field = { label: text(f.label, 120), type: text(f.type, 30), required: !!f.required, reason: f.reason,
+        options: (Array.isArray(f.options) ? f.options : []).slice(0, 30).map((o) => text(o, 60)) };
+      const snapshot = f.snapshot && typeof f.snapshot === 'object' ? snapshotFromReport(f.snapshot) : '';
+      if (snapshot && snapshot.length <= room) { field.snapshot = snapshot; room -= snapshot.length; }
+      return field;
+    });
   if (!fields.length) return null;
   return { site, version: text(report.version, 20), fields };
 }

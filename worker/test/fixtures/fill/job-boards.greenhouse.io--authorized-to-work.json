@@ -1,0 +1,9 @@
+{
+ "source": "synthetic",
+ "site": "job-boards.greenhouse.io",
+ "label": "Are you legally authorized to work in Switzerland?",
+ "reason": "answer given, but the field did not take it",
+ "note": "A yes/no question as radio buttons in a fieldset (public form structure).",
+ "answer": "Yes",
+ "expect": {"checked": "Yes"}
+}

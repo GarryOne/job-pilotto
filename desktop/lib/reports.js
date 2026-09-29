@@ -1,7 +1,9 @@
 // "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
-// operate), send the form STRUCTURE (site, labels, types, options, reason, extension version) to the project's
-// Worker, which opens an issue for the daily fixer. Never answers or personal data. Part of the technical reports:
-// on unless the user turned them off (Settings → Advanced, settings.telemetry); each site + field is reported once.
+// operate), send the form STRUCTURE (site, labels, types, options, reason, extension version, and the field's HTML
+// snapshot, scrubbed in the page by extension/page/snapshot.js and again by the Worker) to the project's Worker,
+// which opens an issue for the daily fixer. Never answers or personal data. Part of the technical reports:
+// on unless the user turned them off (Settings → Advanced, settings.telemetry); each site + field is reported once
+// (once more when a snapshot exists for a field reported before snapshots, so its issue gets one).
 import {execFileSync} from 'node:child_process';
 
 // The owner's app signs its reports (trusted → the daily fixer takes them); the token is in the app's secrets
@@ -16,6 +18,7 @@ export function reportToken(storage) {
 export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://www.jobpilotto.workers.dev/report/fill-failure';
 export const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
   'answer given, but the field did not take it'];
+const SNAPPED = '#snapshot';  // reportedFailures entry "<label key> #snapshot": reported with its snapshot
 const key = label => String(label || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 export function build(run, reported = {}) {
@@ -23,9 +26,13 @@ export function build(run, reported = {}) {
   try { site = new URL(run.url).hostname; } catch { return null; }
   const done = new Set(reported[site] || []);
   const byLabel = new Map((run.debug?.form || []).map(f => [key(f.label), f]));
-  const fields = (run.trace || []).filter(f => MECHANICAL.includes(f.reason) && !done.has(key(f.label))).map(f => ({
-    label: f.label, type: f.type || byLabel.get(key(f.label))?.type || '', required: !!f.required, reason: f.reason,
-    options: (byLabel.get(key(f.label))?.options || []).slice(0, 30)}));
+  const snapshotOf = label => run.snapshots?.[label] || null;
+  // A clicked dropdown's reason ends with its time ("… no option matched (1.5 s)"): without it, it is the mechanical one.
+  const reasonOf = f => String(f.reason || '').replace(/\s*\([\d.]+ s\)$/, '');
+  const fields = (run.trace || []).filter(f => MECHANICAL.includes(reasonOf(f)) && !done.has(`${key(f.label)} ${SNAPPED}`) &&
+    !(done.has(key(f.label)) && !snapshotOf(f.label))).map(f => ({
+    label: f.label, type: f.type || byLabel.get(key(f.label))?.type || '', required: !!f.required, reason: reasonOf(f),
+    options: (byLabel.get(key(f.label))?.options || []).slice(0, 30), ...(snapshotOf(f.label) ? {snapshot: snapshotOf(f.label)} : {})}));
   return fields.length ? {site, version: run.debug?.version || '', fields} : null;
 }
 
@@ -39,6 +46,6 @@ export async function send(storage, run, fetcher = globalThis.fetch) {
     headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})}});
   if (!response.ok) throw new Error(`report not sent: ${response.status}`);
   const reported = settings.reportedFailures || {};
-  storage.saveSettings({reportedFailures: {...reported, [report.site]: [...new Set([...(reported[report.site] || []), ...report.fields.map(f => key(f.label))])]}});
+  storage.saveSettings({reportedFailures: {...reported, [report.site]: [...new Set([...(reported[report.site] || []), ...report.fields.flatMap(f => [key(f.label), ...(f.snapshot ? [`${key(f.label)} ${SNAPPED}`] : [])])])]}});
   return report;
 }

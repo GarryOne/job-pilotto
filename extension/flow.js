@@ -98,6 +98,10 @@ export async function api(config, path, init = {}, retry = true) {
   return data;
 }
 
+// Why a field was left that is the extension's fault, not missing data (desktop/lib/reports.js reports these).
+const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
+  'answer given, but the field did not take it'];
+
 const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
   .then(([result]) => result?.result);
 
@@ -131,7 +135,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
-    files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/fill.js']});
+    files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/fill.js']});
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null, later = [];
@@ -274,11 +278,17 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       debug.errors.push(`Claude (after the fill): ${error.message}`);
     }
   }
+  // Fields left for a mechanical reason (a widget the extension couldn't operate): a scrubbed HTML snapshot of each,
+  // for the fill-failure report's replay test (page/snapshot.js). Your details are passed only to hide them.
+  const snapshots = await inPage(tab.id, (targets, secrets) => window.__jobPilottoSnapshots?.(targets, secrets) || {},
+    [(summary.trace || []).filter(row => MECHANICAL.some(reason => String(row.reason || '').startsWith(reason))).map(row =>
+      ({label: row.label, field: (debug.form || []).find(f => f.label === row.label)?.field || ''})),
+    Object.values(me?.contact || config.profile || {}).filter(value => typeof value === 'string')]).catch(() => ({}));
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
   api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: job, started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0,
-    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], debug: {...debug, aiUsd: ai?.usd || 0}})})
+    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], snapshots: snapshots || {}, debug: {...debug, aiUsd: ai?.usd || 0}})})
     .then(logged => logged?.url && chrome.storage.session.set({[`run:${tab.id}`]: logged.url})).catch(() => {});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
 }

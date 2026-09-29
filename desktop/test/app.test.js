@@ -301,7 +301,7 @@ test('fill reports: mechanical failures only, form structure only, each site + f
   const storage = tempStorage();
   const run = {url: 'https://job-boards.greenhouse.io/x/jobs/1', debug: {version: '0.6.2', form: [{label: 'Location (City)', type: 'combobox', options: ['Geneva']}],
     answers: [{field: 'loc', value: 'Geneva, Switzerland'}]},
-    trace: [{label: 'Location (City)', required: true, reason: 'dropdown clicked, but no option matched'},
+    trace: [{label: 'Location (City)', required: true, reason: 'dropdown clicked, but no option matched (1.5 s)'},
       {label: 'Pronouns', reason: 'no answer in the kit, Profile or your details'}]};
   const sent = [];
   const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true}; };
@@ -310,9 +310,16 @@ test('fill reports: mechanical failures only, form structure only, each site + f
   storage.saveSettings({telemetry: true});
   const report = await reports.send(storage, run, fetcher);
   assert.equal(report.fields.length, 1);
+  assert.equal(report.fields[0].reason, 'dropdown clicked, but no option matched');  // the click's time dropped
   assert.deepEqual(report.fields[0].options, ['Geneva']);
   assert.ok(!JSON.stringify(sent).includes('Geneva, Switzerland'));  // no answers
   assert.equal(await reports.send(storage, run, fetcher), null);  // already reported for this site
+  // A field reported before snapshots existed is reported once more with its snapshot (for its issue), then never.
+  const snapshot = {t: 'div', a: {class: 'select__container'}, c: [{t: 'input', a: {role: 'combobox', 'data-jp-field': ''}, c: []}]};
+  const withSnapshot = {...run, snapshots: {'Location (City)': snapshot}};
+  const again = await reports.send(storage, withSnapshot, fetcher);
+  assert.deepEqual(again.fields[0].snapshot, snapshot);
+  assert.equal(await reports.send(storage, withSnapshot, fetcher), null);
 });
 
 test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then starts one session for the job', async () => {

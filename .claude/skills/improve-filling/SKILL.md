@@ -23,10 +23,28 @@ answer with its source, dropdown attempts, step timings, errors, extension versi
    - *answer given, but the field did not take it* → the widget needs real input (debugger typing,
      like the phone) or a different event.
    - a field type not recognised at all → `__jobPilottoDescribeForm`.
-3. **Fix** in a git worktree, one cause per commit, with a test in `worker/test/extension*.test.js`
-   (the page helpers run in `vm`; see existing tests). Bump `extension/manifest.json`'s version so new
-   runs are distinguishable. If `tools/browser-*.js` changed, run `extension/sync.sh`.
-4. **Verify**: `cd worker && npm test`, then push (the pre-push hook runs every suite).
+3. **Replay first, then fix** (one failing field = one fixture = one commit), in a git worktree:
+   1. **Extract the snapshot**: `node tools/fill-fixture.mjs <issue> --answer "<representative answer>" --expect-picked "<option>"`
+      (or `--expect-checked` / `--expect-value`). It reads the issue's `<!-- job-pilotto:snapshot v1 -->` block (the
+      field's scrubbed HTML: label, container, the open menu's options) and writes
+      `worker/test/fixtures/fill/<site>--<label>.html` + `.json`. The answer is a *representative* value of the kind
+      the kit gives (e.g. "Master's"), never the user's real one. No snapshot on the issue (older reports)? Build the
+      fixture by hand from the public form's structure, `"source": "synthetic"`, like the seeded Greenhouse ones.
+      Without `node` (the daily fixer's allowlist): `gh issue view <n>`, then Write the two files yourself: the
+      ```html block verbatim as `.html`, and a `.json` like the seeded ones with `"source": "issue #<n>"`.
+   2. **See it fail**: `cd worker && node --test test/fill-replay.test.js` (or `npm --prefix worker test`). It runs the real `extension/page/fill.js`
+      on the fixture in jsdom (a dropdown gets a trusted click, as in Chrome). If it passes, the fixture doesn't
+      reproduce the failure: fix the fixture or the expectation first, not the code.
+   3. **Fix** `extension/page/fill.js` (or `__jobPilottoDescribeForm`), until the fixture passes and every other
+      fixture still does. Unit tests for helpers can go in `worker/test/extension*.test.js` too.
+   4. Commit the fixture with the fix. Bump `extension/manifest.json`'s version and run
+      `node desktop/scripts/extension-fingerprint.mjs --write` (desktop/test/extension-version.test.js checks it), so
+      new runs are distinguishable. If `tools/browser-*.js` or `extension/page/snapshot.js`'s scrubber changed, run
+      `extension/sync.sh`.
+   Privacy: fixtures are public. Never paste anything from Notion's run records or the user's form into a fixture by
+   hand; only the issue's scrubbed snapshot or public form structure (`worker/test/fill-replay.test.js` rejects
+   emails, URLs, phone-like numbers, scripts, links and styles in fixtures).
+4. **Verify**: `cd worker && npm test` (includes every replay fixture), then push (the pre-push hook runs every suite).
 5. **Report** to the owner: what failed, how often, what changed, and which failures are data gaps
    for them to answer (never invent personal answers).
 

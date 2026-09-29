@@ -190,6 +190,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `worker/src/extension.js` — Endpoints for the Job Pilotto Chrome extension (extension/ in the repo).
 - `worker/src/index.js` — Telegram webhook for @sre_job_pilotto_bot.
 - `worker/src/report.js` — Fill-failure reports from the Job Pilotto app: form STRUCTURE only (site, field labels, types, options, why a
+- `worker/src/snapshot.js` — Fill-failure snapshots, on the Worker's side: every report's snapshot tree is scrubbed again here (anyone can post
 
 ## Tools
 
@@ -200,6 +201,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
 - `tools/canary_promote.py` — Canary auto-promote: make the newest desktop pre-release that has been out >= 48 h stable, if nothing new went wrong.
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
+- `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links

@@ -147,6 +147,8 @@
       setTimeout(async () => {
         let option = matchOption(answer);
         if (!option) {
+          // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
+          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {}
           // Long menus (countries, cities) show only their first entries: type the answer to filter,
           // which the menu accepts once your click has opened it.
           // Search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.

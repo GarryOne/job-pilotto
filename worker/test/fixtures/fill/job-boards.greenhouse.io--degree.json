@@ -1,0 +1,9 @@
+{
+ "source": "synthetic",
+ "site": "job-boards.greenhouse.io",
+ "label": "Degree",
+ "reason": "dropdown clicked, but no option matched",
+ "note": "Greenhouse's react-select Degree menu, open (public form structure). The kit answers the short form.",
+ "answer": "Master's",
+ "expect": {"picked": "Master's Degree"}
+}

@@ -1,0 +1,9 @@
+{
+ "source": "synthetic",
+ "site": "job-boards.greenhouse.io",
+ "label": "Will you now or will you in the future require employment visa sponsorship to work in the country in which the job you're applying for is located?",
+ "reason": "dropdown that opens only on a real click",
+ "note": "Greenhouse's yes/no question as a react-select (public form structure; like issue #12).",
+ "answer": "No",
+ "expect": {"picked": "No"}
+}
