@@ -30,6 +30,18 @@ def event(page_id, kind, at, note='', source_id=''):
 
 
 class FocusTests(unittest.TestCase):
+    def test_applications_per_day_for_the_chart_count_each_application_once_a_day(self):
+        # The Applied on date or an Applied event that day; one application with both counts once.
+        rows = [row('a', 'A', 'SRE', applied='2026-09-28'), row('b', 'B', 'SRE', applied='2026-09-26'),
+                row('c', 'C', 'SRE', applied='2026-09-10'), row('d', 'D', 'SRE', stage='Kit ready', applied=None)]
+        events = [event('a', 'Applied', '2026-09-28T09:00:00Z'), event('d', 'Applied', '2026-09-28T13:00:00Z')]
+        today = focus.build(rows, events, target=5, now=NOW)['today']
+        self.assertEqual(len(today['history']), 14)
+        self.assertEqual(today['history'][-1], {'day': '2026-09-28', 'applied': 2})
+        self.assertEqual(today['history'][-3], {'day': '2026-09-26', 'applied': 1})
+        self.assertEqual(today['history'][0]['day'], '2026-09-15')  # 10 Sep is older than 14 days: not shown
+        self.assertEqual(today['applied'], 2)  # the same count as the chart's today
+
     def test_answers_come_first_then_interviews_then_applying(self):
         rows = [row('a', 'Duvo.ai', 'SRE', stage='Screening'), row('b', 'Laelaps AI', 'Infra', stage='Screening'),
                 row('c', 'Scale AI', 'Infra', interview='2026-09-29T09:00:00+02:00', stage='Interview scheduled'),
@@ -70,7 +82,7 @@ class FocusTests(unittest.TestCase):
         rows = [row('a', 'A', 'x', applied='2026-09-28'), row('b', 'B', 'y', applied='2026-09-20'), row('c', 'C', 'z', applied='2026-09-20')]
         events = [event('b', 'Applied', '2026-09-28T09:00:00+02:00')]
         result = focus.build(rows, events, target=3, now=NOW)
-        self.assertEqual(result['today'], {'applied': 2, 'target': 3, 'kits_ready': 0})
+        self.assertEqual({k: v for k, v in result['today'].items() if k != 'history'}, {'applied': 2, 'target': 3, 'kits_ready': 0})
         apply = next(i for i in result['items'] if i['kind'] == 'apply')
         self.assertEqual(apply['title'], 'Apply to 1 more job today')
         self.assertFalse(any(i['kind'] == 'apply' for i in focus.build(rows, events, target=2, now=NOW)['items']))

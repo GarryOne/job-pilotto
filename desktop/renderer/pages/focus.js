@@ -90,6 +90,33 @@ async function loadFocusOnce() {
   focusUpdatedAt = Date.now();
   focusStatus('Updated just now');
 }
+// Applications per day, the last 14 days (from Notion: Applied on dates and Applied events), with the daily target as
+// a dashed line: a day that reached it is green, today is the accent colour.
+function progressChart(days, target) {
+  show($('focus-chart-block'), days.length > 0);
+  if (!days.length) return;
+  const top = Math.max(target, ...days.map(day => day.applied), 1);
+  const chart = $('focus-chart');
+  const bars = days.map((day, i) => {
+    const date = new Date(`${day.day}T12:00:00`);
+    const column = el('div', `focus-chart-col${i === days.length - 1 ? ' is-today' : ''}${day.applied >= target ? ' is-met' : ''}`);
+    column.title = `${date.toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short'})}: ${day.applied} application${day.applied === 1 ? '' : 's'}`;
+    const bar = el('span', 'focus-chart-bar');
+    bar.style.height = `${Math.round(100 * day.applied / top)}%`;
+    const slot = el('div', 'focus-chart-slot');
+    slot.append(bar);
+    column.append(slot, el('span', 'focus-chart-day', date.toLocaleDateString([], {weekday: 'narrow'})));
+    return column;
+  });
+  const goal = el('div', 'focus-chart-goal');
+  goal.style.bottom = `calc(14px + (100% - 14px) * ${target / top})`;  // above the day letters (14 px)
+  goal.title = `Target: ${target} a day`;
+  const plot = el('div', 'focus-chart-plot');
+  plot.append(goal, ...bars);
+  chart.replaceChildren(plot);
+  const total = days.reduce((sum, day) => sum + day.applied, 0);
+  $('focus-chart-sum').textContent = `${total} applied · ${days.filter(day => day.applied >= target).length} day${days.filter(day => day.applied >= target).length === 1 ? '' : 's'} on target`;
+}
 function focusCard(item) {
   const li = el('li', `focus-item tone-${item.tone || 'neutral'}`);
   const round = el('span', 'focus-round');
@@ -231,6 +258,7 @@ function renderFocus(data) {
   $('focus-of').textContent = `/ ${today.target} applications today`;
   $('focus-target').value = today.target;
   $('focus-bar').style.width = `${pct}%`;
+  progressChart(today.history || [], today.target);
   $('focus-pct').textContent = `${pct}%`;
   $('focus-summary').textContent = summary || '';
   renderInsight(insight);

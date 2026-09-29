@@ -180,10 +180,28 @@ def _interviewed(interviews):
 
 
 def _applied_today(rows, by_app, today):
-    ids = {r['id'] for r in rows if _field(r, 'Applied on')[:10] == today.isoformat()}
-    ids |= {key for key, events in by_app.items()
-            if any(e['kind'] == 'Applied' and e['at'] and e['at'].astimezone(TZ).date() == today for e in events)}
-    return len({i.replace('-', '') for i in ids})
+    return _applied_by_day(rows, by_app, today, days=1)[0]['applied']
+
+
+def _applied_by_day(rows, by_app, today, days=14):
+    """Applications per day, oldest first, the last `days` days up to today: the Focus progress chart. The same rule as
+    today's count (the Applied on date, or an Applied event that day), read from Notion: no separate history to keep."""
+    first = today - timedelta(days=days - 1)
+    seen = {}
+    for row in rows:
+        day = _field(row, 'Applied on')[:10]
+        if day:
+            seen.setdefault(row['id'].replace('-', ''), set()).add(day)
+    for key, events in by_app.items():
+        for event in events:
+            if event['kind'] == 'Applied' and event['at']:
+                seen.setdefault(key.replace('-', ''), set()).add(event['at'].astimezone(TZ).date().isoformat())
+    counts = {}
+    for days_seen in seen.values():
+        for day in days_seen:
+            counts[day] = counts.get(day, 0) + 1
+    return [{'day': (first + timedelta(days=i)).isoformat(), 'applied': counts.get((first + timedelta(days=i)).isoformat(), 0)}
+            for i in range(days)]
 
 
 # A job known only from an invitation or a message: its Job URL is the email, the chat or a derived link.
@@ -352,7 +370,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
              'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     items = [present(item) for item in items]
-    return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits)},
+    return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits),
+                                      'history': _applied_by_day(rows, by_app, today)},
             'insight': insight, 'summary': summary(items), 'funnel': funnel(rows, events),
             'generated_at': now.isoformat(timespec='seconds')}
 

@@ -749,6 +749,18 @@ main { min-width: 0; }
   border-radius: var(--r-md); padding: 10px 12px; margin: 8px 0; max-height: 220px; overflow-y: auto; }
 
 /* Focus: Up next, Insight and funnel on the left; progress, reminders and "Your focus" on the right */
+/* Today's progress: applications per day, the last 14 days, the target as a dashed line */
+.focus-chart-block { margin-top: var(--sp-3); }
+.focus-chart-head { display: flex; justify-content: space-between; margin-bottom: var(--sp-1); }
+.focus-chart-plot { position: relative; display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; height: 86px; }
+.focus-chart-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.focus-chart-slot { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.focus-chart-bar { width: 100%; min-height: 2px; border-radius: var(--r-sm) var(--r-sm) 0 0; background: var(--line); }
+.focus-chart-col.is-met .focus-chart-bar { background: var(--good); }
+.focus-chart-col.is-today .focus-chart-bar { background: var(--signal); }
+.focus-chart-day { height: 12px; margin-top: 2px; font-size: var(--fs-xs); color: var(--muted); line-height: 1; }
+.focus-chart-col.is-today .focus-chart-day { color: var(--signal); font-weight: 600; }
+.focus-chart-goal { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
 .focus-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--sp-4); align-items: start; }
 .focus-main, .focus-side { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .focus-grid .card { margin: 0; }
