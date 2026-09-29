@@ -96,7 +96,7 @@ export async function findRepo(api, chosen = '') {
     ? `Job Pilotto can't see a repository called ${REPO_NAME}. Add it to the app's repositories, then check again.`
     : 'Create your private repository and install Job Pilotto on it, then check again.'), {needsRepo: true});
   if (!repo.private) throw new Error(`${repo.full_name} is public. Make it private in its Settings, then check again.`);
-  return {login, repo: repo.full_name, created: false};
+  return {login, repo: repo.full_name, created: false, createdAt: repo.created_at || ''};
 }
 
 // Create or update one file on the default branch; unchanged content is left alone.
@@ -167,11 +167,18 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
 }
 
 
+// A repo older than this wasn't made in the setup that is running now.
+const REUSED_AFTER = 30 * 60 * 1000;
+
 // Everything in one go; safe to run again (after a key or setting changes).
 export async function connect(storage, token, {fetcher, onStep = () => {}, repo: chosen = ''} = {}) {
   const api = client(token, fetcher);
   onStep('Finding your private repository…');
-  const {login, repo, created} = await findRepo(api, chosen);
+  const {login, repo, created, createdAt} = await findRepo(api, chosen);
+  // A repository from an earlier setup (not the one just made, not the one already in use): say it's being reused.
+  const existing = storage.settings().cloud?.repo !== repo && createdAt && Date.now() - Date.parse(createdAt) > REUSED_AFTER
+    ? {createdAt} : null;
+  if (existing) onStep(`Found your repository ${repo} (created ${new Date(createdAt).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'})}): using it…`);
   const {files, secrets, variables, removed} = payload(storage);
   onStep('Adding the schedules and your search settings…');
   for (const [file, content] of Object.entries(files)) await putFile(api, repo, file, content, `Job Pilotto: ${file}`);
@@ -180,7 +187,7 @@ export async function connect(storage, token, {fetcher, onStep = () => {}, repo:
   await setVariables(api, repo, variables);
   await removeVariables(api, repo, removed);
   storage.saveSettings({cloud: {repo, login, since: storage.settings().cloud?.since || new Date().toISOString(), updatedAt: new Date().toISOString()}});
-  return {repo, created, secrets: Object.keys(secrets), variables: Object.keys(variables)};
+  return {repo, created, existing, secrets: Object.keys(secrets), variables: Object.keys(variables)};
 }
 
 // Who wants to know a run was just started there (the app shows "Starting on GitHub…" until its row appears).

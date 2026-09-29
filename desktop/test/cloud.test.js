@@ -24,7 +24,7 @@ function userStorage() {
 }
 
 // A small GitHub: records calls, answers like the real API.
-async function fakeGitHub({repoExists = true, variableExists = []} = {}) {
+async function fakeGitHub({repoExists = true, variableExists = [], createdAt = new Date().toISOString()} = {}) {
   await sodium.ready;
   const keys = sodium.crypto_box_keypair();
   const calls = [];
@@ -37,7 +37,7 @@ async function fakeGitHub({repoExists = true, variableExists = []} = {}) {
     if (route === '/user') return json(200, {login: 'ada'});
     if (route.startsWith('/user/installations?')) return json(200, {installations: repoExists === null ? [] : [{id: 7}]});
     if (route.startsWith('/user/installations/7/repositories')) return json(200, {repositories: [
-      {name: 'dotfiles', full_name: 'ada/dotfiles', private: false}, {name: 'job-pilotto-private', full_name: 'ada/job-pilotto-private', private: true}]});
+      {name: 'dotfiles', full_name: 'ada/dotfiles', private: false}, {name: 'job-pilotto-private', full_name: 'ada/job-pilotto-private', private: true, created_at: createdAt}]});
     const content = route.match(/^\/repos\/ada\/job-pilotto-private\/contents\/(.+)$/);
     if (content && method === 'GET') return files[content[1]] ? json(200, files[content[1]]) : json(404, {});
     if (content && method === 'PUT') { files[content[1]] = {content: data.content, sha: 'x'}; return json(201, {}); }
@@ -69,6 +69,18 @@ test('turning it on fills the repo the app was installed on: schedules, settings
   assert.ok(gh.calls.some(c => c.method === 'PATCH' && c.route.endsWith('/actions/variables/NOTION_MATCHES_DB')));  // existing: updated
   assert.ok(gh.calls.some(c => c.method === 'POST' && c.data?.name === 'JOB_PILOTTO_SCORE_MODEL'));
   assert.equal(storage.settings().cloud.repo, 'ada/job-pilotto-private');
+});
+
+test('a repository from an earlier setup is reused, and the setup says so (only the first time)', async () => {
+  const storage = userStorage();
+  const steps = [];
+  const gh = await fakeGitHub({createdAt: '2026-09-27T21:48:14Z'});
+  const first = await github.connect(storage, 'gho_token', {fetcher: gh.fetcher, onStep: step => steps.push(step)});
+  assert.deepEqual(first.existing, {createdAt: '2026-09-27T21:48:14Z'});
+  assert.ok(steps.some(step => /Found your repository ada\/job-pilotto-private \(created 27 Sept? 2026\)/.test(step)), steps.join(' | '));
+  assert.equal((await github.connect(storage, 'gho_token', {fetcher: gh.fetcher})).existing, null);  // Update: already in use
+  const fresh = await github.connect(userStorage(), 'gho_token', {fetcher: (await fakeGitHub()).fetcher});
+  assert.equal(fresh.existing, null);  // made just now, in this setup
 });
 
 test('running it again leaves unchanged files alone', async () => {

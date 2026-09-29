@@ -130,6 +130,10 @@ function checkingLine(busy) {
   else line.replaceChildren(icon('check'), 'Checked just now');
   line.classList.toggle('is-done', !busy);
 }
+// A connection changed in the app (Always on turned on or off): the cards follow at once, from what's known.
+export function refreshServices() {
+  if (shared.state?.secrets) renderServices(quickStatus());
+}
 // Settings opened: the service cards from what's known now, before the page's other reads.
 export function showServicesNow() {
   if (!shared.state?.secrets) return;

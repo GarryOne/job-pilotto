@@ -3,7 +3,7 @@ import {shared} from './shared.js';
 import {$, message, osText, show} from './core.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
-import {renderOverview, showRunMode} from './settings.js';
+import {refreshServices, renderOverview, showRunMode} from './settings.js';
 import {goStep} from './wizard.js';
 
 // ---------- Apply with Claude: what only the user can install (wizard, Optional extras) ----------
@@ -60,6 +60,14 @@ export function showCloud() {
   $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
   $('auto-search').disabled = !!cloud?.repo;
   showTelegramCloud();
+  refreshServices();  // Settings → Connections: the GitHub card moves between Available and Connected
+}
+
+// "Connected to …", or, when the setup found a repository from an earlier setup, which one and since when.
+function connectedTo(result) {
+  if (!result.existing) return `Connected to ${result.repo}`;
+  const since = new Date(result.existing.createdAt).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'});
+  return `Using your existing private repository ${result.repo} (created ${since})`;
 }
 
 // Telegram buttons, always on (the user's own Cloudflare Worker; lib/telegram-cloud.js).
@@ -155,7 +163,7 @@ export async function init() {
     show($('cloud-steps'), false);
     shared.state = await window.pilot.state();
     showCloud();
-    message('cloud-message', `Connected to ${result.repo} ✓ ` +
+    message('cloud-message', `${connectedTo(result)} ✓ ` +
       `${result.secrets.length} keys stored as encrypted secrets. The first run follows your schedule; press Search now to start one right away.`, 'ok');
   });
   window.pilot.onCloudStep(step => {
@@ -179,7 +187,7 @@ export async function init() {
     show($('cloud-choose'), false);
     shared.state = await window.pilot.state();
     showCloud();
-    message('cloud-message', `Connected to ${result.repo} ✓ ${result.secrets.length} keys stored as encrypted secrets.`, 'ok');
+    message('cloud-message', `${connectedTo(result)} ✓ ${result.secrets.length} keys stored as encrypted secrets.`, 'ok');
   });
   $('cloud-create').addEventListener('click', () => window.pilot.openExternal(cloudUrls.createUrl));
   $('cloud-install').addEventListener('click', () => window.pilot.openExternal(cloudUrls.installUrl));
