@@ -112,7 +112,10 @@ jobs:
               Approved. If a past decision's "Check on" date has come, start "evidence" with how it went.
             - ${{ env.STEP == 'another' && 'The owner rejected the latest proposal (Not now today): propose something clearly different.' || 'This is the regular morning brief.' }}
             - WebSearch (when available) is for market facts: channels, communities, competitors. Keep it to 3 searches.
-            - Never propose anything that posts or messages on the owner's behalf, spends money, or touches the owner's
+            - Spending is the owner's call, and recommending it is your job when it's the biggest lever: paid ads, a tool,
+              Apple signing. Give the amount, what it buys, the number that says it worked (e.g. cost per install) and
+              the stop rule. Say when paid growth would be premature (e.g. installs don't turn into weekly users yet).
+            - You never act: nothing that posts or messages on the owner's behalf, and nothing touching the owner's
               personal job data. Drafts for the owner to post are fine.
 
             Write .brain/brief.json with exactly these keys (plain text, short):
@@ -141,8 +144,11 @@ jobs:
             - Is the phase still right? Did its exit criteria move? Is the north-star number moving?
             - Which bet is working, which isn't (evidence), and what is the biggest lever being ignored?
             - Did the last week's actions serve the goal, or drift into polish?
+            - Channels: free (network, communities, content) and paid (Google/Meta/LinkedIn ads, sponsorships). Recommend
+              paid tests when the funnel is ready for them (visitors turn into installs, installs into weekly users),
+              with a budget, the cost per install to beat and a stop rule; say plainly when it's too early.
             Propose Compass changes ONLY when the evidence supports them (a new bet, a dropped bet, a sharper goal, the
-            next phase). "Keep it as is" is a valid outcome.
+            next phase, a test budget). "Keep it as is" is a valid outcome.
 
             Write .brain/brief.json with exactly these keys:
             {"lens": "Strategy", "serves": "the Compass", "evidence": "one line: the week in numbers",
