@@ -78,3 +78,11 @@ test('the key, given once on either page, opens both (the cookie is for the whol
   const later = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Cookie: cookie.split(';')[0]}}), e, {});
   assert.equal(later.status, 200);
 });
+
+test('an install whose report has no counts yet shows "–", not 0', async () => {
+  const e = env();
+  await send(e, [{kind: 'health', install: 'install-cccc', version: '0.4.0', platform: 'darwin', at: '2026-09-29T08:00:00Z', ai: true}]);
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  assert.match(html, /📨 Applications<\/span><b>–<\/b>/);
+  assert.match(html, /No counts yet/);
+});

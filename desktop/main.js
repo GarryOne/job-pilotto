@@ -47,9 +47,11 @@ let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
+const HEALTH_VERSION = 2;  // bump when the daily health line gets new fields (2: outcome counts)
 // Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
 function healthOnce() {
-  const settings = storage.settings(), today = new Date().toISOString().slice(0, 10);
+  // Once a day, and again the same day when the line's content changed (HEALTH_VERSION), so new counts arrive at once.
+  const settings = storage.settings(), today = `${new Date().toISOString().slice(0, 10)}|${HEALTH_VERSION}`;
   if (!telemetry?.enabled() || settings.telemetryHealthAt === today) return;
   storage.saveSettings({telemetryHealthAt: today});
   const has = name => !!storage.secret(name);

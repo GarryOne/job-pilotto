@@ -69,12 +69,14 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   // How it helped: each install's latest daily health line, summed (anonymous counts; "ever reached" for the funnel).
   const health = (await db.prepare(`SELECT t.data FROM telemetry t WHERE t.kind = 'health' AND t.day >= ?
     AND t.at = (SELECT MAX(at) FROM telemetry WHERE install = t.install AND kind = 'health')`).bind(from).all()).results || [];
-  const outcomes = {};
+  // Only installs that sent a count add to it; none yet → no number (shown "–", never a false 0).
+  const outcomes = {}, counted = {};
   for (const row of health) {
     let data = {};
     try { data = JSON.parse(row.data); } catch {}
-    for (const name of OUTCOMES) if (typeof data[name] === 'number') outcomes[name] = (outcomes[name] || 0) + data[name];
+    for (const name of OUTCOMES) if (typeof data[name] === 'number') { outcomes[name] = (outcomes[name] || 0) + data[name]; counted[name] = (counted[name] || 0) + 1; }
   }
+  outcomes.counted = counted;
   return {from, days, rows, installs, outcomes, reporting: health.length};
 }
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
@@ -107,7 +109,10 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 <section class="card" style="margin-bottom:12px"><h2>How it helped</h2><small class="muted">all ${data.reporting} installs reporting, their latest totals</small>
 <div class="tiles" style="margin:10px 0 0">${[['🎯 Jobs matched', 'matches'], ['⭐ Good fits (70+)', 'goodFits'], ['🧩 Forms filled', 'formsFilled'],
   ['📨 Applications', 'applied'], ['💬 Human replies', 'replies'], ['📞 Screenings', 'screenings'], ['🧑‍💻 Interviews', 'interviews'], ['🏆 Offers', 'offers']]
-  .map(([label, name]) => `<div class="tile"><span class="muted">${label}</span><b>${data.outcomes?.[name] ?? 0}</b></div>`).join('')}</div></section>
+  .map(([label, name]) => { const n = data.outcomes?.counted?.[name] || 0;
+    return `<div class="tile"><span class="muted">${label}</span><b>${n ? data.outcomes[name] : '–'}</b>${n && n < data.reporting
+      ? `<small class="muted">${n} of ${data.reporting} installs</small>` : ''}</div>`; }).join('')}</div>
+${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">No counts yet: they arrive with each install\'s next daily report.</small>'}</section>
 <section class="card"><h2>Problems, most users first</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 <p class="muted">Since ${esc(data.from)} (UTC). Scrubbed on each Mac before sending; no answers, CV, emails, names or keys. Kept ${KEEP_DAYS} days.</p>
