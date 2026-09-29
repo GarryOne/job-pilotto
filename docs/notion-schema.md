@@ -113,8 +113,9 @@ delete and let it repopulate.
 ## Employers & Sources (database)
 
 Env var: `NOTION_EMPLOYERS_DB`. One row per employer or job board the crawler knows about; the
-daily scout creates and updates these. Optional for a first run — the crawler falls back to
-`config/sources.json` and its own local feed table if this database is empty or unset.
+scout creates and updates these (optional since the central employer index: the crawler downloads that and merges it with
+`config/sources.json`, so this database is only your own list). Optional for a first run — the crawler falls back to
+the downloaded index, `config/sources.json` and its own local feed table if this database is empty or unset.
 
 | Property | Type | Notes |
 |---|---|---|

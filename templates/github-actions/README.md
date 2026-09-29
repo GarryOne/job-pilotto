@@ -12,7 +12,7 @@ adds the times you choose (Settings → How often). Defaults:
 | File | When | What |
 |---|---|---|
 | `daily.yml` | every 4 hours | crawl, score, Telegram digest, Notion sync; also started by the bot's buttons |
-| `scout.yml` | 06:15 | finds new employer job feeds |
+| `scout.yml` | off (optional: 06:15 when you turn it on) | finds new employer job feeds of your own; the shared index is downloaded anyway |
 | `mail.yml` | 05:00, 10:00, 16:00 | Gmail + Calendar → Notion and Telegram (read-only) |
 
 Your private repo needs:

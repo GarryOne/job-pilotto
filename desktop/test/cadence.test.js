@@ -7,7 +7,7 @@ const TEMPLATE = "on:\n  schedule:\n    - cron: '30 */4 * * *'\n  workflow_dispa
 
 test('the chosen times, in the user\'s time zone, become UTC schedules', () => {
   const zurichSummer = 120;  // UTC+2
-  assert.deepEqual(crons({}, zurichSummer), {
+  assert.deepEqual(crons({schedule: {scout: 'daily'}}, zurichSummer), {
     'daily.yml': '30 1,5,9,13,17,21 * * *',  // every 4 h from 07:30 local
     'scout.yml': '15 6 * * *',               // 08:15 local
     'mail.yml': '0 5,10,16 * * *',           // 07, 12, 18 local
@@ -28,4 +28,8 @@ test('the app\'s own timer uses the same search interval', () => {
   assert.equal(due({setupDone: true, lastSearchAt}, now), false);                       // default 4 h
   assert.equal(due({setupDone: true, lastSearchAt, schedule: {search: 2}}, now), true);
   assert.equal(due({setupDone: true, lastSearchAt, schedule: {search: 0}}, now), false); // only when asked
+});
+
+test('a new install has no scout of its own (the central index replaces it)', () => {
+  assert.equal(crons({}, 0)['scout.yml'], null);
 });

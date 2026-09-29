@@ -32,3 +32,19 @@ test('nothing moves before setup or without Notion', async () => {
   storage.saveSettings({setupDone: false});
   assert.deepEqual(await migrate.run(storage, () => {}, [{name: 'a', run: async () => true}]), []);
 });
+
+test('an install set up before the central index keeps its daily scout; a new install starts without one', () => {
+  const existing = connected();
+  assert.equal(migrate.pinScoutSchedule(existing), true);
+  assert.equal(existing.settings().schedule.scout, 'daily');
+  const chosen = connected();
+  chosen.saveSettings({schedule: {scout: 'weekly', mail: 3}});
+  migrate.pinScoutSchedule(chosen);
+  assert.deepEqual(chosen.settings().schedule, {scout: 'weekly', mail: 3});  // their own choice stays
+  const fresh = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), fakeCrypto);
+  assert.equal(migrate.pinScoutSchedule(fresh), false);
+  assert.equal(fresh.settings().schedule?.scout, undefined);
+  fresh.saveSettings({setupDone: true});   // finishes setup later: still no scout, the pin ran only once
+  assert.equal(migrate.pinScoutSchedule(fresh), false);
+  assert.equal(fresh.settings().schedule?.scout, undefined);
+});

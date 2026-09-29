@@ -218,7 +218,8 @@ test('at the next start the saved jobs are handed back once, and entries without
 
 test('Find new employers runs on this Mac on its schedule (after the first search), not when Always on runs it', async () => {
   const {nextScoutAt, scoutDue} = await import('../lib/schedule.js');
-  const base = {setupDone: true, lastSearchAt: '2026-09-28T10:00:00Z'};
+  const base = {setupDone: true, lastSearchAt: '2026-09-28T10:00:00Z', schedule: {scout: 'daily'}};
+  assert.equal(nextScoutAt({...base, schedule: undefined}), null);  // new installs: off, the central index replaces it
   assert.equal(nextScoutAt({...base, lastSearchAt: null}), null);  // not before the first search
   assert.equal(scoutDue(base, Date.parse('2026-09-28T10:05:00Z')), true);  // never run: due now
   const daily = {...base, lastScoutAt: '2026-09-28T12:00:00Z'};

@@ -92,7 +92,18 @@ export const STEPS = [
   }},
 ];
 
+// Once, at the first start of the version whose default is "no own scout": an install that is already set up keeps
+// its daily scout (written down, so it stays whatever the default is); a new install starts without one.
+export function pinScoutSchedule(storage) {
+  const settings = storage.settings();
+  if (settings.scoutDefaultPinned) return false;
+  const keep = !!settings.setupDone && settings.schedule?.scout == null;
+  storage.saveSettings({scoutDefaultPinned: true, ...(keep ? {schedule: {...(settings.schedule || {}), scout: 'daily'}} : {})});
+  return keep;
+}
+
 export async function run(storage, onLine = () => {}, steps = STEPS, fetcher) {
+  pinScoutSchedule(storage);
   const settings = storage.settings();
   if (!settings.setupDone || !storage.secret('NOTION_TOKEN') || !settings.notionIds?.NOTION_PROFILE_PAGE_ID) return [];
   const moved = [];

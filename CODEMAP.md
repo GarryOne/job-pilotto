@@ -163,6 +163,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""
 - `src/doctor.py` — Readiness check: is everything set up, and what is the one thing to do next?
+- `src/employer_index.py` — The central employer index: feeds found and verified by one scout for everyone, downloaded by every install.
 - `src/features.py` — Optional features: what each one needs, what it costs, and one switch to turn any of them off.
 - `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.

@@ -1,5 +1,7 @@
-# Job Pilotto — finds new employer job feeds, a small batch a day. Runs the public engine with this
-# private repo's settings. Schedules are in UTC.
+# Job Pilotto — finds new employer job feeds, a small batch at a time. Runs the public engine with this
+# private repo's settings. Optional: one central scout already finds employers for everyone and every run downloads
+# its index, so new installs have no schedule here (Settings → How often → Find new employers turns yours on).
+# Schedules are in UTC.
 name: Source scout
 run-name: scout${{ inputs.batch && format(' {0}', inputs.batch) || '' }}
 

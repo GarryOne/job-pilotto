@@ -1,7 +1,9 @@
 // How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 // Times are picked in the user's own time zone; GitHub schedules are UTC, so they're converted here
 // (a daylight-saving change shifts them by an hour until the next update).
-export const DEFAULTS = {search: 4, kits: 0, insights: 'daily', scout: 'daily', mail: 3};
+// scout is off for new installs: one central scout finds employers for everyone and the app downloads its index
+// (src/employer_index.py). Installs set up before that keep their daily scout (migrate.js → pinScoutSchedule).
+export const DEFAULTS = {search: 4, kits: 0, insights: 'daily', scout: 'off', mail: 3};
 export const CHOICES = {
   search: [1, 2, 3, 4, 6, 8, 12, 24, 0],   // hours between searches; 0 = off
   kits: [0, 1, 3, 5],                      // application kits drafted per search for the best new matches
