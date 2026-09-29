@@ -109,3 +109,18 @@ doesn't have. Code that adds a column still survives an older workspace (`cron_r
 - Redeploy a friend's Cloudflare Telegram bot when its code changes.
 - Apple Developer ID ($99/year, the owner's call): notarized, so no "Open Anyway" on first install.
 </details>
+
+## 7 · Product brain (daily recommendation)
+
+One action a day, in the **Job Pilotto Brain** Telegram bot: ✅ Explore it → a plan in Notion → ✅ Approve plan. Nothing
+is explored, built or published without a tap. Workflow `product-brain.yml` (05:00 UTC), plumbing `tools/product_brain.py`,
+buttons `site/src/brain.js`, decisions in Notion **🧭 Product Brain · Decisions** (Project Hub → 4 · Productization).
+
+<details><summary>Setup (once)</summary>
+
+- Notion: connection **Job Pilotto Brain** (internal), shared with the Decisions database only → GitHub secret `NOTION_BRAIN_TOKEN`.
+- Telegram: @BotFather → new bot → GitHub secret `BRAIN_BOT_TOKEN`; your chat id → `BRAIN_CHAT_ID`.
+  The same token and id + a random `BRAIN_WEBHOOK_SECRET` as Worker secrets of `www` (site/), then
+  `setWebhook` to `https://www.jobpilotto.workers.dev/api/brain/telegram` with that secret.
+- Repository variable `BRAIN_DATABASE_ID` (set). Cost: about $0.10–0.30 a brief (Sonnet, capped turns).
+</details>

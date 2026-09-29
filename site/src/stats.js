@@ -136,7 +136,7 @@ export async function report(db, days, now = new Date()) {
   return {days, from, visits, downloads, perDay, buttons, platforms, dlSources, sources, countries, pages, devices};
 }
 
-async function signups(kv) {
+export async function signups(kv) {
   if (!kv) return [];
   const listed = await kv.list({prefix: 'signup:'});
   return listed.keys.map(key => ({email: key.name.slice(7), at: key.metadata?.at || '', role: key.metadata?.role || ''}))

@@ -212,6 +212,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/notion_template.py` — Build the public Job Pilotto Notion template from the live workspace's schemas (no data).
 - `tools/pre-push-check.sh` — Claude Code PreToolUse hook (.claude/settings.json): before any `git push` from this repo (or one of its
 - `tools/prepare-top.sh` — prepare-top.sh [N] — draft application kits for your N best-matching jobs that don't have one yet.
+- `tools/product_brain.py` — The product brain's plumbing (.github/workflows/product-brain.yml): Claude decides, this script reads and writes.
 - `tools/prune-releases.sh` — Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases).
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
