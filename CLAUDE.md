@@ -33,6 +33,7 @@ plus systematic-debugging for bugs. This repo's rules win where they differ:
 - Worktrees: `tools/worktree.sh <topic>` (`.claude/worktrees/`), not `.worktrees/`.
 - Finish: rebase on `origin/main`, tests, push to `main` (no local merge, no PR unless asked), then Notion.
 - Small changes (a label, a style, a one-file fix): skip brainstorming and plans; edit → one suite → push.
+- Models per task: subagents `explorer` (Haiku, read-only look-ups) and `implementer` (Sonnet, one approved plan step) in `.claude/agents/`; design, unknown bugs and multi-area changes stay in the main session.
 - Specs/plans go in `docs/superpowers/`; link big ones from the Notion Decision Log, don't copy them there.
 - When to use which (from the 24–29 Sep Run Log, where the rework came from):
   - UI from an owner mockup or request: brainstorming first; confirm layout + behaviour in one message before code
