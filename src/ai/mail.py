@@ -53,6 +53,7 @@ SUBJECT_WORDS = ('application', 'applying', 'applied', 'interview', 'candidacy',
 # LinkedIn's own notification emails for a new message or InMail (the owner's mail, not LinkedIn scraping).
 LINKEDIN_SENDERS = ('messages-noreply@linkedin.com', 'inmail-hit-reply@linkedin.com')
 OUTREACH = 'Recruiter outreach'
+YOU_REPLIED = 'Replied'  # the event Focus's Done writes when you answered (src/focus.py REPLIED)
 KINDS = ['Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', OUTREACH, 'Other', employer_feedback.RECEIVED]
 # Stage order for "forward only": an email never moves an application back.
 RANK = {stage: i for i, stage in enumerate((opportunity.LEAD_STAGE, 'Applied', 'No response', 'Confirmation received', 'Screening',
@@ -262,6 +263,10 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
     by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
     changes = {}
     stage = _stage_for(kind, _field(row, 'Stage'))
+    # A recruiter writing back after you answered their pitch: you're talking now (Screening), as when you say yes
+    # through "Log job activity" (src/ai/inbox.py).
+    if kind == REPLY and _field(row, 'Stage') == opportunity.LEAD_STAGE and any(k == YOU_REPLIED for k, *_ in by_app.get(key, [])):
+        stage = 'Screening'
     if stage:
         changes['Stage'] = {'select': {'name': stage}}
     if kind == 'Rejected' and not feedback_text and not _field(row, 'Feedback status'):

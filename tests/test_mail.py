@@ -127,6 +127,19 @@ class MailTests(unittest.TestCase):
         summary, sent = self.run_mail(tracker, google, [])
         self.assertIn('0 new email(s)', summary)
 
+    def test_a_recruiter_writing_back_after_you_answered_moves_the_lead_to_screening(self):
+        apps = [app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='AG Talent')]
+        google = FakeGoogle([email('m1', 'Re: DevOps Engineer - Fully Remote', sender='agillard@agtalent.co.uk')])
+        tracker = FakeTracker(apps, [event_row('p1', 'Replied', '2026-09-26T00:23:00+00:00')])
+        self.run_mail(tracker, google, [[result(0, 0, ledger.REPLY, 'Sent a booking link')]])
+        self.assertIn(('p1', {'Stage': {'select': {'name': 'Screening'}}}), tracker.updates)
+        # Without your answer first, a second message from the recruiter leaves it a lead.
+        apps = [app('p2', '', 'SRE', stage='Recruiter lead', via='AG Talent')]
+        tracker = FakeTracker(apps)
+        self.state.unlink(missing_ok=True)
+        self.run_mail(tracker, FakeGoogle([email('m2', 'Following up', sender='agillard@agtalent.co.uk')]), [[result(0, 0, ledger.REPLY)]])
+        self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])
+
     def test_the_desktop_app_gets_one_short_line_per_update(self):
         apps = [app('p1', 'Grafana Labs', 'Staff Software Engineer - Databases SRE | Sweden | Remote')]
         tracker, google = FakeTracker(apps), FakeGoogle([email('m1', 'Your application for Grafana Labs')])
