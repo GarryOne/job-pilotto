@@ -36,12 +36,12 @@ import * as questions from './lib/questions.js';
 import {log as appLog, logTo} from './lib/log.js';
 import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
-import * as schema from './lib/schema.js';
 import * as reset from './lib/reset.js';
 import * as files from './lib/files.js';
 import * as backup from './lib/backup.js';
 import * as cvChange from './lib/cv-change.js';
 import * as notionOAuth from './lib/notion-oauth.js';
+import * as notionWorkspace from './lib/notion-workspace.js';
 import * as contactDetails from './lib/contact.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
@@ -390,35 +390,13 @@ function handlers() {
     templateUrl: notion.TEMPLATE.template_url,
     notionTitles: {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages},
   }));
-  // Connect the user's copy of the Job Pilotto template: every database and page found, every column there.
   // Connect to the user's Notion with a token (pasted, or from "Connect with Notion"): find the workspace, or
-  // build it from the schema in the one page the connection sees (templateRoot: the page Notion just copied).
+  // build it from the schema (lib/notion-workspace.js; templateRoot: the page Notion just copied the template into).
   async function connectNotion(token, {templateRoot = null} = {}) {
     try {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       const send = progress => toWindow('notionProgress', {...progress, titles});
-      let result = await notion.connect(token);
-      // A new, empty Job Pilotto page (nothing of ours in it yet): find it (Notion can take a few seconds to share
-      // it with the connection), then build the whole workspace in it from the schema (the latest version).
-      if (!result.ok && !Object.keys(result.ids || {}).length) {
-        let root = templateRoot;
-        for (let attempt = 0; !root && attempt < 12; attempt++) {
-          root = await notion.sharedRoot(token);
-          if (!root) { send({waitingPage: true}); await new Promise(resolve => setTimeout(resolve, 5000)); }
-        }
-        if (root) {
-          send({building: true});
-          const built = await schema.repair(token, {}, schema.load(), undefined, root);
-          result = {ok: built.created.length > 0 && !!built.ids.NOTION_PROFILE_PAGE_ID, ids: built.ids, missing: [], problems: [], built: built.created};
-        }
-      }
-      // Some parts found (a copied template still being shared): wait for the rest, as before.
-      else if (!result.ok) result = await notion.connectWaiting(token, {onProgress: send});
-      // Missing columns or databases (an older template, or a deleted one): add them from the schema, check again.
-      if (!result.ok && result.ids?.NOTION_PROFILE_PAGE_ID) {
-        const fixed = await schema.repair(token, result.ids);
-        if (fixed.created.length || fixed.columns.length) result = {...await notion.connect(token), repaired: fixed};
-      }
+      const result = await notionWorkspace.connectWorkspace(token, {templateRoot, onProgress: send});
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
@@ -440,8 +418,7 @@ function handlers() {
     if (!signedIn.ok) return signedIn;
     window?.show();
     window?.focus();
-    const root = signedIn.duplicated_template_id ? String(signedIn.duplicated_template_id).replace(/-/g, '') : null;
-    return {...await connectNotion(signedIn.access_token, {templateRoot: root}), workspace: signedIn.workspace_name};
+    return {...await connectNotion(signedIn.access_token, {templateRoot: notionOAuth.templateRoot(signedIn)}), workspace: signedIn.workspace_name};
   });
   ipcMain.handle('notionOAuthCancel', () => notionOAuth.cancel());
   ipcMain.handle('saveSettings', (_, patch) => {

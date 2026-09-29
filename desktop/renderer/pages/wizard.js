@@ -60,7 +60,7 @@ async function showNotionResult(result) {
   } else if (result.error) {
     message('notion-message', result.error, 'error');
   } else if (result.missing?.length) {
-    message('notion-message', 'The connection can\'t see your Job Pilotto page yet, or sees more than one page. Check step 3 (Content access → Edit access → tick only Job Pilotto → Save). Just saved it? Notion can take a minute: Connect again shortly.', 'error');
+    message('notion-message', 'The connection can\'t see your Job Pilotto page yet, or sees more than one page. Click Connect with Notion again and keep "Use a template provided by the developer" (or tick only your Job Pilotto page). Notion can take a minute: try again shortly.', 'error');
   } else {
     message('notion-message', `Columns are missing: ${result.problems.map(p => `${p.title} (${p.missing.slice(0, 3).join(', ')})`).join('; ')}. Duplicate the template again rather than editing columns.`, 'error');
   }
@@ -142,10 +142,12 @@ export async function init() {
     showNotionResult(result);
   });
 
-  window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage}) => {
+  window.pilot.onNotionProgress(({found, total, ids, titles, building, waitingPage, template}) => {
     if (building) { show($('notion-found'), false); message('notion-message', 'Connected ✓ Building your Job Pilotto workspace in Notion (databases, columns, pages)… about a minute.', 'waiting'); return; }
     if (waitingPage) { show($('notion-found'), false); message('notion-message', 'Waiting for Notion to share your Job Pilotto page with the app…', 'waiting'); return; }
-    message('notion-message', `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`, 'waiting');
+    message('notion-message', template
+      ? `Connected ✓ Notion is copying the Job Pilotto template into your workspace: ${found} of ${total} ready. About a minute; the app keeps checking.`
+      : `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`, 'waiting');
     const list = $('notion-found');
     list.replaceChildren();
     show(list);

@@ -6,6 +6,14 @@ import crypto from 'node:crypto';
 
 export const SITE = process.env.JOB_PILOTTO_SITE || 'https://www.jobpilotto.workers.dev';
 
+// The page Notion copied the Job Pilotto template into ("Use a template provided by the developer" on its
+// consent page; the connection's settings must offer it), as a plain 32-character id; null when the user picked
+// their own page instead ("Select pages") or Notion sent something that isn't a page id.
+export function templateRoot(signedIn) {
+  const id = String(signedIn?.duplicated_template_id || '').replace(/-/g, '').toLowerCase();
+  return /^[0-9a-f]{32}$/.test(id) ? id : null;
+}
+
 let current = null;  // one sign-in at a time; a new click cancels the previous wait
 export function cancel() { if (current) current.cancelled = true; }
 

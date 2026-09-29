@@ -2,7 +2,9 @@
 // connection's secret: it opens /api/notion/start with a random session id, Notion sends the user back to
 // /api/notion/callback, this Worker trades the one-time code for the user's token and keeps it in KV for 10
 // minutes under a hash of the session id; the app then collects it once with POST /api/notion/token (deleted
-// on read). Configuration: NOTION_CLIENT_ID (var) and NOTION_CLIENT_SECRET (secret); see site/README.md.
+// on read). Configuration: NOTION_CLIENT_ID (var) and NOTION_CLIENT_SECRET (secret); see site/wrangler.toml. With the
+// connection's template URL set, Notion copies the Job Pilotto template for the user and the token carries
+// duplicated_template_id, which the app builds on (desktop/lib/notion-workspace.js).
 const TTL = 600;
 const SESSION = /^[A-Za-z0-9_-]{32,128}$/;
 export const CALLBACK = '/api/notion/callback';

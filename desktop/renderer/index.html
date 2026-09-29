@@ -83,14 +83,21 @@
       <p class="lede">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p>
       <div class="oauth">
         <ol class="howto">
-          <li><b>In Notion, make an empty page:</b> sidebar → <b>+</b> (new page) → name it <b>Job Pilotto</b>, leave it empty.
-            Job Pilotto builds your whole workspace inside it (databases and pages).</li>
-          <li><b>Click Connect with Notion</b> below. Notion opens in your browser: <b>Select pages</b> → tick <b>only</b> that
-            Job Pilotto page (nothing else) → <b>Allow access</b>.</li>
-          <li><b>Come back here</b> when the browser says "Connected to Notion ✓". Job Pilotto builds your workspace, about a minute.</li>
+          <li><b>Click Connect with Notion</b> below. Notion opens in your browser.</li>
+          <li>Keep <b>Use a template provided by the developer</b> → <b>Allow access</b>. Notion adds a ready
+            <b>Job Pilotto</b> page to your workspace.</li>
+          <li><b>Come back here</b>. Job Pilotto finishes setting it up, about a minute.</li>
         </ol>
         <button class="primary big" id="notion-oauth">Connect with Notion</button>
       </div>
+      <details class="manual" id="notion-own">
+        <summary>I already have a Job Pilotto page</summary>
+        <ol class="howto">
+          <li>Click <b>Connect with Notion</b> above. On Notion's page choose <b>Select pages</b> → tick <b>only</b> your
+            Job Pilotto page → <b>Allow access</b>.</li>
+          <li>Job Pilotto uses what's there and adds anything missing. (An empty page named Job Pilotto works too: everything is built inside it.)</li>
+        </ol>
+      </details>
       <div id="notion-found" class="found" hidden></div>
       <p class="message" id="notion-message"></p>
       <details class="manual" id="notion-manual" hidden>

@@ -37,6 +37,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 - `desktop/lib/notion-oauth.js` — "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
 - `desktop/lib/notion-pace.js` — One Notion pace for every process on this computer that uses the same Notion connection: the app, the Python
+- `desktop/lib/notion-workspace.js` — Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.

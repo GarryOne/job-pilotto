@@ -101,15 +101,17 @@ async function searchAll(token, kind, fetcher) {
 // {ids: {NOTION_APPLICATIONS_DB: id, ...}, missing: [titles]}. A workspace may hold more than one copy
 // (an old duplicate, or the owner's live pages next to the template): items are grouped by the page
 // they sit in, and the group holding the most of them wins (then the most recently edited), so the
-// app never mixes databases from two copies.
-export async function discover(token, fetcher) {
+// app never mixes databases from two copies. root (the page Notion copied the template into at "Connect with
+// Notion"): only what sits directly in that page counts, so an older copy elsewhere is never picked instead.
+export async function discover(token, fetcher, {root = null} = {}) {
   const [databases, pages] = liveOnly(...await Promise.all([searchAll(token, 'database', fetcher), searchAll(token, 'page', fetcher)]));
   const wanted = [...Object.entries(TEMPLATE.databases).map(([env, title]) => [env, title, databases]),
     ...Object.entries(TEMPLATE.pages).map(([env, title]) => [env, title, pages])];
   const parentOf = item => item.parent?.page_id || item.parent?.database_id || item.parent?.type || 'workspace';
+  const inRoot = item => !root || String(parentOf(item)).replace(/-/g, '') === String(root).replace(/-/g, '');
   const groups = new Map();
   for (const [env, title, items] of wanted) {
-    for (const item of items.filter(i => normalise(titleOf(i)) === normalise(title))) {
+    for (const item of items.filter(i => inRoot(i) && normalise(titleOf(i)) === normalise(title))) {
       const group = groups.get(parentOf(item)) || {ids: {}, newest: ''};
       if (!group.ids[env] || item.last_edited_time > group.newestFor?.[env]) {
         group.ids[env] = item.id.replace(/-/g, '');
@@ -161,22 +163,23 @@ export async function checkColumns(token, ids, fetcher) {
   return problems;
 }
 
-export async function connect(token, fetcher) {
+export async function connect(token, fetcher, {root = null} = {}) {
   await call(token, 'GET', 'users/me', null, fetcher); // is the token valid at all?
-  const {ids, missing} = await discover(token, fetcher);
+  const {ids, missing} = await discover(token, fetcher, {root});
   const problems = missing.length ? [] : await checkColumns(token, ids, fetcher);
   return {ok: !missing.length && !problems.length, ids, missing, problems};
 }
 
 // Right after the user gives the connection access, Notion shares the page's databases over a minute
-// or so: while some are found and others not yet, wait and look again instead of failing.
+// or so: while some are found and others not yet, wait and look again instead of failing. root: the copy
+// Notion is still making of the template (see discover); nothing in it yet is waited for too (patient).
 export async function connectWaiting(token, {fetcher, onProgress = () => {}, sleep = ms => new Promise(r => setTimeout(r, ms)),
-  tries = 8, every = 10000, check = connect} = {}) {
+  tries = 8, every = 10000, check = connect, root = null, patient = !!root} = {}) {
   let result;
   for (let attempt = 1; attempt <= tries; attempt++) {
-    result = await check(token, fetcher);
+    result = await check(token, fetcher, {root});
     const found = Object.keys(result.ids).length;
-    const waiting = result.missing.length && (found > 0 || attempt <= 2);  // nothing at all twice: not shared
+    const waiting = result.missing.length && (found > 0 || patient || attempt <= 2);  // nothing at all twice: not shared
     if (!waiting || attempt === tries) return result;
     onProgress({found, total: found + result.missing.length, ids: result.ids});
     await sleep(every);
