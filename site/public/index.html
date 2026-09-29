@@ -92,9 +92,9 @@
     <div class="stop-panels">
       <div class="stop-panel" role="tabpanel" id="panel-find" aria-labelledby="tab-find">
         <dl class="items">
-          <div><dt>Employer career pages</dt><dd>Public job feeds of top tech employers, read directly</dd></div>
+          <div><dt>A shared pool of employers</dt><dd><span id="pool-count">A growing pool of employers</span>, worldwide, checked every day by our own scout. Your app downloads the list; nothing about you goes up</dd></div>
           <div><dt>Swiss job boards</dt><dd>jobs.ch and TechTree, plus Google Jobs if you want it</dd></div>
-          <div><dt>Daily scout</dt><dd>Finds new employers worth watching and adds them</dd></div>
+          <div><dt>Your own employers</dt><dd>Add any company you care about, or run your own scout. Your list stays in your Notion and is always crawled first</dd></div>
           <div><dt>Filters that matter</dt><dd>City, remote, and languages you don't speak</dd></div>
           <div><dt>Facts with proof</dt><dd>Languages, seniority, salary and visa, each quoted from the posting</dd></div>
           <div><dt>Fit score</dt><dd>Out of 100 with the reason; re-scored when your profile changes</dd></div>
@@ -355,6 +355,7 @@
             <li>Apply with Claude (with your Claude Code)</li>
             <li>Interviews transcribed on your Mac</li>
             <li>Always on: runs while your Mac is off, with your free GitHub</li>
+            <li>The shared employer pool, updated daily, plus your own employers</li>
             <li>Open source: read or run the code yourself</li>
             <li><b>Free for your first 30 applications or 60 days</b>, whichever is longer. Founder keys for early testers</li>
           </ul>
@@ -377,7 +378,7 @@
           <ul>
             <li>Signed by Apple, updates itself; one-click Notion</li>
             <li>Hosted searches, as often as hourly</li>
-            <li>The maintained index of employer career pages</li>
+            <li>Curated employer pools by role and region</li>
             <li>More countries: DE, NL, UK, remote Europe</li>
             <li>Gets better at every form, by itself: a form that trips it up is fixed and retried, so the next one just works</li>
             <li>Salary and response-rate benchmarks; priority help</li>
@@ -400,7 +401,7 @@
       <div>
         <span class="eyebrow">Pro · early access</span>
         <h2>Be first to try Pro</h2>
-        <p>Hosted searches, the maintained employer index and more countries are on the way. Leave your email and you'll hear from us once, when Pro is ready. Early sign-ups get their first month free.</p>
+        <p>Hosted searches, curated employer pools and more countries are on the way. Leave your email and you'll hear from us once, when Pro is ready. Early sign-ups get their first month free.</p>
       </div>
       <form id="waitlist" novalidate>
         <label for="email">Email</label>
@@ -425,11 +426,12 @@
       <details><summary>What does the AI cost?</summary><p>You use your own Anthropic account, so the cost goes to you directly and you can see it: usually a few dollars a month, capped by the monthly budget you set. Each run shows what it cost in your Notion.</p></details>
       <details><summary>How is it different from Simplify, Teal, Huntr or JobCopilot?</summary><p>It does the whole search, not one step: finds and scores jobs, drafts each form's answers, tailors your CV, fills the form and tracks replies from your Gmail, with your data in your own Notion. It never mass-applies. <a href="compare.html">See the side-by-side comparison</a>.</p></details>
       <details><summary>Windows or Linux?</summary><p>Windows 10 or 11 (x64): <a href="/download/windows?from=faq">download the beta</a>. It isn't signed yet, so Windows asks once: <b>More info → Run anyway</b>. Apply with Claude works there too (it needs Git for Windows; new, so tell us how it goes); Fill in Chrome works the same. Linux: run it from the source.</p></details>
-      <details><summary>Which jobs does it cover?</summary><p>Today it focuses on tech roles in Switzerland where English is enough, plus remote roles open to people in Switzerland. It reads career pages of top tech employers (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and more), jobs.ch, TechTree and Google Jobs.</p></details>
+      <details><summary>Which jobs does it cover?</summary><p>Any tech role, anywhere: it starts from a shared pool of employers with public career pages (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and many more), checked daily and growing, plus jobs.ch, TechTree and Google Jobs. You choose your roles and places; a search only shows jobs that match them, so a search in Zurich and one in Singapore use the same pool and see different jobs.</p></details>
+      <details><summary>Can I add my own employers?</summary><p>Yes. Add any company to your Employers &amp; Sources in Notion and it is crawled with the shared pool, or turn on your own scout to find more. Your list is yours: it stays in your Notion and is never uploaded. Only the public pool is downloaded, and it holds no personal data.</p></details>
       <details><summary>Does it work with LinkedIn?</summary><p>It doesn't read or post on LinkedIn. Most roles you'd find there are also on the employer's own career page, which is where it looks and where you apply.</p></details>
       <details><summary>What happens to my CV?</summary><p>It stays on your Mac. The AI reads it to draft your Profile (which you review in Notion) and, when you ask, to make a version tailored to one job; you see every change before it's used. Nothing is stored on a Job Pilotto server.</p></details>
       <details><summary>Is it really free? What happens after the free period?</summary><p>Free for your first 30 applications or your first 60 days, whichever lasts longer. After that the app pauses only new work (preparing kits, filling forms, searching); tracking, Notion, export and your data keep working, and it never stops in the middle of an application. Early testers get a founder key that removes the limit: <a href="#early">ask for one</a>.</p></details>
-      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto is open source: run it from the source code with the same Notion workspace. The Mac app is free too. Pro, coming soon, adds hosted searches and the maintained employer index.</p></details>
+      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto is open source: run it from the source code with the same Notion workspace. The Mac app is free too. Pro, coming soon, adds hosted searches and curated employer pools.</p></details>
     </div>
   </section>
 
@@ -439,6 +441,11 @@
   </footer>
 </div>
 <script>
+// The shared employer pool's size, read from the same public list every app downloads; the sentence works without it.
+fetch('/api/index').then(r => r.ok ? r.json() : null).then(data => {
+  const n = data && data.feeds ? data.feeds.length : 0;
+  if (n) document.getElementById('pool-count').textContent = n + ' employers';
+}).catch(() => {});
 // Copy buttons (the install command): "Copied" for a moment; the command stays selectable if the clipboard is blocked.
 for (const button of document.querySelectorAll('[data-copy]')) button.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(button.dataset.copy); button.textContent = 'Copied'; }

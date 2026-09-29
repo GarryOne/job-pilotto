@@ -41,8 +41,11 @@ Without Notion, `daily` crawls the employer feeds in `config/sources.json`: a sh
 of 29 verified public feeds (Anthropic, OpenAI, Stripe, Datadog, Grafana Labs, Cloudflare, GitLab,
 Databricks and more, about 9,000 open jobs), so the first run already has plenty to rank. Your
 `config/search.json` then keeps only the titles and places you want. With Notion, `daily` also
-crawls every Active row of your Employers & Sources database, which the source scout keeps
-growing. Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
+crawls every Active row of your Employers & Sources database (your own list, kept growing by your
+own optional scout). On top of both, every run downloads the shared employer index: feeds found and verified
+daily by one central scout, worldwide, each with the places it hires in; only feeds with roles in *your* places
+are crawled (`JOB_PILOTTO_INDEX_ALL=1` for all, `JOB_PILOTTO_DISABLE=index` for none). Nothing about you is sent to
+get it. If the service is down, the cache or the starter list is used. Make it yours by editing `config/search.json` (job titles, places, tech keywords; see
 [Configuration](#configuration)) and `config/sources.json` (employer feeds to crawl). That's a
 working job search. Everything below is an upgrade you can skip.
 
@@ -54,7 +57,8 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 | Feature | What you get | Needs | Cost | Effort |
 |---|---|---|---|---|
 | `discover` | jobs.ch + TechTree employers and jobs | nothing | free | on by default |
-| `scout` | daily search for new employer feeds to crawl | nothing (Notion to keep them) | free | on by default |
+| `scout` | your own search for new employer feeds to crawl (optional: the shared index already supplies a worldwide pool) | nothing (Notion to keep them) | free | on for existing installs, off for new ones |
+| `index` | downloads the shared employer index (`GET /api/index`), at most daily | nothing | free | on by default |
 | `telegram` | the digest on your phone | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | free | 5 min |
 | Scheduled runs | a crawl every 4 hours without your laptop | a GitHub fork with Actions on | free | 5 min |
 | `notion` | Applications tracker, Job Matches, run log | `NOTION_TOKEN` + the pages in [docs/notion-schema.md](docs/notion-schema.md) | free | 30 min |

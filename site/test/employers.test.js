@@ -61,3 +61,12 @@ test('a broken scout run cannot wipe the list, and empty or invalid bodies are r
 test('other methods are refused', async () => {
   assert.equal((await call(env(), 'POST', auth, {feeds: []})).status, 405);
 });
+
+test('the landing page reads the pool size from this same route and says users can add their own employers', async () => {
+  const {readFileSync} = await import('node:fs');
+  const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(page, /fetch\('\/api\/index'\)/);
+  assert.match(page, /id="pool-count"/);
+  assert.match(page, /Can I add my own employers\?/);
+  assert.doesNotMatch(page, /maintained (employer )?index/i);
+});
