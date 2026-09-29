@@ -7,5 +7,7 @@ test('Updates line: available, up to date (with when it was checked), or not che
   assert.deepEqual(updateText({offer: {version: '0.4.0-alpha.66'}}, now),
     {latest: false, text: 'Version 0.4.0-alpha.66 is available: use Update in the sidebar'});
   assert.deepEqual(updateText({offer: null, checkedAt: '2026-09-29T20:59:00Z'}, now), {latest: true, text: 'Up to date · checked just now'});
+  assert.deepEqual(updateText({offer: null, checkedAt: '2026-09-29T20:59:00Z', trial: 'Test build alpha.66 — trial 1 of 2 days'}, now),
+    {latest: true, text: 'Test build alpha.66 — trial 1 of 2 days · checked just now'});
   assert.deepEqual(updateText({}, now), {latest: false, text: 'Not checked yet'});
 });

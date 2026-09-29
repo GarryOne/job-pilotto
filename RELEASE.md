@@ -29,7 +29,8 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
 
 > Daily, `.github/workflows/canary-promote.yml` → `tools/canary_promote.py` promotes a build **by itself** when all hold:
 
-- ⏱️ newest pre-release newer than stable, published **≥ 48 h** ago (`prune-releases.sh` keeps that one "canary" build up to 7 days)
+- ⏱️ the **canary**: the oldest test build newer than stable, out **≥ 48 h** (kept up to 7 days; one rule in
+  `canary_promote.py`, `prune-releases.sh` and the app, pinned by `tests/fixtures/canary_builds.json`)
 - ✅ `build.yml` green on its commit
 - 🩺 no **new** problem for its version: no `telemetry` issue lists it (unless stable's version is listed too), and,
   if its Chrome extension version changed, no open `fill-failure` issue names the new extension version
@@ -40,6 +41,14 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
   - fresh: last report **< 24 h** old
   - no key or site down → wait
 - then it runs `tools/release-stable.sh <tag>`; the job summary says what it decided and why (with the numbers)
+- failed for sure (red CI, a new problem issue, a crash / run_failed) → the canary is **dropped** (release page deleted, tag kept)
+
+> 🧪 **Your app's trial** (menu → **Get Test Builds**, once): it installs the canary and **stays on it** for 2 days
+> ("Test build alpha.66 — trial 1 of 2 days" in Check for Updates and Settings → Diagnostics), not every newer build.
+> Promoted, dropped or 7 days old → it offers the next canary.
+
+- 🚪 **Escape hatch:** menu → **Update to the Newest Test Build Now…** installs the newest build and leaves this
+  canary's trial (no more offers until the canary changes). Friends (stable) are unaffected.
 
 > 🔑 **Secret to set once:** repo secret `JOB_PILOTTO_TELEMETRY_KEY` = the site's stats key
 > (same value as the Worker's `STATS_KEY`, Keychain `job-pilotto.site.stats_key`). Without it, it always waits.

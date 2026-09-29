@@ -1,11 +1,15 @@
 """Canary auto-promote decision (tools/canary_promote.py): age, CI state, reported problems, already stable, and
 positive usage evidence from app reports (silence is not health)."""
 import importlib.util
+import json
+import subprocess
+import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'canary_promote.py'
+FIXTURE = Path(__file__).resolve().parent / 'fixtures' / 'canary_builds.json'
 SPEC = importlib.util.spec_from_file_location('canary_promote', SCRIPT)
 canary = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(canary)
@@ -157,6 +161,33 @@ class CanaryPromoteTests(unittest.TestCase):
         self.wait_with('JOB_PILOTTO_TELEMETRY_KEY is not set', unavailable='JOB_PILOTTO_TELEMETRY_KEY is not set')
         with self.assertRaises(canary.EvidenceUnavailable):
             canary.GitHub(key=None).usage('0.4.0-alpha.65', '0.4.0-alpha.60')
+
+    def test_the_canary_rule_matches_the_shared_fixture(self):
+        # tests/fixtures/canary_builds.json is read by desktop/test/canary.test.js too: one rule, three users
+        # (this script, tools/prune-releases.sh and the owner's app).
+        for case in json.loads(FIXTURE.read_text())['cases']:
+            found = canary.canary_of(case['releases'], canary.parse_time(case['now']))
+            self.assertEqual(found and found['tagName'], case['canary'], case['name'])
+
+    def test_the_candidate_is_the_canary_not_the_newest_aged_build(self):
+        result = canary.decide([release(67, 60), release(66, 70), STABLE], NOW, Facts())
+        self.assertEqual(result['tag'], 'desktop-v0.4.0-alpha.66')
+
+    def test_a_canary_that_failed_for_sure_is_dropped(self):
+        red = [{'status': 'completed', 'conclusion': 'failure'}]
+        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(ci=red))['blocked'])
+        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(crash=1)))['blocked'])
+        waiting = canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(days=1, first=20, last=6)))
+        self.assertFalse(waiting['blocked'])  # not proven yet is not failed: keep trialling it
+        running = [{'status': 'in_progress', 'conclusion': None}]
+        self.assertFalse(canary.decide([release(65, 50), STABLE], NOW, Facts(ci=running))['blocked'])
+
+    def test_canary_flag_prints_the_tag_for_prune_releases(self):
+        case = json.loads(FIXTURE.read_text())['cases'][0]
+        releases = [dict(r, createdAt=datetime.now(timezone.utc).isoformat()) for r in case['releases']]
+        out = subprocess.run([sys.executable, str(SCRIPT), '--canary'], input=json.dumps(releases),
+                             capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(out, 'desktop-v0.4.0-alpha.65')
 
     def test_version_order(self):
         key = canary.version_key

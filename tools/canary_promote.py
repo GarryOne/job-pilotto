@@ -1,8 +1,11 @@
-"""Canary auto-promote: make the newest desktop pre-release that has been out >= 48 h stable, if nothing new went wrong.
+"""Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
+
+The canary build (canary_of, one definition shared with tools/prune-releases.sh and the app's desktop/lib/canary.js,
+pinned by tests/fixtures/canary_builds.json): the oldest non-draft pre-release newer than the current stable, created
+within the last 7 days. The owner's app (test builds) stays on it for its trial instead of jumping to the newest build.
 
 Rule (all must hold, else nothing changes):
-  1. the candidate is the newest pre-release (not a draft) that is newer than the current stable and was published
-     at least 48 h ago (tools/prune-releases.sh keeps that one "canary" build's release page alive);
+  1. the candidate is the canary build, published at least 48 h ago;
   2. CI is green on its commit: every `build.yml` run for that commit completed with success (none = not green);
   3. no new problem was reported for it: no `telemetry` issue (any state) lists the candidate's version unless it
      also lists the current stable's version (a problem stable already has isn't new); and, when the candidate
@@ -16,10 +19,14 @@ Rule (all must hold, else nothing changes):
        clean:  no crash and no run_failed report for that version;
        fresh:  its last report is < 24 h old.
      No key, or the site can't be read: wait (fail closed).
-Promotion itself is tools/release-stable.sh <tag> (reused, not duplicated).
+Promotion itself is tools/release-stable.sh <tag> (reused, not duplicated). A canary that failed for sure (red CI,
+a new problem issue, a crash or run_failed report) is dropped instead: its release page is deleted (the tag stays), so
+the next build becomes the canary and the owner's app moves on to it.
 
   python3 tools/canary_promote.py --dry-run     # print the decision, the evidence numbers and why; change nothing
   python3 tools/canary_promote.py               # promote when the rule holds (the workflow does this daily)
+  gh release list --json tagName,isPrerelease,isDraft,isLatest,createdAt | python3 tools/canary_promote.py --canary
+                                                # print the canary's tag (or nothing); prune-releases.sh uses it
 Reads GitHub with the `gh` CLI (GH_TOKEN in CI) and app reports with JOB_PILOTTO_TELEMETRY_KEY.
 """
 import argparse
@@ -37,6 +44,7 @@ from pathlib import Path
 
 REPO = 'GarryOne/job-pilotto'
 MIN_AGE = timedelta(hours=48)
+CANARY_WINDOW = timedelta(days=7)   # a canary not promoted within 7 days is dropped; the next build takes over
 ROOT = Path(__file__).resolve().parents[1]
 TELEMETRY_URL = 'https://www.jobpilotto.workers.dev/telemetry/version'
 KEY_ENV = 'JOB_PILOTTO_TELEMETRY_KEY'
@@ -81,22 +89,34 @@ def issue_text(issue):
                      [c.get('body') or '' for c in issue.get('comments') or []])
 
 
-def pick(releases, now, min_age=MIN_AGE):
-    """(candidate, stable, reason): candidate is None when there is nothing to promote yet."""
+def _newer_than_stable(releases):
     stable = next((r for r in releases if r.get('isLatest')), None)
     stable_key = version_key(version_of(stable['tagName'])) if stable else None
-    newer = [r for r in releases if r.get('isPrerelease') and not r.get('isDraft')
-             and (stable is None or version_key(version_of(r['tagName'])) > stable_key)]
+    return stable, [r for r in releases if r.get('isPrerelease') and not r.get('isDraft')
+                    and (stable is None or version_key(version_of(r['tagName'])) > stable_key)]
+
+
+def canary_of(releases, now, window=CANARY_WINDOW):
+    """The canary build: the oldest non-draft pre-release newer than the current stable, created within `window`.
+    Same rule as desktop/lib/canary.js canaryOf (tests/fixtures/canary_builds.json pins both). None when there is none."""
+    _, newer = _newer_than_stable(releases)
+    recent = [r for r in newer if now - parse_time(r['createdAt']) < window]
+    return min(recent, key=lambda r: version_key(version_of(r['tagName'])), default=None)
+
+
+def pick(releases, now, min_age=MIN_AGE):
+    """(candidate, stable, reason): candidate is the canary once it is `min_age` old, else None and why."""
+    stable, newer = _newer_than_stable(releases)
     if not newer:
         return None, stable, f"nothing newer than stable {stable['tagName'] if stable else '(none)'}"
-    newer.sort(key=lambda r: version_key(version_of(r['tagName'])), reverse=True)
-    aged = [r for r in newer if now - parse_time(r['publishedAt']) >= min_age]
-    if not aged:
-        oldest = min(newer, key=lambda r: parse_time(r['publishedAt']))
-        hours = (now - parse_time(oldest['publishedAt'])).total_seconds() / 3600
-        return None, stable, (f"no pre-release is {int(min_age.total_seconds() // 3600)} h old yet "
-                              f"(oldest newer than stable: {oldest['tagName']}, {hours:.0f} h)")
-    return aged[0], stable, ''
+    candidate = canary_of(releases, now)
+    if not candidate:
+        return None, stable, f"no canary: every build newer than stable is over {CANARY_WINDOW.days} days old"
+    age = now - parse_time(candidate.get('publishedAt') or candidate['createdAt'])
+    if age < min_age:
+        return None, stable, (f"canary {candidate['tagName']} is {age.total_seconds() / 3600:.0f} h old "
+                              f"(needs {int(min_age.total_seconds() // 3600)} h)")
+    return candidate, stable, ''
 
 
 def ci_problem(runs):
@@ -178,7 +198,10 @@ def decide(releases, now, facts, min_age=MIN_AGE):
     stable_version = version_of(stable['tagName']) if stable else ''
     age = (now - parse_time(candidate['publishedAt'])).total_seconds() / 3600
     reasons, ok = [f"candidate {tag}: out {age:.0f} h (>= {int(min_age.total_seconds() // 3600)} h)"], True
-    ci = ci_problem(facts.ci_runs(tag))
+    runs = facts.ci_runs(tag)
+    ci = ci_problem(runs)
+    blocked = any(r.get('status') == 'completed' and r.get('conclusion') not in ('success', 'skipped', 'cancelled')
+                  for r in runs)
     if ci:
         ok = False
         reasons.append(ci)
@@ -188,7 +211,7 @@ def decide(releases, now, facts, min_age=MIN_AGE):
     stable_ext = facts.extension_version(stable['tagName']) if stable else ''
     problems = new_problems(version, stable_version, facts.telemetry(), facts.fill_failures(), ext, stable_ext)
     if problems:
-        ok = False
+        ok, blocked = False, True
         reasons.append('new problems reported: ' + ', '.join(f"#{p['number']} {p.get('title', '')[:80]}" for p in problems))
     else:
         reasons.append(f"no new telemetry{' or fill-failure' if ext and ext != stable_ext else ''} problem for {version}")
@@ -199,13 +222,17 @@ def decide(releases, now, facts, min_age=MIN_AGE):
         reasons.append(f"no usage evidence: {error}")
     else:
         missing, summary = usage_problems(usage.get(version), usage.get(stable_version), now)
+        events = (usage.get(version) or {}).get('events') or {}
+        blocked = blocked or bool(events.get('crash') or events.get('run_failed'))
         reasons.append(summary)
         if missing:
             ok = False
             reasons.extend(f"not proven yet: {why}" for why in missing)
         else:
             reasons.append('used and healthy for 48 h (app reports)')
-    return {'promote': ok, 'tag': tag, 'stable': stable and stable['tagName'], 'reasons': reasons}
+    if blocked:
+        reasons.append('failed for sure: drop this canary (release page deleted, tag kept), the next build takes over')
+    return {'promote': ok, 'blocked': blocked, 'tag': tag, 'stable': stable and stable['tagName'], 'reasons': reasons}
 
 
 class GitHub:
@@ -267,7 +294,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--dry-run', action='store_true', help='print the decision and why; change nothing')
     parser.add_argument('--repo', default=REPO)
+    parser.add_argument('--canary', action='store_true',
+                        help="read `gh release list --json tagName,isPrerelease,isDraft,isLatest,createdAt` on stdin, "
+                             "print the canary build's tag (empty when none)")
     args = parser.parse_args(argv)
+    if args.canary:
+        found = canary_of(json.load(sys.stdin), datetime.now(timezone.utc))
+        print(found['tagName'] if found else '')
+        return 0
     github = GitHub(args.repo, key=os.environ.get(KEY_ENV, '').strip() or None)
     result = decide(github.releases(), datetime.now(timezone.utc), github)
     verdict = ('PROMOTE ' + result['tag']) if result['promote'] else 'WAIT (no promotion)'
@@ -280,6 +314,12 @@ def main(argv=None):
             print(f"Dry run: would run tools/release-stable.sh {result['tag']}")
         else:
             subprocess.run([str(ROOT / 'tools' / 'release-stable.sh'), result['tag']], check=True)
+    elif result.get('blocked'):
+        if args.dry_run:
+            print(f"Dry run: would drop the canary {result['tag']} (gh release delete, tag kept)")
+        else:
+            subprocess.run(['gh', 'release', 'delete', result['tag'], '-R', args.repo, '--yes'], check=True)
+            print(f"Dropped the canary {result['tag']}: the next build is the canary now")
     return 0
 
 

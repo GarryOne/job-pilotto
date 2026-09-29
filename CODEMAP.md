@@ -18,6 +18,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
+- `desktop/lib/canary.js` — Test builds (menu → Get Test Builds): the app stays on one canary build for its 48 h trial, not the newest build.
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
 - `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
 - `desktop/lib/cv-change.js` — A replaced CV after setup (Strategy → Replace CV…): what follows it and what doesn't.
@@ -199,7 +200,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/apply-batch-codex-terminal.sh` — Open one Codex CLI session per application in Terminal, using Playwright MCP's
 - `tools/benchmark-apply-runs.py` — Score local browser-run reports against human-checked, unsubmitted ATS forms.
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
-- `tools/canary_promote.py` — Canary auto-promote: make the newest desktop pre-release that has been out >= 48 h stable, if nothing new went wrong.
+- `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/fix_issues.py` — No-AI steps of the daily self-fix run (fix-issues.yml): stale close, snapshot-only issue pick, Claude log summary.
