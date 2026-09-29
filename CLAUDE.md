@@ -3,15 +3,17 @@
 Personal job-search automation: crawls job boards and employer feeds, filters and scores jobs with Claude, sends a Telegram digest, tracks applications in Notion.
 
 ## Start here
-1. Read the Notion page **Session Handoff — Start Here (for Claude)** (`3e562be8fd8681af9a4dd8732964fd94`) via the Notion MCP. It has the owner's preferences, current state, open threads and known gotchas.
-2. Then **Technical Reference — Implementation** (`3e562be8fd868124a28ee7c044dc83dc`), the latest **Run Log** entries and the **Decision Log**.
-3. For any other Notion page/database ID, or to find where something lives, use the skill **notion-map** (`.claude/skills/notion-map/SKILL.md`) instead of searching from scratch.
-4. **Code: read `CODEMAP.md` first** (every file → its purpose, generated, kept fresh by a test), then open only the file
+1. **[docs/HOW-IT-RUNS.md](docs/HOW-IT-RUNS.md)**: strategy in 5 bullets and every automatic loop (self-healing,
+   self-improving, releases, the product brain): trigger, what it may change, where the owner approves.
+2. Read the Notion page **Session Handoff — Start Here (for Claude)** (`3e562be8fd8681af9a4dd8732964fd94`) via the Notion MCP. It has the owner's preferences, current state, open threads and known gotchas.
+3. Then **Technical Reference — Implementation** (`3e562be8fd868124a28ee7c044dc83dc`), the latest **Run Log** entries and the **Decision Log**.
+4. For any other Notion page/database ID, or to find where something lives, use the skill **notion-map** (`.claude/skills/notion-map/SKILL.md`) instead of searching from scratch.
+5. **Code: read `CODEMAP.md` first** (every file → its purpose, generated, kept fresh by a test), then open only the file
    you need. Changing `desktop/`: follow the skill **desktop-change** (`.claude/skills/desktop-change/SKILL.md`): the fast
    edit → check → push loop and the traps that caused real bugs. Screens: skill **ui-look-and-feel**.
-5. Humans and agents alike: [CONTRIBUTING.md](CONTRIBUTING.md) (the change loop, where things go) and
+6. Humans and agents alike: [CONTRIBUTING.md](CONTRIBUTING.md) (the change loop, where things go) and
    [RELEASE.md](RELEASE.md) (pre-releases, `tools/release-stable.sh`, what updates on a friend's side).
-6. New file: start it with a one-line comment (docstring in Python) saying what it's for; `node desktop/scripts/codemap.mjs`
+7. New file: start it with a one-line comment (docstring in Python) saying what it's for; `node desktop/scripts/codemap.mjs`
    then updates `CODEMAP.md`.
 
 ## Working rules
