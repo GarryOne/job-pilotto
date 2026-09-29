@@ -129,15 +129,26 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   title, company, location and description come from the posting page, then it gets the same AI facts, fit
   score and Job Matches row as a job Job Pilotto found (`src/ai/added.py`, about USD 0.01–0.02). LinkedIn,
   Glassdoor and Indeed pages are never read: in the app, paste the title, company and description instead.
-- 📥 **Log anything: a message or a screenshot.** A recruiter's pitch, a reply, an interview time, a rejection
-  from LinkedIn, Gmail or WhatsApp: send the screenshot to the bot (or forward the message, or `/add` its text),
-  or Jobs → **+ Log message or screenshot…** in the app (⌘V a screenshot; "Which job?" lets you pick it).
-  Claude Haiku 4.5 reads it with the list of your jobs and **updates the job it's about, or adds it**: a new
-  recruiter pitch becomes a **Recruiter lead** (Screening if you already said yes). The same pitch pasted twice
-  stays one job; sales pitches and other non-job messages are refused. The message and screenshot go on the
-  job's Notion page (`src/ai/inbox.py`, about USD 0.005–0.01 each).
-- 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update
-  your applications by themselves; the evening before an interview you get a prep message.
+- 📥 **Log box: inbound and recruiter opportunities from a message or screenshots.** A recruiter's pitch, a
+  reply, an interview time, a rejection from LinkedIn, Gmail or WhatsApp: in the app, Jobs → **+ Log job activity**
+  (paste the text, or up to **5 screenshots** of a chat, read together), or send it to the bot (a screenshot, a
+  forward, or `/add` its text). Claude Haiku 4.5 reads it with the list of your jobs and **updates the job it's about,
+  or adds it**: a new pitch becomes a **Recruiter lead** (Screening if you already said yes). It fills what the job
+  was missing (company, title, salary, location), keeps what the chat says about the role as the job's
+  **🧾 Job description**, scores the fit, and sets **Reached via** to where you talked first. Each step shows while it
+  runs; the message and screenshots go on the job's Notion page as one folded entry (`src/ai/inbox.py`, about
+  USD 0.005–0.02).
+- 🎤 **Interview prep kit.** Focus → Prepare → **Build prep kit**: what the interview will likely assess, likely
+  questions with what from your CV to answer with, stories to have ready, gaps and how to handle them honestly,
+  questions to ask, what's still unknown to ask the recruiter, and a prep plan for the time left. It adapts to the
+  call (recruiter screen or technical round) and works in the topics you answered weakly in past interviews. It
+  needs the role first: without a job description it asks you for one (paste it or the posting link). Written on the
+  job's Notion page (🎤 Interview prep) with Claude Sonnet 5, about USD 0.05 (`src/ai/prep.py`).
+- 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update your
+  applications by themselves, including agencies' emails and calendar invites (the interview time comes from the
+  invite itself); one recruiter by email and on LinkedIn stays one job. **It never guesses:** an email that doesn't
+  name its job isn't attached to one; Focus asks "Is this about …?", and a job's ⋯ → **Undo an email update** puts a
+  wrong update back. The evening before an interview you get a prep message.
 - ⌨️ **Commands**: `/check` (a jobs check now; `/run` works too), `/today`, `/applied`, `/saved`, `/add`, `/mail`, `/insight`, `/weekly`, `/interview`, `/employers` (find new employers; `/scout` works too), `/status`, `/help`.
 
 ### 🤖 Filling applications (macOS)
