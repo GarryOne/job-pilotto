@@ -1187,3 +1187,8 @@ main { min-width: 0; }
 .filter-chip-x { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border-radius: 50%; background: transparent; color: inherit; }
 .filter-chip-x:hover { background: var(--signal-line); }
 .filter-chip-x .icon { width: 12px; height: 12px; }
+
+/* Answer once while it loads: the box in place, a shimmer where the count goes, not openable yet. */
+.questions.is-loading summary { pointer-events: none; }
+.questions.is-loading #questions-count { background: transparent; padding: 0; }
+.questions-skeleton { width: 90px; height: 18px; }

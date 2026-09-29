@@ -354,8 +354,21 @@ function setDensity(value) {
   document.querySelectorAll('[data-density]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.density === value)));
   try { localStorage.setItem('jobsDensity', value); } catch {}
 }
+// Answer once: while Notion is read (3-4 s), the box is already there with a shimmering placeholder, if there were
+// questions last time (remembered on this computer), so the list below doesn't jump when it arrives.
+let questionsLoaded = false;
 async function loadQuestions() {
+  let before = null;
+  try { before = localStorage.getItem('questionsCount'); } catch {}
+  if (!questionsLoaded && before !== '0') {
+    $('questions').classList.add('is-loading');
+    $('questions-count').replaceChildren(el('span', 'skeleton questions-skeleton'));
+    show($('questions'));
+  }
   const {list, error} = await window.pilot.openQuestions();
+  questionsLoaded = true;
+  $('questions').classList.remove('is-loading');
+  if (!error) try { localStorage.setItem('questionsCount', String(list.length)); } catch {}
   // Collapsed by default (the count shows on its heading); shown whenever there's something to answer or a read failed.
   show($('questions'), list.length > 0 || !!error);
   $('questions-count').textContent = error ? 'couldn\'t load' : `${list.length} question${list.length === 1 ? '' : 's'}`;
