@@ -21,6 +21,14 @@ class LensTest(unittest.TestCase):
         self.assertIn('evidence', brain.lens_of_the_day(dt.date(2026, 10, 3)))
 
 
+class RankTest(unittest.TestCase):
+    def test_the_compass_and_strategy_come_before_guides_and_templates(self):
+        titles = ['User Guide — Daily Use', 'Profile — CV and Preferences', '✨ Feature catalog',
+                  'Marketing Strategy — Free vs Premium', '📍 Product Compass']
+        self.assertEqual(sorted(titles, key=brain.rank)[:3],
+                         ['📍 Product Compass', 'Marketing Strategy — Free vs Premium', '✨ Feature catalog'])
+
+
 class BlocksTest(unittest.TestCase):
     def test_headings_lists_todos_and_paragraphs(self):
         kinds = [b['type'] for b in brain.blocks('## Options\n- one\n1. first\n- [ ] do it\n- [x] done\n\nPlain text')]

@@ -159,12 +159,22 @@ def find_compass() -> str | None:
     return found[0]['id'] if found else None
 
 
+# Strategy first, the Compass above all; help pages and the workspace template (shared with their section) last.
+PRIORITY = ['compass', 'marketing strategy', 'market & competitors', 'decision log', 'run log', 'feature catalog',
+            'first customer onboarding', 'release stages']
+
+
+def rank(title: str) -> int:
+    lower = title.lower()
+    return next((i for i, word in enumerate(PRIORITY) if word in lower), len(PRIORITY))
+
+
 def strategy_pages(limit: int = 6) -> str:
     """Every page the owner shared with the Brain connection (the Product Compass first): the strategy it must serve."""
-    found = notion('search', 'POST', {'filter': {'property': 'object', 'value': 'page'}, 'page_size': 50}).get('results', [])
+    found = notion('search', 'POST', {'filter': {'property': 'object', 'value': 'page'}, 'page_size': 100}).get('results', [])
     pages = [p for p in found if p.get('parent', {}).get('type') != 'database_id']  # not the Decisions rows
     title = lambda p: ''.join(t.get('plain_text', '') for prop in p['properties'].values() if prop.get('type') == 'title' for t in prop['title'])
-    pages.sort(key=lambda p: 'compass' not in title(p).lower())
+    pages.sort(key=lambda p: rank(title(p)))
     if not pages:
         return '(No strategy page is shared with the Brain connection: ask the owner to share the 📍 Product Compass.)'
     return '\n\n'.join(f'### {title(p)}\n{page_text(p["id"])}' for p in pages[:limit])
