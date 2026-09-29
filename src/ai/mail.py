@@ -595,7 +595,9 @@ def prep_message(tracker, row, event, start, day):
 
 
 def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None, calendar=True, dry_run=False,
-        now=None, state_path=STATE_FILE, stats=None, on_new=None):
+        now=None, state_path=STATE_FILE, stats=None, on_new=None, always_report=False):
+    """always_report: a check you started (Telegram button, the app, GitHub's Run button) answers even when
+    there's nothing new, so "news arrives in about a minute" is always followed by a message."""
     state = load_state(state_path)
     apps = applications(tracker)
     index = _events_index(tracker)
@@ -616,6 +618,9 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
         lines += review_rejections(tracker, client, rejected, stats)
     if send and lines:
         send('📧 <b>Job emails and calendar</b>\n' + '\n'.join(lines))
+    elif send and always_report and not notes:
+        send(f'📧 Gmail checked: {count} new email(s), nothing that changes your applications.' if count
+             else '📧 Gmail checked: no new job emails.')
     for note in notes:
         if send:
             send(note)
@@ -633,6 +638,8 @@ def main(argv=None):
     parser.add_argument('--send', action='store_true', help='send the summary and reminders to Telegram')
     parser.add_argument('--dry-run', action='store_true', help='classify and print; write nothing')
     parser.add_argument('--no-calendar', action='store_true')
+    parser.add_argument('--always-report', action='store_true',
+                        help='with --send: answer even when nothing is new (a check someone started)')
     parser.add_argument('--log-run', action='store_true',
                         help='log this check to Notion ⏰ Search runs even without --send (the desktop app always does)')
     args = parser.parse_args(argv)
@@ -668,7 +675,7 @@ def main(argv=None):
         from ..paths import JOBS_DB
         from . import added  # jobs tracked from an email get facts and a fit score, like found ones
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
-                  stats=stats, on_new=added.hook(tracker, JOBS_DB, log)))
+                  stats=stats, on_new=added.hook(tracker, JOBS_DB, log), always_report=args.always_report))
         if logged:
             log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash

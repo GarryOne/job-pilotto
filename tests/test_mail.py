@@ -140,6 +140,14 @@ class MailTests(unittest.TestCase):
         self.run_mail(tracker, FakeGoogle([email('m2', 'Following up', sender='agillard@agtalent.co.uk')]), [[result(0, 0, ledger.REPLY)]])
         self.assertFalse([u for u in tracker.updates if 'Stage' in u[1]])
 
+    def test_a_check_someone_started_always_answers(self):
+        tracker, google = FakeTracker([app('p1', 'Acme', 'SRE')]), FakeGoogle([email('m1', 'Newsletter')])
+        sent = []
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+            mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Other', relevant=False)]]), days=2, send=sent.append,
+                     calendar=False, now=NOW, state_path=self.state, stats={}, always_report=True)
+        self.assertEqual(sent, ['📧 Gmail checked: 1 new email(s), nothing that changes your applications.'])
+
     def test_the_desktop_app_gets_one_short_line_per_update(self):
         apps = [app('p1', 'Grafana Labs', 'Staff Software Engineer - Databases SRE | Sweden | Remote')]
         tracker, google = FakeTracker(apps), FakeGoogle([email('m1', 'Your application for Grafana Labs')])

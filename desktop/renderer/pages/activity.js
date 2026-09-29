@@ -226,7 +226,17 @@ export function renderActivity(data) {
   const run = picked?.pageId && !picked.log && !picked.live ? {...picked, ...runDetails.get(picked.pageId)} : picked;
   if (run?.pageId && !run.log && !run.live && !runDetails.has(run.pageId)) {
     runDetails.set(run.pageId, {log: ['Reading from Notion…']});
-    window.pilot.runDetail(run.pageId).then(detail => { runDetails.set(run.pageId, detail); renderActivity(lastActivity); });
+    // A run that just finished may not have its log on its page yet (it's written a moment after the status):
+    // an empty answer is read again a few times before it's kept.
+    const read = (tries = 0) => window.pilot.runDetail(run.pageId).then(detail => {
+      const empty = !detail?.message && !(detail?.log || []).length;
+      if (empty && tries < 4) {
+        runDetails.set(run.pageId, {log: ['Waiting for the log from Notion…']});
+        setTimeout(() => read(tries + 1), 5000);
+      } else runDetails.set(run.pageId, empty ? {log: ['This run left no log on its Notion page.']} : detail);
+      renderActivity(lastActivity);
+    });
+    read();
   }
   const lines = shown ? shown.log || [] : liveLines || last?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;

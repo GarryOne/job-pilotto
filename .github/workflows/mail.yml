@@ -55,9 +55,20 @@ jobs:
     env:
       GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
     steps:
+      # A check someone started (Telegram, the app) gets an answer: here, what to do in the app.
       - name: Not connected yet
         if: env.GOOGLE_REFRESH_TOKEN == ''
-        run: echo "Google is not connected; run python -m src.sources.google auth --github on the Mac (see README)."
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STARTED_BY_SOMEONE: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          text="📧 Gmail isn't connected for Always on yet. In the Job Pilotto app: Settings → Connections → Gmail & Calendar → Connect (it's sent to GitHub too)."
+          echo "$text"
+          if [ "$STARTED_BY_SOMEONE" = "true" ] && [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -sS -o /dev/null "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" --data-urlencode "text=${text}"
+          fi
       - uses: actions/checkout@v4
         if: env.GOOGLE_REFRESH_TOKEN != ''
         # Called from a private repo (templates/github-actions): run this repo's code there.
@@ -91,10 +102,12 @@ jobs:
           JOB_PILOTTO_MAIL_MODEL: ${{ vars.JOB_PILOTTO_MAIL_MODEL || 'claude-haiku-4-5' }}
         run: |
           pip install --quiet -r requirements.txt
-          send=""
-          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
+          send=()
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send=(--send); fi
+          # Started by someone (Telegram button, the app, the Run button): always answer, even "nothing new".
+          if [ ${#send[@]} -gt 0 ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then send+=(--always-report); fi
           # --log-run: its ⏱️ Search runs row (running, then result and log) is how the app and Notion see it.
-          python -m src.ai.mail $send --log-run --days "${{ inputs.days || '2' }}"
+          python -m src.ai.mail "${send[@]}" --log-run --days "${{ inputs.days || '2' }}"
       - name: Save mail state
         if: always() && env.GOOGLE_REFRESH_TOKEN != ''
         uses: actions/cache/save@v4
