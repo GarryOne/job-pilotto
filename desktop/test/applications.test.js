@@ -41,3 +41,9 @@ test('a failed move says how to do it by hand', () => {
   assert.equal(offerMove({app, dialog, platform: 'darwin'}), false);
   assert.equal(asked[1], 'Job Pilotto couldn\'t move itself');
 });
+
+test('Windows never touches the Mac-only Electron calls', () => {
+  const app = {isPackaged: true};  // no isInApplicationsFolder / moveToApplicationsFolder, as on Windows
+  const dialog = {showMessageBoxSync: () => assert.fail('asked on Windows')};
+  assert.equal(offerMove({app, dialog, platform: 'win32'}), false);
+});

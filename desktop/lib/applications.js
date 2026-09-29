@@ -20,7 +20,8 @@ export const question = {
 // Ask, and move when the user agrees. Returns true when the app is moving (and about to quit).
 // A copy already in Applications (an older version) is replaced after asking.
 export function offerMove({app, dialog, platform = process.platform}) {
-  if (!shouldOffer({platform, packaged: app.isPackaged, inApplications: app.isInApplicationsFolder()})) return false;
+  // isInApplicationsFolder exists on the Mac only: asked after the platform check.
+  if (!shouldOffer({platform, packaged: app.isPackaged, inApplications: platform === 'darwin' && app.isInApplicationsFolder()})) return false;
   if (dialog.showMessageBoxSync(question) !== 0) return false;
   try {
     return app.moveToApplicationsFolder({conflictHandler: kind => kind !== 'existsAndRunning' &&
