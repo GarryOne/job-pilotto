@@ -36,6 +36,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
+- `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log (5 MB, then
 - `desktop/lib/reset.js` — Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
 - `desktop/lib/review.js` — The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
 - `desktop/lib/root.js` — Where the pipeline, config, tools and extension live: the repo when developing, the app's

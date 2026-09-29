@@ -33,6 +33,30 @@ class NotionTracker(FakeTracker):
 
 
 class MatchesSyncTests(unittest.TestCase):
+    def test_a_runner_without_its_sqlite_rewrites_only_rows_that_differ(self):
+        # A new GitHub repo or an expired cache: Notion already holds job 1 exactly, job 2 with an older score.
+        def as_notion(props):  # how Notion returns what was written
+            out = {}
+            for key, value in props.items():
+                kind = next(iter(value))
+                inner = value[kind]
+                if kind in ('title', 'rich_text'):
+                    inner = [{'plain_text': part['text']['content']} for part in inner]
+                out[key] = {'type': kind, kind: inner}
+            return out
+        same, older = matches.properties(job(1), 'Open'), matches.properties(job(2, 70), 'Open')
+        class Tracker(FakeTracker):
+            def query_database(self, database_id, filter_=None):
+                return [{'id': 'p1', 'properties': as_notion(same)}, {'id': 'p2', 'properties': as_notion(older)}]
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                tracker = Tracker()
+                summary = matches.sync(db, tracker, [job(1), job(2)], open_urls={'https://x.test/1', 'https://x.test/2'})
+                self.assertEqual([call[0] for call in tracker.calls], ['p2'])  # only the changed row is written
+                self.assertIn('0 created, 1 updated', summary)
+                self.assertIn('0 created, 0 updated', matches.sync(db, tracker, [job(1), job(2)],
+                                                                  open_urls={'https://x.test/1', 'https://x.test/2'}))
+
     def test_reset_cache_adopts_existing_rows_instead_of_duplicating(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

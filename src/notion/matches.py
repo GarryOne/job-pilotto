@@ -78,10 +78,40 @@ def _hash(props):
     return hashlib.sha256(json.dumps(stable, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def _as_written(page_props, keys):
+    """A Notion row's current values in the shape properties() writes, for the keys it writes; None when one can't be
+    read the same way (then the row is simply rewritten)."""
+    plain = lambda items: ''.join(t.get('plain_text') or (t.get('text') or {}).get('content', '') for t in items or [])
+    out = {}
+    for key in keys:
+        prop = (page_props or {}).get(key)
+        if prop is None:
+            return None
+        kind = prop.get('type') or next((k for k in ('title', 'rich_text', 'number', 'select', 'multi_select', 'url',
+                                                      'checkbox', 'date') if k in prop), None)
+        value = prop.get(kind)
+        if kind == 'title':
+            out[key] = {'title': [{'text': {'content': plain(value)[:2000]}}]}
+        elif kind == 'rich_text':
+            out[key] = _text(plain(value))
+        elif kind in ('number', 'url', 'checkbox'):
+            out[key] = {kind: value}
+        elif kind == 'select':
+            out[key] = {'select': {'name': value['name']} if value else None}
+        elif kind == 'multi_select':
+            out[key] = {'multi_select': [{'name': option['name']} for option in value or []]}
+        elif kind == 'date':
+            out[key] = {'date': {'start': value['start']} if value else None}
+        else:
+            return None
+    return out
+
+
 def adopt_existing(db, tracker, known):
     """Rows already in Notion that this SQLite doesn't know (its cache was reset): remember their page
-    ids so they are updated instead of duplicated, and so stale ones can be marked Not seen. The
-    empty hash forces one rewrite. Copies of one job (same URL, see dedupe.normalize_url) are merged on the
+    ids so they are updated instead of duplicated, and so stale ones can be marked Not seen. Their current values
+    come along ('props'): sync() writes only the rows that differ, so a runner without this SQLite (a new GitHub
+    repo, an expired cache) doesn't rewrite every row. Copies of one job (same URL, see dedupe.normalize_url) are merged on the
     way: the fullest row is kept and the others go to Notion's trash. Returns {url: row} for the adopted rows."""
     if not hasattr(tracker, 'query_database'):
         return {}
@@ -98,7 +128,7 @@ def adopt_existing(db, tracker, known):
     for page in pages:
         url = ((page['properties'].get('Job URL') or {}).get('url') or '').strip()
         if url and normalize_url(url) not in known_keys and url not in adopted:
-            adopted[url] = {'url': url, 'page_id': page['id'], 'data_hash': ''}
+            adopted[url] = {'url': url, 'page_id': page['id'], 'data_hash': '', 'props': page.get('properties') or {}}
             db.execute('INSERT OR IGNORE INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?)',
                        (url, page['id'], ''))
     db.commit()
@@ -110,8 +140,10 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dis
     db.executescript(SYNC_TABLE)
     known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
     keys = {normalize_url(url) for url in known}
+    in_notion = {}  # url -> the row's current values in Notion, for rows this SQLite didn't know
     if any(normalize_url(job['url']) not in keys for job in scored_jobs):
-        adopt_existing(db, tracker, known)  # may also merge copies of a job: read the links again
+        adopted = adopt_existing(db, tracker, known)  # may also merge copies of a job: read the links again
+        in_notion = {url: row['props'] for url, row in adopted.items()}
         known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
     created = updated = 0
     by_key = {normalize_url(url): row for url, row in known.items()}
@@ -128,6 +160,12 @@ def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dis
         row = known.get(url)
         if row and row['data_hash'] == digest:
             continue
+        if row and not row['data_hash'] and url in in_notion:  # adopted: Notion may already hold exactly this
+            current = _as_written(in_notion[url], props.keys())
+            if current is not None and _hash(current) == digest:
+                db.execute('UPDATE notion_matches SET data_hash=? WHERE url=?', (digest, url))
+                db.commit()
+                continue
         page_id = tracker.upsert_match(props, row['page_id'] if row else None)
         db.execute('INSERT INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?) '
                    'ON CONFLICT(url) DO UPDATE SET page_id=excluded.page_id, data_hash=excluded.data_hash',

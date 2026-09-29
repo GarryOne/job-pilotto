@@ -32,6 +32,8 @@ permissions:
 # Optional features can be switched off without deleting their secrets (src/features.py),
 # e.g. repository variable JOB_PILOTTO_DISABLE=google_jobs,mail.
 env:
+  # Notion's limit (~3 requests a second) is shared with the user's app on their computer: this run takes ~1.4/s.
+  JOB_PILOTTO_NOTION_GAP_MS: '700'
   JOB_PILOTTO_DISABLE: ${{ vars.JOB_PILOTTO_DISABLE }}
   # Your Notion workspace: database and page IDs, as repository variables (the Desktop App sets them).
   NOTION_APPLICATIONS_DB: ${{ vars.NOTION_APPLICATIONS_DB }}

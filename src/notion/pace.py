@@ -13,7 +13,8 @@ import tempfile
 import threading
 import time
 
-GAP_MS = 340
+# ~3 requests a second; a GitHub run sets JOB_PILOTTO_NOTION_GAP_MS higher, leaving room for the user's app (same limit).
+GAP_MS = int(os.getenv('JOB_PILOTTO_NOTION_GAP_MS') or 340)
 LOCK_STALE_MS = 3000
 LOCK_TRIES = 200
 

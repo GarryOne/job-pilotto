@@ -1,4 +1,5 @@
 // Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
+import * as requestLog from './request-log.js';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,6 +48,7 @@ export function pipelineEnv(storage, parent = process.env) {
     JOB_PILOTTO_CONFIG_DIR: storage.path('config'),
     JOB_PILOTTO_DATA_DIR: storage.path('data'),
     JOB_PILOTTO_CV_PATH: storage.path('cv.pdf'),
+    ...(requestLog.logPath() ? {JOB_PILOTTO_NOTION_LOG: requestLog.logPath()} : {}),  // Python's Notion requests: same file
   };
   // The Profile and standard answers are read from Notion (Notion is required).
   for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']) {

@@ -8,6 +8,7 @@ import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
 import * as telemetryLib from './lib/telemetry.js';
+import * as requestLog from './lib/request-log.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
@@ -1112,6 +1113,7 @@ if (firstCopy) app.whenReady().then(() => {
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
   logTo(path.join(app.getPath('userData'), 'logs'));
+  requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode.
   telemetry = DEMO ? null : telemetryLib.create(storage, {version: app.getVersion()});

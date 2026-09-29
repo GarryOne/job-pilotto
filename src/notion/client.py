@@ -4,10 +4,11 @@
 SQLite in the Actions cache can be evicted; applications cannot be re-crawled,
 so they live in Notion. The canonical job URL is the key shared by both.
 """
-from datetime import date
+from datetime import date, datetime, timezone
 import hashlib
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -53,6 +54,31 @@ def _rich(items):
     return ''.join(item.get('plain_text', '') for item in items or [])
 
 
+
+def _who():
+    """Which job made the request, for the request log: "py:src.desktop jobs", "py:src.ai.prep build"."""
+    main = sys.modules.get('__main__')
+    module = getattr(getattr(main, '__spec__', None), 'name', '') or os.path.basename(sys.argv[0] or 'python')
+    sub = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1].isidentifier() else ''
+    return f"py:{module}{' ' + sub if sub else ''}"
+
+
+def _log_request(method, path, status, started, attempt):
+    """One line per Notion request in the app's notion-requests.log (desktop/lib/request-log.js has the format), when the
+    app gave its path (JOB_PILOTTO_NOTION_LOG). Routes and statuses only, never content."""
+    target = os.getenv('JOB_PILOTTO_NOTION_LOG')
+    if not target:
+        return
+    try:
+        if os.path.exists(target) and os.path.getsize(target) > 5_000_000:
+            os.replace(target, target + '.1')
+        stamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.') + f"{datetime.now(timezone.utc).microsecond // 1000:03d}Z"
+        with open(target, 'a', encoding='utf-8') as handle:
+            handle.write('\t'.join([stamp, _who(), method, path.split('?')[0], str(status),
+                                     f'{int((time.time() - started) * 1000)}ms', f'try {attempt + 1}']) + '\n')
+    except OSError:
+        pass
+
 class Tracker:
     def __init__(self, token, database_id=DEFAULT_DATABASE_ID, opener=urllib.request.urlopen, sleep=time.sleep):
         self.token, self.database_id, self.opener, self.sleep = token, database_id, opener, sleep
@@ -79,6 +105,7 @@ class Tracker:
         for attempt in range(self.RETRIES + 1):
             if self._paced():
                 pace.wait_turn(self.token, self.sleep)
+            started = time.time()
             request = urllib.request.Request(
                 f'https://api.notion.com/v1/{path}', method=method,
                 data=json.dumps(body).encode() if body is not None else None,
@@ -86,8 +113,11 @@ class Tracker:
                          'Content-Type': 'application/json'})
             try:
                 with self.opener(request, timeout=20) as response:
-                    return json.load(response)
+                    result = json.load(response)
+                    _log_request(method, path, getattr(response, 'status', 200), started, attempt)
+                    return result
             except urllib.error.HTTPError as error:
+                _log_request(method, path, error.code, started, attempt)
                 if error.code not in self.RETRY_STATUS or attempt == self.RETRIES:
                     raise
                 try:

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {log} from './log.js';
 import * as sharedPace from './notion-pace.js';
+import * as requestLog from './request-log.js';
 import {REPO} from './pipeline.js';
 
 const API = 'https://api.notion.com/v1/';
@@ -54,12 +55,14 @@ export async function call(token, method, route, body, fetcher = globalThis.fetc
   for (let attempt = 0; ; attempt++) {
     if (pace) { await turn(token); count(method, route); }
     if (method !== 'GET') forgetChecks();  // the app changed something: kept pages are checked again before use
+    const started = Date.now();
     const response = await fetcher(API + route, {
       method,
       headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
       ...(body ? {body: JSON.stringify(body)} : {}),
     });
     const data = await response.json().catch(() => ({}));
+    if (pace) requestLog.write({method, route, status: response.status, ms: Date.now() - started, attempt});
     if (response.ok) return data;
     if (RETRY.has(response.status) && attempt < retries) {
       const after = Number(response.headers?.get?.('retry-after'));
@@ -68,7 +71,9 @@ export async function call(token, method, route, body, fetcher = globalThis.fetc
         calmUntil = Math.max(calmUntil, clock() + wait);
         if (pace) await sharedPace.calmUntil(token, calmUntil);
       }
-      log('notion', `${response.status} on ${method} ${route.split('?')[0]}: retry ${attempt + 1}/${retries} in ${wait} ms`);
+      // A retried 429 is expected (Notion's limit is shared, e.g. with a GitHub run): it's in notion-requests.log,
+      // not on the terminal; only a request that finally fails is shown (the error thrown below).
+      if (response.status !== 429) log('notion', `${response.status} on ${method} ${route.split('?')[0]}: retry ${attempt + 1}/${retries} in ${wait} ms`);
       await sleep(wait);
       continue;
     }

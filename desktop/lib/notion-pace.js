@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export const GAP_MS = 340;
+export const GAP_MS = Number(process.env.JOB_PILOTTO_NOTION_GAP_MS) || 340;  // ~3 a second (Notion's limit)
 const LOCK_STALE_MS = 3000;
 const LOCK_TRIES = 200;
 
