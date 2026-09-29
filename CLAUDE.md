@@ -42,6 +42,8 @@ plus systematic-debugging for bugs. This repo's rules win where they differ:
     "Data ownership" section (Notion vs cache) before code.
   - "Done" = tests pass + the suite as CI runs it
     (`JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest discover -s tests`, desktop `npm ci` with dev deps).
+- Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and
+  opens a `self-review/<date>` PR editing these rules or skills. Proposals only: the owner merges.
 
 ## Data ownership: Notion is the source of truth (one copy of everything)
 Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
