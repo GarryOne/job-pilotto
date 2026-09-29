@@ -3,7 +3,7 @@ import {el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {showCloud, showExtensionStatus, showGoogle, showSchedule} from './connections.js';
-import {$, message, osText, show} from './core.js';
+import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
@@ -104,7 +104,7 @@ export async function loadSettings() {
   $('auto-search').checked = shared.state.settings.autoSearch !== false;
   $('open-login').checked = !!shared.state.settings.openAtLogin;
   $('last-search').textContent = shared.state.settings.lastSearchAt
-    ? `${new Date(shared.state.settings.lastSearchAt).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})}${shared.state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
+    ? `${runWhen(shared.state.settings.lastSearchAt)}${shared.state.settings.lastSearchOk === false ? ' (with problems)' : ''}`
     : 'No search yet';
   if (shared.state.settings.telegramBot && shared.state.secrets.TELEGRAM_BOT_TOKEN) {
     const line = document.querySelector('[data-secret="TELEGRAM_BOT_TOKEN"]');

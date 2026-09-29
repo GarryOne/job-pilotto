@@ -208,8 +208,8 @@ export function renderJobs() {
         prepare.title = 'Drafting the kit: usually 15–30 s';
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
         prepare.classList.remove('busy', 'state-busy');
-        // On GitHub (Always on): Recent activity follows it; the list reloads when it's done.
-        if (result.cloud) { prepare.textContent = 'Preparing on GitHub…'; openActivity(true); return; }
+        // On GitHub (Always on): the row says so; the list reloads when it's done.
+        if (result.cloud) { prepare.textContent = 'Preparing…'; prepare.title = 'Preparing on GitHub: the list reloads when it is done'; return; }
         if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
       });
       box.append(prepare);

@@ -38,7 +38,13 @@ export function openView(name) {
 const PALETTE_KEYWORDS = {mail: 'email inbox replies confirmations calendar google', run: 'search jobs find refresh',
   scout: 'employers companies discover', status: 'health check', weekly: 'report stats', insight: 'tip advice',
   today: 'telegram list', applied: 'applications', saved: 'bookmarks starred'};
-const labelOf = node => node?.textContent.replace(/\s+/g, ' ').trim() || '';
+// A button's own words: the count badge and the dot inside a nav button are not part of its label.
+export const labelOf = node => {
+  if (!node) return '';
+  const copy = node.cloneNode(true);
+  copy.querySelectorAll('.nav-badge, .nav-dot').forEach(child => child.remove());
+  return copy.textContent.replace(/\s+/g, ' ').trim();
+};
 function paletteCommands() {
   const commands = [];
   const add = (group, label, hint, keywords, run) => { if (label) commands.push({group, label, hint, keywords, run}); };

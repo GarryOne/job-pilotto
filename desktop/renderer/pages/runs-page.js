@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {KIND, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity} from './activity.js';
-import {$, show} from './core.js';
+import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
 
 // Status: what's running, the last and next search, the last and next Gmail check, as a small card.
@@ -37,11 +37,6 @@ export async function showStatusCard() {
 const TASK_ICON = {search: 'search', mail: 'mail', insight: 'chart', weekly: 'file', today: 'send', scout: 'building'};
 const TASK_TITLE = {search: 'Search for new jobs', mail: 'Gmail & Calendar check', insight: 'Insight', weekly: 'Weekly report',
   today: "Today's matches", scout: 'Find new employers'};
-function runWhen(iso) {
-  const at = new Date(iso), today = new Date();
-  const time = at.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-  return at.toDateString() === today.toDateString() ? `Today ${time}` : `${at.toLocaleDateString([], {weekday: 'short'})} ${time}`;
-}
 export function renderActionsPage(data) {
   if (!data) return;
   const {running, runs = []} = data;

@@ -234,7 +234,10 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .path-line code { flex: 1; padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--r-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .summary-rows.is-lined { grid-template-columns: 200px minmax(0, 1fr); gap: 0; margin: 0; }
 .summary-rows.is-lined dt, .summary-rows.is-lined dd { padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
-.dev-options summary { display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer; }
+.dev-options summary { display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer; list-style: none; position: relative; padding-right: var(--sp-6); }
+.dev-options summary::-webkit-details-marker { display: none; }
+.dev-options summary::after { content: '▸'; position: absolute; right: var(--sp-2); top: var(--sp-2); color: var(--muted); transition: transform .15s; }
+.dev-options[open] summary::after { transform: rotate(90deg); }
 .dev-options[open] summary { margin-bottom: var(--sp-3); }
 .dev-options h4 { margin: var(--sp-3) 0 var(--sp-1); }
 
