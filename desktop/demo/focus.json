@@ -64,7 +64,7 @@
       "company": "Acme Observability",
       "job": "Staff SRE",
       "page_id": "demo-feedback",
-      "draft": "Hi,\n\nThank you for considering me for the Staff SRE role. I accept the decision and would value brief feedback to help me improve.\n\nWhat was the main factor: technical fit (which area), communication, experience, compensation, or something else? Even a few words would help.\n\nThank you!",
+      "draft": "Hi,\n\nThank you for considering me for the Staff SRE role. Could you share brief feedback to help me improve?\n\nWhat was the main factor: technical fit (which area), communication, experience, compensation, or something else? Even a few words would help.\n\nThank you!",
       "link": "https://mail.google.com/",
       "notion_url": "",
       "job_url": ""
