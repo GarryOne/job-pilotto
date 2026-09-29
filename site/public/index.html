@@ -93,7 +93,7 @@
       <div class="stop-panel" role="tabpanel" id="panel-find" aria-labelledby="tab-find">
         <dl class="items">
           <div><dt>A shared pool of employers</dt><dd><span id="pool-count">A growing pool of employers</span>, worldwide, checked every day by our own scout. Your app downloads the list; nothing about you goes up</dd></div>
-          <div><dt>Swiss job boards</dt><dd>jobs.ch and TechTree, plus Google Jobs if you want it</dd></div>
+          <div><dt>Job portals</dt><dd>jobs.ch and TechTree (Switzerland) today, plus Google Jobs if you want it. They come on top of the employers</dd></div>
           <div><dt>Your own employers</dt><dd>Add any company you care about, or run your own scout. Your list stays in your Notion and is always crawled first</dd></div>
           <div><dt>Filters that matter</dt><dd>City, remote, and languages you don't speak</dd></div>
           <div><dt>Facts with proof</dt><dd>Languages, seniority, salary and visa, each quoted from the posting</dd></div>
@@ -443,8 +443,9 @@
 <script>
 // The shared employer pool's size, read from the same public list every app downloads; the sentence works without it.
 fetch('/api/index').then(r => r.ok ? r.json() : null).then(data => {
-  const feeds = data && data.feeds ? data.feeds : [];
-  const jobs = feeds.reduce((sum, feed) => sum + (feed.jobs || 0), 0);   // every open posting in the pool, all roles
+  // Employers (a company's own career page) are counted apart from job portals; the open jobs are all roles.
+  const feeds = (data && data.feeds ? data.feeds : []).filter(feed => feed.kind !== 'board');
+  const jobs = feeds.reduce((sum, feed) => sum + (feed.jobs || 0), 0);
   if (feeds.length) document.getElementById('pool-count').textContent = feeds.length + ' employers with ' + jobs.toLocaleString('en-US') + ' open jobs';
 }).catch(() => {});
 // Copy buttons (the install command): "Copied" for a moment; the command stays selectable if the clipboard is blocked.

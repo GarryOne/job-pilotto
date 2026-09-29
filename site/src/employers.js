@@ -28,7 +28,7 @@ export function clean(feeds) {
     if (!SYSTEMS.includes(ats) || typeof slug !== 'string' || !/^[\w.-]{1,120}$/.test(slug)) continue;
     if (typeof company !== 'string' || !company.trim() || seen.has(`${ats}:${slug}`)) continue;
     seen.add(`${ats}:${slug}`);
-    out.push({company: company.trim().slice(0, 120), ats, slug, tier: item.tier === 'Tier 1' ? 'Tier 1' : 'Standard',
+    out.push({company: company.trim().slice(0, 120), ats, slug, kind: item.kind === 'board' ? 'board' : 'employer',   // an employer's own career page, or a job portal tier: item.tier === 'Tier 1' ? 'Tier 1' : 'Standard',
       quality: number(item.quality, 100), jobs: number(item.jobs, 100000),
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : []});

@@ -333,7 +333,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8):
         try:
             jobs = fetch(system, slug)
             score, _ = quality(jobs)
-            return {'company': meta['company'], 'ats': system, 'slug': slug, 'tier': meta['tier'], 'quality': score,
+            return {'company': meta['company'], 'ats': system, 'slug': slug, 'kind': 'employer', 'tier': meta['tier'], 'quality': score,
                     'jobs': len(jobs), 'checked': today, 'places': job_places(jobs)}
         except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal
             return {'company': meta['company'], 'ats': system, 'slug': slug, 'error': f'{type(error).__name__}: {error}'}

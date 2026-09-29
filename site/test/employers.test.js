@@ -11,6 +11,7 @@ const call = (e, method, headers = {}, body) => worker.fetch(new Request('https:
 const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland', 7], ...extra});
 const auth = {Authorization: 'Bearer k3y'};
 
+
 test('before anything is published: 404, so clients keep their starter list', async () => {
   store.clear();
   assert.equal((await call(env(), 'GET')).status, 404);
@@ -34,7 +35,7 @@ test('publish, then anyone can download it: public, cacheable, ETag revalidation
   assert.equal(get.status, 200);
   assert.match(get.headers.get('Cache-Control'), /public, max-age=/);
   const body = await get.json();
-  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland']});
+  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer'});
   const again = await call(env(), 'GET', {'If-None-Match': get.headers.get('ETag')});
   assert.equal(again.status, 304);
 });
@@ -70,4 +71,11 @@ test('the landing page reads the pool size from this same route and says users c
   assert.match(page, /open jobs/);
   assert.match(page, /Can I add my own employers\?/);
   assert.doesNotMatch(page, /maintained (employer )?index/i);
+});
+
+test('an entry can be marked as a job portal; anything else is an employer', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a'), feed('b', {kind: 'board'}), feed('c', {kind: 'weird'})]});
+  const kinds = (await (await call(env(), 'GET')).json()).feeds.map(f => f.kind);
+  assert.deepEqual(kinds, ['employer', 'board', 'employer']);
 });
