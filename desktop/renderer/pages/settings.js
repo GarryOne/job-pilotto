@@ -39,7 +39,8 @@ async function openProfile() {
 }
 
 // Connections status, shared by Overview (cards + alert), Connections (Connected / Available + alert) and the
-// dot on Connections. required: counted for the alert and the dot (Google Jobs is an optional extra).
+// dot on Connections. required: counted for the alert and the dot (Google Jobs and Always on are optional extras;
+// Always on's card opens its setup on the Automation page).
 const SERVICES = [
   {id: 'ai', name: 'Anthropic', icon: 'bot', what: 'AI for scoring and application kits', required: true,
     why: 'Reading jobs, fit scores and application kits need your AI key.'},
@@ -52,16 +53,18 @@ const SERVICES = [
   {id: 'telegram', name: 'Telegram', icon: 'send', what: 'Digests and reminders', required: true,
     why: 'Daily digests and reminders need a bot connection.'},
   {id: 'serpapi', name: 'Google Jobs (SerpApi)', icon: 'search', what: 'Additional job results', connect: 'Add key'},
+  {id: 'cloud', name: 'GitHub · Always on', icon: 'cloud', what: 'Runs your searches and checks while your Mac is off', connect: 'Set up'},
 ];
 // Each service's state. Keys are known at once (this Mac); Google (a Python check) and the extension answer later, so
 // their last answer is remembered here and shown meanwhile ("Checking…" the very first time).
 const SERVICE_CACHE = 'serviceChecks';
 const lastChecks = () => { try { return JSON.parse(localStorage.getItem(SERVICE_CACHE) || 'null'); } catch { return null; } };
 function statusFrom(google, extension) {
-  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY,
+  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, cloud: !!shared.state.settings.cloud?.repo,
     telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: !!extension?.on};
   const detail = {google: google?.connected && google.email, extension: extension?.on && extension.version && `v${extension.version}`,
-    telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`};
+    telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`,
+    cloud: shared.state.settings.cloud?.repo};
   const checking = {google: !google, extension: !extension};
   return {on, detail, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
 }
