@@ -264,6 +264,7 @@ table.access { width: 100%; min-width: 640px; border-collapse: collapse; font-si
 .checkin-list li::before { content: counter(step, decimal-leading-zero); font: 500 .8rem var(--mono); color: var(--signal); padding-top: 2px; }
 .checkin-list b { display: block; font-weight: 600; letter-spacing: -.01em; }
 .checkin-list span.how { color: var(--muted); font-size: .9rem; }
+.install-cmd { display: block; margin: 6px 0; padding: 6px 10px; border-radius: 6px; background: #0d131a; color: #f1ede4; font: 500 .8rem var(--mono); overflow-wrap: anywhere; user-select: all; }
 .time { font: 400 .74rem var(--mono); color: var(--teal); white-space: nowrap; padding-top: 3px; }
 .setup-cta { margin-top: 20px; }
 @media (max-width: 900px) { .setup-cols { grid-template-columns: 1fr; } }

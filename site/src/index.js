@@ -5,6 +5,7 @@
 import * as notion from './notion.js';
 import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
+import {install} from './install.js';
 import {handleReport} from '../../worker/src/report.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,6 +54,7 @@ export default {
   async fetch(request, env, ctx) {
     const {pathname} = new URL(request.url);
     if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
+    if (pathname === '/install') return install(request, env, ctx, stats.record);
     if (pathname === '/api/hit') return stats.hit(request, env);
     if (pathname === '/stats') return stats.stats(request, env);
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);

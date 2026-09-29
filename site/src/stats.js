@@ -79,6 +79,15 @@ export async function versioned(platform, env, fetcher = globalThis.fetch, cache
   } catch { return null; }
 }
 
+// One download row; also used by /install (src/install.js), whose client (curl) isn't a bot there.
+export async function record(request, env, {platform, button, page = 'unknown', source}, now = new Date()) {
+  if (!env.STATS) return;
+  const row = await base(request, env, now);
+  await env.STATS.prepare(
+    'INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(row.day, row.at, row.visitor, platform, button, page, source || 'direct', row.country, row.device).run();
+}
+
 export async function download(request, env, ctx, now = new Date()) {
   const url = new URL(request.url);
   const platform = url.pathname.split('/')[2];
