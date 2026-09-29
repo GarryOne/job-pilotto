@@ -74,8 +74,8 @@ export function renderSessionPage() {
   show($('ss-replies'), !offline);
   $('ss-offline-resume').hidden = !item.resumable;
   $('ss-offline').querySelector('span').textContent = item.resumable
-    ? 'Claude isn\'t running (it closed with the app), so typing and replies go nowhere.'
-    : 'This session has ended: typing goes nowhere. Start a new session from the job to continue.';
+    ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.'
+    : 'This session has ended. Start a new session from the job to continue.';
   openLog(logChoice[item.id] ?? item.status === 'running', false);
 }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
