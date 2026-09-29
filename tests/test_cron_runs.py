@@ -83,6 +83,19 @@ class ReportTest(unittest.TestCase):
         self.assertIsNone(props['Feeds']['number'])
         self.assertNotIn('Application', props)
 
+    def test_a_column_the_workspace_lacks_yet_is_dropped_not_the_row(self):
+        sent = []
+        class Tracker:
+            def _request(self, method, path, body):
+                if 'Updates' in body['properties']:
+                    raise RuntimeError('Notion 400: validation_error: Updates is not a property that exists.')
+                sent.append(body)
+                return {'url': 'https://notion.so/row'}
+        url = cron_runs.log_run(Tracker(), {'mode': 'mail', 'started_at': '2026-09-29T16:00:00+00:00', 'warnings': [],
+                                            'mail': {'done': 2}, 'updates': []})
+        self.assertEqual(url, 'https://notion.so/row')
+        self.assertEqual(sent[0]['properties']['Emails'], {'number': 2})  # the rest of the row is written
+
     def test_log_run_never_raises(self):
         class Broken:
             def _request(self, *args):

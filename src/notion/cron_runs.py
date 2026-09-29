@@ -284,6 +284,20 @@ def extra_blocks(messages, lines):
     return blocks
 
 
+def _without_missing(send, properties):
+    """send(properties); when Notion refuses a column this workspace doesn't have yet (the code is newer than its
+    schema: a GitHub run before the app's schema repair), drop that column and send again, so the row is never lost."""
+    for _ in range(5):
+        try:
+            return send(properties)
+        except Exception as error:  # noqa: BLE001 — only a missing column is retried
+            missing = re.search(r'([^:.\n]+?) is not a property that exists', str(error))
+            if not missing or missing.group(1).strip() not in properties:
+                raise
+            properties = {k: v for k, v in properties.items() if k != missing.group(1).strip()}
+    return send(properties)
+
+
 def log_run(tracker, run, failed=False):
     """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises)."""
     from .. import telegram
@@ -294,11 +308,11 @@ def log_run(tracker, run, failed=False):
         children = children[:50] + extra_blocks(telegram.MESSAGES, list(_output))
         if _open.get('id') and _open.get('run') is run:
             _open.pop('run')
-            tracker._request('PATCH', f"pages/{_open['id']}", {'properties': properties})
+            _without_missing(lambda props: tracker._request('PATCH', f"pages/{_open['id']}", {'properties': props}), properties)
             tracker._request('PATCH', f"blocks/{_open['id']}/children", {'children': children[:100]})
             return _open.get('url')
-        page = tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID},
-                                                  'properties': properties, 'children': children[:100]})
+        page = _without_missing(lambda props: tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID},
+                                                                                'properties': props, 'children': children[:100]}), properties)
         return page.get('url')
     except Exception as error:
         print(f'Warning: cronjob run not logged to Notion: {type(error).__name__}: {error}')
