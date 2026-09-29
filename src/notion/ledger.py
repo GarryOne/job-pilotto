@@ -24,6 +24,7 @@ Usage:
 import argparse
 import hashlib
 import json
+import re
 import os
 import html
 import json as _json
@@ -93,6 +94,56 @@ def _block(kind, content, bold=False):
     return {'object': 'block', 'type': kind,
             kind: {'rich_text': [{'type': 'text', 'text': {'content': c}, 'annotations': {'bold': bold}}
                                  for c in _chunks(content)[:100]]}}
+
+
+def _rich(text):
+    """Inline Markdown (**bold**, *italic*, `code`) as Notion rich text."""
+    parts, runs = re.split(r'(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`)', text or ''), []
+    for part in parts:
+        if not part:
+            continue
+        bold, italic, code = part.startswith('**'), part.startswith('*') and not part.startswith('**'), part.startswith('`')
+        content = part.strip('*`') if (bold or italic or code) else part
+        for chunk in _chunks(content):
+            runs.append({'type': 'text', 'text': {'content': chunk}, 'annotations': {'bold': bold, 'italic': italic, 'code': code}})
+    return runs[:100] or [{'type': 'text', 'text': {'content': ''}}]
+
+
+def _typed(kind, text):
+    return {'object': 'block', 'type': kind, kind: {'rich_text': _rich(text)}}
+
+
+def md_blocks(text, limit=90):
+    """Markdown as Notion blocks: headings, bulleted and numbered lists, bold/italic inline, paragraphs. AI answers
+    come as Markdown; written as plain paragraphs they showed "# Role Details" and "**Position:**" on the page."""
+    blocks, paragraph = [], []
+
+    def flush():
+        if paragraph:
+            blocks.append(_typed('paragraph', ' '.join(paragraph)))
+            paragraph.clear()
+    for line in (text or '').splitlines():
+        stripped = line.strip()
+        heading = re.match(r'^(#{1,6})\s+(.*)$', stripped)
+        bullet = re.match(r'^[-*•]\s+(.*)$', stripped)
+        number = re.match(r'^\d+[.)]\s+(.*)$', stripped)
+        if not stripped or re.fullmatch(r'[-*_]{3,}', stripped):
+            flush()
+        elif heading:
+            flush()
+            blocks.append(_typed('heading_3', heading.group(2).strip('*')))
+        elif bullet or number:
+            flush()
+            kind = 'bulleted_list_item' if bullet else 'numbered_list_item'
+            blocks.append(_typed(kind, (bullet or number).group(1)))
+        elif re.match(r'^\*\*[^*]+:\*\*|^\*\*[^*]+\*\*:', stripped):  # "**Position:** Principal SRE": a fact, one bullet each
+            flush()
+            blocks.append(_typed('bulleted_list_item', stripped))
+        else:
+            paragraph.append(stripped)
+            flush()  # one line, one paragraph: AI answers break lines on purpose
+    flush()
+    return blocks[:limit]
 
 
 def _key(text):

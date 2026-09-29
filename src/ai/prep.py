@@ -100,7 +100,7 @@ def describe(tracker, row, text='', url=''):
             return {'ok': False, 'text': "That page can't be read (LinkedIn and some sites never are): paste the description instead."}
     if len(body) < 80:
         return {'ok': False, 'text': 'Paste the whole job description (what the role does, its stack, requirements).'}
-    blocks = [_block('paragraph', part[:1900]) for part in re.split(r'\n\s*\n', body)[:80] if part.strip()]
+    blocks = ledger.md_blocks(body)  # headings, lists and bold, not raw Markdown
     if url:
         blocks.insert(0, _block('paragraph', f'Posting: {url}'))
     tracker.replace_after_heading(row['id'], DESCRIPTION_HEADING, blocks)

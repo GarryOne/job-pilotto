@@ -161,5 +161,18 @@ class LoggedRunTests(unittest.TestCase):
         self.assertIn('Notion refused the page', run['headline'])  # the error is kept, not only in the dialog
         self.assertFalse(result['ok'])
 
+
+class MarkdownTests(unittest.TestCase):
+    def test_an_ai_answer_in_markdown_becomes_headings_bullets_and_bold(self):
+        # 29 Sep 2026: the Huxley description showed "# Role Details" and "**Position:**" as plain text.
+        from src.notion.ledger import md_blocks
+        blocks = md_blocks('# Role Details\n\n**Position:** Principal SRE\n**Company/Client:** Rapidly growing AI company\n'
+                           '\nThey are building their SRE team.\n- AWS, Kubernetes\n1. Screening call')
+        kinds = [b['type'] for b in blocks]
+        self.assertEqual(kinds, ['heading_3', 'bulleted_list_item', 'bulleted_list_item', 'paragraph', 'bulleted_list_item', 'numbered_list_item'])
+        position = blocks[1]['bulleted_list_item']['rich_text']
+        self.assertEqual((position[0]['text']['content'], position[0]['annotations']['bold']), ('Position:', True))
+        self.assertNotIn('#', blocks[0]['heading_3']['rich_text'][0]['text']['content'])
+
 if __name__ == '__main__':
     unittest.main()

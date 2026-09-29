@@ -352,8 +352,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         # What the message says about the role, kept as the job's description (the prep kit and fit score read it).
         step('Saving the job description on the job')
         try:
-            tracker.replace_after_heading(row['id'], DESCRIPTION_HEADING,
-                                          [_block('paragraph', part) for part in re.split(r'\n\s*\n', about)[:60] if part.strip()])
+            tracker.replace_after_heading(row['id'], DESCRIPTION_HEADING, ledger.md_blocks(about))
             filled.append('the job description')
         except Exception as error:  # noqa: BLE001 — the update itself matters more
             print(f'Warning: job description not saved: {type(error).__name__}: {error}', file=sys.stderr)
