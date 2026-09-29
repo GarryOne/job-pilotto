@@ -1224,17 +1224,17 @@ main { min-width: 0; }
 
 /* Recent activity → Upcoming checks: one strip, the soonest check highlighted, Manage schedule at the end. */
 .ap-upcoming { container-type: inline-size; display: grid; gap: var(--sp-1); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
-.ap-strip { display: flex; align-items: center; gap: var(--sp-3); background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-3); box-shadow: var(--shadow-sm); }
+.ap-strip { display: flex; align-items: center; gap: var(--sp-3); background: var(--strip); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: var(--sp-2) var(--sp-3); box-shadow: var(--shadow-md); }
 .ap-strip-head { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-xs); font-weight: 700;
   letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
 .ap-strip-head .icon { width: 18px; height: 18px; }
-.ap-strip-items { display: flex; align-items: stretch; flex: 1; min-width: 0; }
+.ap-strip-items { display: flex; align-items: stretch; gap: var(--sp-2); flex: 1; min-width: 0; }
 .ap-strip-more { align-self: center; }
-.ap-item { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); border-radius: var(--r-md); }
-.ap-item + .ap-item { border-left: 1px solid var(--line); border-radius: 0; }
-.ap-item.is-next { background: var(--warn-soft); border-radius: var(--r-md); }
-.ap-item.is-next + .ap-item { border-left-color: transparent; }
+/* Each run a small raised card; the next one warm amber with the strongest shadow, so the eye finds it first. */
+.ap-item { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); border-radius: var(--r-md);
+  background: var(--strip-item); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.ap-item.is-next { background: var(--next); border-color: var(--next-line); box-shadow: var(--next-shadow); }
 .ap-item-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--muted); flex: none; }
 .ap-item.is-next .ap-item-icon { background: var(--surface); color: var(--warn-bright); }
 .ap-item-icon .icon { width: 16px; height: 16px; }
