@@ -193,6 +193,14 @@ section.block:nth-of-type(even)::before { content: ""; position: absolute; inset
 .items > div { border-top: 1px solid var(--line); padding-top: 16px; }
 .items dt { font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
 .items dd { margin: 4px 0 0; color: var(--muted); font-size: .94rem; line-height: 1.55; }
+/* The shared pool's numbers: the same amber flip-tiles as the route above, so they read as the headline of the row. */
+.pool-tiles { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 14px; }
+.pool-tiles[hidden] { display: none; }
+.pool-tile { position: relative; display: grid; gap: 4px; min-width: 116px; padding: 12px 18px; border-radius: 12px; background: var(--raised);
+  border: 1px solid var(--line-strong); box-shadow: inset 0 -34px 0 rgb(0 0 0 / .22), 0 10px 22px rgb(0 0 0 / .3); }
+.pool-tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgb(0 0 0 / .35); }
+.pool-tile b { font: 600 1.7rem/1.1 var(--mono); color: var(--amber); font-variant-numeric: tabular-nums; }
+.pool-tile small { font: 500 .68rem var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .items dd a { color: var(--signal); font-weight: 600; text-underline-offset: 3px; }
 .stop-panel .consent-note { margin-top: 28px; }
 @media (max-width: 900px) { .items { grid-template-columns: repeat(2, 1fr); } }
