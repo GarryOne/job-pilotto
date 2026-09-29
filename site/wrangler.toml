@@ -16,8 +16,7 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # Connect with Notion (Notion public connection "Job Pilotto"). The secret: npx wrangler@4 secret put NOTION_CLIENT_SECRET
 # The session tokens live 10 minutes in the WAITLIST namespace under "notion:<hash>".
 [vars]
-GITHUB_REPO = "GarryOne/job-pilotto"
-BRAIN_REPO = "GarryOne/job-pilotto-ops"   # the product brain's buttons (src/brain.js; secret BRAIN_GITHUB_TOKEN)   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
+GITHUB_REPO = "GarryOne/job-pilotto"   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
 
 # Website stats (src/stats.js): page views, Download clicks, the private /stats page. Tables: migrations/ (apply: npx wrangler@4 d1 migrations apply www-stats --remote).

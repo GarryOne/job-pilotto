@@ -2,7 +2,7 @@
 
 > **Read this first in a new session.** What runs on its own, when, what it may change, and where the owner
 > approves. Every workflow in `.github/workflows/` must be listed here (`tests/test_how_it_runs.py` fails otherwise).
-> Some loops run from the private repo `GarryOne/job-pilotto-ops` (marked 🔒).
+> The prompts of the product brain and the self-review are private (repo `GarryOne/job-pilotto-ops`, synced into secrets).
 
 ## 🧭 Strategy
 Private: the owner's **📍 Product Compass** and **💰 IP & Monetization** in Notion (🧭 Strategy). Hard rules that shape
