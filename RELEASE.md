@@ -25,6 +25,24 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
    It refuses a build whose Windows installer isn't there yet.
 4. Done. Friends see **"Update to 0.4 Alpha 42"** in the menu at their next start or within 6 hours.
 
+### Canary auto-promote (off until you switch it on)
+
+> Daily, `.github/workflows/canary-promote.yml` → `tools/canary_promote.py` promotes a build **by itself** when all hold:
+
+- ⏱️ newest pre-release newer than stable, published **≥ 48 h** ago (`prune-releases.sh` keeps that one "canary" build up to 7 days)
+- ✅ `build.yml` green on its commit
+- 🩺 no **new** problem for its version: no `telemetry` issue lists it (unless stable's version is listed too), and,
+  if its Chrome extension version changed, no open `fill-failure` issue names the new extension version
+- then it runs `tools/release-stable.sh <tag>`; the job summary says what it decided and why
+
+| | |
+|---|---|
+| **Turn on** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/job-pilotto --body on` |
+| **Stop it** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/job-pilotto --body off` (or delete the variable) |
+| **See the decision** | `python3 tools/canary_promote.py --dry-run` (changes nothing) |
+
+While off, it still runs daily as a dry run. Promoting by hand (above) keeps working either way.
+
 ## 3 · What updates on a friend's side
 
 | Part | When | How |

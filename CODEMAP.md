@@ -198,6 +198,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/apply-batch-codex-terminal.sh` — Open one Codex CLI session per application in Terminal, using Playwright MCP's
 - `tools/benchmark-apply-runs.py` — Score local browser-run reports against human-checked, unsubmitted ATS forms.
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
+- `tools/canary_promote.py` — Canary auto-promote: make the newest desktop pre-release that has been out >= 48 h stable, if nothing new went wrong.
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
