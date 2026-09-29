@@ -91,7 +91,7 @@ def main():
     app_mark.save(BRAND / 'logo-mark-app.png')
     ink = ink_mark(app_mark)
     ink_tile(ink, 1024, 100, 185, 0.70).save(BRAND / 'app-icon.png')  # macOS icon margins
-    ink_tile(ink, 128, 3, 26, 0.80, glow=False).save(BRAND / 'app-logo-128.png')
+    ink_tile(ink, 136, 4, 30, 0.78, glow=False, line=6).save(BRAND / 'app-logo-128.png')  # the sidebar: a border that reads at 44 px
     # The website's header: the Ink tile with a solid amber border (thick enough to read at 34 px).
     ink_tile(ink, 136, 4, 30, 0.78, glow=False, line=7).save(BRAND / 'site-logo.png')
     # The mark alone (no tile), 96 px high, kept for places on a dark background that want no frame.
