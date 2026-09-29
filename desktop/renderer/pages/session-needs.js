@@ -153,7 +153,7 @@ export function emptyRow(label, item) {
   li.dataset.empty = label;
   const more = /^\d+ more fields?$/.test(label);
   body.append(el('div', '', more ? `${label} ${label.startsWith('1 ') ? 'is' : 'are'} still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
-    : `${label.replace(/\s*\*\s*$/, '')} is still empty in the form.`));
+    : `Still empty in the form: ${(text => (text.length > 90 ? `${text.slice(0, 89).replace(/\s+\S*$/, '')}…` : text))(label.replace(/\s*\*\s*$/, ''))}`));
   actions.append(more ? smallButton('Open the form', 'primary', event => opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id)))
     : smallButton('Show it in the form', 'primary', event => showInForm(item, label, event.currentTarget)));
   body.append(actions);

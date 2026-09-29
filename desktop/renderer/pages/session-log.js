@@ -33,7 +33,9 @@ export function renderSessionPage() {
     const words = el('div', 'ss-row-words');
     const top = el('div', 'ss-row-top');
     top.append(el('b', '', sessionCompany(entry)), el('span', 'muted small', clockTime(entry.startedAt)));
-    words.append(top, el('span', 'small', sessionTitle(entry)), pill(label, tone, {dot: true}));
+    const role = el('span', 'small ss-row-role', sessionTitle(entry));
+    role.title = sessionTitle(entry);  // one line in the list; the whole title on hover
+    words.append(top, role, pill(label, tone, {dot: true}));
     li.append(sessionLogo(entry), words);
     li.addEventListener('click', () => openSession(entry.id));
     return li;
