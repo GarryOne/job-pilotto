@@ -66,9 +66,16 @@ export async function list(storage, fetcher) {
   return [...lines, ...rows];
 }
 
-// Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has).
+// Contact fields (the same labels the fill reads from your Profile's Contact section, extension/page/fill.js
+// PROFILE_LABELS): never a question for the answers page. Empty after a fill means your details didn't load (Notion
+// busy, an extension error) or aren't in the Profile: 29 Sep 2026 a Canonical fill added "First Name: ❓",
+// "Last Name: ❓" and "Email: ❓" to the answers page.
+export const CONTACT = /first\s*name|given\s*name|vorname|prénom|last\s*name|family\s*name|surname|nachname|nom de famille|^\s*(full\s*)?name\s*\*?\s*$|full\s*name|e-?mail|phone|mobile|telefon|téléphone|linked\s*in|github|website|portfolio|personal\s*(site|page)|^\s*(current\s*)?(location|city)\b/i;
+
+// Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has, and contact
+// fields, which come from the Profile).
 export async function collect(storage, run, company = '', fetcher) {
-  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label));
+  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && !CONTACT.test(unmarked(field.label)));
   if (!wanted.length) return 0;
   const target = notionPage(storage);
   const fresh = [];

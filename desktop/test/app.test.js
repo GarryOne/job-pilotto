@@ -246,6 +246,20 @@ test('a form\'s required marker (*) is not part of an open question', async () =
   assert.deepEqual((await questions.list(storage, fetcher)).map(q => q.question), ['Street, No.', 'Nationality']);
 });
 
+test('contact fields left empty never become questions for the answers page (they come from the Profile)', async () => {
+  // 29 Sep 2026: a Canonical fill whose contact details didn't load added "First Name: ❓", "Last Name: ❓", "Email: ❓".
+  const questions = await import('../lib/questions.js');
+  const storage = tempStorage();
+  storage.setSecret('NOTION_TOKEN', 'ntn_x');
+  storage.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  const {blocks, fetcher} = fakeNotion([]);
+  const empty = label => ({label, required: true, reason: questions.NO_ANSWER});
+  const run = {url: 'https://x/1', trace: ['First Name', 'Last Name *', 'Email', 'Phone', 'LinkedIn Profile', 'Location (City)',
+    'How did you perform in mathematics at high school?'].map(empty)};
+  assert.equal(await questions.collect(storage, run, 'Canonical', fetcher), 1);
+  assert.deepEqual(blocks.map(b => b.text), ['How did you perform in mathematics at high school?: ❓ (asked by Canonical)']);
+});
+
 test('without Notion, open questions say so instead of keeping a copy on the Mac', async () => {
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
