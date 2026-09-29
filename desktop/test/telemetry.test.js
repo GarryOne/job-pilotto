@@ -47,3 +47,14 @@ test('offline: kept for the next try; off: nothing recorded, the queue dropped',
   assert.equal(await off.flush(), 0);
   assert.equal(called, false);
 });
+
+test('finished runs are counted per app version and taken (then reset) by the health line', () => {
+  const storage = fakeStorage({telemetryRuns: {version: '0.4.0', ok: 9, failed: 9}});  // an older version's counts
+  const telemetry = create(storage, {version: '0.4.1', fetcher: async () => ({ok: true})});
+  telemetry.countRun(true); telemetry.countRun(true); telemetry.countRun(false);
+  assert.deepEqual(telemetry.takeRuns(), {runsOk: 2, runsFailed: 1});
+  assert.deepEqual(telemetry.takeRuns(), {runsOk: 0, runsFailed: 0});
+  storage.settings().telemetry = false;
+  telemetry.countRun(true);
+  assert.deepEqual(telemetry.takeRuns(), {runsOk: 0, runsFailed: 0});
+});

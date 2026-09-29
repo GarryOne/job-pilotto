@@ -1,4 +1,5 @@
-"""Canary auto-promote decision (tools/canary_promote.py): age, CI state, reported problems, already stable."""
+"""Canary auto-promote decision (tools/canary_promote.py): age, CI state, reported problems, already stable, and
+positive usage evidence from app reports (silence is not health)."""
 import importlib.util
 import unittest
 from datetime import datetime, timezone
@@ -21,9 +22,32 @@ def release(n, hours_ago, pre=True, latest=False, draft=False):
 GREEN = [{'status': 'completed', 'conclusion': 'success'}]
 
 
+def ago(hours):
+    return datetime.fromtimestamp(NOW.timestamp() - hours * 3600, timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+def evidence(installs=1, days=3, first=60, last=6, ok=12, failed=0, crash=0, run_failed=0):
+    """One GET /telemetry/version entry: health lines from `first` to `last` hours ago."""
+    return {'installs': installs, 'healthInstalls': installs, 'healthDays': days,
+            'firstSeen': ago(first) if installs else None, 'lastSeen': ago(last) if installs else None,
+            'healthFirst': ago(first) if installs else None, 'healthLast': ago(last) if installs else None,
+            'runs': {'ok': ok, 'failed': failed, 'reports': days},
+            'events': {'crash': crash, 'run_failed': run_failed, 'stuck': 0, 'form_issue': 0, 'health': days}}
+
+
+HEALTHY = evidence()
+STABLE_USAGE = evidence(installs=4, days=30, first=900, last=2, ok=200, failed=4)
+
+
 class Facts:
-    def __init__(self, ci=GREEN, telemetry=(), fill=(), ext=None):
+    def __init__(self, ci=GREEN, telemetry=(), fill=(), ext=None, usage=HEALTHY, stable_usage=STABLE_USAGE, unavailable=None):
         self.ci, self.tel, self.fill, self.ext = ci, list(telemetry), list(fill), ext or {}
+        self.usage_, self.stable_usage, self.unavailable = usage, stable_usage, unavailable
+
+    def usage(self, version, stable_version):
+        if self.unavailable:
+            raise canary.EvidenceUnavailable(self.unavailable)
+        return {version: self.usage_, **({stable_version: self.stable_usage} if self.stable_usage else {})}
 
     def ci_runs(self, tag):
         return self.ci
@@ -72,7 +96,7 @@ class CanaryPromoteTests(unittest.TestCase):
                  'body': 'versions 0.4.0-alpha.64', 'comments': [{'body': 'Back in a newer version. versions 0.4.0-alpha.65'}]}
         result = canary.decide([release(65, 50), STABLE], NOW, Facts(telemetry=[issue]))
         self.assertFalse(result['promote'])
-        self.assertIn('#7', result['reasons'][-1])
+        self.assertTrue(any('#7' in reason for reason in result['reasons']))
 
     def test_a_problem_stable_already_has_is_not_new(self):
         issue = {'number': 8, 'title': 'App report: x', 'state': 'OPEN', 'body': 'Versions seen: 0.4.0-alpha.60,0.4.0-alpha.65'}
@@ -89,6 +113,50 @@ class CanaryPromoteTests(unittest.TestCase):
         self.assertFalse(canary.decide([release(65, 50), STABLE], NOW, Facts(fill=[issue], ext=changed))['promote'])
         same = {'desktop-v0.4.0-alpha.65': '0.8.16', 'desktop-v0.4.0-alpha.60': '0.8.16'}
         self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(fill=[issue], ext=same))['promote'])
+
+    def wait_with(self, text, **facts):
+        result = canary.decide([release(65, 50), STABLE], NOW, Facts(**facts))
+        self.assertFalse(result['promote'], result['reasons'])
+        self.assertTrue(any(text in reason for reason in result['reasons']), result['reasons'])
+        return result
+
+    def test_healthy_usage_promotes_and_shows_the_numbers(self):
+        result = canary.decide([release(65, 50), STABLE], NOW, Facts())
+        self.assertTrue(result['promote'], result['reasons'])
+        self.assertTrue(any('runs 12 ok / 0 failed' in reason for reason in result['reasons']), result['reasons'])
+
+    def test_an_unused_build_waits(self):
+        self.wait_with('not used enough', usage=evidence(installs=0, days=0, ok=0))
+
+    def test_reports_on_one_day_only_wait(self):
+        self.wait_with('not used enough', usage=evidence(days=1, first=20, last=6))
+
+    def test_two_days_but_under_48_hours_wait(self):
+        self.wait_with('not used enough', usage=evidence(days=2, first=30, last=6))
+
+    def test_too_few_successful_runs_wait(self):
+        self.wait_with('too few successful runs', usage=evidence(ok=4))
+
+    def test_a_crash_or_failed_run_waits(self):
+        self.wait_with('1 crash', usage=evidence(crash=1))
+        self.wait_with('1 run_failed', usage=evidence(run_failed=1))
+
+    def test_a_worse_failure_rate_than_stable_waits(self):
+        # stable 2 %, candidate 3 of 20 = 15 % > 7 %
+        self.wait_with('failure rate 15%', usage=evidence(ok=17, failed=3))
+        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(ok=19, failed=1)))['promote'])
+
+    def test_stable_without_data_uses_an_absolute_ceiling(self):
+        self.assertTrue(canary.decide([release(65, 50), STABLE], NOW, Facts(usage=evidence(ok=19, failed=1), stable_usage=None))['promote'])
+        self.wait_with('no stable baseline', usage=evidence(ok=17, failed=3), stable_usage=None)
+
+    def test_stale_reports_wait(self):
+        self.wait_with('not fresh', usage=evidence(first=90, last=30))
+
+    def test_missing_key_or_unreachable_site_waits(self):
+        self.wait_with('JOB_PILOTTO_TELEMETRY_KEY is not set', unavailable='JOB_PILOTTO_TELEMETRY_KEY is not set')
+        with self.assertRaises(canary.EvidenceUnavailable):
+            canary.GitHub(key=None).usage('0.4.0-alpha.65', '0.4.0-alpha.60')
 
     def test_version_order(self):
         key = canary.version_key

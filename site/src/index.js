@@ -60,6 +60,7 @@ export default {
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/telemetry') return telemetry.view(request, env);
+    if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
     if (pathname === '/api/waitlist') return waitlist(request, env);
     if (pathname === '/api/notion/start') return notion.start(request, env);
     if (pathname === notion.CALLBACK) return notion.callback(request, env);

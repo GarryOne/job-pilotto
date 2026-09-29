@@ -7,25 +7,49 @@ Rule (all must hold, else nothing changes):
   3. no new problem was reported for it: no `telemetry` issue (any state) lists the candidate's version unless it
      also lists the current stable's version (a problem stable already has isn't new); and, when the candidate
      bundles a different Chrome extension than stable, no open `fill-failure` issue names the candidate's extension
-     version but not stable's.
+     version but not stable's;
+  4. positive evidence that it was used and worked (app reports, the website's GET /telemetry/version, read with the
+     key in JOB_PILOTTO_TELEMETRY_KEY = the site's STATS_KEY): silence is not health.
+       used:   daily health lines from >= 1 install on that exact version on >= 2 days, first to last >= 48 h apart;
+       worked: >= 5 successful pipeline runs (health runsOk) and a failure rate at most 5 points above stable's
+               (stable with < 5 counted runs: at most 10 %);
+       clean:  no crash and no run_failed report for that version;
+       fresh:  its last report is < 24 h old.
+     No key, or the site can't be read: wait (fail closed).
 Promotion itself is tools/release-stable.sh <tag> (reused, not duplicated).
 
-  python3 tools/canary_promote.py --dry-run     # print the decision and why, change nothing
+  python3 tools/canary_promote.py --dry-run     # print the decision, the evidence numbers and why; change nothing
   python3 tools/canary_promote.py               # promote when the rule holds (the workflow does this daily)
-Reads GitHub with the `gh` CLI (GH_TOKEN in CI); needs no other secret.
+Reads GitHub with the `gh` CLI (GH_TOKEN in CI) and app reports with JOB_PILOTTO_TELEMETRY_KEY.
 """
 import argparse
 import base64
 import json
+import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO = 'GarryOne/job-pilotto'
 MIN_AGE = timedelta(hours=48)
 ROOT = Path(__file__).resolve().parents[1]
+TELEMETRY_URL = 'https://www.jobpilotto.workers.dev/telemetry/version'
+KEY_ENV = 'JOB_PILOTTO_TELEMETRY_KEY'
+MIN_HEALTH_DAYS = 2              # distinct days with a health line on the candidate
+MIN_USED_SPAN = timedelta(hours=48)   # first to last health line
+MIN_RUNS_OK = 5                  # successful pipeline runs (health runsOk; about a day of normal use)
+FAILURE_MARGIN = 0.05            # candidate failure rate may exceed stable's by at most 5 points
+MAX_FAILURE_NO_BASELINE = 0.10   # stable with fewer than MIN_RUNS_OK counted runs: an absolute ceiling
+MAX_SILENCE = timedelta(hours=24)  # its last report
+
+
+class EvidenceUnavailable(Exception):
+    """The app reports couldn't be read: no key, or the site didn't answer."""
 
 
 def version_of(tag):
@@ -101,9 +125,51 @@ def new_problems(version, stable_version, telemetry, fill_failures, ext_version=
     return found
 
 
+def _rate(runs):
+    total = (runs.get('ok') or 0) + (runs.get('failed') or 0)
+    return (runs.get('failed') or 0) / total if total else 0.0
+
+
+def usage_problems(candidate, stable, now):
+    """(problems, summary): why the candidate's app reports aren't positive evidence yet ([] = they are), and one
+    line of the numbers. `candidate`/`stable` are GET /telemetry/version entries (stable may be None)."""
+    c = candidate or {}
+    runs = c.get('runs') or {}
+    events = c.get('events') or {}
+    first, last = c.get('healthFirst'), c.get('healthLast')
+    span = (parse_time(last) - parse_time(first)) if first and last else timedelta(0)
+    seen = c.get('lastSeen') or last
+    silent = (now - parse_time(seen)) if seen else None
+    rate = _rate(runs)
+    s_runs = (stable or {}).get('runs') or {}
+    s_total = (s_runs.get('ok') or 0) + (s_runs.get('failed') or 0)
+    baseline = s_total >= MIN_RUNS_OK
+    limit = _rate(s_runs) + FAILURE_MARGIN if baseline else MAX_FAILURE_NO_BASELINE
+    summary = (f"app reports: {c.get('healthInstalls', 0)} install(s), health on {c.get('healthDays', 0)} day(s) over "
+               f"{span.total_seconds() / 3600:.0f} h, runs {runs.get('ok', 0)} ok / {runs.get('failed', 0)} failed "
+               f"({rate:.0%}; limit {limit:.0%}, stable {_rate(s_runs):.0%} of {s_total}), "
+               f"crash {events.get('crash', 0)}, run_failed {events.get('run_failed', 0)}, "
+               f"stuck {events.get('stuck', 0)}, form_issue {events.get('form_issue', 0)}, "
+               f"last report {f'{silent.total_seconds() / 3600:.0f} h ago' if silent is not None else 'never'}")
+    problems = []
+    if not c.get('healthInstalls') or (c.get('healthDays') or 0) < MIN_HEALTH_DAYS or span < MIN_USED_SPAN:
+        problems.append(f"not used enough: needs health reports on >= {MIN_HEALTH_DAYS} days spanning "
+                        f">= {int(MIN_USED_SPAN.total_seconds() // 3600)} h")
+    if (runs.get('ok') or 0) < MIN_RUNS_OK:
+        problems.append(f"too few successful runs: {runs.get('ok') or 0} < {MIN_RUNS_OK}")
+    elif rate > limit:
+        problems.append(f"failure rate {rate:.0%} above {limit:.0%} "
+                        f"({'stable ' + format(_rate(s_runs), '.0%') + ' + 5 points' if baseline else 'no stable baseline'})")
+    if events.get('crash') or events.get('run_failed'):
+        problems.append(f"problem reports for it: {events.get('crash', 0)} crash, {events.get('run_failed', 0)} run_failed")
+    if silent is None or silent > MAX_SILENCE:
+        problems.append(f"not fresh: no report in the last {int(MAX_SILENCE.total_seconds() // 3600)} h")
+    return problems, summary
+
+
 def decide(releases, now, facts, min_age=MIN_AGE):
     """{'promote': bool, 'tag': str|None, 'reasons': [...]}. `facts` reads GitHub (fake in tests):
-    ci_runs(tag), telemetry(), fill_failures(), extension_version(tag)."""
+    ci_runs(tag), telemetry(), fill_failures(), extension_version(tag), usage(version, stable_version)."""
     candidate, stable, why = pick(releases, now, min_age)
     if not candidate:
         return {'promote': False, 'tag': None, 'stable': stable and stable['tagName'], 'reasons': [why]}
@@ -126,14 +192,27 @@ def decide(releases, now, facts, min_age=MIN_AGE):
         reasons.append('new problems reported: ' + ', '.join(f"#{p['number']} {p.get('title', '')[:80]}" for p in problems))
     else:
         reasons.append(f"no new telemetry{' or fill-failure' if ext and ext != stable_ext else ''} problem for {version}")
+    try:
+        usage = facts.usage(version, stable_version)
+    except EvidenceUnavailable as error:
+        ok = False
+        reasons.append(f"no usage evidence: {error}")
+    else:
+        missing, summary = usage_problems(usage.get(version), usage.get(stable_version), now)
+        reasons.append(summary)
+        if missing:
+            ok = False
+            reasons.extend(f"not proven yet: {why}" for why in missing)
+        else:
+            reasons.append('used and healthy for 48 h (app reports)')
     return {'promote': ok, 'tag': tag, 'stable': stable and stable['tagName'], 'reasons': reasons}
 
 
 class GitHub:
     """The facts, read with the gh CLI."""
 
-    def __init__(self, repo=REPO):
-        self.repo = repo
+    def __init__(self, repo=REPO, key=None, url=TELEMETRY_URL):
+        self.repo, self.key, self.url = repo, key, url
 
     def _gh(self, *args):
         return subprocess.run(['gh', *args], capture_output=True, text=True, check=True).stdout
@@ -164,13 +243,32 @@ class GitHub:
         except (subprocess.CalledProcessError, KeyError, ValueError):
             return ''
 
+    def usage(self, version, stable_version):
+        """The website's app-report evidence for both versions (GET /telemetry/version, key as a Bearer header)."""
+        if not self.key:
+            raise EvidenceUnavailable(f'{KEY_ENV} is not set (the site\'s stats key), so usage can\'t be checked')
+        query = {'v': version, **({'compare': stable_version} if stable_version else {})}
+        request = urllib.request.Request(f'{self.url}?{urllib.parse.urlencode(query)}', headers={
+            'Authorization': f'Bearer {self.key}', 'User-Agent': 'job-pilotto-canary', 'Accept': 'application/json'})
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                data = json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            raise EvidenceUnavailable(f'app reports answered HTTP {error.code}'
+                                      + (' (wrong key, or the endpoint isn\'t deployed yet)' if error.code == 404 else ''))
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            raise EvidenceUnavailable(f'app reports unreachable: {error}')
+        if not data.get('ok') or not isinstance(data.get('versions'), dict):
+            raise EvidenceUnavailable(f"app reports gave no data: {data.get('error', 'unexpected answer')}")
+        return data['versions']
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--dry-run', action='store_true', help='print the decision and why; change nothing')
     parser.add_argument('--repo', default=REPO)
     args = parser.parse_args(argv)
-    github = GitHub(args.repo)
+    github = GitHub(args.repo, key=os.environ.get(KEY_ENV, '').strip() or None)
     result = decide(github.releases(), datetime.now(timezone.utc), github)
     verdict = ('PROMOTE ' + result['tag']) if result['promote'] else 'WAIT (no promotion)'
     print(f"Canary auto-promote: {verdict}")

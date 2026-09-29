@@ -108,8 +108,10 @@ export async function download(request, env, ctx, now = new Date()) {
 
 // ---- /stats ----
 
+// The key: ?key= once (then the cookie), or `Authorization: Bearer <key>` for scripts (tools/canary_promote.py).
 export function allowed(request, env) {
   if (!env.STATS_KEY) return false;
+  if (request.headers.get('Authorization') === `Bearer ${env.STATS_KEY}`) return true;
   const url = new URL(request.url);
   const cookie = (request.headers.get('Cookie') || '').split(/;\s*/).find(part => part.startsWith(`${KEY_COOKIE}=`));
   return url.searchParams.get('key') === env.STATS_KEY || cookie?.slice(KEY_COOKIE.length + 1) === env.STATS_KEY;

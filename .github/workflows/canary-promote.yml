@@ -1,7 +1,8 @@
 name: Release · Canary auto-promote
 
-# Daily: make the newest pre-release stable once it has been out 48 h, CI is green on its commit and no new app
-# problem (telemetry / fill-failure issue) was reported for it: tools/canary_promote.py, which then runs
+# Daily: make the newest pre-release stable once it has been out 48 h, CI is green on its commit, no new app
+# problem (telemetry / fill-failure issue) was reported for it, and app reports prove it was used and healthy for 48 h
+# (secret JOB_PILOTTO_TELEMETRY_KEY = the site's STATS_KEY; missing → wait): tools/canary_promote.py, which then runs
 # tools/release-stable.sh. Off until the owner sets the repository variable JOB_PILOTTO_AUTO_PROMOTE to `on`;
 # while off (or with dry_run) it only writes the decision to the job summary.
 on:
@@ -32,6 +33,7 @@ jobs:
       - name: Decide (and promote when switched on)
         env:
           GH_TOKEN: ${{ github.token }}
+          JOB_PILOTTO_TELEMETRY_KEY: ${{ secrets.JOB_PILOTTO_TELEMETRY_KEY }}
           SWITCH: ${{ vars.JOB_PILOTTO_AUTO_PROMOTE }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |

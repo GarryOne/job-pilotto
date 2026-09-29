@@ -33,13 +33,22 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
 - ✅ `build.yml` green on its commit
 - 🩺 no **new** problem for its version: no `telemetry` issue lists it (unless stable's version is listed too), and,
   if its Chrome extension version changed, no open `fill-failure` issue names the new extension version
-- then it runs `tools/release-stable.sh <tag>`; the job summary says what it decided and why
+- 📈 **proof it was used and worked** (app reports, `GET /telemetry/version` on the website): silence never passes
+  - used: health reports on that exact version on **≥ 2 days**, first → last **≥ 48 h**
+  - worked: **≥ 5 successful runs**, failure rate ≤ stable's **+ 5 points** (stable without data: ≤ 10 %)
+  - clean: **0** crash / run_failed reports for it
+  - fresh: last report **< 24 h** old
+  - no key or site down → wait
+- then it runs `tools/release-stable.sh <tag>`; the job summary says what it decided and why (with the numbers)
+
+> 🔑 **Secret to set once:** repo secret `JOB_PILOTTO_TELEMETRY_KEY` = the site's stats key
+> (same value as the Worker's `STATS_KEY`, Keychain `job-pilotto.site.stats_key`). Without it, it always waits.
 
 | | |
 |---|---|
 | **Turn on** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/job-pilotto --body on` |
 | **Stop it** | `gh variable set JOB_PILOTTO_AUTO_PROMOTE -R GarryOne/job-pilotto --body off` (or delete the variable) |
-| **See the decision** | `python3 tools/canary_promote.py --dry-run` (changes nothing) |
+| **See the decision** | `python3 tools/canary_promote.py --dry-run` (changes nothing; with `JOB_PILOTTO_TELEMETRY_KEY` set to see the usage numbers) |
 
 While off, it still runs daily as a dry run. Promoting by hand (above) keeps working either way.
 

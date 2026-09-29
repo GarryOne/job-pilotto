@@ -63,6 +63,21 @@ export function create(storage, {version, fetcher = globalThis.fetch, endpoint =
       } catch { return null; }
     },
     shown: () => load().shown || [],
+    // Positive evidence for the release check (tools/canary_promote.py): each finished pipeline run counted per app
+    // version, then taken (and reset) by the daily health line as runsOk / runsFailed since the last line.
+    countRun(ok) {
+      try {
+        if (!enabled()) return;
+        const runs = storage.settings().telemetryRuns;
+        const mine = runs?.version === version ? runs : {version, ok: 0, failed: 0};
+        storage.saveSettings({telemetryRuns: {...mine, [ok ? 'ok' : 'failed']: mine[ok ? 'ok' : 'failed'] + 1}});
+      } catch { /* never breaks a run */ }
+    },
+    takeRuns() {
+      const runs = storage.settings().telemetryRuns;
+      storage.saveSettings({telemetryRuns: {version, ok: 0, failed: 0}});
+      return runs?.version === version ? {runsOk: runs.ok || 0, runsFailed: runs.failed || 0} : {runsOk: 0, runsFailed: 0};
+    },
     // Send what's queued, in batches; what the server took is removed. Off: the queue is dropped, nothing sent.
     async flush() {
       if (sending) return 0;

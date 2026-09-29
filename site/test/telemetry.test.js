@@ -86,3 +86,23 @@ test('an install whose report has no counts yet shows "–", not 0', async () =>
   assert.match(html, /📨 Applications<\/span><b>–<\/b>/);
   assert.match(html, /No counts yet/);
 });
+
+test('/telemetry/version: per exact version, installs, health days, run counts and problem events (key as a header)', async () => {
+  const e = env();
+  const health = (install, version, at, runsOk, runsFailed) => ({kind: 'health', install, version, platform: 'darwin', at, runsOk, runsFailed});
+  await send(e, [health('install-aaaa', '0.4.0-alpha.50', '2026-09-26T08:00:00Z', 4, 0), health('install-aaaa', '0.4.0-alpha.50', '2026-09-28T09:00:00Z', 3, 1),
+    health('install-bbbb', '0.4.0-alpha.5', '2026-09-28T09:00:00Z', 10, 2), crash('install-bbbb', '0.4.0-alpha.5')]);
+  e.STATS.db.prepare("UPDATE telemetry SET day = substr(at, 1, 10)").run();
+  const url = 'https://www.jobpilotto.workers.dev/telemetry/version?v=0.4.0-alpha.50&compare=0.4.0-alpha.5';
+  assert.equal((await worker.fetch(new Request(url), e, {})).status, 404);
+  assert.equal((await worker.fetch(new Request(url, {headers: {Authorization: 'Bearer wrong'}}), e, {})).status, 404);
+  const body = await (await worker.fetch(new Request(url, {headers: {Authorization: 'Bearer k3y'}}), e, {})).json();
+  const canary = body.versions['0.4.0-alpha.50'], stable = body.versions['0.4.0-alpha.5'];
+  assert.deepEqual([canary.installs, canary.healthInstalls, canary.healthDays], [1, 1, 2]);
+  assert.deepEqual([canary.healthFirst, canary.healthLast], ['2026-09-26T08:00:00Z', '2026-09-28T09:00:00Z']);
+  assert.deepEqual(canary.runs, {ok: 7, failed: 1, reports: 2});
+  assert.equal(canary.events.crash, 0);  // alpha.5's crash isn't alpha.50's: exact match
+  assert.deepEqual([stable.runs.ok, stable.runs.failed, stable.events.crash], [10, 2, 1]);
+  const bad = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry/version?v=x%27%3B', {headers: {Authorization: 'Bearer k3y'}}), e, {});
+  assert.equal(bad.status, 400);
+});

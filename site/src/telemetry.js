@@ -132,6 +132,40 @@ export async function view(request, env, now = new Date()) {
   }
 }
 
+// GET /telemetry/version?v=0.4.0-alpha.50&compare=0.4.0-alpha.40 (the /stats key, as `Authorization: Bearer`):
+// positive evidence that a build was used and worked, per exact version, for the canary auto-promote
+// (tools/canary_promote.py). Health lines carry runsOk / runsFailed since the previous line (desktop/main.js).
+const VERSION = /^[\w.+-]{1,30}$/;
+export async function versionEvidence(db, version) {
+  const rows = (await db.prepare('SELECT day, at, kind, install, data FROM telemetry WHERE version = ?').bind(version).all()).results || [];
+  const health = rows.filter(row => row.kind === 'health');
+  const times = list => list.map(row => row.at).filter(at => !Number.isNaN(Date.parse(at))).sort();
+  const events = Object.fromEntries(KINDS.map(kind => [kind, rows.filter(row => row.kind === kind).length]));
+  let runsOk = 0, runsFailed = 0, runsReported = 0;
+  for (const row of health) {
+    let data = {};
+    try { data = JSON.parse(row.data); } catch {}
+    if (typeof data.runsOk !== 'number' && typeof data.runsFailed !== 'number') continue;
+    runsReported++;
+    runsOk += Number(data.runsOk) || 0;
+    runsFailed += Number(data.runsFailed) || 0;
+  }
+  const all = times(rows), healthTimes = times(health);
+  return {version, installs: new Set(rows.map(row => row.install)).size, healthInstalls: new Set(health.map(row => row.install)).size,
+    healthDays: new Set(health.map(row => row.day)).size, firstSeen: all[0] || null, lastSeen: all.at(-1) || null,
+    healthFirst: healthTimes[0] || null, healthLast: healthTimes.at(-1) || null,
+    runs: {ok: runsOk, failed: runsFailed, reports: runsReported}, events};
+}
+export async function evidence(request, env) {
+  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  const params = new URL(request.url).searchParams;
+  const versions = [params.get('v'), params.get('compare')].filter(Boolean);
+  if (!versions.length || !versions.every(v => VERSION.test(v))) return Response.json({ok: false, error: 'give ?v=<app version>'}, {status: 400});
+  const result = {};
+  for (const v of versions) result[v] = await versionEvidence(env.STATS, v);
+  return Response.json({ok: true, keptDays: KEEP_DAYS, versions: result}, {headers: {'Cache-Control': 'no-store'}});
+}
+
 // Daily (Worker cron): drop reports older than 90 days, then send the top problems of the last day to the triage
 // workflow, which files or updates one GitHub issue per problem (.github/workflows/telemetry-triage.yml).
 export async function daily(env, dispatch, now = new Date()) {

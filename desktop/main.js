@@ -49,7 +49,7 @@ let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
-const HEALTH_VERSION = 2;  // bump when the daily health line gets new fields (2: outcome counts)
+const HEALTH_VERSION = 3;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed)
 // Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
 function healthOnce() {
   // Once a day, and again the same day when the line's content changed (HEALTH_VERSION), so new counts arrive at once.
@@ -59,7 +59,7 @@ function healthOnce() {
   const has = name => !!storage.secret(name);
   telemetry.record('health', {ai: has('ANTHROPIC_API_KEY'), notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
     serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
-    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings)});
+    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings), ...telemetry.takeRuns()});
 }
 // How much Job Pilotto helped, as anonymous counts (no company, no job title): open matches and good fits, forms the
 // extension filled, and the funnel (ever reached: applied, a human reply, screening, interviews, offers). From the
@@ -1140,6 +1140,7 @@ if (firstCopy) app.whenReady().then(() => {
   telemetry = DEMO ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (telemetry) {
     pipeline.onRunEnd(({args, code, seconds, tail}) => {
+      telemetry.countRun(code === 0);  // the health line's runsOk / runsFailed (release check evidence)
       if (code === 0) return;
       const error = [...tail].reverse().find(line => /error|exception|traceback|failed|refused/i.test(line)) || tail.at(-1) || '';
       const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : /^[a-z_]+$/.test(args[1] || '') ? args[1] : '';
