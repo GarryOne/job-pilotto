@@ -320,6 +320,7 @@ export function renderJobs() {
 // Pages Job Pilotto never reads (src/notion/ledger.py NO_FETCH): ask for the title, company and text instead.
 const NO_FETCH = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
+let leadStep = '';  // the Log box's current step, from the engine
 // Up to 5 screenshots per log (a long LinkedIn chat): read together, in this order, and kept on the job's page.
 const MAX_SHOTS = 5;
 let leadShots = [];  // [{name, type, data (base64)}]
@@ -595,6 +596,7 @@ export async function init() {
     $('lead-dialog').showModal();
     $('lead-text').focus();
   });
+  window.pilot.onLeadStep(text => { leadStep = text; });
   $('lead-shot-add').addEventListener('click', () => $('lead-shot-file').click());
   $('lead-shot-file').addEventListener('change', () => { [...$('lead-shot-file').files].forEach(readShot); $('lead-shot-file').value = ''; });
   $('lead-shot-paste').addEventListener('click', async () => {
@@ -619,8 +621,14 @@ export async function init() {
     leadResult('', '');
     if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
     $('lead-go').disabled = true;
-    message('lead-message', 'Claude is reading it and updating Notion…', 'waiting');
-    const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShots, $('lead-target').value);
+    // What's happening under the hood: the engine's current step (onLeadStep), with the seconds so far.
+    const started = Date.now();
+    leadStep = leadShots.length > 1 ? `Sending ${leadShots.length} screenshots` : 'Starting';
+    const tick = () => message('lead-message', `${leadStep}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
+    tick();
+    const timer = setInterval(tick, 1000);
+    const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShots, $('lead-target').value)
+      .finally(() => clearInterval(timer));
     $('lead-go').disabled = false;
     message('lead-message', '');
     const said = result.text.replace(/^\S+\s/, '');  // without the leading emoji

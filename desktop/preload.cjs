@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('pilot', {
   tailorCv: call('tailorCv'), openTailoredCv: call('openTailoredCv'), cvStatus: call('cvStatus'), importCv: call('importCv'), viewBaseCv: call('viewBaseCv'), showCvFolder: call('showCvFolder'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), setAutomation: call('setAutomation'), setTheme: call('setTheme'),
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
+  onLeadStep: callback => ipcRenderer.on('leadStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),
   onDraftProgress: callback => ipcRenderer.on('draftProgress', (_, progress) => callback(progress)),
   onExportProgress: callback => ipcRenderer.on('exportProgress', (_, count) => callback(count)),

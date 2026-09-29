@@ -30,7 +30,8 @@ test('without Retry-After it backs off; it gives up after its retries; other err
 });
 
 test('one pace for the whole app: calls take turns ~340 ms apart, and a 429 makes every call wait it out', async () => {
-  notion._pace.reset('t');
+  const token = `pace-test-${process.pid}-${Date.now()}`;  // its own pace file: other test files run at the same time
+  notion._pace.reset(token);
   const waits = [];
   notion.useSleep(async ms => { waits.push(ms); });
   let calls = 0;
@@ -39,8 +40,9 @@ test('one pace for the whole app: calls take turns ~340 ms apart, and a 429 make
     if (calls === 2) return {ok: false, status: 429, headers: {get: () => '2'}, json: async () => ({})};
     return {ok: true, status: 200, json: async () => ({ok: true})};
   };
-  await Promise.all([notion.call('t', 'GET', 'a', null, fetcher, {pace: true}), notion.call('t', 'GET', 'b', null, fetcher, {pace: true})]);
-  assert.ok(waits.some(ms => ms > 250 && ms <= 340), `the second call waited for its turn: ${waits}`);
+  await Promise.all([notion.call(token, 'GET', 'a', null, fetcher, {pace: true}), notion.call(token, 'GET', 'b', null, fetcher, {pace: true})]);
+  // Its turn is ~340 ms after the first; a slow machine (CI) spends part of it on the shared file, so allow for that.
+  assert.ok(waits.some(ms => ms > 100 && ms <= 340), `the second call waited for its turn: ${waits}`);
   assert.ok(notion._pace.state().calmUntil > Date.now() + 1000, 'after the 429 the whole app pauses ~2 s');
-  notion._pace.reset('t');
+  notion._pace.reset(token);
 });

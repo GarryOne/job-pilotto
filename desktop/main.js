@@ -550,7 +550,9 @@ function handlers() {
     const files = shots.map((shot, i) => path.join(app.getPath('temp'), `job-pilotto-shot-${Date.now()}-${i}${exts[shot.type]}`));
     try {
       shots.forEach((shot, i) => fs.writeFileSync(files[i], Buffer.from(String(shot.data), 'base64')));
-      return await pipeline.addLead(storage, String(text || ''), !!talking, log, {file: files.join(','), target: String(target || '')});
+      // Each step the engine reports ("⏳ …") shows in the Log box while it works.
+      const onLine = line => { log(line); if (/^⏳/.test(line)) toWindow('leadStep', line.replace(/^⏳\s*/, '')); };
+      return await pipeline.addLead(storage, String(text || ''), !!talking, onLine, {file: files.join(','), target: String(target || '')});
     } catch (error) { return {ok: false, text: error.message}; } finally { files.forEach(file => fs.rmSync(file, {force: true})); }
   });
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.

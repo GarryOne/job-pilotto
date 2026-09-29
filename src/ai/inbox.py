@@ -139,8 +139,10 @@ def read(client, model, text, image, jobs, stats=None):
 
 def _image_blocks(tracker, image):
     """The screenshots as Notion image blocks (uploaded); one that fails to upload is left out."""
-    blocks = []
-    for shot in images_of(image):
+    blocks, shots = [], images_of(image)
+    for number, shot in enumerate(shots, 1):
+        step(f"Saving screenshot {number} of {len(shots)} on the job's Notion page" if len(shots) > 1
+             else "Saving the screenshot on the job's Notion page")
         try:
             upload = tracker.upload_file(shot[0], shot[1], shot[2])
         except Exception as error:  # noqa: BLE001 — the update matters more than the picture
@@ -226,6 +228,11 @@ def _fill_gaps(tracker, row, item):
     return [GAPS.get(name) or named[name] for name in changes]
 
 
+def step(text):
+    """A progress line for the app's Log box ("⏳ …", on stderr; the app shows the latest with a timer)."""
+    print(f'⏳ {text}', file=sys.stderr, flush=True)
+
+
 def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
         event_source='CLI', stats=None, now=None, target='', on_new=None):
     """Read one pasted message or screenshot, update or create the job it's about. Returns one line for the reply.
@@ -241,8 +248,14 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         import anthropic
         client = anthropic.Anthropic()
     now = now or datetime.now(timezone.utc)
+    step('Reading your jobs in Notion')
     jobs = candidates(tracker)
+    shots = len(images_of(image))
+    step(f"Claude is reading {shots} screenshots" if shots > 1 else 'Claude is reading the screenshot' if shots
+         else 'Claude is reading the message')
     item = read(client, model, text, image, jobs, stats)
+    step(f"Claude found: {item.get('kind')}{' · ' + (item.get('role') or item.get('title')) if (item.get('role') or item.get('title')) else ''}"
+         " — updating the job in Notion")
     kind = item['kind']
     if kind == NOT_JOB and target:  # you said which job it's about: log it as a reply there
         kind = REPLY
