@@ -8,6 +8,7 @@ import * as telemetry from './telemetry.js';
 import {install} from './install.js';
 import {signals} from './signals.js';
 import {feedback} from './feedback.js';
+import {trial} from './trial.js';
 import {brain} from './brain.js';
 import {index as employerIndex} from './employers.js';
 import {handleReport} from '../../worker/src/report.js';
@@ -67,6 +68,7 @@ export default {
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/signals') return signals(request, env);
     if (pathname === '/api/feedback') return feedback(request, env);
+    if (pathname.startsWith('/api/ai/')) return trial(request, env);
     if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
     if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
     if (pathname === '/api/waitlist') return waitlist(request, env);

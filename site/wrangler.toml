@@ -16,7 +16,11 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # Connect with Notion (Notion public connection "Job Pilotto"). The secret: npx wrangler@4 secret put NOTION_CLIENT_SECRET
 # The session tokens live 10 minutes in the WAITLIST namespace under "notion:<hash>".
 [vars]
-GITHUB_REPO = "GarryOne/job-pilotto"   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
+GITHUB_REPO = "GarryOne/job-pilotto"
+# The free AI credit for invited testers (src/trial.js; secret ANTHROPIC_TRIAL_KEY): per license key and per month.
+TRIAL_PER_KEY_USD = "1"
+TRIAL_MONTH_USD = "20"
+LICENSE_PUBLIC_KEY = "cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40"   # the owner's public key (desktop/lib/license.js)   # form reports start its fill-failure-intake.yml (secrets GITHUB_TOKEN, REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
 
 # The central employer index (src/employers.js): GET /api/index for every app, PUT from the private central scout

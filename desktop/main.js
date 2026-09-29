@@ -25,6 +25,7 @@ import * as quitDialog from './lib/quit-dialog.js';
 import {offerMove} from './lib/applications.js';
 import * as appMenu from './lib/app-menu.js';
 import * as appFeedback from './lib/app-feedback.js';
+import * as aiTrial from './lib/ai-trial.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
@@ -441,13 +442,17 @@ function handlers() {
     const {value, error} = cleanSecret(pasted);
     if (error) throw new Error(error);
     storage.setSecret(name, value);
+    if (name === 'ANTHROPIC_API_KEY' && !aiTrial.isTrialKey(value)) aiTrial.stop(storage);  // own key: leave the free credit
     return storage.secretsPresent();
   });
+  // The free AI credit for invited testers (lib/ai-trial.js).
+  ipcMain.handle('startTrialCredit', () => aiTrial.start(storage, licenseState));
+  ipcMain.handle('trialCredit', () => aiTrial.credit(storage));
   ipcMain.handle('checkAnthropic', async (_, pasted) => {
     const {value: key, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
     try {
-      await new Anthropic({apiKey: key}).models.list({limit: 1}); // free call: is the key valid?
+      await new Anthropic({apiKey: key, baseURL: 'https://api.anthropic.com'}).models.list({limit: 1}); // free call: is the key valid?
       return {ok: true};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'This key was rejected. Copy it again from console.anthropic.com.' : error.message};
@@ -1213,6 +1218,7 @@ if (firstCopy) app.whenReady().then(() => {
   logTo(path.join(app.getPath('userData'), 'logs'));
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  aiTrial.apply(storage.settings());  // the free AI credit, if on: this process's Anthropic SDK goes to our website
   // When this version started running here: a test build's trial day (lib/canary.js) counts from it.
   if (storage.settings().versionSince?.version !== app.getVersion()) storage.saveSettings({versionSince: {version: app.getVersion(), at: new Date().toISOString()}});
   buildMenu();  // again, now with the Get Test Builds setting

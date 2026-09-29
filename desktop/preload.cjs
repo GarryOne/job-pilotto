@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('pilot', {
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'),
   onUpdate: callback => ipcRenderer.on('update', (_, offer) => callback(offer)),
   sendFeedback: call('sendFeedback'),
+  startTrialCredit: call('startTrialCredit'), trialCredit: call('trialCredit'),
   onOpenFeedback: callback => ipcRenderer.on('openFeedback', () => callback()),
   onUpdateStep: callback => ipcRenderer.on('updateStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),

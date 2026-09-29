@@ -166,6 +166,8 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   const settings = storage.settings();
   const secrets = Object.fromEntries(SECRET_NAMES.map(name => [name, storage.secret(name)]).filter(([, value]) => value));
   for (const [name, value] of Object.entries(extraSecrets() || {})) if (value) secrets[name] = value;
+  // The free AI credit runs on this Mac only: a license key is not an Anthropic key for GitHub runs.
+  if (String(secrets.ANTHROPIC_API_KEY || '').startsWith('JP1.')) delete secrets.ANTHROPIC_API_KEY;
   if (settings.telegramChatId) secrets.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
   const removed = [];

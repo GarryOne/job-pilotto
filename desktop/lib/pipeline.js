@@ -55,6 +55,8 @@ export function pipelineEnv(storage, parent = process.env) {
     const value = storage.secret(name);
     if (value) env[name] = value;
   }
+  // The free AI credit (lib/ai-trial.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
+  if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;
   if (env.ANTHROPIC_API_KEY) {
     env.JOB_PILOTTO_ENRICH_MODEL = MODELS.enrich;
     env.JOB_PILOTTO_SCORE_MODEL = MODELS.score;

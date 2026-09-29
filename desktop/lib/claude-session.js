@@ -37,6 +37,7 @@ export function sessionEnv(storage, parent = process.env, platform = process.pla
   const app = pipeline.pipelineEnv(storage);
   const env = {...parent};
   delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_BASE_URL;  // Claude Code uses the user's own Claude login, never the free AI credit
   for (const [key, value] of Object.entries(app)) if (KEEP.test(key)) env[key] = value;
   env.JOB_PILOTTO_PYTHON = pipeline.python();
   env.JOB_PILOTTO_APPLY_RUN_DIR = storage.path('apply-runs');

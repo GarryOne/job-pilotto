@@ -12,6 +12,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Desktop app: main-process modules
 
+- `desktop/lib/ai-trial.js` — The free AI credit for invited testers ($1, lib site/src/trial.js on the website): instead of their own Anthropic
 - `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs

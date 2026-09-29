@@ -103,6 +103,20 @@ export async function init() {
     goStep('notion');
   });
   $('ai-skip').addEventListener('click', () => goStep('notion'));
+  // The free AI credit (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
+  $('ai-trial-go').addEventListener('click', async () => {
+    const pasted = $('ai-trial-key').value.trim();
+    if (pasted) {
+      const set = await window.pilot.licenseSet(pasted).catch(error => ({ok: false, error: error.message}));
+      if (set && set.ok === false) { message('ai-message', set.error || 'That key was not accepted.', 'error'); return; }
+    }
+    const result = await window.pilot.startTrialCredit();
+    if (!result.ok) { message('ai-message', result.error, 'error'); return; }
+    shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
+    $('ai-trial-key').value = '';
+    message('ai-message', '✓ Using your $1 of free AI. Add your own key any time in Settings → Anthropic.', 'ok');
+    setTimeout(() => goStep('notion'), 900);
+  });
 
   // Notion is required: the wizard continues only when every database and page of the template is found.
   $('notion-template').addEventListener('click', () => window.pilot.openExternal(shared.state.templateUrl));
