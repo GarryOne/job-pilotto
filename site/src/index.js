@@ -11,6 +11,7 @@ import {feedback} from './feedback.js';
 import {trial} from './trial.js';
 import {brain} from './brain.js';
 import {index as employerIndex} from './employers.js';
+import * as pool from './pool.js';
 import {handleReport} from '../../worker/src/report.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -66,6 +67,8 @@ export default {
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/telemetry') return telemetry.view(request, env);
     if (pathname === '/api/index') return employerIndex(request, env);
+    if (pathname === '/api/contribute') return pool.contribute(request, env);
+    if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);
     if (pathname === '/api/feedback') return feedback(request, env);
     if (pathname.startsWith('/api/ai/')) return trial(request, env);
@@ -79,6 +82,7 @@ export default {
   },
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
+    ctx.waitUntil(pool.purge(env).catch(error => console.error(`pool purge: ${error.message}`)));
     ctx.waitUntil(telemetry.daily(env, dispatch).catch(error => console.error(`telemetry triage: ${error.message}`)));
   },
 };

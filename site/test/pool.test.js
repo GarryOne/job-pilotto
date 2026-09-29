@@ -1,0 +1,73 @@
+// "Help the pool grow": accepted only in the fixed shape, limited, hashed, aggregated for the scout only, dropped after 90 days.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {test} from 'node:test';
+import worker from '../src/index.js';
+import {purge} from '../src/pool.js';
+
+function d1() {
+  const db = new DatabaseSync(':memory:');
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
+    all: async () => ({results: db.prepare(sql).all(...args)})});
+  return {db, prepare: sql => statement(sql)};
+}
+const kvStore = () => { const map = new Map(); return {map, get: async k => map.get(k) ?? null, put: async (k, v) => { map.set(k, v); }}; };
+const setup = () => ({STATS: d1(), WAITLIST: kvStore(), STATS_SALT: 'salt', INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')}});
+const post = (env, body) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute', {method: 'POST', body: JSON.stringify(body)}), env, {});
+const read = (env, headers = {}) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contributions', {headers}), env, {});
+const feed = (slug, extra = {}) => ({ats: 'lever', slug, company: `Co ${slug}`, matched: true, own: false, ...extra});
+const body = (install, feeds, extra = {}) => ({v: 1, install, roles: ['sre_devops'], regions: ['europe'], feeds, ...extra});
+
+test('stores only the fixed shape: unknown systems, bad slugs and tags outside the lists are dropped', async () => {
+  const env = setup();
+  const response = await post(env, body('install-aaaa1111', [feed('a'), feed('a'), {ats: 'nonsense', slug: 'x', company: 'X'}, feed('../etc'), feed('b', {company: ''}), 'junk'],
+    {roles: ['sre_devops', 'my-secret-role'], regions: ['europe', 'Zurich']}));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).feeds, 1);
+  const rows = env.STATS.db.prepare('SELECT * FROM contributions').all();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].roles, 'sre_devops');
+  assert.equal(rows[0].regions, 'europe');
+  assert.doesNotMatch(rows[0].install, /install-aaaa1111/);   // hashed
+});
+
+test('invalid bodies and a wrong method are refused', async () => {
+  const env = setup();
+  assert.equal((await post(env, {v: 2, install: 'install-aaaa1111', feeds: [feed('a')]})).status, 400);
+  assert.equal((await post(env, {v: 1, install: 'x', feeds: [feed('a')]})).status, 400);
+  assert.equal((await post(env, body('install-aaaa1111', []))).status, 400);
+  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute'), env, {})).status, 405);
+});
+
+test('one contribution per install per 12 hours', async () => {
+  const env = setup();
+  assert.equal((await post(env, body('install-aaaa1111', [feed('a')]))).status, 200);
+  assert.equal((await post(env, body('install-aaaa1111', [feed('b')]))).status, 429);
+  assert.equal((await post(env, body('install-bbbb2222', [feed('b')]))).status, 200);
+});
+
+test('the aggregate is for the scout only, counts distinct installs, and keeps tags of matched installs', async () => {
+  const env = setup();
+  await post(env, body('install-aaaa1111', [feed('a'), feed('own', {matched: false, own: true})]));
+  await post(env, body('install-bbbb2222', [feed('a')], {roles: ['data'], regions: ['europe', 'remote']}));
+  await post(env, body('install-cccc3333', [feed('a', {matched: false})], {roles: ['security']}));
+  assert.equal((await read(env)).status, 404);
+  assert.equal((await read(env, {Authorization: 'Bearer nope'})).status, 404);
+  const {feeds} = await (await read(env, {Authorization: 'Bearer k3y'})).json();
+  const a = feeds.find(f => f.slug === 'a');
+  assert.deepEqual([a.installs, a.matched_installs], [3, 2]);
+  assert.deepEqual(a.roles, {sre_devops: 1, data: 1});        // the unmatched install's tags don't count
+  assert.deepEqual(a.regions, {europe: 2, remote: 1});
+  assert.equal(feeds.find(f => f.slug === 'own').own_installs, 1);
+  assert.doesNotMatch(JSON.stringify(feeds), /install-/);      // no install id, not even hashed
+});
+
+test('rows older than 90 days are dropped', async () => {
+  const env = setup();
+  await post(env, body('install-aaaa1111', [feed('a')]));
+  env.STATS.db.prepare("UPDATE contributions SET day = '2026-01-01'").run();
+  await purge(env, new Date('2026-09-30T12:00:00Z'));
+  assert.equal(env.STATS.db.prepare('SELECT COUNT(*) AS n FROM contributions').get().n, 0);
+});
