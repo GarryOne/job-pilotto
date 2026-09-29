@@ -408,3 +408,7 @@ table.compare { width: 100%; min-width: 820px; border-collapse: collapse; font-s
 @media (max-width: 1000px) { .apply-steps { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .apply-steps { grid-template-columns: 1fr; } }
 .apply-fine { margin: 12px 0 0; color: var(--muted); font-size: .85rem; }
+
+/* Auto apply → "Fewer, better applications.": what the tool will never do, right where a visitor wonders. */
+.quality-panel { margin-top: 28px; padding: 28px 36px; }
+.quality-panel h3 { margin: 0 0 18px; font-size: 1.3rem; letter-spacing: -.02em; }
