@@ -1316,3 +1316,11 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .run-what .ui-tag { vertical-align: middle; }
 .focus-meta .is-done { color: var(--good); font-weight: 600; }
 .focus-actions button .spinner { margin-right: 6px; vertical-align: -2px; }
+/* Menu foot: a newer stable release (renderer/pages/update.js), amber like the sessions that need you. */
+.nav-update { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 10px; background: rgb(var(--amber-rgb) / .14);
+  color: var(--amber); border: 1px solid rgb(var(--amber-rgb) / .35); border-radius: var(--r-md); font-size: var(--fs-md); font-weight: 600;
+  padding: 8px 10px; text-align: left; }
+.nav-update[hidden] { display: none; }
+.nav-update:hover:not(:disabled) { background: rgb(var(--amber-rgb) / .22); }
+.nav-update .icon { width: 16px; height: 16px; }
+@media (max-width: 1179px) { .nav-update { font-size: 0; gap: 0; justify-content: center; width: 48px; } }

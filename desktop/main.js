@@ -6,6 +6,7 @@ import path from 'node:path';
 import * as apply from './lib/apply.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
+import * as updater from './lib/updater.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
@@ -42,6 +43,17 @@ import * as telegramCloud from './lib/telegram-cloud.js';
 let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
+let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
+async function checkForUpdate(asked = false) {
+  if (!app.isPackaged && !asked) return null;
+  try {
+    updateOffer = await updater.check(app.getVersion());
+    if (updateOffer) { appLog('update', `available: ${updateOffer.version}`); toWindow('update', updateOffer); }
+    return {ok: true, offer: updateOffer, current: app.getVersion()};
+  } catch (error) {
+    return {ok: false, text: `Couldn't check for updates: ${error.message}`, current: app.getVersion()};
+  }
+}
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
@@ -859,6 +871,20 @@ function handlers() {
     return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
   });
   ipcMain.handle('openTabs', () => server.openTabs());
+  // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
+  ipcMain.handle('updateState', () => updateOffer);
+  ipcMain.handle('updateCheck', () => checkForUpdate(true));
+  ipcMain.handle('updateInstall', async () => {
+    if (!updateOffer) return {ok: false, text: 'No update to install.'};
+    try {
+      await updater.install(updateOffer, {exe: app.getPath('exe'), onStep: text => toWindow('updateStep', text),
+        quit: () => app.quit()});  // the quit dialog still asks if a job runs; the swap waits for the app to close
+      return {ok: true};
+    } catch (error) {
+      appLog('update', `install failed: ${error.message}`);
+      return {ok: false, text: error.message, url: updateOffer.url};
+    }
+  });
   ipcMain.handle('extensionSeen', () => (server.extensionSeen() ? {...server.extensionSeen(), latest: server.latestExtension()} : null));
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));
@@ -1116,6 +1142,8 @@ if (firstCopy) app.whenReady().then(() => {
     });
     // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched;
     // keys kept outside the app's store (the Google sign-in) go along.
+    // Updates: shortly after start, then every 6 hours (an installed app only; a source checkout updates with git).
+    if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 6 * 3600 * 1000); }
     if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
       error => log(`GitHub repo not updated: ${error.message}`));
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };

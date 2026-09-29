@@ -52,6 +52,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
+- `desktop/lib/updater.js` — App updates: the installed app checks GitHub for the latest *stable* release (a build promoted with
 - `desktop/lib/view-cache.js` — The last good result of a slow screen read (Jobs, Focus, Strategy), kept on this Mac: the screen shows it at
 
 ## Desktop window: pages
@@ -81,6 +82,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/strategy-review.js` — Setup step 5: review the drafted strategy.
 - `desktop/renderer/pages/strategy.js` — Strategy page.
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
+- `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads
 - `desktop/renderer/pages/wizard.js` — The setup wizard.
 
 ## Desktop window: shared modules
@@ -199,6 +201,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/pre-push-check.sh` — Claude Code PreToolUse hook (.claude/settings.json): before any `git push` from this repo (or one of its
 - `tools/prepare-top.sh` — prepare-top.sh [N] — draft application kits for your N best-matching jobs that don't have one yet.
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
+- `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/send-to-chatgpt.sh` — send-to-chatgpt.sh — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
 - `tools/wait-and-mark-applied.sh` — wait-and-mark-applied.sh <job URL> — wait until that job's application is submitted, then mark
 - `tools/worktree.sh` — One worktree per task (AGENTS.md → Working with git), ready to test at once: the packages installed in the main

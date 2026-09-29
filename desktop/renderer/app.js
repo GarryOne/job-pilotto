@@ -27,6 +27,7 @@ import {init as sessionLog} from './pages/session-log.js';
 import {init as runsPage} from './pages/runs-page.js';
 import {init as reassign} from './pages/reassign.js';
 import {init as prep} from './pages/prep.js';
+import {init as update} from './pages/update.js';
 
 await core();
 await wizard();
@@ -42,6 +43,7 @@ await connections();
 await actions();
 await reassign();
 await prep();
+await update();
 await cvChange();
 await data();
 await startup();

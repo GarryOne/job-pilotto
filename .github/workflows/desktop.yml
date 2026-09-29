@@ -3,7 +3,8 @@ name: desktop
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release, only when something that goes into the app changed on main. The release starts as a
 # draft; the Windows job adds the x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") and then
-# publishes it, so "latest" always has both downloads the website links to.
+# publishes it as a pre-release (alpha). Friends' apps and the website follow the latest *stable* release: one
+# promoted with tools/release-stable.sh (then its .exe and .dmg are what "latest" serves).
 on:
   push:
     branches: [main]
@@ -154,7 +155,7 @@ jobs:
           # A stable name too, so a download link can always point at the latest build.
           cp "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
           gh release upload "desktop-v${VERSION}" "dist/Job-Pilotto-${VERSION}-x64.exe" dist/Job-Pilotto-windows-x64.exe
-          gh release edit "desktop-v${VERSION}" --draft=false --latest
+          gh release edit "desktop-v${VERSION}" --draft=false --prerelease
 
   # The Windows build failed: publish the Mac release anyway, carrying over the last working Windows installer
   # so the website's Windows link (latest release) keeps working until a Windows build passes again.
@@ -177,4 +178,4 @@ jobs:
           else
             echo "::warning::Windows build failed and no earlier release has a Windows installer."
           fi
-          gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          gh release edit "desktop-v${VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
