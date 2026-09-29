@@ -60,7 +60,6 @@ export function showCloud() {
   $('cloud-open').hidden = $('cloud-off').hidden = !cloud?.repo;
   $('auto-search').disabled = !!cloud?.repo;
   showTelegramCloud();
-  refreshServices();  // Settings → Connections: the GitHub card moves between Available and Connected
 }
 
 // "Connected to …", or, when the setup found a repository from an earlier setup, which one and since when.
@@ -80,6 +79,7 @@ function showTelegramCloud() {
   show($('tg-cloud-token'), !on);
   $('tg-cloud-on').textContent = on ? 'Update' : 'Turn on';
   show($('tg-cloud-off'), !!on);
+  refreshServices();  // Settings → Connections: the GitHub and Cloudflare cards move between Available and Connected
 }
 let cloudUrls = null;
 let cloudWaiting = false;

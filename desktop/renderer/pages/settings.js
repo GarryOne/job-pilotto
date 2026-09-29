@@ -17,7 +17,7 @@ export function settingsPage(name) {
 }
 // One Settings card (setting-<id>): its sub-page, then scrolled to. Used by every link into Settings.
 export function openSetting(id) {
-  const card = $(`setting-${id}`);
+  const card = $(`setting-${id}`) || $(id);  // a card, or a part of one (tg-cloud: inside Always on)
   if (!card) return;
   const view = card.closest('.view')?.dataset.view;
   if (view && view !== 'settings') {  // a card on another page (Profile: CV, details, links, assistant)
@@ -62,17 +62,19 @@ const SERVICES = [
     why: 'Daily digests and reminders need a bot connection.'},
   {id: 'serpapi', name: 'Google Jobs (SerpApi)', icon: 'search', what: 'Additional job results', connect: 'Add key'},
   {id: 'cloud', name: 'GitHub · Always on', icon: 'cloud', what: 'Runs your searches and checks while your Mac is off', connect: 'Set up'},
+  {id: 'tg-cloud', name: 'Cloudflare · Telegram buttons', icon: 'zap', what: 'Your bot answers buttons with the Mac off', connect: 'Set up',
+    shown: () => !!shared.state.settings.cloud?.repo},  // it starts runs in the GitHub repository, so only with Always on
 ];
 // Each service's state. Keys are known at once (this Mac); Google (a Python check) and the extension answer later, so
 // their last answer is remembered here and shown meanwhile ("Checking…" the very first time).
 const SERVICE_CACHE = 'serviceChecks';
 const lastChecks = () => { try { return JSON.parse(localStorage.getItem(SERVICE_CACHE) || 'null'); } catch { return null; } };
 function statusFrom(google, extension) {
-  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, cloud: !!shared.state.settings.cloud?.repo,
+  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, cloud: !!shared.state.settings.cloud?.repo, 'tg-cloud': !!shared.state.settings.telegramCloud,
     telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: !!extension?.on};
   const detail = {google: google?.connected && google.email, extension: extension?.on && extension.version && `v${extension.version}`,
     telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`,
-    cloud: shared.state.settings.cloud?.repo};
+    cloud: shared.state.settings.cloud?.repo, 'tg-cloud': shared.state.settings.telegramCloud?.url?.replace('https://', '')};
   const checking = {google: !google, extension: !extension};
   return {on, detail, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
 }
@@ -116,9 +118,10 @@ function renderConnections(status) {
   };
   // A service still being checked sits with the connected ones until it answers (it usually is).
   const connected = service => on[service.id] || checking[service.id];
-  $('conn-on').replaceChildren(...SERVICES.filter(connected).map(card));
-  $('conn-off').replaceChildren(...SERVICES.filter(service => !connected(service)).map(card));
-  show($('conn-off-head'), SERVICES.some(service => !connected(service)));
+  const listed = SERVICES.filter(service => !service.shown || service.shown());
+  $('conn-on').replaceChildren(...listed.filter(connected).map(card));
+  $('conn-off').replaceChildren(...listed.filter(service => !connected(service)).map(card));
+  show($('conn-off-head'), listed.some(service => !connected(service)));
 }
 export async function renderOverview() {
   // What's known now first (Connections and Overview drawn at once), then the slow checks, each as it answers:
