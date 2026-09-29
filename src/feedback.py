@@ -37,7 +37,7 @@ def history_for(tracker, row):
 def draft(row):
     job = plain(row['properties'].get('Job')) or 'the role'
     return (f'Hi,\n\nThank you for considering me for {job}. '
-            'Could you share brief feedback to help me improve?\n\n'
+            'Could you share brief feedback to help me improve for future interviews?\n\n'
             'What was the main factor: technical fit (which area), communication, experience, '
             'compensation, or something else? Even a few words would help.\n\nThank you!')
 
