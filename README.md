@@ -877,7 +877,7 @@ tools/
   browser-submit-guard.js  blocks Submit and legal-consent clicks until you unlock the page
   browser-form-snapshot.js read-only snapshot of a form's questions and answers
   chrome-form-snapshot.js  (JXA) runs that snapshot in the job's Chrome tab, for the watcher
-.claude/skills/      apply-to-job (how to fill a form from a kit) and notion-map (page/DB index)
+.claude/skills/      apply-to-job (how to fill a form from a kit), and the dev skills
 docs/                Notion schema, paste-ready Notion page templates, benchmark procedure, screenshots
 AGENTS.md            instructions for any agent (Claude, Codex, or other) working in this repo
 tests/               Python tests; Worker tests live in worker/test/

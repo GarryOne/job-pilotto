@@ -1,7 +1,8 @@
 // POST /api/brain/telegram: the "Job Pilotto Brain" Telegram bot's webhook. The product brain
 // (.github/workflows/product-brain.yml, tools/product_brain.py) sends one recommendation a day with buttons; a tap
 // here starts the next step of that workflow on GITHUB_REPO. Product infrastructure, separate from users' job bots.
-// Secrets: BRAIN_BOT_TOKEN, BRAIN_WEBHOOK_SECRET (Telegram's secret_token header), BRAIN_CHAT_ID (the owner only).
+// Secrets: BRAIN_BOT_TOKEN, BRAIN_WEBHOOK_SECRET (Telegram's secret_token header), BRAIN_CHAT_ID (the owner only),
+// BRAIN_GITHUB_TOKEN + var BRAIN_REPO: the private repo the brain's workflow lives in (else GITHUB_TOKEN/GITHUB_REPO).
 
 export const BUTTONS = {
   x: ['explore', '✅ Exploring…', 'Exploring it: the plan arrives here in a few minutes.'],
@@ -25,7 +26,8 @@ export async function brain(request, env, dispatch, fetcher = fetch) {
   }
   const [step, label, text] = BUTTONS[tap[1]];
   try {
-    await dispatch(env, {step, id: tap[2]}, 'product-brain.yml');
+    const where = env.BRAIN_REPO && env.BRAIN_GITHUB_TOKEN ? {...env, GITHUB_REPO: env.BRAIN_REPO, GITHUB_TOKEN: env.BRAIN_GITHUB_TOKEN} : env;
+    await dispatch(where, {step, id: tap[2]}, 'product-brain.yml');
     // The pressed button stays as the record, so it can't be pressed twice.
     await call('editMessageReplyMarkup', {chat_id: query.message.chat.id, message_id: query.message.message_id,
       reply_markup: {inline_keyboard: [[{text: label, callback_data: 'done'}]]}});

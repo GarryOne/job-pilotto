@@ -2,17 +2,12 @@
 
 > **Read this first in a new session.** What runs on its own, when, what it may change, and where the owner
 > approves. Every workflow in `.github/workflows/` must be listed here (`tests/test_how_it_runs.py` fails otherwise).
+> Some loops run from the private repo `GarryOne/job-pilotto-ops` (marked 🔒).
 
-## 🧭 Strategy in 5 bullets
-- **Positioning:** *fewer, better applications*: a job search that finds, scores, drafts and fills, for tech roles
-  in Switzerland. Never mass-applies. → [Marketing Strategy — Free vs Premium](https://app.notion.com/p/3e862be8fd868172a5c7f1056b745d6e)
-- **Model:** free app, source-available (FSL-1.1-ALv2); **Pro** (hosted searches, maintained employer index) on our servers.
-- **Data:** the user's own accounts. Notion is the source of truth; keys stay encrypted on the Mac; no server holds job data.
-- **Hard rules:** never auto-apply or press Submit; never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; ask before
-  spending money on AI; every manual fix becomes an app step (CLAUDE.md → Working rules).
-- **Product vs personal:** the product (this repo, the website, releases) is shared; each user's schedules, Telegram bot and
-  data run in *their* accounts. → [✨ Feature catalog](https://app.notion.com/p/3e962be8fd868133aa3ed99f1b0debcd) ·
-  [🧠 How Job Pilotto learns](https://app.notion.com/p/3e562be8fd8681d89bd9e618ff7ea048)
+## 🧭 Strategy
+Private: the owner's **📍 Product Compass** and **💰 IP & Monetization** in Notion (🧭 Strategy). Hard rules that shape
+the code: never auto-apply or press Submit; never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; ask before spending
+money on AI; every manual fix becomes an app step (CLAUDE.md → Working rules).
 
 ## 🔁 How the loops connect
 

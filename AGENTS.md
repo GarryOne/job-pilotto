@@ -6,7 +6,7 @@ duplicate what's here — read these instead, and update them if something's mis
 
 - **`CLAUDE.md`** — project overview, working rules (never auto-apply, ask before AI spend,
   secrets policy), code layout, how to run tests. Written for Claude Code but applies to any agent.
-- **`.claude/skills/notion-map/SKILL.md`** — every Notion page/database ID this project uses, and
+- **notion-map** skill (private, `~/.claude/skills/notion-map` on the owner's Mac) — every Notion page/database ID this project uses, and
   which one answers which kind of question. Read this instead of searching Notion from scratch.
 - **`.claude/skills/apply-to-job/SKILL.md`** — how to fill a job application form from an
   application kit (per-platform findings, the fast-path technique, the leak guard, the full
@@ -16,7 +16,7 @@ duplicate what's here — read these instead, and update them if something's mis
 ## If you're Codex, or another agent with your own global instructions/skills/memory
 
 Point your own global config at these files rather than keeping a second copy:
-- Don't maintain a separate Notion-structure skill — use `.claude/skills/notion-map/SKILL.md`.
+- Don't maintain a separate Notion-structure skill — use the notion-map skill.
 - Don't maintain separate job-application-filling instructions — use
   `.claude/skills/apply-to-job/SKILL.md`; update its Log and Platform notes sections with what you
   learn, the same way this project already does.
