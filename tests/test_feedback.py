@@ -30,7 +30,7 @@ class FeedbackTests(unittest.TestCase):
         events = [event('a', 'Screening', '2026-09-25'), event('a', 'Rejected', '2026-09-26', source_id='gmail1')]
         item = focus.build([app], events, target=0, now=NOW)['items'][0]
         self.assertEqual(item['link'], 'https://mail.google.com/mail/u/0/#all/gmail1')
-        self.assertIn('one or two specific', item['draft'])
+        self.assertIn('What was the main factor', item['draft'])
         item = focus.build([app], events + [event('a', feedback.REQUESTED, '2026-09-27')], target=0, now=NOW)['items'][0]
         self.assertEqual(item['kind'], 'feedback_wait')
         self.assertEqual(focus.build([app], events + [event('a', feedback.SKIPPED, '2026-09-27')], target=0, now=NOW)['items'], [])
