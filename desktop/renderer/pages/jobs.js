@@ -321,6 +321,7 @@ export function renderJobs() {
 const NO_FETCH = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
 let leadStep = '';  // the Log box's current step, from the engine
+let leadRunning = false;  // a log is being read now (the dialog may have been closed and reopened)
 // Up to 5 screenshots per log (a long LinkedIn chat): read together, in this order, and kept on the job's page.
 const MAX_SHOTS = 5;
 let leadShots = [];  // [{name, type, data (base64)}]
@@ -589,9 +590,9 @@ export async function init() {
     loadJobs();
   });
   $('lead-open').addEventListener('click', () => {
-    message('lead-message', '');
+    if (!leadRunning) message('lead-message', '');  // a log still running keeps its step and timer
     leadResult('', '');
-    $('lead-go').disabled = false;
+    $('lead-go').disabled = leadRunning;
     leadTargets();
     $('lead-dialog').showModal();
     $('lead-text').focus();
@@ -620,6 +621,8 @@ export async function init() {
     const text = $('lead-text').value.trim();
     leadResult('', '');
     if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
+    if (leadRunning) return;  // one log at a time: reopening the dialog never starts a second one
+    leadRunning = true;
     $('lead-go').disabled = true;
     // What's happening under the hood: the engine's current step (onLeadStep), with the seconds so far.
     const started = Date.now();
@@ -628,7 +631,7 @@ export async function init() {
     tick();
     const timer = setInterval(tick, 1000);
     const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShots, $('lead-target').value)
-      .finally(() => clearInterval(timer));
+      .finally(() => { clearInterval(timer); leadRunning = false; });
     $('lead-go').disabled = false;
     message('lead-message', '');
     const said = result.text.replace(/^\S+\s/, '');  // without the leading emoji

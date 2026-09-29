@@ -6,6 +6,10 @@ import {toastMessage} from './startup.js';
 
 let current = null;   // the Focus item the dialog is for
 let step = '';        // the engine's current step (onPrepStep)
+// One build at a time per job: closing the dialog doesn't stop it, and reopening joins it (one timer, one AI call),
+// instead of starting a second build whose timer would fight the first one on the same line.
+let running = null;   // {pageId, started, promise}
+let timer = null;
 
 function reset(item) {
   current = item;
@@ -20,15 +24,26 @@ function reset(item) {
   $('prep-go').textContent = 'Build prep kit';
 }
 
+function tick() {
+  if (!running || running.pageId !== current?.page_id) return;
+  message('prep-message', `${step}… ${Math.round((Date.now() - running.started) / 1000)} s`, 'waiting');
+}
+
 async function build() {
-  const started = Date.now();
-  step = 'Starting';
-  const tick = () => message('prep-message', `${step}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
+  if (!running || running.pageId !== current.page_id) {
+    step = 'Starting';
+    const pageId = current.page_id;
+    running = {pageId, started: Date.now(),
+      promise: window.pilot.interviewPrep(pageId).catch(error => ({ok: false, text: error.message}))};
+  }
+  const mine = running;
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
   tick();
-  const timer = setInterval(tick, 1000);
   $('prep-go').disabled = true;
-  const result = await window.pilot.interviewPrep(current.page_id).catch(error => ({ok: false, text: error.message}))
-    .finally(() => clearInterval(timer));
+  const result = await mine.promise;
+  if (running === mine) { running = null; clearInterval(timer); }
+  if (current?.page_id !== mine.pageId) return;  // the dialog shows another job now
   $('prep-go').disabled = false;
   if (result.needs_description) {
     show($('prep-describe'), true);
