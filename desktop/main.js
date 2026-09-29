@@ -1136,8 +1136,9 @@ if (firstCopy) app.whenReady().then(() => {
   logTo(path.join(app.getPath('userData'), 'logs'));
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
-  // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode.
-  telemetry = DEMO ? null : telemetryLib.create(storage, {version: app.getVersion()});
+  // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode, and never
+  // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.
+  telemetry = DEMO || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (telemetry) {
     pipeline.onRunEnd(({args, code, seconds, tail}) => {
       telemetry.countRun(code === 0);  // the health line's runsOk / runsFailed (release check evidence)
