@@ -63,7 +63,7 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(tracker.created[0]['Kind'], {'select': {'name': 'Rejected'}})
         page, blocks = tracker.appended[0]
         self.assertEqual((page, blocks[-1]['type']), ('p1', 'toggle'))  # one folded entry per log
-        self.assertEqual(blocks[-1]['toggle']['children'][-1]['type'], 'image')  # the screenshot inside it
+        self.assertEqual(blocks[-1]['toggle']['children'][-1]['type'], 'image')  # one screenshot: inside it
         self.assertTrue(line.startswith('❌ Updated: Grafana Labs — SRE → Rejected'))
 
     def test_the_same_screenshot_twice_changes_nothing(self):

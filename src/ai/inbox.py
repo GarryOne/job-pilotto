@@ -154,20 +154,34 @@ def _image_blocks(tracker, image):
     return blocks
 
 
+def _thumbnails(blocks):
+    """Screenshots side by side in columns: small on the page, full size in Notion's viewer when clicked."""
+    if len(blocks) < 2:
+        return blocks
+    return [{'object': 'block', 'type': 'column_list', 'column_list': {'children': [
+        {'object': 'block', 'type': 'column', 'column': {'children': [block]}} for block in blocks]}}]
+
+
 def _keep(tracker, row, text, image, summary, when):
     """What was logged, on the job's page: one folded entry per log ("📥 29 Sep · what it said"), with the message
-    and the screenshots inside, so the page stays readable however many you log."""
+    inside and the screenshots as a row of thumbnails, so the page stays readable however many you log."""
     try:
         day = datetime.fromisoformat(when.replace('Z', '+00:00')).strftime('%d %b %Y')
     except ValueError:
         day = when[:10]
     inside = [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
-    inside += _image_blocks(tracker, image)
+    shots = _image_blocks(tracker, image)
+    if len(shots) < 2:
+        inside += shots
     entry = {'object': 'block', 'type': 'toggle', 'toggle': {
         'rich_text': [{'type': 'text', 'text': {'content': f'📥 {day} · {summary}'[:1900]}, 'annotations': {'bold': True}}],
         'children': inside or [_block('paragraph', summary)]}}
     try:
-        tracker.append_blocks(row['id'], [entry])
+        added = tracker.append_blocks(row['id'], [entry])
+        if len(shots) > 1:  # columns inside the fold: a second call (Notion nests only two levels per call)
+            toggle = ((added or {}).get('results') or [{}])[0].get('id')
+            if toggle:
+                tracker.append_blocks(toggle, _thumbnails(shots))
     except Exception as error:  # noqa: BLE001
         print(f'Warning: not copied to the page: {type(error).__name__}: {error}', file=sys.stderr)
 

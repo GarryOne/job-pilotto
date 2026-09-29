@@ -158,7 +158,7 @@ def screenshots(tracker, row, fetch=True, opener=None):
                 url = (image.get('file') or {}).get('url') or (image.get('external') or {}).get('url')
                 if url:
                     found.append(url)
-            elif block.get('has_children') and depth < 1:
+            elif block.get('has_children') and depth < 3:  # inside a folded log entry and its columns
                 walk(tracker._children(block['id']), depth + 1)
     walk(tracker._children(row['id']))
     found = found[-MAX_SHOTS:]

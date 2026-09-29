@@ -86,5 +86,26 @@ class DescriptionTest(unittest.TestCase):
         self.assertIn('the job description', line)
 
 
+
+class ThumbnailTest(unittest.TestCase):
+    def test_several_screenshots_become_a_row_of_thumbnails_inside_the_fold(self):
+        from unittest import mock
+        appended = []
+
+        class Tracker:
+            def upload_file(self, name, data, kind):
+                return f'up-{name}'
+
+            def append_blocks(self, parent, blocks):
+                appended.append((parent, blocks))
+                return {'results': [{'id': 'toggle-1'}]}
+        shots = [(f's{n}.png', b'x', 'image/png') for n in range(4)]
+        inbox._keep(Tracker(), {'id': 'job'}, '', shots, 'LinkedIn chat', '2026-09-21T10:00:00+00:00')
+        (page, [entry]), (inside, [row]) = appended
+        self.assertEqual((page, entry['type']), ('job', 'toggle'))
+        self.assertEqual(entry['toggle']['rich_text'][0]['text']['content'], '📥 21 Sep 2026 · LinkedIn chat')
+        self.assertEqual((inside, row['type'], len(row['column_list']['children'])), ('toggle-1', 'column_list', 4))
+
+
 if __name__ == '__main__':
     unittest.main()
