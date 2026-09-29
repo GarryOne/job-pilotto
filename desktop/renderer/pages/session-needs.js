@@ -235,8 +235,14 @@ export function askRow(need, item) {
   const box = el('label', 'ss-ask-save');
   const tick = el('input');
   tick.type = 'checkbox';
-  const note = el('span', 'small', saved ? 'Saved to your answers' : need.suggested ? 'Suggested: save it to your answers' : 'Save to your answers');
+  // What saving does, said plainly: the answer goes to your Answers in Notion and every later form fills it by itself.
+  // Once the question is handled its input is hidden, so the row says which answer it would keep.
+  const shown = () => (input.value.trim() ? `"${input.value.trim().slice(0, 80)}"` : 'this answer');
+  const offer = () => `Remember ${shown()} for future forms`;
+  const note = el('span', 'small', saved ? `Remembered ${shown()} for future forms` : offer());
+  box.title = 'Saves it to your Answers in Notion: later forms with this question fill it without asking you.';
   box.append(tick, note);
+  input.addEventListener('input', () => { if (!tick.checked) note.textContent = offer(); });
   tick.checked = input.disabled = tick.disabled = !!saved;
   tick.addEventListener('change', async () => {
     const value = input.value.trim();
@@ -244,7 +250,7 @@ export function askRow(need, item) {
     tick.disabled = input.disabled = true;
     note.textContent = 'Saving to Notion…';
     const result = await window.pilot.rememberAnswer(need.question, value);
-    if (result.ok) { savedAnswers.set(need.question, value); keep(); note.textContent = 'Saved to your answers · type it in the form too'; box.classList.add('is-saved'); return; }
+    if (result.ok) { savedAnswers.set(need.question, value); keep(); note.textContent = `Remembered ${shown()} for future forms`; box.classList.add('is-saved'); return; }
     tick.checked = tick.disabled = input.disabled = false;
     note.textContent = result.error || 'Couldn\'t save';
     box.classList.add('is-error');

@@ -275,7 +275,6 @@ export function renderNextStep(item) {
   applyFormStates(item);
   showFormState(item);
   updateNeedsCount();
-  saveAllButton();
   // The live field list ("In the form") says what was filled, field by field: Claude's "Filled:" summary only without it.
   const listed = !!reviewStates.get(item.id)?.filled?.length;
   const happened = [
@@ -322,18 +321,6 @@ export function renderNextStep(item) {
     $('ss-happened-card').classList.toggle('is-open', happened.some(entry => entry.problem) && !formReady(item));
   }
   $('ss-happened-head').onclick = event => { if (!event.target.closest('a, button')) $('ss-happened-card').classList.toggle('is-open'); };
-}
-
-// "Save all N to your answers": the suggested answers Claude filled, saved in one click (each row's box, ticked).
-function saveAllButton() {
-  const boxes = [...document.querySelectorAll('#ss-needs .ss-ask-save input:not(:checked):not(:disabled)')]
-    .filter(box => box.closest('.ss-need')?.querySelector('.ss-ask-input')?.value.trim());
-  const slot = $('ss-needs-save');
-  slot.replaceChildren();
-  if (boxes.length < 2) return;
-  const button = el('button', 'link small', `Save all ${boxes.length} to your answers`);
-  button.onclick = () => { button.disabled = true; for (const box of boxes) box.click(); };
-  slot.append(button);
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
