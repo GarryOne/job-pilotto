@@ -58,6 +58,8 @@ class FakeTracker:
         self.apps, self.events, self.past, self.created = list(apps), list(events), list(past), []
 
     def query_database(self, database_id, filter_=None):
+        if filter_ and 'date' in filter_:
+            return [r for r in self.past if r['properties']['Date']['date']['start'] == filter_['date']['equals']]
         if database_id == ledger.EVENTS_DATABASE_ID:
             return self.events
         if database_id == insights.INSIGHTS_DATABASE_ID:
@@ -176,7 +178,7 @@ class RunTests(unittest.TestCase):
         self.assertAlmostEqual(props['Cost (USD)']['number'], 0.016)  # 6000 in x $2 + 400 out x $10
         self.assertEqual((stats['done'], round(stats['usd'], 3)), (1, 0.016))
         payload = json.loads(client.calls[0]['messages'][0]['content'].split('\n', 1)[1])
-        self.assertEqual(set(payload), {'market', 'applications', 'interviews', 'recent_insights'})
+        self.assertEqual(set(payload), {'market', 'applications', 'interviews', 'recent_insights', 'learning'})
         self.assertIn(PROFILE, client.calls[0]['system'][0]['text'])
 
     def test_not_due_before_the_hour_or_twice_a_day(self):

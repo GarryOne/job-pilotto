@@ -41,6 +41,8 @@ FEATURES = (
             'pip install -r requirements-transcribe.txt (bundled in the Mac app); models download once (~520 MB)'),
     Feature('focus', 'Focus: what to do next, and reminders against a daily target', ('NOTION_TOKEN',), 'free',
             'on with Notion (the Desktop App: Focus)'),
+    Feature('feedback', 'Employer feedback requests, collection and learning', ('NOTION_TOKEN',), 'free',
+            'on with Notion (Focus and Jobs → Add employer feedback; Gmail collection uses the existing mail check)'),
     Feature('rejection_review', 'Why each rejection happened (after the Gmail check, or on demand)',
             ('ANTHROPIC_API_KEY', 'NOTION_TOKEN'), 'paid', 'on with the AI key and Notion (Claude Sonnet 5, a few cents each)'),
     Feature('mail', 'Gmail + Calendar reading (application news, recruiter leads)', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', 'ANTHROPIC_API_KEY'), 'paid',

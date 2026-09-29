@@ -31,7 +31,7 @@ from . import added, cost, mail, opportunity
 
 DEFAULT_MODEL = opportunity.DEFAULT_MODEL
 OUTREACH, APPLIED, NOT_JOB = 'Recruiter outreach', 'Applied', 'Not job-related'
-KINDS = [OUTREACH, APPLIED, 'Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', NOT_JOB]
+KINDS = [OUTREACH, APPLIED, 'Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', NOT_JOB, mail.employer_feedback.RECEIVED]
 MEDIA = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif'}
 MAX_JOBS = 300
 LOG_HEADING = '📥 Logged'
@@ -41,19 +41,24 @@ EMOJI = {**mail.EMOJI, OUTREACH: '🤝', APPLIED: '📨'}
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['kind', 'match', 'role', 'when', 'interview_at'] + opportunity.SCHEMA['required'],
+    'required': ['kind', 'match', 'role', 'when', 'interview_at', 'feedback'] + opportunity.SCHEMA['required'],
     'properties': {
         'kind': {'type': 'string', 'enum': KINDS},
         'match': {'type': 'integer', 'description': 'Index of the job in the list this is about, or -1 if none fits'},
         'role': {'type': 'string', 'description': 'Role title the item names, else ""'},
         'when': {'type': 'string', 'description': 'ISO 8601 date/time the message was sent if shown, else ""'},
         'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a call/interview with a fixed time, with offset, else ""'},
+        'feedback': {'type': 'string', 'description': 'Specific employer feedback quoted verbatim, else empty; no generic rejections or inferred reasons.'},
         **opportunity.SCHEMA['properties'],
     },
 }
 
 SYSTEM = """The owner of Job Pilotto pastes a message or a screenshot (LinkedIn, Gmail, WhatsApp, a job site) about their \
 job search. Read it (for a screenshot, read the text in the image) and say:
+- "Feedback received" = the employer's specific assessment during or after a hiring process. A rejection
+  containing specific feedback stays "Rejected" with feedback filled. feedback is a verbatim quote of the
+  employer's reasons or assessment; empty for generic rejections. Never turn the candidate's own request,
+  quoted old messages, or a model guess into employer feedback.
 - kind: "Recruiter outreach" = a recruiter or hiring person pitches a role; "Applied" = proof the owner applied (an \
 application page or a copy of it); "Confirmation received" = automatic acknowledgement; "Reply received" = a person \
 answered without a fixed time (booking link, test, questions, "let's chat"); "Interview scheduled" = a call booked at a \
@@ -263,7 +268,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     else:
         index = mail._events_index(tracker)
         changed = mail.record(tracker, row, REPLY if kind == OUTREACH else kind, when, event_source, source_id,
-                              f'Logged: {summary}'[:300], index, item.get('interview_at') or None, now)
+                              f'Logged: {summary}'[:300], index, item.get('interview_at') or None, now,
+                              feedback_text=(item.get('feedback') or '') if image else mail.verified_feedback(item.get('feedback'), text))
     if talking and (stage == opportunity.LEAD_STAGE or changed == opportunity.LEAD_STAGE):
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'

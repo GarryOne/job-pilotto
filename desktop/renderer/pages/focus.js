@@ -7,6 +7,7 @@ import {$, savedAgo, show} from './core.js';
 import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
+import {openFeedback, saveFeedbackAction} from './feedback.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -99,7 +100,10 @@ function focusCard(item) {
   body.append(top, meta);
   body.title = item.detail || '';
   const actions = el('div', 'focus-actions');
-  if (item.link) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
+  if (item.kind === 'feedback') actions.append(focusButton('Ask for feedback', 'primary', () => openFeedback(item, 'request')));
+  if (item.kind === 'feedback_wait') actions.append(focusButton('Add feedback', 'primary', () => openFeedback(item, 'receive')));
+  if (item.kind === 'feedback_review') actions.append(focusButton('Read feedback', 'primary', () => openFeedback(item, 'review')));
+  if (item.link && !item.kind.startsWith('feedback')) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
   if (item.kind === 'apply') actions.append(focusButton('Browse jobs', 'primary', () => openView('jobs')));
   if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
   if (!item.link && ['reply', 'book', 'offer', 'prepare', 'nudge'].includes(item.kind) && item.notion_url) {
@@ -112,6 +116,11 @@ function focusCard(item) {
     loadFocus();
   }));
   const more = [];
+  if (item.kind.startsWith('feedback') && item.kind !== 'feedback_wait') more.push({label: 'Add employer feedback', run: () => openFeedback(item, 'receive')});
+  if (item.kind === 'feedback') more.push({label: 'Skip this request', run: async () => {
+    const result = await saveFeedbackAction(item, 'skip');
+    if (!result.ok) toastMessage('Not saved', result.error);
+  }});
   if (item.notion_url) more.push({label: '🗂 Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({label: '↗ Open posting', run: () => window.pilot.openExternal(item.job_url)});
   if (item.kind === 'apply') more.push({label: '🎯 Change the daily target', run: () => editTarget()});
@@ -146,7 +155,7 @@ function renderInsight(insight) {
   body.append(el('div', 'focus-headline', insight.headline), el('div', 'muted small', `${insight.reason} · ${insight.detail}`));
   body.title = insight.lesson || '';
   box.append(round, body);
-  if (insight.notion_url) box.append(focusButton('Review rejection', 'secondary', event => openLink(insight.notion_url, event)));
+  if (insight.notion_url) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', event => openLink(insight.notion_url, event)));
   $('focus-insight').replaceChildren(box);
 }
 // The application funnel: each step's count, a bar and its share of the first step; the full view is in Notion.

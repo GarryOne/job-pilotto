@@ -142,9 +142,10 @@ class MailTests(unittest.TestCase):
         google = FakeGoogle([email('m2', 'Thank you for applying to Canonical', '2026-09-26T01:26:30+02:00')])
         self.run_mail(tracker, google, [[result(0, 0, 'Confirmation received')]])
         self.assertEqual(tracker.created, [])
-        self.assertEqual(tracker.updates, [('ev-Confirmation received-2026-09-26T01:26:00+02:00',
+        self.assertEqual(tracker.updates[-1:], [('ev-Confirmation received-2026-09-26T01:26:00+02:00',
                                             {'Source ID': {'rich_text': [{'text': {'content': 'm2'}}]},
                                              'At': {'date': {'start': '2026-09-26T01:26:30+02:00'}}})])
+        self.assertEqual(apps[0]['properties']['Stage']['select']['name'], 'Confirmation received')  # repair a partially saved event
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
         apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),

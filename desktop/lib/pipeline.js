@@ -363,6 +363,11 @@ export async function focusDone(storage, pageId) {
   const {code} = await run(storage, ['src.focus', 'done', pageId, 'replied']);
   return {ok: code === 0};
 }
+export async function feedbackAction(storage, pageId, action, text = '') {
+  const {code, stdout} = await run(storage, ['src.feedback', pageId, action, ...(text ? ['--text', text] : [])]);
+  try { const result = JSON.parse(stdout.trim().split('\n').pop()); return {...result, ok: code === 0 && result.ok}; }
+  catch { return {ok: false, error: 'Feedback could not be saved to Notion. Try again.'}; }
+}
 // The reminder text (empty when nothing is worth interrupting for); send: also to Telegram.
 export async function focusReminder(storage, send = false) {
   const {code, stdout} = await run(storage, ['src.focus', 'remind', ...(send ? ['--send'] : [])]);

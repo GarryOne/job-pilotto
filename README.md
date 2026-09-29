@@ -274,6 +274,24 @@ doesn't.
   your base CV everywhere else.
 
 ### 📈 Learning from your applications
+- 💬 **Employer feedback in the desktop app:** after a rejection that reached Screening or later,
+  Focus offers a short feedback request and explains why it helps. Copy and send it yourself, then
+  **I sent the request** marks the job **Rejected · Asked for feedback**. No request is suggested for
+  pre-screening rejections. **Skip this request** dismisses it. Gmail stays read-only.
+  The scheduled Gmail check captures specific employer feedback; **Jobs → ⋯ → Add employer feedback**
+  also accepts pasted feedback at any stage. Employer words are stored separately from AI guesses in
+  Notion Applications; the job shows **Rejected · Received feedback**, and Focus prompts you to read it.
+- 🎯 **Priorities backed by several situations:** daily insights and the weekly report combine
+  employer feedback, detailed interview reviews (weak answers and better versions), CV fit gaps and
+  rejection hypotheses from the last 120 days. A global **Issue detected** needs evidence for the same
+  theme from at least **3 applications, 2 employers and 2 source types**, including employer feedback
+  or interview reviews from at least **2 applications**. Exact quotes and source links are checked
+  before publishing; duplicates from one application never increase the sample. A missing CV keyword
+  is not proof of a missing skill. When the evidence is insufficient, the report says so and keeps
+  individual observations tentative. Supported priorities live in **Notion Insights**; Focus shows the
+  strongest recent priority and its next action, with **Review evidence**. This uses the existing
+  insight/report model calls, rather than a separate analysis job. `JOB_PILOTTO_DISABLE=feedback`
+  turns off feedback collection and requests.
 - 🧊 **Every application frozen when you apply**: the job description, AI facts and fit score,
   every question with the answer you actually submitted (read from the form just before Submit),
   the kit draft it came from (✏️ when you changed it), the cover letter, CV version and agent.

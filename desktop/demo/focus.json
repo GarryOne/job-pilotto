@@ -1,23 +1,142 @@
 {
   "items": [
-    {"priority": 1, "kind": "reply", "icon": "chat", "badge": "Reply today", "tone": "bad", "headline": "Reply to Northwind Robotics recruiter",
-     "meta": ["SRE", "LinkedIn", "€120k–220k", "Remote"], "title": "Reply on LinkedIn: Northwind Robotics — SRE",
-     "detail": "Recruiter pitch today (LinkedIn). €120k–220k · Remote · Jordan Lee", "link": "https://www.linkedin.com/messaging/", "link_label": "Open LinkedIn",
-     "done": true, "page_id": "demo-1", "notion_url": "", "company": "Northwind Robotics", "job": "SRE", "job_url": ""},
-    {"priority": 1, "kind": "reply", "icon": "mail", "badge": "Reply today", "tone": "bad", "headline": "Reply to Example Talent recruiter",
-     "meta": ["Senior DevOps Engineer", "Email", "€70k–90k", "Remote Europe"], "title": "Reply by email: Example Talent — Senior DevOps Engineer",
-     "detail": "Recruiter pitch today (Email). €70k–90k + equity · Remote (Europe) · Alex Morgan", "link": "https://mail.google.com/", "link_label": "Open email",
-     "done": true, "page_id": "demo-2", "notion_url": "", "company": "", "job": "Senior DevOps Engineer", "job_url": ""},
-    {"priority": 3, "kind": "apply", "icon": "briefcase", "badge": "Next step", "tone": "info", "headline": "Apply to your next role",
-     "meta": ["27 application kits ready to review", "0 of 30 today"], "title": "Apply to 30 more jobs today", "detail": "0 of 30 today. 27 kits ready.",
-     "link": "", "done": false, "page_id": "", "notion_url": "", "company": "", "job": "", "job_url": ""}
+    {
+      "priority": 1,
+      "kind": "reply",
+      "icon": "chat",
+      "badge": "Reply today",
+      "tone": "bad",
+      "headline": "Reply to Northwind Robotics recruiter",
+      "meta": [
+        "SRE",
+        "LinkedIn",
+        "€120k–220k",
+        "Remote"
+      ],
+      "title": "Reply on LinkedIn: Northwind Robotics — SRE",
+      "detail": "Recruiter pitch today (LinkedIn). €120k–220k · Remote · Jordan Lee",
+      "link": "https://www.linkedin.com/messaging/",
+      "link_label": "Open LinkedIn",
+      "done": true,
+      "page_id": "demo-1",
+      "notion_url": "",
+      "company": "Northwind Robotics",
+      "job": "SRE",
+      "job_url": ""
+    },
+    {
+      "priority": 1,
+      "kind": "reply",
+      "icon": "mail",
+      "badge": "Reply today",
+      "tone": "bad",
+      "headline": "Reply to Example Talent recruiter",
+      "meta": [
+        "Senior DevOps Engineer",
+        "Email",
+        "€70k–90k",
+        "Remote Europe"
+      ],
+      "title": "Reply by email: Example Talent — Senior DevOps Engineer",
+      "detail": "Recruiter pitch today (Email). €70k–90k + equity · Remote (Europe) · Alex Morgan",
+      "link": "https://mail.google.com/",
+      "link_label": "Open email",
+      "done": true,
+      "page_id": "demo-2",
+      "notion_url": "",
+      "company": "",
+      "job": "Senior DevOps Engineer",
+      "job_url": ""
+    },
+    {
+      "priority": 2,
+      "kind": "feedback",
+      "icon": "chat",
+      "badge": "Learn from it",
+      "tone": "info",
+      "headline": "Ask Acme Observability for feedback",
+      "meta": [
+        "Staff SRE",
+        "One specific point can improve your next interview"
+      ],
+      "title": "Ask for feedback",
+      "detail": "You reached Screening or later. One useful point can improve your next interview.",
+      "company": "Acme Observability",
+      "job": "Staff SRE",
+      "page_id": "demo-feedback",
+      "draft": "Hi,\n\nThank you for the conversation about the Staff SRE role. Could you share one or two specific points I could improve for future interviews?\n\nThank you.",
+      "link": "https://mail.google.com/",
+      "notion_url": "",
+      "job_url": ""
+    },
+    {
+      "priority": 3,
+      "kind": "apply",
+      "icon": "briefcase",
+      "badge": "Next step",
+      "tone": "info",
+      "headline": "Apply to your next role",
+      "meta": [
+        "27 application kits ready to review",
+        "0 of 30 today"
+      ],
+      "title": "Apply to 30 more jobs today",
+      "detail": "0 of 30 today. 27 kits ready.",
+      "link": "",
+      "done": false,
+      "page_id": "",
+      "notion_url": "",
+      "company": "",
+      "job": "",
+      "job_url": ""
+    }
   ],
-  "today": {"applied": 0, "target": 30, "kits_ready": 27},
-  "insight": {"reason": "Not a fit (not on you)", "headline": "Location requirements may be limiting your applications",
-              "detail": "Acme Observability — Staff SRE | Germany | Remote", "lesson": "The role was limited to UK, Sweden, Spain or Germany residents.", "notion_url": ""},
+  "today": {
+    "applied": 0,
+    "target": 30,
+    "kits_ready": 27
+  },
+  "insight": {
+    "issue": true,
+    "report": true,
+    "reason": "Issue detected",
+    "headline": "Make your database failover answers more concrete",
+    "detail": "Practise one incident story: failure, trade-offs, recovery and verification.",
+    "lesson": "Demo evidence: three applications, two employers, interview reviews and employer feedback. Fictional data.",
+    "notion_url": "https://www.notion.so/example"
+  },
   "summary": "Reply to recruiters first, then review ready applications.",
-  "funnel": {"steps": [{"step": "📝 Prepared", "reached": 41}, {"step": "📨 Applied", "reached": 10}, {"step": "💬 Human reply", "reached": 7},
-                       {"step": "📞 Screening", "reached": 2}, {"step": "🧑‍💻 Interviews", "reached": 0}, {"step": "🏆 Offer", "reached": 0}],
-             "improve": {"step": "📞 Screening", "advice": "Replies are mostly rejections. Check seniority, location and language requirements before applying."},
-             "notion_url": ""}
+  "funnel": {
+    "steps": [
+      {
+        "step": "📝 Prepared",
+        "reached": 41
+      },
+      {
+        "step": "📨 Applied",
+        "reached": 10
+      },
+      {
+        "step": "💬 Human reply",
+        "reached": 7
+      },
+      {
+        "step": "📞 Screening",
+        "reached": 2
+      },
+      {
+        "step": "🧑‍💻 Interviews",
+        "reached": 0
+      },
+      {
+        "step": "🏆 Offer",
+        "reached": 0
+      }
+    ],
+    "improve": {
+      "step": "📞 Screening",
+      "advice": "Replies are mostly rejections. Check seniority, location and language requirements before applying."
+    },
+    "notion_url": ""
+  }
 }

@@ -1126,6 +1126,25 @@
     </div>
   </form>
 </dialog>
+<dialog id="feedback-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="chat"></i></span>
+      <h2 id="feedback-title">Employer feedback</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p id="feedback-context" class="dialog-lead"></p>
+    <p id="feedback-help" class="muted small"></p>
+    <label for="feedback-text">Feedback or request</label>
+    <textarea id="feedback-text" rows="8" placeholder="Paste the employer's feedback here…"></textarea>
+    <p id="feedback-message" class="message"></p>
+    <div class="dialog-foot">
+      <button type="button" id="feedback-copy" class="secondary">Copy request</button>
+      <button type="button" id="feedback-email" class="secondary">Open email</button>
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button id="feedback-save" class="primary" value="default">Save feedback</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="lead-dialog" class="panel-dialog">
   <form method="dialog">
     <div class="dialog-head">

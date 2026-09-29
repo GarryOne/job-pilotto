@@ -114,6 +114,8 @@ def material(tracker, row, email_text=''):
     keep = ('Job', 'Company', 'Location', 'Work mode', 'Seniority', 'Salary', 'Channel', 'Via', 'Applied on', 'Fit score',
             'Stage', 'Notes', 'Next step', 'Cover letter', 'Answers captured', 'CV version')
     parts = ['## Application', '\n'.join(f'{k}: {props[k]}' for k in keep if props.get(k))]
+    if props.get('Employer feedback'):
+        parts += ['## Employer feedback (verbatim, primary evidence)', props['Employer feedback'][:12000]]
     match = record.get('match') or {}
     if match:
         parts += ['## Fit analysis before applying', json.dumps({k: v for k, v in match.items() if v not in (None, '', [])},

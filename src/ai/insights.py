@@ -31,6 +31,7 @@ from ..notion import client as notion
 from ..notion import funnel
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
 from . import cost, enrich, interviews, score
+from . import learning
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5')
 INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
@@ -64,6 +65,8 @@ SCHEMA = {
         'sample_size': {'type': 'integer', 'description': 'Number of jobs or applications behind the finding'},
     },
 }
+SCHEMA['required'].append('issues')
+SCHEMA['properties']['issues'] = learning.ISSUE_SCHEMA
 
 SYSTEM = """You are the job-search analyst inside Job Pilotto. Each day you send the owner ONE \
 insight that could change what they do: which skills to learn or put on the CV, where to look, \
@@ -88,6 +91,7 @@ that form; build on ones marked "Acting on it" (for example, follow up on their 
 The owner's profile (their CV and preferences) follows.
 
 """
+SYSTEM = learning.RULES + '\n' + SYSTEM
 
 
 def _norm_tech(name):
@@ -280,6 +284,8 @@ WEEKLY_SCHEMA = {
         'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
     },
 }
+WEEKLY_SCHEMA['required'].append('issues')
+WEEKLY_SCHEMA['properties']['issues'] = learning.ISSUE_SCHEMA
 
 WEEKLY_SYSTEM = """You write the owner's weekly job-search report inside Job Pilotto. Look back at the \
 last 7 days (applications sent, replies, the market, the daily insights and how the owner rated them) \
@@ -290,6 +296,7 @@ no emojis. "worked" may be empty in a quiet week; never pad it.
 The owner's profile (their CV and preferences) follows.
 
 """
+WEEKLY_SYSTEM = learning.RULES + '\n' + WEEKLY_SYSTEM
 
 
 def week_stats(tracker, now):
@@ -322,6 +329,19 @@ def weekly_blocks(report, stats):
     para = lambda kind, content: {'object': 'block', 'type': kind,
                                   kind: {'rich_text': [{'text': {'content': content[:1900]}}]}}
     blocks = [para('paragraph', report['summary'])]
+    issues = report.get('issues') or []
+    blocks += [para('heading_3', 'Priorities from recurring evidence')]
+    if issues:
+        for issue in issues:
+            blocks += [para('paragraph', f"{issue['issue']} — {issue['applications']} applications, {issue['employers']} employers"),
+                       para('bulleted_list_item', issue['action'])]
+            blocks += [para('bulleted_list_item', f"{r['company']} · {r['source_type']}: {ref['quote']} · {r['url']}")
+                       for r, ref in zip(issue['sources'], issue['support'])]
+    else:
+        blocks += [para('paragraph', 'Not enough independent evidence for global advice yet. '
+                        'A recurring issue needs 3 applications, 2 employers and 2 source types, '
+                        'with employer feedback or interview reviews from at least 2 applications. '
+                        'Individual observations below remain tentative.')]
     if report['worked']:
         blocks += [para('heading_3', 'What worked')] + [para('bulleted_list_item', w) for w in report['worked']]
     blocks += [para('heading_3', 'Change next week')] + [para('bulleted_list_item', c) for c in report['change']]
@@ -348,7 +368,8 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     now = now or datetime.now(timezone.utc)
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
-            'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now)}
+            'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now),
+            'learning': learning.evidence(tracker, now)}
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
@@ -361,6 +382,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')
     report = json.loads(next(block.text for block in response.content if block.type == 'text'))
+    report['issues'] = learning.validate(report.get('issues') or [], data['learning'])
     cost.add(stats, model, response.usage)
     usd = cost.usd(model, response.usage)
     if stats is not None:
@@ -378,6 +400,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
         'Cost (USD)': {'number': round(usd, 4)},
         'Model': text(model),
     }, 'children': weekly_blocks(report, data)})
+    learning.publish(tracker, report['issues'], now, model)
     if send:
         send(weekly_message(report, page.get('url', '')), keyboard(page['id']))
     return f"Weekly report sent: {report['headline']} ({usd:.3f} USD)"
@@ -425,11 +448,13 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
         return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats)
     profile = tracker.page_text()
     data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
-            'interviews': interviews.stats_for_insights(tracker), 'recent_insights': recent_insights(tracker)}
+            'interviews': interviews.stats_for_insights(tracker), 'recent_insights': recent_insights(tracker),
+            'learning': learning.evidence(tracker, now)}
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
     insight, usage = generate(client, model, profile, data)
+    insight['issues'] = learning.validate(insight.get('issues') or [], data['learning'])
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
     if stats is not None:
@@ -437,6 +462,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
     if insight['skip']:
         return f'Insight: nothing new today ({usd:.3f} USD)'
     page = tracker.create_page(INSIGHTS_DATABASE_ID, notion_properties(insight, now.date(), model, usd))
+    learning.publish(tracker, insight['issues'], now, model)
     if send:
         send(message(insight), keyboard(page['id']))
     return f"Insight sent: {insight['category']} — {insight['headline']} ({usd:.3f} USD)"

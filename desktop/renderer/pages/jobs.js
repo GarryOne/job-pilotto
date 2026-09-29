@@ -9,6 +9,7 @@ import {$, message, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
+import {openFeedback} from './feedback.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
@@ -212,6 +213,8 @@ export function renderJobs() {
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
         })});
     }
+    if (job.page_id) menu.push({label: '💬 Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
+    if (job.employer_feedback && job.page_id) menu.push({label: '💬 Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.

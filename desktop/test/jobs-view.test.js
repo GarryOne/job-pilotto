@@ -108,3 +108,10 @@ test('an application shows its Notion Stage, e.g. Rejected rather than Applied',
   assert.deepEqual(statusPill({status: 'unreviewed'}), {label: 'New', tone: 'info'});
   assert.deepEqual(statusPill({status: 'saved', stage: 'Recruiter lead'}), {label: 'Recruiter lead', tone: 'signal'});
 });
+test('feedback is visible beside Rejected while the funnel still counts one closed application', () => {
+  const asked = {status: 'applied', stage: 'Rejected', feedback_status: 'Asked for feedback'};
+  const received = {...asked, feedback_status: 'Received feedback'};
+  assert.deepEqual(statusPill(asked), {label: 'Rejected · Asked for feedback', tone: 'warn'});
+  assert.deepEqual(statusPill(received), {label: 'Rejected · Received feedback', tone: 'info'});
+  assert.deepEqual(applicationStats([received]), {applied: 1, waiting: 0, interviews: 0, closed: 1});
+});

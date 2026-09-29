@@ -84,6 +84,8 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
             kit_state = provenance.kit_state(item.get('kit_inputs'), kit_inputs) if _kit(stage, item.get('next_step') or '') else ''
             rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url'),
                             rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or '',
+                            feedback_status=item.get('feedback_status') or '', employer_feedback=item.get('employer_feedback') or '',
+                            page_id=item.get('page_id') or '',
                             kit_state=kit_state))
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:

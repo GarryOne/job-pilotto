@@ -348,7 +348,12 @@ def set_stage(tracker, url, stage, source='CLI', note=''):
     if not row:
         raise LookupError(f'No Applications row for {url}')
     if stage != REPLY:  # a reply is an event only; Stage stays where it is
-        tracker.update_page(row['id'], {'Stage': {'select': {'name': stage}}})
+        changes = {'Stage': {'select': {'name': stage}}}
+        if stage == 'Rejected' and not plain(row['properties'].get('Feedback status')):
+            from .. import feedback
+            if plain(row['properties'].get('Stage')) in feedback.REACHED or feedback.eligible(row, feedback.history_for(tracker, row)):
+                changes['Feedback status'] = {'select': {'name': 'Not asked'}}
+        tracker.update_page(row['id'], changes)
     add_event(tracker, row, stage, source, note=note)
     return f'{url}: {stage}'
 

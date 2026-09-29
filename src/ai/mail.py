@@ -38,6 +38,7 @@ from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event
 from ..paths import DATA
 from ..sources.google import Google
 from . import cost, opportunity
+from .. import feedback as employer_feedback
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
@@ -48,11 +49,11 @@ SENDER_DOMAINS = ('greenhouse.io', 'greenhouse-mail.io', 'lever.co', 'ashbyhq.co
                   'join.com', 'bamboohr.com', 'jobvite.com', 'icims.com', 'techtree.dev', 'cal.com', 'calendly.com',
                   'goodtime.io', 'devskiller.com', 'thomas.co', 'hackerrank.com', 'codility.com', 'coderpad.io')
 SUBJECT_WORDS = ('application', 'applying', 'applied', 'interview', 'candidacy', 'your candidature', 'next steps',
-                 'screening', 'offer', 'opportunity', 'role', 'position', 'hiring')
+                 'screening', 'offer', 'opportunity', 'role', 'position', 'hiring', 'feedback')
 # LinkedIn's own notification emails for a new message or InMail (the owner's mail, not LinkedIn scraping).
 LINKEDIN_SENDERS = ('messages-noreply@linkedin.com', 'inmail-hit-reply@linkedin.com')
 OUTREACH = 'Recruiter outreach'
-KINDS = ['Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', OUTREACH, 'Other']
+KINDS = ['Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', OUTREACH, 'Other', employer_feedback.RECEIVED]
 # Stage order for "forward only": an email never moves an application back.
 RANK = {stage: i for i, stage in enumerate((opportunity.LEAD_STAGE, 'Applied', 'No response', 'Confirmation received', 'Screening',
                                             'Interview scheduled', 'Interviewing', 'Offer'))}
@@ -64,7 +65,7 @@ SCHEMA = {
     'type': 'object', 'additionalProperties': False, 'required': ['results'],
     'properties': {'results': {'type': 'array', 'items': {
         'type': 'object', 'additionalProperties': False,
-        'required': ['index', 'relevant', 'application', 'company', 'role', 'kind', 'interview_at', 'summary'],
+        'required': ['index', 'relevant', 'application', 'company', 'role', 'kind', 'interview_at', 'summary', 'feedback'],
         'properties': {
             'index': {'type': 'integer'},
             'relevant': {'type': 'boolean', 'description': "About one of the owner's own job applications"},
@@ -74,10 +75,16 @@ SCHEMA = {
             'kind': {'type': 'string', 'enum': KINDS},
             'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a scheduled call/interview with UTC offset, else ""'},
             'summary': {'type': 'string', 'description': 'What happened, max 120 characters, no personal data'},
+            'feedback': {'type': 'string', 'description': 'Verbatim specific employer assessment, else empty. Exclude quoted old mail, generic rejections and candidate requests.'},
         }}}},
 }
 
 SYSTEM = """You sort the job-search emails (and calendar events) of the owner of Job Pilotto. For each item:
+- "Feedback received" = an employer's assessment following a rejection, or feedback during an ongoing process.
+  A rejection containing specific feedback stays "Rejected" with feedback filled. A refusal to provide feedback
+  after a rejection also counts as Feedback received: quote the refusal, so no further request is suggested.
+- feedback: quote the employer's specific reasons or assessment verbatim, never infer them. Empty for generic
+  "other candidates were a better fit" wording. Exclude candidate requests and old messages quoted below a reply.
 - relevant: true only when it is about one of the owner's own applications or hiring processes, or a recruiter or \
 hiring person writes to the owner personally about a specific role. Automated job alerts, newsletters, marketing, \
 "jobs you may like" and other people's mail are not relevant.
@@ -140,12 +147,19 @@ def _field(row, name):
     return plain(row['properties'].get(name)) or ''
 
 
+def verified_feedback(value, original):
+    """The mail reader may classify, but it cannot invent employer quotations."""
+    normal = lambda text: re.sub(r'\s+', ' ', text or '').strip()
+    value = (value or '').strip()
+    return value if len(value) >= 10 and normal(value) in normal(original) else ''
+
+
 def query(apps, days):
     """One Gmail search: known senders, application-ish subjects, or a tracked company's name."""
     names = {n for r in apps for n in (_field(r, 'Company'), _field(r, 'Via')) if n and len(n) > 2 and len(n) < 40}
     terms = ([f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'subject:"{w}"' for w in SUBJECT_WORDS + role_words()]
              + [f'"{n}"' for n in sorted(names)])
-    return f'newer_than:{days}d -in:chats -in:spam -in:trash {{{" ".join(terms)}}}'
+    return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
 
 
 def role_words():
@@ -228,30 +242,32 @@ def _stage_for(kind, current):
     return target if RANK.get(target, 0) > RANK.get(current, 0) else None
 
 
-def record(tracker, row, kind, at, source, source_id, note, index, interview_at=None, now=None):
+def record(tracker, row, kind, at, source, source_id, note, index, interview_at=None, now=None, feedback_text=''):
     """Write one matched item: event (or link to a hand-logged twin), Stage forward, Next interview.
     Returns a short description of what changed, or None when it was already known."""
     key = row['id'].replace('-', '')
     known, by_app = index
     if source_id in known:
         return None
-    twin = _near(by_app.get(key, []), kind, at)
-    if twin and not twin[1]:
-        # Hand-logged events carry estimated times; the email's (or booking's) own timestamp is exact.
-        tracker.update_page(twin[0], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]},
-                                      'At': {'date': {'start': at}}})
-        known.add(source_id)
+    if feedback_text and kind != 'Rejected':
+        kind = employer_feedback.RECEIVED
+    if kind == employer_feedback.RECEIVED and not feedback_text.strip():
+        return None  # no model guesses stored as employer evidence
+    twin = _near(by_app.get(key, []), kind, at) if kind != employer_feedback.RECEIVED else None
+    if twin and twin[1]:
         return None
-    if twin:
-        return None
-    event = add_event(tracker, row, kind, source, at=at, note=note)
-    tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}})
-    known.add(source_id)
+    if feedback_text:
+        employer_feedback.receive(tracker, row, feedback_text)
+    event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note)
     by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
     changes = {}
     stage = _stage_for(kind, _field(row, 'Stage'))
     if stage:
         changes['Stage'] = {'select': {'name': stage}}
+    if kind == 'Rejected' and not feedback_text and not _field(row, 'Feedback status'):
+        history = [{'kind': k, 'at': t} for k, t, _, _ in by_app.get(key, [])]
+        if _field(row, 'Stage') in employer_feedback.REACHED or employer_feedback.eligible(row, history):
+            changes['Feedback status'] = {'select': {'name': 'Not asked'}}
     moment, current = _when(interview_at or ''), _when(_field(row, 'Next interview'))
     now = now or datetime.now(timezone.utc)
     if moment and moment > now and (not current or current < now or moment < current):
@@ -260,10 +276,13 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         changes['Confirmation email'] = {'checkbox': True}
     if changes:
         tracker.update_page(row['id'], changes)
-    return stage or kind
+        row['properties'].update(changes)
+    tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}})
+    known.add(source_id)
+    return None if twin else stage or kind
 
 
-EMOJI = {'Confirmation received': '📬', REPLY: '💬', OUTREACH: '🤝', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•'}
+EMOJI = {'Confirmation received': '📬', REPLY: '💬', OUTREACH: '🤝', 'Interview scheduled': '🗓', 'Rejected': '❌', 'Offer': '🎉', 'Other': '•', employer_feedback.RECEIVED: '💬'}
 
 
 SHORT_KIND = {'Confirmation received': 'Application received'}
@@ -334,7 +353,8 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                     f"❓ {result['kind']} · {result['company'] or email['subject'][:60]} — which role? Set its Stage")
             continue
         changed = record(tracker, row, result['kind'], email['date'], 'Gmail', email['id'],
-                         f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now)
+                         f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now,
+                         feedback_text=verified_feedback(result.get('feedback'), email['body']))
         if changed:
             when = _when(result['interview_at'] or '')
             extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''

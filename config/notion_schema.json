@@ -392,6 +392,30 @@
         },
         "Kit inputs": {
           "type": "rich_text"
+        },
+        "Feedback status": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Not asked",
+              "color": "default"
+            },
+            {
+              "name": "Asked for feedback",
+              "color": "orange"
+            },
+            {
+              "name": "Received feedback",
+              "color": "green"
+            },
+            {
+              "name": "Skipped",
+              "color": "gray"
+            }
+          ]
+        },
+        "Employer feedback": {
+          "type": "rich_text"
         }
       }
     },
@@ -1134,6 +1158,22 @@
             {
               "name": "Replied",
               "color": "green"
+            },
+            {
+              "name": "Feedback requested",
+              "color": "blue"
+            },
+            {
+              "name": "Feedback received",
+              "color": "blue"
+            },
+            {
+              "name": "Feedback reviewed",
+              "color": "blue"
+            },
+            {
+              "name": "Feedback skipped",
+              "color": "blue"
             }
           ]
         },
@@ -1305,6 +1345,9 @@
         "Sample size": {
           "type": "number",
           "format": "number"
+        },
+        "Issue detected": {
+          "type": "checkbox"
         }
       }
     },

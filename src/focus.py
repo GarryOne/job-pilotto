@@ -29,12 +29,15 @@ import sys
 from zoneinfo import ZoneInfo
 
 from . import telegram
+from . import feedback
+from .features import disabled
 from .notion import client as notion
 from .notion import funnel as funnel_steps
 from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
+INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
 DEFAULT_TARGET = 30
 REPLIED = 'Replied'
 ENDED = {'Rejected', 'Withdrawn', 'No response', 'Closed', 'Dismissed'}
@@ -104,6 +107,14 @@ def present(item):
         icon, badge, tone = 'send', 'Follow up', 'warn'
         headline = f'Move {who} forward'
         meta = [_short(item['job'], 40), item['stage'], f'no news for {quiet} days' if quiet >= QUIET_DAYS else 'nothing booked']
+    elif kind in ('feedback', 'feedback_wait', 'feedback_review'):
+        icon, badge, tone = 'chat', {'feedback': 'Learn from it', 'feedback_wait': 'Asked for feedback',
+                                    'feedback_review': 'Received feedback'}[kind], 'info'
+        headline = {'feedback': f'Ask {who} for feedback', 'feedback_wait': f'Waiting for {who} feedback',
+                    'feedback_review': f'Learn from {who} feedback'}[kind]
+        meta = [_short(item['job'], 40), {'feedback': 'One specific point can improve your next interview',
+                'feedback_wait': 'Gmail checks for replies · or add feedback here',
+                'feedback_review': 'Employer feedback, separate from AI guesses'}[kind]]
     elif kind == 'apply':
         done, left, kits = item.get('applied', 0), item.get('left', 0), item.get('kits', 0)
         icon, badge, tone = 'briefcase', 'Next step', 'info'
@@ -121,7 +132,8 @@ def summary(items):
     """One sentence for "Your focus": the first two kinds of work, in order."""
     phrases = {'offer': 'answer the offer', 'book': 'book the call you were invited to', 'reply': 'reply to recruiters',
                'prepare': 'prepare for your interview', 'review': 'review your last interview', 'nudge': 'follow up where things went quiet',
-               'apply': 'review ready applications', 'waiting': 'follow up on applications waiting for a reply'}
+               'apply': 'review ready applications', 'waiting': 'follow up on applications waiting for a reply',
+               'feedback': 'ask for feedback to improve your next interview', 'feedback_review': 'learn from employer feedback'}
     order = []
     for item in items:
         phrase = phrases.get(item['kind'])
@@ -164,16 +176,37 @@ def _applied_today(rows, by_app, today):
     return len({i.replace('-', '') for i in ids})
 
 
-def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
+def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insights=()):
     """{'items': [...], 'today': {...}}: the focus list, most important first. Pure: no I/O."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(TZ).date()
     by_app, interviewed, items = _events_by_app(events), _interviewed(interviews), []
     for row in rows:
         stage, key = _field(row, 'Stage'), row['id'].replace('-', '')
+        history = by_app.get(key, [])
+        status = _field(row, 'Feedback status')
+        kinds = {e['kind'] for e in history}
+        received = _field(row, 'Employer feedback')
+        last_received = max((e['at'] for e in history if e['kind'] == feedback.RECEIVED and e['at']), default=None)
+        last_reviewed = max((e['at'] for e in history if e['kind'] == feedback.REVIEWED and e['at']), default=None)
+        if not disabled('feedback') and received and (not last_reviewed or (last_received and last_received > last_reviewed)):
+            detail = 'Read their feedback, then choose what to practise before your next interview. It also feeds your insights and weekly report.'
+            items.append(_item(2, 'feedback_review', '💬', 'Learn from employer feedback', detail, row, employer_feedback=received))
+        if stage == 'Rejected':
+            if received or feedback.SKIPPED in kinds or status == 'Skipped':
+                continue
+            if feedback.REQUESTED in kinds or status == 'Asked for feedback':
+                kind, detail = 'feedback_wait', 'Your request is sent. Gmail checks will collect their reply; you can also paste feedback here.'
+            elif feedback.eligible(row, history):
+                kind, detail = 'feedback', 'You reached Screening or later. Ask for one or two concrete points: real feedback helps improve your next interview.'
+            else:
+                continue
+            rejection = next((e for e in reversed(history) if e['kind'] == 'Rejected'), {})
+            items.append(_item(4 if kind == 'feedback_wait' else 2, kind, '💬', 'Ask for feedback', detail, row,
+                               _gmail(rejection.get('source_id')), 'Open email', draft=feedback.draft(row), employer_feedback=''))
+            continue
         if stage in ENDED:
             continue
-        history = by_app.get(key, [])
         last = history[-1] if history else None
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
         label = f"{company} — {_field(row, 'Job')[:70]}"
@@ -241,13 +274,22 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None):
         insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 110),
                    'detail': f"{_field(row, 'Company')} — {_field(row, 'Job')}", 'lesson': lesson,
                    'notion_url': row.get('url', ''), 'page_id': row['id']}
+    fresh = [r for r in insights if _field(r, 'Date')[:10] >= (now - timedelta(days=7)).date().isoformat()]
+    if fresh:
+        row = max(fresh, key=lambda r: (bool(plain(r['properties'].get('Issue detected'))), _field(r, 'Date'), r.get('created_time', '')))
+        issue = bool(plain(row['properties'].get('Issue detected')))
+        action, evidence = _field(row, 'Action'), _field(row, 'Evidence')
+        insight = {'reason': 'Issue detected' if issue else _field(row, 'Category') or 'Insight',
+                   'headline': _field(row, 'Insight'), 'detail': action,
+                   'lesson': evidence, 'notion_url': row.get('url', ''), 'page_id': row['id'], 'issue': issue, 'report': True}
     waiting = [r for r in rows if _field(r, 'Stage') in ('Applied', 'Confirmation received')
                and (applied := _when(_field(r, 'Applied on'))) and (now - applied).days >= WAITING_DAYS]
     if waiting:
         items.append(_item(4, 'waiting', '⏳', f'{len(waiting)} application{"s" if len(waiting) != 1 else ""} waiting {WAITING_DAYS}+ days',
                            'No human reply yet. For the ones you care most about, message the recruiter or a team member '
                            'on LinkedIn; let the rest go (they close as No response after 21 days).'))
-    order = {'offer': 0, 'book': 1, 'reply': 2, 'prepare': 3, 'review': 4, 'nudge': 5, 'apply': 6, 'learn': 7, 'waiting': 8}
+    order = {'offer': 0, 'book': 1, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
+             'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     items = [present(item) for item in items]
     return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits)},
@@ -286,12 +328,13 @@ def settings_target():
 
 def load(tracker, *, target=None, now=None):
     """Applications, events, interviews and (without a target given) the Search settings target, read at once."""
-    rows, events, interviews, target = notion.together(
+    rows, events, interviews, target, insights = notion.together(
         lambda: tracker.query_database(tracker.database_id),
         lambda: tracker.query_database(EVENTS_DATABASE_ID) if EVENTS_DATABASE_ID else [],
         lambda: tracker.query_database(INTERVIEWS_DATABASE_ID) if INTERVIEWS_DATABASE_ID else [],
-        lambda: target or settings_target())
-    return build(rows, events, interviews, target=target, now=now)
+        lambda: target or settings_target(),
+        lambda: tracker.query_database(INSIGHTS_DATABASE_ID) if INSIGHTS_DATABASE_ID else [])
+    return build(rows, events, interviews, target=target, now=now, insights=insights)
 
 
 def reminder(focus, now=None):
@@ -310,6 +353,10 @@ def reminder(focus, now=None):
                      + ', '.join(i['company'] or 'a recruiter' for i in waiting[:3]))
     if soon:
         parts.append('🎤 Interview soon: ' + ', '.join(i['company'] for i in soon[:2]))
+    learning = [i for i in items if i['kind'] in ('feedback', 'feedback_review')]
+    if learning:
+        parts.append(f"💬 {len(learning)} feedback action(s): " + ', '.join(i['company'] for i in learning[:3])
+                     + ' — one useful point can improve your next interview')
     if behind:
         parts.append(f"📨 {today['applied']}/{today['target']} applications today"
                      + (f"; {today['kits_ready']} kits ready" if today['kits_ready'] else ''))

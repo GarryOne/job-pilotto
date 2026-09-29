@@ -52,6 +52,9 @@ export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(j
 const STATUS = {unreviewed: ['New', 'info'], saved: ['Saved', 'signal'], applied: ['Applied', 'good'], dismissed: ['Dismissed', 'neutral']};
 const STAGE_TONE = {Rejected: 'bad', Withdrawn: 'neutral', 'No response': 'neutral', Offer: 'good'};
 export function statusPill(job) {
+  if (job.stage === 'Rejected' && ['Asked for feedback', 'Received feedback'].includes(job.feedback_status)) {
+    return {label: `Rejected · ${job.feedback_status}`, tone: job.feedback_status === 'Received feedback' ? 'info' : 'warn'};
+  }
   if (job.stage === 'Recruiter lead') return {label: 'Recruiter lead', tone: 'signal'};
   if (job.status === 'applied' && job.stage && job.stage !== 'Applied') {
     return {label: job.stage, tone: STAGE_TONE[job.stage] || (TALKING.has(job.stage) ? 'info' : 'good')};
