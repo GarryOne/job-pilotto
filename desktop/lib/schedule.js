@@ -1,4 +1,4 @@
-// Searches on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
+// Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 import {cadence, MAIL_HOURS} from './cadence.js';
 
 export const EVERY_HOURS = 4;  // default; the user picks it in Settings → How often
@@ -40,9 +40,20 @@ export function nextMailAt(settings, now = Date.now()) {
 }
 export const mailDue = (settings, now = Date.now()) => { const next = nextMailAt(settings, now); return next != null && now >= next; };
 
+// The next "Find new employers" (the scout: new job feeds for the crawl, no AI): daily or weekly after the last one
+// (Settings → How often), on this Mac unless Always on runs it on GitHub. The first one after the first search.
+const SCOUT_EVERY = {daily: 24, weekly: 7 * 24};
+export function nextScoutAt(settings) {
+  if (!settings.setupDone || settings.cloud?.repo || !settings.lastSearchAt) return null;
+  const hours = SCOUT_EVERY[cadence(settings).scout];
+  if (!hours) return null;
+  return settings.lastScoutAt ? Date.parse(settings.lastScoutAt) + hours * 3600 * 1000 : Date.parse(settings.lastSearchAt);
+}
+export const scoutDue = (settings, now = Date.now()) => { const next = nextScoutAt(settings); return next != null && now >= next; };
+
 // Every 10 minutes (and after waking): a due search, announced by soon() a minute before it starts;
 // otherwise a due Gmail check (quick, so no announcement; the app notifies when it finds something).
-export function startSchedule(storage, {search, mail = async () => {}}, powerMonitor,
+export function startSchedule(storage, {search, mail = async () => {}, scout = async () => {}}, powerMonitor,
   {soon = () => {}, headsUp = HEADS_UP_MS, firstCheck = 30 * 1000} = {}) {
   let busy = false;
   const check = async () => {
@@ -55,6 +66,7 @@ export function startSchedule(storage, {search, mail = async () => {}}, powerMon
         if (due(storage.settings())) await search();  // skipped if the user searched meanwhile or switched it off
       }
       if (mailDue(storage.settings())) await mail();
+      if (scoutDue(storage.settings())) await scout();
     } finally { busy = false; }
   };
   const timer = setInterval(check, 10 * 60 * 1000);

@@ -1083,6 +1083,7 @@ if (firstCopy) app.whenReady().then(() => {
       // Their notifications come from announceRuns, like every run's (wherever it ran).
       search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
       mail: () => pipeline.checkMail(storage, log, 'schedule'),
+      scout: () => pipeline.scout(storage, log, 'schedule'),
     }, powerMonitor, {soon: () => notify('Checking for new jobs in 1 minute', 'Your scheduled check for new jobs is about to run.')});
     setInterval(announceRuns, 5000);
     setTimeout(resumeQueue, 20 * 1000);  // after the schedule's own catch-up check has queued what's due

@@ -29,7 +29,18 @@
       "status": "unreviewed",
       "fit": 86,
       "reason": "Terraform and Argo CD platform work; English-speaking team; relocation not needed.",
-      "rank": 98
+      "rank": 98,
+      "fit_detail": {
+        "strengths": "Terraform and Argo CD platform work, your daily stack; English-speaking team; Zurich, your first-choice city",
+        "gaps": "No salary stated; Go preferred, you mostly write Python",
+        "parts": {
+          "role_fit": 88,
+          "location": 95,
+          "compensation": 55,
+          "growth": 80,
+          "risk": 25
+        }
+      }
     },
     {
       "id": 3,

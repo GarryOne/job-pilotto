@@ -270,6 +270,12 @@ export const TASKS = {
   scout: {name: 'Find employers', result: /Source scout(<\/b>)? · checked|^Source scout is off/},
 };
 export const taskName = kind => TASKS[kind]?.name || (kind === 'mail' ? 'Gmail check' : 'Search');
+// Find new employers (the scout), from the button, Telegram or the schedule; its time paces the next one.
+export function scout(storage, onLine, trigger = 'you', batch = 15) {
+  const send = storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId ? ['--send'] : [];  // no Telegram: the app shows it
+  storage.saveSettings({lastScoutAt: new Date().toISOString()});
+  return task(storage, 'scout', ['src', 'scout', ...send, '--log-run', '--batch', String(batch)], onLine, trigger);
+}
 export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
     const {code} = await run(storage, args, tee, triggerEnv(trigger));

@@ -366,6 +366,18 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .job-row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; transition: border-color .15s, box-shadow .15s; }
 .job-row:hover { border-color: var(--line-strong); box-shadow: 0 3px 12px rgb(var(--shadow-rgb) / .06); }
 .fit-cell { --tone: var(--line-strong); --track: var(--line); display: grid; justify-items: center; gap: 4px; }
+.fit-cell.is-clickable { cursor: pointer; }
+.fit-cell.is-clickable:hover .fit-ring { box-shadow: 0 0 0 3px var(--line); }
+/* Why a fit score: under the job, the full width of the row. */
+.fit-detail { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.fit-detail p { margin: 0; }
+.fit-parts { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.fit-part { display: inline-flex; align-items: baseline; gap: var(--sp-1); padding: 2px var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-pill); }
+.fit-part b { color: var(--ink); }
+.fit-part.high b { color: var(--good); } .fit-part.mid b { color: var(--warn); } .fit-part.low b { color: var(--bad); }
+.fit-list ul { margin: 2px 0 0; padding-left: var(--sp-5); }
+.fit-list.tone-good > b { color: var(--good); }
+.fit-list.tone-warn > b { color: var(--warn); }
 .fit-cell.high { --tone: var(--good-bright); --track: var(--good-soft); }
 .fit-cell.mid { --tone: var(--warn-bright); --track: var(--warn-soft); }
 .fit-cell.low { --tone: var(--bad-bright); --track: var(--bad-soft); }

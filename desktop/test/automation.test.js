@@ -215,3 +215,16 @@ test('at the next start the saved jobs are handed back once, and entries without
   assert.deepEqual(pipeline.takeQueue(storage).map(job => job.kind), ['insight', 'mail']);
   assert.deepEqual(pipeline.takeQueue(storage), []);  // taken: not started twice
 });
+
+test('Find new employers runs on this Mac on its schedule (after the first search), not when Always on runs it', async () => {
+  const {nextScoutAt, scoutDue} = await import('../lib/schedule.js');
+  const base = {setupDone: true, lastSearchAt: '2026-09-28T10:00:00Z'};
+  assert.equal(nextScoutAt({...base, lastSearchAt: null}), null);  // not before the first search
+  assert.equal(scoutDue(base, Date.parse('2026-09-28T10:05:00Z')), true);  // never run: due now
+  const daily = {...base, lastScoutAt: '2026-09-28T12:00:00Z'};
+  assert.equal(scoutDue(daily, Date.parse('2026-09-29T11:00:00Z')), false);
+  assert.equal(scoutDue(daily, Date.parse('2026-09-29T12:01:00Z')), true);
+  assert.equal(nextScoutAt({...daily, schedule: {scout: 'weekly'}}), Date.parse('2026-10-05T12:00:00Z'));
+  assert.equal(nextScoutAt({...daily, schedule: {scout: 'off'}}), null);
+  assert.equal(nextScoutAt({...daily, cloud: {repo: 'me/job-pilotto-private'}}), null);  // GitHub runs it
+});

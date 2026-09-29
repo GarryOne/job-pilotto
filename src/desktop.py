@@ -85,13 +85,13 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
             rows.append(row(job, item.get('fit'), item.get('reason'), status, stage, item.get('next_step'), item.get('notion_url'),
                             rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or '',
                             feedback_status=item.get('feedback_status') or '', employer_feedback=item.get('employer_feedback') or '',
-                            page_id=item.get('page_id') or '',
+                            page_id=item.get('page_id') or '', fit_detail=item.get('fit_detail') or None,
                             kit_state=kit_state))
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:
                 fit = fits.get(job['id'])
                 rows.append(row(job, fit.get('score') if fit else None, (fit.get('summary') or fit.get('reason')) if fit else '',
-                                job.get('application_status') or 'unreviewed', None, '', '', unsynced=True))
+                                job.get('application_status') or 'unreviewed', None, '', '', unsynced=True, fit_detail=_fit_detail(fit)))
     else:
         def notion_row(job):  # (Stage, Next step, Notion page URL); tests may pass plain stages
             value = stages.get((job.get('url') or '').strip(), (None, '', ''))
@@ -105,7 +105,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
                     store.set_application_status(db, job['id'], truth)
                     job = {**job, 'application_status': truth}
             rows.append(row(job, fit.get('score') if fit else None, (fit.get('summary') or fit.get('reason')) if fit else '',
-                            job.get('application_status') or 'unreviewed', stage, step, page))
+                            job.get('application_status') or 'unreviewed', stage, step, page, fit_detail=_fit_detail(fit)))
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
     # Every application stays in the list, however low its fit, so the app's application counters are complete.
     kept = rows[:limit] + [r for r in rows[limit:] if r['status'] == 'applied']
@@ -153,6 +153,15 @@ def set_status(db, url, status, tracker=None):
     store.set_application_status(db, row['id'], status)
     db.commit()
     return {'ok': True, 'notion': outcome} if outcome else {'ok': True}
+
+
+def _fit_detail(fit):
+    """A local score's parts, strengths and gaps, in the shape Notion's Job Matches row gives (the score card)."""
+    if not fit:
+        return None
+    joined = lambda items: '; '.join(items) if isinstance(items, list) else (items or '')
+    return {'strengths': joined(fit.get('strengths')), 'gaps': joined(fit.get('gaps')),
+            'parts': {key: (fit.get('components') or {}).get(key) for key in ('role_fit', 'location', 'compensation', 'growth', 'risk')}}
 
 
 COMPONENTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensation', 'Compensation'),

@@ -31,6 +31,32 @@ const MODE_TONE = {remote: 'good', hybrid: 'info'};
 // Work in progress on a job (redrafting its kit, tailoring its CV), shown on its row while the menu is closed.
 const busyNotes = new Map();
 
+// Why a fit score: its five parts (risk: lower is better), what speaks for the job and what against.
+const PARTS = [['role_fit', 'Role'], ['location', 'Location'], ['compensation', 'Pay'], ['growth', 'Growth'], ['risk', 'Risk']];
+function fitDetail(job) {
+  const {parts = {}, strengths = '', gaps = ''} = job.fit_detail || {};
+  const box = el('div', 'fit-detail');
+  const scores = el('div', 'fit-parts');
+  for (const [key, label] of PARTS) {
+    if (parts[key] == null) continue;
+    const good = key === 'risk' ? 100 - parts[key] : parts[key];
+    const part = el('span', `fit-part ${band(good)}`);
+    part.append(el('b', '', String(parts[key])), el('span', 'muted small', key === 'risk' ? `${label} (lower is better)` : label));
+    scores.append(part);
+  }
+  const list = (title, text, tone) => {
+    const items = String(text || '').split(/;\s+/).filter(Boolean);
+    if (!items.length) return [];
+    const section = el('div', `fit-list tone-${tone}`);
+    const ul = el('ul');
+    ul.append(...items.map(item => el('li', '', item)));
+    section.append(el('b', '', title), ul);
+    return [section];
+  };
+  box.append(el('b', 'fit-detail-title', `Why ${job.fit}`), ...(job.reason ? [el('p', 'muted', job.reason)] : []), scores,
+    ...list('For you', strengths, 'good'), ...list('Against', gaps, 'warn'));
+  return box;
+}
 export function renderJobs() {
   closeMenu();
   const filter = $('filter-status').value;
@@ -49,7 +75,7 @@ export function renderJobs() {
     ring.style.setProperty('--p', job.fit ?? 0);
     ring.append(el('span', '', job.fit ?? '–'));
     fit.append(ring, el('span', 'fit-label', matchLabel(job.fit)));
-    fit.title = job.fit == null ? 'Not scored yet (needs the AI key)' : 'Fit with your profile, out of 100';
+    fit.title = job.fit == null ? 'Not scored yet: no description to read, or excluded by your filters' : 'Why this score? Click to see';
     const live = sessionFor(job.url);
     const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
 
@@ -251,6 +277,15 @@ export function renderJobs() {
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
+    // The score circle opens why: the score's parts, strengths and gaps (Notion Job Matches keeps them).
+    if (job.fit != null && job.fit_detail) {
+      fit.classList.add('is-clickable');
+      fit.addEventListener('click', () => {
+        const open = row.querySelector('.fit-detail');
+        if (open) { open.remove(); return; }
+        row.append(fitDetail(job));
+      });
+    }
     body.append(row);
   }
   const statLabel = {applied: 'applied', waiting: 'waiting for a reply', interviews: 'in process', closed: 'closed', stuck: 'still marked Applying', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
