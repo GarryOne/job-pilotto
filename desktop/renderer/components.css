@@ -346,3 +346,23 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .task-state small { font-weight: 500; color: var(--muted); }
 .diag-update { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 #allowance-dialog .inline { margin-top: var(--sp-4); }
+
+/* Always on (Settings → Automation): a service row inside a card: tile, name + status pill + detail, actions; a body underneath. */
+.aon-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-4); row-gap: var(--sp-3); align-items: center;
+  padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.aon-row[hidden] { display: none; }
+.aon-title { display: flex; align-items: center; gap: var(--sp-3); }
+.aon-text p { margin: var(--sp-1) 0 0; overflow-wrap: anywhere; }
+.aon-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.aon-actions [hidden] { display: none; }
+.aon-body { grid-column: 2 / -1; display: grid; gap: var(--sp-3); }
+.aon-body:not(:has(:not([hidden]):not(:empty))) { display: none; }
+.aon-body .message { margin: 0; }
+.aon-body .message:empty { display: none; }
+.aon-body details { margin: 0; padding: 0; border: 0; background: none; }
+.aon-body details[open] summary { margin-bottom: var(--sp-2); }
+.aon-sub { background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-4); display: grid; gap: var(--sp-3); }
+.aon-sub[hidden] { display: none; }
+.aon-sub p, .aon-sub ol { margin: 0; }
+.aon-sub a { color: var(--signal-ink); font-weight: 600; text-decoration: none; }
+.aon-sub a:hover { text-decoration: underline; }

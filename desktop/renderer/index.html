@@ -826,37 +826,62 @@
                 <span class="muted small" id="tz-note"></span></div>
             </div>
           </div>
-          <div class="setting" id="setting-cloud">
-        <div><h3>GitHub · Always on</h3><p class="muted small">Runs on GitHub, even when your Mac is off.</p><p class="muted status-line" id="cloud-status"></p>
-          <p class="muted small" id="cloud-howto">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
-            above (searches, application kits, insights, new sources, mail) and sends results to Telegram and Notion, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
-            Your keys are stored there as encrypted secrets.</p></div>
-        <div class="inline">
-          <button class="secondary" id="cloud-connect">Turn on</button>
-          <button class="link" id="cloud-open" hidden>Open repository</button>
-          <button class="link" id="cloud-off" hidden>Turn off</button>
-        </div>
-        <p class="message" id="cloud-message"></p>
-        <div class="howto small" id="cloud-steps" hidden>
-          <p><b>On the GitHub page that opened:</b> choose <b>Only select repositories</b> → pick a <b>private</b> repository in GitHub's list
-            → <b>Install</b>. Job Pilotto continues by itself as soon as it's installed.</p>
-          <p class="muted">No repository to pick? <button class="link" id="cloud-create">Create one</button> (it's prefilled: private, job-pilotto-private), then
-            <button class="link" id="cloud-install">open the install page again</button>.</p>
-        </div>
-        <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
-        <div class="subsetting" id="tg-cloud" hidden>
-          <h4>📲 Telegram buttons, always on</h4>
-          <p class="muted small status-line" id="tg-cloud-status"></p>
-          <ol class="howto small" id="tg-cloud-howto">
-            <li>Create a free <a href="#" data-link="https://dash.cloudflare.com/sign-up">Cloudflare</a> account if you don't have one.</li>
-            <li><a href="#" data-link="https://dash.cloudflare.com/profile/api-tokens?name=Job%20Pilotto%20Telegram&amp;permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D">Create a token</a> (it opens prefilled: <b>Workers Scripts: Edit</b>, <b>Account Settings: Read</b>) → Continue → Create → copy it.</li>
-            <li>Paste it here and click <b>Turn on</b>. Job Pilotto puts a small bot helper on your Cloudflare account; your buttons then start runs in your repository.</li>
-          </ol>
-          <div class="inline"><input type="password" id="tg-cloud-token" placeholder="Cloudflare API token">
-            <button class="secondary" id="tg-cloud-on">Turn on</button><button class="link" id="tg-cloud-off" hidden>Turn off</button></div>
-          <p class="message" id="tg-cloud-message"></p>
-        </div>
-      </div>
+          <div class="setting panel" id="setting-cloud">
+            <div class="summary-head"><i data-icon="refresh"></i><h3>Always on</h3></div>
+            <p class="muted panel-lead">Keep Job Pilotto working when this Mac is asleep or off.</p>
+            <div class="aon-row" id="cloud-row">
+              <span class="ui-tile tone-signal"><i data-icon="cloud"></i></span>
+              <div class="aon-text">
+                <div class="aon-title"><b>GitHub</b><span id="cloud-pill"></span></div>
+                <p class="muted small" id="cloud-status"></p>
+              </div>
+              <div class="aon-actions">
+                <button class="secondary" id="cloud-connect">Turn on</button>
+                <button class="ghost with-icon" id="cloud-open" hidden><i data-icon="link"></i>Open repository</button>
+                <span id="cloud-more" hidden></span>
+                <button id="cloud-off" hidden>Turn off</button>
+              </div>
+              <div class="aon-body">
+                <p class="message" id="cloud-message"></p>
+                <div class="aon-sub howto small" id="cloud-steps" hidden>
+                  <p><b>On the GitHub page that opened:</b> choose <b>Only select repositories</b> → pick a <b>private</b> repository in GitHub's list
+                    → <b>Install</b>. Job Pilotto continues by itself as soon as it's installed.</p>
+                  <p class="muted">No repository to pick? <button class="link" id="cloud-create">Create one</button> (it's prefilled: private, job-pilotto-private), then
+                    <button class="link" id="cloud-install">open the install page again</button>.</p>
+                </div>
+                <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
+                <details class="troubleshoot" id="cloud-howto"><summary>How it works</summary>
+                  <p class="muted small">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
+                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and Notion, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
+                    Your keys are stored there as encrypted secrets.</p>
+                </details>
+              </div>
+            </div>
+            <div class="aon-row" id="tg-cloud" hidden>
+              <span class="ui-tile tone-signal"><i data-icon="send"></i></span>
+              <div class="aon-text">
+                <div class="aon-title"><b>Telegram buttons</b><span id="tg-cloud-pill"></span></div>
+                <p class="muted small" id="tg-cloud-status"></p>
+              </div>
+              <div class="aon-actions" id="tg-cloud-actions">
+                <button class="secondary" id="tg-cloud-setup">Set up</button>
+                <span id="tg-cloud-more" hidden></span>
+                <button id="tg-cloud-off" hidden>Turn off</button>
+              </div>
+              <div class="aon-body">
+                <div class="aon-sub" id="tg-cloud-form" hidden>
+                  <ol class="howto small" id="tg-cloud-howto">
+                    <li>Create a free <a href="#" data-link="https://dash.cloudflare.com/sign-up">Cloudflare</a> account if you don't have one.</li>
+                    <li><a href="#" data-link="https://dash.cloudflare.com/profile/api-tokens?name=Job%20Pilotto%20Telegram&amp;permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D">Create a token</a> (it opens prefilled: <b>Workers Scripts: Edit</b>, <b>Account Settings: Read</b>) → Continue → Create → copy it.</li>
+                    <li>Paste it here and click <b>Turn on</b>. Job Pilotto puts a small bot helper on your Cloudflare account; your buttons then start runs in your repository.</li>
+                  </ol>
+                  <div class="inline"><input type="password" id="tg-cloud-token" placeholder="Cloudflare API token">
+                    <button class="secondary" id="tg-cloud-on">Turn on</button></div>
+                </div>
+                <p class="message" id="tg-cloud-message"></p>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="settings-page" data-settings-page="connections" hidden>
           <div class="settings-page-head"><h2>Connections</h2><p class="muted">Manage the services Job Pilotto uses.</p>
