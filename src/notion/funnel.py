@@ -30,12 +30,14 @@ STEPS = [
     ('📨 Applied', set(OUTCOME_STAGES), 0.6,
      'Drafted kits are piling up unsent. Submit the ready kits, or raise the auto-kit fit threshold '
      'so fewer, better jobs get a kit.'),
-    ('💬 Human reply', {REPLY, 'Rejected', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}, 0.25,
+    # A person answered: a reply, or a screening or later. A rejection alone isn't one (most are automatic emails);
+    # one after a reply or a screening still counts through those.
+    ('💬 Human reply', {REPLY, 'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}, 0.25,
      'Few humans answer. Targeting and the CV are the levers: apply within 3 days of posting, favour '
      'roles scored 70+, tailor the CV summary to the job, try recruiter platforms and referrals.'),
     ('📞 Screening', {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}, 0.4,
-     'Replies are mostly rejections. The CV passes a human but the fit does not: check seniority, '
-     'location and language requirements before applying.'),
+     'People answer but do not move you to a screening. The CV passes a human but the fit does not: check '
+     'seniority, location and language requirements before applying.'),
     # Interview scheduled is also used for a booked screening call, so only Interviewing proves this step.
     ('🧑‍💻 Interviews', {'Interviewing', 'Offer'}, 0.5,
      'Screenings do not turn into interviews. Review the 🎤 Interviews notes: salary and notice-period '

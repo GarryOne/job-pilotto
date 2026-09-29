@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.notion import funnel
+from src.notion.ledger import REPLY as REPLY_KIND
 
 
 def app(stage, *kinds):
@@ -17,11 +18,16 @@ class FunnelTest(unittest.TestCase):
         steps = {s['step']: s for s in funnel.funnel(apps)}
         self.assertEqual(steps['📝 Prepared']['reached'], 10)
         self.assertEqual(steps['📨 Applied']['reached'], 6)
-        self.assertEqual(steps['💬 Human reply']['reached'], 3)
+        self.assertEqual(steps['💬 Human reply']['reached'], 1)  # the 2 rejections alone are no human reply
         self.assertEqual(steps['📞 Screening']['reached'], 1)
         self.assertAlmostEqual(steps['📨 Applied']['conversion'], 0.6)
         self.assertEqual(steps['📨 Applied']['waiting'], 3)  # confirmation received, no human yet
         self.assertEqual(steps['📞 Screening']['waiting'], 1)
+
+    def test_a_rejection_counts_as_a_human_reply_only_after_a_reply_or_a_screening(self):
+        steps = {s['step']: s['reached'] for s in funnel.funnel([app('Rejected', 'Applied'), app('Rejected', 'Applied', REPLY_KIND),
+                                                                app('Rejected', 'Applied', 'Screening')])}
+        self.assertEqual(steps['💬 Human reply'], 2)
 
     def test_rejection_after_an_interview_still_counts_the_interview(self):
         steps = {s['step']: s for s in funnel.funnel([app('Rejected', 'Applied', 'Screening', 'Interviewing')])}
