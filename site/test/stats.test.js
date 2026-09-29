@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
-import {device, sourceOf} from '../src/stats.js';
+import {device, sourceOf, versioned} from '../src/stats.js';
 
 // A D1 stand-in on real SQLite, with the real migration.
 function d1() {
@@ -19,7 +19,8 @@ function d1() {
 const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Safari/605.1.15';
 const request = (path, {ip = '1.2.3.4', agent = MAC, ...init} = {}) => new Request(`https://www.jobpilotto.workers.dev${path}`,
   {...init, headers: {'CF-Connecting-IP': ip, 'User-Agent': agent, ...init.headers}});
-const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', ASSETS: {fetch: () => new Response('asset')}});
+const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', ASSETS: {fetch: () => new Response('asset')},
+  fetcher: async () => new Response('', {status: 503})});  // no GitHub in tests: the fixed file name
 
 test('a Download click is counted and redirected to the GitHub release file', async () => {
   const e = env();
@@ -88,4 +89,14 @@ test('device and source are read without keeping anything identifying', () => {
   assert.equal(sourceOf('https://www.linkedin.com/feed/', 'www.jobpilotto.workers.dev'), 'linkedin.com');
   assert.equal(sourceOf('https://www.jobpilotto.workers.dev/compare.html', 'www.jobpilotto.workers.dev'), 'direct');
   assert.equal(sourceOf('', 'x'), 'direct');
+});
+
+test('the Download button serves the latest stable release under its own name, else the fixed name', async () => {
+  const release = {assets: [{name: 'Job-Pilotto-mac-arm64.dmg', browser_download_url: 'https://x/fixed.dmg'},
+    {name: 'Job-Pilotto-0.4.0-alpha.60-arm64.dmg', browser_download_url: 'https://x/Job-Pilotto-0.4.0-alpha.60-arm64.dmg'},
+    {name: 'Job-Pilotto-0.4.0-alpha.60-x64.exe', browser_download_url: 'https://x/Job-Pilotto-0.4.0-alpha.60-x64.exe'}]};
+  const ok = async () => new Response(JSON.stringify(release), {status: 200});
+  assert.equal(await versioned('mac', {}, ok, null), 'https://x/Job-Pilotto-0.4.0-alpha.60-arm64.dmg');
+  assert.equal(await versioned('windows', {}, ok, null), 'https://x/Job-Pilotto-0.4.0-alpha.60-x64.exe');
+  assert.equal(await versioned('mac', {}, async () => new Response('', {status: 403}), null), null);  // GitHub busy: the fixed name
 });

@@ -57,11 +57,31 @@ export async function hit(request, env, now = new Date()) {
 }
 
 // GET /download/mac?from=hero&page=/&src=linkedin.com: count it (in the background), then send the visitor to the file.
+// The latest stable release's own file (Job-Pilotto-0.4.0-alpha.60-arm64.dmg), so each download is named after its
+// version instead of Chrome's "Job-Pilotto-mac-arm64 (6).dmg". Asked from GitHub at most every 10 minutes (Cloudflare
+// cache); if GitHub doesn't answer, the fixed name above still works.
+const VERSIONED = {mac: /^Job-Pilotto-\d[\w.-]*-arm64\.dmg$/, windows: /^Job-Pilotto-\d[\w.-]*-x64\.exe$/};
+export async function versioned(platform, env, fetcher = globalThis.fetch, cache = globalThis.caches?.default) {
+  const api = `https://api.github.com/repos/${env.GITHUB_REPO || 'GarryOne/job-pilotto'}/releases/latest`;
+  try {
+    let response = cache && await cache.match(api);
+    if (!response) {
+      response = await fetcher(api, {headers: {Accept: 'application/vnd.github+json', 'User-Agent': 'job-pilotto-site'}});
+      if (!response.ok) return null;
+      response = new Response(response.body, response);
+      response.headers.set('Cache-Control', 'max-age=600');
+      if (cache) await cache.put(api, response.clone());
+    }
+    const release = await response.json();
+    return (release.assets || []).find(asset => VERSIONED[platform].test(asset.name))?.browser_download_url || null;
+  } catch { return null; }
+}
+
 export async function download(request, env, ctx, now = new Date()) {
   const url = new URL(request.url);
   const platform = url.pathname.split('/')[2];
   if (!FILES[platform]) return new Response('Not found', {status: 404});
-  const target = RELEASE + FILES[platform];
+  const target = await versioned(platform, env, env.fetcher || globalThis.fetch) || RELEASE + FILES[platform];  // env.fetcher: tests
   if (env.STATS && request.method === 'GET' && !isBot(request)) {
     const save = base(request, env, now).then(row => env.STATS.prepare(
       'INSERT INTO downloads (day, at, visitor, platform, button, page, source, country, device) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
