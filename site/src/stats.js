@@ -66,7 +66,9 @@ export async function versioned(platform, env, fetcher = globalThis.fetch, cache
   try {
     let response = cache && await cache.match(api);
     if (!response) {
-      response = await fetcher(api, {headers: {Accept: 'application/vnd.github+json', 'User-Agent': 'job-pilotto-site'}});
+      // Signed in with the site's GitHub token when it has one: 5,000 lookups an hour, not 60 per (shared) address.
+      response = await fetcher(api, {headers: {Accept: 'application/vnd.github+json', 'User-Agent': 'job-pilotto-site',
+        ...(env.GITHUB_TOKEN ? {Authorization: `Bearer ${env.GITHUB_TOKEN}`} : {})}});
       if (!response.ok) return null;
       response = new Response(response.body, response);
       response.headers.set('Cache-Control', 'max-age=600');
@@ -91,7 +93,8 @@ export async function download(request, env, ctx, now = new Date()) {
         row.country, row.device).run()).catch(error => console.log('download stat failed', error.message));
     if (ctx?.waitUntil) ctx.waitUntil(save); else await save;
   }
-  return Response.redirect(target, 302);
+  // Never kept by the browser: the next click asks again and gets the newest release.
+  return new Response(null, {status: 302, headers: {Location: target, 'Cache-Control': 'no-store'}});
 }
 
 // ---- /stats ----
