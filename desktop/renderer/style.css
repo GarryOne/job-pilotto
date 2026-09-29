@@ -1004,7 +1004,9 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .ss-form-fields .is-filled .ss-form-mark { color: var(--good); }
 .ss-form-fields .is-left .ss-form-mark, .ss-form-fields .is-left .ss-form-label { color: var(--warn); }
 /* A finished session's log as its conversation: page text on the log's dark ground, full width */
-.ss-transcript { max-height: 560px; overflow: auto; padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-3);
+/* The log keeps a terminal window's shape (16:10) at any zoom or window size, never taller than most of the window */
+.ss-transcript, .ss-terminal { aspect-ratio: 16 / 10; height: auto; max-height: 75vh; min-height: 240px; }
+.ss-transcript { overflow: auto; padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-3);
   color: var(--on-navy); font-size: var(--fs-md); line-height: 1.55; }
 .ss-tr-who { display: flex; gap: var(--sp-2); align-items: baseline; margin-bottom: 2px; font-size: var(--fs-sm); }
 .ss-tr-who span { color: var(--on-navy-muted); font-variant-numeric: tabular-nums; }
@@ -1028,7 +1030,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .ss-log-last { font: var(--fs-sm) var(--font-mono); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--navy-line); border-radius: var(--r-sm); cursor: pointer;
   color: var(--on-navy-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ss-log-body { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ss-terminal { height: calc(48vh - 2 * var(--sp-3)); min-height: 240px; background: var(--navy); overflow: hidden; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--navy-line); border-radius: var(--r-sm); box-sizing: content-box; }
+.ss-terminal { background: var(--navy); overflow: hidden; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--navy-line); border-radius: var(--r-sm); box-sizing: content-box; }
 .ss-terminal .xterm-viewport { background: transparent !important; }
 .ss-offline { color: var(--warn-bright); transition: background .2s; border-radius: var(--r-sm); }
 .ss-offline.is-flash { background: var(--navy-hover); }
