@@ -17,6 +17,7 @@ Usage:
   python -m src.focus [--target 30]            # the list as JSON (for the app); the target defaults to
                                                # "Daily applications target" on ⚙️ Search settings
   python -m src.focus done <page id> replied   # you answered: log it
+  python -m src.focus history                   # what you resolved from Focus (Notion), newest first
   python -m src.focus remind [--target 30] [--send]
 """
 import argparse
@@ -363,9 +364,47 @@ def reminder(focus, now=None):
     return '\n'.join(parts)
 
 
+# ---- history: what you resolved from Focus (Notion keeps it: 📈 Application Events from the app, and 💡 Insights you rated)
+HISTORY_TITLES = {
+    'Replied': ('💬', 'Replied to {company}'),
+    'Feedback requested': ('🙋', 'Asked {company} for feedback'),
+    'Feedback received': ('📥', 'Got feedback from {company}'),
+    'Feedback reviewed': ('📝', "Reviewed {company}'s feedback"),
+    'Feedback skipped': ('⏭️', 'Skipped asking {company} for feedback'),
+}
+
+
+def history(tracker, days=90):
+    """Newest first: [{at, kind, emoji, title, note, url}] for the last `days` days."""
+    since = (date.today() - timedelta(days=days)).isoformat()
+    items = []
+    if EVENTS_DATABASE_ID:
+        rows = tracker.query_database(EVENTS_DATABASE_ID, {'and': [
+            {'property': 'At', 'date': {'on_or_after': since}},
+            {'property': 'Source', 'select': {'equals': 'Job Pilotto app'}}]})
+        for row in rows:
+            props = row['properties']
+            kind = plain(props.get('Kind')) or ''
+            company = (plain(props.get('Event')) or '').split(' · ', 1)[-1] or 'an employer'
+            emoji, title = HISTORY_TITLES.get(kind, ('✓', f'{kind} · {{company}}'))
+            items.append({'at': plain(props.get('At')) or '', 'kind': kind, 'emoji': emoji, 'title': title.format(company=company),
+                          'note': (plain(props.get('Note')) or '')[:240], 'url': row.get('url', '')})
+    from .ai.insights import INSIGHTS_DATABASE_ID
+    if INSIGHTS_DATABASE_ID:
+        rows = tracker.query_database(INSIGHTS_DATABASE_ID, {'property': 'Date', 'date': {'on_or_after': since}})
+        for row in rows:
+            props = row['properties']
+            rated = plain(props.get('Feedback'))
+            if not rated:
+                continue
+            items.append({'at': plain(props.get('Date')) or '', 'kind': 'insight', 'emoji': '💡', 'title': f'Insight: {rated}',
+                          'note': (plain(props.get('Insight')) or '')[:240], 'url': row.get('url', '')})
+    return sorted(items, key=lambda item: item['at'], reverse=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('command', nargs='?', default='list', choices=('list', 'done', 'remind'))
+    parser.add_argument('command', nargs='?', default='list', choices=('list', 'done', 'remind', 'history'))
     parser.add_argument('page_id', nargs='?')
     parser.add_argument('what', nargs='?', default='replied')
     parser.add_argument('--target', type=int, help='default: "Daily applications target" on ⚙️ Search settings')
@@ -374,6 +413,9 @@ def main(argv=None):
     tracker = notion.Tracker.from_env()
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required')
+    if args.command == 'history':
+        print(json.dumps({'items': history(tracker)}, ensure_ascii=False))
+        return 0
     if args.command == 'done':
         if not args.page_id:
             raise SystemExit('done needs the application page id')

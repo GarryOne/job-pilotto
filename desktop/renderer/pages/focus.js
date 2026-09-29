@@ -129,11 +129,56 @@ function focusCard(item) {
   li.append(round, body, actions);
   return li;
 }
+// History: what you resolved from Focus (replied, asked for feedback, skipped, rated insights), from Notion.
+let historyShown = false;
+function showHistory(on) {
+  historyShown = on;
+  $('focus-up-title').textContent = on ? 'History' : 'Up next';
+  $('focus-history-toggle').textContent = on ? '← Up next' : 'History';
+  show($('focus-count-note'), !on);
+  show($('focus-list'), !on);
+  show($('focus-empty'), !on && !$('focus-list').children.length);
+  show($('focus-history'), on);
+  if (on) loadHistory();
+}
+const dayOf = iso => {
+  const day = new Date(iso), today = new Date();
+  const diff = Math.round((new Date(today.toDateString()) - new Date(day.toDateString())) / 86400000);
+  return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : day.toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short'});
+};
+async function loadHistory() {
+  const list = $('focus-history');
+  list.replaceChildren(el('li', 'muted small', 'Loading from Notion…'));
+  const {ok, items = [], error} = await window.pilot.focusHistory().catch(failure => ({ok: false, error: failure.message}));
+  if (!historyShown) return;
+  if (!ok) { list.replaceChildren(el('li', 'message error', `Couldn't read your history from Notion: ${error || 'try again'}`)); return; }
+  if (!items.length) { list.replaceChildren(el('li', 'muted', 'Nothing resolved yet. What you mark done here shows up in this list.')); return; }
+  const rows = [];
+  let day = '';
+  for (const item of items) {
+    const label = dayOf(item.at);
+    if (label !== day) { day = label; rows.push(el('li', 'focus-history-day', label)); }
+    const row = el('li', 'focus-history-row');
+    const words = el('div', 'focus-history-words');
+    words.append(el('b', '', item.title));
+    if (item.note) words.append(el('span', 'muted small', item.note));
+    const side = el('div', 'focus-history-side');
+    if (/T\d/.test(item.at)) side.append(el('span', 'muted small', new Date(item.at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})));
+    if (item.url) {
+      const open = el('button', 'link small', 'Notion ↗');
+      open.addEventListener('click', event => window.pilot.openNotion(item.url, event.metaKey));
+      side.append(open);
+    }
+    row.append(el('span', 'focus-history-emoji', item.emoji || '✓'), words, side);
+    rows.push(row);
+  }
+  list.replaceChildren(...rows);
+}
 function renderFocus({items, today, funnel, insight, summary}) {
   focusShown = true;
   $('focus-count-note').replaceChildren(pill(`${items.length} action${items.length === 1 ? '' : 's'}`, 'neutral'));
   $('focus-list').replaceChildren(...items.map(focusCard));
-  show($('focus-empty'), !items.length);
+  show($('focus-empty'), !items.length && !historyShown);
   const pct = Math.min(100, Math.round(100 * today.applied / Math.max(today.target, 1)));
   $('focus-count').textContent = String(today.applied);
   $('focus-of').textContent = `/ ${today.target} applications today`;
@@ -203,6 +248,7 @@ export async function saveDailyTarget(input) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  $('focus-history-toggle').addEventListener('click', () => showHistory(!historyShown));
   setInterval(() => {  // "Updated 3 min ago" stays true while the page is open
     if (focusUpdatedAt && !focusLoading) focusStatus(`Updated ${savedAgo(new Date(focusUpdatedAt).toISOString())}`);
   }, 60000);

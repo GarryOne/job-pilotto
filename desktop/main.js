@@ -675,6 +675,16 @@ function handlers() {
       return {ok: true, target: await strategy.setDailyTarget(storage, value, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage})};
     } catch (error) { return {ok: false, error: `Notion: ${error.message}. The target wasn't changed.`}; }
   });
+  // Demo mode: a fictional history.
+  const demoHistory = () => {
+    const at = (days, hour) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 11) + `${String(hour).padStart(2, '0')}:10:00Z`;
+    return {ok: true, items: [
+      {at: at(0, 9), kind: 'Replied', emoji: '💬', title: 'Replied to Northwind Robotics', note: 'You answered (marked done in Focus)', url: ''},
+      {at: at(1, 17), kind: 'insight', emoji: '💡', title: 'Insight: Useful', note: 'Location requirements may be limiting your applications', url: ''},
+      {at: at(1, 11), kind: 'Feedback requested', emoji: '🙋', title: 'Asked Example Labs for feedback', note: '', url: ''},
+      {at: at(3, 15), kind: 'Feedback skipped', emoji: '⏭️', title: 'Skipped asking Acme Robotics for feedback', note: '', url: ''}]};
+  };
+  ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : pipeline.focusHistory(storage)));
   ipcMain.handle('focusDone', (_, pageId) => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId))));
   ipcMain.handle('feedbackAction', (_, pageId, action, text = '') => (DEMO ? {ok: true}
     : pipeline.feedbackAction(storage, String(pageId), String(action), String(text))));

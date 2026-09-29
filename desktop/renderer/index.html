@@ -323,9 +323,11 @@
       <div class="focus-grid">
         <div class="focus-main">
           <section class="card">
-            <div class="focus-card-head"><h2>Up next</h2><span class="muted small" id="focus-count-note"></span></div>
+            <div class="focus-card-head"><h2 id="focus-up-title">Up next</h2>
+              <span class="focus-head-side"><span class="muted small" id="focus-count-note"></span><button class="link" id="focus-history-toggle">History</button></span></div>
             <ol class="focus-list" id="focus-list"></ol>
             <p class="empty" id="focus-empty" hidden>Nothing waits for you right now.</p>
+            <ol class="focus-history" id="focus-history" hidden></ol>
           </section>
           <section class="card" id="focus-insight-card" hidden>
             <div class="focus-card-head"><h2 class="with-glyph"><i data-icon="bulb"></i>Insight</h2></div>

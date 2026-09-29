@@ -363,6 +363,12 @@ export async function focusDone(storage, pageId) {
   const {code} = await run(storage, ['src.focus', 'done', pageId, 'replied']);
   return {ok: code === 0};
 }
+// What you resolved from Focus, newest first (Notion: 📈 Application Events from the app, 💡 Insights you rated).
+export async function focusHistory(storage) {
+  const {code, stdout} = await run(storage, ['src.focus', 'history']);
+  try { return {...JSON.parse(stdout.trim().split('\n').pop()), ok: code === 0}; }
+  catch { return {ok: false, error: 'Notion could not be read. Try again.', items: []}; }
+}
 export async function feedbackAction(storage, pageId, action, text = '') {
   const {code, stdout} = await run(storage, ['src.feedback', pageId, action, ...(text ? ['--text', text] : [])]);
   try { const result = JSON.parse(stdout.trim().split('\n').pop()); return {...result, ok: code === 0 && result.ok}; }
