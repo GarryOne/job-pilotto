@@ -37,9 +37,15 @@ def history_for(tracker, row):
 def draft(row):
     job = plain(row['properties'].get('Job')) or 'the role'
     return (f'Hi,\n\nThank you for letting me know, and for considering me for {job}. '
-            'I appreciate the opportunity.\n\nIf you can share one or two specific points on what I could improve '
-            'for future interviews, I would really appreciate it. Were there any gaps in my experience '
-            'or answers that influenced the decision?\n\nThank you.')
+            'I appreciate your time.\n\nI accept the decision and am not asking you to reconsider. '
+            'I am trying to improve for future opportunities, so I would really appreciate '
+            'one or two specific points on what most influenced the decision.\n\n'
+            'If detailed feedback is not possible, even a short indication would help: '
+            'technical fit (which area), communication or collaboration, relevant experience or '
+            'role-specific knowledge, or compensation expectations above the budget. '
+            'If it was something else, that is useful too.\n\n'
+            'A single sentence is plenty; if possible, one example or one thing to work on '
+            'would help me turn it into a practical improvement.\n\nThank you again.')
 
 
 def receive(tracker, row, text):
