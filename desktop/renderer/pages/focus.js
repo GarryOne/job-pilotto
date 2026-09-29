@@ -8,6 +8,7 @@ import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {openFeedback, saveFeedbackAction} from './feedback.js';
+import {moveEmail, whichJob} from './reassign.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -106,6 +107,13 @@ function focusCard(item) {
   if (item.link && !item.kind.startsWith('feedback')) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
   if (item.kind === 'details') actions.append(focusButton('Add details', 'primary',
     () => openLogFor(item.job_url, `${item.company || item.via || '—'} · ${item.job}`)));
+  if (item.kind === 'which_job') {  // an email the Gmail check wasn't sure about: your answer places it
+    if (item.suggested_url) actions.append(focusButton('Yes, that job', 'primary', async event => {
+      event.currentTarget.disabled = true;
+      await moveEmail(item.event_id, item.suggested_url);
+    }));
+    actions.append(focusButton(item.suggested_url ? 'Other job…' : 'Pick the job', item.suggested_url ? 'secondary' : 'primary', () => whichJob(item)));
+  }
   if (item.kind === 'apply') actions.append(focusButton('Browse jobs', 'primary', () => openView('jobs')));
   if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
   if (!item.link && ['reply', 'book', 'offer', 'prepare', 'nudge'].includes(item.kind) && item.notion_url) {
@@ -125,6 +133,7 @@ function focusCard(item) {
   }});
   if (item.notion_url) more.push({label: '🗂 Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({label: '↗ Open posting', run: () => window.pilot.openExternal(item.job_url)});
+  if (item.kind === 'which_job') more.push({label: 'Not about a job', run: () => moveEmail(item.event_id, 'none')});
   if (item.kind === 'apply') more.push({label: '🎯 Change the daily target', run: () => editTarget()});
   if (item.detail) more.push({label: 'ℹ️ Details', run: () => toastMessage(item.headline || item.title, item.detail)});
   if (more.length) actions.append(moreButton(more, 'More'));

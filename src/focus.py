@@ -116,6 +116,10 @@ def present(item):
         meta = [_short(item['job'], 40), {'feedback': 'One specific point can improve your next interview',
                 'feedback_wait': 'Gmail checks for replies · or add feedback here',
                 'feedback_review': 'Employer feedback, separate from AI guesses'}[kind]]
+    elif kind == 'which_job':
+        icon, badge, tone = 'mail', 'Which job?', 'warn'
+        headline = item['title']
+        meta = [item.get('event_kind', ''), _short(item.get('note', ''), 60)]
     elif kind == 'details':
         icon, badge, tone = 'info', 'Add details', 'bad' if item['stage'] == 'Interview scheduled' else 'warn'
         headline = f"Tell Job Pilotto about the {who} interview" if item['company'] else f'Which job is the {who} interview for?'
@@ -192,6 +196,26 @@ def thin(row):
     if not _field(row, 'Salary') and PLACEHOLDER_URL.search(_field(row, 'Job URL')):
         missing += ['salary', 'job description']
     return missing
+
+
+def questions(rows, events):
+    """Emails the Gmail check wasn't sure about (events on no job with Needs you, src/ai/mail.py ask): "Is this
+    about …?" with the likeliest job, or "Which job is this email about?". src/ai/reassign.py applies the answer."""
+    by_url = {_field(r, 'Job URL'): r for r in rows if _field(r, 'Job URL')}
+    asked = []
+    for event in events:
+        props = event.get('properties', {})
+        if not (props.get('Needs you') or {}).get('checkbox') or (props.get('Application') or {}).get('relation'):
+            continue
+        suggested = by_url.get((props.get('Suggested job') or {}).get('url') or '')
+        note, kind = plain(props.get('Note')), plain(props.get('Kind'))
+        at = _when(((props.get('At') or {}).get('date') or {}).get('start') or '')
+        label = f"{_field(suggested, 'Company') or _field(suggested, 'Via') or '?'} — {_field(suggested, 'Job')[:60]}" if suggested else ''
+        title = f'Is this email about {label}?' if suggested else 'Which job is this email about?'
+        detail = f"{kind}{f', {at.astimezone(TZ):%a %d %b %H:%M}' if at else ''}: {note[:220]}"
+        asked.append(_item(1, 'which_job', '❓', title, detail, suggested, event_id=event['id'], event_kind=kind, note=note,
+                           suggested_url=_field(suggested, 'Job URL') if suggested else '', suggested_label=label))
+    return asked
 
 
 def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insights=()):
@@ -282,6 +306,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                 items.append(_item(2, 'nudge', '🤝', f'Move it forward: {label}',
                                    f"{stage}, nothing booked{f' and no news for {quiet} days' if quiet >= QUIET_DAYS else ''}. "
                                    'Propose times for the next call, or ask where things stand.', row, quiet=quiet))
+    items += questions(rows, events)
     done_today = _applied_today(rows, by_app, today)
     kits = sorted((r for r in rows if _field(r, 'Stage') == 'Kit ready'),
                   key=lambda r: -((r['properties'].get('Fit score') or {}).get('number') or 0))
@@ -318,7 +343,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         items.append(_item(4, 'waiting', '⏳', f'{len(waiting)} application{"s" if len(waiting) != 1 else ""} waiting {WAITING_DAYS}+ days',
                            'No human reply yet. For the ones you care most about, message the recruiter or a team member '
                            'on LinkedIn; let the rest go (they close as No response after 21 days).'))
-    order = {'offer': 0, 'book': 1, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
+    order = {'offer': 0, 'book': 1, 'which_job': 1.2, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
              'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     items = [present(item) for item in items]

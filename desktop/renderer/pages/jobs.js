@@ -9,6 +9,7 @@ import {$, message, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
+import {undoEmailUpdate} from './reassign.js';
 import {openFeedback} from './feedback.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
@@ -243,6 +244,9 @@ export function renderJobs() {
         })});
     }
     if (job.page_id) menu.push({label: '💬 Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
+    // The Gmail check put an email on the wrong job: this job goes back as it was, the email goes where you say.
+    if (job.page_id && job.stage) menu.push({label: '↩ Undo an email update…', title: 'An email landed on the wrong job: put this job back and move the email',
+      run: () => undoEmailUpdate(job)});
     if (job.employer_feedback && job.page_id) menu.push({label: '💬 Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
@@ -316,12 +320,26 @@ export function renderJobs() {
 // Pages Job Pilotto never reads (src/notion/ledger.py NO_FETCH): ask for the title, company and text instead.
 const NO_FETCH = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
-let leadShot = null;  // {name, type, data (base64)} of the attached screenshot
+// Up to 5 screenshots per log (a long LinkedIn chat): read together, in this order, and kept on the job's page.
+const MAX_SHOTS = 5;
+let leadShots = [];  // [{name, type, data (base64)}]
+function renderShots() {
+  $('lead-shots').replaceChildren(...leadShots.map((shot, i) => {
+    const box = el('div', 'attachment');
+    const remove = el('button', 'soft-button', 'Remove');
+    remove.type = 'button';
+    remove.addEventListener('click', () => { leadShots.splice(i, 1); renderShots(); });
+    box.append(Object.assign(document.createElement('img'), {src: `data:${shot.type};base64,${shot.data}`, alt: `Screenshot ${i + 1}`}),
+      el('span', 'attachment-name', `${leadShots.length > 1 ? `${i + 1}. ` : ''}${shot.name}`), remove);
+    return box;
+  }));
+  $('lead-shots').hidden = !leadShots.length;
+  $('lead-shot-add').disabled = $('lead-shot-paste').disabled = leadShots.length >= MAX_SHOTS;
+}
 function setLeadShot(shot) {
-  leadShot = shot;
-  $('lead-shot').src = `data:${shot.type};base64,${shot.data}`;
-  $('lead-shot-name').textContent = shot.name;
-  $('lead-shot-box').hidden = false;
+  if (leadShots.length >= MAX_SHOTS) { leadResult('info', `Up to ${MAX_SHOTS} screenshots`, 'Remove one to add another.'); return; }
+  leadShots.push(shot);
+  renderShots();
 }
 function readShot(file) {  // a File from paste, drop or the picker
   if (!file || !/^image\//.test(file.type)) return false;
@@ -330,7 +348,7 @@ function readShot(file) {  // a File from paste, drop or the picker
   reader.readAsDataURL(file);
   return true;
 }
-function clearLeadShot() { leadShot = null; $('lead-shot').removeAttribute('src'); $('lead-shot-box').hidden = true; $('lead-shot-file').value = ''; }
+function clearLeadShot() { leadShots = []; renderShots(); $('lead-shot-file').value = ''; }
 function leadResult(tone, title, text, pick = false) {
   $('lead-result').hidden = !title;
   $('lead-result').className = `alert tone-${tone}`;
@@ -345,16 +363,17 @@ function leadTargets() {
   const option = (value, text) => { const o = document.createElement('option'); o.value = value; o.textContent = text; return o; };
   const group = document.createElement('optgroup');
   group.label = 'Your applications';
-  tracked.forEach(job => group.append(option(job.url, `${job.company || '—'} · ${job.title} (${job.stage})`)));
-  $('lead-target').replaceChildren(option('', 'Find the right job automatically'), option('new', 'A new job'), ...(tracked.length ? [group] : []));
+  tracked.forEach(job => group.append(option(job.url, `${job.company || job.via || '—'} · ${job.title} (${job.stage})`)));
+  $('lead-target').replaceChildren(option('', 'Find the right job automatically'),
+    option('new', 'Not in my list yet: add it from these details'), ...(tracked.length ? [group] : []));
 }
 // The Log box, opened on one job (Focus → Add details): its "Which job?" already set to it.
 export function openLogFor(url, label = '') {
   $('lead-open').click();
   if (!url) return;
-  if (![...$('lead-target').options].some(o => o.value === url)) {
-    $('lead-target').append(Object.assign(document.createElement('option'), {value: url, textContent: label || url}));
-  }
+  let chosen = [...$('lead-target').options].find(o => o.value === url);
+  if (!chosen) $('lead-target').append(chosen = Object.assign(document.createElement('option'), {value: url}));
+  chosen.textContent = `${label || chosen.textContent.replace(/\s*\(.*\)$/, '')} (details missing: what you paste fills them in)`;
   $('lead-target').value = url;
 }
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
@@ -577,32 +596,31 @@ export async function init() {
     $('lead-text').focus();
   });
   $('lead-shot-add').addEventListener('click', () => $('lead-shot-file').click());
-  $('lead-shot-file').addEventListener('change', () => readShot($('lead-shot-file').files[0]));
+  $('lead-shot-file').addEventListener('change', () => { [...$('lead-shot-file').files].forEach(readShot); $('lead-shot-file').value = ''; });
   $('lead-shot-paste').addEventListener('click', async () => {
     const shot = await window.pilot.clipboardImage();
     if (shot) setLeadShot(shot); else leadResult('info', 'No image on the clipboard', 'Copy a screenshot first (⇧⌘4, then Ctrl-click to copy it), or use Add screenshot.');
   });
   $('lead-dialog').addEventListener('paste', event => {
-    const file = [...(event.clipboardData?.files || [])].find(f => /^image\//.test(f.type));
-    if (file && readShot(file)) event.preventDefault();
+    const files = [...(event.clipboardData?.files || [])].filter(f => /^image\//.test(f.type));
+    if (files.length) { files.forEach(readShot); event.preventDefault(); }
   });
   $('lead-composer').addEventListener('dragover', event => { event.preventDefault(); $('lead-composer').classList.add('is-drop'); });
   $('lead-composer').addEventListener('dragleave', () => $('lead-composer').classList.remove('is-drop'));
   $('lead-composer').addEventListener('drop', event => {
     $('lead-composer').classList.remove('is-drop');
-    const file = [...(event.dataTransfer?.files || [])].find(f => /^image\//.test(f.type));
-    if (file) { event.preventDefault(); readShot(file); }
+    const files = [...(event.dataTransfer?.files || [])].filter(f => /^image\//.test(f.type));
+    if (files.length) { event.preventDefault(); files.forEach(readShot); }
   });
-  $('lead-shot-remove').addEventListener('click', clearLeadShot);
   $('lead-result-pick').addEventListener('click', () => { $('lead-target').focus(); $('lead-target').showPicker?.(); });
   $('lead-go').addEventListener('click', async event => {
     event.preventDefault();
     const text = $('lead-text').value.trim();
     leadResult('', '');
-    if (!leadShot && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
+    if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
     $('lead-go').disabled = true;
     message('lead-message', 'Claude is reading it and updating Notion…', 'waiting');
-    const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShot, $('lead-target').value);
+    const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShots, $('lead-target').value);
     $('lead-go').disabled = false;
     message('lead-message', '');
     const said = result.text.replace(/^\S+\s/, '');  // without the leading emoji

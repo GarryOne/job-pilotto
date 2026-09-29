@@ -291,8 +291,9 @@ def main():
         run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
         try:
             image = None
-            if args.file and Path(args.file).is_file():
-                image = inbox.load_image(args.file)
+            files = [f for f in (args.file or '').split(',') if f]  # the app sends up to 5 screenshots, comma-separated
+            if files and all(Path(f).is_file() for f in files):
+                image = [inbox.load_image(f) for f in files[:inbox.MAX_IMAGES]]
             elif args.file:  # a photo or image file sent to the bot
                 name, data = interviews.download(telegram.credentials()[0], args.file)
                 image = (name, data, inbox.MEDIA.get(Path(name).suffix.lower(), 'image/jpeg'))

@@ -544,13 +544,14 @@ function handlers() {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
     if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: recruiter leads are tracked there.'};
     if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'Reading a message or screenshot needs your Anthropic API key (Settings).'};
-    // A screenshot goes to a temporary file for the run (then to Notion, on the job's page), and is deleted after.
-    const ext = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'}[image?.type];
-    const file = ext ? path.join(app.getPath('temp'), `job-pilotto-shot-${Date.now()}${ext}`) : '';
+    // Screenshots (up to 5) go to temporary files for the run (then to Notion, on the job's page), deleted after.
+    const exts = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'};
+    const shots = (Array.isArray(image) ? image : image ? [image] : []).filter(shot => exts[shot?.type]).slice(0, 5);
+    const files = shots.map((shot, i) => path.join(app.getPath('temp'), `job-pilotto-shot-${Date.now()}-${i}${exts[shot.type]}`));
     try {
-      if (file) fs.writeFileSync(file, Buffer.from(String(image.data), 'base64'));
-      return await pipeline.addLead(storage, String(text || ''), !!talking, log, {file, target: String(target || '')});
-    } catch (error) { return {ok: false, text: error.message}; } finally { if (file) fs.rmSync(file, {force: true}); }
+      shots.forEach((shot, i) => fs.writeFileSync(files[i], Buffer.from(String(shot.data), 'base64')));
+      return await pipeline.addLead(storage, String(text || ''), !!talking, log, {file: files.join(','), target: String(target || '')});
+    } catch (error) { return {ok: false, text: error.message}; } finally { files.forEach(file => fs.rmSync(file, {force: true})); }
   });
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
   // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.
@@ -703,6 +704,10 @@ function handlers() {
       {at: at(1, 11), kind: 'Feedback requested', emoji: '🙋', title: 'Asked Example Labs for feedback', note: '', url: ''},
       {at: at(3, 15), kind: 'Feedback skipped', emoji: '⏭️', title: 'Skipped asking Acme Robotics for feedback', note: '', url: ''}]};
   };
+  // Where an email belongs: Focus → "Is this about …?", a job's ⋯ → Undo an email update (src/ai/reassign.py).
+  ipcMain.handle('reassignEmail', (_, eventId, target) => (DEMO ? {ok: true, text: 'Moved (demo): nothing was written.'}
+    : pipeline.reassignEmail(storage, String(eventId), String(target))));
+  ipcMain.handle('emailUpdates', (_, pageId) => (DEMO ? {ok: true, items: []} : pipeline.emailUpdates(storage, String(pageId))));
   ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : pipeline.focusHistory(storage)));
   ipcMain.handle('focusDone', (_, pageId) => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId))));
   ipcMain.handle('feedbackAction', (_, pageId, action, text = '') => (DEMO ? {ok: true}

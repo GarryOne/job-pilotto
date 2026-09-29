@@ -375,6 +375,17 @@ export async function focusHistory(storage) {
   try { return {...JSON.parse(stdout.trim().split('\n').pop()), ok: code === 0}; }
   catch { return {ok: false, error: 'Notion could not be read. Try again.', items: []}; }
 }
+const lastJson = (stdout, fallback) => { try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return fallback; } };
+// An email the Gmail check placed, or wasn't sure where to place: move it to a job ("new", "none" or a job URL).
+export async function reassignEmail(storage, eventId, target) {
+  const {stdout} = await run(storage, ['src.ai.reassign', 'move', eventId, target]);
+  return lastJson(stdout, {ok: false, text: 'Notion could not be updated. Try again.'});
+}
+// A job's updates from the Gmail check, newest first (what "Undo an email update" lists).
+export async function emailUpdates(storage, pageId) {
+  const {stdout} = await run(storage, ['src.ai.reassign', 'list', pageId]);
+  return lastJson(stdout, {ok: false, text: 'Notion could not be read. Try again.', items: []});
+}
 export async function feedbackAction(storage, pageId, action, text = '') {
   const {code, stdout} = await run(storage, ['src.feedback', pageId, action, ...(text ? ['--text', text] : [])]);
   try { const result = JSON.parse(stdout.trim().split('\n').pop()); return {...result, ok: code === 0 && result.ok}; }

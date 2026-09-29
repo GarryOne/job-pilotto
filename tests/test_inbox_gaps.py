@@ -35,6 +35,12 @@ class FillGapsTest(unittest.TestCase):
         later = {**row, 'properties': {**row['properties'], 'Reached via': {'type': 'select', 'select': {'name': 'Email'}}}}
         self.assertEqual(inbox._fill_gaps(FakeTracker(), later, {'platform': 'LinkedIn', 'first_contact': '2026-09-30'}), [])
 
+    def test_the_fuller_title_replaces_an_invitations_short_one_never_another_role(self):
+        row = {'id': 'h1', 'properties': {'Job': {'type': 'title', 'title': [{'plain_text': 'SRE'}]}}}
+        tracker = FakeTracker()
+        self.assertEqual(inbox._fill_gaps(tracker, row, {'role': 'Principal SRE'}), ['the title "Principal SRE"'])
+        self.assertEqual(inbox._fill_gaps(FakeTracker(), row, {'role': 'Data Engineer'}), [])
+
     def test_nothing_new_writes_nothing(self):
         tracker = FakeTracker()
         self.assertEqual(inbox._fill_gaps(tracker, {'id': 'x', 'properties': {'Company': text('Acme')}}, {'company': 'Other'}), [])

@@ -1171,6 +1171,28 @@
     </div>
   </form>
 </dialog>
+<!-- "Is this about …?" and "Not this job": where an email belongs (pages/reassign.js → src/ai/reassign.py). -->
+<dialog id="reassign-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mail"></i></span>
+      <h2 id="reassign-title">Which job is this email about?</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p id="reassign-context" class="dialog-lead"></p>
+    <div id="reassign-update-row" hidden>
+      <label for="reassign-update">Email update</label>
+      <select id="reassign-update"></select>
+    </div>
+    <label for="reassign-target">It's about</label>
+    <select id="reassign-target"></select>
+    <p id="reassign-help" class="muted small">The job it was on goes back to how it was before this email (stage, interview date); the job you pick moves on instead.</p>
+    <p id="reassign-message" class="message"></p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button id="reassign-save" class="primary" value="default">Save</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="lead-dialog" class="panel-dialog">
   <form method="dialog">
     <div class="dialog-head">
@@ -1183,16 +1205,13 @@
     <div class="composer" id="lead-composer">
       <textarea id="lead-text" rows="5" placeholder="Paste a message here…"></textarea>
       <div class="composer-tools">
-        <button type="button" class="tool" id="lead-shot-add"><i data-icon="paperclip"></i>Add screenshot</button>
+        <button type="button" class="tool" id="lead-shot-add"><i data-icon="paperclip"></i>Add screenshots</button>
         <button type="button" class="tool" id="lead-shot-paste"><i data-icon="image"></i>Paste image</button>
-        <input type="file" id="lead-shot-file" accept="image/*" hidden>
+        <input type="file" id="lead-shot-file" accept="image/*" multiple hidden>
       </div>
     </div>
-    <div class="attachment" id="lead-shot-box" hidden>
-      <img id="lead-shot" alt="Screenshot to log">
-      <span class="attachment-name" id="lead-shot-name"></span>
-      <button type="button" class="soft-button" id="lead-shot-remove">Remove</button>
-    </div>
+    <!-- Up to 5 screenshots (a long LinkedIn chat), read together in this order. -->
+    <div id="lead-shots" hidden></div>
     <label for="lead-target">Link to job</label>
     <div class="select-search"><i data-icon="search"></i><select id="lead-target"></select></div>
     <label class="check-row"><input type="checkbox" id="lead-talking">

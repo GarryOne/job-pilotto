@@ -8,6 +8,7 @@ import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, osText, show} from './core.js';
 import {loadJobs, renderJobs} from './jobs.js';
+import {loadFocus} from './focus.js';
 import {openView} from './nav.js';
 import {renderActionsPage} from './runs-page.js';
 import {openSetting} from './settings.js';
@@ -564,7 +565,7 @@ export async function init() {
     renderActivity(runsNow);
     const tabs = new Set(await window.pilot.openTabs());
     if (tabs.size !== shared.openedInChrome.size || [...tabs].some(url => !shared.openedInChrome.has(url))) { shared.openedInChrome = tabs; renderJobs(); }
-    if (wasRunning && !running) loadJobs();  // a search just finished: show its jobs
+    if (wasRunning && !running) { loadJobs(); loadFocus(); }  // a check just finished: its jobs, and what it asks of you
     wasRunning = !!running;
     announceRuns(runsNow);
     showSearchStatus();

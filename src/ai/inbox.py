@@ -110,13 +110,22 @@ def same_job(jobs, item):
     return -1
 
 
+MAX_IMAGES = 5  # screenshots per log: a long LinkedIn chat takes a few
+
+
+def images_of(image):
+    """One screenshot, several, or none, as a list of (name, bytes, media type)."""
+    return list(image[:MAX_IMAGES]) if isinstance(image, list) else ([image] if image else [])
+
+
 def read(client, model, text, image, jobs, stats=None):
-    """Claude's reading: a dict with SCHEMA's fields. image = (name, bytes, media type) or None."""
+    """Claude's reading: a dict with SCHEMA's fields. image = (name, bytes, media type), a list of them, or None
+    (several screenshots of one conversation are read together, in order)."""
     content = []
-    if image:
-        content.append({'type': 'image', 'source': {'type': 'base64', 'media_type': image[2],
-                                                     'data': base64.b64encode(image[1]).decode()}})
-    content.append({'type': 'text', 'text': (text[:8000] if text else '(see the screenshot)')})
+    for shot in images_of(image):
+        content.append({'type': 'image', 'source': {'type': 'base64', 'media_type': shot[2],
+                                                     'data': base64.b64encode(shot[1]).decode()}})
+    content.append({'type': 'text', 'text': (text[:8000] if text else '(see the screenshots)' if len(content) > 1 else '(see the screenshot)')})
     response = client.messages.create(
         model=model, max_tokens=1200,
         system=[{'type': 'text', 'text': SYSTEM + '\n\nJobs:\n' + (listing(jobs) or '(none)'),
@@ -129,15 +138,16 @@ def read(client, model, text, image, jobs, stats=None):
 
 
 def _image_blocks(tracker, image):
-    """The screenshot as a Notion image block (uploaded), or none if the upload fails."""
-    if not image:
-        return []
-    try:
-        upload = tracker.upload_file(image[0], image[1], image[2])
-    except Exception as error:  # noqa: BLE001 — the update matters more than the picture
-        print(f'Warning: screenshot not uploaded to Notion: {type(error).__name__}: {error}', file=sys.stderr)
-        return []
-    return [{'object': 'block', 'type': 'image', 'image': {'type': 'file_upload', 'file_upload': {'id': upload}}}]
+    """The screenshots as Notion image blocks (uploaded); one that fails to upload is left out."""
+    blocks = []
+    for shot in images_of(image):
+        try:
+            upload = tracker.upload_file(shot[0], shot[1], shot[2])
+        except Exception as error:  # noqa: BLE001 — the update matters more than the picture
+            print(f'Warning: screenshot not uploaded to Notion: {type(error).__name__}: {error}', file=sys.stderr)
+            continue
+        blocks.append({'object': 'block', 'type': 'image', 'image': {'type': 'file_upload', 'file_upload': {'id': upload}}})
+    return blocks
 
 
 def _keep(tracker, row, text, image, summary, when):
@@ -195,6 +205,12 @@ def _fill_gaps(tracker, row, item):
     becomes its Reached via. Returns what was filled."""
     changes = {name: {'rich_text': [{'text': {'content': str(item[key])[:200]}}]}
                for name, key in GAPS.items() if item.get(key) and not plain(row['properties'].get(name))}
+    # A job known only from an invitation ("SRE"): the fuller title the message gives ("Principal SRE"), when it
+    # contains the one there (never a different role).
+    title, current = (item.get('role') or item.get('title') or '').strip(), plain(row['properties'].get('Job'))
+    words = lambda text: set(re.findall(r'[a-z0-9]+', text.lower()))
+    if title and current and len(title) > len(current) and words(current) <= words(title):
+        changes['Job'] = {'title': [{'text': {'content': title[:200]}}]}
     platform, began = item.get('platform'), mail._when(item.get('first_contact') or '')
     tracked = mail._when(row.get('created_time') or '')
     if (platform in opportunity.REACHED_VIA and platform != 'Other' and began and tracked and began < tracked
@@ -204,8 +220,10 @@ def _fill_gaps(tracker, row, item):
         tracker.update_page(row['id'], changes)
         for name, value in changes.items():
             row['properties'][name] = ({'type': 'select', 'select': value['select']} if 'select' in value else
+                                       {'type': 'title', 'title': [{'plain_text': value['title'][0]['text']['content']}]} if 'title' in value else
                                        {'type': 'rich_text', 'rich_text': [{'plain_text': value['rich_text'][0]['text']['content']}]})
-    return [GAPS.get(name) or f"first contact on {platform}" for name in changes]
+    named = {'Job': f'the title "{title}"', 'Reached via': f'first contact on {platform}'}
+    return [GAPS.get(name) or named[name] for name in changes]
 
 
 def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
@@ -231,7 +249,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     if kind == NOT_JOB and not target:
         raise ValueError("That doesn't look like a message about a job, so nothing was logged.")
     talking = talking or bool(item.get('owner_agreed'))
-    seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + (image[1] if image else b'')).hexdigest()[:16]
+    seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
     source_id = f'paste:{seed}'
     when = item.get('when') if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
     summary = item.get('summary') or kind
