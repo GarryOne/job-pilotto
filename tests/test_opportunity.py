@@ -204,3 +204,19 @@ class MailOutreachTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CleanMessageTests(unittest.TestCase):
+    def test_a_teams_invite_keeps_only_the_message_and_folds_the_original(self):
+        from src.ai import opportunity as o
+        raw = ('Subject: Connect Igor / Jaya - SRE\n' + '_' * 40 + '\nMicrosoft Teams meeting\nJoin: https://teams.microsoft.com/meet/314?p=x\n'
+               'Meeting ID: 314 743\nPasscode: bJ6\nDial in by phone\n+44 141 488 0901,,893664350#<tel:+441414880901> United Kingdom\n'
+               'This e-mail is sent for and on behalf of Huxley Associates | Registered No. 5908145\n\nLooking forward to our call.\nJaya')
+        self.assertEqual(o.clean_message(raw), 'Subject: Connect Igor / Jaya - SRE\n\nLooking forward to our call.\nJaya')
+        blocks = o.message_blocks(raw)
+        self.assertEqual(blocks[-1]['type'], 'toggle')  # the full original, folded
+        self.assertEqual(blocks[-1]['toggle']['rich_text'][0]['text']['content'], '📧 Full message')
+
+    def test_a_clean_message_has_no_fold(self):
+        from src.ai import opportunity as o
+        self.assertNotIn('toggle', [b['type'] for b in o.message_blocks('Hi Igor,\n\nA Senior SRE role in Zurich.')])

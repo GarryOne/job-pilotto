@@ -155,12 +155,19 @@ def _image_blocks(tracker, image):
 
 
 def _keep(tracker, row, text, image, summary, when):
-    """What was logged, on the job's page: a dated line, the message, the screenshot."""
-    blocks = [_block('paragraph', f"{when[:10]} · {summary}", bold=True)]
-    blocks += [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
-    blocks += _image_blocks(tracker, image)
+    """What was logged, on the job's page: one folded entry per log ("📥 29 Sep · what it said"), with the message
+    and the screenshots inside, so the page stays readable however many you log."""
     try:
-        tracker.append_blocks(row['id'], [_block('heading_3', LOG_HEADING)] + blocks)
+        day = datetime.fromisoformat(when.replace('Z', '+00:00')).strftime('%d %b %Y')
+    except ValueError:
+        day = when[:10]
+    inside = [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
+    inside += _image_blocks(tracker, image)
+    entry = {'object': 'block', 'type': 'toggle', 'toggle': {
+        'rich_text': [{'type': 'text', 'text': {'content': f'📥 {day} · {summary}'[:1900]}, 'annotations': {'bold': True}}],
+        'children': inside or [_block('paragraph', summary)]}}
+    try:
+        tracker.append_blocks(row['id'], [entry])
     except Exception as error:  # noqa: BLE001
         print(f'Warning: not copied to the page: {type(error).__name__}: {error}', file=sys.stderr)
 

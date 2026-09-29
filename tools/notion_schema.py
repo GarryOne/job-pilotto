@@ -15,6 +15,7 @@ Run `snapshot` after changing a database in Notion (a column, an option), then c
 Views aren't in Notion's public API, so they aren't in the schema.
 """
 import argparse
+import re
 import json
 import os
 import sys
@@ -113,10 +114,78 @@ def problems(schema, template):
     return found
 
 
+# ---- docs/notion-schema.md follows the schema: every column documented ----
+DOCS = ROOT / 'docs' / 'notion-schema.md'
+TYPE_NAMES = {'title': 'Title', 'rich_text': 'Text', 'number': 'Number', 'select': 'Select', 'multi_select': 'Multi-select',
+              'date': 'Date', 'checkbox': 'Checkbox', 'url': 'URL', 'relation': 'Relation', 'file': 'Files', 'files': 'Files',
+              'formula': 'Formula', 'rollup': 'Rollup', 'status': 'Status', 'email': 'Email', 'people': 'People',
+              'last_edited_time': 'Last edited time', 'created_time': 'Created time', 'phone_number': 'Phone'}
+_plain = lambda title: re.sub(r'[^\w ]+', ' ', title.split(' (')[0]).strip().lower()  # "… (database)" is the docs' suffix
+_squash = lambda title: ' '.join(_plain(title).split())
+
+
+def _row(name, entry):
+    kind = TYPE_NAMES.get(entry.get('type'), entry.get('type', ''))
+    note = entry.get('description') or ''
+    if entry.get('options') and not note:
+        note = 'Options: ' + ', '.join(f"`{o['name']}`" for o in entry['options'])
+    if entry.get('type') == 'relation' and not note:
+        note = f"To {entry.get('database', '')}"
+    return f'| {name} | {kind} | {note} |'
+
+
+def undocumented(schema, text):
+    """(database title, column) pairs of the schema that docs/notion-schema.md doesn't list."""
+    sections = _sections(text)
+    return [(db['title'], name) for db in schema['databases'].values() for name in db['columns']
+            if f'| {name} |' not in sections.get(_squash(db['title']), '')]
+
+
+def _sections(text):
+    found, current = {}, None
+    for line in text.splitlines():
+        if line.startswith('## '):
+            current = _squash(line[3:])
+            found[current] = ''
+        elif current is not None:
+            found[current] += line + '\n'
+    return found
+
+
+def document(schema, text):
+    """The docs with a row added for every undocumented column (type and options from the schema), at the end of
+    its database's table; a database with no section gets one."""
+    lines = text.splitlines()
+    for db in schema['databases'].values():
+        missing = [name for title, name in undocumented(schema, '\n'.join(lines)) if title == db['title']]
+        if not missing:
+            continue
+        rows = [_row(name, db['columns'][name]) for name in missing]
+        start = next((i for i, line in enumerate(lines) if line.startswith('## ') and _squash(line[3:]) == _squash(db['title'])), None)
+        if start is None:
+            lines += ['', f"## {db['title']} (database)", '', '| Property | Type | Notes |', '|---|---|---|'] + rows
+            continue
+        end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('## ')), len(lines))
+        table = [i for i in range(start, end) if lines[i].startswith('|')]
+        at = table[-1] + 1 if table else end
+        if not table:
+            rows = ['', '| Property | Type | Notes |', '|---|---|---|'] + rows
+        lines[at:at] = rows
+    return '\n'.join(lines) + '\n'
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('command', choices=('snapshot', 'check'))
+    parser.add_argument('command', choices=('snapshot', 'check', 'docs'))
     args = parser.parse_args(argv)
+    if args.command == 'docs':
+        before = DOCS.read_text()
+        after = document(load(), before)
+        DOCS.write_text(after)
+        added = len(after.splitlines()) - len(before.splitlines())
+        print(f'docs/notion-schema.md: {added} line(s) added; every schema column is documented.' if added
+              else 'docs/notion-schema.md already documents every schema column.')
+        return 0
     if args.command == 'snapshot':
         token = os.getenv('NOTION_TOKEN')
         if not token:

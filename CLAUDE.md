@@ -38,7 +38,10 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   field, it is a Notion column. A feature that needs a new database, column or page adds it to Notion *and* to
   `config/notion_schema.json` (`tools/notion_schema.py snapshot`, or edit it), so every workspace can be rebuilt
   and repaired (`desktop/lib/schema.js`, at connect and start-up). Existing rows get the value backfilled.
-  `tests/test_notion_schema_coverage.py` fails when the code uses a column the schema lacks.
+  `tests/test_notion_schema_coverage.py` fails when the code uses a column the schema lacks, and
+  `tests/test_notion_docs_coverage.py` when a schema column isn't in `docs/notion-schema.md`: after adding one, run
+  `python3 tools/notion_schema.py docs` and write its Notes. (`config/notion_template.json` lists only the columns
+  checked at connect; don't add optional ones there, the app adds them from the schema.)
 - The desktop Jobs list is built from Notion (Job Matches + Applications, `Tracker.notion_jobs`), with Notion's
   fields only; the cache is kept in step and only adds jobs a search couldn't write to Notion yet (marked).
 - Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only

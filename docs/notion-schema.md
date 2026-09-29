@@ -51,6 +51,20 @@ replies:
 | Via | Text | Recruiter platform or agency, e.g. TechTree; Company holds the real employer |
 | Date approximate | Checkbox | Applied on is an upper bound ("on or before") |
 | Events | Relation | Two-way with 📈 Application Events |
+| Agent runs | Relation | To NOTION_AGENT_RUNS_DB |
+| Days since applied | Formula |  |
+| Fill time | Formula |  |
+| Fresh | Formula |  |
+| Interviews | Relation | To NOTION_INTERVIEWS_DB |
+| Last update | Last edited time |  |
+| Tailored CV | Files |  |
+| Rejection reason | Select | Options: `Presentation`, `Hard skills`, `Soft skills`, `Not a fit (not on you)`, `Unclear` |
+| Rejection lesson | Text |  |
+| Reached via | Select | Options: `Email`, `LinkedIn`, `Phone`, `Other` |
+| Kit inputs | Text |  |
+| Feedback status | Select | Options: `Not asked`, `Asked for feedback`, `Received feedback`, `Skipped` |
+| Employer feedback | Text |  |
+| Interview prep | Date | When the interview prep kit was built (🎤 Interview prep on the page; Focus → Prepare) |
 
 The page body gets a "🗂 Application record" toggle section: every question with the answer sent
 (and the kit's draft, marked ✏️ when edited), the cover letter, and a JSON block with the job
@@ -92,6 +106,9 @@ delete and let it repopulate.
 | Recruiter | Checkbox | |
 | Technologies | Text | Key technologies from the posting (stage 1), semicolon-separated |
 | Role family | Select | `sre`, `platform`, `devops`, `cloud_infrastructure`, `software`, `data`, `security`, `support_it`, `other` |
+| Last update | Last edited time |  |
+| First seen | Date |  |
+| Scoring method | Select | Options: `Current`, `Previous` |
 
 ## Employers & Sources (database)
 
@@ -121,6 +138,9 @@ daily scout creates and updates these. Optional for a first run — the crawler 
 | Notes | Text | |
 | Integration | Select | Option used by code: `Working` |
 | Added | Date | |
+| Size | Text |  |
+| Verification | Select | Options: `Career link found`, `Needs research`, `Location conflict` |
+| Website | URL |  |
 
 ## 📈 Application Events (database)
 
@@ -139,6 +159,9 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 | Source ID | Text | Gmail message id, or `cal:<event id>`; an email or calendar event is never logged twice |
 | Note | Text | |
 | Job URL | URL | |
+| Changes | Text | JSON: what the email changed (before/after per field), its interview time and sender; "Undo an email update" puts it back |
+| Needs you | Checkbox | The Gmail check wasn't sure which job: Focus asks "Is this about …?" |
+| Suggested job | URL | The likeliest job for a Needs-you email (its Job URL) |
 
 ## 🎤 Interviews (database)
 
@@ -161,6 +184,10 @@ its Overall is empty until it's reviewed.
 | Input | Select | `Recording` (transcribed with speakers by `src/ai/transcribe.py`), `Transcript`, `Notes` |
 | Cost (USD) | Number (dollar) | |
 | Model | Text | |
+| Questions | Number |  |
+| Topics | Text |  |
+| Weak answers | Number |  |
+| Weak topics | Text |  |
 
 ## 💡 Insights (database)
 
@@ -180,6 +207,7 @@ Telegram message so its buttons can point at the row.
 | Feedback | Select | `Useful`, `Not useful`, `Acting on it` — set by the Telegram buttons; the next insights read it |
 | Cost (USD) | Number (dollar) | |
 | Model | Text | |
+| Issue detected | Checkbox |  |
 
 ## ⏰ Cronjob Runs (database)
 
@@ -207,10 +235,26 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Telegram | Text | Sent / not sent |
 | Summary | Text | Report headline |
 | Run URL | URL | GitHub Actions run |
+| Changed jobs | Number |  |
+| Cost enrich (USD) | Number |  |
+| Cost insight (USD) | Number |  |
+| Cost interview (USD) | Number |  |
+| Cost kits (USD) | Number |  |
+| Cost mail (USD) | Number |  |
+| Cost score (USD) | Number |  |
+| Emails | Number |  |
+| Enriched | Number |  |
+| Feed errors | Number |  |
+| Feeds | Number |  |
+| Insights | Number |  |
+| Interviews | Number |  |
+| Kits | Number |  |
+| New jobs | Number |  |
+| Scored | Number |  |
 
 Views: **Latest runs** (newest first), **AI cost per day** (column chart).
 
-## 🤖 Agent Runs (database)
+## 🤖 Job Apply — Agent Runs (database)
 
 Env var: `NOTION_AGENT_RUNS_DB`. One row per form-filling session, written by
 `python3 -m src.ai.apply_run` (Codex runs and `--record` for Claude runs). Optional: runs are still
@@ -236,6 +280,25 @@ recorded locally without it. Rows never contain applicant values, only field lab
 | Tokens (total) | Number | All tokens the session used from start to hand-over (incl. cached context), from its transcript/trace |
 | Output tokens | Number | |
 | Run ID | ID | Prefix `RUN` |
+| Age (days) | Formula |  |
+| Fill time | Formula |  |
+| Fresh | Formula |  |
+| Job stage | Rollup |  |
+| Waiting for you | Formula |  |
+| Claude working (min) | Number |  |
+| Waiting for you (min) | Number |  |
+| Times asked | Number |  |
+| Your reply (median s) | Number |  |
+| Ready → decided (min) | Number |  |
+| Outcome | Select | Options: `Submitted`, `Not submitted`, `Open`, `Restarted`, `Cancelled` |
+| Turns | Number |  |
+| Tool calls | Number |  |
+| Tools used | Text |  |
+| Tokens in | Number |  |
+| Tokens out | Number |  |
+| Cache read | Number |  |
+| Model | Text |  |
+| Session timeline | Text |  |
 
 The page body lists per-step timings, each field ✓/CHECK, attachments and the learning.
 

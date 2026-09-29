@@ -153,6 +153,39 @@ def same_pitch(tracker, lead):
     return None
 
 
+# What an email carries besides the message: meeting dial-ins, legal footers, tracking links, social icons.
+BOILERPLATE = re.compile(
+    r'microsoft teams meeting|^join:|meeting id|passcode|dial in|phone conference|find a local number|need help\?|'
+    r'system reference|for organi[sz]ers|reset dial-in|this e-?mail (is|was) (sent|intended)|strictly confidential|'
+    r'confidential and intended|registered (no|office)|trading address|professional licen[cs]e|unsubscribe|'
+    r'learn why we included|©\s*20\d\d|linkedin corporation|you are receiving|^help:|^_{5,}|^-{5,}|please notify|'
+    r'permanently delete|if you (are not|have received)|,,\d+#|<tel:', re.I)
+LINK_ONLY = re.compile(r'^\s*[\[<(]?\s*https?://\S+\s*[\]>)]?\s*$')
+
+
+def clean_message(text):
+    """The message itself: without dial-ins, legal footers, tracking links and image placeholders."""
+    lines = []
+    for line in (text or '').replace('<br>', '\n').splitlines():
+        line = re.sub(r'\\?<https?://[^>]+\\?>', '', line)  # "Book a Call<https://…tracking…>" -> "Book a Call"
+        line = re.sub(r'\\?\[https?://[^\]]+\\?\]', '', line).rstrip()  # [https://…/logo.png]
+        if BOILERPLATE.search(line) or LINK_ONLY.match(line):
+            continue
+        lines.append(line)
+    return re.sub(r'\n{3,}', '\n\n', '\n'.join(lines)).strip()
+
+
+def message_blocks(text):
+    """The job page's message section: the clean message, and the full original folded away."""
+    clean = clean_message(text)
+    shown = [_block('paragraph', part) for part in re.split(r'\n\s*\n', clean)[:60] if part.strip()]
+    original = [_block('paragraph', part) for part in re.split(r'\n\s*\n', (text or '').strip())[:90] if part.strip()]
+    if original and clean != (text or '').strip():
+        shown.append({'object': 'block', 'type': 'toggle', 'toggle': {
+            'rich_text': [{'type': 'text', 'text': {'content': '📧 Full message'}}], 'children': original}})
+    return shown
+
+
 def track(tracker, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note='', seed=None, url=None, extra_blocks=()):
     """The Applications row, the page body (the message) and the events. Returns (row, one-line summary);
     row is None when the message is already tracked."""
@@ -168,8 +201,7 @@ def track(tracker, lead, text, *, source, event_source, talking=False, at=None, 
     for name, value in (('Company', {'rich_text': [{'plain_text': lead.get('company') or ''}]}),
                         ('Job', {'title': [{'plain_text': title(lead)}]}), ('Job URL', {'url': url})):
         known.setdefault(name, value)
-    blocks = [_block('paragraph', part) for part in re.split(r'\n\s*\n', text.strip())[:90] if part.strip()]
-    blocks += list(extra_blocks)  # e.g. the screenshot it was read from
+    blocks = message_blocks(text) + list(extra_blocks)  # e.g. the screenshot it was read from
     try:
         if blocks:
             tracker.replace_after_heading(row['id'], HEADING, blocks)
