@@ -300,6 +300,8 @@ export function renderJobs() {
   show($('jobs-filter'), !!statLabel);
   $('jobs-filter-text').textContent = statLabel ? `Showing: ${statLabel}` : '';
   show($('jobs-filter-back'), statFilter?.from === 'focus');
+  // A filter from another page (a Focus funnel step) is none of the boxes: they're greyed out until it's cleared.
+  document.querySelectorAll('.stat-cards').forEach(cards => cards.classList.toggle('is-dimmed', !!statFilter?.urls));
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
   if (jobsLoading && !shared.allJobs.length) { show($('jobs-empty'), false); showLoading(); return; }  // still loading, not empty
   show($('jobs-empty'), rows.length === 0);

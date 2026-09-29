@@ -1192,3 +1192,7 @@ main { min-width: 0; }
 .questions.is-loading summary { pointer-events: none; }
 .questions.is-loading #questions-count { background: transparent; padding: 0; }
 .questions-skeleton { width: 90px; height: 18px; }
+
+/* Jobs boxes while a filter from another page is on: none of them is selected. Hover brings one back (a click switches to it). */
+.stat-cards.is-dimmed .stat { opacity: .5; filter: grayscale(1); transition: opacity .15s, filter .15s; }
+.stat-cards.is-dimmed .stat:hover { opacity: 1; filter: none; }
