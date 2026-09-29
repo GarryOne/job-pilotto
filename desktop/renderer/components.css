@@ -29,6 +29,9 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
   border-radius: var(--r-md); padding: 5px; box-shadow: var(--shadow-lg); }
 .ui-menu button { background: transparent; text-align: left; font-weight: 500; font-size: var(--fs-sm); padding: 7px 9px;
   border-radius: var(--r-sm); color: var(--ink); }
+.ui-menu button.with-menu-icon { display: flex; align-items: center; gap: var(--sp-2); }
+.ui-menu button.with-menu-icon .icon { width: 15px; height: 15px; color: var(--muted); }
+.ui-menu button.danger .icon { color: inherit; }
 .ui-menu button:hover, .ui-menu button:focus-visible { background: var(--bg); outline: none; }
 .ui-menu button.danger { color: var(--bad); }
 .ui-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px; }

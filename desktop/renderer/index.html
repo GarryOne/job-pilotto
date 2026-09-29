@@ -227,24 +227,24 @@
       <h1>Optional extras</h1>
       <p class="lede">Everything works without these. You can add them later in Settings.</p>
       <div class="extra">
-        <div><h3>🧩 Chrome extension</h3><p>Fills application forms in Chrome in seconds. You review and submit.</p></div>
+        <div><h3><i data-icon="puzzle"></i>Chrome extension</h3><p>Fills application forms in Chrome in seconds. You review and submit.</p></div>
         <button class="secondary" data-goto-settings="extension">Set up</button>
       </div>
       <div class="extra extra-stack">
-        <div><h3>🤖 Apply with Claude</h3><p>Claude opens each job, signs up on the employer's site if needed and fills every page. You review and submit. It needs a few things only you can install:</p>
+        <div><h3><i data-icon="bot"></i>Apply with Claude</h3><p>Claude opens each job, signs up on the employer's site if needed and fills every page. You review and submit. It needs a few things only you can install:</p>
           <ul class="prereqs" id="claude-prereqs"></ul></div>
         <button class="secondary" id="claude-prereqs-check">Check again</button>
       </div>
       <div class="extra">
-        <div><h3>💬 Telegram</h3><p>Your best new matches on your phone after each search, with buttons to save, apply or dismiss.</p></div>
+        <div><h3><i data-icon="send"></i>Telegram</h3><p>Your best new matches on your phone after each search, with buttons to save, apply or dismiss.</p></div>
         <button class="secondary" data-goto-settings="telegram">Set up</button>
       </div>
       <div class="extra">
-        <div><h3>☁️ Always on</h3><p>Runs on GitHub, even when your Mac is off: searches, application kits, insights and mail checks, on your schedule, from your own private repository (free).</p></div>
+        <div><h3><i data-icon="cloud"></i>Always on</h3><p>Runs on GitHub, even when your Mac is off: searches, application kits, insights and mail checks, on your schedule, from your own private repository (free).</p></div>
         <button class="secondary" data-goto-settings="cloud">Set up</button>
       </div>
       <div class="extra">
-        <div><h3>🔎 Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
+        <div><h3><i data-icon="search"></i>Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
         <button class="secondary" data-goto-settings="serpapi">Add key</button>
       </div>
       <div class="actions"><button class="primary" id="finish">Go to my jobs</button></div>
@@ -483,37 +483,37 @@
             <span class="task-category">DISCOVERY</span>
             <div class="task-body"><span class="task-tile"><i data-icon="search"></i></span>
               <div class="task-words"><b>Search for new jobs</b><span class="muted">Find, filter and score new opportunities</span></div>
-              <button class="primary action" data-command="run"><b hidden>Search for new jobs</b>Run</button></div>
+              <button class="secondary action" data-command="run"><b hidden>Search for new jobs</b>Run</button></div>
           </div>
           <div class="task-card">
             <span class="task-category">DISCOVERY</span>
             <div class="task-body"><span class="task-tile"><i data-icon="building"></i></span>
               <div class="task-words"><b>Find new employers</b><span class="muted">Add companies to your job sources</span></div>
-              <button class="primary action" data-command="scout"><b hidden>Find new employers</b>Run</button></div>
+              <button class="secondary action" data-command="scout"><b hidden>Find new employers</b>Run</button></div>
           </div>
           <div class="task-card">
             <span class="task-category">COMMUNICATION</span>
             <div class="task-body"><span class="task-tile"><i data-icon="mail"></i></span>
               <div class="task-words"><b>Check Gmail &amp; Calendar</b><span class="muted">Sync replies, confirmations and interviews</span></div>
-              <button class="primary action" data-command="mail"><b hidden>Check Gmail &amp; Calendar</b>Run</button></div>
+              <button class="secondary action" data-command="mail"><b hidden>Check Gmail &amp; Calendar</b>Run</button></div>
           </div>
           <div class="task-card">
             <span class="task-category">COMMUNICATION</span>
             <div class="task-body"><span class="task-tile"><i data-icon="send"></i></span>
               <div class="task-words"><b>Send today's matches</b><span class="muted">Your best matches, ranked (and to Telegram)</span></div>
-              <button class="primary action" data-command="today"><b hidden>Send today's matches</b>Run</button></div>
+              <button class="secondary action" data-command="today"><b hidden>Send today's matches</b>Run</button></div>
           </div>
           <div class="task-card">
             <span class="task-category">INSIGHTS</span>
             <div class="task-body"><span class="task-tile"><i data-icon="chart"></i></span>
               <div class="task-words"><b>Generate an insight</b><span class="muted">One useful finding about your search</span></div>
-              <button class="primary action" data-command="insight"><b hidden>Generate an insight</b>Run</button></div>
+              <button class="secondary action" data-command="insight"><b hidden>Generate an insight</b>Run</button></div>
           </div>
           <div class="task-card">
             <span class="task-category">INSIGHTS</span>
             <div class="task-body"><span class="task-tile"><i data-icon="file"></i></span>
               <div class="task-words"><b>Create weekly report</b><span class="muted">Applications, replies and market trends</span></div>
-              <button class="primary action" data-command="weekly"><b hidden>Create weekly report</b>Run</button></div>
+              <button class="secondary action" data-command="weekly"><b hidden>Create weekly report</b>Run</button></div>
           </div>
       </div>
       <section class="card runs-card">
@@ -722,7 +722,7 @@
               <div class="inline"><button class="secondary with-icon" id="cv-view"><i data-icon="eye"></i><span>Preview CV</span></button>
                 <button class="primary" id="replace-cv">Replace CV</button></div>
               
-              <span class="small"><button class="link" id="cv-import">Read my CV PDF</button> · <button class="link" id="cv-folder">CV folder</button></span>
+              <span class="small"><button class="link with-icon" id="cv-import"><i data-icon="refresh"></i><span>Read my CV PDF</span></button> · <button class="link" id="cv-folder">CV folder</button></span>
             </div>
           </div>
           <div class="stale-draft" id="cv-changed" data-profile-panel="details" hidden><span id="cv-changed-text"></span>

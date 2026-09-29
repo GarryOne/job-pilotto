@@ -71,6 +71,8 @@ summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 details textarea { margin-top: 8px; }
 .extra { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; margin-top: 10px; }
 .extra p { color: var(--muted); margin: 0; }
+.extra h3 { display: flex; align-items: center; gap: var(--sp-2); }
+.extra h3 .icon { color: var(--muted); }
 .extra-stack { align-items: flex-start; }
 .prereqs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .prereqs li { color: var(--muted); }
@@ -412,8 +414,11 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .row-actions { flex-wrap: nowrap; gap: 6px; padding-top: 2px; justify-content: flex-end; align-items: center; }
 /* Wide enough for the longest label ("Apply with Claude"); every row shares it so the rows line up. */
 .row-actions .row-main { width: 10em; padding: 7px 6px; font-size: var(--fs-sm); border-radius: var(--r-sm); overflow: hidden; text-overflow: ellipsis; }
-.row-actions .state-prepare { background: var(--signal); color: var(--on-accent); border-color: var(--signal); }
-.row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
+/* One filled orange button in the list: the top row's. The other rows' next step is an outline button. */
+.job-row:first-child .row-actions .state-prepare { background: var(--signal); color: var(--on-accent); border-color: var(--signal); }
+.job-row:first-child .row-actions .state-prepare:hover { background: var(--signal); filter: brightness(1.08); }
+.job-row:not(:first-child) .row-actions .state-apply { background: var(--surface); color: var(--signal); border-color: var(--signal); }
+.job-row:not(:first-child) .row-actions .state-apply:hover { background: var(--signal-soft); filter: none; }
 .icon-btn { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: var(--ink); border-radius: var(--r-sm); flex: none; }
 .icon-btn:hover { background: var(--bg); }
 .bookmark { display: none; }
@@ -957,7 +962,8 @@ main { min-width: 0; }
 .ss-needs { border-color: var(--warn-line); }
 .ss-needs .ss-fact-head .icon { color: var(--warn); }
 .ss-need { display: flex; gap: var(--sp-2); padding: 6px 0; border-top: 1px solid var(--line); }
-.ss-need-glyph { flex: none; width: 22px; }
+.ss-need-glyph { flex: none; width: 22px; color: var(--muted); }
+.ss-need-glyph .icon { width: 18px; height: 18px; }
 .ss-need-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1; }
 .ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .ss-need-button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
@@ -1100,7 +1106,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .task-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .task-words b { font-size: var(--fs-base); }
 .task-words .muted { font-size: var(--fs-sm); }
-.task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; background: var(--signal); color: var(--on-accent); border-color: transparent; }
+.task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }
 .runs-row { display: grid; grid-template-columns: 32px 200px 120px 130px minmax(0, 1fr) 16px; align-items: center; gap: var(--sp-3);
@@ -1148,13 +1154,14 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-head { margin: 0 0 var(--sp-3) var(--sp-2); }
 .activity-panel .ap-head h3 { font-size: var(--fs-lg); }
 .activity-panel .activity-recent { display: flex; flex-direction: column; gap: 0; margin: 0; }
-.activity-panel .recent-row { grid-template-columns: 18px 28px minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: var(--sp-3);
+.activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: var(--sp-3);
   border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 0; font-size: var(--fs-md); }
 .activity-panel .recent-row.current { background: var(--info-soft); border-color: var(--info-line); border-radius: var(--r-md); }
 .activity-panel .recent-row[data-state="warn"] .run-status { background: var(--warn-bright); }
 .activity-panel .recent-row[data-state="warn"] .run-status::after { content: '!'; }
 .activity-panel .run-status { width: 18px; height: 18px; font-size: var(--fs-xs); }
-.activity-panel .run-icon { font-size: var(--fs-lg); text-align: center; }
+.activity-panel .run-icon { display: grid; place-items: center; color: var(--muted); }
+.activity-panel .run-icon .icon { width: 20px; height: 20px; }
 .activity-panel .run-words { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .activity-panel .run-kind { font-weight: 600; }
 .activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1165,6 +1172,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-head { display: flex; align-items: flex-start; gap: var(--sp-3); }
 .activity-panel .ap-detail-icon { font-size: var(--fs-xl); width: 40px; height: 40px; display: grid; place-items: center;
   border-radius: 50%; background: var(--surface-2); flex: none; }
+.activity-panel .ap-detail-icon .icon { width: 22px; height: 22px; color: var(--muted); }
 .activity-panel .ap-detail-title { flex: 1; min-width: 0; }
 .activity-panel .ap-detail-title h3 { margin: 0; font-size: var(--fs-xl); }
 .activity-panel .ap-detail-title p { margin: var(--sp-1) 0 0; }
@@ -1293,7 +1301,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .conn-status.is-done { color: var(--good); }
 .conn-status .icon { width: 14px; height: 14px; }
 /* Where the scheduled jobs run: GitHub (Always on) or this Mac. */
-.ap-where { align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
+.ap-where { display: inline-flex; align-items: center; gap: var(--sp-1); align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
 .activity-panel #activity-schedule { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 /* Recent activity → a run: small facts under its summary (finished, how long, AI cost, where it ran). */
 .ap-facts { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-2); }

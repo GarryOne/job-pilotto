@@ -6,7 +6,7 @@ import {parseRunMessage} from '../run-cards.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
-import {$, osText, show} from './core.js';
+import {$, show} from './core.js';
 import {loadJobs, renderJobs} from './jobs.js';
 import {loadFocus} from './focus.js';
 import {openView} from './nav.js';
@@ -53,14 +53,15 @@ function searchPhase(step = '') {
   if (/digest|telegram/i.test(step)) return 'Sending your digest';
   return step.length > 60 ? `${step.slice(0, 57)}…` : step;
 }
-export const KIND = {search: {icon: '🔎', name: 'Jobs check'}, mail: {icon: '📧', name: 'Gmail check'}, insight: {icon: '💡', name: 'Insight'},
-  weekly: {icon: '📊', name: 'Weekly report'}, today: {icon: '📋', name: "Today's list"}, scout: {icon: '🔭', name: 'Find new employers'},
-  action: {icon: '⚡', name: 'Telegram action'}, prepare: {icon: '📝', name: 'Application kit'}, interview: {icon: '🎤', name: 'Interview review'},
-  add: {icon: '📥', name: 'Logged activity'}, rejection: {icon: '🔍', name: 'Rejection review'},
-  prep: {icon: '🎤', name: 'Interview prep kit'}};
+// icon: emoji for text the owner reads (toasts, messages); line: the line icon for rows and headers (same as Actions → Recent runs).
+export const KIND = {search: {icon: '🔎', line: 'search', name: 'Jobs check'}, mail: {icon: '📧', line: 'mail', name: 'Gmail check'}, insight: {icon: '💡', line: 'chart', name: 'Insight'},
+  weekly: {icon: '📊', line: 'file', name: 'Weekly report'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
+  action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
+  add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
+  prep: {icon: '🎤', line: 'mic', name: 'Interview prep kit'}};
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
-const WHERE = {github: '☁️ GitHub', mac: 'this Mac'};  // where a run ran, after who started it
+const WHERE = {github: 'GitHub', mac: 'this Mac'};  // where a run ran, after who started it
 // A run's status pill (Recent activity): running, queued, failed, completed with warnings, completed.
 function runStatus(run, warned) {
   if (run.live) return ['Running', 'info', {dot: true}];
@@ -85,11 +86,11 @@ function warningSummary(warnings) {
 // green "Started by you" for the ones you started.
 function runBadge(run) {
   if (run.waiting) return ['Queued', 'neutral'];
-  if (run.trigger === 'schedule') return ['Scheduled' + (run.where === 'github' ? ' · ☁️ GitHub' : ''), 'neutral'];
+  if (run.trigger === 'schedule') return ['Scheduled' + (run.where === 'github' ? ' · GitHub' : ''), 'neutral'];
   return [capital(WHO[run.trigger] || run.trigger) + runBadgeWhere(run), run.trigger === 'you' ? 'good' : 'neutral'];
 }
 // Where it ran, when not on this Mac (a run read from Notion: the user's GitHub repo, or elsewhere).
-const runBadgeWhere = run => (run.where === 'github' ? ' · ☁️ GitHub' : '');
+const runBadgeWhere = run => (run.where === 'github' ? ' · GitHub' : '');
 const runResults = new Map();  // run id -> the message a finished task produced, for Recent activity
 export let lastActivity = null;
 const runDetails = new Map();  // a Notion run's result and log, read once (pageId -> {message, log})
@@ -191,8 +192,8 @@ export function renderActivity(fresh) {
   const liveLines = running ? shared.logLines : null;
   const checked = (liveLines || []).filter(line => /^Checked: /.test(line)).length;
   const soon = at => (at <= Date.now() ? 'due now' : clockTime(new Date(at).toISOString()));  // a past time = runs at the next check
-  const mailNote = lastMail ? `📧 Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
-    : nextMailAt ? `📧 First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
+  const mailNote = lastMail ? `Gmail ${lastMail.off ? 'not connected' : `checked ${clockTime(lastMail.endedAt || lastMail.startedAt)} · ${outcome(lastMail)}`}`
+    : nextMailAt ? `First Gmail check ${nextMailAt <= Date.now() ? 'due now' : hhmm(nextMailAt)}` : '';
   if (running) {
     const kind = KIND[kindOf(running)];
     const next = (data.queued || []).length;
@@ -241,7 +242,7 @@ export function renderActivity(fresh) {
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
     const cost = el('span', `run-cost${run.usd > 0 ? '' : ' is-zero'}`, run.live || run.waiting ? '' : costOf(run));
     cost.title = run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI used in this run';
-    button.append(el('span', 'run-status'), el('span', 'run-icon', kind.icon), words, cost, pill(...runStatus(run, warned)));
+    button.append(el('span', 'run-icon', icon(kind.line)), words, cost, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
     return item;
@@ -278,7 +279,7 @@ export function renderActivity(fresh) {
   const hiddenCount = items.filter(([, , at]) => !(at && at === soonest)).length;
   $('ap-strip-more').textContent = `+${hiddenCount}`;
   show($('ap-strip-more'), hiddenCount > 0);
-  $('ap-where').textContent = cloud ? osText('☁️ Runs on GitHub · Always on') : 'Runs on this Mac while the app is open';
+  $('ap-where').replaceChildren(...(cloud ? [icon('cloud'), 'Runs on GitHub · Always on'] : ['Runs on this Mac while the app is open']));
   $('ap-where').title = cloud ? 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.' : '';
   // Check Gmail now: with a selected Gmail check, not in the schedule strip.
   const selected = shown || (running ? null : last);
@@ -308,7 +309,7 @@ export function renderActivity(fresh) {
   const detailWarnings = runWarnings(lines);
   const status = !run ? '' : run.live ? 'Running' : run.waiting ? 'Queued' : !run.ok || run.off ? 'Failed'
     : detailWarnings.length ? 'Completed with warnings' : 'Completed';
-  $('activity-icon').textContent = kind?.icon || '';
+  $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = !run ? 'Nothing has run yet' : `${kind.name} · ${status}`;
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
   // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
@@ -321,7 +322,7 @@ export function renderActivity(fresh) {
     run.live ? `Started ${hhmm(Date.parse(run.startedAt))}` : `Finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`,
     !run.live && seconds > 0 && (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`),
     !run.live && run.usd > 0 && `AI $${run.usd.toFixed(3)}`,
-    run.where === 'github' ? osText('☁️ GitHub') : run.where === 'mac' ? 'This Mac' : ''].filter(Boolean);
+    run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : ''].filter(Boolean);
   $('activity-facts').replaceChildren(...facts.map(text => el('span', 'ap-fact', text)));
   show($('activity-facts'), facts.length > 0);
   // A search that found new jobs: straight to them (newest first).

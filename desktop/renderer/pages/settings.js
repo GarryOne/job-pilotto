@@ -94,7 +94,7 @@ function stateLine(on, detail = '', checking = false) {
   }
   const line = el('span', `service-state${on ? ' is-on' : ''}`);
   const text = on ? `Connected${detail ? ` · ${detail}` : ''}` : 'Not connected';
-  line.append(icon(on ? 'check' : 'info'), el('span', 'service-state-text', text));  // long details end in "…"
+  line.append(icon(on ? 'check-circle' : 'info'), el('span', 'service-state-text', text));  // long details end in "…"
   line.title = text;
   return line;
 }

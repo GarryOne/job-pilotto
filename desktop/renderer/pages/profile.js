@@ -73,9 +73,9 @@ function renderNotionLinks() {
 export async function loadCvSetting() {
   const status = await window.pilot.cvStatus();
   // One glance: ready (and which design), or not read yet. ✂️ Tailor CV on a job uses it.
-  $('cv-state').textContent = status.base ? `· ✅ ready · ${status.custom ? '🎨 your design' : 'default design'}` : '· ⚪ read on your first ✂️ Tailor CV';
+  $('cv-state').textContent = status.base ? `· ready · ${status.custom ? 'your design' : 'default design'}` : '· read on your first Tailor CV';
   $('cv-view').hidden = !status.base;
-  $('cv-import').textContent = status.base ? '🔄 Read my CV PDF again' : '🔄 Read my CV PDF';
+  $('cv-import').querySelector('span').textContent = status.base ? 'Read my CV PDF again' : 'Read my CV PDF';
 }
 
 export async function loadSettings() {
