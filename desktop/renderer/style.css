@@ -531,7 +531,7 @@ table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); 
 .ap-time { margin-left: auto; font: 700 var(--fs-xl) var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #check-mail { justify-self: start; }
 .activity-recent { gap: 3px; margin: 0; }
-.recent-row { grid-template-columns: 20px 150px minmax(0, 1fr) auto auto; padding: 6px 10px; border-left: 3px solid transparent; font-size: var(--fs-sm); }
+.recent-row { grid-template-columns: 20px 150px minmax(0, 1fr) 56px 112px; padding: 6px 10px; border-left: 3px solid transparent; font-size: var(--fs-sm); }
 .recent-row.current { background: var(--good-soft); border-color: transparent; border-left-color: var(--teal); }
 .run-status { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 700 var(--fs-xs) var(--font-sans); color: var(--on-accent); background: var(--line); }
 .recent-row[data-state="ok"] .run-status { background: var(--good-bright); }
@@ -1348,7 +1348,8 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 
 /* Recent activity: each run's AI cost, right-aligned before its status. */
 .run-cost { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
-.run-cost:empty { display: none; }  /* no AI cost: no column space taken */
+.run-cost.is-zero { opacity: .55; }  /* no AI used: $0, lighter; the column keeps its width so every row lines up */
+.recent-row > .ui-pill, .recent-row > :last-child { justify-self: start; }
 .run-what .ui-tag { vertical-align: middle; }
 .focus-meta .is-done { color: var(--good); font-weight: 600; }
 .focus-actions button .spinner { margin-right: 6px; vertical-align: -2px; }

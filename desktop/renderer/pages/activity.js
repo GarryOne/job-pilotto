@@ -165,7 +165,9 @@ function withKept(data) {
 // Recent activity lists every run that took time or AI money, scheduled or started by you; the ones you started
 // (a Log box entry, an interview prep kit, a Check now) carry a "By you" tag, and every row shows its AI cost.
 const byYou = run => run.trigger === 'you' && !run.live && !run.waiting;
-const costOf = run => (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '');
+// Every run records its AI cost (⏰ Cronjob Runs "AI cost (USD)"): $0 means it used no AI (a Gmail check with no new
+// email, a search with nothing new to score), not a missing number.
+const costOf = run => (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '$0');
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -230,8 +232,8 @@ export function renderActivity(fresh) {
       ? `Waiting · starts after ${run.after}`
       : [clockTime(run.endedAt || run.startedAt), capital(outcome(run)), WHO[run.trigger] || run.trigger, WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
-    const cost = el('span', 'run-cost', costOf(run));
-    cost.title = run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI cost';
+    const cost = el('span', `run-cost${run.usd > 0 ? '' : ' is-zero'}`, run.live || run.waiting ? '' : costOf(run));
+    cost.title = run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI used in this run';
     button.append(el('span', 'run-status'), el('span', 'run-icon', kind.icon), words, cost, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
