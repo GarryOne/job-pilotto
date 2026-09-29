@@ -34,6 +34,14 @@ plus systematic-debugging for bugs. This repo's rules win where they differ:
 - Finish: rebase on `origin/main`, tests, push to `main` (no local merge, no PR unless asked), then Notion.
 - Small changes (a label, a style, a one-file fix): skip brainstorming and plans; edit → one suite → push.
 - Specs/plans go in `docs/superpowers/`; link big ones from the Notion Decision Log, don't copy them there.
+- When to use which (from the 24–29 Sep Run Log, where the rework came from):
+  - UI from an owner mockup or request: brainstorming first; confirm layout + behaviour in one message before code
+    (Profile moved and back, Settings saving changed twice, Actions redesigned 3× on 28 Sep).
+  - A bug the owner saw: systematic-debugging, root cause + failing test before any fix (Notion 429s took 3 rounds).
+  - Big features (Always on, migrations, Apply with Claude): a spec in `docs/superpowers/specs/` with a
+    "Data ownership" section (Notion vs cache) before code.
+  - "Done" = tests pass + the suite as CI runs it
+    (`JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest discover -s tests`, desktop `npm ci` with dev deps).
 
 ## Data ownership: Notion is the source of truth (one copy of everything)
 Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
