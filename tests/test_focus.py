@@ -166,12 +166,13 @@ class AddDetailsTests(unittest.TestCase):
 
 class ParallelReadsTests(unittest.TestCase):
     def test_reads_run_at_the_same_time_and_keep_their_order(self):
-        import time
+        import threading
         from src.notion.client import together
-        started = time.monotonic()
-        results = together(*[lambda n=n: (time.sleep(0.2), n)[1] for n in range(4)])
+        # Two reads at a time (workers=2, Notion's limit): each read waits at the barrier for a second one, so one at a
+        # time would time out (BrokenBarrierError). No wall-clock limit, so a slow CI runner can't fail it.
+        barrier = threading.Barrier(2, timeout=5)
+        results = together(*[lambda n=n: (barrier.wait(), n)[1] for n in range(4)])
         self.assertEqual(results, [0, 1, 2, 3])
-        self.assertLess(time.monotonic() - started, 0.6)  # four 0.2 s reads in about 0.2 s, not 0.8 s
 
     def test_the_profile_page_is_read_once_per_run(self):
         from src.notion.client import Tracker
