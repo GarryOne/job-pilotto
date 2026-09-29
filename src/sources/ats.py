@@ -99,6 +99,16 @@ def smartrecruiters(slug):
             return jobs
 
 
+# Its postings list has no description: each posting's details are fetched for the jobs that pass the filters
+# (feeds.scan), so stage 1 and the fit score can read them (without it, SmartRecruiters jobs stayed unscored).
+def smartrecruiters_detail(slug, job_id):
+    data = _json(f'https://api.smartrecruiters.com/v1/companies/{slug}/postings/{job_id}')
+    sections = (data.get('jobAd') or {}).get('sections') or {}
+    parts = [plain((sections.get(key) or {}).get('text')) for key in
+             ('jobDescription', 'qualifications', 'additionalInformation', 'companyDescription')]
+    return '\n\n'.join(part for part in parts if part)[:DESCRIPTION_LIMIT]
+
+
 def workable(slug):
     data = _json(f'https://apply.workable.com/api/v1/widget/accounts/{slug}')
     jobs = []
@@ -171,6 +181,8 @@ def netflix(slug='netflix'):
     return jobs
 
 
+# Boards whose list has no description, and how to fetch one posting's (ats -> fn(slug, job_id) -> text).
+DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
             'amazon': amazon, 'netflix': netflix}

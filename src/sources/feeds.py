@@ -91,7 +91,7 @@ def record(db, board, job, now):
     return status
 
 
-def scan(sources, db, fetcher=fetch):
+def scan(sources, db, fetcher=fetch, details=None):
     """Fetch every source, keep SRE-type titles in preferred locations, record seen history."""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     report = {"generated_at": now, "sources": [], "jobs": []}
@@ -112,6 +112,14 @@ def scan(sources, db, fetcher=fetch):
                             "salary_text": job.get("salary") or "",
                             "status": record(db, board, job, now)
                         })
+            # A board whose list has no description: fetch it for the jobs kept (a handful), so they can be scored.
+            detail = (details if details is not None else ats.DETAILS).get(source.get("ats", "greenhouse"))
+            for item in matched if detail else []:
+                if not item["description"]:
+                    try:
+                        item["description"] = detail(source.get("slug") or source["board"], item["id"]) or ""
+                    except Exception as error:  # one posting failing must not drop the others
+                        print(f'Warning: {source["company"]} {item["id"]}: description not fetched: {type(error).__name__}')
             report["jobs"].extend(matched)
             report["sources"].append({"company": source["company"], "ok": True,
                                       "total": len(jobs), "matches": len(matched)})

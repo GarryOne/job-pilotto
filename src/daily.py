@@ -17,7 +17,7 @@ from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
 from .paths import JOBS_DB, CONFIG, DATA, REPORTS, load_search_config, local_profile
-from .sources import ats, feeds, google_jobs
+from .sources import ats, describe, feeds, google_jobs
 
 
 
@@ -450,6 +450,14 @@ def main():
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += store.import_company_report(db, company_report)
+        # Jobs that came without a description (SmartRecruiters' list, a jobs.ch page that failed) get it now, or
+        # they'd never be enriched or scored. A few per run; a failure is tried again next run.
+        try:
+            note = describe.backfill(db)
+            if note:
+                print(note)
+        except Exception as error:
+            print(f'Warning: description backfill skipped: {type(error).__name__}: {error}')
         if args.enrich_max:
             # Runs after import so fresh descriptions are included. AI trouble never blocks the digest.
             try:
