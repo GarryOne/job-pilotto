@@ -1,7 +1,7 @@
 // The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
 // is left before you can submit) and reports it here; the session page shows the same, ticks off the agreements you
 // tick in the form, and its "Open the form to tick it" makes the page scroll to that field.
-//   page -> app  POST /extension/review {url, title, left, total, missing: [label], watch: [{id, filled: true|false|null}]}
+//   page -> app  POST /extension/review {url, title, left, total, missing: [label], filled: [label], watch: [{id, filled: true|false|null}]}
 //   app -> page  the reply: {matched, watch: [{id, label}], commands: [{focus: label}]}
 import fs from 'node:fs';
 import {scoreTab} from './form-tab.js';
@@ -68,6 +68,10 @@ export function report(sessions, payload, now = Date.now()) {
   const state = {id: session.id, left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   state.ready = state.total > 0 && state.left === 0;
+  // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
+  const seen = new Map((last.get(session.id)?.filled || []).map(item => [item.label, item.at]));
+  state.filled = (Array.isArray(payload.filled) ? payload.filled : []).slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
+    .map(label => ({label, at: seen.get(label) ?? now}));
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);

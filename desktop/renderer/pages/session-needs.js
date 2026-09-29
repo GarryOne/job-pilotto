@@ -68,9 +68,33 @@ export function watchAgreements(item, needs) {
 export function showFormState(item) {
   const state = reviewStates.get(item.id);
   const box = $('ss-form-state');
+  showFormCard(item, state);
   if (!state || !state.total) { box.replaceChildren(); return; }
   box.replaceChildren(state.ready ? pill('Form ready to submit', 'good', {dot: true})
     : pill(`Form: ${state.left} required left`, 'warn', {dot: true, title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists them)`}));
+}
+// "In the form": the bar and "7 / 9 required fields" always; each filled field (✓, when, since the session started) and
+// what's left (○) folded, since a long form is a long list.
+const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+function showFormCard(item, state) {
+  const card = $('ss-form-card');
+  card.hidden = !state?.total;
+  if (card.hidden) return;
+  const done = state.total - state.left;
+  $('ss-form-count').textContent = state.ready ? 'Ready to submit' : `${done} / ${state.total} required fields`;
+  $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
+  card.classList.toggle('is-ready', !!state.ready);
+  const start = Date.parse(item.startedAt || 0) || 0;
+  const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
+  $('ss-form-summary').textContent = `Show fields · ${filled.length} filled${state.left ? ` · ${state.left} left` : ''}`;
+  const row = (kind, time, mark, label) => {
+    const li = el('li', kind);
+    li.append(el('span', 'ss-form-time', time), el('span', 'ss-form-mark', mark), el('span', '', label));
+    return li;
+  };
+  $('ss-form-fields').replaceChildren(
+    ...filled.map(field => row('is-filled', start ? clock(Math.max(0, field.at - start)) : '', '✓', field.label)),
+    ...(state.missing || []).map(label => row('is-left', '', '○', label)));
 }
 export function applyFormStates(item) {
   const state = reviewStates.get(item.id);

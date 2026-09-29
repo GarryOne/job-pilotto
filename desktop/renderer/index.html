@@ -393,6 +393,12 @@
             <div class="ss-question" id="ss-question"></div>
             <div class="ss-decision-actions" id="ss-actions"></div>
           </div>
+          <!-- The form as it fills: the bar always; each field ticked off with its time, folded. -->
+          <section class="ss-fact-card ss-form" id="ss-form-card" hidden>
+            <div class="ss-fact-head"><i data-icon="columns"></i><b>In the form</b><span class="muted" id="ss-form-count"></span></div>
+            <div class="ss-form-bar"><span id="ss-form-bar"></span></div>
+            <details class="ss-form-more" id="ss-form-more"><summary id="ss-form-summary"></summary><ul class="ss-form-fields" id="ss-form-fields"></ul></details>
+          </section>
           <section class="ss-fact-card ss-needs" id="ss-needs-card" hidden>
             <div class="ss-fact-head"><i data-icon="alert"></i><b id="ss-needs-title">What Claude needs from you</b><span id="ss-needs-count"></span></div>
             <ul class="ss-checks" id="ss-needs"></ul>
