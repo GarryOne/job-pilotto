@@ -2,8 +2,8 @@
 // settings, in one Claude call. Nothing is saved until the user reviews and accepts the draft.
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
-import {pageText} from '../shared/worker/extension.js';
 import path from 'node:path';
+import * as notion from './notion.js';
 import {REPO} from './pipeline.js';
 
 export const MODEL = 'claude-sonnet-5';
@@ -150,9 +150,8 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
 export async function profileTexts(storage) {
   const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
   if (!token || !ids.NOTION_PROFILE_PAGE_ID) throw new Error('Connect Notion first: your Profile and standard answers live there.');
-  const env = {NOTION_TOKEN: token};
-  const [profile, answers] = await Promise.all([pageText(env, ids.NOTION_PROFILE_PAGE_ID),
-    ids.NOTION_ANSWERS_PAGE_ID ? pageText(env, ids.NOTION_ANSWERS_PAGE_ID) : '']);
+  const [profile, answers] = await Promise.all([notion.pageText(token, ids.NOTION_PROFILE_PAGE_ID),
+    ids.NOTION_ANSWERS_PAGE_ID ? notion.pageText(token, ids.NOTION_ANSWERS_PAGE_ID) : '']);  // kept pages (lib/notion.js)
   return {profile, answers};
 }
 // Copies an older version kept on the Mac go once Notion has them (lib/migrate.js).

@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {log} from './log.js';
+import * as sharedPace from './notion-pace.js';
 import {REPO} from './pipeline.js';
 
 const API = 'https://api.notion.com/v1/';
@@ -19,18 +20,37 @@ export function useSleep(fn) { sleep = fn; }  // for tests
 // One pace for the whole app: Notion allows about 3 requests a second per integration, and fills in several tabs,
 // the background polls and statistics would otherwise burst past it (429). Each call waits for its turn (spaced
 // GAP_MS apart), and after a 429 every call waits out the pause Notion asked for, not only the one that got it.
-const GAP_MS = 340;
+// The turns are shared with the other processes on this computer that use the same connection (lib/notion-pace.js).
+const GAP_MS = sharedPace.GAP_MS;
 let nextSlot = 0, calmUntil = 0;
-async function turn(now = Date.now) {
-  const at = Math.max(nextSlot, calmUntil, now());
-  nextSlot = at + GAP_MS;
-  if (at > now()) await sleep(at - now());
+async function turn(token, now = Date.now) {
+  const shared = await sharedPace.claim(token, now);
+  const at = shared ?? Math.max(nextSlot, calmUntil, now());
+  if (shared === null) nextSlot = at + GAP_MS;
+  const wait = Math.max(at, calmUntil) - now();
+  if (wait > 0) await sleep(wait);
 }
-export const _pace = {reset: () => { nextSlot = 0; calmUntil = 0; }, state: () => ({nextSlot, calmUntil})};  // tests
+export const _pace = {reset: token => { nextSlot = 0; calmUntil = 0; if (token) fs.rmSync(sharedPace.paceFile(token), {force: true}); },
+  state: () => ({nextSlot, calmUntil})};  // tests
+// How many requests the app sends, logged once a minute (app.log): "[notion] last minute: 12 requests (GET blocks 9, …)".
+const counted = new Map();
+let countTimer = null;
+function count(method, route) {
+  const kind = `${method} ${route.split(/[/?]/)[0]}`;
+  counted.set(kind, (counted.get(kind) || 0) + 1);
+  countTimer ??= setTimeout(() => {
+    const total = [...counted.values()].reduce((a, b) => a + b, 0);
+    log('notion', `last minute: ${total} requests (${[...counted].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ')})`);
+    counted.clear();
+    countTimer = null;
+  }, 60_000);
+  countTimer.unref?.();
+}
 // pace: real Notion calls take their turn; a fake fetcher (tests) runs at once unless asked.
 export async function call(token, method, route, body, fetcher = globalThis.fetch, {retries = 4, pace = fetcher === globalThis.fetch} = {}) {
   for (let attempt = 0; ; attempt++) {
-    if (pace) await turn();
+    if (pace) { await turn(token); count(method, route); }
+    if (method !== 'GET') forgetChecks();  // the app changed something: kept pages are checked again before use
     const response = await fetcher(API + route, {
       method,
       headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
@@ -41,7 +61,10 @@ export async function call(token, method, route, body, fetcher = globalThis.fetc
     if (RETRY.has(response.status) && attempt < retries) {
       const after = Number(response.headers?.get?.('retry-after'));
       const wait = Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 500 * 2 ** attempt, 10_000);
-      if (response.status === 429) calmUntil = Math.max(calmUntil, Date.now() + wait);  // everyone waits it out
+      if (response.status === 429) {  // everyone waits it out: this app and the other processes
+        calmUntil = Math.max(calmUntil, Date.now() + wait);
+        if (pace) await sharedPace.calmUntil(token, calmUntil);
+      }
       log('notion', `${response.status} on ${method} ${route.split('?')[0]}: retry ${attempt + 1}/${retries} in ${wait} ms`);
       await sleep(wait);
       continue;
@@ -248,20 +271,74 @@ export const pageUrl = id => `https://www.notion.so/${String(id).replace(/-/g, '
 // ---------- text blocks of a page (the standard answers' ❓ lines, the 🧠 Form knowledge bullets) ----------
 const plainOf = block => (block[block.type]?.rich_text || []).map(t => t.plain_text).join('');
 // Every block with text, in page order, down to toggles and nested lists (2 levels): [{id, type, text, parent}].
-export async function textBlocks(token, pageId, fetcher, depth = 0) {
-  const found = [];
-  let cursor;
-  do {
-    const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
-    for (const block of page.results) {
-      if (block[block.type]?.rich_text) found.push({id: block.id, type: block.type, text: plainOf(block), parent: pageId});
-      if (block.has_children && depth < 2 && !['child_page', 'child_database'].includes(block.type)) {
-        found.push(...await textBlocks(token, block.id, fetcher, depth + 1));
-      }
+// ---- Page trees, kept in memory ----
+// A page's text means opening every toggle and table inside it: 20-40 requests for the Profile. Several features
+// read the same pages (contact details, standard answers, the Profile for AI calls, form knowledge), so a page's
+// blocks are kept and read again only when Notion says the page changed: one cheap request for its
+// last_edited_time. Notion rounds that time to the minute, so a page edited in the last 2 minutes is always read
+// again. A check less than 20 s old is reused (a fill reads 3 pages at once); any write the app makes clears the
+// checks; everything is read again at least every 10 minutes. Notion stays the source of truth.
+const trees = new Map();    // "token|page" -> {edited, blocks, checkedAt, readAt}
+const reading = new Map();  // reads under way, shared by everyone asking for the same page
+const CHECKED_MS = 20_000, SETTLE_MS = 120_000, MAX_AGE_MS = 10 * 60_000;
+export const _trees = {reset: () => { trees.clear(); reading.clear(); }};  // tests
+const forgetChecks = () => { for (const tree of trees.values()) tree.checkedAt = 0; };
+
+async function readTree(token, id, fetcher, depth = 0) {
+  const blocks = await childrenOf(token, id, fetcher);
+  for (const block of blocks) {
+    if (block.has_children && depth < 2 && !['child_page', 'child_database'].includes(block.type)) {
+      block.children = await readTree(token, block.id, fetcher, depth + 1);
     }
-    cursor = page.has_more ? page.next_cursor : null;
-  } while (cursor);
+  }
+  return blocks;
+}
+// A page's blocks, two levels deep (children in block.children). cache: on for real Notion calls, off for test fakes.
+export async function pageTree(token, pageId, fetcher = globalThis.fetch, {cache = fetcher === globalThis.fetch} = {}) {
+  if (!cache) return readTree(token, pageId, fetcher);
+  const key = `${token}|${pageId}`;
+  if (reading.has(key)) return reading.get(key);
+  const job = (async () => {
+    const kept = trees.get(key), started = Date.now();
+    const young = kept && started - kept.readAt < MAX_AGE_MS;
+    if (young && started - kept.checkedAt < CHECKED_MS) return kept.blocks;
+    let edited = '';
+    try { edited = (await call(token, 'GET', `pages/${pageId}`, null, fetcher)).last_edited_time || ''; } catch { /* not a page: read it */ }
+    const settled = edited && Date.now() - Date.parse(edited) > SETTLE_MS;
+    if (young && settled && kept.edited === edited) { kept.checkedAt = Date.now(); return kept.blocks; }
+    const blocks = await readTree(token, pageId, fetcher);
+    trees.set(key, {edited, blocks, checkedAt: Date.now(), readAt: started});
+    return blocks;
+  })().finally(() => reading.delete(key));
+  reading.set(key, job);
+  return job;
+}
+// The text blocks of a page (and of its toggles and lists), with the block each sits in.
+export async function textBlocks(token, pageId, fetcher, options) {
+  const found = [];
+  const walk = (blocks, parent) => {
+    for (const block of blocks) {
+      if (block[block.type]?.rich_text) found.push({id: block.id, type: block.type, text: plainOf(block), parent});
+      if (block.children) walk(block.children, block.id);
+    }
+  };
+  walk(await pageTree(token, pageId, fetcher, options), pageId);
   return found;
+}
+// Readable text of a page: paragraphs, headings, lists, toggles and table rows ("a | b"), as the AI prompts use it.
+export async function pageText(token, pageId, fetcher, options) {
+  const lines = [];
+  const plain = items => (items || []).map(item => item.plain_text || '').join('');
+  const walk = blocks => {
+    for (const block of blocks) {
+      const body = block[block.type] || {};
+      if (block.type === 'table_row') lines.push(body.cells.map(plain).join(' | '));
+      else if (body.rich_text) lines.push(plain(body.rich_text));
+      if (block.children) walk(block.children);
+    }
+  };
+  walk(await pageTree(token, pageId, fetcher, options));
+  return lines.filter(Boolean).join('\n');
 }
 export async function setBlockText(token, block, text, fetcher) {
   await call(token, 'PATCH', `blocks/${block.id}`, {[block.type]: {rich_text: [{type: 'text', text: {content: text.slice(0, 1900)}}]}}, fetcher);

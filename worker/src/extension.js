@@ -33,6 +33,7 @@ function sameSecret(given, expected) {
 }
 
 function notion(env, path, method = 'GET', body) {
+  if (env.notionCall) return env.notionCall(path, method, body);  // the desktop app: its paced, retrying Notion client
   return fetch(`https://api.notion.com/v1/${path}`, {
     method,
     headers: {

@@ -30,7 +30,7 @@ test('without Retry-After it backs off; it gives up after its retries; other err
 });
 
 test('one pace for the whole app: calls take turns ~340 ms apart, and a 429 makes every call wait it out', async () => {
-  notion._pace.reset();
+  notion._pace.reset('t');
   const waits = [];
   notion.useSleep(async ms => { waits.push(ms); });
   let calls = 0;
@@ -42,5 +42,5 @@ test('one pace for the whole app: calls take turns ~340 ms apart, and a 429 make
   await Promise.all([notion.call('t', 'GET', 'a', null, fetcher, {pace: true}), notion.call('t', 'GET', 'b', null, fetcher, {pace: true})]);
   assert.ok(waits.some(ms => ms > 250 && ms <= 340), `the second call waited for its turn: ${waits}`);
   assert.ok(notion._pace.state().calmUntil > Date.now() + 1000, 'after the 429 the whole app pauses ~2 s');
-  notion._pace.reset();
+  notion._pace.reset('t');
 });

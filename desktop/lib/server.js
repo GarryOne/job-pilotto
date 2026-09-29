@@ -10,7 +10,7 @@ import * as strategy from './strategy.js';
 import * as knowledge from './knowledge.js';
 import * as viewCache from './view-cache.js';
 import * as contactDetails from './contact.js';
-import {handleExtension, jobKey, pageText} from '../shared/worker/extension.js';
+import {handleExtension, jobKey} from '../shared/worker/extension.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';
@@ -42,7 +42,14 @@ export function localEnv(storage) {
   };
   const notionToken = storage.secret('NOTION_TOKEN');
   const ids = settings.notionIds || {};
+  // extension.js calls Notion through the app's paced, retrying call(), and reads the Profile, standard answers and
+  // 🧠 Form knowledge from the kept pages (lib/notion.js): only when a request needs them (getters), not on every poll.
+  const kept = id => (id ? notion.pageText(notionToken, id) : Promise.resolve(''));
   return {
+    notionCall: (route, method = 'GET', body) => notion.call(notionToken, method, route, body),
+    get PROFILE_TEXT() { return kept(ids.NOTION_PROFILE_PAGE_ID); },
+    get ANSWERS_TEXT() { return kept(ids.NOTION_ANSWERS_PAGE_ID); },
+    get KNOWLEDGE_TEXT() { return kept(ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
     NOTION_TOKEN: notionToken,

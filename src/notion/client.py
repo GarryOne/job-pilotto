@@ -28,10 +28,10 @@ SOFT_STAGES = {'Saved', 'Dismissed', 'Kit ready'}
 # 'Kit ready' = a kit was drafted automatically; 'Saved' = the owner tapped ⭐ (starred in digests).
 
 
-def together(*calls, workers=4):
+def together(*calls, workers=2):
     """Run independent Notion reads at the same time (each is one or a few HTTP requests): a page load then waits
     for the slowest read, not the sum. Results in order; the first error is raised, like calling them in turn.
-    At most `workers` at once, within Notion's rate limit (about 3 requests a second on average)."""
+    At most `workers` at once; every request still takes its turn (src/notion/pace.py), within Notion's rate limit."""
     from concurrent.futures import ThreadPoolExecutor
     if len(calls) < 2:
         return [call() for call in calls]
@@ -70,8 +70,15 @@ class Tracker:
     RETRY_STATUS = {429, 502, 503, 504}
     RETRIES = 4
 
+    def _paced(self):
+        """Real Notion calls take their turn with the app and other runs (src/notion/pace.py); test fakes don't."""
+        return self.opener is urllib.request.urlopen
+
     def _request(self, method, path, body=None):
+        from . import pace
         for attempt in range(self.RETRIES + 1):
+            if self._paced():
+                pace.wait_turn(self.token, self.sleep)
             request = urllib.request.Request(
                 f'https://api.notion.com/v1/{path}', method=method,
                 data=json.dumps(body).encode() if body is not None else None,
@@ -87,7 +94,10 @@ class Tracker:
                     wait = float(error.headers.get('Retry-After') or 0) if error.headers else 0
                 except ValueError:
                     wait = 0
-                self.sleep(min(wait if wait > 0 else 0.5 * 2 ** attempt, 10))
+                wait = min(wait if wait > 0 else 0.5 * 2 ** attempt, 10)
+                if error.code == 429 and self._paced():
+                    pace.calm_until(self.token, time.time() * 1000 + wait * 1000)  # everyone waits it out
+                self.sleep(wait)
 
     def _query(self, filter_=None, database_id=None):
         body, pages = {'page_size': 100}, []
@@ -243,8 +253,38 @@ class Tracker:
         command is one short run): a second call, e.g. the Profile for two sections, costs nothing."""
         cache = self.__dict__.setdefault('_page_texts', {})
         if page_id not in cache:
-            cache[page_id] = self._page_text(page_id)
+            cache[page_id] = self._kept_page_text(page_id) if self._paced() else self._page_text(page_id)
         return cache[page_id]
+
+    # Kept on disk between runs, like the app keeps pages (desktop/lib/notion.js): read again only when Notion says
+    # the page changed (its last_edited_time: 1 request instead of the page and each of its tables), when it was
+    # edited in the last 2 minutes (Notion rounds that time to the minute), or when the copy is over an hour old.
+    PAGE_SETTLE_S, PAGE_MAX_AGE_S = 120, 3600
+
+    def _kept_page_text(self, page_id):
+        from datetime import datetime
+        from ..paths import DATA
+        path = DATA / 'cache' / 'notion-pages' / f'{page_id}.json'
+        try:
+            edited = self._request('GET', f'pages/{page_id}').get('last_edited_time', '')
+        except (urllib.error.URLError, OSError, ValueError):
+            return self._page_text(page_id)
+        try:
+            kept = json.loads(path.read_text())
+        except (OSError, ValueError):
+            kept = {}
+        now = time.time()
+        edited_at = datetime.fromisoformat(edited.replace('Z', '+00:00')).timestamp() if edited else now
+        if (kept.get('edited') == edited and now - edited_at > self.PAGE_SETTLE_S
+                and now - kept.get('read_at', 0) < self.PAGE_MAX_AGE_S):
+            return kept.get('text', '')
+        text = self._page_text(page_id)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({'edited': edited, 'read_at': now, 'text': text}))
+        except OSError:
+            pass
+        return text
 
     def _page_text(self, page_id):
         lines = []
