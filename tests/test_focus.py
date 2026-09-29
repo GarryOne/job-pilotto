@@ -119,6 +119,27 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class AddDetailsTests(unittest.TestCase):
+    def test_an_interview_known_only_from_the_invitation_asks_for_the_details(self):
+        invite = row('h1', '', 'Connect Igor / Jaya - SRE', stage='Interview scheduled', applied=None,
+                     interview='2026-09-30T08:30:00+02:00', Via='Huxley')
+        invite['properties']['Job URL'] = {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}
+        known = row('k1', 'Acme', 'SRE', stage='Interview scheduled', interview='2026-10-02T10:00:00+02:00', Salary='CHF 150k')
+        items = focus.build([invite, known], [], target=0, now=NOW)['items']
+        asks = [i for i in items if i['kind'] == 'details']
+        self.assertEqual(len(asks), 1)
+        self.assertEqual(asks[0]['title'], 'Add details: Huxley — Connect Igor / Jaya - SRE')
+        self.assertEqual(asks[0]['missing'], ['company', 'salary', 'job description'])
+        self.assertIn('Wed 30 Sep, 08:30', asks[0]['detail'])
+        self.assertIn('prepare', [i['kind'] for i in items])  # still reminded to prepare
+
+    def test_a_named_employer_without_pay_or_posting_still_asks(self):
+        lead = row('l1', 'Acme', 'SRE', stage='Screening')
+        lead['properties']['Job URL'] = {'type': 'url', 'url': 'https://www.linkedin.com/messaging/#jp-abc'}
+        asks = [i for i in focus.build([lead], [], target=0, now=NOW)['items'] if i['kind'] == 'details']
+        self.assertEqual(asks[0]['missing'], ['salary', 'job description'])
+
+
 class ParallelReadsTests(unittest.TestCase):
     def test_reads_run_at_the_same_time_and_keep_their_order(self):
         import time

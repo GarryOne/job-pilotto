@@ -283,6 +283,37 @@ class MailTests(unittest.TestCase):
         mail.save_state({'ledger': 'real-events', 'seen': ['m2'], 'notified': []}, self.state)
         self.assertEqual(mail.load_state(self.state, ledger='real-events')['seen'], ['m2'])
 
+    def test_query_also_asks_for_agencies_invitations_and_short_role_names(self):
+        with mock.patch.object(mail, 'role_words', lambda: ('site reliability', 'devops engineer')):
+            q = mail.query([], 2)
+        self.assertIn('subject:"SRE"', q)
+        self.assertIn('subject:"DevOps"', q)
+        extra = mail.extra_query(2)
+        self.assertIn('from:huxley.com', extra)
+        self.assertIn('filename:invite.ics', extra)
+        self.assertNotIn('huxley', q)  # a second, short search: the first one stays within Gmail's limit
+
+    def test_an_interview_about_a_job_not_tracked_is_tracked_and_asks_which_job(self):
+        tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
+        invite = email('h1', 'Connect Igor / Jaya - SRE', sender='Jaya <j.nejati@huxley.com>')
+        google = FakeGoogle([invite])
+        tracked = []
+
+        def track(tracker_, lead, text_, **options):
+            tracked.append(lead)
+            row = app('new-lead', '', lead['title'], stage='Screening', via=lead.get('recruiter_company', ''))
+            return row, ''
+        with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
+                mock.patch('src.ai.opportunity.track', track):
+            _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='Huxley',
+                                                              interview_at='2026-09-30T08:30:00+02:00')]])
+        self.assertEqual(tracked[0]['recruiter_company'], 'Huxley')
+        self.assertEqual(tracked[0]['company'], '')  # the agency is not the employer
+        self.assertEqual(tracked[0]['title'], 'Connect Igor / Jaya - SRE')
+        kinds = [p['Kind']['select']['name'] for p in tracker.created if 'Kind' in p]
+        self.assertIn('Interview scheduled', kinds)
+        self.assertIn('which job?', sent[0])
+
     def test_irrelevant_and_untracked_mail(self):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
         google = FakeGoogle([email('m5', 'Jobs you may like'), email('m6', 'Thanks for applying to Zeta')])

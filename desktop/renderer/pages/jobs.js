@@ -348,6 +348,15 @@ function leadTargets() {
   tracked.forEach(job => group.append(option(job.url, `${job.company || '—'} · ${job.title} (${job.stage})`)));
   $('lead-target').replaceChildren(option('', 'Find the right job automatically'), option('new', 'A new job'), ...(tracked.length ? [group] : []));
 }
+// The Log box, opened on one job (Focus → Add details): its "Which job?" already set to it.
+export function openLogFor(url, label = '') {
+  $('lead-open').click();
+  if (!url) return;
+  if (![...$('lead-target').options].some(o => o.value === url)) {
+    $('lead-target').append(Object.assign(document.createElement('option'), {value: url, textContent: label || url}));
+  }
+  $('lead-target').value = url;
+}
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
 function setDensity(value) {
   const compact = value === 'compact';

@@ -116,6 +116,10 @@ def present(item):
         meta = [_short(item['job'], 40), {'feedback': 'One specific point can improve your next interview',
                 'feedback_wait': 'Gmail checks for replies · or add feedback here',
                 'feedback_review': 'Employer feedback, separate from AI guesses'}[kind]]
+    elif kind == 'details':
+        icon, badge, tone = 'info', 'Add details', 'bad' if item['stage'] == 'Interview scheduled' else 'warn'
+        headline = f"Tell Job Pilotto about {who}" if item['company'] else f'Which job is the {who} interview for?'
+        meta = [_short(item['job'], 40), 'missing: ' + ', '.join(item.get('missing', []))]
     elif kind == 'apply':
         done, left, kits = item.get('applied', 0), item.get('left', 0), item.get('kits', 0)
         icon, badge, tone = 'briefcase', 'Next step', 'info'
@@ -177,6 +181,19 @@ def _applied_today(rows, by_app, today):
     return len({i.replace('-', '') for i in ids})
 
 
+# A job known only from an invitation or a message: its Job URL is the email, the chat or a derived link.
+PLACEHOLDER_URL = re.compile(r'mail\.google\.com|linkedin\.com/messaging|jobpilotto\.workers\.dev/lead')
+
+
+def thin(row):
+    """What an interviewing job still lacks that you'd want before the call ([] when it's known well enough):
+    the employer, or both the pay and the posting (only the meeting or the message is known)."""
+    missing = [] if _field(row, 'Company') else ['company']
+    if not _field(row, 'Salary') and PLACEHOLDER_URL.search(_field(row, 'Job URL')):
+        missing += ['salary', 'job description']
+    return missing
+
+
 def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insights=()):
     """{'items': [...], 'today': {...}}: the focus list, most important first. Pure: no I/O."""
     now = now or datetime.now(timezone.utc)
@@ -208,6 +225,17 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             continue
         if stage in ENDED:
             continue
+        # Talking or interviewing, but the employer isn't known (an agency's invitation, a hidden client): ask the
+        # owner for the details (the app opens its Log box on this job: paste the LinkedIn chat or the job link).
+        missing = thin(row)
+        if stage in ('Screening', 'Interview scheduled', 'Interviewing') and missing:
+            coming_at = _when(_field(row, 'Next interview'))
+            when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
+            who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
+            items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_field(row, 'Job')[:70]}",
+                               f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
+                               "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
+                               row, missing=missing))
         last = history[-1] if history else None
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
         label = f"{company} — {_field(row, 'Job')[:70]}"
@@ -289,7 +317,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         items.append(_item(4, 'waiting', '⏳', f'{len(waiting)} application{"s" if len(waiting) != 1 else ""} waiting {WAITING_DAYS}+ days',
                            'No human reply yet. For the ones you care most about, message the recruiter or a team member '
                            'on LinkedIn; let the rest go (they close as No response after 21 days).'))
-    order = {'offer': 0, 'book': 1, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
+    order = {'offer': 0, 'book': 1, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
              'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     items = [present(item) for item in items]

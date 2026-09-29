@@ -48,6 +48,17 @@ SENDER_DOMAINS = ('greenhouse.io', 'greenhouse-mail.io', 'lever.co', 'ashbyhq.co
                   'myworkday.com', 'myworkdayjobs.com', 'personio.de', 'personio.com', 'recruitee.com', 'teamtailor.com',
                   'join.com', 'bamboohr.com', 'jobvite.com', 'icims.com', 'techtree.dev', 'cal.com', 'calendly.com',
                   'goodtime.io', 'devskiller.com', 'thomas.co', 'hackerrank.com', 'codility.com', 'coderpad.io')
+# Recruitment agencies: their emails name the candidate and a short role ("Connect Igor / Jaya - SRE"), rarely a
+# subject word below, and the employer is often hidden, so no tracked company matches either.
+RECRUITER_DOMAINS = ('huxley.com', 'hays.com', 'hays.ch', 'hays.de', 'michaelpage.com', 'michaelpage.ch', 'pagegroup.com',
+                     'robertwalters.com', 'robertwalters.ch', 'randstad.com', 'randstad.ch', 'adecco.com', 'adecco.ch',
+                     'experis.com', 'experis.ch', 'harveynash.com', 'akkodis.com', 'modis.com', 'computerfutures.com',
+                     'frankgroup.com', 'jeffersonfrank.com', 'nigelfrank.com', 'masonfrank.com', 'sthree.com',
+                     'progressive.com', 'oliverjames.com', 'harnham.com', 'wearehirehive.com', 'kforce.com', 'kellyservices.ch')
+# Emailed calendar invitations carry an invite.ics: an interview booked by someone the check doesn't know yet.
+INVITES = 'filename:invite.ics'
+# Short forms of the user's role words, as recruiters write them in subjects.
+ROLE_SHORT = {'site reliability': 'SRE', 'devops': 'DevOps', 'platform engineer': 'Platform', 'kubernetes': 'Kubernetes'}
 SUBJECT_WORDS = ('application', 'applying', 'applied', 'interview', 'candidacy', 'your candidature', 'next steps',
                  'screening', 'offer', 'opportunity', 'role', 'position', 'hiring', 'feedback')
 # LinkedIn's own notification emails for a new message or InMail (the owner's mail, not LinkedIn scraping).
@@ -158,8 +169,17 @@ def verified_feedback(value, original):
 def query(apps, days):
     """One Gmail search: known senders, application-ish subjects, or a tracked company's name."""
     names = {n for r in apps for n in (_field(r, 'Company'), _field(r, 'Via')) if n and len(n) > 2 and len(n) < 40}
-    terms = ([f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'subject:"{w}"' for w in SUBJECT_WORDS + role_words()]
+    roles = role_words()
+    short = tuple(dict.fromkeys(s for key, s in ROLE_SHORT.items() if any(key in r.lower() for r in roles)))
+    terms = ([f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'subject:"{w}"' for w in SUBJECT_WORDS + roles + short]
              + [f'"{n}"' for n in sorted(names)])
+    return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
+
+
+def extra_query(days):
+    """A second, short search (a single long one risks Gmail's query limit): recruitment agencies and emailed
+    calendar invitations, which the first search misses when nothing about them is tracked yet."""
+    terms = [f'from:{d}' for d in RECRUITER_DOMAINS] + [INVITES]
     return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
 
 
@@ -314,7 +334,8 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
               on_new=None):
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
-    ids = [i for i in google.search(query(apps, days), limit=60) if i not in seen and i not in index[0]]
+    found = list(dict.fromkeys(google.search(query(apps, days), limit=60) + google.search(extra_query(days), limit=30)))
+    ids = [i for i in found if i not in seen and i not in index[0]]
     emails = sorted((google.message(i) for i in ids), key=lambda m: m['date'])
     if not emails:
         return [], 0
@@ -341,6 +362,14 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                 lines += new_lead(tracker, client, model, email, apps, stats, on_new)
                 continue
             result['kind'] = REPLY  # the same recruiter again, about a role already tracked
+        if not row and result.get('kind') == 'Interview scheduled' and not _about_tracked(
+                apps, f"{result['company']} {email['from']} {email['subject']}"):
+            # An interview for a job not tracked yet (often via an agency, the employer unnamed): track it from the
+            # email and let Focus ask for the missing details, rather than drop it or name the job after the agency.
+            row = interview_lead(tracker, client, model, email, apps, result, stats)
+            if row is not None:
+                lines.append(f"❓ {_label(row)}: an interview, but which job? Add the details in Job Pilotto "
+                             "(Focus → Add details: paste the LinkedIn chat or the job link).")
         if not row and named:
             # The email names a role that isn't tracked (applied elsewhere, or before Job Pilotto): track it.
             row = _from_email(tracker, apps, result, email, stats, lines, on_new)
@@ -457,6 +486,41 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     lines.append(f"➕ {_label(row)}: tracked from this email (applied elsewhere).")
     if stats is not None:
         stats.setdefault('updates', []).append(f"➕ Tracked · {company} — {role[:70]}")
+    return row
+
+
+def _sender_org(sender):
+    """"Huxley" from "Jaya <j.nejati@huxley.com>": the agency or company an email comes from."""
+    domain = (re.search(r'@([\w.-]+)', sender or '') or [None, ''])[1].lower()
+    parts = [p for p in domain.split('.') if p not in ('mail', 'email', 'co', 'com', 'ch', 'de', 'io', 'uk', 'net', 'org')]
+    return parts[-1].capitalize() if parts else ''
+
+
+def interview_lead(tracker, client, model, email, apps, result, stats):
+    """An interview invitation about a job nothing tracks yet: the Applications row from the email (role, agency,
+    contact, the message), at Screening; the caller then records the interview (Stage Interview scheduled, Next
+    interview). The employer is often unnamed: Focus then asks the owner to add the details. None if not tracked."""
+    text = f"Subject: {email['subject']}\n\n{email['body']}"
+    try:
+        lead = opportunity.extract(client, model, text, sender=email['from'], stats=stats)
+    except Exception as error:  # noqa: BLE001 — the email's own facts are enough to track it
+        print(f"Warning: interview email {email['id']} not read: {type(error).__name__}: {error}", file=sys.stderr)
+        lead = {}
+    lead = {**lead, 'title': lead.get('title') or result.get('role') or email['subject'][:120],
+            'company': lead.get('company') or '', 'platform': 'Email'}
+    if not lead.get('company') and not lead.get('recruiter_company'):
+        lead['recruiter_company'] = _sender_org(email['from'])
+    try:
+        row, _ = opportunity.track(tracker, lead, text, source='Gmail', event_source='Gmail', talking=True,
+                                   at=email['date'], gmail_id=email['id'],
+                                   note=f"Interview invitation: \"{email['subject'][:120]}\"")
+    except Exception as error:  # noqa: BLE001
+        print(f"Warning: interview email {email['id']} not tracked: {type(error).__name__}: {error}", file=sys.stderr)
+        return None
+    if row is not None:
+        apps.append(row)
+        if stats is not None:
+            stats.setdefault('updates', []).append(f"❓ Interview · {opportunity.label(lead)} — which job? Add details"[:140])
     return row
 
 

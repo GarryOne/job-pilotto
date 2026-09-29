@@ -184,6 +184,21 @@ def _row_for(tracker, url):
     return row
 
 
+GAPS = {'Company': 'company', 'Location': 'location', 'Salary': 'salary'}
+
+
+def _fill_gaps(tracker, row, item):
+    """What a job was missing (the employer behind an agency's invitation, where, the pay) from the pasted message.
+    Only empty fields are filled: nothing you or an earlier message wrote is replaced. Returns the names filled."""
+    changes = {name: {'rich_text': [{'text': {'content': str(item[key])[:200]}}]}
+               for name, key in GAPS.items() if item.get(key) and not plain(row['properties'].get(name))}
+    if changes:
+        tracker.update_page(row['id'], changes)
+        for name, value in changes.items():
+            row['properties'][name] = {'type': 'rich_text', 'rich_text': [{'plain_text': value['rich_text'][0]['text']['content']}]}
+    return [GAPS[name] for name in changes]
+
+
 def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
         event_source='CLI', stats=None, now=None, target='', on_new=None):
     """Read one pasted message or screenshot, update or create the job it's about. Returns one line for the reply.
@@ -250,6 +265,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         created = True
 
     stage, url = plain(row['properties'].get('Stage')), plain(row['properties'].get('Job URL'))
+    filled = _fill_gaps(tracker, row, item) if not created else []
     label = mail._label(row)
     changed = None
     if kind == OUTREACH and stage not in EARLY:  # the same pitch again (a follow-up would read as a reply)
@@ -273,6 +289,9 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     if talking and (stage == opportunity.LEAD_STAGE or changed == opportunity.LEAD_STAGE):
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'
+    if not changed and filled:
+        _keep(tracker, row, text, image, summary, when)
+        return f"🧩 Updated: {label}: added {', '.join(filled)}."
     if not changed:
         return f'ℹ️ Already logged: {label} ({stage})'
     _keep(tracker, row, text, image, summary, when)

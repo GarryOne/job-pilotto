@@ -3,7 +3,7 @@ import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, savedAgo, show} from './core.js';
-import {showJobsIn} from './jobs.js';
+import {openLogFor, showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
@@ -104,6 +104,8 @@ function focusCard(item) {
   if (item.kind === 'feedback_wait') actions.append(focusButton('Add feedback', 'primary', () => openFeedback(item, 'receive')));
   if (item.kind === 'feedback_review') actions.append(focusButton('Read feedback', 'primary', () => openFeedback(item, 'review')));
   if (item.link && !item.kind.startsWith('feedback')) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
+  if (item.kind === 'details') actions.append(focusButton('Add details', 'primary',
+    () => openLogFor(item.job_url, `${item.company || item.via || '—'} · ${item.job}`)));
   if (item.kind === 'apply') actions.append(focusButton('Browse jobs', 'primary', () => openView('jobs')));
   if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
   if (!item.link && ['reply', 'book', 'offer', 'prepare', 'nudge'].includes(item.kind) && item.notion_url) {
