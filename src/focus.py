@@ -251,7 +251,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             continue
         # Talking or interviewing, but the employer isn't known (an agency's invitation, a hidden client): ask the
         # owner for the details (the app opens its Log box on this job: paste the LinkedIn chat or the job link).
-        missing = thin(row)
+        # Asked until you log something on the job (the Log box): then you've said what you know; what the chat
+        # didn't say (a hidden employer, no salary) stays visible on the job, not as a to-do.
+        told = any(e['source_id'].startswith('paste:') for e in history)
+        missing = [] if told else thin(row)
         # Only once an interview is booked: an agency keeping the employer hidden while you're only talking is normal.
         if stage in ('Interview scheduled', 'Interviewing') and missing:
             coming_at = _when(_field(row, 'Next interview'))

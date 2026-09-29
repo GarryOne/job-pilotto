@@ -41,6 +41,13 @@ class FillGapsTest(unittest.TestCase):
         self.assertEqual(inbox._fill_gaps(tracker, row, {'role': 'Principal SRE'}), ['the title "Principal SRE"'])
         self.assertEqual(inbox._fill_gaps(FakeTracker(), row, {'role': 'Data Engineer'}), [])
 
+    def test_a_date_shown_without_its_year_is_this_years(self):
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 29, 13, 0, tzinfo=timezone.utc)
+        self.assertEqual(inbox._this_year('2024-09-21T10:00:00+00:00', now)[:10], '2026-09-21')
+        self.assertEqual(inbox._this_year('2024-12-21T10:00:00+00:00', now)[:10], '2025-12-21')  # never in the future
+        self.assertEqual(inbox._this_year('2026-09-20T10:00:00+00:00', now), '2026-09-20T10:00:00+00:00')
+
     def test_nothing_new_writes_nothing(self):
         tracker = FakeTracker()
         self.assertEqual(inbox._fill_gaps(tracker, {'id': 'x', 'properties': {'Company': text('Acme')}}, {'company': 'Other'}), [])

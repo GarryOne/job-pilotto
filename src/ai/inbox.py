@@ -228,6 +228,22 @@ def _fill_gaps(tracker, row, item):
     return [GAPS.get(name) or named[name] for name in changes]
 
 
+def _this_year(value, now):
+    """Chats show "Sep 21" without a year and the model guesses one (2024 on 29 Sep 2026): a date more than
+    ~6 months back is moved to the latest year it could be, never into the future."""
+    moment = mail._when(value or '')
+    if not moment or (now - moment).days < 180:
+        return value
+    for year in (now.year, now.year - 1):
+        try:
+            moved = moment.replace(year=year)
+        except ValueError:  # 29 Feb
+            continue
+        if moved <= now:
+            return moved.isoformat()
+    return value
+
+
 def step(text):
     """A progress line for the app's Log box ("⏳ …", on stderr; the app shows the latest with a timer)."""
     print(f'⏳ {text}', file=sys.stderr, flush=True)
@@ -264,7 +280,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     talking = talking or bool(item.get('owner_agreed'))
     seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
     source_id = f'paste:{seed}'
-    when = item.get('when') if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
+    when = _this_year(item.get('when'), now) if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
     summary = item.get('summary') or kind
     match = item.get('match', -1)
     if target == 'new':

@@ -139,6 +139,14 @@ class AddDetailsTests(unittest.TestCase):
         asks = [i for i in focus.build([lead], [], target=0, now=NOW)['items'] if i['kind'] == 'details']
         self.assertEqual(asks[0]['missing'], ['salary', 'job description'])
 
+    def test_once_you_logged_details_it_stops_asking(self):
+        invite = row('h1', '', 'Principal SRE', stage='Interview scheduled', interview='2026-09-30T08:30:00+02:00', Via='Huxley')
+        invite['properties']['Job URL'] = {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}
+        logged = event('h1', 'Interview scheduled', '2026-09-29T13:23:00Z', source_id='paste:abc')
+        kinds = [i['kind'] for i in focus.build([invite], [logged], target=0, now=NOW)['items']]
+        self.assertNotIn('details', kinds)
+        self.assertIn('prepare', kinds)
+
     def test_only_talking_to_an_agency_with_a_hidden_employer_is_not_a_to_do(self):
         pitch = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent', Salary='€70k–90k')
         self.assertFalse([i for i in focus.build([pitch], [], target=0, now=NOW)['items'] if i['kind'] == 'details'])
