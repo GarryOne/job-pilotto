@@ -18,6 +18,8 @@ let statFilter = null;  // the counter clicked above the list: 'applied', 'waiti
 let claudeReady = false;
 const claudeStarted = new Set();
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
+// The whole link, #part included: recruiter leads differ only there (linkedin.com/messaging/#jp-…, a Gmail thread).
+const fullKey = url => String(url || '').trim().replace(/\/$/, '');
 // Applying, with no session open for it: one to settle (banner on Jobs).
 const stuck = job => isStuck(job, entry => sessionList.some(item => pageKey(item.url) === pageKey(entry.url)));
 function renderStuck() {
@@ -64,7 +66,7 @@ export function renderJobs() {
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
   const rows = sorted((statFilter === 'stuck' ? shared.allJobs.filter(stuck)
-    : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(pageKey(job.url))) : byStat(shared.allJobs, statFilter)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+    : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(fullKey(job.url))) : byStat(shared.allJobs, statFilter)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
     matches(job, text)), $('sort-by').value);
   const body = $('jobs-body');
   body.replaceChildren();
@@ -289,9 +291,15 @@ export function renderJobs() {
     }
     body.append(row);
   }
-  const statLabel = statFilter?.label || {applied: 'applied', waiting: 'waiting for a reply', interviews: 'in process', closed: 'closed', stuck: 'still marked Applying', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
+  // What the list is filtered to, said once: a chip (✕ shows every job) and "4 of 195 jobs".
+  const statLabel = statFilter?.label || {applied: 'Applied', waiting: 'Waiting for a reply', interviews: 'In process', closed: 'Closed',
+    stuck: 'Still marked Applying', high: 'High fit (70+)', week: 'New this week', companies: 'One per company'}[statFilter];
   renderStuck();
-  $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}` + (statLabel ? ` · ${statLabel}` : '');
+  const plural = count => `${count} job${count === 1 ? '' : 's'}`;
+  $('jobs-count').textContent = statLabel ? `${rows.length} of ${plural(shared.allJobs.length)}` : plural(rows.length);
+  show($('jobs-filter'), !!statLabel);
+  $('jobs-filter-text').textContent = statLabel ? `Showing: ${statLabel}` : '';
+  show($('jobs-filter-back'), statFilter?.from === 'focus');
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
   if (jobsLoading && !shared.allJobs.length) { show($('jobs-empty'), false); showLoading(); return; }  // still loading, not empty
   show($('jobs-empty'), rows.length === 0);
@@ -464,8 +472,8 @@ function kitLabel(state = '') {
 }
 
 // A list of applications from elsewhere (a Focus funnel step): only those, whatever their status.
-export function showJobsIn(label, urls) {
-  statFilter = {label, urls: new Set((urls || []).map(pageKey))};
+export function showJobsIn(label, urls, from = '') {
+  statFilter = {label, from, urls: new Set((urls || []).map(fullKey))};
   $('filter-status').value = 'all';
   $('filter-text').value = '';
   renderJobs();
@@ -479,6 +487,8 @@ export async function init() {
     renderJobs();
   });
   $('sort-by').addEventListener('change', renderJobs);
+  $('jobs-filter-clear').addEventListener('click', () => { statFilter = null; renderJobs(); });
+  $('jobs-filter-back').addEventListener('click', () => document.querySelector('.nav[data-view="focus"]').click());
   // The counters filter the list to the jobs they count, whatever their status (so the list matches the number);
   // clicking the active one again, or Total matches, shows every job.
   document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('click', () => {

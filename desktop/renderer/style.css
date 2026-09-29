@@ -330,7 +330,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
   border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; background-image: linear-gradient(90deg, var(--tint), transparent 70%); }
 .stat { font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
 .stat:hover { border-color: color-mix(in srgb, var(--tone) 45%, var(--line)); }
-.stat[aria-pressed="true"] { border-color: var(--tone); box-shadow: 0 0 0 1px var(--tone); }
+.stat[aria-pressed="true"] { border-color: var(--tone); box-shadow: 0 0 0 1px var(--tone); background-image: none; background-color: var(--tint); }
 .stat.signal { --tint: var(--signal-soft); --tone: var(--signal); }
 .stat.red { --tint: var(--bad-soft); --tone: var(--bad); }
 .stat.green { --tint: var(--good-soft); --tone: var(--good); }
@@ -1179,3 +1179,11 @@ main { min-width: 0; }
   .theme-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
   .nav-count { position: absolute; top: 2px; right: 2px; }
 }
+
+/* Jobs: what the list is filtered to (a counter or a Focus funnel step); ✕ shows every job. */
+.filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-sm);
+  font-weight: 600; background: var(--signal-soft); color: var(--signal-ink); border: 1px solid var(--signal-line); }
+.filter-chip[hidden] { display: none; }
+.filter-chip-x { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border-radius: 50%; background: transparent; color: inherit; }
+.filter-chip-x:hover { background: var(--signal-line); }
+.filter-chip-x .icon { width: 12px; height: 12px; }

@@ -232,7 +232,7 @@ function renderFunnel(funnel) {
       li.classList.add('is-link');
       Object.assign(li, {tabIndex: 0, role: 'button'});
       li.title += '. Click to see them';
-      const open = () => { openView('jobs'); showJobsIn(`ever reached ${name}`, step.urls); };
+      const open = () => { openView('jobs'); showJobsIn(`Ever reached ${name}`, step.urls, 'focus'); };
       li.addEventListener('click', open);
       li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
     }
