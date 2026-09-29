@@ -1,0 +1,44 @@
+---
+name: desktop-change
+description: The fast, safe loop for any change to Job Pilotto's desktop app (desktop/: main process, window pages, IPC) and the traps that caused real bugs. Use before editing desktop/ code, and when a UI change "doesn't show up", a state is stale, or a run/secret works on the owner's Mac only.
+---
+
+# Desktop change: the loop and the traps
+
+## Find, don't search
+- **`CODEMAP.md`** (repo root): every file → its purpose. Open the one file you need, read only the part you change.
+- A page's code: `desktop/renderer/pages/<page>.js`; its markup: `desktop/renderer/index.html` (grep the element id).
+- Main ↔ window: `preload.cjs` (window.pilot.*) ↔ `ipcMain.handle(...)` in `main.js`. `test/ipc.test.js` checks both halves.
+
+## The loop (small change: 5–10 minutes)
+1. `git worktree add -q .claude/worktrees/<name> -b <branch> origin/main`, then
+   `ln -s /Users/mac/sre-watch/desktop/node_modules desktop/node_modules` (never `npm install` in a worktree).
+2. Edit with anchored replacements: check the anchor exists (`assert old in s`). **Never cut code by index ranges**
+   (`s[a:b]`) without printing the range first: it once deleted a whole render block.
+3. `cd desktop && node scripts/stage.mjs >/dev/null && npm test` (builds `shared/`; ~20 s).
+4. UI: `npm run shot -- jobs --select '<css>' --eval "(async()=>{…click…; await new Promise(r=>setTimeout(r,500)); return 'ok'})()"`
+   then Read the printed PNG. Pages other than the first: reach them by clicking (`.nav[data-view=settings]`, `[data-settings-go=…]`).
+   State instead of pixels: `--eval "…JSON.stringify(…)" --no-picture`.
+5. Commit (trailer from the session), `git fetch && git rebase origin/main`, test again, `git push origin HEAD:main`,
+   then `git -C ~/sre-watch pull --ff-only`.
+6. Tell the owner **⌘R** (window only) or **restart** (main.js, lib/, preload.cjs, Python changed).
+
+## Traps that caused real bugs
+| Trap | Rule |
+|---|---|
+| main.js / lib / preload changed, owner only pressed ⌘R | Say "restart the app" whenever the change is outside `renderer/`. A window newer than the app shows old data ("Off"). |
+| State shown in several places, one not redrawn (session status, prep row, ✓ ticks, counts) | Find every view of that state (list, tray, menu badge, page) and update all from one function; keep state in one object. |
+| Async detail fetched, then the *unmerged* object rendered | Render from the merged value (`run`), not the original (`shown`). |
+| An empty answer cached forever (log not written yet) | Don't cache empty/placeholder results; retry a few times. |
+| `el(tag, cls, icon(...))` | Fine now (nodes are appended). Text only otherwise. |
+| An `#id` rule beats a new `.class` rule | Override with the same id selector, or check computed style in a shot. |
+| Container narrower than the window | Use `@container` (the panel), not `@media` (the window). |
+| AI JSON cut off ("Unterminated string") | Thinking uses `max_tokens`: give room (≥ 8000 for a structured answer), `effort: 'medium'`, check `stop_reason == 'max_tokens'` and say so. |
+| A job runs but nothing reports back | Every run writes its ⏱️ Search runs row (start → end, log); user-started jobs always answer (Telegram / dialog), even "nothing new". |
+| Fixed by hand for the owner (gh, Keychain, Notion) | Product bug: the Desktop App must do it for any user (CLAUDE.md rule). |
+| Values in CSS | Tokens only (`tokens.css`); `design.test.js` fails otherwise. |
+| Demo data | Fictional only (`desktop/demo/`); add the case you need to render. |
+
+## Before saying done
+- Tests pass; the screen was rendered and looked at (or say why not).
+- Report: what changed, commit id, ⌘R or restart, what is still open.

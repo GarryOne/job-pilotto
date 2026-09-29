@@ -3,8 +3,13 @@
 // gallery.html shows every one of them side by side.
 import {icon} from './icons.js';
 
-export const el = (tag, className, text) =>
-  Object.assign(document.createElement(tag), className ? {className} : {}, text != null ? {textContent: text} : {});
+// el(tag, class, content): content is text, or a node (an icon, another element) that is appended, never
+// turned into "[object SVGSVGElement]".
+export const el = (tag, className, content) => {
+  const node = Object.assign(document.createElement(tag), className ? {className} : {});
+  if (content instanceof Node) node.append(content); else if (content != null) node.textContent = content;
+  return node;
+};
 
 // Pill: a short status. Tones: neutral, info, good, warn, bad, signal, teal. dot: a coloured dot before it.
 export const TONES = ['neutral', 'info', 'good', 'warn', 'bad', 'signal', 'teal'];
