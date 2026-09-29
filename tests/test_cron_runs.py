@@ -53,7 +53,7 @@ class ReportTest(unittest.TestCase):
 
     def test_page_properties(self):
         props, children = cron_runs.run_page(sample_run())
-        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-26 08:00 · scheduled')
+        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-26 10:00 · Jobs check')  # local time, as Started shows it
         self.assertEqual(props['Status']['select']['name'], 'Warnings')  # one feed failed
         self.assertEqual(props['AI cost (USD)']['number'], 0.034)
         self.assertEqual(props['Cost kits (USD)']['number'], 0)
@@ -61,6 +61,18 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(props['Top new score']['number'], 88)
         self.assertEqual(props['Tokens (total)']['number'], 8000 + 1200 + 6000 + 900 + 3000)
         self.assertEqual(children[0]['type'], 'heading_3')
+
+    def test_a_one_off_run_fills_only_what_applies_to_it(self):
+        run = {'mode': 'prep', 'started_at': '2026-09-29T14:02:00+00:00', 'trigger': 'Mac (you)', 'warnings': [], 'seconds': 73,
+               'subject': 'Huxley', 'headline': 'Huxley · Principal SRE: Prep kit ready',
+               'interview': {'model': 'claude-sonnet-5', 'usd': 0.0475, 'tokens_in': 10486, 'tokens_out': 3148}}
+        props, children = cron_runs.run_page(run)
+        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-29 16:02 · Interview prep kit · Huxley')
+        for name in ('Feeds', 'New jobs', 'Closed stale', 'Emails', 'Kits', 'Cost mail (USD)', 'Cost kits (USD)'):
+            self.assertIsNone(props[name]['number'], name)  # empty, not 0
+        self.assertEqual(props['Cost interview (USD)']['number'], 0.0475)
+        stages = [c['bulleted_list_item']['rich_text'][0]['text']['content'] for c in children if c['type'] == 'bulleted_list_item']
+        self.assertFalse(any('0 of 0' in line for line in stages), stages)
 
     def test_log_run_never_raises(self):
         class Broken:

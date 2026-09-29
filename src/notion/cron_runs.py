@@ -7,6 +7,7 @@ written by code from those numbers, so it costs nothing; a Notion failure never 
 import atexit
 from collections import deque
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from html import unescape
 import os
 import re
@@ -126,21 +127,40 @@ def report_lines(run):
     return lines
 
 
+# A jobs check crawls feeds; its counters (feeds, new, changed…) mean nothing on other runs, so those stay empty.
+CRAWL_MODES = {'scheduled', 'run', 'today'}
+NAMES = {'scheduled': 'Jobs check', 'run': 'Jobs check', 'today': "Today's list", 'mail': 'Gmail check', 'rejection': 'Rejection review'}
+TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
+
+
+def title(run):
+    """'2026-09-29 16:02 · Interview prep kit · Huxley': local time (as Started shows it), what ran, about what."""
+    try:
+        at = datetime.fromisoformat(run['started_at']).astimezone(TZ).strftime('%Y-%m-%d %H:%M')
+    except (KeyError, ValueError):
+        at = str(run.get('started_at', ''))[:16].replace('T', ' ')
+    name = NAMES.get(run['mode']) or ONE_OFF.get(run['mode']) or run['mode']
+    return ' · '.join(part for part in (at, name, run.get('subject')) if part)[:200]
+
+
 def run_page(run):
-    """(properties, children) for one Cronjob Runs row."""
+    """(properties, children) for one Cronjob Runs row. Only what applies to this kind of run is filled: a prep kit
+    or a Gmail check leaves the crawl counters and the other stages' costs empty (hidden in Notion), not 0."""
     lines = report_lines(run)
+    crawl = run['mode'] in CRAWL_MODES
+    count = lambda value: {'number': value if crawl else None}
     properties = {
-        'Run': {'title': [{'text': {'content': f"{run['started_at'][:16].replace('T', ' ')} · {run['mode']}"}}]},
+        'Run': {'title': [{'text': {'content': title(run)}}]},
         'Started': {'date': {'start': run['started_at']}},
         'Duration (s)': {'number': run.get('seconds')},
         'Mode': {'select': {'name': run['mode']}},
         'Trigger': {'select': {'name': run.get('trigger', 'Local')}},
         'Status': {'select': {'name': status(run)}},
-        'Feeds': {'number': run.get('feeds', 0)},
-        'Feed errors': {'number': run.get('feed_errors', 0)},
-        'New jobs': {'number': run.get('new', 0)},
-        'Changed jobs': {'number': run.get('changed', 0)},
-        'Closed stale': {'number': run.get('closed_stale', 0)},
+        'Feeds': count(run.get('feeds', 0)),
+        'Feed errors': count(run.get('feed_errors', 0)),
+        'New jobs': count(run.get('new', 0)),
+        'Changed jobs': count(run.get('changed', 0)),
+        'Closed stale': count(run.get('closed_stale', 0)),
         'AI cost (USD)': {'number': round(total_usd(run), 4)},
         'Tokens (total)': {'number': total_tokens(run)},
         'Telegram': _text(run.get('telegram', '')),
@@ -148,8 +168,9 @@ def run_page(run):
     }
     for stage, cost_name, count_name in STAGES:
         info = run.get(stage) or {}
-        properties[cost_name] = {'number': round(info.get('usd', 0.0), 4)}
-        properties[count_name] = {'number': info.get('done', 0)}
+        used = bool(info.get('usd') or info.get('done') or info.get('pending') or (crawl and stage in ('enrich', 'score', 'kits')))
+        properties[cost_name] = {'number': round(info.get('usd', 0.0), 4) if used else None}
+        properties[count_name] = {'number': info.get('done', 0) if used and (info.get('done') or info.get('pending') or crawl) else None}
     if run.get('top_new'):
         properties['Top new score'] = {'number': run['top_new'][0][2]}
     if run.get('run_url'):
@@ -159,8 +180,9 @@ def run_page(run):
     for stage, _, label in STAGES:
         info = run.get(stage)
         if info:
+            done = f": {info.get('done', 0)} of {info.get('pending', 0)}" if info.get('pending') else ''  # no "0 of 0"
             children.append(_para(
-                f"{label} with {info.get('model', '?')}: {info.get('done', 0)} of {info.get('pending', 0)}; "
+                f"{ONE_OFF.get(run['mode'], label) if not info.get('pending') else label} with {info.get('model', '?')}{done}; "
                 f"tokens in {info.get('tokens_in', 0)} (+{info.get('cache_read', 0)} cached), "
                 f"out {info.get('tokens_out', 0)}; ${info.get('usd', 0.0):.4f}", 'bulleted_list_item'))
     if run.get('matches'):
