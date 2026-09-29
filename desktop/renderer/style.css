@@ -1279,3 +1279,5 @@ main { min-width: 0; }
 .run-cost { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
 .run-cost:empty { display: none; }  /* no AI cost: no column space taken */
 .run-what .ui-tag { vertical-align: middle; }
+.focus-meta .is-done { color: var(--good); font-weight: 600; }
+.focus-actions button .spinner { margin-right: 6px; vertical-align: -2px; }

@@ -99,7 +99,8 @@ def present(item):
     elif kind == 'prepare':
         at = _when(item.get('at', ''))
         icon, badge, tone = 'mic', f"Interview {at.astimezone(TZ):%a %H:%M}" if at else 'Interview', 'bad' if item['priority'] == 1 else 'warn'
-        headline, meta = f'Prepare for {who}', [_short(item['job'], 40), 'posting, kit and weak topics']
+        headline = f'Prepare for {who}'
+        meta = [_short(item['job'], 40), '✓ prep kit ready' if item.get('prep_at') else 'posting, kit and weak topics']
     elif kind == 'review':
         icon, badge, tone = 'file', 'Review', 'warn'
         headline, meta = f'Review your {who} interview', [_short(item['job'], 40), 'import the recording or transcript']

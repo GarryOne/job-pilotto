@@ -1,7 +1,7 @@
 // Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 // on the job's Notion page (src/ai/prep.py). When the role is unknown it asks for the description first.
 import {$, message, show} from './core.js';
-import {loadFocus} from './focus.js';
+import {loadFocus, markPrep} from './focus.js';
 import {toastMessage} from './startup.js';
 
 let current = null;   // the Focus item the dialog is for
@@ -35,6 +35,8 @@ async function build() {
     const pageId = current.page_id;
     running = {pageId, started: Date.now(),
       promise: window.pilot.interviewPrep(pageId).catch(error => ({ok: false, text: error.message}))};
+    markPrep(pageId, 'building');
+    running.promise.then(result => markPrep(pageId, result.ok ? 'ready' : 'idle'));  // the row, even with the dialog closed
   }
   const mine = running;
   clearInterval(timer);
