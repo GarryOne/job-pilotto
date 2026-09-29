@@ -217,6 +217,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/send-to-chatgpt.sh` — send-to-chatgpt.sh — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
+- `tools/site-shots.mjs` — The website as visitors see it, for the product brain (.github/workflows/product-brain.yml): a desktop and a
 - `tools/stop-test-check.sh` — Claude Code Stop hook (.claude/settings.json): before Claude says it's done, run the test suites that match the
 - `tools/wait-and-mark-applied.sh` — wait-and-mark-applied.sh <job URL> — wait until that job's application is submitted, then mark
 - `tools/worktree.sh` — One worktree per task (AGENTS.md → Working with git), ready to test at once: the packages installed in the main

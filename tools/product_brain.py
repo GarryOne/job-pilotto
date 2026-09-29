@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 
 DATABASE = os.environ.get('BRAIN_DATABASE_ID', '')  # repository variable; Notion IDs never default in code
-SIGNALS_URL = 'https://www.jobpilotto.workers.dev/api/signals?days=7'
+SIGNALS_URL = 'https://www.jobpilotto.workers.dev/api/signals?days={days}'
 NOTION = 'https://api.notion.com/v1'
 LENSES = ['Growth', 'Product', 'Quality', 'UX', 'Business']  # Monday..Friday; the weekend picks by evidence
 STATUSES = ['Proposed', 'Exploring', 'Plan ready', 'Approved', 'Not now', 'Done']
@@ -136,24 +136,61 @@ def past_decisions(limit: int = 30) -> list[dict]:
     return [{'id': row['id'], **{name: plain(prop) for name, prop in row['properties'].items()}} for row in found.get('results', [])]
 
 
-def signals(out: str, today: dt.date) -> None:
+def page_text(page: str, limit: int = 8000) -> str:
+    """A page's text, one level of nested blocks (toggles, lists) included, cut at `limit` characters."""
+    lines, size = [], 0
+    def walk(block_id: str, depth: int) -> None:
+        nonlocal size
+        for block in notion(f'blocks/{block_id}/children?page_size=100').get('results', []):
+            if size > limit:
+                return
+            line = ''.join(part.get('plain_text', '') for part in (block.get(block['type']) or {}).get('rich_text', []))
+            if line:
+                lines.append('  ' * depth + line)
+                size += len(line)
+            if block.get('has_children') and depth < 1 and block['type'] not in ('child_page', 'child_database'):
+                walk(block['id'], depth + 1)
+    walk(page, 0)
+    return '\n'.join(lines)[:limit]
+
+
+def find_compass() -> str | None:
+    found = notion('search', 'POST', {'query': 'Product Compass', 'filter': {'property': 'object', 'value': 'page'}}).get('results', [])
+    return found[0]['id'] if found else None
+
+
+def strategy_pages(limit: int = 6) -> str:
+    """Every page the owner shared with the Brain connection (the Product Compass first): the strategy it must serve."""
+    found = notion('search', 'POST', {'filter': {'property': 'object', 'value': 'page'}, 'page_size': 50}).get('results', [])
+    pages = [p for p in found if p.get('parent', {}).get('type') != 'database_id']  # not the Decisions rows
+    title = lambda p: ''.join(t.get('plain_text', '') for prop in p['properties'].values() if prop.get('type') == 'title' for t in prop['title'])
+    pages.sort(key=lambda p: 'compass' not in title(p).lower())
+    if not pages:
+        return '(No strategy page is shared with the Brain connection: ask the owner to share the 📍 Product Compass.)'
+    return '\n\n'.join(f'### {title(p)}\n{page_text(p["id"])}' for p in pages[:limit])
+
+
+def signals(out: str, today: dt.date, days: int = 7) -> None:
     key = os.environ.get('JOB_PILOTTO_TELEMETRY_KEY')
     try:  # one missing source is said in the signals, not a failed brief
-        numbers = _request(SIGNALS_URL, headers={'Authorization': f'Bearer {key}'}) if key else {'error': 'JOB_PILOTTO_TELEMETRY_KEY missing'}
+        numbers = _request(SIGNALS_URL.format(days=days), headers={'Authorization': f'Bearer {key}'}) if key else {'error': 'JOB_PILOTTO_TELEMETRY_KEY missing'}
     except SystemExit as error:
         numbers = {'error': f'website/app numbers not available: {error}'}
-    since = (today - dt.timedelta(days=7)).isoformat()
+    since = (today - dt.timedelta(days=days)).isoformat()
     sections = [
         f'# Signals for {today.isoformat()} ({today.strftime("%A")}) · lens of the day: {lens_of_the_day(today)}',
-        '## Website and app (last 7 days, /api/signals: counts only)', '```json', json.dumps(numbers, indent=1)[:12000], '```',
+        '## Product Compass and strategy (the owner\'s pages: phase, goal, bets; serve them)', strategy_pages(),
+        f'## Website and app (last {days} days, /api/signals: counts only)', '```json', json.dumps(numbers, indent=1)[:12000], '```',
         '## Open GitHub issues (newest 30)',
         _run(['gh', 'issue', 'list', '--state', 'open', '--limit', '30', '--json', 'number,title,labels,createdAt',
               '-q', '.[] | "#\\(.number) \\(.createdAt[:10]) \\(.title) [\\([.labels[].name] | join(","))]"']),
-        '## Workflow runs that failed in the last 7 days',
+        f'## Workflow runs that failed in the last {days} days',
         _run(['gh', 'run', 'list', '--limit', '200', '--status', 'failure', '--created', f'>={since}', '--json', 'workflowName,createdAt',
               '-q', 'group_by(.workflowName)[] | "\\(.[0].workflowName): \\(length) failed"']),
         '## Releases (newest 5)', _run(['gh', 'release', 'list', '--limit', '5']),
-        '## Commits in the last 7 days', _run(['git', 'log', f'--since={since}', '--format=%ad %h %s', '--date=short']),
+        '## GitHub reach (stars, forks, watchers)',
+        _run(['gh', 'api', 'repos/{owner}/{repo}', '-q', '"stars \\(.stargazers_count) · forks \\(.forks_count) · watchers \\(.subscribers_count)"']),
+        f'## Commits in the last {days} days', _run(['git', 'log', f'--since={since}', '--format=%ad %h %s', '--date=short']),
         '## Past decisions of the brain (newest first; do not repeat one marked Not now within 14 days)',
         json.dumps(past_decisions(), indent=1, ensure_ascii=False),
     ]
@@ -166,8 +203,9 @@ def signals(out: str, today: dt.date) -> None:
 # ---- post / decision / plan / status ----
 
 def card(brief: dict, page_url: str) -> str:
+    serves = f'🎯 Serves: {esc(brief["serves"])}\n' if brief.get('serves') else ''
     return (f'🧭 <b>Today\'s one action · {esc(brief["lens"])}</b>\n{esc(brief.get("evidence", ""))}\n\n'
-            f'→ <b>{esc(brief["action"])}</b>\n{esc(brief.get("why", ""))}\n'
+            f'→ <b>{esc(brief["action"])}</b>\n{serves}{esc(brief.get("why", ""))}\n'
             f'Effort {esc(brief.get("effort", "?"))} · expected {esc(brief.get("expected", "?"))}\n<a href="{page_url}">Details</a>')
 
 
@@ -176,15 +214,21 @@ def post(path: str, today: dt.date) -> str:
     for field in ('action', 'lens'):
         if not brief.get(field):
             raise SystemExit(f'brief.json has no "{field}"')
-    lens = brief['lens'] if brief['lens'] in LENSES + ['Fire'] else 'Product'
+    lens = brief['lens'] if brief['lens'] in LENSES + ['Fire', 'Strategy'] else 'Product'
     check = today + dt.timedelta(days=int(brief.get('check_in_days') or 7))
     page = notion('pages', 'POST', {'parent': {'database_id': DATABASE}, 'properties': {
         'Action': {'title': text(brief['action'])}, 'Date': {'date': {'start': today.isoformat()}},
         'Lens': {'select': {'name': lens}}, 'Status': {'select': {'name': 'Proposed'}},
-        'Why now': {'rich_text': text(brief.get('why', ''))}, 'Effort': {'rich_text': text(brief.get('effort', ''))},
+        'Why now': {'rich_text': text(' · '.join(filter(None, [brief.get('serves', ''), brief.get('why', '')])))}, 'Effort': {'rich_text': text(brief.get('effort', ''))},
         'Expected': {'rich_text': text(brief.get('expected', ''))}, 'Check on': {'date': {'start': check.isoformat()}}}})
     append(page['id'], brief.get('details', ''))
     ident = page['id'].replace('-', '')
+    if lens == 'Strategy':  # the weekly review: its proposal is the plan; approving writes it into the Compass
+        telegram(card({**brief, 'lens': lens}, page['url']), [[
+            {'text': '✅ Update the compass', 'callback_data': f'pb:ok:{ident}'},
+            {'text': '⏭ Keep it as is', 'callback_data': f'pb:n:{ident}'}]])
+        print(page['url'])
+        return page['id']
     telegram(card({**brief, 'lens': lens}, page['url']), [[
         {'text': '✅ Explore it', 'callback_data': f'pb:x:{ident}'},
         {'text': '⏭ Not now', 'callback_data': f'pb:n:{ident}'},
@@ -220,12 +264,19 @@ def status(page: str, name: str, note: str = '') -> None:
         props['Result'] = {'rich_text': text(note)}
     row = notion(f'pages/{page}', 'PATCH', {'properties': props})
     print(f'{plain(row["properties"]["Action"])}: {name}')
+    if name == 'Approved' and plain(row['properties'].get('Lens', {})) == 'Strategy':
+        compass = find_compass()
+        if compass:  # the owner approved the weekly review: its proposal goes into the Compass, dated
+            append(compass, f'## Approved changes ({dt.date.today().isoformat()})\n' + page_text(page))
+            telegram('📍 Compass updated with the approved changes. Edit the page to fold them in.')
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='cmd', required=True)
-    sub.add_parser('signals').add_argument('--out', default='signals.md')
+    g = sub.add_parser('signals')
+    g.add_argument('--out', default='signals.md')
+    g.add_argument('--days', type=int, default=7, choices=[7, 30])
     sub.add_parser('post').add_argument('--brief', default='brief.json')
     sub.add_parser('decision').add_argument('--id', required=True)
     p = sub.add_parser('plan')
@@ -238,7 +289,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     today = dt.datetime.now(dt.timezone.utc).date()
     if args.cmd == 'signals':
-        signals(args.out, today)
+        signals(args.out, today, args.days)
     elif args.cmd == 'post':
         post(args.brief, today)
     elif args.cmd == 'decision':
