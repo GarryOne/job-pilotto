@@ -141,7 +141,8 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 - 🎤 **Interview prep kit.** Focus → Prepare → **Build prep kit**: what the interview will likely assess, likely
   questions with what from your CV to answer with, stories to have ready, gaps and how to handle them honestly,
   questions to ask, what's still unknown to ask the recruiter, and a prep plan for the time left. It adapts to the
-  call (recruiter screen or technical round) and works in the topics you answered weakly in past interviews. It
+  call (recruiter screen or technical round) and works in what Job Pilotto has learned about you: topics you
+  answered weakly and the ones asked most in past interviews, lessons from your rejection reviews, and employer feedback. It
   needs the role first: without a job description it asks you for one (paste it or the posting link). Written on the
   job's Notion page (🎤 Interview prep) with Claude Sonnet 5, about USD 0.05 (`src/ai/prep.py`).
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update your

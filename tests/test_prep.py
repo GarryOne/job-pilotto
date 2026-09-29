@@ -60,12 +60,18 @@ class PrepTests(unittest.TestCase):
 
     def test_with_the_description_it_builds_the_kit_on_the_job(self):
         tracker, row = job(INVITE + '\n' + ROLE)
+        tracker.database_id = 'apps'
+        past = {'id': 'r1', 'last_edited_time': '2026-09-20', 'properties': {'Company': text('Grafana Labs'), 'Via': text(''),
+                'Rejection lesson': text('Lead with incident stories that show the outcome'), 'Employer feedback': text('')}}
+        tracker.query_database = lambda db, filter_=None: [past]
         client = Client()
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {'Kafka tuning': 2}}):
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {'Kafka tuning': 2}, 'topics_asked': {'SLOs': 3}}):
             result = prep.build(tracker, row, client=client, now=NOW)
         self.assertTrue(result['ok'], result)
         prompt = client.calls[0]['messages'][0]['content']
         self.assertIn('Kafka tuning', prompt)
+        self.assertIn('Topics interviewers asked most: SLOs', prompt)
+        self.assertIn('Grafana Labs: Lead with incident stories that show the outcome', prompt)  # what it learned from you
         self.assertIn('ArgoCD', prompt)
         self.assertIn('16 h from now', prompt)  # Wed 08:30 CEST = 06:30 UTC
         heading, blocks = tracker.written[0][1], tracker.written[0][2]

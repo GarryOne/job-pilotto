@@ -48,7 +48,8 @@ SCHEMA = {
 SYSTEM = """You help the owner prepare for one job interview. Use only what the job text and the owner's Profile say;
 never invent facts about the owner or the employer. For a recruiter or agency screen, focus on motivation, fit, the
 owner's pitch, salary expectations, notice period and availability; for technical rounds, on depth in the role's stack,
-incidents and trade-offs. Past interviews show topics the owner answered weakly: work them into questions and the plan.
+incidents and trade-offs. What Job Pilotto learned about the owner (weak topics, topics asked most, rejection lessons, employer feedback):
+work those into the questions, the gaps and the plan, and say where a past lesson applies.
 Keep every item short and concrete."""
 
 
@@ -106,6 +107,35 @@ def describe(tracker, row, text='', url=''):
     return {'ok': True, 'text': 'Job description saved on the job.'}
 
 
+def what_you_learned(tracker, row):
+    """What Job Pilotto has learned about you so far, for this kit: topics you answered weakly and the ones asked
+    most (reviewed interviews), why past applications were rejected (rejection reviews), and what employers said
+    (employer feedback). Lines for the prompt; each part is left out when there's nothing yet."""
+    from . import interviews
+    stats = interviews.stats_for_insights(tracker)
+    weak, asked = list(stats.get('topics_answered_weakly', {}))[:6], list(stats.get('topics_asked', {}))[:6]
+    lines = [f"Topics you answered weakly in past interviews: {', '.join(weak) or 'none recorded yet'}"]
+    if asked:
+        lines.append(f"Topics interviewers asked most: {', '.join(asked)}")
+    try:
+        rows = tracker.query_database(tracker.database_id, {'or': [
+            {'property': 'Rejection lesson', 'rich_text': {'is_not_empty': True}},
+            {'property': 'Employer feedback', 'rich_text': {'is_not_empty': True}}]})
+    except Exception:  # noqa: BLE001 — the kit is still useful without them
+        rows = []
+    rows = [r for r in rows if r['id'] != row['id']]
+    rows.sort(key=lambda r: r.get('last_edited_time', ''), reverse=True)
+    lessons = [f"{mail._field(r, 'Company') or mail._field(r, 'Via')}: {mail._field(r, 'Rejection lesson')[:240]}"
+               for r in rows if mail._field(r, 'Rejection lesson')][:5]
+    feedback = [f"{mail._field(r, 'Company') or mail._field(r, 'Via')}: {mail._field(r, 'Employer feedback')[:240]}"
+                for r in rows if mail._field(r, 'Employer feedback')][:4]
+    if lessons:
+        lines.append('Lessons from your past rejections:\n- ' + '\n- '.join(lessons))
+    if feedback:
+        lines.append('What employers told you:\n- ' + '\n- '.join(feedback))
+    return lines
+
+
 def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, db_path=None):
     from . import interviews
     now = now or datetime.now(timezone.utc)
@@ -117,14 +147,14 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
         import anthropic
         client = anthropic.Anthropic()
     profile = tracker.page_text()
-    weak = list(interviews.stats_for_insights(tracker).get('topics_answered_weakly', {}))[:6]
+    history = what_you_learned(tracker, row)
     coming = mail._when(mail._field(row, 'Next interview'))
     facts = [f"Role: {mail._field(row, 'Job')}", f"Employer: {mail._field(row, 'Company') or 'not named'}",
              f"Via: {mail._field(row, 'Via') or '—'} (contact: {mail._field(row, 'Contact') or '—'})",
              f"Stage: {mail._field(row, 'Stage')}", f"Salary: {mail._field(row, 'Salary') or 'unknown'}",
              f"Interview: {coming.astimezone(mail.TZ):%a %d %b %H:%M} ({round((coming - now).total_seconds() / 3600)} h from now)"
              if coming else 'Interview: time unknown',
-             f"Topics answered weakly before: {', '.join(weak) or 'none recorded'}"]
+             ] + history
     response = client.messages.create(
         model=model, max_tokens=3000, system=SYSTEM,
         messages=[{'role': 'user', 'content': '\n'.join(facts) + f'\n\n# The job\n{role[:12000]}\n\n# Owner\'s Profile\n{profile[:12000]}'}],
