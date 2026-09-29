@@ -168,6 +168,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).
+- `src/contribute.py` — Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""

@@ -1,0 +1,89 @@
+"""Opt-in contributions: only public facts and coarse tags leave, only when switched on, at most daily, never fatal."""
+import json
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from unittest import mock
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src import contribute  # noqa: E402
+
+NOW = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
+SEARCH = {'role_keywords': ['site reliability', '\\bsre\\b', 'platform engineer', 'security engineer'],
+          'locations': {'top_tier': ['\\bzurich\\b', 'london'], 'country_wide': ['switzerland'], 'abroad': []}}
+FEEDS = [{'company': 'Matched Co', 'ats': 'lever', 'slug': 'matched'}, {'company': 'Quiet Co', 'ats': 'lever', 'slug': 'quiet'},
+         {'company': 'Mine Co', 'ats': 'greenhouse', 'slug': 'mine'}, {'company': 'Odd', 'ats': 'nonsense', 'slug': 'x'}]
+REPORT = {'sources': [{'company': 'Matched Co', 'ok': True, 'total': 9, 'matches': 2}, {'company': 'Quiet Co', 'ok': True, 'total': 5, 'matches': 0}]}
+
+
+class FakeTracker:
+    def query_database(self, db, flt):
+        return [{'properties': {'ATS': {'select': {'name': 'greenhouse'}}, 'Slug': {'rich_text': [{'plain_text': 'mine'}]},
+                                'Company': {'title': [{'plain_text': 'Mine Co'}]}}}]
+
+
+class TagsTest(unittest.TestCase):
+    def test_tags_come_from_fixed_lists_only(self):
+        roles, regions = contribute.tags(SEARCH)
+        self.assertEqual(roles, ['security', 'sre_devops'])
+        self.assertEqual(regions, ['europe'])
+        for value in [*roles, *regions]:
+            self.assertIn(value, {*contribute.ROLES, *contribute.REGIONS, 'other'})
+
+    def test_unknown_profile_is_other_and_no_region(self):
+        self.assertEqual(contribute.tags({'role_keywords': ['florist'], 'locations': {}}), (['other'], []))
+
+
+class PayloadTest(unittest.TestCase):
+    def test_only_matched_or_own_feeds_and_only_public_facts(self):
+        body = contribute.payload(FEEDS, REPORT, FakeTracker(), install='abc-12345678', search=SEARCH)
+        self.assertEqual({(f['slug'], f['matched'], f['own']) for f in body['feeds']},
+                         {('matched', True, False), ('mine', False, True)})   # 'quiet' gave nothing; 'nonsense' is not a feed system
+        self.assertEqual(set(body), {'v', 'install', 'roles', 'regions', 'feeds'})
+        self.assertEqual(set(body['feeds'][0]), {'ats', 'slug', 'company', 'matched', 'own'})
+        self.assertNotIn('Zurich', json.dumps(body))    # no search text: only fixed tags
+
+
+class SendTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.stamp = Path(self.tmp.name) / 'sent.json'
+        self.env = {'JOB_PILOTTO_SHARE_EMPLOYERS': '1', 'JOB_PILOTTO_INSTALL_ID': 'abc-12345678'}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_off_by_default_and_needs_an_install_id(self):
+        self.assertFalse(contribute.enabled({}))
+        self.assertFalse(contribute.enabled({'JOB_PILOTTO_SHARE_EMPLOYERS': '1'}))
+        self.assertFalse(contribute.enabled({**self.env, 'JOB_PILOTTO_DISABLE': 'contribute'}))
+        self.assertTrue(contribute.enabled(self.env))
+
+    def test_nothing_is_sent_unless_opted_in(self):
+        posts = []
+        with mock.patch.dict('os.environ', {}, clear=True):
+            self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=posts.append, stamp=self.stamp, search=SEARCH, now=NOW))
+        self.assertEqual(posts, [])
+
+    def test_sends_once_a_day_and_survives_a_dead_service(self):
+        posts = []
+        with mock.patch.dict('os.environ', self.env, clear=True):
+            ok = lambda request: posts.append(request) or 200  # noqa: E731
+            self.assertTrue(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW, url='https://x.test/c'))
+            self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW + timedelta(hours=3)))
+            self.assertTrue(contribute.maybe_send(FEEDS, REPORT, None, post=ok, stamp=self.stamp, search=SEARCH, now=NOW + timedelta(hours=25)))
+            self.assertEqual(len(posts), 2)
+            self.assertEqual(json.loads(posts[0].data)['install'], 'abc-12345678')
+
+            def down(request):
+                raise OSError('offline')
+            self.stamp.unlink()
+            self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=down, stamp=self.stamp, search=SEARCH, now=NOW))
+            self.assertFalse(self.stamp.exists())   # not marked as sent: tried again next run
+            self.assertFalse(contribute.maybe_send(FEEDS, REPORT, None, post=lambda r: 429, stamp=self.stamp, search=SEARCH, now=NOW))
+
+
+if __name__ == '__main__':
+    unittest.main()

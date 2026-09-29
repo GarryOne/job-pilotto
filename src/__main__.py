@@ -8,6 +8,7 @@ Commands:
   feeds     crawl employer feeds only and write a local HTML report
   enrich    run AI stage 1 on pending jobs
   doctor    readiness checklist and the one next step (--next, --json)
+  contribute  what "Help the pool grow" would send (--show); nothing is sent by this command
 """
 import sys
 
@@ -15,7 +16,7 @@ import sys
 def main():
     commands = {
         'check': 'src.daily', 'daily': 'src.daily', 'scout': 'src.scout', 'discover': 'src.sources.boards',
-        'feeds': 'src.sources.feeds', 'enrich': 'src.ai.enrich', 'doctor': 'src.doctor',
+        'feeds': 'src.sources.feeds', 'enrich': 'src.ai.enrich', 'doctor': 'src.doctor', 'contribute': 'src.contribute',
     }
     if len(sys.argv) < 2 or sys.argv[1] not in commands:
         print(__doc__)

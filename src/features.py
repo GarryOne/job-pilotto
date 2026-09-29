@@ -49,6 +49,8 @@ FEATURES = (
     Feature('mail', 'Gmail + Calendar reading (application news, recruiter leads)', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', 'ANTHROPIC_API_KEY'), 'paid',
             'python3 -m src.sources.google auth --github (the shared Job Pilotto app: one browser consent); '
             'own Google app: python3 -m src.sources.google setup; README → Gmail and Calendar'),
+    Feature('contribute', 'Help the pool grow: share employer career pages with coarse tags (opt-in)', ('JOB_PILOTTO_SHARE_EMPLOYERS',),
+            'free', 'Settings → Help the pool grow (the app sets JOB_PILOTTO_SHARE_EMPLOYERS=1); `python -m src contribute --show` prints what is sent'),
 )
 BY_NAME = {f.name: f for f in FEATURES}
 

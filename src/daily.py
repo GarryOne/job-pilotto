@@ -10,7 +10,7 @@ import random
 import re
 import sys
 
-from . import digest, employer_index, features, scout, store, telegram
+from . import contribute, digest, employer_index, features, scout, store, telegram
 from . import doctor
 from .ai import added, budget, cost, enrich, inbox, insights, interviews, kit, provenance, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
@@ -469,6 +469,11 @@ def main():
                     report['sources'] += google['sources']
             imported = store.import_watch_report(db, report)
             run.update(crawl_counts(report, imported))
+            if args.mode in ('scheduled', 'run'):
+                try:  # opt-in and at most daily (src/contribute.py); the pool never affects a run
+                    contribute.maybe_send(feed_list, report, tracker)
+                except Exception as error:  # noqa: BLE001
+                    print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
             if args.mode in ('scheduled', 'run'):
                 # Only full crawls can tell that a job disappeared.
                 run['closed_stale'] = store.close_stale(db, STALE_DAYS)
