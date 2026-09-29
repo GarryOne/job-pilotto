@@ -337,3 +337,4 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .task-state.is-warn::before { background: var(--warn-bright); border-color: var(--warn-bright); }
 .task-state small { font-weight: 500; color: var(--muted); }
 .diag-update { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+#allowance-dialog .inline { margin-top: var(--sp-4); }

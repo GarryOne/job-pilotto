@@ -30,6 +30,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
+- `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 30 applications
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 - `desktop/lib/notion-oauth.js` — "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
@@ -73,6 +74,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/focus.js` — Focus page.
 - `desktop/renderer/pages/interviews.js` — Interviews page.
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
+- `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 30 free applications · 41 days left"), pasting a key (checked on this
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.

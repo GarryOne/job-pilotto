@@ -43,6 +43,7 @@ import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
 import * as telegramCloud from './lib/telegram-cloud.js';
+import * as licenseLib from './lib/license.js';
 
 // Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
 // GitHub that haven't opened their row yet.
@@ -50,7 +51,18 @@ let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
-const HEALTH_VERSION = 3;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed)
+let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
+const HEALTH_VERSION = 4;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance)
+// Where the user stands (demo mode: a fixed fictional state for screenshots).
+const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 30, daysLeft: 41, ended: false} : license.state());
+// Guard for what starts NEW work (Prepare kit, Fill in Chrome / Apply with Claude, manual searches): once the free allowance
+// is over and there is no key, the window says so and the action answers with why. Never used for what is already under way.
+function allowanceBlock() {
+  const over = DEMO ? null : license.blocked();
+  if (!over) return null;
+  toWindow('allowance', over);
+  return {ok: false, allowance: true, error: 'The free allowance is over. Paste a license key in Settings → License to keep starting new applications.'};
+}
 // Once a day: version, OS, which features are on (never keys), a few counts, so reports can be read in context.
 function healthOnce() {
   // Once a day, and again the same day when the line's content changed (HEALTH_VERSION), so new counts arrive at once.
@@ -60,7 +72,13 @@ function healthOnce() {
   const has = name => !!storage.secret(name);
   telemetry.record('health', {ai: has('ANTHROPIC_API_KEY'), notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
     serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
-    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings), ...telemetry.takeRuns()});
+    sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings), ...allowanceHealth(), ...telemetry.takeRuns()});
+}
+// The allowance on the health line, to measure it: licensed or not, the license kind (never its name or id),
+// applications used, days left, and whether the free allowance has ended.
+function allowanceHealth() {
+  const state = licenseState();
+  return {licensed: state.licensed, licenseKind: state.license?.kind || 'none', applicationsUsed: state.used, freeDaysLeft: state.daysLeft, allowanceEnded: state.ended};
 }
 // How much Job Pilotto helped, as anonymous counts (no company, no job title): open matches and good fits, forms the
 // extension filled, and the funnel (ever reached: applied, a human reply, screening, interviews, offers). From the
@@ -563,6 +581,8 @@ function handlers() {
   // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).
   ipcMain.handle('cached', (_, name) => (DEMO ? null : viewCache.recall(storage, name)));
   ipcMain.handle('refresh', async () => {
+    const blocked = allowanceBlock();
+    if (blocked) return blocked;
     if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', 'you');
     await github.cloudDispatch(storage, log)({mode: 'run'});
     return {ok: true, cloud: true};
@@ -618,6 +638,7 @@ function handlers() {
   const COMMANDS = ['check', 'employers', 'run', 'today', 'applied', 'saved', 'insight', 'weekly', 'mail', 'scout', 'status', 'add', 'help'];
   ipcMain.handle('command', async (_, name, arg = '') => {
     if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
+    if (name === 'run' && allowanceBlock()) return {text: 'The free allowance is over. Paste a license key in Settings → License to search again.'};
     try { return await telegram.runCommand(storage, name, arg, log); } catch (error) { return {text: `⚠️ ${error.message}`}; }
   });
   // Jobs → Applied elsewhere: tracked like /add, but waited for, so the list shows it as Applied right away.
@@ -840,9 +861,9 @@ function handlers() {
     if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'The review needs your Anthropic API key (Settings).'};
     try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
-  ipcMain.handle('apply', async (_, options) => options?.mode === 'agents' && !(await claudeConsent())
-    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options));
-  ipcMain.handle('applyOne', (_, url) => apply.openOne(url));
+  ipcMain.handle('apply', async (_, options) => allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
+    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options)));
+  ipcMain.handle('applyOne', (_, url) => allowanceBlock() || apply.openOne(url));
   // A session started again from scratch: it stops and closes (outcome 'restarted' in its statistics), and a new
   // Apply with Claude session starts on the same job (its kit, a new conversation). The job stays Applying.
   // Cancel: Claude stops, the form tab closes (the extension closes it; else the Mac's scripting, on a confident match),
@@ -875,7 +896,7 @@ function handlers() {
     terminals.remove(old.id);
     return apply.claudeOne(storage, old.url, undefined, undefined, undefined, {title: old.title, company: old.company, location: old.location, workMode: old.workMode});
   });
-  ipcMain.handle('applyWithClaude', async (_, url, details = null) => (await claudeConsent())
+  ipcMain.handle('applyWithClaude', async (_, url, details = null) => allowanceBlock() || (await claudeConsent())
     ? apply.claudeOne(storage, url, undefined, undefined, undefined, details)
     : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
   // Apply with Claude sessions inside the app (lib/terminals.js): the dock, the session page and its terminal.
@@ -977,6 +998,14 @@ function handlers() {
   ipcMain.handle('openTabs', () => server.openTabs());
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
+  // Settings → License: where the user stands, pasting a key (checked offline), removing it.
+  ipcMain.handle('license', () => ({...licenseState(), text: licenseLib.text(licenseState())}));
+  ipcMain.handle('licenseSet', (_, key) => {
+    if (DEMO) return {ok: false, error: 'Demo mode: keys are not saved.'};
+    const result = license.set(String(key || ''));
+    return result.ok ? {ok: true, state: {...result.state, text: licenseLib.text(result.state)}} : result;
+  });
+  ipcMain.handle('licenseRemove', () => { const state = license.remove(); return {...state, text: licenseLib.text(state)}; });
   ipcMain.handle('telemetryRecord', (_, kind, fields) => { telemetry?.record(String(kind), fields || {}); return true; });
   ipcMain.handle('telemetryShown', () => ({on: telemetry?.enabled() ?? false, events: telemetry?.shown() || []}));
   ipcMain.handle('telemetrySet', (_, on) => { storage.saveSettings({telemetry: !!on}); if (!on) telemetry?.flush(); return {on: !!on}; });
@@ -998,6 +1027,8 @@ function handlers() {
   // The application kit: the form's questions (read from the ATS), an answer for each and a cover letter,
   // saved on the job's Notion Applications row (Stage Kit ready). Apply needs one.
   ipcMain.handle('prepareKit', async (_, code, name = 'this job') => {
+    const blocked = allowanceBlock();
+    if (blocked) return blocked;
     // With Always on, background jobs run in the user's GitHub repo: Recent activity
     // shows it starting, its progress and its result (its ⏱️ Search runs row); the job's row updates from Notion.
     if (cloud()) {
@@ -1181,6 +1212,8 @@ if (firstCopy) app.whenReady().then(() => {
   buildMenu();  // again, now with the Get Test Builds setting
   // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode, and never
   // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.
+  license = licenseLib.create(storage, {appliedNow: () => viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps
+    ?.find(step => step.step.includes('Applied'))?.reached ?? 0});
   telemetry = DEMO || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (telemetry) {
     pipeline.onRunEnd(({args, code, seconds, tail}) => {

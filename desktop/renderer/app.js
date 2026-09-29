@@ -29,6 +29,7 @@ import {init as reassign} from './pages/reassign.js';
 import {init as prep} from './pages/prep.js';
 import {init as update} from './pages/update.js';
 import {init as telemetry} from './pages/telemetry.js';
+import {init as license} from './pages/license.js';
 
 await core();
 await wizard();
@@ -46,6 +47,7 @@ await reassign();
 await prep();
 await update();
 await telemetry();
+await license();
 await cvChange();
 await data();
 await startup();

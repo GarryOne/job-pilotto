@@ -660,6 +660,7 @@
           <button data-settings-go="connections"><i data-icon="link"></i>Connections<span class="nav-dot" id="connections-dot" hidden></span></button>
           <button data-settings-go="data"><i data-icon="database"></i>Data &amp; backup</button>
           <button data-settings-go="appearance"><i data-icon="sun"></i>Appearance</button>
+          <button data-settings-go="license"><i data-icon="zap"></i>License</button>
           <button data-settings-go="advanced"><i data-icon="sliders"></i>Advanced</button>
         </nav>
         <div class="settings-pages">
@@ -953,6 +954,23 @@
             <div class="path-line"><code id="data-folder"></code><button class="secondary" id="open-data">Show in Finder</button></div>
           </div>
         </div>
+        <div class="settings-page" data-settings-page="license" hidden>
+          <div class="settings-page-head"><h2>License</h2><p class="muted">Free for your first 30 applications or 60 days. A key from Igor lifts the limit.</p></div>
+          <div class="setting panel" id="setting-license">
+            <div class="panel-top"><div class="summary-head"><i data-icon="zap"></i><h3>Your allowance</h3><span class="ui-pill" id="license-pill"></span></div></div>
+            <div class="fact-row"><div><span class="muted">Applications</span><b id="license-used"></b></div>
+              <div><span class="muted" id="license-days-label">Days left</span><b id="license-days"></b></div></div>
+            <div class="bar license-bar" id="license-bar"><span></span></div>
+            <p class="muted panel-lead" id="license-note"></p>
+          </div>
+          <div class="setting panel" id="setting-license-key">
+            <div class="summary-head"><i data-icon="link"></i><h3 id="license-key-title">License key</h3></div>
+            <p class="muted panel-lead" id="license-key-lead">Paste the key you got from Igor. It is checked on this Mac; nothing is sent anywhere.</p>
+            <div class="inline" id="license-paste"><input type="text" id="license-input" placeholder="JP1.…" autocomplete="off" spellcheck="false"><button class="secondary" id="license-save">Unlock</button></div>
+            <div class="inline" id="license-held" hidden><span id="license-holder"></span><button class="secondary" id="license-remove">Remove key</button></div>
+            <p class="message" id="license-message"></p>
+          </div>
+        </div>
         <div class="settings-page" data-settings-page="appearance" hidden>
           <div class="settings-page-head"><h2>Appearance</h2><p class="muted">How Job Pilotto looks on this Mac.</p></div>
           <div class="setting panel is-lit" id="setting-theme">
@@ -1183,6 +1201,23 @@
       <button type="button" id="feedback-email" class="secondary">Open email</button>
       <button class="ghost" value="cancel" formnovalidate>Cancel</button>
       <button id="feedback-save" class="primary" value="default">Save feedback</button>
+    </div>
+  </form>
+</dialog>
+<!-- The free allowance is over (pages/license.js): new work pauses, everything else keeps working. -->
+<dialog id="allowance-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="zap"></i></span>
+      <h2>Free for your first 30 applications</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p class="dialog-lead" id="allowance-lead">You have used your free allowance. Ask Igor for a founder key to keep starting new applications.
+      <span class="small">Your jobs, tracking, Notion, export and data all keep working.</span></p>
+    <div class="inline"><input type="text" id="allowance-input" placeholder="Paste your license key (JP1.…)" autocomplete="off" spellcheck="false"><button id="allowance-unlock" type="button" class="secondary">Unlock</button></div>
+    <p class="message" id="allowance-message"></p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Not now</button>
+      <button id="allowance-settings" type="button" class="primary" value="default">Open License settings</button>
     </div>
   </form>
 </dialog>
