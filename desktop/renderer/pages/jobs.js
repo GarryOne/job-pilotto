@@ -438,6 +438,7 @@ function showJobsData(data) {
     $('stat-total').textContent = count.total;
     $('stat-high').textContent = count.high;
     $('stat-week').textContent = count.week;
+    Object.assign($('nav-jobs-badge'), {hidden: !count.week, textContent: count.week, title: `${count.week} new this week`});
     $('stat-companies').textContent = count.companies;
     const applications = applicationStats(shared.allJobs);
     for (const kind of Object.keys(applications)) $(`stat-${kind}`).textContent = applications[kind];

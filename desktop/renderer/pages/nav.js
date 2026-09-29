@@ -46,7 +46,8 @@ function paletteCommands() {
     const node = $(id);
     if (node && !node.disabled && !node.closest('[hidden]:not(.view)')) add(view[0].toUpperCase() + view.slice(1), labelOf(node), hint || node.title, keywords, () => { openView(view); node.click(); });
   };
-  document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => openView(nav.dataset.view)));
+  document.querySelectorAll('.nav').forEach(nav => add('Go to', `Open ${labelOf(nav)}`, '', 'page view', () => nav.click()));
+  add('Go to', 'Open Applying', 'Your application sessions', 'sessions apply claude', () => $('nav-sessions').click());
   document.querySelectorAll('.action[data-command]').forEach(node => add('Actions', labelOf(node.querySelector('b')).replace(/^\W+/, ''),
     labelOf(node.querySelector('span')), PALETTE_KEYWORDS[node.dataset.command], () => { openView('actions'); node.click(); }));
   button('jobs', 'refresh', 'find jobs scan');
@@ -63,9 +64,10 @@ function paletteCommands() {
 export async function init() {
   document.querySelectorAll('.nav').forEach(nav => {
     nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
-    // Applying opens the session that needs you most (else the latest), not just the page.
-    nav.addEventListener('click', () => (nav.dataset.view === 'sessions' && bestSession() ? openSession(bestSession().id) : openView(nav.dataset.view)));
+    nav.addEventListener('click', () => { openView(nav.dataset.view); if (nav.dataset.settings) settingsPage(nav.dataset.settings); });
   });
+  // The sessions line at the foot opens the session that needs you most (else the latest), not just the page.
+  $('nav-sessions').addEventListener('click', () => (bestSession() ? openSession(bestSession().id) : openView('sessions')));
   $('palette-hint').addEventListener('click', () => openPalette(paletteCommands()));
   document.addEventListener('keydown', event => {
     if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;

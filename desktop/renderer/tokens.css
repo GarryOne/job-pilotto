@@ -23,6 +23,15 @@
   --on-navy-2: #b9c8dc;
   --on-navy-3: #8fa3bb;
 
+  /* Menu ("mission control"): near-black with a dot grid, amber for where you are */
+  --rail: #0e1116;
+  --rail-hover: #171b22;
+  --rail-active: #1b2029;
+  --rail-line: #2a303a;
+  --rail-dot: #1c2129;
+  --on-rail: #eef1f5;
+  --on-rail-3: #8b94a3;
+
   /* Brand accent: orange (actions), teal (done), amber (the board) */
   --signal: #d9540b;
   --signal-rgb: 217 84 11;
@@ -33,6 +42,7 @@
   --teal-soft: #e3f3f2;
   --teal-line: #a9d8d6;
   --amber: #ffb224;
+  --amber-rgb: 255 178 36;
 
   /* Status */
   --good: #1f7a4d;  --good-bright: #2e9e6a;  --good-soft: #e3f4ea;

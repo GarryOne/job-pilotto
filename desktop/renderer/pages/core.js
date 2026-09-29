@@ -25,6 +25,7 @@ export async function init() {
   localize(document.body, window.pilot.platform);
   fillIcons();
   for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${shared.state.about.label}`;
+  for (const line of document.querySelectorAll('[data-version-title]')) line.title = `Version ${shared.state.about.label}`;
 
   document.addEventListener('click', event => {
     const link = event.target.closest('[data-link]');

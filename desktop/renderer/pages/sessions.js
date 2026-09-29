@@ -48,18 +48,17 @@ const urgency = item => (item.status === 'input' && !sessionReview(item) ? 0 : s
 export function bestSession() {
   return [...sessionList].sort((a, b) => urgency(a) - urgency(b) || Date.parse(b.startedAt || 0) - Date.parse(a.startedAt || 0))[0] || null;
 }
-// "Applying" in the menu: amber = how many need you, blue = how many are working, green ✓ = all ready to submit.
+// The menu's foot: "1 session needs you" (amber), "2 applying" (blue), "1 ready to submit" (green), else how many there are.
 function renderNavBadge() {
-  const badge = $('nav-sessions-badge');
   const open = sessionList.filter(item => !item.endedAt || sessionReview(item));
   const needs = open.filter(item => urgency(item) <= 1).length, working = open.filter(item => urgency(item) === 2).length;
-  const ready = open.length > 0 && open.every(item => urgency(item) === 3);
-  const [text, tone, title] = needs ? [String(needs), 'warn', `${needs} need${needs === 1 ? 's' : ''} you`]
-    : working ? [String(working), 'info', `${working} working`] : ready ? ['✓', 'good', 'Ready to submit'] : ['', '', ''];
-  badge.hidden = !text;
-  badge.textContent = text;
-  badge.className = `nav-badge tone-${tone}`;
-  badge.title = title;
+  const ready = open.filter(item => urgency(item) === 3).length;
+  const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+  const [text, tone] = needs ? [`${plural(needs, 'session')} need${needs === 1 ? 's' : ''} you`, 'warn']
+    : working ? [`${working} applying`, 'info'] : ready ? [`${ready} ready to submit`, 'good'] : [plural(sessionList.length, 'session'), 'neutral'];
+  $('nav-sessions').hidden = !sessionList.length;
+  $('nav-sessions').className = `nav-sessions tone-${tone}`;
+  $('nav-sessions-text').textContent = text;
 }
 export function renderDock() {
   renderNavBadge();

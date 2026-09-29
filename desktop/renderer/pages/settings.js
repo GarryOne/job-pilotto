@@ -11,6 +11,8 @@ export function settingsPage(name) {
   remembered('settingsPage', name);
   if (name === 'profile') openProfile();
   document.querySelectorAll('[data-settings-page]').forEach(page => show(page, page.dataset.settingsPage === name));
+  // The menu: Profile is a Settings page of its own there.
+  document.querySelectorAll('.nav[data-view="settings"]').forEach(nav => nav.classList.toggle('active', (nav.dataset.settings === 'profile') === (name === 'profile')));
   document.querySelectorAll('.settings-nav [data-settings-go]').forEach(button => button.classList.toggle('is-active', button.dataset.settingsGo === name));
 }
 // One Settings card (setting-<id>): its sub-page, then scrolled to. Used by every link into Settings.

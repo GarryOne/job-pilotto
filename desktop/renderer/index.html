@@ -244,19 +244,22 @@
 <section id="app" class="app" hidden>
   <nav class="sidebar">
     <div class="brand"><img class="mark" src="logo.png" alt="">Job Pilotto</div>
-    <button class="nav" data-view="focus"><i data-icon="pin"></i>Focus</button>
-    <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs</button>
-    <button class="nav" data-view="sessions" id="nav-sessions"><i data-icon="send"></i>Applying<span class="nav-badge" id="nav-sessions-badge" hidden></span></button>
-    <button class="nav" data-view="interviews"><i data-icon="calendar"></i>Interviews</button>
+    <p class="brand-tag" data-version-title>Mission control</p>
+    <p class="nav-group">Work</p>
+    <button class="nav" data-view="focus"><i data-icon="target"></i>Focus</button>
+    <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs<span class="nav-badge nav-count" id="nav-jobs-badge" hidden></span></button>
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions</button>
-    <button class="nav" data-view="strategy"><i data-icon="target"></i>Strategy</button>
-    <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
-    <div class="notion-links" id="notion-links" hidden>
-      <p class="nav-group">In your Notion</p>
+    <button class="nav" data-view="interviews"><i data-icon="calendar"></i>Interviews</button>
+    <p class="nav-group">Setup</p>
+    <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy</button>
+    <button class="nav" data-view="settings" data-settings="profile"><i data-icon="user"></i>Profile</button>
+    <!-- The Notion pages: in ⌘K (Search & commands), not in the menu. -->
+    <div class="notion-links" id="notion-links" hidden></div>
+    <div class="sidebar-bottom">
+      <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
+      <button class="palette-hint" id="palette-hint" title="Search every command"><kbd>⌘K</kbd><span>Search &amp; commands</span></button>
+      <button class="nav-sessions" data-view="sessions" id="nav-sessions" hidden><span class="nav-sessions-dot" id="nav-sessions-badge"></span><span id="nav-sessions-text"></span><i data-icon="chevron"></i></button>
     </div>
-    <button class="palette-hint" id="palette-hint" title="Search every command">⌘K  Commands</button>
-    <p class="fine sidebar-foot">Your data: this Mac and your Notion.</p>
-    <p class="fine app-version" data-version></p>
   </nav>
 
   <main>
