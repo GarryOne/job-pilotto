@@ -12,6 +12,48 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/tools/stop-test-check.sh",
+            "timeout": 600,
+            "statusMessage": "Running the tests that match your changes, as CI does…"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest discover -s tests)",
+      "Bash(actionlint)",
+      "Bash(gh cache list *)",
+      "Bash(gh run watch *)",
+      "Bash(gh secret list *)",
+      "Bash(gh variable list *)",
+      "Bash(git fetch -q origin main)",
+      "Bash(git fetch -q origin)",
+      "Bash(git fetch -q)",
+      "Bash(git fetch origin)",
+      "Bash(git fetch)",
+      "Bash(npm test --silent)",
+      "Bash(npm test)",
+      "Bash(python -m unittest discover -s tests)",
+      "Bash(python3 -m unittest discover -s tests -q)",
+      "Bash(python3 -m unittest discover -s tests)",
+      "mcp__claude-in-chrome__find",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__read_page",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude_ai_Notion__notion-fetch",
+      "mcp__claude_ai_Notion__notion-query-data-sources",
+      "mcp__notion__notion-fetch",
+      "mcp__notion__notion-query-data-sources",
+      "mcp__notion__notion-search",
+      "mcp__terminal__read_terminal"
     ]
   }
 }

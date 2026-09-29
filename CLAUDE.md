@@ -132,3 +132,4 @@ works from scratch, the two CI-only failure classes the tests can't see. Two mor
 install dev dependencies like a developer does (an `--omit=dev` there once hid a missing esbuild from this hook
 and left 8 commits red), and a push is blocked while the latest `build` run on main is red; push the fix itself
 with `CI_RED_OK=1 git push ...`.
+A Stop hook (`tools/stop-test-check.sh`) runs the suites your changes vs origin/main touch, as CI does, before you say done.
