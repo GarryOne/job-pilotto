@@ -145,12 +145,12 @@ def log_text(html):
     return telegram.plain(html)
 
 
-def log_ai_run(tracker, run, args):
+def log_ai_run(tracker, run, args, failed=False):
     """⏰ Cronjob Runs row for an on-demand AI job (kit, interview, insight, weekly), so the month's rows add
     up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
     if tracker and (args.send or args.log_run):
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        url = cron_runs.log_run(tracker, run)
+        url = cron_runs.log_run(tracker, run, failed=failed)
         if url:
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
@@ -306,12 +306,13 @@ def main():
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
+        failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
         run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
-        log_ai_run(tracker, run, args)
+        log_ai_run(tracker, run, args, failed=failed)
         print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
             telegram.send(reply, *telegram.credentials())
-        return 0
+        return 1 if failed else 0
     if args.mode == 'add':
         # /add <job URL> [date]: track an application made outside Job Pilotto.
         if not tracker:
@@ -343,12 +344,13 @@ def main():
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
+        failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
         run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
-        log_ai_run(tracker, run, args)
+        log_ai_run(tracker, run, args, failed=failed)
         print(log_text(reply))  # the log (and the app) get plain text; Telegram gets the HTML
         if args.send:
             telegram.send(reply, *telegram.credentials())
-        return 0
+        return 1 if failed else 0
     if args.mode == 'interview':
         if not tracker:
             raise SystemExit('--mode interview requires NOTION_TOKEN')

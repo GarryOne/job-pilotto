@@ -155,7 +155,7 @@ class DailyAddTests(unittest.TestCase):
         from unittest import mock
         from src import daily
         run = daily.new_cron_run('insight')
-        with mock.patch.object(daily.cron_runs, 'log_run', lambda tracker, r: 'https://notion.test/run-1'), \
+        with mock.patch.object(daily.cron_runs, 'log_run', lambda tracker, r, failed=False: 'https://notion.test/run-1'), \
                 mock.patch('builtins.print') as printed:
             daily.log_ai_run(object(), run, SimpleNamespace(send=False, log_run=True))
         printed.assert_called_with('Cronjob run logged: https://notion.test/run-1')

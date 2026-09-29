@@ -89,11 +89,12 @@ Several agents (Claude, Codex, …) work on this repo at the same time, all push
 them from colliding in one checkout:
 
 - Make every code change in its own git worktree on its own branch, never directly in the main
-  checkout: `git worktree add ../sre-watch-<topic> -b <topic> origin/main`.
+  checkout: `tools/worktree.sh <topic>` (a worktree in `.claude/worktrees/<topic>` from `origin/main`, with the main
+  checkout's `node_modules` linked in, so the tests run at once; `node_modules` is git-ignored: leave the links alone).
 - Commit there. Before landing: `git fetch && git rebase origin/main`, run both test suites
   (`python3 -m unittest discover -s tests`, `cd worker && npm test`), then
   `git push origin <topic>:main` (fast-forward only; if it's rejected, fetch, rebase and test again).
-- Remove the worktree afterwards: `git worktree remove ../sre-watch-<topic> && git branch -d <topic>`.
+- Remove the worktree afterwards: `tools/worktree.sh --done <topic>`.
 - Never force-push `main`, and never use a bare `git stash`/`stash pop`: the stash stack is shared
   across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
