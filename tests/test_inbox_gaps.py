@@ -25,6 +25,16 @@ class FillGapsTest(unittest.TestCase):
         self.assertEqual(set(tracker.updates[0][1]), {'Company', 'Salary'})
         self.assertEqual(inbox.plain(row['properties']['Company']), 'Acme Bank')
 
+    def test_a_chat_that_began_before_the_job_was_tracked_becomes_where_you_were_reached(self):
+        row = {'id': 'h1', 'created_time': '2026-09-29T12:41:00Z',
+               'properties': {'Company': text('Acme'), 'Reached via': {'type': 'select', 'select': {'name': 'Email'}}}}
+        tracker = FakeTracker()
+        filled = inbox._fill_gaps(tracker, row, {'platform': 'LinkedIn', 'first_contact': '2026-09-22T10:00:00+02:00'})
+        self.assertEqual(filled, ['first contact on LinkedIn'])
+        self.assertEqual(tracker.updates[0][1], {'Reached via': {'select': {'name': 'LinkedIn'}}})
+        later = {**row, 'properties': {**row['properties'], 'Reached via': {'type': 'select', 'select': {'name': 'Email'}}}}
+        self.assertEqual(inbox._fill_gaps(FakeTracker(), later, {'platform': 'LinkedIn', 'first_contact': '2026-09-30'}), [])
+
     def test_nothing_new_writes_nothing(self):
         tracker = FakeTracker()
         self.assertEqual(inbox._fill_gaps(tracker, {'id': 'x', 'properties': {'Company': text('Acme')}}, {'company': 'Other'}), [])

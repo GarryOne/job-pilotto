@@ -41,12 +41,13 @@ EMOJI = {**mail.EMOJI, OUTREACH: '🤝', APPLIED: '📨'}
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['kind', 'match', 'role', 'when', 'interview_at', 'feedback'] + opportunity.SCHEMA['required'],
+    'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback'] + opportunity.SCHEMA['required'],
     'properties': {
         'kind': {'type': 'string', 'enum': KINDS},
         'match': {'type': 'integer', 'description': 'Index of the job in the list this is about, or -1 if none fits'},
         'role': {'type': 'string', 'description': 'Role title the item names, else ""'},
         'when': {'type': 'string', 'description': 'ISO 8601 date/time the message was sent if shown, else ""'},
+        'first_contact': {'type': 'string', 'description': 'ISO 8601 date of the earliest message shown in the conversation (the first time they talked), else ""'},
         'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a call/interview with a fixed time, with offset, else ""'},
         'feedback': {'type': 'string', 'description': 'Specific employer feedback quoted verbatim, else empty; no generic rejections or inferred reasons.'},
         **opportunity.SCHEMA['properties'],
@@ -189,14 +190,22 @@ GAPS = {'Company': 'company', 'Location': 'location', 'Salary': 'salary'}
 
 def _fill_gaps(tracker, row, item):
     """What a job was missing (the employer behind an agency's invitation, where, the pay) from the pasted message.
-    Only empty fields are filled: nothing you or an earlier message wrote is replaced. Returns the names filled."""
+    Only empty fields are filled: nothing you or an earlier message wrote is replaced. And where you first talked:
+    a conversation (e.g. a LinkedIn chat) that began before the job was tracked (e.g. from the later email invite)
+    becomes its Reached via. Returns what was filled."""
     changes = {name: {'rich_text': [{'text': {'content': str(item[key])[:200]}}]}
                for name, key in GAPS.items() if item.get(key) and not plain(row['properties'].get(name))}
+    platform, began = item.get('platform'), mail._when(item.get('first_contact') or '')
+    tracked = mail._when(row.get('created_time') or '')
+    if (platform in opportunity.REACHED_VIA and platform != 'Other' and began and tracked and began < tracked
+            and plain(row['properties'].get('Reached via')) != platform):
+        changes['Reached via'] = {'select': {'name': platform}}
     if changes:
         tracker.update_page(row['id'], changes)
         for name, value in changes.items():
-            row['properties'][name] = {'type': 'rich_text', 'rich_text': [{'plain_text': value['rich_text'][0]['text']['content']}]}
-    return [GAPS[name] for name in changes]
+            row['properties'][name] = ({'type': 'select', 'select': value['select']} if 'select' in value else
+                                       {'type': 'rich_text', 'rich_text': [{'plain_text': value['rich_text'][0]['text']['content']}]})
+    return [GAPS.get(name) or f"first contact on {platform}" for name in changes]
 
 
 def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
