@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply demo · both sides</title>
+<!-- The website's split-screen video: the browser (apply-demo.html: the form and the extension's panel) on the left,
+     Job Pilotto on the Mac on the right, kept in step by the messages the form page sends (start, filled, ask, ready).
+     The question is answered in the app, and the form fills it. Fictional candidate. Recorded by scripts/apply-demo.mjs. -->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: radial-gradient(1200px 600px at 50% -10%, #1a2533, #0b1016 60%); color: #e8ecf0;
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; padding: 18px 26px 22px; gap: 12px; }
+  .captions { display: grid; grid-template-columns: 900px 1fr; gap: 26px; align-items: center; }
+  .cap { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #93a1b0; display: flex; align-items: center; gap: 10px; }
+  .cap b { color: #ffb224; font-weight: 700; }
+  .stage { flex: 1; display: grid; grid-template-columns: 900px 1fr; gap: 26px; position: relative; }
+  .pane { border-radius: 14px; overflow: hidden; box-shadow: 0 2px 4px rgb(0 0 0 / .35), 0 30px 70px rgb(0 0 0 / .5); background: #fff; position: relative; }
+  .browser iframe { border: 0; width: 1184px; height: 960px; transform: scale(.76); transform-origin: 0 0; }
+  /* The sync badge between the two sides: flashes on every message. */
+  .sync { position: absolute; left: 900px; top: 46%; width: 26px; display: grid; place-items: center; z-index: 3; }
+  .sync span { width: 46px; height: 46px; margin-left: -10px; border-radius: 50%; background: #0f161e; border: 2px solid #2d3c4d; display: grid; place-items: center;
+    font-size: 19px; color: #3cc4b8; transition: transform .25s, border-color .25s, box-shadow .25s; }
+  .sync span.flash { transform: scale(1.18); border-color: #3cc4b8; box-shadow: 0 0 22px rgb(60 196 184 / .55); }
+  /* The app, drawn in its own style (desktop/renderer/tokens.css: navy sidebar, amber accents). */
+  .app { display: grid; grid-template-columns: 170px 1fr; background: #eef2f6; color: #182537; }
+  .side { background: #0d1219; color: #cfd8e3; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 700; color: #fff; font-size: 15px; padding: 2px 6px 14px; border-bottom: 1px solid #1f2b38; margin-bottom: 8px; }
+  .brand i { width: 30px; height: 30px; border-radius: 8px; background: #0b1016; border: 2px solid #ffb224; color: #f4efe3; font: 800 11px/26px system-ui; text-align: center; font-style: normal; }
+  .nav { padding: 8px 10px; border-radius: 9px; font-size: 13.5px; display: flex; justify-content: space-between; }
+  .nav.on { background: #17212c; color: #fff; box-shadow: inset 3px 0 0 #ffb224; }
+  .nav em { font-style: normal; background: #ffb224; color: #14110c; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 7px; }
+  .main { padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .title { display: flex; align-items: center; gap: 10px; }
+  .title h1 { margin: 0; font-size: 19px; }
+  .sub { color: #5b6b80; font-size: 13px; margin-top: -8px; }
+  .status { margin-left: auto; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #eaf1fb; color: #165bba; transition: background .3s, color .3s; }
+  .status.ask { background: #fdf4e4; color: #9a6200; } .status.ready { background: #e7f6ee; color: #1f9d55; }
+  .card { background: #fff; border: 1px solid #dde4ec; border-radius: 12px; padding: 12px 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #5b6b80; display: flex; justify-content: space-between; }
+  .count { font-size: 22px; font-weight: 700; } .count small { font-size: 13px; color: #5b6b80; font-weight: 500; }
+  .bar { height: 7px; border-radius: 999px; background: #e7ecf2; overflow: hidden; margin-top: 8px; }
+  .bar i { display: block; height: 100%; width: 0; background: #f07014; transition: width .3s; border-radius: 999px; }
+  .ready .bar i { background: #1f9d55; }
+  .log { display: flex; flex-direction: column; gap: 5px; height: 214px; overflow: hidden; justify-content: flex-end; font-size: 13px; }
+  .log div { display: flex; gap: 8px; align-items: baseline; animation: in .3s ease-out; }
+  .log div span { color: #8492a6; font: 11.5px ui-monospace, Menlo, monospace; flex: none; }
+  .log div b { color: #1f9d55; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } }
+  .needs { min-height: 104px; }
+  .none { color: #5b6b80; font-size: 13px; }
+  .q { display: none; gap: 10px; align-items: flex-start; }
+  .q.on { display: flex; animation: in .3s ease-out; }
+  .q .ico { font-size: 18px; }
+  .q p { margin: 0 0 8px; font-size: 13.5px; }
+  .use { background: #d9540b; color: #fff; border: 0; border-radius: 9px; padding: 7px 12px; font-weight: 650; font-size: 13px; transition: transform .15s, box-shadow .2s; }
+  .use.press { transform: scale(.94); box-shadow: 0 0 0 5px rgb(217 84 11 / .25); }
+  .done { display: none; color: #1f9d55; font-weight: 600; font-size: 13.5px; }
+  .done.on { display: block; animation: in .3s ease-out; }
+  .banner { display: none; border-radius: 12px; padding: 12px 14px; background: #e7f6ee; color: #14683b; font-weight: 650; font-size: 14px; }
+  .banner.on { display: block; animation: in .35s ease-out; }
+</style></head>
+<body>
+<div class="captions">
+  <div class="cap"><b>1</b> In your browser · the extension fills the form</div>
+  <div class="cap"><b>2</b> Job Pilotto on your Mac · live, in sync</div>
+</div>
+<div class="stage">
+  <div class="pane browser"><iframe id="form" src="apply-demo.html"></iframe></div>
+  <div class="sync"><span id="sync">⇄</span></div>
+  <div class="pane app" id="app">
+    <aside class="side">
+      <div class="brand"><i>JP</i>Job Pilotto</div>
+      <div class="nav">Focus</div><div class="nav">Jobs <em>8</em></div><div class="nav on">Applying <em>1</em></div>
+      <div class="nav">Actions</div><div class="nav">Interviews</div>
+    </aside>
+    <section class="main">
+      <div class="title"><h1>Northwind AI</h1><span class="status" id="status">Applying</span></div>
+      <div class="sub">Senior Site Reliability Engineer · Zurich</div>
+      <div class="card"><h2>In the form <span id="where">Chrome · boards.greenhouse.io</span></h2>
+        <div class="count" id="count">0 <small>/ 9 required fields</small></div><div class="bar"><i id="bar"></i></div></div>
+      <div class="card"><h2>What happened</h2><div class="log" id="log"></div></div>
+      <div class="card needs"><h2>Needs you</h2>
+        <div class="none" id="none">Nothing yet: it asks only what isn't in your profile or answers.</div>
+        <div class="q" id="q"><span class="ico">❓</span><div><p><b>Notice period?</b> Not in your answers yet. Suggested: <b>3 months</b> (from your CV).</p>
+          <button class="use" id="use">Use it, and save for next time</button></div></div>
+        <div class="done" id="saved-line">✓ Saved to your answers · filled in the form</div>
+      </div>
+      <div class="banner" id="banner">✅ Ready to submit · review it in the browser, then press Submit yourself</div>
+    </section>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let t0 = null;
+const clock = () => { const s = Math.max(0, Math.round((Date.now() - (t0 || Date.now())) / 1000)); return `0:${String(s).padStart(2, '0')}`; };
+function log(html) {
+  const row = document.createElement('div');
+  row.innerHTML = `<span>${clock()}</span><div>${html}</div>`;
+  $('log').append(row);
+  while ($('log').children.length > 9) $('log').firstChild.remove();
+}
+function synced() { $('sync').classList.remove('flash'); void $('sync').offsetWidth; $('sync').classList.add('flash'); setTimeout(() => $('sync').classList.remove('flash'), 350); }
+function count(n) { $('count').innerHTML = `${n} <small>/ 9 required fields</small>`; $('bar').style.width = `${Math.round(n / 9 * 100)}%`; }
+log('Claude opened the posting and signed you in to Greenhouse');
+window.addEventListener('message', async event => {
+  const m = event.data || {};
+  synced();
+  if (m.type === 'start') { t0 = Date.now(); log('The extension is filling the form from your kit'); }
+  if (m.type === 'filled') { count(m.count); log(`<b>✓</b> ${m.label}`); }
+  if (m.type === 'ask') {
+    $('status').textContent = 'Needs you'; $('status').className = 'status ask';
+    $('none').style.display = 'none'; $('q').classList.add('on');
+    log('One question isn’t in your answers: it asks you here');
+    await sleep(2300);
+    $('use').classList.add('press');
+    await sleep(350);
+    $('use').classList.remove('press'); $('q').classList.remove('on'); $('saved-line').classList.add('on');
+    synced();
+    $('form').contentWindow.postMessage({type: 'answer'}, '*');
+    log('<b>✓</b> Notice period: 3 months (saved for every later form)');
+  }
+  if (m.type === 'ready') {
+    count(9); $('app').classList.add('ready');
+    $('status').textContent = 'Ready to submit'; $('status').className = 'status ready';
+    $('banner').classList.add('on'); log('<b>✓</b> Every required field is filled');
+    setTimeout(() => { window.done = true; }, 4200);
+  }
+});
+</script>
+</body></html>

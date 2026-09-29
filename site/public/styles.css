@@ -394,3 +394,17 @@ table.compare { width: 100%; min-width: 820px; border-collapse: collapse; font-s
 /* Privacy and Terms: smaller section titles for long reading */
 .legal h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); }
 .legal h2 { font-size: 1.45rem; letter-spacing: -.02em; }
+
+/* Automatic apply: the split-screen video (wide screens) or the browser-only one (phones), and the five steps. */
+.apply-stage { padding: clamp(10px, 2vw, 22px); }
+.apply-video { width: 100%; display: block; border-radius: 12px; background: var(--surface); }
+.apply-video.wide { aspect-ratio: 1920 / 872; }
+.apply-video.narrow { display: none; aspect-ratio: 1600 / 1000; }
+@media (max-width: 760px) { .apply-video.wide { display: none; } .apply-video.narrow { display: block; } }
+.apply-steps { list-style: none; counter-reset: step; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.apply-steps li { counter-increment: step; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 6px; align-content: start; }
+.apply-steps li::before { content: counter(step); width: 26px; height: 26px; border-radius: 8px; background: var(--signal-soft); color: var(--signal); display: grid; place-items: center; font: 700 .85rem var(--mono); }
+.apply-steps b { font-size: 1rem; } .apply-steps span { color: var(--muted); font-size: .92rem; line-height: 1.5; }
+@media (max-width: 1000px) { .apply-steps { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .apply-steps { grid-template-columns: 1fr; } }
+.apply-fine { margin: 12px 0 0; color: var(--muted); font-size: .85rem; }

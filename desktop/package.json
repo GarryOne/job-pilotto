@@ -16,7 +16,8 @@
     "build:win": "node scripts/stage.mjs --app && electron-builder --win --publish never",
     "ui-shots": "node scripts/stage.mjs && node scripts/ui-shots.mjs",
     "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
-    "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs"
+    "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",
+    "apply-demo": "node scripts/apply-demo.mjs"
   },
   "devDependencies": {
     "electron": "^44.4.5",
