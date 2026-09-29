@@ -71,9 +71,12 @@ export function report(sessions, payload, now = Date.now()) {
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
   state.ready = state.total > 0 && state.left === 0;
   // Each field ticked off with the time it was first seen filled: the Applying page's "In the form" list.
-  const seen = new Map((last.get(session.id)?.filled || []).map(item => [item.label, item.at]));
+  // Fields already filled when the app first hears of the form have no time (it didn't see them being filled); a field
+  // filled after a fill is over was filled by you. A restarted app keeps what it had (persist).
+  const before = last.get(session.id);
+  const seen = new Map((before?.filled || []).map(item => [item.label, item]));
   if (Array.isArray(payload.filled)) state.filled = payload.filled.slice(0, 40).map(label => String(label).slice(0, 120)).filter(Boolean)
-    .map(label => ({label, at: seen.get(label) ?? now}));
+    .map(label => seen.get(label) || {label, at: before?.filled ? now : null, by: before?.filled && payload.over && !payload.busy ? 'you' : 'fill'});
   if (JSON.stringify(last.get(session.id)) !== JSON.stringify(state)) { last.set(session.id, state); save(); reporter({...state, at: now}); }
   const due = (commands.get(session.id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000);
   commands.delete(session.id);

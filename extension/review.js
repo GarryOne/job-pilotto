@@ -214,7 +214,10 @@
     $('.ring span').textContent = ready ? '✓' : total ? String(left) : '–';
     $('.pill b').textContent = ready ? 'Ready to submit' : total ? `${left} left` : 'Job Pilotto';
     $('.pill small').textContent = (job?.company || session?.company) ? (job?.company || session?.company) : ready ? 'Review, then submit' : 'required fields';
-    if (!open) return {list, left, total};
+    // A fill running (this panel's, Claude's, the popup's) or over: a field filled after it is yours.
+    const busy = filling || (session?.live && session.status === 'running') || $('.fill').classList.contains('is-busy');
+    const over = filledOnce || ['done', 'input'].includes(session?.status);
+    if (!open) return {list, left, total, busy, over};
     // job + Claude
     const title = job?.title || session?.title, company = job?.company || session?.company;
     $('.job').hidden = !title;
@@ -236,8 +239,6 @@
     $('.fill').disabled = filling;
     // What's left for you, once the filling is over: before and during it, nearly every field is still to be filled
     // by the extension or Claude, not by you (the ring and the bar show the progress meanwhile).
-    const busy = filling || claudeFilling || $('.fill').classList.contains('is-busy');
-    const over = filledOnce || ['done', 'input'].includes(session?.status);
     $('.left').hidden = !left || busy || !over;
     $('.list').replaceChildren(...shown.slice(0, 30).map(field => {
       const row = Object.assign(document.createElement('button'), {className: 'item'});
@@ -254,7 +255,7 @@
     foot.classList.toggle('on', !!connection?.connected);
     foot.textContent = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
       : connection ? (connection.why || 'Not connected: the form still fills from your settings') : 'Checking the connection…';
-    return {list, left, total};
+    return {list, left, total, busy, over};
   }
 
   // ---- actions ----
@@ -336,6 +337,7 @@
         // What is filled, so the app can tick each field off as it happens (it keeps the time it first saw each one).
         // What is left, counted as the ring counts it: required, or an answer Claude wrote that is empty again.
         pending: state.list.filter(f => (f.required || f.ai) && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
+        busy: !!state.busy, over: !!state.over,
         filled: state.list.filter(f => (f.required || f.ai) && f.filled).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)),
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});

@@ -946,8 +946,17 @@ main { min-width: 0; }
 .ss-need.is-done .ss-ask-save { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
 /* Everything handled: the card folds to its header; a click opens it. */
 .ss-needs.is-all-done { border-color: var(--line); }
-.ss-needs.is-all-done .ss-fact-head { cursor: pointer; margin-bottom: 0; }
-.ss-needs.is-all-done:not(.is-open) #ss-needs { display: none; }
+/* Now vs history: handled rows show only on "Show history"; with nothing open, one line says so */
+.ss-needs:not(.show-history) .ss-need.is-done { display: none; }
+.ss-needs-none { display: none; margin: var(--sp-1) 0 0; }
+.ss-needs.is-all-done:not(.show-history) .ss-needs-none { display: block; }
+.ss-needs-history { margin-top: var(--sp-2); }
+/* Claude's report (its own words, from when it finished): folded to its header */
+.ss-happened .ss-fact-head { cursor: pointer; margin-bottom: 0; }
+.ss-happened .ss-fact-head .icon { transition: transform .15s; }
+.ss-happened.is-open .ss-fact-head { margin-bottom: var(--sp-2); }
+.ss-happened.is-open .ss-fact-head .icon { transform: rotate(90deg); }
+.ss-happened:not(.is-open) > :not(.ss-fact-head) { display: none; }
 .ss-needs.is-all-done .ss-fact-head .icon { color: var(--good); }
 .ss-check.is-solved .ss-check-line { color: var(--muted); }
 .ss-ask-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
@@ -987,7 +996,9 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .ss-form-more > summary:hover { color: var(--ink); }
 .ss-form-fields { list-style: none; padding: var(--sp-2) 0 0; margin: var(--sp-2) 0 0; border-top: 1px solid var(--line);
   display: grid; gap: 5px; max-height: 280px; overflow: auto; font-size: var(--fs-md); }
-.ss-form-fields li { display: grid; grid-template-columns: 40px 14px 1fr; gap: var(--sp-2); align-items: baseline; }
+.ss-form-fields li { display: grid; grid-template-columns: 40px 14px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline; }
+.ss-form-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-form-by { font-size: var(--fs-xs); font-weight: 600; color: var(--info); border: 1px solid currentColor; border-radius: var(--r-pill); padding: 0 var(--sp-2); }
 .ss-form-time { color: var(--muted); font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; text-align: right; }
 .ss-form-fields .is-filled .ss-form-mark { color: var(--good); }
 .ss-form-fields .is-left .ss-form-mark, .ss-form-fields .is-left .ss-form-label { color: var(--warn); }

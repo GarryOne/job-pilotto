@@ -400,11 +400,13 @@
             <details class="ss-form-more" id="ss-form-more"><summary id="ss-form-summary"></summary><ul class="ss-form-fields" id="ss-form-fields"></ul></details>
           </section>
           <section class="ss-fact-card ss-needs" id="ss-needs-card" hidden>
-            <div class="ss-fact-head"><i data-icon="alert"></i><b id="ss-needs-title">What Claude needs from you</b><span id="ss-needs-count"></span></div>
+            <div class="ss-fact-head"><i data-icon="alert"></i><b id="ss-needs-title">What Claude needs from you</b><span id="ss-needs-save"></span><span id="ss-needs-count"></span></div>
             <ul class="ss-checks" id="ss-needs"></ul>
+            <p class="muted small ss-needs-none">Nothing needs you now.</p>
+            <button class="link small ss-needs-history" id="ss-needs-history" hidden></button>
           </section>
-          <section class="ss-fact-card" id="ss-happened-card" hidden>
-            <div class="ss-fact-head"><i data-icon="check"></i><b>What happened</b><span id="ss-audit-pill"></span></div>
+          <section class="ss-fact-card ss-happened" id="ss-happened-card" hidden>
+            <div class="ss-fact-head" id="ss-happened-head"><i data-icon="chevron"></i><b>Claude's report</b><span class="muted small" id="ss-happened-when"></span><span id="ss-audit-pill"></span></div>
             <ul class="ss-checks" id="ss-happened"></ul>
             <div class="ss-audit" id="ss-audit-card" hidden>
               <p class="muted ss-audit-summary"><b>Form audit:</b> <span id="ss-audit-summary"></span></p>

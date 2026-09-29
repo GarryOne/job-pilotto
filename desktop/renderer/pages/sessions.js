@@ -9,7 +9,7 @@ import {$, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, opening, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -197,7 +197,7 @@ function foldRow(short, more) {
   li.append(detail);
   return li;
 }
-let fullFor = null;  // the session whose Claude's message the banner shows (folded again for another one)
+let fullFor = null, reportFor = null;  // the session whose Claude's message the banner shows (folded again for another one)
 export function renderNextStep(item) {
   const review = sessionReview(item), asking = item.status === 'input' && !review, running = item.status === 'running';
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(item.question);
@@ -236,6 +236,14 @@ export function renderNextStep(item) {
       const went = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
       if (went === 'chrome') toastMessage('Form tab not found', 'No open form answered. Look for the tab Claude used in Chrome.');
     }, 'link'));
+    // You pressed Submit in Chrome: say so here too (the Jobs row and Notion move to Applied).
+    actions.push(sessionButton('I submitted it', 'secondary', async event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      const result = await window.pilot.setStatus(item.url, 'applied').catch(error => ({ok: false, error: error.message}));
+      if (!result.ok) { button.disabled = false; toastMessage('Not marked Applied', result.error || 'Try again.'); return; }
+      button.textContent = '✓ Marked Applied';
+    }, 'check'));
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     else if (item.resumable) actions.push(resume('secondary'));
     const never = el('span', 'ss-never muted small');
@@ -267,8 +275,11 @@ export function renderNextStep(item) {
   applyFormStates(item);
   showFormState(item);
   updateNeedsCount();
+  saveAllButton();
+  // The live field list ("In the form") says what was filled, field by field: Claude's "Filled:" summary only without it.
+  const listed = !!reviewStates.get(item.id)?.filled?.length;
   const happened = [
-    ...done.map(section => {
+    ...done.filter(section => !(listed && /^filled$/i.test(section.label || ''))).map(section => {
       // "**Filled:**" with its details on the bullets under it: the line shows the first of them (+ how many more);
       // the list is one click away.
       const extra = !section.text && section.items.length > 1 ? ` (+${section.items.length - 1} more)` : '';
@@ -303,6 +314,26 @@ export function renderNextStep(item) {
     show($('ss-audit-more'), !!rest);
   }
   show($('ss-happened-card'), happened.length > 0 || !!audit || !!(review && item.question));
+  // Claude's report, from when it finished: folded (the cards above are today's state), open while a problem it hit
+  // still stands (the form isn't ready).
+  $('ss-happened-when').textContent = `· ${hhmmOf(item.needsYouSince || item.endedAt || item.startedAt)}`;
+  if (reportFor !== item.id) {
+    reportFor = item.id;
+    $('ss-happened-card').classList.toggle('is-open', happened.some(entry => entry.problem) && !formReady(item));
+  }
+  $('ss-happened-head').onclick = event => { if (!event.target.closest('a, button')) $('ss-happened-card').classList.toggle('is-open'); };
+}
+
+// "Save all N to your answers": the suggested answers Claude filled, saved in one click (each row's box, ticked).
+function saveAllButton() {
+  const boxes = [...document.querySelectorAll('#ss-needs .ss-ask-save input:not(:checked):not(:disabled)')]
+    .filter(box => box.closest('.ss-need')?.querySelector('.ss-ask-input')?.value.trim());
+  const slot = $('ss-needs-save');
+  slot.replaceChildren();
+  if (boxes.length < 2) return;
+  const button = el('button', 'link small', `Save all ${boxes.length} to your answers`);
+  button.onclick = () => { button.disabled = true; for (const box of boxes) box.click(); };
+  slot.append(button);
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).

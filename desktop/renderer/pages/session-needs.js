@@ -38,8 +38,12 @@ export function updateNeedsCount() {
   const check = open.filter(li => li.classList.contains('is-confirm')).length, form = open.length - check;
   const text = [form && `${form} in the form`, check && `${check} to check`].filter(Boolean).join(' · ');
   $('ss-needs-count').replaceChildren(open.length ? pill(text, 'warn') : pill('All handled', 'good', {dot: true}));
-  // All handled: the card folds to its header (a click shows the rows again).
+  // Now: only what's still open. What was handled (by you or in the form) is the history, one click away.
+  const done = document.querySelectorAll('#ss-needs .ss-need.is-done').length;
   $('ss-needs-card').classList.toggle('is-all-done', !open.length);
+  const history = $('ss-needs-history');
+  history.hidden = !done;
+  history.textContent = `${$('ss-needs-card').classList.contains('show-history') ? 'Hide' : 'Show'} history · ${done} handled`;
   const head = $('ss-needs-card').querySelector('.ss-fact-head .icon');
   if (head && head.dataset.state !== String(!open.length)) { const glyph = icon(open.length ? 'alert' : 'check'); glyph.dataset.state = String(!open.length); head.replaceWith(glyph); }
 }
@@ -69,7 +73,8 @@ export function showFormState(item) {
   const state = reviewStates.get(item.id);
   const box = $('ss-form-state');
   showFormCard(item, state);
-  if (!state || !state.total) { box.replaceChildren(); return; }
+  box.replaceChildren();  // the "In the form" card says it (count, bar, Ready to submit): once
+  if (true) return;
   box.replaceChildren(state.ready ? pill('Form ready to submit', 'good', {dot: true})
     : pill(`Form: ${state.left} required left`, 'warn', {dot: true, title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists them)`}));
 }
@@ -92,18 +97,23 @@ function showFormCard(item, state) {
   // An extension older than 0.8.12 sends no filled fields: then only what's left.
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
   const left = state.pending || state.missing || [];
-  const start = filled[0]?.at || 0;
+  const start = filled.find(field => field.at)?.at || 0;
   $('ss-form-more').hidden = !filled.length && !left.length;
   $('ss-form-summary').textContent = filled.length ? `Show the ${filled.length} filled field${filled.length === 1 ? '' : 's'}${left.length ? ` and ${left.length} ${item.status === 'running' ? 'to go' : 'left'}` : ''}`
     : `Show the ${left.length} ${item.status === 'running' ? 'to go' : 'left'}`;
-  const row = (kind, time, mark, label) => {
+  // Who filled it: you (after the fill was over) or the fill (Claude, the extension); the time only when the app saw it.
+  const row = (kind, time, mark, label, by = '') => {
     const li = el('li', kind);
-    li.append(el('span', 'ss-form-time', time), el('b', 'ss-form-mark', mark), el('span', 'ss-form-label', label));
+    const text = el('span', 'ss-form-label', label);
+    text.title = label;
+    li.append(el('span', 'ss-form-time', time), el('b', 'ss-form-mark', mark), text);
+    if (by) li.append(el('span', 'ss-form-by', by));
     return li;
   };
   $('ss-form-fields').replaceChildren(
     ...left.map(label => row('is-left', '', '○', label)),
-    ...filled.map(field => row('is-filled', clock(Math.max(0, field.at - start)), '✓', field.label)));
+    ...filled.map(field => row(field.by === 'you' ? 'is-filled is-yours' : 'is-filled', field.at ? clock(Math.max(0, field.at - start)) : '', '✓', field.label,
+      field.by === 'you' ? 'you' : '')));
 }
 export function applyFormStates(item) {
   const state = reviewStates.get(item.id);
@@ -265,9 +275,7 @@ export function askRow(need, item) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  $('ss-needs-card').querySelector('.ss-fact-head').addEventListener('click', () => {
-    if ($('ss-needs-card').classList.contains('is-all-done')) $('ss-needs-card').classList.toggle('is-open');
-  });
+  $('ss-needs-history').addEventListener('click', () => { $('ss-needs-card').classList.toggle('show-history'); updateNeedsCount(); });
   // A window that just loaded (⌘R, a restart) asks for every form's last state: the app passes them on only when they
   // change, so without this the ticks from the form stayed away until something changed there.
   window.pilot.reviewStates().then(states => {

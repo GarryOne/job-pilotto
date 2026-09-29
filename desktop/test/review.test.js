@@ -96,11 +96,13 @@ test('each filled field is ticked off with the time it was first seen, and keeps
   review._reset();
   const heard = [];
   review.setReporter(state => heard.push(state));
-  review.report(sessions, form({filled: ['First name']}), 1000);
-  review.report(sessions, form({left: 2, filled: ['First name', 'Email']}), 3000);
-  assert.deepEqual(heard.at(-1).filled, [{label: 'First name', at: 1000}, {label: 'Email', at: 3000}]);
-  review.report(sessions, form({left: 2, filled: ['First name', 'Email']}), 9000);  // nothing new: not passed on again
-  assert.equal(heard.length, 2);
+  review.report(sessions, form({filled: ['First name'], busy: true}), 1000);  // already filled when first heard of: no time
+  review.report(sessions, form({left: 2, filled: ['First name', 'Email'], busy: true}), 3000);
+  review.report(sessions, form({left: 1, filled: ['First name', 'Email', 'Phone'], over: true}), 5000);  // after the fill: you
+  assert.deepEqual(heard.at(-1).filled, [{label: 'First name', at: null, by: 'fill'}, {label: 'Email', at: 3000, by: 'fill'},
+    {label: 'Phone', at: 5000, by: 'you'}]);
+  review.report(sessions, form({left: 1, filled: ['First name', 'Email', 'Phone'], over: true}), 9000);  // nothing new: not passed on again
+  assert.equal(heard.length, 3);
   review.report(sessions, form({left: 3, filled: ['First name']}), 9500);  // emptied again: off the list
   assert.deepEqual(heard.at(-1).filled.map(item => item.label), ['First name']);
 });
