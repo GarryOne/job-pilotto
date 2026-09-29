@@ -41,7 +41,28 @@ export function sessionLogo(item) {
   badge.style.setProperty('--hue', hue);
   return badge;
 }
+// The sessions most worth opening first: waiting for your answer, a review whose form isn't complete yet, working,
+// ready to submit, then the rest (latest first).
+const urgency = item => (item.status === 'input' && !sessionReview(item) ? 0 : sessionReview(item) && !formReady(item) ? 1
+  : isLive(item) && item.status === 'running' ? 2 : sessionReview(item) ? 3 : 4);
+export function bestSession() {
+  return [...sessionList].sort((a, b) => urgency(a) - urgency(b) || Date.parse(b.startedAt || 0) - Date.parse(a.startedAt || 0))[0] || null;
+}
+// "Applying" in the menu: amber = how many need you, blue = how many are working, green ✓ = all ready to submit.
+function renderNavBadge() {
+  const badge = $('nav-sessions-badge');
+  const open = sessionList.filter(item => !item.endedAt || sessionReview(item));
+  const needs = open.filter(item => urgency(item) <= 1).length, working = open.filter(item => urgency(item) === 2).length;
+  const ready = open.length > 0 && open.every(item => urgency(item) === 3);
+  const [text, tone, title] = needs ? [String(needs), 'warn', `${needs} need${needs === 1 ? 's' : ''} you`]
+    : working ? [String(working), 'info', `${working} working`] : ready ? ['✓', 'good', 'Ready to submit'] : ['', '', ''];
+  badge.hidden = !text;
+  badge.textContent = text;
+  badge.className = `nav-badge tone-${tone}`;
+  badge.title = title;
+}
 export function renderDock() {
+  renderNavBadge();
   const live = sessionList.filter(item => !item.endedAt || item.status === 'done');
   // Not on the sessions page itself (it lists them all): the tray would only repeat what's on screen.
   const onSessionsPage = !document.querySelector('.view[data-view="sessions"]')?.hidden;

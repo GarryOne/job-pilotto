@@ -286,6 +286,13 @@ button.danger:hover { background: var(--bad-soft); }
 .nav:hover { background: var(--navy-hover); color: var(--on-accent); }
 .nav.active { background: var(--navy-active); color: var(--on-accent); border-left-color: var(--signal); }
 .nav.active .icon { color: var(--signal); }
+/* A count on a menu item (Applying: sessions that need you). */
+.nav { position: relative; }
+.nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); display: inline-grid;
+  place-items: center; font-size: var(--fs-xs); font-weight: 700; line-height: 1; }
+.nav-badge.tone-warn { background: var(--warn-bright); color: var(--ink); }
+.nav-badge.tone-info { background: var(--info); color: var(--on-accent); }
+.nav-badge.tone-good { background: var(--good-bright); color: var(--on-accent); }
 .nav-group { font-size: var(--fs-xs); margin-top: 14px; }
 .notion-link { display: flex; align-items: center; gap: 9px; font-weight: 500; font-size: var(--fs-sm); padding: 5px 10px; }
 .notion-link .icon { width: 14px; height: 14px; color: var(--on-navy-3); }
@@ -694,6 +701,7 @@ main { min-width: 0; }
   .sidebar { padding: 20px 8px; align-items: center; }
   .sidebar .brand { font-size: 0; gap: 0; padding-left: 0; }
   .nav, .notion-link { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 10px 0; }
+  .nav-badge { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; margin: 0; font-size: var(--fs-xs); }
   .nav .icon { width: 20px; height: 20px; }
   .notion-link .icon { width: 18px; height: 18px; }
   .notion-links { display: flex; flex-direction: column; align-items: center; gap: 2px; }

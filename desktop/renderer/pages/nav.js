@@ -5,7 +5,8 @@ import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
 import {loadInterviews} from './interviews.js';
 import {loadSettings} from './profile.js';
-import {renderDock, sessionList} from './sessions.js';
+import {openSession} from './session-log.js';
+import {bestSession, renderDock, sessionList} from './sessions.js';
 import {settingsPage} from './settings.js';
 import {loadStrategy} from './strategy.js';
 
@@ -62,7 +63,8 @@ function paletteCommands() {
 export async function init() {
   document.querySelectorAll('.nav').forEach(nav => {
     nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
-    nav.addEventListener('click', () => openView(nav.dataset.view));
+    // Applying opens the session that needs you most (else the latest), not just the page.
+    nav.addEventListener('click', () => (nav.dataset.view === 'sessions' && bestSession() ? openSession(bestSession().id) : openView(nav.dataset.view)));
   });
   $('palette-hint').addEventListener('click', () => openPalette(paletteCommands()));
   document.addEventListener('keydown', event => {
