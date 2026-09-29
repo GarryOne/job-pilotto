@@ -28,6 +28,7 @@ import * as appMenu from './lib/app-menu.js';
 import * as appFeedback from './lib/app-feedback.js';
 import * as aiTrial from './lib/ai-trial.js';
 import * as setupFunnel from './lib/setup-funnel.js';
+import * as devMarker from './lib/dev-marker.js';
 import * as pendingLicense from './lib/pending-license.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
@@ -199,7 +200,7 @@ github.setEngineRef(app.isPackaged ? `desktop-v${app.getVersion()}` : 'main');
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build
 // (scripts/stage.mjs --app); without it this is a development copy (npm start).
 const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();
-const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null,
+const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null, dev: !app.isPackaged && !DEMO,
   label: DEMO ? app.getVersion() : buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
 let storage;
 let window;
@@ -242,11 +243,13 @@ function applyTheme(value) {
 function windowBackground() { return nativeTheme.shouldUseDarkColors ? '#0b1016' : '#eef3f7'; }
 
 function createWindow() {
+  const windowTitle = devMarker.title(!app.isPackaged && !DEMO, app.isPackaged ? '' : devMarker.branch(here));
   window = new BrowserWindow({
-    width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: 'Job Pilotto', show: !process.env.JOB_PILOTTO_SMOKE,
+    width: 1280, height: 820, minWidth: 1024, minHeight: 640, title: windowTitle, show: !process.env.JOB_PILOTTO_SMOKE,
     backgroundColor: windowBackground(),
     webPreferences: {preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false},
   });
+  window.on('page-title-updated', event => { event.preventDefault(); window.setTitle(windowTitle); });
   // Demo mode can open another page of the app instead, e.g. the component gallery (npm run gallery).
   const page = DEMO && /^[a-z-]+\.html$/.test(process.env.JOB_PILOTTO_PAGE || '') ? process.env.JOB_PILOTTO_PAGE : 'index.html';
   window.loadFile(path.join(here, 'renderer', page));
@@ -1263,7 +1266,7 @@ if (firstCopy) app.whenReady().then(() => {
   buildMenu();
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
-  if (!app.isPackaged) app.dock?.setIcon(path.join(here, 'assets', 'icon.png'));
+  if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge('DEV'); }  // from source: never mistaken for the installed app
   logTo(path.join(app.getPath('userData'), 'logs'));
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
