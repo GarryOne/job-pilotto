@@ -125,6 +125,23 @@ function showAwaitedResult(runs) {
   if (run.message || !run.pageId) show(run.message);
   else window.pilot.runDetail(run.pageId).then(detail => show(detail.message), () => show(null));  // on its Notion page
 }
+// The status bar's last finished state, kept on this Mac: shown the moment the window opens, instead of
+// "No jobs check yet" until the run history has been read (from Notion). A running state is never kept.
+const STATUS_KEPT = 'statusBar';
+function keepStatusBar() {
+  const kept = {state: $('activity').dataset.state, title: $('activity-title').textContent,
+    step: $('activity-step').textContent, meta: $('activity-meta').textContent};
+  try { localStorage.setItem(STATUS_KEPT, JSON.stringify(kept)); } catch {}
+}
+function showKeptStatusBar() {
+  let kept = null;
+  try { kept = JSON.parse(localStorage.getItem(STATUS_KEPT) || 'null'); } catch {}
+  if (!kept?.title || lastActivity) return;
+  $('activity').dataset.state = kept.state || 'idle';
+  $('activity-title').textContent = kept.title;
+  $('activity-step').textContent = kept.step;
+  $('activity-meta').textContent = kept.meta;
+}
 export function renderActivity(data) {
   renderActionsPage(data);
   lastActivity = data;
@@ -162,6 +179,7 @@ export function renderActivity(data) {
     $('activity-step').textContent = 'Click "Check for new jobs" on Jobs to start one.';
     $('activity-meta').textContent = mailNote;
   }
+  if (!running) keepStatusBar();
 
   // Recent activity: newest first; click one to see its log below.
   const shown = runs.find(run => run.id === shared.selectedRun) || null;
@@ -390,6 +408,7 @@ export async function buildDraft() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  showKeptStatusBar();
   $('log').addEventListener('click', event => {
     const link = event.target.closest('a.log-link');
     if (!link) return;
