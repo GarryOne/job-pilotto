@@ -4,6 +4,7 @@ import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {automationChanged} from './connections.js';
 import {$, savedAgo, show} from './core.js';
+import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
@@ -222,10 +223,19 @@ function renderFunnel(funnel) {
     const fill = el('span', '');
     fill.style.width = `${Math.max(share, step.reached ? 4 : 0)}%`;
     bar.append(fill);
-    // Ever reached (big), then how many are there now (the Jobs boxes' number), e.g. Screening 2 · 1 now.
-    const now = i && step.now != null ? ` · ${step.now} now` : '';
-    li.title = i ? `${step.reached} ever reached this step; ${step.now ?? '?'} ${step.now === 1 ? 'is' : 'are'} there now` : '';
-    li.append(el('span', 'funnel-name', step.step.replace(/^\S+\s/, '')), el('b', 'funnel-count', String(step.reached)), bar, el('span', 'muted small', `${share}%${now}`));
+    // How many ever reached this step (it only grows: a later rejection doesn't take one back) and their share.
+    li.title = `${step.reached} ever reached this step (${share}% of all prepared), whatever happened after`;
+    const name = step.step.replace(/^\S+\s/, '');
+    li.append(el('span', 'funnel-name', name), el('b', 'funnel-count', String(step.reached)), bar, el('span', 'muted small', `${share}% reached`));
+    // A click shows the applications that reached this step in the Jobs list.
+    if (step.urls?.length) {
+      li.classList.add('is-link');
+      Object.assign(li, {tabIndex: 0, role: 'button'});
+      li.title += '. Click to see them';
+      const open = () => { openView('jobs'); showJobsIn(`ever reached ${name}`, step.urls); };
+      li.addEventListener('click', open);
+      li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+    }
     nodes.push(li);
   });
   $('funnel-steps').replaceChildren(...nodes);

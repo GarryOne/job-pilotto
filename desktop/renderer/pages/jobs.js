@@ -63,7 +63,8 @@ export function renderJobs() {
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
-  const rows = sorted((statFilter === 'stuck' ? shared.allJobs.filter(stuck) : byStat(shared.allJobs, statFilter)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+  const rows = sorted((statFilter === 'stuck' ? shared.allJobs.filter(stuck)
+    : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(pageKey(job.url))) : byStat(shared.allJobs, statFilter)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
     matches(job, text)), $('sort-by').value);
   const body = $('jobs-body');
   body.replaceChildren();
@@ -288,7 +289,7 @@ export function renderJobs() {
     }
     body.append(row);
   }
-  const statLabel = {applied: 'applied', waiting: 'waiting for a reply', interviews: 'in process', closed: 'closed', stuck: 'still marked Applying', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
+  const statLabel = statFilter?.label || {applied: 'applied', waiting: 'waiting for a reply', interviews: 'in process', closed: 'closed', stuck: 'still marked Applying', high: 'high fit', week: 'new this week', companies: 'one per company'}[statFilter];
   renderStuck();
   $('jobs-count').textContent = `${rows.length} job${rows.length === 1 ? '' : 's'}` + (statLabel ? ` · ${statLabel}` : '');
   document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
@@ -460,6 +461,14 @@ function kitLabel(state = '') {
     return {label: '📝 Kit · earlier inputs', title: `Drafted with earlier inputs: your ${changed} changed since. Redraft it from the ⋯ menu if you still want it.`};
   }
   return {label: '📝 Kit', title: 'Inputs unknown: drafted before Job Pilotto recorded which CV, Profile and answers a kit came from.'};
+}
+
+// A list of applications from elsewhere (a Focus funnel step): only those, whatever their status.
+export function showJobsIn(label, urls) {
+  statFilter = {label, urls: new Set((urls || []).map(pageKey))};
+  $('filter-status').value = 'all';
+  $('filter-text').value = '';
+  renderJobs();
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).

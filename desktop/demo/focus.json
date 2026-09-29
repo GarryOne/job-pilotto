@@ -114,7 +114,10 @@
       },
       {
         "step": "📨 Applied",
-        "reached": 10
+        "reached": 10,
+        "urls": [
+          "https://example.com/jobs/3"
+        ]
       },
       {
         "step": "💬 Human reply",

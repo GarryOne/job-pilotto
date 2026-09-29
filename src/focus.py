@@ -306,13 +306,17 @@ def funnel(rows, events):
         kind = plain(event['properties'].get('Kind'))
         for link in (event['properties'].get('Application') or {}).get('relation', []):
             kinds.setdefault(link['id'].replace('-', ''), set()).add(kind)
-    apps = [{'stage': _field(r, 'Stage'), 'seen': kinds.get(r['id'].replace('-', ''), set()) | {_field(r, 'Stage')}}
+    apps = [{'stage': _field(r, 'Stage'), 'seen': kinds.get(r['id'].replace('-', ''), set()) | {_field(r, 'Stage')},
+             'url': _field(r, 'Job URL')}
             for r in rows if _field(r, 'Stage') in OUTCOME_STAGES + funnel_steps.PREPARED_STAGES]
     steps = funnel_steps.funnel(apps)
     weak = funnel_steps.focus(steps)
     page = funnel_steps.PIPELINE_PAGE_ID
     # now: still at this step (reached it, not the next one, not closed): the number the Jobs boxes show.
-    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'now': s['waiting'], 'of_applied': s.get('of_applied')} for s in steps],
+    # urls: every application that ever reached each step (the count only grows), for the Jobs list a click shows.
+    here = [[a['url'] for a in apps if a['url'] and (marks is None or a['seen'] & marks)] for _, marks, _, _ in funnel_steps.STEPS]
+    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'now': s['waiting'], 'of_applied': s.get('of_applied'), 'urls': urls}
+                      for s, urls in zip(steps, here)],
             'improve': {'step': weak['step'], 'advice': weak['advice']} if weak else None,
             'notion_url': f'https://www.notion.so/{page.replace("-", "")}' if page else ''}
 

@@ -99,8 +99,11 @@ class FocusTests(unittest.TestCase):
     def test_the_funnel_counts_each_step_from_the_same_rows(self):
         rows = [row('a', 'A', 'x', stage='Rejected'), row('b', 'B', 'y', stage='Screening'), row('c', 'C', 'z', stage='Kit ready', applied=None)]
         events = [event('a', 'Reply received', '2026-09-27T10:00:00Z')]
-        steps = {s['step']: s['reached'] for s in focus.build(rows, events, now=NOW)['funnel']['steps']}
-        self.assertEqual([steps[k] for k in ('📝 Prepared', '📨 Applied', '💬 Human reply', '📞 Screening')], [3, 2, 2, 1])
+        funnel = {s['step']: s for s in focus.build(rows, events, now=NOW)['funnel']['steps']}
+        self.assertEqual([funnel[k]['reached'] for k in ('📝 Prepared', '📨 Applied', '💬 Human reply', '📞 Screening')], [3, 2, 2, 1])
+        # Each step names every application that ever reached it (a rejected one stays), for the Jobs list a click shows.
+        self.assertEqual(funnel['💬 Human reply']['urls'], ['https://x.test/a', 'https://x.test/b'])
+        self.assertEqual(funnel['📞 Screening']['urls'], ['https://x.test/b'])
 
     def test_reminder_only_when_worth_it(self):
         calm = {'today': {'applied': 30, 'target': 30, 'kits_ready': 0}, 'items': []}
