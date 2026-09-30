@@ -234,7 +234,7 @@ def _thumbnails(blocks):
         {'object': 'block', 'type': 'column', 'column': {'children': [block]}} for block in blocks]}}]
 
 
-def _keep(tracker, row, text, image, summary, when, platform=None, check=()):
+def _keep(tracker, row, text, image, summary, when, platform=None, check=(), changes=()):
     """What was logged, on the job's page: one folded entry per log ("📥 29 Sep · what it said"), with the message
     inside and the screenshots as a row of thumbnails, so the page stays readable however many you log."""
     try:
@@ -244,8 +244,12 @@ def _keep(tracker, row, text, image, summary, when, platform=None, check=()):
     if platform and _platform_named(summary) != platform:
         summary = f'{platform} · {summary}'  # the entry says where it came from
     inside = [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
+    head = []
     if check:  # logged without your confirmation (Telegram): what to check, on the page itself
-        inside.insert(0, _block('paragraph', f"⚠️ Check these details: {'; '.join(check)}."))
+        head.append(_block('paragraph', f"⚠️ Check these details: {'; '.join(check)}."))
+    if changes:  # a value this log replaced, before → after: a job's big changes leave a trail
+        head.append(_block('paragraph', f"Changed: {'; '.join(changes)}"))
+    inside = head + inside
     shots = _image_blocks(tracker, image)
     if len(shots) < 2:
         inside += shots
@@ -311,11 +315,13 @@ DESCRIPTION_HEADING = '🧾 Job description'  # on the job's page: what messages
 MIN_ABOUT = 80
 
 
-def _fill_gaps(tracker, row, item):
+def _fill_gaps(tracker, row, item, report=None):
     """What a job was missing (the employer behind an agency's invitation, where, the pay) from the pasted message.
     Only empty fields are filled: nothing you or an earlier message wrote is replaced. And where you first talked:
     a conversation (e.g. a LinkedIn chat) that began before the job was tracked (e.g. from the later email invite)
-    becomes its Reached via. Returns what was filled."""
+    becomes its Reached via. Returns what was filled. report: a list that gets each value this replaced, "Source Manual
+    → LinkedIn" (for the reply and the job's page). And who reached out first, when you answered it: "they did" makes
+    a job whose conversation began before its first contact Inbound (src/notion/origin.py); nothing else does."""
     changes = {name: {'rich_text': [{'text': {'content': str(item[key])[:200]}}]}
                for name, key in GAPS.items() if item.get(key) and not plain(row['properties'].get(name))}
     # A job known only from an invitation ("SRE"): the fuller title the message gives ("Principal SRE"), when it
@@ -339,7 +345,16 @@ def _fill_gaps(tracker, row, item):
     began = mail._when(item.get('first_contact') or '') or mail._when(item.get('when') or '')
     tracked = mail._when(row.get('created_time') or '')
     if began and tracked and began < tracked:  # before the row was tracked: was it before its first contact too?
-        changes.update(opportunity.first_contact_changes(row, platform, began, _origin(tracker, row)))
+        first = _origin(tracker, row)
+        changes.update(opportunity.first_contact_changes(row, platform, began, first))
+        if item.get('origin_answer') == origin_rule.INBOUND and first and began < first \
+                and origin_rule.row_origin(row) == origin_rule.OUTBOUND:
+            changes['Origin'] = {'select': {'name': origin_rule.LABELS[origin_rule.INBOUND]}}
+    if report is not None:
+        for name in ('Origin', 'Source', 'Reached via'):
+            was = plain(row['properties'].get(name)) or (origin_rule.LABELS[origin_rule.row_origin(row)] if name == 'Origin' else '')
+            if name in changes and was and was != changes[name]['select']['name']:
+                report.append(f"{name} {was} → {changes[name]['select']['name']}")
     if changes:
         tracker.update_page(row['id'], changes)
         for name, value in changes.items():
@@ -560,7 +575,7 @@ def agreed(item):
     return bool(item['agreed']) if item.get('agreed') is not None else agreement(item) == 'shown'
 
 
-def fields(item, kind, *, new, now, stage=''):
+def fields(item, kind, *, new, now, stage='', first_known=None, current=None):
     """What the app's confirmation step asks, each field {value, state, question…}: state "ok" = shown in the item
     (pre-filled), "check" = inferred (pre-filled, marked "please check", to be confirmed), "ask" = not shown at all
     (left empty, with a question). Nothing is written before every required one is confirmed. A job already
@@ -611,11 +626,35 @@ def fields(item, kind, *, new, now, stage=''):
         out['last'] = {'value': moment[:10], 'state': 'ok' if moment else 'ask', 'required': False, 'from': last['from'],
                        'snippet': last.get('text_snippet') or '', 'as_written': (last.get('at_text') or '').strip()[:40],
                        'question': 'When was the last message?'}
+    if _asks_origin(item, current, first_known):
+        out['origin'] = {'value': '', 'state': 'ask', 'required': False, 'question': 'Who reached out first?',
+                         'current': (current or {}).get('Origin') or '', 'first_known': first_known.isoformat()}
     said = agreement(item)
     if agree_applies(new, stage) and said in ('shown', 'unclear'):
         out['agree'] = {'value': 'yes' if said == 'shown' else '', 'state': 'ok' if said == 'shown' else 'ask',
                         'question': AGREE_QUESTION}
     return out
+
+
+def _tracked_state(tracker, job):
+    """A tracked job's row as it is now (Origin, Source, Reached via, Stage: what a log may change, for the "This will
+    change" box) and when its first contact was known to be ({} and None when it has no row)."""
+    row = _row_for(tracker, job['url']) if job and job.get('stage') else None
+    if row is None:
+        return {}, None
+    props = row['properties']
+    label = plain(props.get('Origin')) or origin_rule.LABELS[origin_rule.row_origin(row)]
+    return ({'Origin': label, 'Source': plain(props.get('Source')) or '', 'Reached via': plain(props.get('Reached via')) or '',
+             'Stage': plain(props.get('Stage')) or ''}, _origin(tracker, row))
+
+
+def _asks_origin(item, current, first_known):
+    """Who reached out first is asked for a tracked Outbound job when the conversation may predate its first contact:
+    it began before it, or the day isn't known yet (the window asks only once the day you confirm is earlier)."""
+    if not current or first_known is None or origin_rule.stored(current.get('Origin')) != origin_rule.OUTBOUND:
+        return False
+    began = mail._when(item.get('first_contact') or '') or mail._when(item.get('when') or '')
+    return began is None or began < first_known or (item.get('seen') or {}).get('year') == 'missing'
 
 
 def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, stats=None, now=None, target='', item=None):
@@ -665,17 +704,18 @@ def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, s
         kind = UPDATE  # a first contact (or an application) for a job you're already past: nothing of that kind is new
     _resolve_dates(item, now)
     shown = job or dict(item, title=item.get('role') or item.get('title'))
-    found = fields(item, kind, new=new, now=now, stage=stage)
+    current, first_known = _tracked_state(tracker, job) if not new else ({}, None)
+    found = fields(item, kind, new=new, now=now, stage=stage, first_known=first_known, current=current)
     if unsure:  # asked first; the other details follow the job you pick (proposed again for it)
         found = {'job': {'value': '', 'state': 'ask', 'question': 'Which job is this?',
                          'candidates': [_job_choice(jobs[i]) for i in unsure]}, **found}
-    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': stage, 'target': target,
+    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': stage, 'target': target, 'current': current,
             'label': ' — '.join(p for p in (shown.get('company') or shown.get('recruiter_company'), opportunity.title(shown)) if p),
             'fields': found}
 
 
 def confirm(proposal, *, kind='', channel='', other='', started='', interview_at='', company=None, agency=None,
-            first_contact=None, last_at='', agreed=None):
+            first_contact=None, last_at='', agreed=None, origin=None):
     """The proposal with what you confirmed in the app in place of Claude's readings: kind, channel (LinkedIn, Email,
     Phone, Other; other = what "Other" was, e.g. WhatsApp), started (YYYY-MM-DD, when the conversation began),
     interview_at (YYYY-MM-DDTHH:MM), company / agency (a new job's), for a new job whether this was the first
@@ -724,6 +764,10 @@ def confirm(proposal, *, kind='', channel='', other='', started='', interview_at
         item['first_contact_here'] = bool(first_contact)
     if agreed is not None:
         item['agreed'] = bool(agreed)
+    if origin:
+        if not origin_rule.stored(origin):
+            raise ValueError(f'Unknown origin "{origin}" (inbound or outbound).')
+        item['origin_answer'] = origin_rule.stored(origin)  # who reached out first: they did = inbound
     return {**proposal, 'item': item, 'kind': kind or proposal['kind'], 'confirmed': True}
 
 
@@ -839,7 +883,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     if found is not None:
         found.update(row=row, created=created)
     stage, url = plain(row['properties'].get('Stage')), plain(row['properties'].get('Job URL'))
-    filled = _fill_gaps(tracker, row, item) if not created else []
+    changes = []  # what this log replaced on a tracked job: said in the reply and on the job's page
+    filled = _fill_gaps(tracker, row, item, changes) if not created else []
     about = (item.get('job_description') or '').strip()
     if len(about) >= MIN_ABOUT:
         # What the message says about the role, kept as the job's description (the prep kit and fit score read it).
@@ -881,19 +926,22 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'
     noted = _last_message(tracker, row, item, event_source, kind)
+    if changed and not created and stage and changed != stage:
+        changes.append(f'Stage {stage} → {changed}')
+    said = f" Changed: {'; '.join(changes)}." if changes else ''
     if not changed and filled:
-        _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
-        return f"🧩 Updated: {label}: added {', '.join(filled)}.{' ' + noted if noted else ''}{_check_line(check)}"
+        _keep(tracker, row, text, image, summary, when, _channel_named(item), check, changes)
+        return f"🧩 Updated: {label}: added {', '.join(filled)}.{said}{' ' + noted if noted else ''}{_check_line(check)}"
     if not changed and noted:
-        _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
-        return f'ℹ️ Already tracked: {label} ({stage}). Nothing new about the job. {noted}{_check_line(check)}'
+        _keep(tracker, row, text, image, summary, when, _channel_named(item), check, changes)
+        return f'ℹ️ Already tracked: {label} ({stage}). Nothing new about the job. {noted}{said}{_check_line(check)}'
     if not changed:
         return f'ℹ️ Already tracked: {label} ({stage}). Nothing new to log.' if kind == UPDATE else f'ℹ️ Already logged: {label} ({stage})'
-    _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
+    _keep(tracker, row, text, image, summary, when, _channel_named(item), check, changes)
     fit = _rich(on_new, row, item, text) if created and not job else None  # an open job was scored by its search
     verb = 'Tracked' if created else 'Updated'
     return (f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
-            + (f" Added {', '.join(filled)}." if filled else '') + (f' {noted}' if noted else '') + _check_line(check))
+            + (f" Added {', '.join(filled)}." if filled else '') + said + (f' {noted}' if noted else '') + _check_line(check))
 
 
 # Kinds that are themselves a message from them: their last message needs no event of its own.
