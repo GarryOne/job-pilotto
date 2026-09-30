@@ -776,31 +776,6 @@ def listing(tracker, limit=100):
     return rows
 
 
-def backfill_links(tracker):
-    """One-off, idempotent: every interview page gets its job line, and a title that is a placeholder ("(unnamed
-    client …) · Round") is renamed by the title rule. Returns {'pages': n, 'linked': lines changed, 'renamed': n}."""
-    done, apps = {'pages': 0, 'linked': 0, 'renamed': 0}, {}
-    for row in tracker.query_database(INTERVIEWS_DATABASE_ID):
-        props, relation = row['properties'], (row['properties'].get('Application') or {}).get('relation', [])
-        app = None
-        if relation:
-            app_id = relation[0]['id']
-            if app_id not in apps:
-                try:
-                    apps[app_id] = tracker._request('GET', f'pages/{app_id}')
-                except Exception:  # noqa: BLE001 - a trashed or unshared page: it counts as no job
-                    apps[app_id] = None
-            app = apps[app_id]
-        done['pages'] += 1
-        done['linked'] += ensure_job_line(tracker, row['id'], app)
-        title = plain(props.get('Interview')) or ''
-        head, sep, round_ = title.rpartition(' · ')
-        if sep and head != 'Interview' and not named(head):
-            tracker.update_page(row['id'], {'Interview': {'title': [{'text': {'content': interview_title('', round_, app)}}]}})
-            done['renamed'] += 1
-    return done
-
-
 NO_NOTES = 'No notes written. The interview was held (confirmed in Focus).'
 
 
@@ -870,8 +845,6 @@ def main(argv=None):
     """JSON commands for the desktop app's Interviews page (Notion is the database; nothing here uses AI)."""
     import argparse
     parser = argparse.ArgumentParser(description=main.__doc__)
-    parser.add_argument('--backfill-links', action='store_true',
-                        help='one-off: add the job line to every interview page (and fix placeholder titles)')
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('list')
     saving = sub.add_parser('save', help='a transcript file as a new row')
@@ -893,13 +866,6 @@ def main(argv=None):
     moving.add_argument('--at', required=True)
     cancelling = sub.add_parser('cancelled', help='Focus: the interview did not happen')
     cancelling.add_argument('app')
-    if '--backfill-links' in (argv if argv is not None else sys.argv[1:]):
-        tracker = notion.Tracker.from_env()
-        if not tracker or not INTERVIEWS_DATABASE_ID:  # nothing to do without Notion or the Interviews database
-            print(json.dumps({'ok': True, 'pages': 0, 'linked': 0, 'renamed': 0}))
-            return 0
-        print(json.dumps({'ok': True, **backfill_links(tracker)}))
-        return 0
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker or not INTERVIEWS_DATABASE_ID:

@@ -237,7 +237,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links
-- `tools/notion_dedupe.py` — Find and remove duplicate Job Matches rows (the same job on several rows), with a report first.
 - `tools/notion_schema.py` — The Job Pilotto Notion workspace as code: config/notion_schema.json.
 - `tools/notion_template.py` — Build the public Job Pilotto Notion template from the live workspace's schemas (no data).
 - `tools/pre-push-check.sh` — Claude Code PreToolUse hook (.claude/settings.json): before any `git push` from this repo (or one of its

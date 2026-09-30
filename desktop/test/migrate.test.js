@@ -49,16 +49,6 @@ test('an install set up before the central index keeps its daily scout; a new in
   assert.equal(fresh.settings().schedule?.scout, undefined);
 });
 
-test('the interview job line is backfilled once per install, and retried when it fails', async () => {
-  const storage = connected();
-  const step = migrate.STEPS.find(s => s.name === 'interview job links');
-  assert.ok(step);
-  const {default: pipeline} = {default: await import('../lib/pipeline.js')};
-  assert.equal(typeof pipeline.run, 'function');
-  storage.saveSettings({interviewLinksFilled: true});
-  assert.equal(await step.run(storage), false);  // already done: nothing runs
-});
-
 test('Origin is backfilled once, after the workspace step adds the column; a failed run is retried next start', async () => {
   const names = migrate.STEPS.map(s => s.name);
   assert.ok(names.indexOf('workspace') < names.indexOf('origin'));

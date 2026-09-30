@@ -393,8 +393,6 @@ doesn't.
   Referral) and Via (e.g. TechTree), detected from the job URL; Company always holds the real
   employer, even when a platform reveals it only later. Insights compare reply rates by channel and
   track days to first reply.
-- 🧾 **Existing applications included**: `python3 -m src.notion.ledger backfill` records every
-  application tracked before the ledger existed.
 
 ### 🗂️ Tracking in Notion
 - 📋 Job Matches (every scored job, with its technologies and role family), Job Tracker (one row per
@@ -884,7 +882,7 @@ src/
     runs.py          🤖 Agent Runs: one row per form-filling session, learnings read back
     cron_runs.py     ⏰ Cronjob Runs: one row per scheduled crawl, with AI cost and a mini-report
     ledger.py        application record frozen at Applied, 📈 Application Events, the scheduled
-                     sync (hand edits, No response after 30 days), `backfill` and `add`
+                     sync (hand edits, No response after 30 days) and `add`
 config/
   search.json        role/location/tech-stack keywords — what "relevant" means, edit this first
   preferences.json   hard filters (disqualifying languages, excluded companies)
@@ -934,7 +932,6 @@ python3 -m src.ai.apply_batch --mark-applied <job_url>
 python3 -m src.notion.ledger record <job_url> [--force]   # (re)freeze an application record
 python3 -m src.notion.ledger event <job_url> Screening    # log an outcome by hand
 python3 -m src.notion.ledger sync --dry-run               # what the scheduled sync would log
-python3 -m src.notion.ledger backfill                     # records for applications made before the ledger
 python3 -m src.notion.ledger add <job_url> --applied "on or before 23 Sep"   # an application made elsewhere
 python3 -m src.notion.ledger event <job_url> "Reply received" --note "invited to book a call"
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)

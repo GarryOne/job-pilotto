@@ -1,7 +1,6 @@
 """One Job Matches row per job: find rows that are the same job (same URL, ignoring tracking parameters, a
 trailing slash or the host's case) and keep the one with the most information; the others go to Notion's trash
-(restorable for 30 days). Used by the sync (it heals itself when it meets duplicates) and by
-tools/notion_dedupe.py (report first, then clean up)."""
+(restorable for 30 days). Used by the sync (it heals itself when it meets duplicates)."""
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -62,9 +61,3 @@ def plan(pages):
             keep, why = keeper(copies)
             out.append({'url': _url(keep), 'keep': keep, 'drop': [p for p in copies if p is not keep], 'why': why})
     return sorted(out, key=lambda g: g['url'])
-
-
-def describe(page):
-    title = ''.join(t.get('plain_text', '') for t in (page['properties'].get('Job') or {}).get('title', []))
-    return {'title': title, 'status': _status(page) or '—', 'scored': _scored(page) or '—', 'url': page.get('url', ''),
-            'created': (page.get('created_time') or '')[:10]}

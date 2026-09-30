@@ -428,24 +428,6 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(children[0]['paragraph']['rich_text'][0]['text']['content'], '🔗 Job: ')
         self.assertLessEqual(len(children), 100)
 
-    def test_backfill_adds_the_line_once_and_only_renames_placeholder_titles(self):
-        tracker = NotionPages([dict(app('h-1', 'Huxley', 'Applied', '2026-09-20'))])
-        tracker.apps[0]['properties']['Company'] = text('')
-        tracker.apps[0]['properties']['Via'] = text('Huxley')
-        old = interviews.save(tracker, SPOKEN, '(unnamed finance client via recruiter — Principal SRE posting) · Recruiter screen',
-                              job_url='https://x.test/h-1', now=NOW)
-        good = interviews.save(tracker, SPOKEN, 'Grafana · Technical 1', now=NOW)
-        for page in (old, good):  # pages written before this feature: no line
-            tracker.blocks[page['id']].pop(0)
-        first = interviews.backfill_links(tracker)
-        self.assertEqual(first, {'pages': 2, 'linked': 2, 'renamed': 1})
-        self.assertEqual(interviews.backfill_links(tracker), {'pages': 2, 'linked': 0, 'renamed': 0})
-        self.assertEqual(tracker.pages[old['id']]['properties']['Interview']['title'][0]['text']['content'], 'Huxley · Recruiter screen')
-        self.assertEqual(tracker.pages[good['id']]['properties']['Interview']['title'][0]['text']['content'], 'Grafana · Technical 1')
-        self.assertEqual(self.first_line(tracker, old['id'])[0], '🔗 Job: Huxley · SRE')
-        self.assertIn('No job linked yet', self.first_line(tracker, good['id'])[0])
-        self.assertEqual(tracker.blocks[old['id']][1]['type'], 'paragraph')  # the old first block was kept, right after
-
     def test_the_title_uses_a_named_employer_else_via_else_the_job_else_the_round(self):
         plain_app = lambda **cols: {'id': 'a', 'properties': {k: text(v) for k, v in cols.items()}}
         self.assertEqual(interviews.interview_title('Grafana Labs', 'Technical 1'), 'Grafana Labs · Technical 1')

@@ -39,7 +39,7 @@ WORK_MODES = ('On-site', 'Hybrid', 'Remote')
 REACHED_VIA = ('Email', 'LinkedIn', 'Phone', 'Other')
 # Applications "Source" = where the contact started: the channel when it's one we know (a LinkedIn chat, an email),
 # else how the row was added (Telegram, Manual, the app). A later channel never replaces it; something logged from
-# another channel that is dated before the row's first contact does (src/ai/inbox.py _fill_gaps, --resync-source).
+# another channel that is dated before the row's first contact does (src/ai/inbox.py _fill_gaps).
 CHANNEL_SOURCE = {'LinkedIn': 'LinkedIn', 'Email': 'Gmail', 'Phone': 'Phone'}  # Phone: only when you confirm it (the app)
 SOURCE_CHANNEL = {source: channel for channel, source in CHANNEL_SOURCE.items()}
 NOTES_ORIGIN = re.compile(r'^(?:Recruiter message|Logged from a paste) \((Email|LinkedIn|Phone|Other)\)')

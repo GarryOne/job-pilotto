@@ -198,7 +198,7 @@ def _keep(tracker, row, text, image, summary, when, platform=None, check=()):
     except ValueError:
         day = when[:10]
     if platform and _platform_named(summary) != platform:
-        summary = f'{platform} · {summary}'  # the entry says where it came from (resync_source reads it)
+        summary = f'{platform} · {summary}'  # the entry says where it came from
     inside = [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
     if check:  # logged without your confirmation (Telegram): what to check, on the page itself
         inside.insert(0, _block('paragraph', f"⚠️ Check these details: {'; '.join(check)}."))
@@ -330,46 +330,11 @@ def _origin(tracker, row):
     return min(moments) if moments else None
 
 
-LOGGED = re.compile(r'^📥 (\d{1,2} \w{3} \d{4}) · (.*)$', re.S)
-
-
 def _platform_named(text):
     lower = (text or '').lower()
     if lower.startswith('phone · '):  # a call you confirmed ("Phone · …"); "call" in a summary alone isn't one
         return 'Phone'
     return 'LinkedIn' if 'linkedin' in lower else 'Email' if re.search(r'\b(e-?mail|gmail)\b', lower) else None
-
-
-def logged_contacts(blocks):
-    """[(datetime, platform)] of the "📥 <day> · …" entries on a job's page that name their channel."""
-    found = []
-    for block in blocks:
-        rich = (block.get(block.get('type')) or {}).get('rich_text') or []
-        entry = LOGGED.match(''.join(t.get('plain_text', '') for t in rich).strip())
-        if not entry:
-            continue
-        try:
-            day = datetime.strptime(entry.group(1), '%d %b %Y').replace(hour=12, tzinfo=timezone.utc)
-        except ValueError:
-            continue
-        platform = _platform_named(entry.group(2))
-        if platform:
-            found.append((day, platform))
-    return sorted(found)
-
-
-def resync_source(tracker, page_id):
-    """Recompute a job's Source (and Reached via, and the Notes' "(Email)") from what is logged on its page: the
-    earliest dated entry from another channel than the row's own, before its first contact, wins. Returns the changes."""
-    row = tracker._request('GET', f'pages/{page_id}')
-    contacts = logged_contacts(tracker._children(page_id))
-    origin = _origin(tracker, row)
-    for began, platform in contacts:
-        changes = opportunity.first_contact_changes(row, platform, began, origin)
-        if changes:
-            tracker.update_page(row['id'], changes)
-            return changes
-    return {}
 
 
 def _this_year(value, now):
@@ -706,19 +671,10 @@ def main(argv=None):
     parser.add_argument('--text-file', help='the message (default: stdin, unless --image is given)')
     parser.add_argument('--image', help='a screenshot (.png, .jpg, .webp, .gif)')
     parser.add_argument('--talking', action='store_true', help="you've already said yes to the recruiter")
-    parser.add_argument('--resync-source', metavar='PAGE_ID',
-                        help="recompute a job's Source from its logged entries (the earliest contact wins)")
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
-    if args.resync_source:
-        page_id = re.sub(r'[^0-9a-f]', '', args.resync_source.split('?')[0].lower())[-32:]
-        changes = resync_source(tracker, page_id)
-        shown = lambda value: (value.get('select') or {}).get('name') or ''.join(
-            t['text']['content'] for t in value.get('rich_text') or [])
-        print(', '.join(f'{name} → {shown(value)}' for name, value in changes.items()) or 'Source already right: nothing changed.')
-        return 0
     text = open(args.text_file, encoding='utf-8').read() if args.text_file else ('' if args.image else sys.stdin.read())
     image = load_image(args.image) if args.image else None
     if args.image and not image:

@@ -118,29 +118,6 @@ class SourceIsTheEarliestContactTest(unittest.TestCase):
             self.assertEqual(inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'LinkedIn', 'first_contact': '2026-09-21'}), [])
         self.assertEqual(tracker.queries[0]['and'][1]['or'][0], {'property': 'Source', 'select': {'equals': 'Gmail'}})
 
-    def test_resync_source_reads_the_logged_entries_on_the_page(self):
-        def entry(kind, title):
-            return {'type': kind, kind: {'rich_text': [{'plain_text': title}]}}
-
-        class Page(EventsTracker):
-            def _request(self, method, path):
-                self.asked = path
-                return gmail_lead()
-
-            def _children(self, page_id):
-                return [entry('heading_2', '🤝 Recruiter message'), entry('paragraph', 'Subject: Connect Igor / Jaya - SRE'),
-                        entry('toggle', '📥 30 Sep 2026 · Email · follow-up'),
-                        entry('heading_3', '📥 21 Sep 2026 · LinkedIn chat with Jayantie Nejati (Huxley)')]
-        tracker = Page()
-        changes = inbox.resync_source(tracker, '3ea62be8fd8681299dd8cc115550b8da')
-        self.assertEqual(tracker.asked, 'pages/3ea62be8fd8681299dd8cc115550b8da')
-        self.assertEqual(changes['Source'], {'select': {'name': 'LinkedIn'}})
-        self.assertEqual(changes['Notes'], {'rich_text': [{'text': {'content': 'Recruiter message (LinkedIn)'}}]})
-        self.assertEqual(len(tracker.updates), 1)
-        tracker = Page()
-        tracker._children = lambda page_id: [entry('toggle', '📥 30 Sep 2026 · LinkedIn · thanks')]  # later: kept
-        self.assertEqual(inbox.resync_source(tracker, 'x'), {})
-
     def test_a_logged_entry_names_its_channel(self):
         appended = []
 
