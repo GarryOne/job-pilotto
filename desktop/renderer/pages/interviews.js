@@ -16,6 +16,8 @@ let ivOpen = null;          // the draft in the editor
 let ivSavedRows = [];
 let ivInsight = null;       // the Insights card's row (💡 Insights, Interview patterns), read with the library
 let insightBusy = false, insightNote = '';
+let insightCollapsed = false;
+try { insightCollapsed = localStorage.getItem('ivInsightCollapsed') === '1'; } catch {}
 const plainId = id => String(id || '').replace(/-/g, '');
 const jobList = () => (Array.isArray(shared.allJobs) ? shared.allJobs : []);  // unset while the job list loads
 const linkable = () => jobList().filter(job => job.notion_url);   // jobs with a Notion Applications row
@@ -298,7 +300,13 @@ function renderInsight() {
   const view = insightView(ivInsight, ivSavedRows);
   show($('iv-insight'), !!view);
   if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, openUrl: url => window.pilot.openNotion(url), refresh: refreshInsights,
-    onTick: tickStep, busy: insightBusy, note: insightNote}));
+    onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote}));
+}
+// Fold the card to its header (remembered on this Mac: a view preference, not data).
+function toggleInsight() {
+  insightCollapsed = !insightCollapsed;
+  try { localStorage.setItem('ivInsightCollapsed', insightCollapsed ? '1' : ''); } catch {}
+  renderInsight();
 }
 // A "Practice next" tick: shown at once, saved in the insight row in Notion; if Notion refuses, it goes back and says so.
 async function tickStep(step, done) {

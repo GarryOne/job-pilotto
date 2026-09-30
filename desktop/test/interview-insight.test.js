@@ -179,3 +179,20 @@ test('ticking, opening a company\'s interview and the supporting link call back'
   assert.deepEqual(urls, ['https://notion.test/ins']);
   assert.match(body.map(node => node.text()).join(' '), /View supporting moments \(3\)/);
 });
+
+test('the card folds to its header and unfolds; the toggle says which state it is in', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  const flips = [];
+  const open = insightCard(view, {onToggle: () => flips.push('toggle')});
+  const toggle = open.flatMap(node => node.all(n => n.className.includes('iv-insight-toggle')))[0];
+  assert.equal(toggle['aria-expanded'], 'true');
+  assert.match(open.map(node => node.text()).join(' '), /Patterns observed/);
+  toggle.listeners.click();
+  assert.deepEqual(flips, ['toggle']);
+  const folded = insightCard(view, {collapsed: true, onToggle: () => {}});
+  const text = folded.map(node => node.text()).join(' ');
+  assert.match(text, /Interview insights/);
+  assert.match(text, /Low confidence · 2 interviews/);  // the header still says how sure it is
+  assert.doesNotMatch(text, /Patterns observed|Practice next|PRIMARY SIGNAL|Primary signal/);
+  assert.equal(folded.flatMap(node => node.all(n => n.className.includes('iv-insight-toggle')))[0]['aria-expanded'], 'false');
+});

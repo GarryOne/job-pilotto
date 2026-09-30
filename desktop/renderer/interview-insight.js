@@ -74,11 +74,18 @@ export function insightView(insight, rows = [], now = Date.now()) {
 
 // The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
 // refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; busy: it's running.
-export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh = () => {}, onTick = () => {}, busy = false, note = ''} = {}) {
+// collapsed: only the header (its arrow, onToggle(), folds and unfolds the rest).
+export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh = () => {}, onTick = () => {}, onToggle = () => {}, collapsed = false,
+  busy = false, note = ''} = {}) {
   const head = el('div', 'iv-insight-head');
   const title = el('div', 'iv-insight-title');
   const h2 = el('h2', 'with-glyph');
   h2.append(icon('bulb'), view.title || 'Interview insights');
+  const toggle = Object.assign(el('button', 'ghost iv-insight-toggle'), {type: 'button', title: collapsed ? 'Show the insights' : 'Hide the insights'});
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  toggle.setAttribute('aria-label', collapsed ? 'Show the insights' : 'Hide the insights');
+  toggle.append(icon('chevron'));
+  toggle.addEventListener('click', () => onToggle());
   title.append(h2, el('div', 'muted small iv-insight-basis', view.subtitle || view.basis));
   const side = el('div', 'iv-insight-side');
   if (note) side.append(el('span', 'muted small', note));
@@ -92,7 +99,8 @@ export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh 
   button.append(busy ? el('span', 'spinner small') : icon('refresh'), el('span', '', busy ? 'Refreshing…' : 'Refresh insights'));
   button.addEventListener('click', () => refresh());
   side.append(button);
-  head.append(title, side);
+  head.append(toggle, title, side);
+  if (collapsed) return [head];
 
   const signal = el('div', 'iv-insight-top iv-signal');
   const words = el('div', 'iv-insight-words');

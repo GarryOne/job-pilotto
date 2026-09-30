@@ -531,7 +531,10 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .iv-insight-links .link { padding: 0; }
 /* The card as designed 30 Sep 2026: header, primary signal, patterns beside "Practice next", footer. */
 .iv-insight { container-type: inline-size; }
-.iv-insight-title { display: grid; gap: 2px; min-width: 0; }
+.iv-insight-title { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.iv-insight-toggle { padding: var(--sp-1); align-self: flex-start; }
+.iv-insight-toggle .icon { width: 18px; height: 18px; transition: transform .15s; }  /* the chevron icon points right: folded = right */
+.iv-insight-toggle[aria-expanded="true"] .icon { transform: rotate(90deg); }  /* open = down */
 .iv-signal { align-items: center; }
 .iv-signal-label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--info); }
 .iv-insight-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--sp-5); margin-top: var(--sp-2); align-items: start; }
