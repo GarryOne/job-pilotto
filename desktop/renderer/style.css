@@ -394,7 +394,9 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .density button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(var(--shadow-rgb) / .12); }
 
 /* The list, comfortable: a header row, then one card per job, on one shared grid */
-.job-list-head, .job-row { display: grid; grid-template-columns: 44px minmax(0, 2.2fr) minmax(0, 1.15fr) minmax(0, 1.25fr) 64px 166px; gap: 14px; align-items: start; }
+/* Status is wide enough for its longest pill ("Confirmation received"), Actions for the main button (10em) + the menu. */
+.job-list-head, .job-row { display: grid; grid-template-columns: 44px minmax(0, 2.2fr) minmax(0, 1.15fr) minmax(0, 1.25fr) 200px 208px; gap: 14px; align-items: start; }
+.job-list-head > span:last-child { text-align: end; }
 .job-list-head { padding: 0 14px 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .job-list { display: grid; gap: 8px; }
 .job-row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; transition: border-color .15s, box-shadow .15s; }
