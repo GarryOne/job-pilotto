@@ -36,6 +36,13 @@ async function showClaudePrereqs() {
 export async function showExtensionStatus() {
   const seen = await window.pilot.extensionSeen();
   const on = seen && Date.now() - seen.at < 90 * 1000;
+  // Right after the app starts the extension hasn't checked in yet (every 30 s): "Checking…", then look again.
+  if (!on && performance.now() < 60 * 1000) {
+    $('ext-status').textContent = 'Checking… (the extension checks in within 30 seconds)';
+    $('ext-status').className = 'status-line';
+    setTimeout(showExtensionStatus, 60 * 1000 - performance.now() + 500);
+    return;
+  }
   $('ext-status').textContent = on ? `✓ Installed and connected${seen.version ? ` (version ${seen.version})` : ''}.`
     : 'Not connected: install it below, or open Chrome if it\'s installed (it checks in within 30 seconds).';
   $('ext-status').className = `status-line ${on ? 'on' : ''}`;

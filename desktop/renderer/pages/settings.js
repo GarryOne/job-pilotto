@@ -79,10 +79,20 @@ function statusFrom(google, extension) {
   const checking = {google: !google, extension: !extension};
   return {on, detail, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
 }
-const quickStatus = () => { const last = lastChecks(); return statusFrom(last?.google, last?.extension); };
+// From what's known: a cached "extension on" is shown at once, a cached "off" is not trusted (it may be from before the
+// extension's last check-in): the card says Checking… until the real answer, so no false "Finish connecting" alert.
+const quickStatus = () => { const last = lastChecks(); return statusFrom(last?.google, last?.extension?.on ? last.extension : null); };
+// The extension checks in every 30 s: right after the app starts, "not seen yet" means "not known yet".
+const EXTENSION_GRACE_MS = 60 * 1000;
+const justStarted = () => performance.now() < EXTENSION_GRACE_MS;
 async function serviceStatus() {
   const [google, seen] = await Promise.all([window.pilot.googleStatus().catch(() => ({})), window.pilot.extensionSeen().catch(() => null)]);
-  const extension = {on: !!seen && Date.now() - seen.at < 90 * 1000, version: seen?.version};
+  const on = !!seen && Date.now() - seen.at < 90 * 1000;
+  if (!on && justStarted()) {  // not checked in yet: keep Checking…, look again once the grace period is over
+    setTimeout(() => { if (!document.querySelector('.view[data-view="settings"]')?.hidden) renderOverview(); }, EXTENSION_GRACE_MS - performance.now() + 500);
+    return statusFrom(google, null);
+  }
+  const extension = {on, version: seen?.version};
   try { localStorage.setItem(SERVICE_CACHE, JSON.stringify({google: {connected: !!google.connected, email: google.email || ''}, extension})); } catch {}
   return statusFrom(google, extension);
 }
