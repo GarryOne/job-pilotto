@@ -196,6 +196,24 @@ test('setup asks no questionnaire: the AI proposes the goals from the CV, the op
   assert.equal(strategy.progress(text).part, 'Writing your Profile');
 });
 
+test('the note to the AI is kept in the drafted Profile (What I told the AI), replaced on a regenerated draft', async () => {
+  const storage = tempStorage();
+  pipeline.ensureConfig(storage);
+  storage.writeText('cv.pdf', '%PDF-1.4 fake');
+  const reply = JSON.stringify({summary: 'x', profile_markdown: '# Hard constraints\n\n| Work mode | Remote |\n'});
+  const client = {messages: {create: async () => ({stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: reply}]})}};
+  const drafted = await strategy.draft(storage, {anything_else: 'Staff level, permanent only\nCompanies under 500 people'}, 'sk-ant-x', client);
+  assert.equal(drafted.profile_markdown, '# Hard constraints\n\n| Work mode | Remote |\n\n# What I told the AI\n\nStaff level, permanent only\nCompanies under 500 people\n');
+  assert.equal((await strategy.draft(storage, {}, 'sk-ant-x', client)).profile_markdown, '# Hard constraints\n\n| Work mode | Remote |\n');
+  // A regenerated draft (or one that already has the section) keeps one section, with the new note; later sections stay.
+  const again = strategy.withNote(`${drafted.profile_markdown}\n# Confirmed during setup\n\n- Senior\n`, {anything_else: 'Remote only'});
+  assert.equal(again.match(/# What I told the AI/g).length, 1);
+  assert.match(again, /- Senior\n\n# What I told the AI\n\nRemote only\n$/);
+  assert.match(again, /# Confirmed during setup\n\n- Senior/);
+  assert.doesNotMatch(again, /Staff level/);
+  assert.doesNotMatch(strategy.withNote(drafted.profile_markdown, {}), /What I told the AI/);
+});
+
 test('a goal corrected in the review lands in the drafted Profile (its row, else a Confirmed during setup section)', async () => {
   const {applyGoal} = await import('../renderer/markdown-edit.js');
   const md = '# Hard constraints\n\n| Constraint | Value |\n|---|---|\n| Work mode | Hybrid |\n| Minimum seniority | Senior |\n\n# Compensation\n\n- Target: x\n- Minimum acceptable: CHF 1 (estimate)\n';

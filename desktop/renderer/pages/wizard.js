@@ -3,13 +3,12 @@ import {shared} from './shared.js';
 import {refreshCv} from './activity.js';
 import {$, STEPS, message, show} from './core.js';
 import {loadJobs} from './jobs.js';
-import {showDraftCost, toDraft} from './strategy-review.js';
+import {toDraft} from './strategy-review.js';
 
 // ---------- wizard ----------
 export function goStep(name) {
   const index = STEPS.indexOf(name);
   window.pilot.saveSettings({wizardStep: name});  // reopening the app continues here
-  if (name === 'cv') showDraftCost();
   if (name === 'ai' && shared.state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value) {
     message('ai-message', '✓ Your key is saved. Continue, or paste a new key to replace it.', 'ok');
     // The saved key, masked (dots and its last 4 characters), as in Settings.

@@ -8,6 +8,7 @@ export const shared = {
   dockOpen: true,
   termShownFor: null,
   draft: null,
+  rebuildAsked: false,  // Rebuild from CV: the strategy step opens on the note + Build, not the last draft
   allJobs: [],
   logLines: [],  // the running task's lines, live
   idleSeen: true,  // nothing was running at the last check: the next log line starts a new task

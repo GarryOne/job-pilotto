@@ -13,7 +13,7 @@ import {openView} from './nav.js';
 import {renderActionsPage} from './runs-page.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
-import {renderDraft} from './strategy-review.js';
+import {renderDraft, showDraftIntro} from './strategy-review.js';
 import {goStep} from './wizard.js';
 
 // ---------- runs ----------
@@ -485,18 +485,20 @@ export function refreshCv() {
   $('cv-next').disabled = !shared.state.hasCv;
 }
 
-// The wizard asks nothing but an optional note (CV step): the AI proposes the goals from the CV, the review corrects them.
+// The wizard asks nothing but an optional note (strategy step, before building): the AI proposes the goals from the CV, the review corrects them.
 const QUESTIONS = {anything_else: 'q-more'};
 export const currentAnswers = () => Object.fromEntries(Object.entries(QUESTIONS).map(([key, id]) => [key, $(id).value.trim()]));
 let answersTimer;
 
 export async function buildDraft() {
   goStep('draft');
-  show($('draft-loading')); show($('draft-view'), false); show($('draft-error'), false);
+  shared.rebuildAsked = false;
+  show($('draft-intro'), false); show($('draft-actions'));
+  show($('draft-loading')); show($('draft-view'), false); show($('draft-error'), false); show($('draft-stale'), false);
   $('draft-title').textContent = 'Your strategy'; show($('draft-subtitle'), false); show($('draft-cost'), false);
   $('draft-save').disabled = true;
   if (!shared.state.secrets.ANTHROPIC_API_KEY) {
-    show($('draft-loading'), false);
+    showDraftIntro();
     $('draft-error').textContent = 'Building your strategy needs the AI key (step 1). Go back and add it, or skip to use the default SRE settings.';
     show($('draft-error'));
     return;
@@ -513,7 +515,7 @@ export async function buildDraft() {
     shared.draft = await window.pilot.draftStrategy(answers);
   } catch (error) {
     clearInterval(clock);
-    show($('draft-loading'), false);
+    showDraftIntro();  // the note stays, Build tries again
     $('draft-error').textContent = `Couldn't draft your strategy: ${error.message.replace(/^Error invoking remote method '[^']+': /, '')}`;
     show($('draft-error'));
     return;

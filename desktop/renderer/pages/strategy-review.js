@@ -248,7 +248,30 @@ function renderGoals() {
   }));
 }
 
+// The note to the AI is one field (#q-more, what currentAnswers reads): a card on its own before building, folded
+// under "Your note to the AI" in the review, next to Regenerate draft (which sends it too).
+function placeNote(where) {
+  if (where === 'intro') { $('draft-intro').querySelector('.step-card').append($('note-field')); return; }
+  $('note-slot').append($('note-field'));
+  noteSummary();
+}
+function noteSummary() {
+  const note = currentAnswers().anything_else;
+  $('note-summary').textContent = note ? note.replace(/\s+/g, ' ').slice(0, 80) + (note.length > 80 ? '…' : '') : 'none yet: add one, then Regenerate draft';
+}
+// Before a draft exists, after a failed one, or on Rebuild from CV: what the user wants, then Build my strategy.
+export function showDraftIntro() {
+  placeNote('intro');
+  show($('draft-intro')); show($('draft-actions'), false);
+  show($('draft-loading'), false); show($('draft-view'), false); show($('draft-error'), false); show($('draft-stale'), false);
+  $('draft-title').textContent = 'Your strategy'; show($('draft-subtitle'), false); show($('draft-cost'), false);
+  $('goals-cost-text').textContent = shared.state.settings.setupDone
+    ? 'Rebuilding reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20. Nothing in your strategy changes until you review the result and pick what to apply.'
+    : 'Building reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20. Nothing is saved until you review the result.';
+}
 export function renderDraft() {
+  placeNote('review');
+  show($('draft-intro'), false); show($('draft-actions'));
   show($('draft-loading'), false); show($('draft-error'), false); show($('draft-view'));
   $('draft-title').textContent = 'Review your strategy';
   show($('draft-subtitle'));
@@ -264,24 +287,20 @@ export function renderDraft() {
   renderDocs();
   $('draft-save').disabled = false;
 }
-// Same answers as the cached draft: show it again (no new Claude call). Changed answers or "Draft again": redraft.
-// The saved draft is shown again (no new Claude call) unless it's out of date: answers or CV changed. During the
-// first setup an out-of-date draft is redrafted; once setup is done, the user decides (Redraft), nothing automatic.
+// The strategy step. No draft yet, a first setup whose CV changed since the draft, or Rebuild from CV: the note and
+// Build my strategy (nothing is spent before that click). Otherwise the saved draft again (no new Claude call), with
+// a Redraft bar when the CV or the note changed since; the user decides.
 export async function toDraft() {
   const cached = await window.pilot.cachedDraft();
   const answersChanged = cached && (cached.answers?.anything_else || '') !== currentAnswers().anything_else;
   const stale = cached && (answersChanged || cached.cvChanged);
-  if (!cached || (stale && !shared.state.settings.setupDone)) { buildDraft(); return; }
+  if (!cached || shared.rebuildAsked || (cached.cvChanged && !shared.state.settings.setupDone)) { goStep('draft'); showDraftIntro(); return; }
   shared.draft = cached.draft;
   goStep('draft');
   renderDraft();
   $('draft-stale-text').textContent = cached.cvChanged ? 'Your CV changed since this strategy was drafted.'
     : answersChanged ? 'Your note changed since this strategy was drafted.' : '';
   show($('draft-stale'), !!stale);
-}
-// Rebuild from CV (setup done before): say what drafting costs before it runs; nothing changes until the review.
-export function showDraftCost() {
-  show($('goals-cost'), !!shared.state.settings.setupDone);
 }
 async function saveDraft(parts = null) {
   for (const key of Object.keys(saveState)) delete saveState[key];
@@ -401,6 +420,8 @@ export async function init() {
   }
   $('cv-next').addEventListener('click', toDraft);
   $('draft-again').addEventListener('click', buildDraft);
+  $('draft-build').addEventListener('click', buildDraft);
+  $('q-more').addEventListener('input', noteSummary);
   // First setup: save straight away. Setup done before (Rebuild from CV): review what changes, grouped by what each
   // change triggers (lib/strategy.js rebuildGroups), with the impact and AI cost; only the ticked groups are saved.
   $('draft-save').addEventListener('click', () => { if (shared.state.settings.setupDone) openRebuildReview(); else saveDraft(); });

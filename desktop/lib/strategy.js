@@ -40,6 +40,25 @@ export function userNote(answers = {}) {
   return note ? `<note_from_user>\n${note}\n</note_from_user>\n\n` : '<note_from_user>(none: propose everything from the CV)</note_from_user>\n\n';
 }
 
+// The note the user wrote before building ("What should the AI know about what you want?"), kept at the end of the
+// drafted Profile, so Notion has it (the source of truth; settings.questionnaire is only the field's unsent draft).
+// A section already there (a regenerated draft) is replaced; no note, no section.
+export const NOTE_HEADING = '# What I told the AI';
+export function withNote(profile, answers = {}) {
+  const note = String(answers.anything_else || '').trim();
+  const lines = String(profile || '').split('\n');
+  const start = lines.findIndex(line => line.trim() === NOTE_HEADING);
+  let kept = lines;
+  if (start >= 0) {
+    const end = lines.findIndex((line, i) => i > start && /^#\s/.test(line));
+    kept = [...lines.slice(0, start), ...(end >= 0 ? lines.slice(end) : [])];
+  }
+  const body = kept.join('\n').trimEnd();
+  if (!note) return body ? `${body}\n` : '';
+  const text = note.split('\n').map(line => line.trimEnd()).join('\n');
+  return `${body}\n\n${NOTE_HEADING}\n\n${text}\n`;
+}
+
 function template() {
   const text = fs.readFileSync(path.join(REPO, 'docs', 'notion-profile-template.md'), 'utf8');
   return text.slice(text.indexOf('## 👤'));
@@ -135,7 +154,7 @@ export function notes(text) {
   return out;
 }
 
-// answers: {anything_else} from the wizard's CV step (optional; older drafts had a whole questionnaire).
+// answers: {anything_else} from the wizard's strategy step (optional; older drafts had a whole questionnaire).
 export async function draft(storage, answers, apiKey, client = null, onProgress = null) {
   const cv = fs.readFileSync(storage.path('cv.pdf'));
   const example = fs.readFileSync(path.join(REPO, 'config', 'search.json'), 'utf8');
@@ -163,6 +182,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
   const text = response.content.find(block => block.type === 'text').text;
   const result = JSON.parse(text);
+  if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(result.profile_markdown, answers);
   storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
   result.usd = Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;

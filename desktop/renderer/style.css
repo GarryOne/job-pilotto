@@ -77,6 +77,7 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 .step-note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 /* Your CV: the file as a row (tile, name, button), then the note. */
 .cv-pick { display: flex; align-items: center; gap: var(--sp-3); padding-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.cv-pick:last-child { padding-bottom: 0; border-bottom: 0; }
 .cv-pick b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* A step's actions: Back on the left, the rest on the right, under a rule. */
 .step > .actions { border-top: 1px solid var(--line); padding-top: var(--sp-4); margin-top: var(--sp-4); }
@@ -653,6 +654,11 @@ button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 .review .card-head .link { white-space: nowrap; }
 .review .goals-hint { margin: 0; }
 #q-more { font-family: var(--font-sans); }
+/* The note to the AI: a card before building, a folded "Your note to the AI" in the review (moved, one field). */
+.step-field .note-hint { margin: var(--sp-1) 0 0; }
+.review .note-box .step-field { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
+.review .note-box .step-field label { display: none; }
+.review .note-box[open] #note-summary { display: none; }
 .review .chip .x:hover { color: var(--bad); }
 .review .chip.more { border-style: dashed; background: transparent; color: var(--muted); cursor: pointer; }
 .review .chips.bad .chip.removable { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }

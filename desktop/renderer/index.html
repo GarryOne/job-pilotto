@@ -156,16 +156,10 @@
           <b id="cv-name">No CV chosen yet</b>
           <button class="secondary with-icon" id="cv-choose"><i data-icon="upload"></i><span>Choose PDF…</span></button>
         </div>
-        <div class="step-field">
-          <label for="q-more">Anything else I should know? <span class="muted">(optional)</span></label>
-          <textarea id="q-more" rows="3" placeholder="e.g. only remote jobs, no on-call, moving to Berlin in spring, skip my current employer"></textarea>
-        </div>
       </section>
-      <p class="muted small step-note" id="goals-cost" hidden><i data-icon="info"></i><span>Rebuilding reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20.
-        Nothing in your strategy changes until you review the result and pick what to apply.</span></p>
       <div class="actions">
         <button class="ghost" data-back>Back</button>
-        <button class="primary" id="cv-next" disabled>Build my strategy</button>
+        <button class="primary" id="cv-next" disabled>Continue</button>
       </div>
     </div>
 
@@ -176,7 +170,24 @@
           <p class="muted subtitle" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
         <div class="head-actions"><span class="pill-ai" id="draft-cost" hidden></span></div>
       </header>
-      <div id="draft-loading" class="progress">
+      <!-- Before a draft exists (or to build again): what the user wants, in their words, then Build. The note field
+           (#q-more) moves between this card and "Your note to the AI" in the review (strategy-review.js placeNote). -->
+      <div id="draft-intro" hidden>
+        <section class="card step-card">
+          <div class="step-field" id="note-field">
+            <label for="q-more" id="note-label">What should the AI know about what you want? <span class="muted">(optional)</span></label>
+            <textarea id="q-more" rows="4" placeholder="e.g. senior or staff level, permanent only, companies under 500 people, English-speaking teams, no on-call, skip my current employer"></textarea>
+            <p class="muted small note-hint">Your CV says what you've done; this says what you want next. It's saved with your Profile in Notion.</p>
+          </div>
+        </section>
+        <p class="muted small step-note" id="goals-cost"><i data-icon="info"></i><span id="goals-cost-text">Building reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20.
+          Nothing is saved until you review the result.</span></p>
+        <div class="actions">
+          <button class="ghost" data-back>Back</button>
+          <button class="primary" id="draft-build">Build my strategy</button>
+        </div>
+      </div>
+      <div id="draft-loading" class="progress" hidden>
         <div class="progress-head"><span class="spinner"></span><b id="draft-part">Reading your CV</b><span id="draft-percent" class="muted"></span></div>
         <div class="bar"><span id="draft-bar"></span></div>
         <ul class="draft-feed" id="draft-feed"></ul>
@@ -188,7 +199,7 @@
       <div id="draft-view" class="review" hidden>
         <section class="card overview">
           <div class="card-head"><div><h2>Your search strategy</h2><p class="muted" id="draft-summary"></p></div>
-            <button class="link with-icon" data-goto-step="cv"><i data-icon="edit"></i><span>CV or note</span></button></div>
+            <button class="link with-icon" data-goto-step="cv"><i data-icon="edit"></i><span>Change CV</span></button></div>
           <p class="muted small goals-hint">Your goals, proposed from your CV. Click a value to correct it.</p>
           <dl class="target-rows goal-rows" id="draft-tiles"></dl>
         </section>
@@ -219,8 +230,10 @@
           <div class="doc-view" id="doc-answers"></div>
           <textarea id="draft-answers" rows="16" hidden></textarea>
           <button class="link doc-edit" data-doc="answers">Edit as text</button></details>
+        <details class="doc note-box" id="note-box"><summary><b>Your note to the AI</b> <span class="muted" id="note-summary">used when you regenerate</span></summary>
+          <div id="note-slot"></div></details>
       </div>
-      <div class="actions sticky">
+      <div class="actions sticky" id="draft-actions">
         <span class="saved-note" id="draft-saved" hidden>✓ Saved automatically</span>
         <button class="ghost" data-back>Back</button>
         <button class="secondary" id="draft-again">Regenerate draft</button>

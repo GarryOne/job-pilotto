@@ -512,6 +512,7 @@ function handlers() {
     // Demo mode: the fictional draft in demo/draft.json after a short pretend run; no AI is called.
     if (DEMO) {
       const demo = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'draft.json'), 'utf8')).draft;
+      demo.profile_markdown = strategy.withNote(demo.profile_markdown, answers);
       send({part: 'Proposing your goals', percent: 20, notes: ['Sent your CV to Claude (demo: nothing is sent)', 'Claude read your CV']});
       await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) || 300));
       return demo;
