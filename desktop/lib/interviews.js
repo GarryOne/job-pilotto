@@ -193,7 +193,14 @@ export async function saved(storage, run = pipeline.run, log = appLog) {
 
 // The Insights card's Refresh (src/ai/interview_insights.py): Claude reads the reviewed interviews together, only when
 // a review changed since the last update (else no AI call). Runs here, even with Always on: the page waits for it.
-export async function refreshInsights(storage, run = pipeline.run) {
+// One at a time: a second Refresh (another click, the window reloaded while one runs) joins the running one instead of
+// paying for its own AI call (4 identical runs at 13:37 on 30 Sep 2026).
+let refreshing = null;
+export function refreshInsights(storage, run = pipeline.run) {
+  refreshing ??= refreshOnce(storage, run).finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function refreshOnce(storage, run) {
   const lines = [];
   const {stdout} = await run(storage, ['src.ai.interview_insights', 'refresh'], line => lines.push(line));
   try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch {

@@ -52,3 +52,11 @@ class InterviewModel(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RunName(unittest.TestCase):
+    def test_the_interview_insights_run_is_titled_interview_insights(self):
+        from src.notion import cron_runs
+        run = {'mode': 'insight', 'started_at': '2026-09-30T11:56:00+00:00', 'name': interview_insights.RUN_NAME}
+        self.assertEqual(cron_runs.title(run), '2026-09-30 13:56 · Interview insights')
+        self.assertEqual(cron_runs.title({'mode': 'insight', 'started_at': '2026-09-30T05:00:00+00:00'}), '2026-09-30 07:00 · Insight')

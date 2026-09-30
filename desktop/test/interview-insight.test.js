@@ -231,3 +231,15 @@ test('each pattern says how many quotes back it, and the count opens the moments
   quotes[1].listeners.click({stopPropagation() {}});
   assert.deepEqual(asked, ['Incident-response stories land well']);
 });
+
+test('a Refresh while one is already running joins it: one AI call, even across window reloads (4 runs at 13:37, 30 Sep 2026)', async () => {
+  let calls = 0, finish;
+  const run = () => { calls += 1; return new Promise(resolve => { finish = () => resolve({code: 0, stdout: '{"ok": true, "status": "updated"}'}); }); };
+  const first = refreshInsights({}, run), second = refreshInsights({}, run);
+  finish();
+  assert.deepEqual(await first, {ok: true, status: 'updated'});
+  assert.deepEqual(await second, {ok: true, status: 'updated'});
+  assert.equal(calls, 1);
+  await refreshInsights({}, async () => { calls += 1; return {code: 0, stdout: '{"ok": true}'}; });  // after it ends, a new one runs
+  assert.equal(calls, 2);
+});

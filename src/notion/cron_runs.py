@@ -181,7 +181,7 @@ def title(run, final=True):
         at = datetime.fromisoformat(run['started_at']).astimezone(TZ).strftime('%Y-%m-%d %H:%M')
     except (KeyError, ValueError):
         at = str(run.get('started_at', ''))[:16].replace('T', ' ')
-    name = KINDS.get(run['mode']) or ONE_OFF.get(run['mode']) or run['mode']
+    name = run.get('name') or KINDS.get(run['mode']) or ONE_OFF.get(run['mode']) or run['mode']  # a job may name itself
     return ' · '.join(part for part in (at, name, subject(run) if final else '') if part)[:200]
 
 

@@ -36,7 +36,9 @@ export function fromRow(page, now = Date.now()) {
   // Notion keeps start times to the minute: two runs started in the same minute (a scheduled Gmail check and one you
   // started) would share an id, and the activity list would select both. A tie-breaker from the page id (< 1 s).
   const tie = parseInt(String(page.id).replace(/-/g, '').slice(-6), 16) % 1000 || 0;
-  const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind: KIND[mode] || 'action', mode,
+  // The Interviews page's insights share the daily insight's mode; their result line tells them apart.
+  const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
+  const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind, mode,
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
   if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
@@ -103,7 +105,7 @@ export function merge(notionRuns, localRuns, pending = []) {
 
 // A finished run as a macOS / Windows notification, wherever it ran; null when there's nothing to say
 // (a Gmail check that recorded nothing, a Telegram button's small action).
-const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', weekly: 'Weekly report', today: "Today's list",
+const NAMES = {search: 'Search', mail: 'Gmail check', insight: 'Insight', interviewInsight: 'Interview insights', weekly: 'Weekly report', today: "Today's list",
   scout: 'Find new employers', prepare: 'Application kit', interview: 'Interview review', add: 'Logged activity', rejection: 'Rejection review',
   prep: 'Interview prep kit'};
 export function notice(run) {

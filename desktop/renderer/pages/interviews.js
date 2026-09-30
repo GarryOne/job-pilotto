@@ -236,6 +236,7 @@ async function showSavedLoading() {
   if (saved?.result?.interviews?.length && !ivSavedRows.length) {
     ivSavedRows = saved.result.interviews;
     ivInsight = saved.result.insight || null;
+    insightFresh = false;  // from this Mac's cache: never a reason to spend on an upgrade
     renderAll();
     $('iv-lib-stats').textContent = `${IV_SAVED_TO} · saved ${agoText(saved.at)}, updating…`;
     return saved.at;
@@ -278,6 +279,7 @@ async function loadSavedOnce() {
   shownAt = null;
   ivSavedRows = next.rows;
   ivInsight = next.insight;
+  insightFresh = true;
   insightNote = next.insightError ? "Couldn't read the saved insights (see the app log)" : '';
   // Reviews running on GitHub stay "Reviewing…" until their outcome is in Notion; look again every 30 s meanwhile.
   reviewing = new Set([...reviewing, ...pendingReviews.settle(ivSavedRows)]);
@@ -305,10 +307,10 @@ function renderInsight() {
   if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: title => showMoments(title), onPractice: startPractice, refresh: refreshInsights,
     onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote}));
 }
-let insightShown = null, upgradeTried = false;
+let insightShown = null, upgradeTried = false, insightFresh = false;
 // An insight saved in the old format: refreshed once per app run (about $0.02; the page says so while it works).
 function upgradeOldInsight(view) {
-  if (upgradeTried || !view || view.empty || !needsUpgrade(ivInsight, {hasKey: !!shared.state.secrets?.ANTHROPIC_API_KEY, busy: insightBusy})) return;
+  if (upgradeTried || !insightFresh || !view || view.empty || !needsUpgrade(ivInsight, {hasKey: !!shared.state.secrets?.ANTHROPIC_API_KEY, busy: insightBusy})) return;
   upgradeTried = true;
   setTimeout(refreshInsights, 0);
 }

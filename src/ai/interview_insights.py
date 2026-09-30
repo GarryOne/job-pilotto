@@ -460,6 +460,9 @@ def after_review(tracker, stats=None, client=None):
         return f'Interview insights skipped: {type(error).__name__}: {error}'
 
 
+RUN_NAME = 'Interview insights'
+
+
 def main(argv=None):
     """The Interviews page's Refresh: `refresh` prints one JSON line {ok, status, text, insight}. `step --text T --done yes|no`
     ticks or unticks a "Practice next" step and prints {ok, done_steps}."""
@@ -483,7 +486,7 @@ def main(argv=None):
     from ..notion import cron_runs
     run = cron_runs.new_run('insight')
     run['insight'] = {}
-    run['subject'] = CATEGORY  # "Interview patterns", in the run's title
+    run['name'] = RUN_NAME  # "Interview insights" in the run's title, not the daily "Insight"
     try:
         out = update(tracker, stats=run['insight'])
     except Exception as error:  # noqa: BLE001 - the page says what failed

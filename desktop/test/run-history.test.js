@@ -96,3 +96,13 @@ test('a row reads the same with an old or a new title: the kind comes from Mode,
   assert.equal(fresh.kind, 'add');
   assert.equal(fresh.mode, 'add');
 });
+
+test('an interview-insights run is named for what it is, not the daily "Insight" (owner, 30 Sep 2026: "confusing")', () => {
+  const interview = history.fromRow(row('r9', {started: '2026-09-30T11:56:00Z', mode: 'insight', status: 'OK', trigger: 'Mac (you)', seconds: 40,
+    summary: 'Interview insights updated from 2 interview(s): When a client names its key need… (AI cost $0.181)'}), NOW);
+  assert.equal(interview.kind, 'interviewInsight');
+  assert.equal(history.notice(interview).title, 'Interview insights done');
+  const daily = history.fromRow(row('r10', {started: '2026-09-30T07:00:00Z', mode: 'insight', status: 'OK', trigger: 'Schedule', seconds: 40,
+    summary: 'Software-titled jobs convert at 3%'}), NOW);
+  assert.equal(daily.kind, 'insight');
+});
