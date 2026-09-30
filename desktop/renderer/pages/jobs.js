@@ -76,7 +76,7 @@ function renderTalking(narrowed = false) {
   show($('jobs-talking'), talking.length > 0 && !narrowed);
   const found = talking.filter(isInbound).length;
   const mixed = found > 0 && found < talking.length;  // a tag per row only tells something when both kinds are listed
-  $('jobs-talking-count').textContent = [found && `${found} inbound`, talking.length - found && `${talking.length - found} outbound`].filter(Boolean).join(' · ');
+  $('jobs-talking-count').textContent = `${talking.length} active · ${found} inbound · ${talking.length - found} outbound`;
   $('jobs-talking-list').replaceChildren(...talking.map(job => {
     const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
       title: job.notion_url ? 'Open in Notion' : 'Open the link'});
