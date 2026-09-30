@@ -1493,3 +1493,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 /* Interview library while Notion answers: skeleton rows in the real table (pages/interviews.js). */
 .iv-skeleton td { padding-block: var(--sp-4); vertical-align: middle; }
 .iv-skeleton td .skeleton + .skeleton { margin-top: var(--sp-2); }
+
+/* Interview library: the Job column (company, then the role). */
+.iv-job { min-width: 180px; max-width: 260px; }

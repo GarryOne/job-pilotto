@@ -186,7 +186,7 @@ function skeletonRows(n = 3) {
   return Array.from({length: n}, () => {
     const tr = document.createElement('tr');
     tr.className = 'iv-skeleton';
-    for (const cls of ['w-60', 'w-80', 'w-40', 'w-40', 'button small']) {
+    for (const cls of ['w-60', 'w-80', 'w-80', 'w-40', 'w-40', 'button small']) {
       const td = document.createElement('td');
       td.append(el('span', `skeleton ${cls}`));
       if (cls === 'w-80') td.append(el('span', 'skeleton w-40'));
@@ -241,17 +241,23 @@ function renderSaved() {
     const job = row.application[0] ? jobForPage(row.application[0]) : null;
     cell(row.date ? new Date(`${row.date}T12:00:00`).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) : '').className = 'iv-date';
 
-    // Interview: company badge, the job (or the interview's own title), company · round, next step.
-    const who = el('div', 'iv-who');
-    const logo = avatar(job?.company || row.title);
+    // Job: company badge, the company and the role it's linked to (or why none is).
+    const jobCell = el('div', 'iv-who');
+    const logo = avatar(job?.company || job?.title || row.title);
     const badge = el('span', 'logo', logo.initials);
     badge.style.setProperty('--hue', logo.hue);
-    const lines = el('div', '');
-    lines.append(el('b', '', job ? job.title : row.title));
-    const sub = [job?.company, row.round].filter(Boolean).join(' · ') || (job ? '' : 'No job linked');
-    if (sub) lines.append(el('div', 'muted small', sub));
-    lines.append(el('div', 'muted small', row.next_step ? `Next: ${row.next_step}` : 'Next step not stated'));
-    who.append(badge, lines);
+    const jobLines = el('div', '');
+    if (job) {
+      jobLines.append(el('b', '', job.company || job.title));
+      if (job.company) jobLines.append(el('div', 'muted small', job.title));
+    } else {
+      jobLines.append(el('span', 'muted', row.application[0] ? 'Linked in Notion' : 'No job linked'));
+    }
+    jobCell.append(badge, jobLines);
+    // Interview: the round (or the interview's own title), and the next step.
+    const who = el('div', '');
+    who.append(el('b', '', row.round || row.title));
+    who.append(el('div', 'muted small', row.next_step ? `Next: ${row.next_step}` : 'Next step not stated'));
     // Change job…: the job picker, shown on the row when asked for from the menu.
     const picker = el('div', 'iv-picker');
     picker.hidden = true;
@@ -276,7 +282,8 @@ function renderSaved() {
     });
     pasted.addEventListener('change', () => { if (/^https?:\/\//.test(pasted.value.trim())) relink(pasted.value.trim()); });
     picker.append(select, pasted);
-    cell(who, picker);
+    cell(jobCell, picker).className = 'iv-job';
+    cell(who);
 
     // Where: the job in this list, else the linked Applications row (a job applied to outside Job Pilotto).
     const place = job || row.place || {};
