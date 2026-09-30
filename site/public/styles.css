@@ -71,10 +71,17 @@ body { counter-reset: gate; }
 
 /* Hero: the departures hall. A full-width dark band, the pitch centred, the board big below it. */
 .hero { --hall: #0d131a; --hall-ink: #f1ede4; --hall-muted: #aab6c3; --hall-line: #2a3644;
-  position: relative; display: grid; justify-items: center; gap: 48px; padding-block: 76px 72px; text-align: center; color: var(--hall-ink); }
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 48px; padding-block: 76px 72px; text-align: center; color: var(--hall-ink); }
+/* A grid column grows to its widest unbreakable content (the install command, the board's role names): never past the
+   screen. Phones overflowed sideways (379 px screen, 549 px column, 30 Sep 2026). */
+.hero > * { min-width: 0; max-width: 100%; }
 .hero::before { content: ""; position: absolute; inset: 0 calc(50% - 50vw); z-index: -1;
   background: var(--hall) radial-gradient(rgb(255 255 255 / .06) 1px, transparent 1.4px) 0 0 / 18px 18px; }
-.hero-copy { display: grid; gap: 26px; justify-items: center; max-width: 880px; }
+.hero-copy { display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; justify-items: center; width: 100%; max-width: min(880px, 100%); }
+/* The same for every block inside the hero (buttons, install box, notes): each can shrink to the screen; the install
+   command scrolls inside its own box. */
+.hero-copy * { min-width: 0; max-width: 100%; }
+.hero-copy .hero-actions, .hero-copy .install-box { grid-template-columns: minmax(0, 1fr); }
 .hero h1 { font-size: clamp(2.6rem, 5.6vw, 4.6rem); color: var(--hall-ink); }
 .hero .eyebrow { color: var(--amber); }
 .hero .eyebrow::before { background: var(--amber); }
@@ -90,7 +97,7 @@ body { counter-reset: gate; }
 .install-label { font: 400 .74rem var(--mono); color: var(--hall-muted); }
 .install-line { display: flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 4px 4px 14px; border: 1px solid var(--hall-line);
   border-radius: 10px; background: #141c25; }
-.install-line code { font: 500 .82rem var(--mono); color: var(--hall-ink); overflow-x: auto; white-space: nowrap; user-select: all; }
+.install-line code { min-width: 0; font: 500 .82rem var(--mono); color: var(--hall-ink); overflow-x: auto; white-space: nowrap; user-select: all; }
 .copy-btn { flex: none; padding: 6px 12px; border: 0; border-radius: 7px; background: var(--hall-line); color: var(--hall-ink);
   font: 600 .74rem var(--mono); cursor: pointer; }
 .copy-btn:hover { background: var(--amber); color: #14110c; }
@@ -148,7 +155,7 @@ body { counter-reset: gate; }
   .board table { table-layout: auto; }
   .board col { width: auto !important; }
   .board td:nth-child(1), .board th:nth-child(1), .board td:nth-child(3), .board th:nth-child(3) { display: none; }
-  .board td:nth-child(2) { border-radius: 6px 0 0 6px; width: 100%; }
+  .board td:nth-child(2) { border-radius: 6px 0 0 6px; width: 100%; max-width: 0; text-overflow: ellipsis; }  /* max-width 0: the cell takes the room left, never more */
 }
 
 /* Sections */
@@ -282,7 +289,7 @@ table.access { width: 100%; min-width: 640px; border-collapse: collapse; font-si
 .install-cmd { display: block; margin: 6px 0; padding: 6px 10px; border-radius: 6px; background: #0d131a; color: #f1ede4; font: 500 .8rem var(--mono); overflow-wrap: anywhere; user-select: all; }
 .time { font: 400 .74rem var(--mono); color: var(--teal); white-space: nowrap; padding-top: 3px; }
 .setup-cta { margin-top: 20px; }
-@media (max-width: 900px) { .setup-cols { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .setup-cols { grid-template-columns: minmax(0, 1fr); } .setup-cols > * { min-width: 0; } }
 
 /* Pricing: boarding passes */
 .passes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; }
@@ -335,9 +342,9 @@ table.access { width: 100%; min-width: 640px; border-collapse: collapse; font-si
 .boarding h2 { color: #fff; margin-top: 14px; }
 .boarding .eyebrow { color: var(--amber); }
 .boarding p { color: #b7c4d3; margin-top: 12px; }
-.boarding form { display: grid; gap: 10px; background: rgb(255 255 255 / .04); border: 1px solid #25303c; border-radius: 16px; padding: 22px; }
+.boarding form { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 10px; background: rgb(255 255 255 / .04); border: 1px solid #25303c; border-radius: 16px; padding: 22px; }
 .boarding label { font: 500 .68rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
-.boarding input { padding: 13px 14px; border-radius: 10px; border: 1px solid #2c3a49; background: #0c1219; color: #fff; font: 1rem var(--sans); }
+.boarding input { min-width: 0; width: 100%; box-sizing: border-box; padding: 13px 14px; border-radius: 10px; border: 1px solid #2c3a49; background: #0c1219; color: #fff; font: 1rem var(--sans); }
 
 .boarding .fine { font-size: .8rem; color: #8a97a6; }
 .boarding .thanks { color: #7ee39a; font-weight: 600; }
@@ -428,3 +435,6 @@ table.compare { width: 100%; min-width: 820px; border-collapse: collapse; font-s
 /* Auto apply → "Fewer, better applications.": what the tool will never do, right where a visitor wonders. */
 .quality-panel { margin-top: 28px; padding: 28px 36px; }
 .quality-panel h3 { margin: 0 0 18px; font-size: 1.3rem; letter-spacing: -.02em; }
+
+/* The Pro waitlist on the smallest phones: less padding so the form keeps its room. */
+@media (max-width: 400px) { .boarding { padding: 28px 18px; } .boarding form { padding: 16px; } }
