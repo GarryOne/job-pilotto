@@ -132,7 +132,8 @@ def present(item):
         meta = [item.get('event_kind', ''), _short(item.get('note', ''), 60)]
     elif kind == 'details':
         icon, badge, tone = 'info', 'Add details', 'bad' if item['stage'] == 'Interview scheduled' else 'warn'
-        headline = f"Tell Job Pilotto about the {who} interview" if item['company'] else f'Which job is the {who} interview for?'
+        headline = f"Tell Job Pilotto about the {who} interview" if item['company'] or 'company' not in item.get('missing', []) \
+            else f'Who is the employer behind {who}?'
         meta = [_short(item['job'], 40), 'missing: ' + ', '.join(item.get('missing', []))]
     elif kind == 'apply':
         done, left, kits = item.get('applied', 0), item.get('left', 0), item.get('kits', 0)
@@ -344,6 +345,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         # didn't say (a hidden employer, no salary) stays visible on the job, not as a to-do.
         told = any(e['source_id'].startswith('paste:') for e in history)
         missing = [] if told else thin(row)
+        # An agency keeping its client hidden after you already had the call (a reviewed interview): the employer isn't
+        # something pasting more messages will fill in, so it is not a to-do (it shows on the job once they name it).
+        if 'company' in missing and _field(row, 'Via') and interviewed.get(key, {}).get('reviewed'):
+            missing = [m for m in missing if m != 'company']
         # Only once an interview is booked: an agency keeping the employer hidden while you're only talking is normal.
         if stage in ('Interview scheduled', 'Interviewing') and missing:
             coming_at = _when(_field(row, 'Next interview'))

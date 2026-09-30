@@ -302,6 +302,17 @@ class AddDetailsTests(unittest.TestCase):
         self.assertNotIn('details', kinds)
         self.assertIn('prepare', kinds)
 
+    def test_the_hidden_client_is_not_asked_once_the_call_was_reviewed_and_the_headline_names_the_gap(self):
+        invite = row('h1', '', 'Principal SRE', stage='Interview scheduled', interview='2026-10-01T08:30:00+02:00', Via='Huxley')
+        invite['properties']['Job URL'] = {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}
+        ask = [i for i in focus.build([invite], [], target=0, now=NOW)['items'] if i['kind'] == 'details'][0]
+        self.assertEqual(focus.present(ask)['headline'], 'Who is the employer behind Huxley?')
+        reviewed = [interview('iv1', 'h1', '2026-09-30')]
+        items = focus.build([invite], [], reviewed, target=0, now=NOW)['items']
+        details = [i for i in items if i['kind'] == 'details']
+        self.assertEqual([i['missing'] for i in details], [['salary', 'job description']])
+        self.assertEqual(focus.present(details[0])['headline'], 'Tell Job Pilotto about the Huxley interview')
+
     def test_only_talking_to_an_agency_with_a_hidden_employer_is_not_a_to_do(self):
         pitch = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent', Salary='€70k–90k')
         self.assertFalse([i for i in focus.build([pitch], [], target=0, now=NOW)['items'] if i['kind'] == 'details'])
