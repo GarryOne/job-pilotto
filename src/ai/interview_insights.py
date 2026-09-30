@@ -157,7 +157,7 @@ def prompt_input(items):
 KINDS = ('weakness', 'strength', 'note')  # the icon of a pattern on the card
 # 2 = the redesigned card's words (titles, kinds, keyword lines, the banner sentence). A saved insight of an older version is
 # regenerated once on Refresh even when no review changed, so it fills them in.
-DATA_VERSION = 3  # 3 = sharper wording: patterns name the concrete thing (30 Sep 2026)
+DATA_VERSION = 4  # 4 = a pattern is a recurring behaviour, its concrete topics are the evidence (30 Sep 2026)
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -170,9 +170,9 @@ SCHEMA = {
             'type': 'object', 'additionalProperties': False, 'required': ['round_type', 'title', 'kind', 'pattern', 'evidence'],
             'properties': {
                 'round_type': {'type': 'string', 'enum': list(ROUND_TYPES) + ['All']},
-                'title': {'type': 'string', 'description': 'A short name that names the concrete topic or question, max 55 characters ("Can\'t name IoT protocols (MQTT, CoAP)", "Rambling on the tenure question"); never a vague label like "gaps in specifics" or "soft-skill issues"'},
+                'title': {'type': 'string', 'description': 'The recurring behaviour in plain words, max 55 characters: what the candidate does and when ("Answers stay general when asked for a named example", "Rambles on questions about their own choices"); never a vague label like "gaps in specifics" or "soft-skill issues", and not one topic ("can\'t name IoT protocols")'},
                 'kind': {'type': 'string', 'enum': list(KINDS), 'description': 'weakness = something that costs you; strength = something that lands well; note = anything else'},
-                'pattern': {'type': 'string', 'description': 'One or two short sentences, max 200 characters: which question was asked (in the reviews\' words), what the answer lacked, and in which interviews'},
+                'pattern': {'type': 'string', 'description': 'One or two short sentences, max 200 characters, with at least two concrete instances from different interviews: what was asked and what was missing, in the reviews\' words ("IoT protocols (Laelaps), AWS certification (Huxley)")'},
                 'evidence': {'type': 'array', 'items': {
                     'type': 'object', 'additionalProperties': False, 'required': ['interview', 'quote'],
                     'properties': {'interview': {'type': 'string', 'description': 'The label, e.g. "I2"'},
@@ -201,11 +201,14 @@ that one interview ("In I1, …"), not as something that keeps happening.
 - Keep round types apart: don't draw one conclusion from a recruiter screen and a technical round together unless \
 the same thing clearly shows in both; set round_type to the group it comes from ("All" only then).
 - next_steps: 1-3 concrete things to practise or prepare before the next interview, each citing the interviews it comes from.
-- Name the thing. Use the reviews' own nouns: the tool, protocol, certification, question or topic. If a review says the \
-candidate could not name IoT protocols, the pattern says "IoT protocols", never "technical credentials" or "specifics". \
-Say which question was asked and what was missing. A pattern you can only word in general terms is dropped: fewer, sharper \
-patterns beat generic ones.
-- Evidence for a pattern includes a quote from each interview it claims, the sentence that shows the concrete thing.
+- A pattern is a behaviour that recurs across interviews, said plainly: what the candidate does and when ("Answers stay \
+general when asked for a named example"). It is not a single topic ("can't name IoT protocols" is one finding, not a \
+pattern) and not a vague label ("gaps in specifics", "technical credentials").
+- Name the instances. The concrete topics from the reviews are the evidence: in the detail, name at least two instances from \
+different interviews with what was asked and what was missing (IoT protocols in one, an AWS certification in another). \
+Use the reviews' own nouns. A behaviour you can't back with named instances from two interviews is dropped: fewer, \
+sharper patterns beat generic ones; one interview's single topic is at most an observation ("In I1, …").
+- Evidence for a pattern includes a quote from each interview it claims, the sentence that shows the instance.
 - Each pattern also gets a short title and a kind (weakness / strength / note); each step a short heading and a keyword \
 line of the topics to cover; the headline gets one line under it (headline_detail). Same rules: only what the reviews say.
 - confidence: low with 1-2 interviews or thin reviews; medium with 3-5 consistent ones; high only with more and consistent evidence.

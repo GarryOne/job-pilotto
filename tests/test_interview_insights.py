@@ -330,21 +330,24 @@ class OlderRows(unittest.TestCase):
 
 
 class SharpInsights(unittest.TestCase):
-    """The prompt asks for what you can act on: patterns that name the thing (the protocol, the question), not a label like
-    "gaps in specifics" (owner, 30 Sep 2026: "vague"), backed by a quote from every interview they claim."""
+    """A pattern is a behaviour that recurs across interviews, said plainly (the title); the concrete topics are its evidence
+    (the detail and the quotes). Not a vague label ("gaps in specifics", 30 Sep 2026: "vague"), and not a single topic either
+    ("can't name IoT protocols" is one finding, not a pattern)."""
 
-    def test_the_prompt_demands_named_specifics_and_evidence_from_each_interview(self):
+    def test_the_prompt_asks_for_a_recurring_behaviour_with_named_instances(self):
         system = ii.SYSTEM
-        self.assertIn('Name the thing', system)
-        self.assertIn('IoT protocols', system)  # the worked example of a named specific
-        self.assertIn('dropped', system)  # a pattern that can only be worded in general terms is dropped
+        self.assertIn('A pattern is a behaviour that recurs', system)
+        self.assertIn('Name the instances', system)
+        self.assertIn('IoT protocols', system)  # the worked example of an instance
         self.assertIn('a quote from each interview', system)
+        self.assertIn('a single topic', system)  # one topic in one interview is an observation, not a pattern
         properties = ii.SCHEMA['properties']['patterns']['items']['properties']
+        self.assertIn('recurring behaviour', properties['title']['description'])
         self.assertIn('never a vague label', properties['title']['description'])
-        self.assertIn('which question', properties['pattern']['description'])
+        self.assertIn('two concrete instances', properties['pattern']['description'])
 
-    def test_the_stored_format_is_version_3_so_an_older_insight_is_regenerated_once(self):
-        self.assertEqual(ii.DATA_VERSION, 3)
+    def test_the_stored_format_is_version_4_so_an_older_insight_is_regenerated_once(self):
+        self.assertEqual(ii.DATA_VERSION, 4)
 
 
 class Ticks(unittest.TestCase):
