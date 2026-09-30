@@ -50,7 +50,7 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 /* Step pages: one content column (banner, header, cards, actions) with the app pages' padding and header. */
 .step-body { overflow-y: auto; padding: var(--sp-6) var(--sp-6) var(--sp-5); }
 .step-body::after { content: ""; display: block; height: var(--sp-6); }
-.step, .step-body > .review-mode { max-width: 1040px; }
+.step, .step-body > .review-mode { max-width: none; }  /* full width, like the app's pages (owner, 30 Sep) */
 .step-head { margin-bottom: var(--sp-5); }
 .step-head .subtitle { max-width: 72ch; margin: var(--sp-1) 0 0; }
 .step-head h1 { margin-bottom: 0; }
@@ -1449,3 +1449,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .wizard-exit { background: transparent; color: var(--on-rail); border-color: var(--rail-line); }
 .wizard-exit:hover { background: var(--rail-hover); }
 .wizard-stuck { color: var(--on-rail-3); }
+
+/* The DEV tag (npm start) must fit the setup sidebar too: the name shrinks a step when it's there. */
+.steps .brand:has(.dev-tag) { font-size: var(--fs-md); white-space: nowrap; gap: var(--sp-2); }
