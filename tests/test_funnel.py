@@ -66,7 +66,12 @@ class FunnelTest(unittest.TestCase):
         apps = funnel.reached(Tracker())
         self.assertEqual(sorted(a['stage'] for a in apps), ['Applied', 'Rejected', 'Screening'])
         self.assertEqual(funnel.inbound_counts([app('Screening'), app('Rejected', 'Interviewing'), app('Recruiter lead')]),
-                         {'contacted': 3, 'screening': 2, 'interviews': 1})
+                         {'contacted': 3, 'screening': 2, 'interviews': 1, 'offers': 0})
+        steps = funnel.inbound_funnel([dict(app('Offer'), url='https://x.test/o'), dict(app('Recruiter lead'), url='')])
+        self.assertEqual([(s['reached'], s['of_contacted'], s['urls']) for s in steps],
+                         [(2, 1.0, ['https://x.test/o']), (1, 0.5, ['https://x.test/o']), (1, 0.5, ['https://x.test/o']),
+                          (1, 0.5, ['https://x.test/o'])])
+        self.assertIsNone(funnel.inbound_funnel([])[1]['of_contacted'])
 
     def test_blocks_are_a_table_and_a_callout(self):
         table, callout, note = funnel.blocks(funnel.funnel([app('Applied')]), '27 Sep 12:00')

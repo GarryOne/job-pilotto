@@ -1,7 +1,7 @@
 // Focus page.
 import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
-import {inboundLine} from '../origin.js';
+import {funnelSteps, inboundSteps} from '../funnel-view.js';
 import {shared} from './shared.js';
 import {$, savedAgo, show} from './core.js';
 import {openLogFor, showJobsIn} from './jobs.js';
@@ -285,40 +285,27 @@ function renderInsight(insight) {
   if (insight.notion_url) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', event => openLink(insight.notion_url, event)));
   $('focus-insight').replaceChildren(box);
 }
-// The application funnel: each step's count, a bar and its share of the first step; the full view is in Notion.
+function showInJobs(label, urls) {  // a funnel step's click: those opportunities in the Jobs list
+  openView('jobs');
+  showJobsIn(label, urls, 'focus');
+}
+// The application funnel (outbound): each step's count and its share of the first step; the full view is in Notion.
+// Under it, the inbound funnel (opportunities that found you), only once one did.
 function renderFunnel(funnel) {
   const steps = (funnel?.steps || []).slice(0, 5);
   show($('focus-funnel'), steps.length > 0);
+  const inbound = inboundSteps(funnel?.inbound);
+  show($('focus-inbound'), inbound.length > 0);
+  $('inbound-steps').replaceChildren(...funnelSteps(inbound, showInJobs));
   if (!steps.length) return;
   const first = Math.max(steps[0].reached, 1);
-  const nodes = [];
-  steps.forEach((step, i) => {
-    if (i) nodes.push(Object.assign(el('li', 'funnel-arrow'), {ariaHidden: 'true'}));
-    if (i) nodes[nodes.length - 1].append(icon('chevron'));
+  $('funnel-steps').replaceChildren(...funnelSteps(steps.map(step => {
     const share = Math.round(100 * step.reached / first);
-    const li = el('li', `funnel-step${funnel.improve?.step === step.step ? ' is-weak' : ''}`);
-    const bar = el('div', 'funnel-bar');
-    const fill = el('span', '');
-    fill.style.width = `${Math.max(share, step.reached ? 4 : 0)}%`;
-    bar.append(fill);
-    // How many ever reached this step (it only grows: a later rejection doesn't take one back) and their share.
-    li.title = `${step.reached} ever reached this step (${share}% of all prepared), whatever happened after`;
     const name = step.step.replace(/^\S+\s/, '');
-    li.append(el('span', 'funnel-name', name), el('b', 'funnel-count', String(step.reached)), bar, el('span', 'muted small', `${share}% reached`));
-    // A click shows the applications that reached this step in the Jobs list.
-    if (step.urls?.length) {
-      li.classList.add('is-link');
-      Object.assign(li, {tabIndex: 0, role: 'button'});
-      li.title += '. Click to see them';
-      const open = () => { openView('jobs'); showJobsIn(`Ever reached ${name}`, step.urls, 'focus'); };
-      li.addEventListener('click', open);
-      li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
-    }
-    nodes.push(li);
-  });
-  $('funnel-steps').replaceChildren(...nodes);
-  $('funnel-inbound').textContent = inboundLine(funnel.inbound);
-  show($('funnel-inbound'), !!$('funnel-inbound').textContent);
+    // How many ever reached this step (it only grows: a later rejection doesn't take one back) and their share.
+    return {name, reached: step.reached, share, urls: step.urls, label: `Ever reached ${name}`, weak: funnel.improve?.step === step.step,
+      title: `${step.reached} ever reached this step (${share}% of all prepared), whatever happened after`};
+  }), showInJobs));
   $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step.replace(/^\S+\s/, '')}. ${funnel.improve.advice}` : '';
   show($('funnel-improve'), !!funnel.improve);
   $('focus-funnel-notion').dataset.url = funnel.notion_url || '';

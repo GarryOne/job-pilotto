@@ -250,8 +250,15 @@
     "notion_url": "",
     "inbound": {
       "contacted": 3,
-      "screening": 1,
-      "interviews": 0
+      "screening": 2,
+      "interviews": 1,
+      "offers": 0,
+      "steps": [
+        {"step": "📥 Contacted you", "reached": 3, "of_contacted": 1, "urls": ["https://example.com/lead/9"]},
+        {"step": "📞 Screening", "reached": 2, "of_contacted": 0.67, "urls": []},
+        {"step": "🧑‍💻 Interviews", "reached": 1, "of_contacted": 0.33, "urls": []},
+        {"step": "🏆 Offers", "reached": 0, "of_contacted": 0, "urls": []}
+      ]
     }
   }
 }

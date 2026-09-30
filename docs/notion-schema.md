@@ -12,7 +12,7 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per opportunity: applied, saved or in
 - **Outbound or inbound**: derived from the row, no column (`src/notion/origin.py`, `desktop/renderer/origin.js`)
   - Inbound: Stage or event `Recruiter lead`, Notes `Recruiter message (…)`, or Source `LinkedIn` / `Phone`
   - Outbound: the rest; Notes `Logged from a paste (…)` (applied elsewhere) and an empty Source included
-  - Funnel: outbound only; inbound on its own line
+  - Funnel: outbound only; inbound in its own Focus card (Inbound funnel)
 **Rule:** every job you pursue has one Applications row, found or added (by hand, `/add`, a recruiter's LinkedIn/email message); a job you add gets its facts and fit score here (Fit score, Tier, Seniority, Work mode, Recruiter, Salary), never a Job Matches row.
 
 | Property | Type | Notes |

@@ -56,12 +56,28 @@ def row_origin(row, kinds=()):
                   notes=plain(props.get('Notes')) or '', kinds=kinds)
 
 
+# The inbound funnel (Focus): the outbound funnel's own step sets, so "screening" means the same on both.
+INBOUND_STEPS = [('📥 Contacted you', None), ('📞 Screening', STEPS[3][1]), ('🧑‍💻 Interviews', STEPS[4][1]),
+                 ('🏆 Offers', STEPS[5][1])]
+
+
 def inbound_counts(apps):
-    """Opportunities that found you: how many contacted you, and how many of them reached a screening and interviews
-    (the funnel's own step sets, so "screening" means the same on both lines)."""
-    screening, interviews = STEPS[3][1], STEPS[4][1]
-    return {'contacted': len(apps), 'screening': sum(1 for a in apps if a['seen'] & screening),
-            'interviews': sum(1 for a in apps if a['seen'] & interviews)}
+    """Opportunities that found you: how many contacted you, and how many of them reached a screening, interviews
+    and an offer (ever reached, like the outbound funnel)."""
+    reached = [sum(1 for a in apps if marks is None or a['seen'] & marks) for _, marks in INBOUND_STEPS]
+    return dict(zip(('contacted', 'screening', 'interviews', 'offers'), reached))
+
+
+def inbound_funnel(apps):
+    """One dict per inbound step: how many ever reached it, their share of those who contacted you, and their links
+    (apps: {'seen', 'url'}) for the Jobs list a click shows."""
+    contacted = len(apps)
+    steps = []
+    for name, marks in INBOUND_STEPS:
+        here = [a for a in apps if marks is None or a['seen'] & marks]
+        steps.append({'step': name, 'reached': len(here), 'of_contacted': len(here) / contacted if contacted else None,
+                      'urls': [a['url'] for a in here if a.get('url')]})
+    return steps
 
 
 def reached(tracker):

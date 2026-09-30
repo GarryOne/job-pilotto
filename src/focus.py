@@ -423,17 +423,19 @@ def funnel(rows, events):
     """The application funnel (src/notion/funnel.py) from the rows already read: each step, how many reached it,
     their share of applications, and the step to improve (with its advice) when there's enough data.
     The steps count outbound applications only (src/notion/origin.py: you went after the job); opportunities that
-    found you are counted apart, in 'inbound': how many contacted you, reached a screening, reached interviews."""
-    kinds = {}
-    for event in events:
+    found you are counted apart, in 'inbound': how many contacted you, reached a screening, interviews, an offer, and
+    those steps with their links (the Inbound funnel card)."""
+    kinds = {}  # oldest first: the first contact decides inbound or outbound (src/notion/origin.py)
+    at = lambda event: ((event['properties'].get('At') or {}).get('date') or {}).get('start') or ''
+    for event in sorted(events, key=at):
         kind = plain(event['properties'].get('Kind'))
         for link in (event['properties'].get('Application') or {}).get('relation', []):
-            kinds.setdefault(link['id'].replace('-', ''), set()).add(kind)
+            kinds.setdefault(link['id'].replace('-', ''), []).append(kind)
     apps, inbound = [], []
     for r in rows:
-        stage, seen = _field(r, 'Stage'), kinds.get(r['id'].replace('-', ''), set())
-        app = {'stage': stage, 'seen': seen | {stage}, 'url': _field(r, 'Job URL')}
-        if funnel_steps.row_origin(r, seen) == 'inbound':
+        stage, ordered = _field(r, 'Stage'), kinds.get(r['id'].replace('-', ''), [])
+        app = {'stage': stage, 'seen': set(ordered) | {stage}, 'url': _field(r, 'Job URL')}
+        if funnel_steps.row_origin(r, ordered) == 'inbound':
             inbound.append(app)
         elif stage in OUTCOME_STAGES + funnel_steps.PREPARED_STAGES:
             apps.append(app)
@@ -446,7 +448,8 @@ def funnel(rows, events):
     return {'steps': [{'step': s['step'], 'reached': s['reached'], 'now': s['waiting'], 'of_applied': s.get('of_applied'), 'urls': urls}
                       for s, urls in zip(steps, here)],
             'improve': {'step': weak['step'], 'advice': weak['advice']} if weak else None,
-            'inbound': funnel_steps.inbound_counts(inbound),
+            # The inbound funnel card: the counts, and the steps (with their links) it draws.
+            'inbound': {**funnel_steps.inbound_counts(inbound), 'steps': funnel_steps.inbound_funnel(inbound)},
             'notion_url': f'https://www.notion.so/{page.replace("-", "")}' if page else ''}
 
 

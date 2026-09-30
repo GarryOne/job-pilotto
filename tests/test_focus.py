@@ -134,10 +134,32 @@ class FocusTests(unittest.TestCase):
         result = focus.build(rows, events, now=NOW)['funnel']
         steps = {s['step']: s['reached'] for s in result['steps']}
         self.assertEqual([steps[k] for k in ('📝 Prepared', '📨 Applied', '📞 Screening', '🧑‍💻 Interviews')], [2, 2, 1, 0])
-        self.assertEqual(result['inbound'], {'contacted': 4, 'screening': 3, 'interviews': 1})
-        # No Source at all: outbound, as before.
+        inbound = result['inbound']
+        self.assertEqual({k: inbound[k] for k in ('contacted', 'screening', 'interviews', 'offers')},
+                         {'contacted': 4, 'screening': 3, 'interviews': 1, 'offers': 0})
+        # The Inbound funnel card: ever reached, share of those who contacted you, and the links a click lists.
+        self.assertEqual([(s['step'], s['reached']) for s in inbound['steps']],
+                         [('📥 Contacted you', 4), ('📞 Screening', 3), ('🧑‍💻 Interviews', 1), ('🏆 Offers', 0)])
+        self.assertEqual(inbound['steps'][1]['of_contacted'], 0.75)
+        self.assertEqual(inbound['steps'][0]['urls'], ['https://x.test/l', 'https://x.test/m', 'https://x.test/n', 'https://x.test/o'])
+        self.assertEqual(inbound['steps'][1]['urls'], ['https://x.test/m', 'https://x.test/n', 'https://x.test/o'])
+        self.assertEqual(inbound['steps'][2]['urls'], ['https://x.test/n'])
+        # Inbound rows are in no outbound step's links.
+        outbound_urls = {u for s in result['steps'] for u in s['urls']}
+        self.assertEqual(outbound_urls, {'https://x.test/a', 'https://x.test/b'})
+        # No Source at all: outbound, as before; no inbound steps reached.
         plain_rows = [row('a', 'A', 'x', stage='Applied')]
-        self.assertEqual(focus.build(plain_rows, [], now=NOW)['funnel']['inbound'], {'contacted': 0, 'screening': 0, 'interviews': 0})
+        empty = focus.build(plain_rows, [], now=NOW)['funnel']['inbound']
+        self.assertEqual((empty['contacted'], [s['reached'] for s in empty['steps']]), (0, [0, 0, 0, 0]))
+
+    def test_the_first_contact_decides_the_focus_funnel_side(self):
+        # Applied, then the recruiter answered: outbound; the recruiter wrote first, then you applied: inbound.
+        rows = [row('e', 'E', 'SRE', stage='Screening'), row('f', 'F', 'SRE', stage='Screening')]
+        events = [event('e', 'Recruiter lead', '2026-09-10T09:00:00Z'), event('e', 'Applied', '2026-09-01T09:00:00Z'),
+                  event('f', 'Applied', '2026-09-10T09:00:00Z'), event('f', 'Recruiter lead', '2026-09-01T09:00:00Z')]
+        result = focus.build(rows, events, now=NOW)['funnel']
+        self.assertEqual(result['inbound']['steps'][0]['urls'], ['https://x.test/f'])
+        self.assertEqual(result['steps'][1]['urls'], ['https://x.test/e'])
 
     def test_reminder_only_when_worth_it(self):
         calm = {'today': {'applied': 30, 'target': 30, 'kits_ready': 0}, 'items': []}

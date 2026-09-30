@@ -19,8 +19,3 @@ export function origin({source = '', stage = '', notes = '', kinds = []} = {}) {
   return INBOUND_SOURCES.has(String(source || '').trim()) ? INBOUND : OUTBOUND;
 }
 export const isInbound = job => origin(job || {}) === INBOUND;
-// Focus → Application funnel: the line under the (outbound) steps. Empty when nothing found you yet.
-export function inboundLine(inbound) {
-  const {contacted = 0, screening = 0, interviews = 0} = inbound || {};
-  return contacted ? `Inbound: ${contacted} contacted you · ${screening} screening · ${interviews} interview${interviews === 1 ? '' : 's'}` : '';
-}

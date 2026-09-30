@@ -144,14 +144,6 @@ test('an inbound opportunity counts as workload, as Applied only once you applie
   assert.deepEqual(inConversation([{stage: 'Recruiter lead', source: 'Gmail'}, {stage: 'Dismissed', source: 'LinkedIn'}]).length, 1);
 });
 
-test('the funnel card\'s inbound line, hidden when nothing found you', async () => {
-  const {inboundLine} = await import('../renderer/origin.js');
-  assert.equal(inboundLine({contacted: 4, screening: 2, interviews: 1}), 'Inbound: 4 contacted you · 2 screening · 1 interview');
-  assert.equal(inboundLine({contacted: 3, screening: 0, interviews: 0}), 'Inbound: 3 contacted you · 0 screening · 0 interviews');
-  assert.equal(inboundLine({contacted: 0}), '');
-  assert.equal(inboundLine(undefined), '');
-});
-
 test('the Show menu: inbound only under Inbound (newest activity first), not under New matches / Saved / Applied / Dismissed', async () => {
   const {byFilter, inboundCount, sorted: order} = await import('../renderer/jobs-view.js');
   const jobs = [

@@ -201,7 +201,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   with progress and reminders at the times you pick, the latest insight, and your **funnel** (Prepared → Applied →
   Human reply → Screening → Interviews → Offer, with the step to improve). No AI, no cost.
   - **Outbound only** in the funnel: jobs you went after.
-  - **Inbound** on one line below it: "Inbound: 3 contacted you · 1 screening · 0 interviews" (hidden at 0).
+  - **Inbound funnel** card below it: Contacted you → Screening → Interviews → Offers, % of contacted, a click lists them (only once one found you).
 - 📋 **Jobs**: built from Notion (Job Matches + Applications), counters that filter the list (high fit, inbound,
   companies; applied, waiting, in process, closed), **In conversation** (open inbound opportunities, above the list),
   find a job by its pasted link, and one main button per job:
