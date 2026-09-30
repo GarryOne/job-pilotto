@@ -17,7 +17,7 @@ globalThis.Node = FakeNode;
 globalThis.document = {createElement: tag => new FakeNode(tag), createElementNS: (_, tag) => new FakeNode(tag),
   body: new FakeNode('body'), addEventListener() {}, querySelector: () => null};
 globalThis.window ??= {addEventListener() {}};
-const {insightView, insightCard, ago, needsUpgrade} = await import('../renderer/interview-insight.js');
+const {insightView, insightCard, ago, olderFormat} = await import('../renderer/interview-insight.js');
 const {refreshInsights, insightStep, cacheWithInsight} = await import('../lib/interviews.js');
 
 const NOW = Date.parse('2026-09-30T12:00:00Z');
@@ -114,7 +114,7 @@ test('ticking a step runs the engine with the step and the answer; a failure is 
 
 // The redesigned card (30 Sep 2026 mockup): header with subtitle and confidence chip, a primary-signal banner, patterns
 // with icon, title, detail and company chips, numbered "Practice next" steps with tick boxes, a footer.
-const RICH = {headline: 'Strong substance is being weakened by rambling delivery under pressure.', confidence: 'low', sample: 2,
+const RICH = {headline: 'Strong substance is being weakened by rambling delivery under pressure.', confidence: 'low', sample: 2, version: 6,
   headline_detail: 'The same pattern appeared in tenure and unblocking questions.', updated: '2026-09-30T10:00:00Z', url: 'https://notion.test/ins',
   patterns: [
     {text: 'Key recruiter questions take too long to reach the point.', title: 'Answers become unstructured', kind: 'weakness', round_type: 'Recruiter screen',
@@ -211,14 +211,13 @@ test('supporting moments: the quotes behind each pattern with the interview each
   assert.equal(insightView({...RICH, patterns: [{...RICH.patterns[0], evidence: []}]}, RICH_ROWS, NOW).moments.length, 0);
 });
 
-test('an insight saved in the old format is refreshed once by the app, only when Claude can be asked', () => {
-  assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true}), true);
-  assert.equal(needsUpgrade(RICH, {hasKey: true}), true);  // saved before versions existed
-  assert.equal(needsUpgrade({...RICH, version: 5}, {hasKey: true}), true);  // version 6: fair patterns, strengths, "you"
-  assert.equal(needsUpgrade({...RICH, version: 6}, {hasKey: true}), false);
-  assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: false}), false);
-  assert.equal(needsUpgrade(null, {hasKey: true}), false);
-  assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true, busy: true}), false);
+test('an insight written by an older version is never refreshed by itself: the card says so and you choose (no AI spend)', () => {
+  assert.equal(olderFormat({...RICH, version: 5}), true);
+  assert.equal(olderFormat({...RICH, version: undefined}), true);  // saved before versions existed
+  assert.equal(olderFormat({...RICH, version: 6}), false);
+  assert.equal(olderFormat(null), false);
+  assert.match(insightView({...RICH, version: 5}, RICH_ROWS, NOW).subtitle, /Written by an older version · Refresh to update/);
+  assert.doesNotMatch(insightView({...RICH, version: 6}, RICH_ROWS, NOW).subtitle, /older version/);
 });
 
 test('each pattern says how many quotes back it, and the count opens the moments at that pattern', () => {

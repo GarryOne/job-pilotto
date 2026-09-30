@@ -43,7 +43,8 @@ export function insightView(insight, rows = [], now = Date.now()) {
   const rounds = list(insight.interviews).map(item => item?.round_type).filter(Boolean);
   const same = rounds.length && rounds.every(round => round === rounds[0]) ? rounds[0].toLowerCase() : 'interview';
   const subtitle = [`Patterns across ${n} ${same}${n === 1 ? '' : 's'}`, when && `Updated ${when}`,
-    pending ? `${pending} new review${pending === 1 ? '' : 's'} not included yet` : insight.outdated && 'A review changed since · Refresh to update']
+    pending ? `${pending} new review${pending === 1 ? '' : 's'} not included yet` : insight.outdated ? 'A review changed since · Refresh to update'
+      : olderFormat(insight) && 'Written by an older version · Refresh to update']
     .filter(Boolean).join(' · ');
   const company = id => String(link(id).title).split(' · ')[0].trim() || 'Interview';
   const patterns = list(insight.patterns).map(p => {
@@ -79,9 +80,9 @@ export function insightView(insight, rows = [], now = Date.now()) {
     nothing: !!insight.nothing_useful, url: insight.url || ''};
 }
 
-// An insight saved before the card's new words (titles, kinds) is refreshed once by the app, when Claude can be asked
-// (src/ai/interview_insights.py DATA_VERSION): the two-line pattern rows need them. version 6 = current (one moment backs one pattern, three kinds of gap, strengths kept).
-export const needsUpgrade = (insight, {hasKey = false, busy = false} = {}) => !!insight && hasKey && !busy && (Number(insight.version) || 1) < 6;
+// An insight written by an older version of the prompt (src/ai/interview_insights.py DATA_VERSION, now 6): the card says
+// so and you choose when to Refresh. Never refreshed by itself: that spent on its own and raced other refreshes.
+export const olderFormat = insight => !!insight && (Number(insight.version) || 1) < 6;
 
 // The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
 // refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; onPractice(): Start practice session;

@@ -95,11 +95,12 @@ JOBS_DB = DATA / 'jobs.sqlite'
 
 @contextlib.contextmanager
 def run_lock(folder=None, on_wait=lambda: print('Another Job Pilotto search is running (app or terminal): waiting for it…',
-                                                file=sys.stderr), poll=5):
-    """One search at a time per data folder, whether the app or the terminal started it (they share the cache)."""
+                                                file=sys.stderr), poll=5, name='run'):
+    """One search at a time per data folder, whether the app or the terminal started it (they share the cache). name: another
+    job that must take turns the same way, with its own lock (e.g. 'insights': one interview-insights refresh at a time)."""
     folder = Path(folder or DATA)
     folder.mkdir(parents=True, exist_ok=True)
-    handle = open(folder / 'run.lock', 'a+')
+    handle = open(folder / f'{name}.lock', 'a+')
     try:
         if sys.platform == 'win32':
             import msvcrt

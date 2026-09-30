@@ -3,7 +3,7 @@ import * as pendingReviews from '../review-pending.js';
 import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
-import {insightCard, insightSkeleton, insightView, needsUpgrade} from '../interview-insight.js';
+import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
 import * as practice from '../practice-session.js';
 import {afterLoad} from '../interview-library.js';
 import {showJobsIn} from './jobs.js';
@@ -236,7 +236,7 @@ async function showSavedLoading() {
   if (saved?.result?.interviews?.length && !ivSavedRows.length) {
     ivSavedRows = saved.result.interviews;
     ivInsight = saved.result.insight || null;
-    insightFresh = false;  // from this Mac's cache: never a reason to spend on an upgrade
+    insightFresh = false;  // from this Mac's cache: the card says it's the saved copy
     renderAll();
     $('iv-lib-stats').textContent = `${IV_SAVED_TO} · saved ${agoText(saved.at)}, updating…`;
     return saved.at;
@@ -309,19 +309,12 @@ function renderInsight() {
   const view = insightView(ivInsight, ivSavedRows);
   show($('iv-insight'), !!view);
   insightShown = view;
-  upgradeOldInsight(view);
   if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: title => showMoments(title), onPractice: startPractice, refresh: refreshInsights,
     onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote, updating: !insightFresh && !!ivInsight}));
 }
-let insightShown = null, upgradeTried = false, insightFresh = false, insightWaits = 0;
+let insightShown = null, insightFresh = false, insightWaits = 0;
 // "Updated 3 min ago" keeps up while the page is open.
 setInterval(() => { if (insightShown && !$('iv-insight')?.hidden) renderInsight(); }, 60 * 1000);
-// An insight saved in the old format: refreshed once per app run (about $0.02; the page says so while it works).
-function upgradeOldInsight(view) {
-  if (upgradeTried || !insightFresh || !view || view.empty || !needsUpgrade(ivInsight, {hasKey: !!shared.state.secrets?.ANTHROPIC_API_KEY, busy: insightBusy})) return;
-  upgradeTried = true;
-  setTimeout(refreshInsights, 0);
-}
 
 // View supporting moments: the quotes behind each pattern; a name opens that interview in the library.
 function showMoments(title = '') {

@@ -450,6 +450,37 @@ class Staleness(unittest.TestCase):
             self.assertTrue(ii.saved(fake)['outdated'])
 
 
+class TakeTurns(unittest.TestCase):
+    """14:09 on 30 Sep 2026: two refreshes on this Mac (the app and the terminal) both saw an old insight and both paid
+    Opus. They now take turns (a lock per data folder); the second then finds it current and makes no AI call."""
+
+    def test_a_second_refresh_waits_for_the_first(self):
+        import tempfile
+        import threading
+        from src import paths
+        with tempfile.TemporaryDirectory() as folder:
+            waited, order = [], []
+            with paths.run_lock(folder, name='insights'):
+                other = threading.Thread(target=lambda: self._second(paths, folder, waited, order))
+                other.start()
+                other.join(0.3)
+                order.append('first done')
+            other.join(2)
+            self.assertEqual(waited, ['waiting'])
+            self.assertEqual(order, ['first done', 'second ran'])
+            self.assertTrue((__import__('pathlib').Path(folder) / 'insights.lock').exists())
+            self.assertFalse((__import__('pathlib').Path(folder) / 'run.lock').exists())  # never blocks a jobs search
+
+    @staticmethod
+    def _second(paths, folder, waited, order):
+        with paths.run_lock(folder, name='insights', on_wait=lambda: waited.append('waiting'), poll=0.05):
+            order.append('second ran')
+
+    def test_update_runs_under_the_insights_lock(self):
+        import inspect
+        self.assertIn("run_lock(name='insights'", inspect.getsource(ii.update))
+
+
 class Ticks(unittest.TestCase):
     """The "Practice next" tick boxes: saved in the insight row's Data (Notion is the one copy), kept across a Refresh only
     for a step whose words are still there."""
