@@ -554,6 +554,18 @@ class FactsTests(unittest.TestCase):
         # Unknown select values and "not stated" are dropped.
         self.assertEqual(interviews.facts_of({'facts': [{'field': 'contract', 'value': 'freelance-ish', 'quote': ''}]}), [])
 
+    def test_a_more_specific_location_refines_the_job_but_a_different_one_does_not(self):
+        row = huxley(Location=text('Remote'))
+        merged = interviews.merge_facts(row, {'facts': [
+            {'field': 'location', 'value': 'Remote, Europe (Switzerland via employer of record, or Romania)', 'quote': 'q'}]})
+        self.assertEqual(merged['changes']['Location'],
+                         {'rich_text': [{'text': {'content': 'Remote, Europe (Switzerland via employer of record, or Romania)'}}]})
+        self.assertEqual([(f['label'], f.get('refined')) for f in merged['filled']], [('Location', 'Remote')])
+        self.assertEqual(merged['differs'], [])
+        # Selects are never refined, and a value that does not contain the current one is only reported.
+        other = interviews.merge_facts(row, {'facts': [{'field': 'location', 'value': 'Zurich, hybrid', 'quote': 'q'}]})
+        self.assertEqual((other['changes'], [f['label'] for f in other['differs']]), ({}, ['Location']))
+
     def test_the_review_fills_the_job_and_reports_differences_without_overwriting(self):
         global RESULT
         original, RESULT = RESULT, dict(RESULT, application=0, round='Technical interview', facts=FACTS,

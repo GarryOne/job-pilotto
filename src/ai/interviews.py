@@ -290,7 +290,8 @@ def facts_of(result):
 
 def merge_facts(app, result):
     """What the call adds to the application. Pure. Empty fields are filled; a field that already says the same
-    (or more) is left; a different value is never overwritten: it's reported. Returns
+    (or more) is left; a value the call makes more specific ("Remote" -> "Remote, Europe") is refined; a different
+    value is never overwritten: it's reported. Returns
     {'changes': Notion properties, 'filled': [fact], 'differs': [fact + 'current'], 'same': [fact]}."""
     props = (app or {}).get('properties', {})
     merged = {'changes': {}, 'filled': [], 'differs': [], 'same': []}
@@ -309,6 +310,10 @@ def merge_facts(app, result):
                 merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
         elif _norm(fact['value']) == _norm(current) or _norm(fact['value']) in _norm(current):
             merged['same'].append(fact)
+        elif kind == 'text' and _norm(current) in _norm(fact['value']):
+            # The job says less than the call ("Remote" -> "Remote, Europe"): a refinement, not a contradiction.
+            merged['filled'].append(dict(fact, refined=current))
+            merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
         else:
             merged['differs'].append(dict(fact, current=current))
     if added != known:
