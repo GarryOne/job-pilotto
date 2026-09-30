@@ -18,7 +18,8 @@ Interview scheduled is Interviewing now; never back, never a closed stage), with
 Next step from the review, a past Next interview cleared and the call's facts filled into empty fields (a
 different value already there is not overwritten: the review page and the summary show both). Then a Telegram
 summary. The daily insight and weekly report read the Interviews rows.
-A recording saved without a review moves the application on the same way (save(), link()); an interview
+A row reviewed before can be reviewed again from the app (review_again(): the review replaced, only empty fields
+of the job filled, no Stage change or event). A recording saved without a review moves the application on the same way (save(), link()); an interview
 that wasn't recorded is confirmed from Focus ("Did it happen?": held(), moved(), cancelled()).
 Each user's Notion is their own private database; the transcript stays there and in Telegram.
 """
@@ -324,7 +325,7 @@ def fact_lines(result, merged=None):
     for fact in facts_of(result):
         line = f"{fact['label']}: {fact['value']}" + (f' — “{fact["quote"]}”' if fact['quote'] else '')
         if fact['field'] in differs:
-            line += f" ⚠️ The job says “{differs[fact['field']]}”: not changed, update it in Notion if the call is right."
+            line += f" ⚠️ Different from the job (it says “{differs[fact['field']]}”): not changed, update it in Notion if the call is right."
         elif fact['field'] in filled:
             line += ' (added to the job)'
         lines.append(line)
@@ -537,10 +538,13 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     """Analyse one interview (a recording, a transcript file, or notes text) and record it. Returns a log
     line ending with the 🎤 Interviews page URL. job_url links it to that application instead of guessing.
     page_id reviews a row saved earlier (save()): its transcript is read from Notion, the review is added
-    to that page and its Application is kept unless job_url changes it."""
+    to that page and its Application is kept unless job_url changes it. A row already reviewed is reviewed again
+    (review_again)."""
     now = now or datetime.now(timezone.utc)
     caption, transcript, recorded = note, '', False
     saved = tracker._request('GET', f'pages/{page_id}') if page_id else None
+    # A row that already has a review (Overall set) is reviewed again: see review_again() below.
+    again = bool(saved and plain(saved['properties'].get('Overall')))
     if saved:
         transcript = saved_transcript(tracker, page_id)
         caption = note or plain(saved['properties'].get('Interview'))
@@ -571,11 +575,15 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
     app = chosen or (apps[result['application']] if 0 <= result['application'] < len(apps) else None)
+    if again:  # a review again: the row keeps its job; no guess links it elsewhere
+        app = chosen
     source = (plain(saved['properties'].get('Input')) or 'Transcript') if saved else (
         'Recording' if recorded else 'Transcript' if file_id else 'Notes')
     props = properties(result, app, now.date(), model, usd, source)
     # An application at a closed stage is never touched: its facts are only listed on the review.
     merged = merge_facts(app, result) if app and plain(app['properties'].get('Stage')) not in CLOSED else None
+    if again:
+        return review_again(tracker, page_id, saved, result, app, merged, props, usd, send, truncated)
     if saved:
         props.pop('Date')  # the day it was held, set when it was saved
         page = tracker._request('PATCH', f'pages/{page_id}', {'properties': props})
@@ -595,6 +603,76 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     extra = changes_summary(merged, stage)
     return (f"Interview analysed ({where}, {result['round']}, {len(result['questions'])} questions, ${usd:.3f})"
             f"{f'. {extra[0].upper()}{extra[1:]}' if extra else ''} {page.get('url', '')}").strip()
+
+
+def review_again(tracker, page_id, saved, result, app, merged, props, usd, send=None, truncated=False):
+    """The Interviews page's "Review again" (a row reviewed before, e.g. before facts were extracted): the review
+    sections are replaced (replace_review), the row keeps its title, date, input and job link, its Cost adds this
+    call's, and the job gets only what it lacks: the call's facts in EMPTY fields (merge_facts) and Next step when
+    it's empty. No Stage change, no event, no Next interview cleared: the call was held and counted at the first
+    review. Running it twice changes nothing on the job the second time."""
+    for kept in ('Date', 'Interview', 'Input', 'Application'):
+        props.pop(kept, None)
+    before = (saved['properties'].get('Cost (USD)') or {}).get('number') or 0
+    props['Cost (USD)'] = {'number': round(before + usd, 4)}
+    replace_review(tracker, page_id, analysis_blocks(result, merged))  # first: a failure leaves the old review whole
+    page = tracker._request('PATCH', f'pages/{page_id}', {'properties': props})
+    ensure_job_line(tracker, page_id, app)
+    update = {}
+    if app and merged is not None:
+        update = dict(merged.get('changes') or {})
+        step = result.get('next_step') or ''
+        if step and not NOT_STATED.match(step) and not plain(app['properties'].get('Next step')):
+            update['Next step'] = {'rich_text': [{'text': {'content': step[:2000]}}]}
+        if update:
+            tracker.update_page(app['id'], update)
+    if send:
+        send(message(result, app, page.get('url', '') or saved.get('url', ''), usd, truncated, merged))
+    where = f"{plain(app['properties'].get('Company')) or plain(app['properties'].get('Via')) or 'linked'}" if app else 'unlinked'
+    extra = '; '.join(filter(None, ('' if (merged or {}).get('filled') or 'Next step' in update else 'nothing new for the job',
+                                    changes_summary(merged), 'Next step set' if 'Next step' in update else '')))
+    return (f"Interview analysed again ({where}, {result['round']}, {len(result['questions'])} questions, ${usd:.3f})"
+            f". {extra[0].upper()}{extra[1:]} {page.get('url', '') or saved.get('url', '')}").strip()
+
+
+# The headings analysis_blocks() writes: how an earlier review is found on the page to be replaced.
+REVIEW_HEADINGS = ('Strengths', 'Weak spots', 'Signals from them', 'Could count against you', 'Facts from the call',
+                   'Practise before the next round', 'Questions')
+
+
+def _plain_block(block):
+    return plain({'type': 'rich_text', 'rich_text': block.get(block['type'], {}).get('rich_text', [])}) or ''
+
+
+def review_block_ids(blocks):
+    """The blocks of the review(s) on an interview page: each review's summary (the paragraph right before its first
+    heading), its headings and their bullets. The job line, the Transcript toggle and anything else stay."""
+    ids, inside = [], False
+    for i, block in enumerate(blocks):
+        kind = block['type']
+        if kind == 'heading_3' and not block[kind].get('is_toggleable') and _plain_block(block) in REVIEW_HEADINGS:
+            before = blocks[i - 1] if i else None
+            if not inside and before and before['type'] == 'paragraph' and before['id'] not in ids \
+                    and not _plain_block(before).startswith('🔗 ') and _plain_block(before) != PLACEHOLDER:
+                ids.append(before['id'])
+            ids.append(block['id'])
+            inside = True
+        elif inside and kind == 'bulleted_list_item':
+            ids.append(block['id'])
+        else:
+            inside = False
+    return ids
+
+
+def replace_review(tracker, page_id, blocks):
+    """Put a new review where the old one is: added right after it, then the old blocks removed (a failed add leaves
+    the old review whole; a second run also clears what a half-done delete left). No review yet: add_review."""
+    old = review_block_ids(tracker._children(page_id))
+    if not old:
+        return add_review(tracker, page_id, blocks)
+    tracker._request('PATCH', f'blocks/{page_id}/children', {'children': blocks, 'after': old[-1]})
+    for block_id in old:
+        tracker._request('DELETE', f'blocks/{block_id}')
 
 
 PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Job Pilotto app.'

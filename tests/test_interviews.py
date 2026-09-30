@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interviews
 from src.notion import ledger
+from src.notion.ledger import plain
 
 NOW = datetime(2026, 9, 26, 15, 0, tzinfo=timezone.utc)
 SRT = """1
@@ -128,11 +129,13 @@ class NotionPages(FakeTracker):
             return page
         if method == 'PATCH' and path.endswith('/children'):
             page_id = path.split('/')[1]
-            new = [dict(self._stored(b), id=f'new-{i}') for i, b in enumerate(body['children'])]
+            self.added = getattr(self, 'added', 0) + len(body['children'])
+            new = [dict(self._stored(b), id=f'new-{self.added}-{i}') for i, b in enumerate(body['children'])]
             at = next(i for i, b in enumerate(self.blocks[page_id]) if b['id'] == body['after']) + 1 if 'after' in body else None
-            self.blocks[page_id][at:at] = new if at is not None else []
             if at is None:
                 self.blocks[page_id] += new
+            else:
+                self.blocks[page_id][at:at] = new
             return {}
         if method == 'PATCH' and path.startswith('blocks/') and not path.endswith('/children'):
             block_id = path.split('/')[1]
@@ -571,12 +574,189 @@ class FactsTests(unittest.TestCase):
         self.assertIn('differs from the job, not changed: Location (call: Hybrid, Zurich 2 days; job: Remote)', log)
         page = str(tracker.requests[0]['children'])
         self.assertIn('Facts from the call', page)
-        self.assertIn('“two days a week in Zurich” ⚠️ The job says “Remote”: not changed', page)
+        self.assertIn('“two days a week in Zurich” ⚠️ Different from the job (it says “Remote”): not changed', page)
         self.assertIn('Salary: CHF 160-180k/year — “the band is 160 to 180 thousand francs” (added to the job)', page)
         self.assertIn('📋 Added to the job: Salary: CHF 160-180k/year', sent[0])
         self.assertIn('⚠️ Location: the call said “Hybrid, Zurich 2 days”, the job says “Remote” (not changed)', sent[0])
         self.assertIn('facts', interviews.SCHEMA['required'])  # the same single call extracts them
 
+
+
+# The owner's Huxley recruiter screen (30 Sep 2026), shortened: reviewed once before facts were extracted.
+HUXLEY_CALL = """[00:00:03] Speaker 1: Thanks for joining. This is for a Principal SRE role with our client, in finance. I can't name them yet.
+[00:00:12] You: Sure. What can you tell me about them?
+[00:00:15] Speaker 1: Headquarters in Greece, about 500 people, and they are opening a US office. On-call is follow the sun.
+[00:00:31] Speaker 1: The budget is around 100 to 150 thousand euros a year, maximum.
+[00:00:40] Speaker 1: They don't sponsor visas or relocation. It can be B2B or an employer of record in Switzerland, or you stay in Romania.
+[00:00:58] Speaker 1: It's hands-on, really a senior-level SRE day to day.
+[00:01:10] Speaker 1: I'd like another call to go through salary, the setup and relocation."""
+QUESTIONS = [{'topic': 'Motivation', 'question': 'Why this role?', 'answer': 'Hands-on reliability work', 'quality': 'ok',
+              'better': 'Tie it to finance-grade on-call'}]
+FIRST_REVIEW = dict(RESULT, application=0, company='', round='Recruiter screen', questions=QUESTIONS, next_step='not stated',
+                    overall='neutral', summary='A first screen for an unnamed finance client.')  # no 'facts': before 67484d8
+HUXLEY_FACTS = [
+    {'field': 'salary', 'value': 'EUR 100-150k/year (max)', 'quote': 'around 100 to 150 thousand euros a year, maximum'},
+    {'field': 'contract', 'value': 'Employee or B2B', 'quote': 'It can be B2B or an employer of record in Switzerland'},
+    {'field': 'location', 'value': 'Switzerland (EOR) or Romania', 'quote': 'in Switzerland, or you stay in Romania'},
+    {'field': 'visa', 'value': 'No visa sponsorship', 'quote': "They don't sponsor visas or relocation"},
+    {'field': 'relocation', 'value': 'No relocation support', 'quote': "They don't sponsor visas or relocation"},
+    {'field': 'company_size', 'value': 'About 500 people', 'quote': 'about 500 people'}]
+AGAIN_REVIEW = dict(FIRST_REVIEW, company='unnamed finance client', facts=HUXLEY_FACTS,
+                    next_step='Another call about salary, setup and relocation',
+                    summary='A screen for a finance client (HQ Greece, US office opening); hands-on senior SRE work.')
+
+
+class ResultClient(FakeClient):
+    def __init__(self, result=None, error=None):
+        super().__init__()
+        self.result, self.error = result, error
+
+    def create(self, **params):
+        self.calls.append(params)
+        if self.error:
+            raise self.error
+        return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(self.result))],
+                               usage=SimpleNamespace(input_tokens=15000, output_tokens=2000,
+                                                     cache_read_input_tokens=0, cache_creation_input_tokens=0))
+
+
+class LiveApps(NotionPages):
+    """Applications and events that change as Notion's would, so a second run sees the first run's writes
+    (the events database gets an id of its own: in tests every database id is empty)."""
+
+    def query_database(self, database_id, filter_=None):
+        if database_id == 'events-db':
+            return getattr(self, 'events', [])
+        return super().query_database(database_id, filter_)
+
+    def update_page(self, page_id, properties):
+        super().update_page(page_id, properties)
+        for row in self.apps:
+            if row['id'] == page_id:
+                for name, value in properties.items():
+                    kind = next(iter(value))
+                    row['properties'][name] = (text(value['rich_text'][0]['text']['content']) if kind == 'rich_text'
+                                               else {'type': kind, kind: value[kind]})
+
+    def create_page(self, database_id, properties):
+        self.events = getattr(self, 'events', []) + [{'id': f'e-{len(self.created)}', 'properties': {
+            name: {'type': next(iter(value)), **value} for name, value in properties.items()}}]
+        return super().create_page(database_id, properties)
+
+
+def headings(tracker, page_id):
+    return [interviews._plain_block(b) for b in tracker.blocks[page_id] if b['type'] == 'heading_3']
+
+
+class ReviewAgainTests(unittest.TestCase):
+    def setUp(self):
+        for module in (interviews, ledger):
+            patcher = mock.patch.object(module, 'EVENTS_DATABASE_ID', 'events-db')
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def reviewed_before_facts(self):
+        """The Huxley row as it is in the owner's Notion: saved, reviewed without facts, job at Screening."""
+        tracker = LiveApps([huxley()])
+        page = interviews.save(tracker, HUXLEY_CALL, 'Huxley · Recruiter screen', job_url='https://x.test/h-1', now=NOW)
+        interviews.run(tracker, page_id=page['id'], client=ResultClient(FIRST_REVIEW), now=NOW)
+        self.assertNotIn('Facts from the call', headings(tracker, page['id']))
+        return tracker, page['id']
+
+    def test_review_again_fills_the_empty_job_fields_and_rebuilds_the_review_without_moving_the_stage(self):
+        tracker, page_id = self.reviewed_before_facts()
+        job, events, title = tracker.apps[0]['properties'], len(tracker.created), tracker.pages[page_id]['properties']['Interview']
+        self.assertEqual((plain(job['Stage']), plain(job.get('Next step')), plain(job.get('Salary'))), ('Screening', None, None))
+        cost_before = tracker.pages[page_id]['properties']['Cost (USD)']['number']
+        client, sent = ResultClient(AGAIN_REVIEW), []
+        log = interviews.run(tracker, page_id=page_id, client=client, now=NOW, send=sent.append)
+
+        self.assertEqual(len(client.calls), 1)  # one Sonnet call
+        self.assertIn('HQ Greece', client.calls[0]['messages'][0]['content'] + AGAIN_REVIEW['summary'])
+        self.assertIn('Speaker 1: The budget is around 100 to 150 thousand euros', client.calls[0]['messages'][0]['content'])
+        # The job: only its empty fields, the next step; no Stage, no event, Company still empty, Location kept.
+        self.assertEqual(plain(job['Salary']), 'EUR 100-150k/year (max)')
+        self.assertEqual(plain(job['Contract']), 'Employee or B2B')
+        self.assertEqual(plain(job['Call facts']), 'Visa/permit: No visa sponsorship · Relocation: No relocation support'
+                                                   ' · Company size: About 500 people')
+        self.assertEqual(plain(job['Next step']), 'Another call about salary, setup and relocation')
+        self.assertEqual((plain(job['Stage']), plain(job['Location']), plain(job['Company'])), ('Screening', 'Remote', ''))
+        self.assertEqual(len(tracker.created), events)
+        for _, update in tracker.updates[-1:]:
+            self.assertFalse({'Stage', 'Next interview', 'Company'} & set(update))
+        # The row: one review (replaced), with the facts; its title, link, input, date and transcript kept; cost added.
+        row = tracker.pages[page_id]['properties']
+        self.assertEqual(row['Interview'], title)
+        self.assertEqual(row['Application'], {'relation': [{'id': 'h-1'}]})
+        self.assertEqual(row['Input'], {'select': {'name': 'Recording'}})
+        self.assertAlmostEqual(row['Cost (USD)']['number'], round(cost_before * 2, 4))
+        self.assertEqual(headings(tracker, page_id).count('Questions'), 1)
+        self.assertEqual(headings(tracker, page_id).count('Facts from the call'), 1)
+        text_ = str(tracker.blocks[page_id])
+        self.assertNotIn('A first screen for an unnamed finance client', text_)
+        self.assertIn('Different from the job (it says “Remote”)', text_)
+        self.assertIn('Salary: EUR 100-150k/year (max)', text_)
+        self.assertEqual(interviews._plain_block(tracker.blocks[page_id][0]), '🔗 Job: Huxley · SRE')
+        self.assertEqual(interviews.saved_transcript(tracker, page_id), HUXLEY_CALL)
+        self.assertTrue(log.startswith('Interview analysed again (Huxley, Recruiter screen'))
+        self.assertIn('Filled Salary', log)
+        self.assertNotIn('Stage', sent[0])
+
+        # Twice: nothing changes on the job, still one review, the cost noted.
+        updates, blocks = len(tracker.updates), len(tracker.blocks[page_id])
+        log = interviews.run(tracker, page_id=page_id, client=ResultClient(AGAIN_REVIEW), now=NOW)
+        self.assertFalse([u for u in tracker.updates[updates:] if u[0] == 'h-1'])
+        self.assertEqual(len(tracker.blocks[page_id]), blocks)
+        self.assertEqual(headings(tracker, page_id).count('Questions'), 1)
+        self.assertEqual(len(tracker.created), events)
+        self.assertIn('Nothing new for the job', log)
+        self.assertAlmostEqual(tracker.pages[page_id]['properties']['Cost (USD)']['number'], round(cost_before * 3, 4))
+
+    def test_a_call_that_does_not_name_the_company_never_fills_company(self):
+        self.assertEqual(interviews.named('unnamed finance client'), '')
+        merged = interviews.merge_facts(huxley(), AGAIN_REVIEW)
+        self.assertNotIn('Company', merged['changes'])
+        self.assertEqual(interviews.interview_title(AGAIN_REVIEW['company'], 'Recruiter screen', huxley()), 'Huxley · Recruiter screen')
+
+    def test_a_failed_review_again_leaves_the_page_and_the_job_as_they_were(self):
+        tracker, page_id = self.reviewed_before_facts()
+        blocks, updates = [dict(b) for b in tracker.blocks[page_id]], len(tracker.updates)
+        with self.assertRaises(RuntimeError):
+            interviews.run(tracker, page_id=page_id, client=ResultClient(error=RuntimeError('overloaded')), now=NOW)
+        self.assertEqual(tracker.blocks[page_id], blocks)
+        # Notion refuses the new blocks: the old review stays whole, nothing else is written.
+        real = tracker._request
+
+        def refuse(method, path, body=None):
+            if method == 'PATCH' and path.endswith('/children'):
+                raise RuntimeError('Notion 502')
+            return real(method, path, body)
+        tracker._request = refuse
+        with self.assertRaises(RuntimeError):
+            interviews.run(tracker, page_id=page_id, client=ResultClient(AGAIN_REVIEW), now=NOW)
+        self.assertEqual(tracker.blocks[page_id], blocks)
+        self.assertEqual(len(tracker.updates), updates)
+
+    def test_review_blocks_are_found_wherever_the_review_is_and_duplicates_are_cleared(self):
+        tracker, page_id = self.reviewed_before_facts()
+        # A half-finished replace left a second review at the end, after a note of the owner's.
+        tracker._request('PATCH', f'blocks/{page_id}/children', {'children': [interviews._block('paragraph', 'My own note')]
+                                                                  + interviews.analysis_blocks(FIRST_REVIEW)})
+        self.assertEqual(headings(tracker, page_id).count('Questions'), 2)
+        interviews.run(tracker, page_id=page_id, client=ResultClient(AGAIN_REVIEW), now=NOW)
+        self.assertEqual(headings(tracker, page_id).count('Questions'), 1)
+        self.assertIn('My own note', str(tracker.blocks[page_id]))
+        self.assertEqual(interviews.saved_transcript(tracker, page_id), HUXLEY_CALL)
+
+    def test_advance_twice_adds_no_second_event_and_does_not_move_the_stage_again(self):
+        for stage, round_ in (('Interview scheduled', 'Recruiter screen'), ('Screening', 'Technical 1'),
+                              ('Recruiter lead', 'Hiring manager')):
+            tracker = LiveApps([huxley(stage)])
+            first = interviews.advance(tracker, tracker.apps[0], now=NOW, round_=round_)
+            events, stage_after = len(tracker.created), plain(tracker.apps[0]['properties']['Stage'])
+            self.assertIsNotNone(first)
+            self.assertIsNone(interviews.advance(tracker, tracker.apps[0], now=NOW, round_=round_))
+            self.assertEqual((len(tracker.created), plain(tracker.apps[0]['properties']['Stage'])), (events, stage_after))
 
 class FocusAnswerTests(unittest.TestCase):
     def test_yes_it_happened_saves_the_notes_as_an_interview_and_moves_the_job_on(self):

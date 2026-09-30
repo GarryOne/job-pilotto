@@ -430,7 +430,10 @@ def main():
             # The Interviews page's insights follow each saved review (event-driven; skipped when nothing changed).
             # Its cost is on this run's row ('insight'); a failure there never fails the review.
             run['insight'] = {}
-            print(interview_insights.after_review(tracker, stats=run['insight']))
+            if result.startswith('Interview analysed again'):  # "Review again" is one AI call; Refresh updates insights
+                print('Interview insights: not refreshed after a review again (Refresh on the Interviews page)')
+            else:
+                print(interview_insights.after_review(tracker, stats=run['insight']))
             log_ai_run(tracker, run, args)
         except ValueError as error:  # the owner sent something that can't be analysed: say why
             print(error)

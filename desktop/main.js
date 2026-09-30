@@ -809,7 +809,8 @@ function handlers() {
   ipcMain.handle('ivDiscard', async (_, id) => (DEMO ? (interviews.discard(storage, id), true) : (await interviews.drop(storage, id)).ok));
   ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
-  ipcMain.handle('ivReview', (_, pageId) => (cloud()
+  // A row already reviewed is reviewed again by the same run (⋯ Review again: src/ai/interviews.py review_again).
+  ipcMain.handle('ivReview', (_, pageId) => (DEMO ? {ok: true, summary: 'Reviewed (demo): nothing was written'} : cloud()
     ? github.cloudDispatch(storage, log)({mode: 'interview', interview: pageId}).then(() => ({ok: true, cloud: true,
       summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}))
     : interviews.review(storage, pageId)));

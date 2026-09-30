@@ -127,6 +127,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents.
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
+- `desktop/renderer/review-again.js` — Interviews → a reviewed row's ⋯ "Review again": its menu entry (busy while it runs) and the message after it.
 - `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered
 - `desktop/renderer/run-cards.js` — Recent activity: a run's message (the Telegram text) as a small card, for the two long ones: Today's list /
 - `desktop/renderer/run-warnings.js` — Lines of a run's log that are warnings (Notion busy, a step skipped or failed…), each once. A count of zero is not

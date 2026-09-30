@@ -1,5 +1,6 @@
 // Interviews page.
 import * as pendingReviews from '../review-pending.js';
+import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
@@ -422,6 +423,7 @@ function renderSaved() {
       {label: '↗ Open interview in Notion', run: event => window.pilot.openNotion(row.url, event.metaKey)},
       ...(cellJob.notion ? [{label: '↗ Open job in Notion', run: event => window.pilot.openNotion(cellJob.notion, event.metaKey)}] : []),
       {label: cellJob.kind === 'none' ? 'Link a job…' : 'Change job…', run: () => openPicker(), title: 'Link this interview to another job (updates Notion)'},
+      ...(row.overall ? [{again: true, run: () => reviewAgainRow(row.id)}] : []),  // built when the menu opens (busy or not)
       '-',
       {label: 'Delete', danger: true, title: osText("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac"), run: async () => {
         if (!confirm(osText(`Delete "${row.title}"? It goes to Notion's trash (30 days) and its recording is removed from this Mac.`))) return;
@@ -431,7 +433,8 @@ function renderSaved() {
         readAgain();
       }},
     ];
-    actions.append(main, moreButton(menu, 'More: open in Notion, change job, delete'));
+    actions.append(main, moreButton(() => menu.map(item => (item.again ? reviewAgain.againItem(row, reviewingAgain.has(row.id), item.run) : item)),
+      'More: open in Notion, change job, review again, delete'));
     cell(actions);
     return tr;
   }));
@@ -447,6 +450,19 @@ async function reviewRow(pageId) {
   else reviewing.delete(pageId);
   message('iv-message', result.ok ? `${result.summary}. The review is on the Notion page.` : result.error, result.ok ? 'ok' : 'error');
   readAgain();
+}
+
+// ⋯ Review again (renderer/review-again.js): a reviewed row, re-run on its saved transcript; the press is the ask.
+const reviewingAgain = new Set();
+async function reviewAgainRow(pageId) {
+  if (reviewingAgain.has(pageId)) return;
+  if (!shared.state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get reviews.', 'error'); return; }
+  reviewingAgain.add(pageId);
+  message('iv-message', reviewAgain.START);
+  const result = await iv.review(pageId).catch(error => ({ok: false, error: String(error?.message || error)}));
+  reviewingAgain.delete(pageId);
+  message('iv-message', ...reviewAgain.doneMessage(result));
+  if (result.ok) loadSaved();
 }
 
 // Recorder: your microphone on the left channel, the call's audio (screen capture) on the right, so the

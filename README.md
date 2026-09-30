@@ -224,6 +224,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   your standard answers in Notion and every later form uses it.
 - 🎙️ **Interviews**: record a call (after ticking that everyone agreed) or add a recording → a transcript with
   speakers, made on the Mac → name them, pick the job → **Save to Notion** (optionally **Review**). [More](#-learning-from-your-applications).
+  A reviewed row's ⋯ → **Review again** (~$0.08): new review, the call's facts fill the job's *empty* fields; Stage untouched.
 - ⏱️ **Recent activity**: every run (new jobs check, Gmail check, kit, insight, report…), wherever it ran (this Mac,
   your GitHub repo, a Telegram button): queued → running → its result and technical log, from Notion's ⏱️ Search runs.
   A bar at the bottom of every screen says what's running and what's next. **⌘K** (Ctrl+K) runs any command by name.
