@@ -5,6 +5,7 @@ import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
+import {parseMailReport} from '../mail-report.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
@@ -395,12 +396,16 @@ export function renderActivity(fresh) {
   // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
   // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.
   const card = !run?.live && run?.message ? parseRunMessage(run.message) : null;
+  // A Gmail check's message has no digest header but plenty of structure (the interview it is about, the topics to
+  // strengthen, the recruiter's next step): it gets its own card, not its raw lines in a <pre>.
+  const mail = !run?.live && !card && kindOf(run) === 'mail' && run?.message ? parseMailReport(run.message, run.result) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
+  else if (mail) renderMailCard(mail);
   else if (reading) renderCardSkeleton();
-  show($('activity-card'), !!card || reading);
-  $('activity-message').textContent = !run?.live && !card && run?.message || '';
-  show($('activity-message'), !run?.live && !card && !reading && !!run?.message);
+  show($('activity-card'), !!card || !!mail || reading);
+  $('activity-message').textContent = !run?.live && !card && !mail && run?.message || '';
+  show($('activity-message'), !run?.live && !card && !mail && !reading && !!run?.message);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
@@ -568,6 +573,84 @@ function renderCardSkeleton() {
   const body = el('div', 'run-card-body');
   body.append(rows);
   $('activity-card').replaceChildren(stats, body);
+}
+
+// A Gmail check's card: what the check did, the interview it is about, what to prepare, the recruiter's next step and
+// the consent line — the message's own content, in the shape the owner reads it (the mockup, 30 Sep).
+function renderMailCard(report) {
+  const box = el('div', 'mail-card');
+  const status = el('div', 'mail-status');
+  const tick = el('span', 'mail-tick');
+  tick.append(icon('check-circle'));
+  status.append(tick, el('strong', '', report.status.title));
+  if (report.status.sentence) status.append(el('span', 'mail-status-text', report.status.sentence));
+  box.append(status);
+  const {interview} = report;
+  if (interview) {
+    const panel = el('section', 'mail-interview');
+    const head = el('div', 'mail-interview-head');
+    const words = el('div', 'mail-interview-words');
+    words.append(el('p', 'mail-kicker', 'Upcoming interview · Existing context'),
+      el('h3', '', [interview.title, interview.company].filter(Boolean).join(' · ')));
+    const line = [interview.where, interview.summary].filter(Boolean).join(' · ');
+    if (line) words.append(el('p', 'mail-where', line));
+    if (interview.people.length) words.append(el('p', 'mail-people', `Participants: ${interview.people.join(' – ')}`));
+    const side = el('div', 'mail-interview-side');
+    if (interview.when) {
+      const when = el('span', 'mail-when');
+      when.append(icon('calendar'), interview.when);
+      side.append(when);
+    }
+    if (report.url) {
+      const view = Object.assign(el('a', 'link', 'View application in Notion ↗'), {href: '#'});
+      view.dataset.link = report.url;
+      side.append(view);
+    }
+    head.append(words, side);
+    panel.append(head);
+    box.append(panel);
+  }
+  if (report.topics.length || report.nextSteps.length) {
+    const columns = el('div', 'mail-columns');
+    if (report.topics.length) {
+      const left = el('section', 'mail-block');
+      left.append(el('h4', '', 'Prepare for the conversation'),
+        el('p', 'mail-sub', 'Topics to strengthen from previous interviews'));
+      const list = el('ul', 'mail-topics');
+      report.topics.forEach(topic => {
+        const item = el('li', '');
+        item.append(icon('check-circle'), topic);
+        list.append(item);
+      });
+      left.append(list);
+      columns.append(left);
+    }
+    if (report.nextSteps.length) {
+      const right = el('section', 'mail-block');
+      const heading = el('div', 'mail-block-head');
+      heading.append(el('h4', '', 'Recruiter follow-up'), pill('Next step', 'neutral'));
+      right.append(heading);
+      report.nextSteps.forEach(text => right.append(el('p', '', text)));
+      columns.append(right);
+    }
+    box.append(columns);
+  }
+  if (report.notes.length) {
+    const notes = el('ul', 'mail-notes');
+    report.notes.forEach(note => {
+      const item = el('li', '');
+      if (note.icon) item.append(el('span', 'mail-note-icon', note.icon));
+      item.append(el('span', '', note.text));
+      notes.append(item);
+    });
+    box.append(notes);
+  }
+  if (report.consent) {
+    const consent = el('p', 'mail-consent');
+    consent.append(icon('mic'), report.consent);
+    box.append(consent);
+  }
+  $('activity-card').replaceChildren(box);
 }
 
 // The header's filter menu: every kind in the run history with how many, and "All runs".
