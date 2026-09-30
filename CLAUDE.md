@@ -112,6 +112,23 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - `npm run gallery` (in `desktop/`) shows every token and component on one page; check it after changing one.
 - New colour or size? Add a token (and say why) instead of a literal. The website (`site/`) has its own styles.
 
+## Facts that are easy to get wrong
+- **A ⏱️ Search runs row's `Summary` is only the report's first line** (`src/notion/cron_runs.py`,
+  `Summary: _text(lines[0])`). The rest — where a GitHub run's `Warning: …` lines are — is the page's Report bullets:
+  `desktop/lib/run-history.js` `detail()` returns them as `report`, and `renderer/run-warnings.js` `runWarningLines()`
+  reads log + report. A row can say `Status: Warnings` with no warning text on it at all, so a list's pill and a
+  detail's card must agree by construction, not by luck.
+- **"Show exactly these jobs" is `showJobsIn(label, urls, from)`** (`desktop/renderer/pages/jobs.js`), matching on
+  `fullKey(url)` (trim + one trailing slash). A "View all N" button must call it *and* count N with the same key, or it
+  promises jobs the list doesn't hold (30 Sep: a run's card said 9, the page showed 8 — the ninth was a "new since last
+  run" posting that was never scored, so it had no Job Matches row).
+- **The digest has two item shapes**: "New since last run" lines end ` - 100%` (a title-match percentage); "Best
+  matches" lines carry `· 🎯 83` (the fit score). `desktop/renderer/run-cards.js` parses both: the percentage belongs
+  beside the company, the fit in the pill — read as part of the title it put "… - 100%" next to "Not scored".
+- **Feed the warning helpers raw lines.** `limitedJobs` / `warningSummary` / `groupWarnings` read the pipeline's own
+  wordings ("N job(s) not read by AI", "… left for the next check", "Skipped job <id>: …"); `humanError` is for what the
+  owner reads. The API's JSON dumping must never reach the UI.
+
 ## Layout
 - Python package `src/` (run with `python -m src <check|scout|discover|feeds|enrich>`; `check` = the jobs check, also still `daily`; `scout` = Find new employers): `daily.py` orchestrates a run; `digest.py` ranking/rotation/paging/layout/buttons; `telegram.py` sending; `store.py` SQLite; `scout.py` source scout; `paths.py` repo paths; `features.py` optional-feature registry and the `JOB_PILOTTO_DISABLE` switch (only the crawl + digest core is required; new features must be optional, on when their keys exist, and listed there).
 - `src/sources/` (`ats.py` feed adapters, `feeds.py` employer-feed crawl, `boards.py` jobs.ch/TechTree), `src/ai/` (`enrich.py` stage 1 Haiku 4.5, `score.py` stage 2 Sonnet 5, `kit.py` application kit Sonnet 5 on 📝 Prepare or auto-drafted, `apply_batch.py` queues kits into the ChatGPT/Codex desktop app, `insights.py` daily insight + Monday weekly report: code stats + Sonnet 5 → Telegram and 💡 Insights, `interviews.py` recording/transcript/notes → 🎤 Interviews rows (the app saves transcripts there, linked to the job; Notion is the database) and their review, `transcribe.py` local audio → transcript with speakers (optional add-on `requirements-transcribe.txt`: sherpa-onnx with Silero VAD, Parakeet-TDT v2 English, pyannote + 3D-Speaker ERes2Net), `mail.py` Gmail + Calendar → events/Stage/Next interview/prep messages; client in `src/sources/google.py`; `opportunity.py` a recruiter's message (Gmail "Recruiter outreach", Telegram `/add <message>` or a forward, the app's Jobs → Recruiter message) → Applications row at Stage Recruiter lead; `inbox.py` "log anything": a pasted message or screenshot (bot photo/forward/`/add <text>`, the app's Log box with "Which job?") → matched against Notion's jobs (Claude + `same_job` fallback) → that job updated, or a new row; screenshot uploaded to the job's page; in the app two steps: `--propose` (the one AI call, no Notion write) → a confirmation step asking what Claude couldn't see (channel, start date/year, kind, call time, company: `renderer/lead-confirm.js`) → `--reading` + `--channel/--started/…` writes it; Telegram logs unconfirmed and says "⚠️ Check: …"; `added.py` jobs added by hand or from a message/email get stage 1 facts and the stage 2 fit score on their Applications row (fit columns; no Job Matches row), before the record is frozen; LinkedIn/Glassdoor/Indeed pages are never fetched (`ledger.NO_FETCH`), the title/company/text come from the user), `src/notion/` (`client.py` Notion API, `matches.py` Job Matches sync, `ledger.py` application record frozen at Applied + 📈 Application Events outcome history + scheduled sync/no-response rule, `funnel.py` funnel conversion + step to improve → 🎯 Pipeline page, no AI).

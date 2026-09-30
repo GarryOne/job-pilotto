@@ -89,6 +89,32 @@ JOB_PILOTTO_DEMO=1 JOB_PILOTTO_USER_DATA=$D JOB_PILOTTO_SMOKE=/tmp/shot.png \
 - Compare with the mockup side by side: layout, density, what's primary. Fix what differs, then say done.
 - Add the screen to `SCREENS` in `desktop/scripts/ui-shots.mjs`, run `npm run ui-shots`, commit the image.
 
+### Rendering with real data, or a screen demo mode can't reach
+
+`npm run shot` copies `desktop/demo/*` (all but `jobs.json`) into a temp user-data folder. To render anything else, do
+that yourself, drop a fixture in it, and run Electron directly (note the `env -u`, see `AGENTS.md`):
+
+```sh
+D=$(mktemp -d); for f in demo/*; do [ "$(basename "$f")" != jobs.json ] && cp "$f" "$D/"; done
+cp /tmp/fixture-runs.json "$D/runs.json"
+env -u ELECTRON_RUN_AS_NODE JOB_PILOTTO_DEMO=1 JOB_PILOTTO_USER_DATA="$D" \
+  JOB_PILOTTO_SMOKE=/tmp/shot.png ./node_modules/.bin/electron .
+```
+
+- **Never put real data in `desktop/demo/`** — it is committed and fictional. Fixtures live in `/tmp`.
+- **Real Notion rows without the Notion MCP**: `desktop/lib/run-history.js` `list(storage, {size})` and
+  `detail(storage, pageId)` take any storage `{secret: () => token, settings}` — token from
+  `security find-generic-password -s job-pilotto.notion.token -w`, settings from
+  `~/Library/Application Support/Job Pilotto/settings.json`. **One run of every kind** (the `KIND` map in
+  `desktop/renderer/pages/activity.js`) is the fastest way to exercise every detail pane.
+- **Prefer state to pixels, but measure the right thing.** `getBoundingClientRect()` reports a box, not content that
+  overflows it: compare `scrollWidth` with `clientWidth` to catch a collision (a strip passed such a check while its
+  text sat on top of "Manage schedule").
+- **The activity panel's geometry**, so a layout change starts from the truth: fixed height, dragged from its top edge
+  and kept in `localStorage` (`jobpilotto.activity-height`; min 320 px, max 90vh); `.ap-grid` is `minmax(320px, 38%)`;
+  the list and the detail column each scroll; the schedule strip drops its own label under 900 px (container query) so
+  the checks stay on one line.
+
 ## 7. Code pitfalls seen here
 - `let`/`const` used by start-up code (a view opened at launch, the job list) must be declared at the top of
   `app.js`: a later declaration throws "Cannot access before initialization" and blanks the whole window

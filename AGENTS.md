@@ -99,6 +99,28 @@ them from colliding in one checkout:
   across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
 
+## If you're an agent in the DeepSeek Harness (dsh)
+
+The rules above all apply. What is specific to that harness (learned 30 Sep 2026, each of these cost real time):
+
+- **`ELECTRON_RUN_AS_NODE=1` is exported in its shell.** Electron then loads `main.js` as plain Node and any render,
+  `npm run shot` or `npm run ui-shots` dies with *"does not provide an export named 'BrowserWindow'"*. Run them as
+  `env -u ELECTRON_RUN_AS_NODE …`.
+- **Its file sandbox does not cover this repo** (the session workspace is elsewhere), so the first write needs the user
+  to widen the policy; after that, work normally.
+- **The pre-push hook does not run for its pushes** — it is a Claude Code hook, not a git hook. Run what it runs
+  yourself and report it: `JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest discover -s tests`,
+  `cd worker && npm test`, `cd desktop && npm test`, plus `node desktop/scripts/codemap.mjs` after adding a file.
+- **`desktop/npm test` needs its `pretest`** (`scripts/stage.mjs`): in a fresh worktree, without staging, seven files
+  fail on a missing `desktop/shared/` and look like real regressions.
+- **A read-only `<repo>/data`** makes the Python suite error on `data/insights.lock` (14 tests): pass
+  `JOB_PILOTTO_DATA_DIR=<a writable folder>`.
+- **There is no Notion MCP**, so the "update the hub / Run Log / Technical Reference / Handoff" step above cannot be
+  done from there. Say so plainly rather than implying it happened. Notion's HTTP API is reachable with the Keychain
+  token (`job-pilotto.notion.token`), and `gh` is authenticated, so reads and repairs are possible when asked.
+- **The smoke hooks** (`desktop/main.js`): `JOB_PILOTTO_SMOKE_JS` must be an IIFE — top-level `await` hangs the window —
+  `JOB_PILOTTO_SMOKE_EVAL`'s result is written to `<JOB_PILOTTO_SMOKE>.json`, and `..._SELECTOR` crops the picture.
+
 ## Desktop UI
 Before building or changing a screen in `desktop/renderer`, read `.claude/skills/ui-look-and-feel/SKILL.md` (patterns, reference
 screenshots in `desktop/docs/ui/`, and how to render the change in demo mode to check it).

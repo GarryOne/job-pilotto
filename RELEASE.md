@@ -22,7 +22,15 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
    tools/release-stable.sh                              # the newest build
    tools/release-stable.sh desktop-v0.4.0-alpha.42      # a specific one
    ```
-   It refuses a build whose Windows installer isn't there yet.
+   It refuses a build whose Windows installer isn't there yet — but that guard is weaker than it looks, and the
+   release it promotes is the one `/releases/latest` (what `desktop/lib/updater.js` reads) points at:
+   - `desktop.yml`'s Mac-only fallback copies the **generic** `Job-Pilotto-windows-x64.exe` from the last good release
+     when the Windows job fails, and the guard greps that generic name. Before promoting, check the release has its own
+     versioned `Job-Pilotto-<version>-x64.exe` and that its size equals the generic one (30 Sep 2026: alpha.131–133 had
+     no installer of their own and still looked promotable).
+   - Pushing twice in a row leaves a **draft** behind: GitHub replaces a superseded *pending* run in the
+     `desktop-release` group (`cancel-in-progress: false` still drops a pending one), and `tools/prune-releases.sh`
+     deliberately skips drafts, so they linger until deleted by hand.
 4. Done. Friends see **"Update to 0.4 Alpha 42"** in the menu at their next start or within 6 hours.
 
 ### Canary auto-promote (off until you switch it on)
