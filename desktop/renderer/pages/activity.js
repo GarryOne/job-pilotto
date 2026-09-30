@@ -10,7 +10,7 @@ import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, aiReady, show} from './core.js';
-import {loadJobs, renderJobs, showJobsIn} from './jobs.js';
+import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {loadFocus} from './focus.js';
 import {openView} from './nav.js';
 import {renderActionsPage} from './runs-page.js';
@@ -491,10 +491,16 @@ function renderRunCard(card, run = null) {
       return row;
     }));
     // "View all 9 in Jobs" shows exactly those nine, not the whole list: the Jobs page gets a filter for this run's
-    // matches (pages/jobs.js showJobsIn, the same one a Focus funnel step uses), with its own label to clear.
+    // matches (pages/jobs.js showJobsIn, the same one a Focus funnel step uses), with its own label to clear. The count
+    // is what the list really holds: a "new since last run" posting that was never scored (an AI limit) has no row
+    // there, and the button must not promise it (owner, 30 Sep: 9 on the card, 8 on the page).
     const label = `${heading}${run?.startedAt ? ` · ${hhmm(Date.parse(run.startedAt))}` : ''}`;
     const urls = card.items.map(item => item.url).filter(Boolean);
-    more = el('button', 'link', `View all ${card.items.length} in Jobs →`);
+    const known = new Set((shared.allJobs || []).map(job => fullKey(job.url)));
+    const here = urls.length && known.size ? urls.filter(url => known.has(fullKey(url))).length : urls.length;
+    const total = card.items.length;
+    const words = !here ? 'View in Jobs →' : here === total ? `View all ${total} in Jobs →` : `View ${here} of ${total} in Jobs →`;
+    more = el('button', 'link', words);
     more.addEventListener('click', () => {
       openActivity(false);
       openView('jobs');

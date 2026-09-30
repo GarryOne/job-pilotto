@@ -23,7 +23,8 @@ let claudeReady = false;
 const claudeStarted = new Set();
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 // The whole link, #part included: recruiter leads differ only there (linkedin.com/messaging/#jp-…, a Gmail thread).
-const fullKey = url => String(url || '').trim().replace(/\/$/, '');
+// Exported: the activity panel counts how many of a run's matches this list really holds (pages/activity.js).
+export const fullKey = url => String(url || '').trim().replace(/\/$/, '');
 // Applying, with no session open for it: one to settle (banner on Jobs).
 const stuck = job => isStuck(job, entry => sessionList.some(item => pageKey(item.url) === pageKey(entry.url)));
 function renderStuck() {
