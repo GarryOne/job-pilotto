@@ -341,4 +341,5 @@ export async function init() {
   $('open-extension-folder').addEventListener('click', () => window.pilot.showFolder('extension'));
   $('open-data').addEventListener('click', () => window.pilot.showFolder('data'));
   $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
+  $('ov-review-setup').addEventListener('click', () => $('rerun-wizard').click());  // the same, from Settings → Overview
 }
