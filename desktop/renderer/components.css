@@ -119,6 +119,17 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .select-search > svg { position: absolute; left: var(--sp-4); top: 50%; transform: translateY(-50%); width: 18px; height: 18px;
   color: var(--muted); pointer-events: none; }
 .select-search select { width: 100%; padding-left: calc(var(--sp-4) * 2 + 18px); }
+.lead-job-search { margin-top: var(--sp-1); }
+.lead-job-search > svg { top: calc(var(--sp-3) + var(--sp-4)); }
+.lead-job-search input { width: 100%; padding-left: calc(var(--sp-4) * 2 + 18px); }
+.lead-job-options { max-height: 180px; overflow-y: auto; margin-top: var(--sp-1);
+  padding: var(--sp-1); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-lg); }
+.lead-job-options[hidden] { display: none; }
+.lead-job-group { padding: var(--sp-2) var(--sp-3) var(--sp-1); color: var(--muted); font-size: var(--fs-sm); font-weight: 600; }
+.lead-job-option { display: block; width: 100%; padding: var(--sp-2) var(--sp-3); text-align: left; background: transparent;
+  border: 0; border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
+.lead-job-option:hover, .lead-job-option.is-active, .lead-job-option:focus-visible { background: var(--info-soft); outline: none; }
+.lead-job-empty { padding: var(--sp-3); color: var(--muted); }
 
 /* A checkbox with a title and a hint under it. */
 .check-row { display: flex !important; align-items: flex-start; gap: var(--sp-3); font-weight: 400 !important; cursor: pointer; }

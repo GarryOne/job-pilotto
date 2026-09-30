@@ -159,6 +159,13 @@ export function jobChoices(candidates = [], tracked = []) {
     ...(others.length ? [{group: likely.length ? 'Your other applications' : 'Your applications', options: others}] : [])];
 }
 
+export function searchJobChoices(groups, query = '') {
+  const words = String(query).trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return groups.map(({group, options}) => ({...(group ? {group} : {}),
+    options: options.filter(option => words.every(word => option.text.toLocaleLowerCase().includes(word)))}))
+    .filter(({options}) => options.length);
+}
+
 // The form for the job you picked, keeping what you had already confirmed (the date, the channel…); the kind only when
 // the new job offers it. Whether you agreed to talk follows the job, so it's asked again when it applies.
 export function carry(state = {}, next = {}) {

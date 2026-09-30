@@ -1458,7 +1458,10 @@
       <!-- Which job is this? Asked when the match isn't clear, or after Change; the details below follow the pick. -->
       <div class="lead-field" data-field="job">
         <div class="lead-field-head"><label for="lead-job">Which job is this?</label><span class="lead-flag"></span></div>
-        <div class="select-search"><i data-icon="search"></i><select id="lead-job"></select></div>
+        <div class="select-search lead-job-search"><i data-icon="search"></i>
+          <input id="lead-job" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false"
+            aria-controls="lead-job-options" autocomplete="off" placeholder="Search company or job…">
+          <div id="lead-job-options" class="lead-job-options" role="listbox" hidden></div></div>
         <p class="muted small field-hint" id="lead-job-hint"></p></div>
       <div class="lead-field" data-field="kind">
         <div class="lead-field-head"><label for="lead-kind">What is it?</label><span class="lead-flag"></span></div>

@@ -177,6 +177,18 @@ test('"Which job is this?" is asked first when the match is unclear; the rest wa
     {group: 'Your other applications', options: [{value: 'https://x.test/3', text: 'Globex · SRE (Screening)'}]}]);
 });
 
+test('job search filters every group by company, role, or stage without losing the new-job choice', () => {
+  const groups = lead.jobChoices(unsure.fields.job.candidates, [
+    {url: 'https://x.test/3', company: 'Globex', title: 'SRE', stage: 'Screening'}]);
+  assert.deepEqual(lead.searchJobChoices(groups, '  platform  '), [
+    {group: 'Possible matches', options: [{value: 'https://x.test/2', text: 'Example Talent · Platform Engineer (Applied)'}]}]);
+  assert.deepEqual(lead.searchJobChoices(groups, 'screening'), [
+    {group: 'Your other applications', options: [{value: 'https://x.test/3', text: 'Globex · SRE (Screening)'}]}]);
+  assert.deepEqual(lead.searchJobChoices(groups, 'new job'), [
+    {options: [{value: 'new', text: 'A new job (not in my list yet)'}]}]);
+  assert.deepEqual(lead.searchJobChoices(groups, 'absent'), []);
+});
+
 test('a clear match asks nothing about the job; Change opens the question, and your details carry over to the pick', () => {
   let state = lead.initial(pitch);
   assert.ok(!lead.choosingJob(pitch, state));

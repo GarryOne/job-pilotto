@@ -443,14 +443,37 @@ function showConfirm(proposal, state = null) {
 }
 function leadSet(name, value) { leadState = confirmStep.set(leadState, name, value); renderConfirm(); }
 // "Which job is this?": the likely ones (from the engine), a new job, your other jobs.
+let leadJobChoices = [];
+let leadJobActive = -1;
+function closeJobChoices() {
+  $('lead-job-options').hidden = true;
+  $('lead-job').setAttribute('aria-expanded', 'false');
+  $('lead-job').removeAttribute('aria-activedescendant');
+  leadJobActive = -1;
+}
+function showJobChoices() {
+  const list = $('lead-job-options');
+  const groups = confirmStep.searchJobChoices(leadJobChoices, $('lead-job').value);
+  const buttons = [];
+  list.replaceChildren(...(groups.length ? groups.flatMap(({group, options}) => [
+    ...(group ? [Object.assign(document.createElement('div'), {className: 'lead-job-group', textContent: group})] : []),
+    ...options.map(option => {
+      const button = Object.assign(document.createElement('button'), {type: 'button', className: 'lead-job-option',
+        id: `lead-job-option-${buttons.length}`, textContent: option.text});
+      button.setAttribute('role', 'option');
+      button.addEventListener('click', () => { closeJobChoices(); pickJob(option.value); });
+      buttons.push(button);
+      return button;
+    })]) : [Object.assign(document.createElement('div'), {className: 'lead-job-empty', textContent: 'No matching jobs'})]));
+  leadJobActive = -1;
+  list.hidden = false;
+  $('lead-job').setAttribute('aria-expanded', 'true');
+  $('lead-job').removeAttribute('aria-activedescendant');
+}
 function fillJobChoices() {
-  const option = (value, text) => Object.assign(document.createElement('option'), {value, textContent: text});
-  const groups = confirmStep.jobChoices(leadProposal.fields?.job?.candidates || [], shared.allJobs);
-  $('lead-job').replaceChildren(option('', 'Choose the job…'), ...groups.map(({group, options}) => {
-    if (!group) return options.map(o => option(o.value, o.text));
-    return [Object.assign(document.createElement('optgroup'), {label: group})].map(g => { g.append(...options.map(o => option(o.value, o.text))); return g; });
-  }).flat());
+  leadJobChoices = confirmStep.jobChoices(leadProposal.fields?.job?.candidates || [], shared.allJobs);
   $('lead-job').value = '';
+  closeJobChoices();
 }
 // The engine's steps with a timer while it reads (step 1), proposes again for a job you picked, or writes (step 2).
 async function working(first, task) {
@@ -481,7 +504,7 @@ function renderConfirm() {
   $('lead-found').hidden = asked;
   const change = Object.assign(document.createElement('button'), {type: 'button', className: 'link',
     textContent: leadState.picking ? 'Keep this job' : 'Change'});
-  change.addEventListener('click', () => { leadState = {...leadState, picking: !leadState.picking}; $('lead-job').value = ''; renderConfirm(); });
+  change.addEventListener('click', () => { leadState = {...leadState, picking: !leadState.picking}; $('lead-job').value = ''; closeJobChoices(); renderConfirm(); });
   $('lead-found-flag').replaceChildren(...(asked ? [] : [pill('Confirmed', 'good', {dot: true}), change]));
   $('lead-job-hint').textContent = asked ? 'Several of your jobs are from this recruiter or company: pick one, or a new job. The details follow your pick.'
     : 'Pick the job it is about, or a new job. The details follow your pick.';
@@ -823,7 +846,32 @@ export async function init() {
   });
   $('lead-result-pick').addEventListener('click', () => { setAuto(false); $('lead-target').focus(); $('lead-target').showPicker?.(); });
   $('lead-auto').addEventListener('change', () => setAuto($('lead-auto').checked));
-  $('lead-job').addEventListener('change', () => pickJob($('lead-job').value));
+  $('lead-job').addEventListener('focus', showJobChoices);
+  $('lead-job').addEventListener('click', () => { if ($('lead-job-options').hidden) showJobChoices(); });
+  $('lead-job').addEventListener('input', showJobChoices);
+  $('lead-job').addEventListener('keydown', event => {
+    const options = [...$('lead-job-options').querySelectorAll('[role="option"]')];
+    if (event.key === 'Escape') { closeJobChoices(); return; }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if ($('lead-job-options').hidden) showJobChoices();
+      const visible = [...$('lead-job-options').querySelectorAll('[role="option"]')];
+      if (!visible.length) return;
+      leadJobActive = (leadJobActive + (event.key === 'ArrowDown' ? 1 : -1) + visible.length) % visible.length;
+      visible.forEach((button, index) => {
+        button.classList.toggle('is-active', index === leadJobActive);
+        button.setAttribute('aria-selected', String(index === leadJobActive));
+      });
+      $('lead-job').setAttribute('aria-activedescendant', visible[leadJobActive].id);
+      visible[leadJobActive].scrollIntoView({block: 'nearest'});
+    } else if (event.key === 'Enter' && !$('lead-job-options').hidden) {
+      event.preventDefault();
+      (options[leadJobActive] || (options.length === 1 ? options[0] : null))?.click();
+    }
+  });
+  $('lead-job').addEventListener('blur', () => setTimeout(() => {
+    if (!$('lead-job-options').contains(document.activeElement)) closeJobChoices();
+  }, 150));
   // Step 2's controls: each change confirms that field.
   $('lead-kind').addEventListener('change', () => leadSet('kind', $('lead-kind').value));
   $('lead-channel').addEventListener('click', event => { const b = event.target.closest('[data-channel]'); if (b) leadSet('channel', b.dataset.channel); });
