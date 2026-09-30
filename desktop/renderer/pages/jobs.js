@@ -66,9 +66,11 @@ document.addEventListener('sessions-loaded', () => renderStuck());
 const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 // In conversation: the opportunities that found you and are still open, one Focus-style row each; a click opens the
 // job in Notion (⌘-click: in a Job Pilotto window), or its link when it has no page.
-function renderTalking() {
+// It gives way to the list whenever the list is narrowed to something (a counter or Focus step clicked, the Inbound
+// menu choice, words typed): the same jobs would show twice.
+function renderTalking(narrowed = false) {
   const talking = inConversation(shared.allJobs);
-  show($('jobs-talking'), talking.length > 0);
+  show($('jobs-talking'), talking.length > 0 && !narrowed);
   $('jobs-talking-count').textContent = `${talking.length} found you`;
   $('jobs-talking-list').replaceChildren(...talking.map(job => {
     const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
@@ -108,7 +110,7 @@ export function renderJobs() {
   const rows = sorted((counted || (anyStatus ? shared.allJobs : byFilter(shared.allJobs, filter)))
     .filter(job => (!counted || anyStatus || inStatus(job, filter)) && matches(job, text)),
   filter === 'inbound' && !counted && by === 'best' ? 'activity' : by);
-  renderTalking();
+  renderTalking(!!counted || filter === 'inbound' || !!text);
   const body = $('jobs-body');
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
