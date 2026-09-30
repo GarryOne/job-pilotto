@@ -67,14 +67,16 @@ test('the landing page reads the pool size from this same route and says users c
   const {readFileSync} = await import('node:fs');
   const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(page, /fetch\('\/api\/index'\)/);
+  assert.match(page, /<small>Portals<\/small>/);     // each card of the first row has its own tile
+  assert.match(page, /<small>Your own<\/small>/);
   assert.match(page, /id="pool-employers"/);
   assert.match(page, /id="pool-jobs"/);
   assert.match(page, /Open jobs/);
   assert.doesNotMatch(page, /IT & engineering roles/);   // the tile stays wide: every open job, all roles
-  assert.match(page, /You can add your own employers on top, or scout for more yourself/);   // the pool is a start, not the limit
+  assert.match(page, /Add your own on top, or scout for more yourself/);   // the pool is a start, not the limit
   assert.match(page, /Can I add my own employers\?/);
   assert.doesNotMatch(page, /tech jobs in Switzerland/);   // the pool is worldwide; the focus is the kind of job
-  assert.match(page, /unless you switch it off/);   // honest, and not shouted
+  assert.match(page, /switch that off in Settings/);   // the sharing note lives in the FAQ and privacy page, not the small card
   const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
   assert.match(privacy, /on by default/);
   assert.match(privacy, /Installs set up before this existed start with it off/);
