@@ -1489,3 +1489,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 /* Interviews: the reminder switch, a quiet line under the consent card. */
 .iv-remind { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; color: var(--muted); font-size: var(--fs-sm); cursor: pointer; }
 .iv-remind input { width: auto; margin: 0; flex: none; }
+
+/* Interview library while Notion answers: skeleton rows in the real table (pages/interviews.js). */
+.iv-skeleton td { padding-block: var(--sp-4); vertical-align: middle; }
+.iv-skeleton td .skeleton + .skeleton { margin-top: var(--sp-2); }

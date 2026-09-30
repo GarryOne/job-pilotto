@@ -180,21 +180,40 @@ const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
 // While the library loads from Notion (like the Jobs list): a spinner in the empty table the first time;
 // afterwards the rows stay and the subtitle says it's refreshing.
 const IV_SAVED_TO = 'Saved to Notion 🎤 Interviews';
-function showSavedLoading() {
+// Loading: the last good list at once (lib/view-cache.js, "saved 3 min ago · updating…"); with nothing saved yet,
+// skeleton rows in the table (the boxes are there, shimmering) until Notion answers.
+function skeletonRows(n = 3) {
+  return Array.from({length: n}, () => {
+    const tr = document.createElement('tr');
+    tr.className = 'iv-skeleton';
+    for (const cls of ['w-60', 'w-80', 'w-40', 'w-40', 'button small']) {
+      const td = document.createElement('td');
+      td.append(el('span', `skeleton ${cls}`));
+      if (cls === 'w-80') td.append(el('span', 'skeleton w-40'));
+      tr.append(td);
+    }
+    return tr;
+  });
+}
+async function showSavedLoading() {
   show($('iv-empty'), false);
   if (ivSavedRows.length) { $('iv-lib-stats').textContent = 'Refreshing from Notion…'; return; }
-  const box = el('div', 'list-loading');
-  box.append(el('span', 'spinner'), el('div', '', 'Loading your interviews from Notion…'),
-    el('div', 'muted small', 'Interviews and their applications, usually a few seconds'));
-  const td = Object.assign(document.createElement('td'), {colSpan: 5});
-  td.append(box);
-  const tr = document.createElement('tr');
-  tr.append(td);
-  $('iv-saved').replaceChildren(tr);
+  const saved = await window.pilot.cached('interviews').catch(() => null);
+  if (saved?.result?.interviews?.length && !ivSavedRows.length) {
+    ivSavedRows = saved.result.interviews;
+    renderSaved();
+    $('iv-lib-stats').textContent = `${IV_SAVED_TO} · saved ${agoText(saved.at)}, updating…`;
+    return;
+  }
+  $('iv-saved').replaceChildren(...skeletonRows());
   $('iv-lib-stats').textContent = 'Loading from Notion…';
 }
+function agoText(at) {
+  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60000));
+  return minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`;
+}
 async function loadSaved() {
-  showSavedLoading();
+  await showSavedLoading();
   const result = await iv.saved().catch(error => ({ok: false, error: String(error?.message || error)}));
   $('iv-lib-stats').textContent = IV_SAVED_TO;
   if (!result.ok) { ivSavedRows = []; $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
