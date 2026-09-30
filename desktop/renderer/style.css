@@ -1403,3 +1403,21 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .dev-tag { padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--bad); color: var(--on-accent); font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; }
 .brand:has(.dev-tag) { white-space: nowrap; gap: var(--sp-2); font-size: var(--fs-md); }
 .dev-tag { padding: 1px 6px; letter-spacing: .06em; }
+
+/* ---------- Setup wizard sidebar: the same "mission control" rail as the app's menu (owner, 30 Sep 2026) ---------- */
+.wizard { grid-template-columns: 224px 1fr; }
+.steps { background-color: var(--rail); background-image: radial-gradient(var(--rail-dot) 1px, transparent 1.5px); background-size: 14px 14px;
+  color: var(--on-rail); padding: 22px 12px 14px; border-right: 1px solid var(--rail-line); }
+.steps .brand { color: var(--on-rail); font-size: var(--fs-xl); gap: var(--sp-3); padding: 2px 6px var(--sp-4); margin-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--rail-line); }
+.steps .mark { width: 44px; height: 44px; border-radius: var(--r-md); }
+.steps ol { gap: 2px; }
+.steps li { color: var(--on-rail-3); font-weight: 600; padding: 10px 12px; border: 1px solid transparent; border-left-width: 3px; }
+.steps li::before { border-color: var(--rail-line); }
+.steps li.done { color: var(--on-rail); }
+.steps li.current { background: var(--rail-active); color: var(--on-rail); border-color: var(--rail-line); border-left-color: var(--amber);
+  box-shadow: -4px 0 18px rgb(var(--amber-rgb) / .28); }
+.steps .fine { color: var(--on-rail-3); }
+.wizard-exit { background: transparent; color: var(--on-rail); border-color: var(--rail-line); }
+.wizard-exit:hover { background: var(--rail-hover); }
+.wizard-stuck { color: var(--on-rail-3); }
