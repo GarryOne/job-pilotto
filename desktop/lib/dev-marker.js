@@ -1,5 +1,5 @@
 // Running from source (npm start / electron .) must never look like the installed app: a "DEV" badge on the Dock
-// icon and "DEV · <branch>" in the window title, outside the app's own design. Packaged: nothing.
+// icon, "DEV · <branch>" in the window title, and a DEV tag in the sidebar (renderer: about.dev). Packaged: nothing.
 import {execFileSync} from 'node:child_process';
 
 export function branch(cwd, run = execFileSync) {

@@ -35,6 +35,8 @@ export async function init() {
   fillIcons();
   for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${shared.state.about.label}`;
   for (const line of document.querySelectorAll('[data-version-title]')) line.title = `Version ${shared.state.about.label}`;
+  // Running from source (npm start): a DEV tag next to the name, so it's never mistaken for the installed app.
+  if (shared.state.about.dev) for (const brand of document.querySelectorAll('.brand')) brand.append(Object.assign(document.createElement('span'), {className: 'dev-tag', textContent: 'DEV'}));
 
   document.addEventListener('click', event => {
     const link = event.target.closest('[data-link]');

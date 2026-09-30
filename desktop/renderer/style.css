@@ -1399,3 +1399,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 body.is-demo { display: flex; flex-direction: column; }
 body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height: 0; }
 
+/* npm start only (pages/core.js): the DEV tag next to the brand. */
+.dev-tag { padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--bad); color: var(--on-accent); font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; }
+.brand:has(.dev-tag) { white-space: nowrap; gap: var(--sp-2); font-size: var(--fs-md); }
+.dev-tag { padding: 1px 6px; letter-spacing: .06em; }
