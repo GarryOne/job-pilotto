@@ -746,7 +746,8 @@ function handlers() {
     return withShots(image, file => pipeline.proposeLead(storage, String(text || ''), leadLine, {file, target: String(target || '')}));
   });
   ipcMain.handle('addLead', async (_, text, image = null, target = '', proposal = null, confirmed = null) => {
-    if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
+    if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.', job: {pageId: 'demo-lead-9', url: 'https://www.notion.so/demo-lead-9',
+      title: 'Platform Engineer', jobUrl: 'https://example.com/lead/9', created: true}};
     const problem = leadCheck();
     if (problem) return problem;
     const reading = proposal ? path.join(app.getPath('temp'), `job-pilotto-reading-${Date.now()}.json`) : '';

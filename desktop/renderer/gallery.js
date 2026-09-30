@@ -79,9 +79,11 @@ section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialo
   return box;
 })());
 
-section('Alerts', '.alert.tone-warn | tone-good | tone-info | tone-bad: icon, title, text, optional link', row(...['warn', 'good', 'info', 'bad'].map(tone => {
+section('Alerts', '.alert.tone-warn | tone-good | tone-info | tone-bad: icon, title, text, optional link (.alert-actions: a row of them)', row(...['warn', 'good', 'info', 'bad'].map(tone => {
   const box = el('div', `alert tone-${tone}`);
-  box.innerHTML = `<i data-icon="info"></i><div><strong>${tone === 'warn' ? 'No job activity found' : 'Logged'}</strong><p>One line of detail.</p></div>`;
+  box.innerHTML = tone === 'good'
+    ? '<i data-icon="check-circle"></i><div><strong>Job created — Platform Engineer</strong><div class="alert-actions"><button class="link">Open job in Notion ↗</button><button class="link">Show in Jobs</button></div></div>'
+    : `<i data-icon="info"></i><div><strong>${tone === 'warn' ? 'No job activity found' : 'Logged'}</strong><p>One line of detail.</p></div>`;
   fillIcons(box);
   return box;
 })));

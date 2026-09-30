@@ -128,6 +128,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .alert > svg { flex: none; width: 22px; height: 22px; color: var(--tone); }
 .alert p { margin: var(--sp-1) 0 0; color: var(--ink-2); }
 .alert .link { margin-top: var(--sp-1); padding: 0; text-decoration: underline; }
+.alert-actions { display: flex; flex-wrap: wrap; gap: var(--sp-4); }  /* links under an alert's text (Open job in Notion, Show in Jobs) */
 
 /* A page with its own section list on the left (e.g. Settings): .settings-layout > .settings-nav + .settings-pages. */
 .settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--sp-6); align-items: start; }

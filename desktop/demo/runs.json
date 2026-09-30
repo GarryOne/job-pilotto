@@ -12,6 +12,29 @@
     "log": []
   },
   {
+    "id": 1790618400000,
+    "kind": "add",
+    "trigger": "you",
+    "startedAt": "2026-09-28T16:40:00Z",
+    "endedAt": "2026-09-28T16:40:25Z",
+    "ok": true,
+    "summary": "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100",
+    "job": {
+      "pageId": "demo-lead-9",
+      "url": "https://www.notion.so/demo-lead-9",
+      "title": "Platform Engineer",
+      "jobUrl": "https://example.com/lead/9",
+      "created": true
+    },
+    "log": [
+      "⏳ Reading your jobs in Notion",
+      "⏳ Claude is reading the message",
+      "⏳ Claude found: Recruiter outreach · Platform Engineer — updating the job in Notion",
+      "Job logged: {\"page_id\": \"demo-lead-9\", \"url\": \"https://www.notion.so/demo-lead-9\", \"title\": \"Platform Engineer\", \"job_url\": \"https://example.com/lead/9\", \"created\": true}",
+      "🤝 Tracked recruiter lead: Platform Engineer — Alpenglow Logistics (Recruiter lead) · fit 72/100"
+    ]
+  },
+  {
     "id": 1790616000000,
     "kind": "mail",
     "trigger": "schedule",

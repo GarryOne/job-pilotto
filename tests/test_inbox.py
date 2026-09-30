@@ -152,6 +152,55 @@ class DailyAddTests(unittest.TestCase):
         self.assertEqual(tracker.created[0]['Stage'], {'select': {'name': 'Screening'}})
         self.assertIn('Tracked recruiter lead', printed.call_args_list[-1].args[0])
 
+    def _add_run(self, tracker, answer, *extra):
+        """daily --mode add for one reading; returns (the run it logged, its printed lines)."""
+        from types import SimpleNamespace
+        from unittest import mock
+        from src import daily
+        logged = {}
+        argv = ['daily', '--mode', 'add', '--log-run', '--note', 'A LinkedIn chat with the recruiter, long enough to read.', *extra]
+        with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
+                mock.patch.object(inbox, 'read', lambda *a, **k: answer), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
+                mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda: None)}), \
+                mock.patch.object(daily.cron_runs, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
+                mock.patch.dict(daily.cron_runs._auto, {}), mock.patch.dict(daily.cron_runs._open, {}), \
+                mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
+            daily.main()
+        return logged.get('run') or {}, [str(c.args[0]) for c in printed.call_args_list if c.args]
+
+    def _job_line(self, lines):
+        import json
+        found = [line for line in lines if line.startswith('Job logged: ')]
+        return json.loads(found[-1][len('Job logged: '):]) if found else None
+
+    def test_a_logged_message_that_creates_a_job_links_its_run_to_it(self):
+        tracker = Inbox()
+        run, lines = self._add_run(tracker, reading('Recruiter outreach'), '--target', 'new')
+        page = tracker.created[0]
+        self.assertTrue(run['application'])  # ⏱️ Search runs → Application: the job it created
+        job = self._job_line(lines)
+        self.assertEqual((job['page_id'], job['created']), (run['application'], True))
+        self.assertTrue(job['url'].startswith('https://notion.test/'))
+        self.assertEqual(job['job_url'], page['Job URL']['url'])
+        self.assertTrue(job['title'])
+        self.assertIn('Tracked recruiter lead', lines[-1])  # the reply stays the last line (the app reads it)
+
+    def test_a_logged_message_that_updates_a_job_says_updated(self):
+        tracker = Inbox([row('p1', 'https://x.test/1', 'SRE', 'Grafana Labs')], [job('https://x.test/1', 'SRE', 'Grafana Labs', 'Applied')])
+        run, lines = self._add_run(tracker, reading('Rejected', 0))
+        self.assertEqual(run['application'], 'p1')
+        self.assertEqual(self._job_line(lines), {'page_id': 'p1', 'url': 'https://notion.test/p1', 'title': 'SRE',
+                                                 'job_url': 'https://x.test/1', 'created': False})
+        self.assertIn('Updated: Grafana Labs — SRE → Rejected', lines[-1])
+
+    def test_nothing_new_links_no_job(self):
+        lead = job('https://lead.test/1', 'Senior DevOps Engineer', '', 'Screening', via='Example Talent')
+        tracker = Inbox([row('p9', 'https://lead.test/1', 'Senior DevOps Engineer', stage='Screening')], [lead])
+        run, lines = self._add_run(tracker, reading('Recruiter outreach', 0, location='', salary=''))
+        self.assertTrue(lines[-1].startswith('ℹ️'), lines[-1])
+        self.assertNotIn('application', run)
+        self.assertIsNone(self._job_line(lines))
+
     def test_an_ai_run_prints_its_notion_row_for_the_apps_link(self):
         from types import SimpleNamespace
         from unittest import mock

@@ -33,6 +33,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/google-keys.js` — The Google sign-in (Gmail and Calendar, read-only) as the Python side saved it (src/sources/google.py KEYCHAIN),
 - `desktop/lib/interview-reminders.js` — Interview reminders and job matching (pure; the timer and notifications are in main.js). The jobs come from Notion
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
+- `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 30 applications
@@ -119,6 +120,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/icons.js` — Line icons (paths from Lucide, ISC licence), drawn in the current text colour.
 - `desktop/renderer/interview-insight.js` — Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 - `desktop/renderer/interview-library.js` — Interviews → the library's read from Notion (src/ai/interviews.py list, through lib/interviews.js): what the page
+- `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't

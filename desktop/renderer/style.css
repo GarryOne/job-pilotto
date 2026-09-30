@@ -1241,7 +1241,7 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-title p { margin: var(--sp-1) 0 0; }
 .activity-panel .ap-detail-actions { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 .activity-panel .ap-detail-actions .activity-notion { margin: 0; }
-.activity-panel .activity-warnings { margin: 0; }
+.activity-panel .activity-warnings, .activity-panel .activity-job { margin: 0; }
 .activity-panel .activity-warnings p { margin: var(--sp-1) 0; }
 .activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; }
 .activity-panel .ap-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }

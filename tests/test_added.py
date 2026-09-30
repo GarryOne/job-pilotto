@@ -176,11 +176,15 @@ class AddApplicationColumnsTests(unittest.TestCase):
                 pass
 
         columns = {'Fit score': {'number': 81}, 'Tier': {'select': {'name': 'A'}}, 'Recruiter': {'checkbox': True}}
+        found, again = {}, {}
         with mock.patch.object(ledger, 'add_event', lambda *a, **k: None), mock.patch.object(ledger, 'form_snapshot', lambda *a: None), \
                 mock.patch.object(ledger, 'run_state', lambda *a: None):
             ledger.add_application(Fake(), 'https://x.test/job/9', source='Telegram',
-                                   meta={'title': 'SRE', 'company': 'Acme', 'application_columns': columns})
+                                   meta={'title': 'SRE', 'company': 'Acme', 'application_columns': columns}, found=found)
+            ledger.add_application(Fake(), 'https://x.test/job/9', source='Telegram', meta={'title': 'SRE'}, found=again)
         self.assertEqual((created[0]['Fit score'], created[0]['Tier']), ({'number': 81}, {'select': {'name': 'A'}}))
+        # The run links to the job: created the first time, updated (the same row) the second.
+        self.assertEqual((found['row']['id'], found['created'], again['row']['id'], again['created']), ('app-9', True, 'app-9', False))
         record = updates[-1]
         self.assertEqual((record['Fit score'], record['Tier'], record['Recruiter']),
                          ({'number': 81}, {'select': {'name': 'A'}}, {'checkbox': True}))

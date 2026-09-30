@@ -754,13 +754,14 @@ def unchecked(item, kind):
 
 
 def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
-        event_source='CLI', stats=None, now=None, target='', on_new=None, proposal=None):
+        event_source='CLI', stats=None, now=None, target='', on_new=None, proposal=None, found=None):
     """Read one pasted message or screenshot, update or create the job it's about. Returns one line for the reply.
     target: '' = Claude decides which job; 'new' = a new job; a job URL = that job (the app's "Which job?").
     proposal: propose()'s result (confirmed with confirm()): no second reading; without it Claude's guesses stand
     (Telegram, the terminal).
     on_new(url, job, row): called for a job tracked here for the first time (src/ai/added.hook: facts, fit score,
-    Job Matches row, like a found job); returns a short line for the reply, or None."""
+    Job Matches row, like a found job); returns a short line for the reply, or None.
+    found: a dict that gets the job's row and whether it was created here, for the run's link to it."""
     text = (text or '').strip()
     now = now or datetime.now(timezone.utc)
     if proposal is None:
@@ -806,6 +807,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
                                       note=f'Logged: {summary}'[:300])
         if not row:
             return 'ℹ️ ' + line
+        if found is not None:
+            found.update(row=row, created=True)
         fit = _rich(on_new, row, lead, text)
         noted = _last_message(tracker, row, item, event_source, kind)
         return '🤝 ' + line + (f' · {fit}' if fit else '') + (f' {noted}' if noted else '') + _check_line(check)
@@ -833,6 +836,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         row = _row_for(tracker, url) or _new_row(tracker, item, url, source, event_source, when, f'logged: {summary}')
         created = True
 
+    if found is not None:
+        found.update(row=row, created=created)
     stage, url = plain(row['properties'].get('Stage')), plain(row['properties'].get('Job URL'))
     filled = _fill_gaps(tracker, row, item) if not created else []
     about = (item.get('job_description') or '').strip()

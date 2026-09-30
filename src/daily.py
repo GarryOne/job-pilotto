@@ -338,6 +338,7 @@ def main():
             raise SystemExit('--mode add requires NOTION_TOKEN')
         run = new_cron_run('add')
         run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
+        found = {}  # the job it created or updated (inbox.log fills it)
         try:
             image = None
             files = [f for f in (args.file or '').split(',') if f]  # the app sends up to 5 screenshots, comma-separated
@@ -368,12 +369,14 @@ def main():
             reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
                                      event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',
                                      talking=args.action == 'talking', stats=run['mail'], target=args.target,
-                                     on_new=added.hook(tracker, args.db, run), proposal=proposal))
+                                     on_new=added.hook(tracker, args.db, run), proposal=proposal, found=found))
             run['mail'].update(pending=1, done=1)
             queue_mail_check()
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
         failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
+        if found.get('row') and not reply.startswith(('⚠️', 'ℹ️')):  # a job created or updated: the run links to it
+            cron_runs.log_job(run, found['row'], found['created'])
         run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
         # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
         if not (failed and not cron_runs.total_usd(run)):
@@ -387,6 +390,7 @@ def main():
         if not tracker:
             raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
         run = new_cron_run('add')
+        found = {}  # the job it created or updated (ledger.add_application fills it)
         try:
             applied, approx = ledger.parse_applied(args.note)
             meta = ledger.page_meta(args.job)
@@ -403,7 +407,7 @@ def main():
                 except Exception as error:  # noqa: BLE001
                     print(f'Warning: AI stages skipped: {type(error).__name__}: {error}')
                 reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
-                                                              source='Telegram', meta=meta))
+                                                              source='Telegram', meta=meta, found=found))
                 if fit:
                     reply += f' · {escape(fit)}'
                 if ledger.no_fetch(args.job) and not meta.get('description'):
@@ -415,6 +419,8 @@ def main():
         except ValueError as error:
             reply = f'⚠️ {escape(str(error))}'
         failed = reply.startswith('⚠️')  # nothing was logged: the run says so ("had problems", not "done")
+        if found.get('row') and not reply.startswith(('⚠️', 'ℹ️')):  # a job created or updated: the run links to it
+            cron_runs.log_job(run, found['row'], found['created'])
         run['headline'] = log_text(reply).split('\n')[0][:300]  # the run's result line (⏱️ Search runs, Recent activity)
         # Turned away before any AI call (too short, no key): the dialog says why; that's no run, so no row.
         if not (failed and not cron_runs.total_usd(run)):

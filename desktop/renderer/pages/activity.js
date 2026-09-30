@@ -2,12 +2,13 @@
 import {groupWarnings, limitedJobs, runWarnings} from '../run-warnings.js';
 import {el, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
+import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, show} from './core.js';
-import {loadJobs, renderJobs} from './jobs.js';
+import {loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {loadFocus} from './focus.js';
 import {openView} from './nav.js';
 import {renderActionsPage} from './runs-page.js';
@@ -336,6 +337,7 @@ export function renderActivity(fresh) {
   const result = run && !run.live ? runResults.get(run.id) || '' : '';
   $('activity-result').textContent = result;
   show($('activity-result'), !!result);
+  showRunJob(!run?.live && kindOf(run) === 'add' ? run.job : null);
   const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
   const live = !!run?.live;
@@ -379,6 +381,22 @@ export function renderActivity(fresh) {
     log.replaceChildren(...linked(text));
     if (atBottom) log.scrollTop = log.scrollHeight;  // follow new lines unless the user scrolled up to read
   }
+}
+// A Logged activity run's job, created or updated: a green box linking to it (its Notion page, the Jobs list).
+function showRunJob(runJob) {
+  const job = withListJob(runJob, shared.allJobs || []);
+  show($('activity-job'), !!job);
+  if (!job) return;
+  $('activity-job-title').textContent = jobHeadline(job);
+  const key = JSON.stringify([job.url, job.jobUrl, job.title]);
+  if ($('activity-job-links').dataset.for === key) return;  // redrawn every 2 s: keep the buttons (and their focus)
+  $('activity-job-links').dataset.for = key;
+  $('activity-job-links').replaceChildren(jobActions(job, {openNotion: window.pilot.openNotion, show: showJob}));
+}
+export function showJob(job) {
+  openActivity(false);
+  openView('jobs');
+  showJobsIn(job.title || 'Logged job', [job.jobUrl]);
 }
 // Text with its web addresses as links (the run's Notion page, a GitHub run…); the log's click handler opens them.
 function linked(text) {

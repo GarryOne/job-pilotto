@@ -693,9 +693,10 @@ def company_for(tracker, url, meta):
 
 
 def add_application(tracker, url, *, applied=None, approx=False, channel=None, via=None, source='CLI',
-                    meta=None, today=None, origin=None):
+                    meta=None, today=None, origin=None, found=None):
     """Track an application made outside Job Pilotto (or before it): the Applications row, an Applied
-    event on the application's date, and the frozen record. Returns a one-line summary."""
+    event on the application's date, and the frozen record. Returns a one-line summary.
+    found: a dict that gets the job's row and whether it was created (not updated), for the run's link to it."""
     today = today or date.today()
     applied = applied or today
     meta = dict(meta if meta is not None else page_meta(url))
@@ -710,6 +711,7 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
     # The fit columns src/ai/added.py worked out before this row existed (a job you add has no Job Matches row).
     columns = meta.get('application_columns') or {}
     row = tracker.find(url)
+    existed = bool(row)
     if row:
         stage = plain(row['properties'].get('Stage'))
         if stage in OUTCOME_STAGES and stage != 'Applied':
@@ -730,6 +732,8 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
         # Applied elsewhere: a job you went after (Outbound), unless the caller knows it found you (origin).
         row = tracker.create_page(tracker.database_id, origin_rule.stamp(props, origin or origin_rule.OUTBOUND))
     row = tracker.find(url) or row
+    if found is not None:
+        found.update(row=row, created=not existed)
     add_event(tracker, row, 'Applied', source, at=applied.isoformat(),
               note='Applied outside Job Pilotto' + ('; date is an upper bound (on or before)' if approx else ''))
     try:

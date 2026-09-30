@@ -76,6 +76,19 @@ class ReportTest(unittest.TestCase):
         self.assertTrue(any('$0.0475' in line for line in stages), stages)  # the step's cost, on the page
         self.assertFalse(any('0 of 0' in line for line in stages), stages)
 
+    def test_a_logged_activity_run_links_the_job_it_created(self):
+        from unittest import mock
+        run = {'mode': 'add', 'started_at': '2026-09-30T09:00:00+00:00', 'trigger': 'Mac (you)', 'warnings': [], 'seconds': 20,
+               'headline': '🤝 Tracked recruiter lead: Web3 DevOps — Acme (Screening)'}
+        row = {'id': '3e5-app-1', 'url': '', 'properties': {'Job': {'title': [{'plain_text': 'Web3 DevOps'}]},
+                                                            'Job URL': {'url': 'https://lead.test/1'}}}
+        with mock.patch('builtins.print') as printed:
+            job = cron_runs.log_job(run, row, True)
+        self.assertEqual(job, {'page_id': '3e5-app-1', 'url': 'https://www.notion.so/3e5app1', 'title': 'Web3 DevOps',
+                               'job_url': 'https://lead.test/1', 'created': True})
+        self.assertTrue(printed.call_args.args[0].startswith('Job logged: {'))
+        self.assertEqual(cron_runs.run_page(run)[0]['Application'], {'relation': [{'id': '3e5-app-1'}]})
+
     def test_a_gmail_check_fills_its_own_columns(self):
         props, _ = cron_runs.run_page({'mode': 'mail', 'started_at': '2026-09-29T12:19:00+00:00', 'warnings': [],
                                        'mail': {'done': 4, 'usd': 0.0039}, 'updates': ['Reply received · Acme']})

@@ -6,7 +6,8 @@ import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
 import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
-import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
+import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
+import {jobActions, jobHeadline} from '../job-link.js';
 import {$, message, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
@@ -530,6 +531,7 @@ function leadResult(tone, title, text, pick = false) {
   $('lead-result-title').textContent = title || '';
   $('lead-result-text').textContent = text || '';
   $('lead-result-pick').hidden = !pick;
+  $('lead-result').querySelector('.alert-actions')?.remove();
 }
 // Link to job: found automatically (default), a new job, or one of the applications in Notion.
 function leadTargets() {
@@ -851,8 +853,11 @@ export async function init() {
     const said = result.text.replace(/^\S+\s/, '');
     if (!result.ok) { leadResult('warn', "Couldn't log it", said); return; }
     leadStep2(false);
-    leadResult(/^ℹ️/.test(result.text) ? 'info' : 'good', /^ℹ️/.test(result.text) ? 'Nothing new' : 'Logged', said);
+    leadResult(/^ℹ️/.test(result.text) ? 'info' : 'good', /^ℹ️/.test(result.text) ? 'Nothing new' : result.job ? jobHeadline(result.job) : 'Logged', said);
     if (/^ℹ️/.test(result.text)) return;
+    // The job it created or updated, one click away (its Notion page, or the Jobs list filtered to it).
+    if (result.job) $('lead-result-text').after(jobActions(result.job, {openNotion: window.pilot.openNotion,
+      show: job => { $('lead-dialog').close(); showJob(job); }}));
     $('lead-text').value = ''; clearLeadShot();
     $('filter-status').value = 'all';  // it may be saved (a lead) or applied: show both
     loadJobs();

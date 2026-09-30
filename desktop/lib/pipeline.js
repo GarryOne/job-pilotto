@@ -2,6 +2,7 @@
 import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
 import * as requestLog from './request-log.js';
+import {jobFrom} from './job-line.js';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -140,7 +141,8 @@ export async function addApplied(storage, url, when = '', onLine = () => {}, det
   const {code, stdout} = await run(storage, dailyArgs(storage, inputs), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const text = readable(line);
-  return {ok: code === 0 && !text.startsWith('⚠️'), text: text || 'Could not add it (see the activity log)'};
+  const ok = code === 0 && !text.startsWith('⚠️');
+  return {ok, text: text || 'Could not add it (see the activity log)', job: ok ? jobFrom(stdout.split('\n')) : null};
 }
 
 // A pasted message or screenshot (LinkedIn, Gmail, WhatsApp): Claude finds the job it's about and updates it in Notion,
@@ -174,7 +176,9 @@ export async function addLead(storage, text, onLine = () => {}, {file = '', targ
   const {code, stdout} = await run(storage, [...dailyArgs(storage, {mode: 'add', note: text, file, target}), ...extra], onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const plain = readable(line);
-  return {ok: code === 0 && !plain.startsWith('⚠️'), text: plain || 'Could not add it (see the activity log)'};
+  const ok = code === 0 && !plain.startsWith('⚠️');
+  // The job it created or updated, for the Log box's links to it (Open job in Notion, Show in Jobs).
+  return {ok, text: plain || 'Could not add it (see the activity log)', job: ok ? jobFrom(stdout.split('\n')) : null};
 }
 
 // One job's posting (title, company, description), for tailoring the CV to it.

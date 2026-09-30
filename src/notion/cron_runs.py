@@ -5,6 +5,7 @@ Job Matches sync, Telegram outcome, warnings) and hands it to `log_run` at the e
 written by code from those numbers, so it costs nothing; a Notion failure never fails the run.
 """
 import atexit
+import json
 from collections import deque
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -144,6 +145,24 @@ def title(run):
     return ' · '.join(part for part in (at, name, run.get('subject')) if part)[:200]
 
 
+JOB_LINE = 'Job logged: '
+
+
+def log_job(run, row, created):
+    """A run that created or updated one job (a logged message, an application added from elsewhere): the run's
+    Application relation, and a "Job logged: {…}" line in its output, from which the app links to that job (the
+    run's detail in Recent activity, the Log box's result). Returns the job: page_id, url (its Notion page), title,
+    job_url (the Jobs list's key), created (a new job, not an update of one you had)."""
+    props = row.get('properties') or {}
+    title = ''.join(part.get('plain_text') or (part.get('text') or {}).get('content', '')
+                    for part in (props.get('Job') or {}).get('title') or [])
+    job = {'page_id': row['id'], 'url': row.get('url') or f"https://www.notion.so/{row['id'].replace('-', '')}",
+           'title': title, 'job_url': (props.get('Job URL') or {}).get('url') or '', 'created': bool(created)}
+    run['application'] = row['id']
+    print(JOB_LINE + json.dumps(job, ensure_ascii=False))
+    return job
+
+
 def run_page(run):
     """(properties, children) for one Cronjob Runs row. The core columns every run fills; the rest belong to one kind
     of run and stay empty on the others (hidden in Notion): a jobs check's crawl numbers, a Gmail check's emails, the
@@ -175,7 +194,7 @@ def run_page(run):
         'Emails': only(mail, (run.get('mail') or {}).get('done', 0)),
         'Updates': only(mail, len(run.get('updates') or [])),
     }
-    if run.get('application'):  # a run about one job (prep kit, application kit, interview review): its Applications row
+    if run.get('application'):  # a run about one job (prep kit, logged activity, interview review): its Applications row
         properties['Application'] = {'relation': [{'id': run['application']}]}
     if run.get('run_url'):
         properties['Run URL'] = {'url': run['run_url']}
@@ -252,7 +271,7 @@ def _progress(line):
     """A running job's latest output line as its row's Summary (⏳ …), at most every STEP_EVERY seconds, so a
     job running elsewhere (GitHub, a Telegram button) shows some progress in the app and in Notion."""
     import time
-    if not _open.get('run') or len(line) > 160 or line.startswith(('Warning', ' ', 'Cronjob run logged', '<<<', 'message>>>')):
+    if not _open.get('run') or len(line) > 160 or line.startswith(('Warning', ' ', 'Cronjob run logged', JOB_LINE, '<<<', 'message>>>')):
         return
     now = time.monotonic()
     if now - _last_step['at'] < STEP_EVERY:

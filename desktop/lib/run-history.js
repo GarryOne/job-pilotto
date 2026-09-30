@@ -3,6 +3,9 @@
 // (report, result, technical log). So the app shows the same history as Notion and Telegram, and a job running
 // elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a row isn't there yet.
 import {call} from './notion.js';
+import {jobFrom} from './job-line.js';
+
+export {jobFrom};
 
 const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today', mail: 'mail', scout: 'scout', insight: 'insight',
   weekly: 'weekly', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep'};
@@ -11,6 +14,13 @@ const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
 const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
 
 const text = prop => (prop?.rich_text || prop?.title || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
+
+const notionPage = id => `https://www.notion.so/${String(id).replace(/-/g, '')}`;
+// From the row alone (before its page is read): the Application relation, and "Tracked…" (a new job) in its Summary.
+function rowJob(p, mode, summary) {
+  const id = mode === 'add' && p.Application?.relation?.[0]?.id;
+  return id ? {pageId: id, url: notionPage(id), title: '', jobUrl: '', created: /^\W*Tracked\b/.test(summary)} : null;
+}
 
 // One row as an activity record (the same shape as the Mac's own runs.json records).
 export function fromRow(page, now = Date.now()) {
@@ -30,8 +40,9 @@ export function fromRow(page, now = Date.now()) {
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
   if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
+  const job = ok ? rowJob(p, mode, summary) : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
-    result: result(summary, status, p['New jobs']?.number, mode)};
+    result: result(summary, status, p['New jobs']?.number, mode), ...(job ? {job} : {})};
 }
 
 // One line on what it did: the row's Summary without the cost, or the count of new jobs for a search.
@@ -67,7 +78,8 @@ export async function detail(storage, pageId, {fetcher} = {}) {
     log = code.filter(block => block.type === 'code').flatMap(block => plain(block).split('\n'));
   }
   const report = blocks.filter(block => block.type === 'bulleted_list_item').map(plain);
-  return {message, log: log.length ? log : report};
+  const job = jobFrom(log);  // a Logged activity run: its job's title and whether it was created
+  return {message, log: log.length ? log : report, ...(job ? {job} : {})};
 }
 
 // The activity list: Notion's rows, with this Mac's own record where it's the same run (it has the full log and
