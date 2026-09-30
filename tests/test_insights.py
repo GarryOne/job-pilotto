@@ -162,6 +162,20 @@ class ApplicationTests(unittest.TestCase):
 
 
 class RunTests(unittest.TestCase):
+    def test_insight_output_schemas_use_supported_array_constraints(self):
+        # Anthropic rejects maxItems in output_config.format.schema with HTTP 400.
+        def check(schema):
+            if schema.get('type') == 'array':
+                self.assertFalse(set(schema) - {'type', 'items', 'description', 'minItems'})
+                check(schema['items'])
+            elif schema.get('type') == 'object':
+                for child in schema['properties'].values():
+                    check(child)
+
+        for schema in (insights.SCHEMA, insights.WEEKLY_SCHEMA):
+            with self.subTest(schema='weekly' if schema is insights.WEEKLY_SCHEMA else 'daily'):
+                check(schema)
+
     def test_sends_one_insight_with_feedback_buttons_and_records_cost(self):
         tracker, client, sent, stats = FakeTracker(), FakeClient(), [], {}
         with patched():

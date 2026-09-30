@@ -8,7 +8,7 @@ from . import interviews
 MIN_APPLICATIONS, MIN_EMPLOYERS, MIN_SOURCE_TYPES = 3, 2, 2
 MAX_EVIDENCE_CHARS = 60_000
 PRIMARY = {'Employer feedback', 'Interview review'}
-ISSUE_SCHEMA = {'type': 'array', 'maxItems': 3, 'items': {
+ISSUE_SCHEMA = {'type': 'array', 'description': 'At most 3 evidence-backed priorities', 'items': {
     'type': 'object', 'additionalProperties': False, 'required': ['issue', 'action', 'support'],
     'properties': {
         'issue': {'type': 'string', 'description': 'One recurring issue, framed as a supported hypothesis rather than a certain cause'},
