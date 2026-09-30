@@ -1289,14 +1289,17 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
    right (header + actions, warnings in one sentence, stages card, folded technical log, schedule line). Overrides the
    older rules above. */
 .activity-panel { padding: 0; max-height: min(78vh, 680px); overflow: hidden; display: flex; }
-.activity-panel .ap-grid { display: grid; grid-template-columns: minmax(300px, 34%) minmax(0, 1fr); width: 100%; min-height: 0; }
+.activity-panel .ap-grid { display: grid; grid-template-columns: minmax(320px, 38%) minmax(0, 1fr); width: 100%; min-height: 0; }
 .activity-panel .ap-list { display: flex; flex-direction: column; min-height: 0; padding: var(--sp-4) var(--sp-3) var(--sp-3);
   border-right: 1px solid var(--line); overflow: auto; }
 .activity-panel .ap-head { margin: 0 0 var(--sp-3) var(--sp-2); }
 .activity-panel .ap-head h3 { font-size: var(--fs-lg); }
-.activity-panel .activity-recent { display: flex; flex-direction: column; gap: 0; margin: 0; }
-.activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: var(--sp-3);
-  border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 0; font-size: var(--fs-md); }
+.activity-panel .activity-recent { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+/* "Today" / "Earlier": a quiet label over each group of rows. */
+.activity-panel .recent-group { padding: var(--sp-3) var(--sp-3) var(--sp-1); font-size: var(--fs-sm); color: var(--muted); }
+.activity-panel .recent-group:first-child { padding-top: 0; }
+.activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) auto auto auto; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+  border: 1px solid transparent; border-radius: var(--r-md); font-size: var(--fs-md); }
 .activity-panel .recent-row.current { background: var(--info-soft); border-color: var(--info-line); border-radius: var(--r-md); }
 .activity-panel .recent-row[data-state="warn"] .run-status { background: var(--warn-bright); }
 .activity-panel .recent-row[data-state="warn"] .run-status::after { content: '!'; }
@@ -1306,6 +1309,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .run-words { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .activity-panel .run-kind { font-weight: 600; }
 .activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The time is its own column ("18:06"; "Tue 12:59" for anything before today), before the status pill. */
+.activity-panel .run-time { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .activity-panel .ap-all { align-self: center; margin-top: var(--sp-3); }
 
 .activity-panel .ap-detail { border: 0; border-radius: 0; background: none; padding: var(--sp-4) var(--sp-5) var(--sp-3);
@@ -1491,14 +1496,18 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .run-card-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .run-card-title { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
 .run-card-rows { list-style: none; margin: 0; padding: 0; display: grid; }
-.run-card-row { display: flex; align-items: center; gap: var(--sp-2); padding: 3px 0; }
+.run-card-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) 0; }
 .run-card-row + .run-card-row { border-top: 1px solid var(--line); }
-.run-card-words { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.run-card-words b { font-weight: 600; }
+/* Two lines per job: the title, then who it is with (its own line, not " · company" after the title). */
+.run-card-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.run-card-words b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-card-words > .muted { font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-card-row .ui-pill { flex: none; }
 .run-card-fit { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); background: var(--surface-2); border-radius: var(--r-sm);
   padding: 1px 6px; font-variant-numeric: tabular-nums; }
 .run-card-fit.is-high { color: var(--warn); background: var(--warn-soft); }
-.run-card-open { color: var(--muted); text-decoration: none; padding: 0 2px; }
+.run-card-open { color: var(--muted); text-decoration: none; display: inline-grid; place-items: center; padding: 0 2px; }
+.run-card-open .icon { width: 15px; height: 15px; }
 .run-card-open:hover { color: var(--signal-ink); }
 .run-card .link, .run-card > .muted { justify-self: start; font-size: var(--fs-sm); }
 .run-card-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }

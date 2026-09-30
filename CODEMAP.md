@@ -140,6 +140,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/review-again.js` — Interviews → a reviewed row's ⋯ "Review again": its menu entry (busy while it runs) and the message after it.
 - `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered
 - `desktop/renderer/run-cards.js` — Recent activity: a run's message (the Telegram text) as a small card, for the two long ones: Today's list /
+- `desktop/renderer/run-list.js` — Recent activity's run list: the runs under "Today" and "Earlier", and the time each row shows. Kept free of the
 - `desktop/renderer/run-warnings.js` — Lines of a run's log that are warnings (Notion busy, a step skipped or failed…), each once. A count of zero is not
 - `desktop/renderer/session-message.js` — Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only
 - `desktop/renderer/session-state.js` — A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's

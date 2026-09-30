@@ -5,6 +5,7 @@ import {el, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
+import {groupRuns, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
@@ -233,29 +234,32 @@ export function renderActivity(fresh) {
     after: i ? KIND[kindOf(queue[i - 1])].name : running ? KIND[kindOf(running)].name : 'the current task'})).reverse();
   const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, 8));
   $('activity-count').textContent = `${recent.length} recent`;
-  $('activity-recent').replaceChildren(...recent.map(run => {
-    const item = document.createElement('li');
+  // One row: the task and what it found, where it ran, its AI cost, its time and its status pill. The time is its
+  // own column (not part of the sentence), and the rows are grouped Today / Earlier (renderer/run-list.js).
+  const recentRow = run => {
     const button = Object.assign(document.createElement('button'), {type: 'button', className: 'recent-row'});
     button.classList.toggle('current', run.live ? !shown : shown ? run.id === shown.id : run === last && !running);
     button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
-    // Status circle, its icon, what ran and (under it) when, what it found and who started it; its status pill.
     // Its warnings: from the log (a run on this Mac), else the row's Status in Notion (a GitHub run: no log until opened).
     const warned = !run.live && !run.waiting && run.ok && !run.off && (run.warned || runWarnings(run.log || []).length > 0);
     if (warned) button.dataset.state = 'warn';
     const words = el('span', 'run-words');
     words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
       ? `Waiting · starts after ${run.after}`
-      : [clockTime(run.endedAt || run.startedAt), capital(outcome(run)), WHO[run.trigger] || run.trigger, WHERE[run.where]].filter(Boolean).join(' · ')));
+      : [capital(outcome(run)), WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
     const cost = el('span', `run-cost${run.usd > 0 || billingLabel(run) ? '' : ' is-zero'}`, run.live || run.waiting ? '' : costOf(run));
     cost.title = billingLabel(run) ? 'Ran on your own Claude Code: your Claude plan\'s usage, no API credits'
       : run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI used in this run';
-    button.append(el('span', 'run-icon', icon(kind.line)), words, cost, pill(...runStatus(run, warned)));
+    const when = el('span', 'run-time', run.live || run.waiting ? '' : runTime(run));
+    button.append(el('span', 'run-icon', icon(kind.line)), words, cost, when, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
-    item.append(button);
-    return item;
-  }));
+    return button;
+  };
+  $('activity-recent').replaceChildren(...groupRuns(recent).flatMap(group => [
+    Object.assign(document.createElement('li'), {className: 'recent-group', textContent: group.label}),
+    ...group.runs.map(run => { const item = document.createElement('li'); item.append(recentRow(run)); return item; })]));
   if (!runs.length && !running) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted', textContent: 'Nothing has run yet.'}));
 
   // How often: from Settings → How often (GitHub does it when Always on is on).
@@ -432,12 +436,16 @@ function renderRunCard(card) {
     heading = 'Top matches';
     rows.append(...card.items.slice(0, 3).map(item => {
       const row = el('li', 'run-card-row');
+      // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
+      // the row never shows a bare "–"; the posting opens from the arrow.
       const words = el('span', 'run-card-words');
-      words.append(el('b', '', item.title), el('span', 'muted', ` · ${item.company}`));
-      const view = Object.assign(el('a', 'run-card-open', '↗'), {href: '#', title: 'Open the job posting'});
+      words.append(el('b', '', item.title), el('span', 'muted', item.company));
+      const scored = item.fit != null;
+      const fit = pill(scored ? String(item.fit) : 'Not scored', scored && item.fit >= 70 ? 'warn' : 'neutral');
+      fit.title = scored ? 'Fit score for this job' : 'Not scored yet (no AI score for this job)';
+      const view = Object.assign(el('a', 'run-card-open'), {href: '#', title: 'Open the job posting'});
+      view.append(icon('external'));
       view.dataset.link = item.url;
-      const fit = item.fit == null ? el('span', 'run-card-fit', '–') : el('span', `run-card-fit${item.fit >= 70 ? ' is-high' : ''}`, String(item.fit));
-      if (item.fit == null) fit.title = 'Not scored yet';
       row.append(words, fit, ...(item.url ? [view] : []));
       return row;
     }));
@@ -451,8 +459,8 @@ function renderRunCard(card) {
     rows.append(...card.items.slice(0, all ? undefined : 5).map(item => {
       const row = el('li', 'run-card-row');
       const words = el('span', 'run-card-words');
-      words.append(el('b', '', item.company), el('span', 'muted', ` · ${[item.ats, item.roles != null && `${item.roles} SRE role${item.roles === 1 ? '' : 's'}`,
-        item.yours != null && `${item.yours} in your places`].filter(Boolean).join(' · ')}`));
+      words.append(el('b', '', item.company), el('span', 'muted', [item.ats, item.roles != null && `${item.roles} SRE role${item.roles === 1 ? '' : 's'}`,
+        item.yours != null && `${item.yours} in your places`].filter(Boolean).join(' · ')));
       row.append(words, ...(item.tier ? [el('span', 'run-card-fit', item.tier.replace('Tier ', 'T'))] : []));
       return row;
     }));
