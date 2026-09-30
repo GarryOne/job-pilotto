@@ -215,3 +215,20 @@ class ContributionsTest(unittest.TestCase):
             raise OSError('offline')
         self.assertEqual(scout.fetch_contributions('https://x.test/api/index', 'k', down), [])
         self.assertEqual(scout.fetch_contributions('https://x.test/api/index', 'k', lambda r: {'feeds': [{'slug': 'a'}, 'junk']}), [{'slug': 'a'}])
+
+
+class HonestCountTest(unittest.TestCase):
+    def test_harvested_names_are_cleaned(self):
+        self.assertEqual(scout.clean_name('Turquoise|Senior Performance Engineer|FT| Remote USA'), 'Turquoise')
+        self.assertEqual(scout.clean_name('WorkHero  https://workhero.pro'), 'WorkHero')
+        self.assertEqual(scout.clean_name('LiveKit| http://livekit.io/'), 'LiveKit')
+        self.assertEqual(scout.clean_name('  Acme Corp – '), 'Acme Corp')
+
+    def test_a_board_of_many_companies_is_not_counted_as_an_employer(self):
+        def fetch(system, slug):
+            return [{'id': '1', 'title': 'Software Engineer', 'location': 'Berlin', 'url': 'u', 'date_posted': '', 'description': '', 'remote': False, 'salary': ''}]
+        starter = [{'company': 'Phaselaw', 'ats': 'ashby', 'slug': 'Pear-VC'}, {'company': 'Real Co|Senior SRE|Remote', 'ats': 'lever', 'slug': 'real'}]
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'j.sqlite') as db:
+            feeds, _ = scout.build_index(db, starter, fetch, today='2026-09-30', boards=[{'ats': 'ashby', 'slug': 'pear-vc'}])
+        self.assertEqual({f['slug']: f['kind'] for f in feeds}, {'Pear-VC': 'board', 'real': 'employer'})
+        self.assertIn('Real Co', [f['company'] for f in feeds])

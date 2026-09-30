@@ -81,6 +81,12 @@ def now():
     return datetime.now(timezone.utc)
 
 
+def clean_name(name):
+    """A company name as a person would write it: harvested text ('Acme|Senior SRE|Remote', 'Acme https://acme.io') is cut back."""
+    name = re.split(r'\s*[|]\s*', re.sub(r'https?://\S+', ' ', name or ''), 1)[0]
+    return re.sub(r'\s+', ' ', name).strip(' -–—:,;')[:60]
+
+
 def key_for(name):
     return re.sub(r'[^a-z0-9]', '', re.sub(r'\b(ag|sa|gmbh|ltd|inc|llc|plc)\b', '', name.lower()))
 
@@ -126,7 +132,7 @@ def hacker_news_candidates(threads=HN_THREADS, get=_get_json):
             plain = re.sub(r'<[^>]+>', ' ', text)
             if not (LOCATION_WORDS.search(plain) and ROLE_WORDS.search(plain)):
                 continue
-            name = re.split(r'\s[|\-–(]\s?|\s\(', plain.strip(), 1)[0].strip()[:60]
+            name = clean_name(re.split(r'\s[|\-–(]\s?|\s\(', plain.strip(), 1)[0])
             if not name or len(name) < 2 or len(name.split()) > 5:
                 continue
             links = re.findall(r'href="([^"]+)"', text) + re.findall(r'https?://\S+', plain)
@@ -343,7 +349,7 @@ def fits(contribution):
     return {name: tags for name, tags in out.items() if tags}
 
 
-def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=()):
+def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=()):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
     db.executescript(TABLES)
@@ -352,6 +358,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
              for s in starter}
     for row in db.execute('SELECT ats, slug, company, tier FROM feed_sources WHERE active = 1'):
         known[(row['ats'], row['slug'])] = {'company': row['company'], 'tier': row['tier']}
+    board_keys = {(b['ats'], str(b['slug']).lower()) for b in boards}
     by_feed = {(c.get('ats'), c.get('slug')): c for c in contributions}
     for key, c in by_feed.items():   # what apps contributed: verified below like everything else
         if key not in known and key[0] in ats.FETCHERS and (c.get('installs') or 0) >= MIN_INSTALLS and c.get('company'):
@@ -362,7 +369,8 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
         try:
             jobs = fetch(system, slug)
             score, _ = quality(jobs)
-            entry = {'company': meta['company'], 'ats': system, 'slug': slug, 'kind': 'employer', 'tier': meta['tier'], 'quality': score,
+            kind = 'board' if (system, slug.lower()) in board_keys else 'employer'   # a job board of many companies is not an employer
+            entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
                      'jobs': len(jobs), 'checked': today, 'places': job_places(jobs)}
             tags = fits(by_feed.get((system, slug), {}))
             return {**entry, 'fits': tags} if tags else entry
@@ -556,7 +564,8 @@ def main():
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
             index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
             contributions = fetch_contributions(index_url, key)
-            feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions)
+            feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
+                                            boards=json.loads(SEEDS.read_text()).get('boards', []))
             count = publish_index(feeds_out, index_url, key)
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     message = telegram_summary(summary, results)

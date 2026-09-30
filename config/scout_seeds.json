@@ -1,5 +1,5 @@
 {
-  "_comment": "Candidate employers for scout.py. Tier 1 is probed first. 'known' entries skip slug guessing. 'manual_watch' companies have no public job feed; they are listed in Notion with a pre-filled careers search instead. The regional employer lists are private (the central scout loads them from the ops repo); your own scout can add regions here: {\"Region\": [\"Company\", ...]}.",
+  "_comment": "Candidate employers for scout.py. Tier 1 is probed first. 'known' entries skip slug guessing. 'manual_watch' companies have no public job feed; they are listed in Notion with a pre-filled careers search instead. The regional employer lists are private (the central scout loads them from the ops repo); your own scout can add regions here: {\"Region\": [\"Company\", ...]}. 'boards' lists job boards of many companies (a venture firm's portfolio board): they are counted as job portals, not employers.",
   "excluded": [],
   "tier1_known": [
     {
@@ -96,5 +96,11 @@
       "careers": "https://www.revolut.com/careers/?query=site%20reliability"
     }
   ],
-  "regional": {}
+  "regional": {},
+  "boards": [
+    {
+      "ats": "ashby",
+      "slug": "Pear-VC"
+    }
+  ]
 }
