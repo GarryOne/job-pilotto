@@ -18,6 +18,7 @@ Usage:
   python -m src.notion.ledger record <job URL> [--agent claude] [--force]
   python -m src.notion.ledger event <job URL> <stage> [--note TEXT]
   python -m src.notion.ledger sync [--dry-run]
+  python -m src.notion.ledger --dedupe-events [--apply]   # list (or trash) repeated events
   python -m src.notion.ledger backfill        # record every application tracked before the ledger
   python -m src.notion.ledger add <job URL> [--applied "on or before 23 Sep"] [--channel ...] [--via ...]
 """
@@ -363,8 +364,67 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
     return row, 'recorded'
 
 
-def add_event(tracker, page, kind, source, *, at=None, note=''):
-    """One 📈 Application Events row linked to the Applications page."""
+# Stage kinds are once per application (one Screening, one Rejected, ...); "Interview scheduled" repeats only for
+# another interview date/time. Every other kind (replies, cancellations, feedback asks) repeats, but never for the
+# same Source ID (a Gmail message id).
+CATCH_UP_NOTES = ('Already talking to the recruiter when tracked', 'Stage changed in Notion',
+                  'First event for an application tracked before the ledger')
+
+
+def _link_ids(event):
+    return {link['id'].replace('-', '') for link in (event['properties'].get('Application') or {}).get('relation', [])}
+
+
+def event_interview_at(event):
+    """The interview time an event's Changes column records (JSON written by src/ai/mail.py), or ''."""
+    text = plain((event['properties'] or {}).get('Changes')) or ''
+    try:
+        return str(json.loads(text).get('interview_at') or '') if text.startswith('{') else ''
+    except (ValueError, AttributeError):
+        return ''
+
+
+def events_of(tracker, page):
+    """This application's 📈 Application Events rows."""
+    key = page['id'].replace('-', '')
+    try:
+        events = tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': page['id']}})
+    except AttributeError:  # a tracker without the events database (partial test fakes)
+        return []
+    return [e for e in events if key in _link_ids(e)]
+
+
+def existing_event(tracker, page, kind, *, source_id='', interview_at=''):
+    """The event this one would repeat, or None when it is genuinely new."""
+    events = events_of(tracker, page)
+    if source_id:
+        for event in events:
+            if plain(event['properties'].get('Source ID')) == source_id:
+                return event
+        try:  # the same message may sit on another job's page (a mis-filed one): still the same message
+            for event in tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Source ID', 'rich_text': {'equals': source_id}}):
+                if plain(event['properties'].get('Source ID')) == source_id:
+                    return event
+        except AttributeError:
+            pass
+    if kind not in OUTCOME_STAGES:
+        return None
+    same = [e for e in events if plain(e['properties'].get('Kind')) == kind]
+    if not same:
+        return None
+    if kind == 'Interview scheduled' and interview_at:
+        known = [event_interview_at(e) for e in same]
+        if any(known) and not any(k and moment(k) == moment(interview_at) for k in known):
+            return None  # another interview
+    return same[0]
+
+
+def add_event(tracker, page, kind, source, *, at=None, note='', source_id='', interview_at=''):
+    """One 📈 Application Events row linked to the Applications page. Idempotent: an event this one would repeat
+    (see existing_event) is not written again; that existing row is returned, marked `_existing`."""
+    found = existing_event(tracker, page, kind, source_id=source_id, interview_at=interview_at)
+    if found:
+        return {**found, '_existing': True}
     props = page['properties']
     if not at and kind == 'Applied':
         at = plain(props.get('Applied on'))  # the application's own date, never "now" for an old one
@@ -378,10 +438,18 @@ def add_event(tracker, page, kind, source, *, at=None, note=''):
         'Source': {'select': {'name': source}},
         'Note': _text(note),
     }
+    if source_id:
+        properties['Source ID'] = _text(source_id)
     url = plain(props.get('Job URL'))
     if url:
         properties['Job URL'] = {'url': url}
-    return tracker.create_page(EVENTS_DATABASE_ID, properties)
+    if interview_at:  # what makes a second "Interview scheduled" a new one; Changes is optional (older workspaces)
+        try:
+            return tracker.create_page(EVENTS_DATABASE_ID, {**properties, 'Changes': _text(json.dumps({'fields': {}, 'interview_at': interview_at}))})
+        except Exception:  # noqa: BLE001
+            pass
+    created = tracker.create_page(EVENTS_DATABASE_ID, properties)
+    return created
 
 
 def mark_applied(tracker, url, source='CLI', **record_options):
@@ -445,6 +513,7 @@ def latest_events(tracker):
             item = latest.setdefault(link['id'].replace('-', ''), {'kind': None, 'at': '', 'last': '', 'replied': False})
             item['last'] = max(item['last'], at, key=moment) if item['last'] else at
             item['replied'] |= kind == REPLY
+            item.setdefault('kinds', set()).add(kind)
             if kind in OUTCOME_STAGES and (not item['at'] or moment(at) >= moment(item['at'])):
                 item.update(kind=kind, at=at)
     return latest
@@ -463,7 +532,9 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
         stage = plain(props.get('Stage'))
         info = latest.get(row['id'].replace('-', ''), {'kind': None, 'at': '', 'last': '', 'replied': False})
         last_at = info['last']
-        if info['kind'] != stage:
+        # Never a second event of a kind the application already has: Job Pilotto's own events (Gmail, Telegram,
+        # the app) move Stage too, and a later event of another kind must not make that look like a hand edit.
+        if info['kind'] != stage and stage not in info.get('kinds', ()):
             when = plain(props.get('Applied on')) if stage == 'Applied' else row.get('last_edited_time')
             if not dry_run:
                 source, note = (('Backfill', 'First event for an application tracked before the ledger')
@@ -481,6 +552,87 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
                           note=f'No reply {(now.date() - applied).days} days after applying')
             silent += 1
     return f'Ledger sync: {len(rows)} applications, {logged} stage change(s) logged, {silent} moved to No response.'
+
+
+def _local_day(value):
+    from zoneinfo import ZoneInfo
+    return moment(value).astimezone(ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))).date()
+
+
+def _keep_rank(event):
+    """Lower is better: the event with a Source ID, then one with real content (an interview time, a note that
+    is not a catch-up), then a real source over a watcher's guess, then the earliest."""
+    props = event['properties']
+    note = plain(props.get('Note')) or ''
+    return (0 if plain(props.get('Source ID')) else 1,
+            0 if event_interview_at(event) else 1,
+            1 if note.startswith(CATCH_UP_NOTES) or plain(props.get('Source')) in ('Notion edit', 'Backfill') else 0,
+            moment(plain(props.get('At')) or ''))
+
+
+def duplicate_groups(events):
+    """[(application page id, kind, [events], kept event)] for events that repeat one another. A stage kind is
+    once per application (per interview time for "Interview scheduled"); any other kind repeats only with
+    another Source ID: same Source ID, or no Source ID on the same day, is one event."""
+    by_app = {}
+    for event in events:
+        for app in _link_ids(event):
+            by_app.setdefault(app, []).append(event)
+    groups = []
+    for app, items in by_app.items():
+        buckets = {}
+        for event in items:
+            props = event['properties']
+            kind, source_id = plain(props.get('Kind')) or '', plain(props.get('Source ID')) or ''
+            if kind in OUTCOME_STAGES:
+                at = event_interview_at(event) if kind == 'Interview scheduled' else ''
+                key = (kind, moment(at) if at else None)
+            elif source_id:
+                key = (kind, 'id', source_id)
+            else:
+                key = (kind, 'day', _local_day(plain(props.get('At')) or ''))
+            buckets.setdefault(key, []).append(event)
+        for key in [k for k in buckets if k[-1] is None or k[1] == 'day']:  # what has no interview time / no id
+            if key not in buckets:
+                continue
+            kind = key[0]
+            if key[1] == 'day':  # joins a sourced event of that kind on that day
+                home = next((o for o in buckets if o[:2] == (kind, 'id') and o != key and any(
+                    _local_day(plain(e['properties'].get('At')) or '') == key[2] for e in buckets[o])), None)
+            else:  # stage kind without an interview time joins the one with a time (or the first)
+                home = next((o for o in buckets if o[0] == kind and o != key and o[1] is not None), None)
+            if home:
+                buckets[home].extend(buckets.pop(key))
+        for key, part in buckets.items():
+            if len({e['id'] for e in part}) > 1:
+                unique = list({e['id']: e for e in part}.values())
+                groups.append((app, key[0], unique, min(unique, key=_keep_rank)))
+    return groups
+
+
+def dedupe_events(tracker, apply=False):
+    """Find (and with apply=True trash) repeated 📈 Application Events. Returns printable lines; the kept event of a
+    group is never touched. Trashed pages stay restorable in Notion for 30 days."""
+    events = tracker.query_database(EVENTS_DATABASE_ID)
+    titles = {}
+    for row in tracker.query_database(tracker.database_id):
+        titles[row['id'].replace('-', '')] = ' — '.join(p for p in (plain(row['properties'].get('Company')), plain(row['properties'].get('Job'))) if p)
+    groups = duplicate_groups(events)
+    lines, extras = [], 0
+    for app, kind, items, kept in sorted(groups, key=lambda g: (titles.get(g[0], g[0]), g[1])):
+        lines.append(f'{titles.get(app) or app}: {kind} x{len(items)}')
+        for event in sorted(items, key=lambda e: moment(plain(e['properties'].get('At')) or '')):
+            props = event['properties']
+            mark = 'KEEP ' if event is kept else 'extra'
+            lines.append(f'  {mark} {event["id"]}  {(plain(props.get("At")) or "")[:16]}  {plain(props.get("Source")) or "?"}'
+                         f'  {plain(props.get("Source ID")) or "-"}  {(plain(props.get("Note")) or "")[:60]}')
+            if event is not kept:
+                extras += 1
+                if apply:
+                    tracker.trash_page(event['id'])
+    verb = 'moved to the Notion trash' if apply else 'would be moved to the Notion trash (run with --apply)'
+    lines.append(f'{extras} duplicate event(s) {verb}; {len(groups)} group(s).' if groups else 'No duplicate events.')
+    return lines
 
 
 MONTHS = {m: i for i, m in enumerate(
@@ -679,6 +831,16 @@ def main(argv=None):
     ad.add_argument('--applied', default='', help='"2026-09-23", "23 Sep", "on or before 23 Sep" (default today)')
     ad.add_argument('--channel', choices=CHANNELS)
     ad.add_argument('--via', help='recruiter platform or agency, e.g. TechTree')
+    if '--dedupe-events' in (argv if argv is not None else sys.argv[1:]):
+        tidy = argparse.ArgumentParser(description='List (and with --apply trash) duplicate Application Events')
+        tidy.add_argument('--dedupe-events', action='store_true')
+        tidy.add_argument('--apply', action='store_true', help='move the extras to the Notion trash (default: only list them)')
+        tidy_args = tidy.parse_args(argv)
+        tracker = notion.Tracker.from_env()
+        if not tracker:
+            raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+        print('\n'.join(dedupe_events(tracker, apply=tidy_args.apply)))
+        return 0
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:

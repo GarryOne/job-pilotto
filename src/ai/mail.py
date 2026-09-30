@@ -330,7 +330,11 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         return None
     if feedback_text:
         employer_feedback.receive(tracker, row, feedback_text)
-    event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note)
+    event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note,
+                                                    source_id=source_id, interview_at=interview_at or '')
+    if event.get('_existing'):  # this job already has that event (same kind, same interview): nothing new to write
+        known.add(source_id)
+        return None
     by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
     fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
     tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}})

@@ -754,7 +754,7 @@ def moved(tracker, app_id, at):
         raise ValueError('Pick the new date and time')
     app = tracker._request('GET', f'pages/{app_id}')
     tracker.update_page(app['id'], {'Next interview': {'date': {'start': at}}})
-    add_event(tracker, app, 'Interview scheduled', APP_SOURCE, note=f'Moved to {at} (from Focus)')
+    add_event(tracker, app, 'Interview scheduled', APP_SOURCE, note=f'Moved to {at} (from Focus)', interview_at=at)
     return {'ok': True}
 
 

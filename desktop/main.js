@@ -925,6 +925,10 @@ function handlers() {
   ipcMain.handle('describeJob', (_, pageId, text = '', url = '') => (DEMO ? {ok: true, text: 'Saved (demo).'}
     : pipeline.describeJob(storage, String(pageId), String(text || ''), String(url || ''))));
   // Where an email belongs: Focus → "Is this about …?", a job's ⋯ → Undo an email update (src/ai/reassign.py).
+  ipcMain.handle('tidyEvents', (_, apply) => (DEMO
+    ? {ok: true, text: apply ? '1 duplicate event(s) moved to the Notion trash; 1 group(s).'
+      : 'Acme: Interview scheduled x2\n  KEEP  ev-1  2026-09-28T09:00  Gmail  1a0ed2a0b8f85171  -\n  extra ev-2  2026-09-30T10:00  Notion edit  -  Stage changed in Notion\n1 duplicate event(s) would be moved to the Notion trash (run with --apply); 1 group(s).'}
+    : pipeline.tidyEvents(storage, Boolean(apply))));
   ipcMain.handle('reassignEmail', (_, eventId, target) => (DEMO ? {ok: true, text: 'Moved (demo): nothing was written.'}
     : pipeline.reassignEmail(storage, String(eventId), String(target))));
   ipcMain.handle('emailUpdates', (_, pageId) => (DEMO ? {ok: true, items: []} : pipeline.emailUpdates(storage, String(pageId))));

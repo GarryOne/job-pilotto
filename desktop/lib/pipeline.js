@@ -426,6 +426,11 @@ export async function describeJob(storage, pageId, text = '', url = '') {
   const {stdout} = await run(storage, ['src.ai.prep', 'describe', pageId, ...(text ? ['--text', text] : []), ...(url ? ['--url', url] : [])]);
   return lastJson(stdout, {ok: false, text: 'The description could not be saved to Notion. Try again.'});
 }
+// Settings → Data & backup → "Tidy duplicate events" (src/notion/ledger.py --dedupe-events): the list, or (apply) the trashing.
+export async function tidyEvents(storage, apply = false) {
+  const {code, stdout} = await run(storage, ['src.notion.ledger', '--dedupe-events', ...(apply ? ['--apply'] : [])]);
+  return {ok: code === 0, text: stdout.trim() || 'Notion could not be read. Try again.'};
+}
 // An email the Gmail check placed, or wasn't sure where to place: move it to a job ("new", "none" or a job URL).
 export async function reassignEmail(storage, eventId, target) {
   const {stdout} = await run(storage, ['src.ai.reassign', 'move', eventId, target]);
