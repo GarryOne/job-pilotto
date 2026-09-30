@@ -554,6 +554,10 @@ class FactsTests(unittest.TestCase):
         # Unknown select values and "not stated" are dropped.
         self.assertEqual(interviews.facts_of({'facts': [{'field': 'contract', 'value': 'freelance-ish', 'quote': ''}]}), [])
 
+    def test_the_review_prompt_keeps_location_short_and_conditions_in_relocation(self):
+        self.assertIn('a SHORT summary', interviews.SYSTEM)
+        self.assertIn('belong in relocation', interviews.SYSTEM)
+
     def test_a_more_specific_location_refines_the_job_but_a_different_one_does_not(self):
         row = huxley(Location=text('Remote'))
         merged = interviews.merge_facts(row, {'facts': [
