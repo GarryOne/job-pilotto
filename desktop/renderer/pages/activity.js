@@ -390,7 +390,7 @@ export function renderActivity(fresh) {
   // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.
   const card = !run?.live && run?.message ? parseRunMessage(run.message) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
-  if (card) renderRunCard(card);
+  if (card) renderRunCard(card, run);
   else if (reading) renderCardSkeleton();
   show($('activity-card'), !!card || reading);
   $('activity-message').textContent = !run?.live && !card && run?.message || '';
@@ -467,7 +467,7 @@ export function refreshActivity() {
 }
 let expandedCard = '';  // the employers card showing all its rows (by its companies)
 // A run's message as a card: a row of counts, then one line per item (the full text: Open in Notion).
-function renderRunCard(card) {
+function renderRunCard(card, run = null) {
   // One light line of counts ("37 open · 2 in Switzerland · 18 applied"), then one line per item.
   const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value ?? '–')), ` ${label}`); return cell; };
   const stats = el('div', 'run-card-stats');
@@ -490,8 +490,16 @@ function renderRunCard(card) {
       row.append(words, fit, ...(item.url ? [view] : []));
       return row;
     }));
+    // "View all 9 in Jobs" shows exactly those nine, not the whole list: the Jobs page gets a filter for this run's
+    // matches (pages/jobs.js showJobsIn, the same one a Focus funnel step uses), with its own label to clear.
+    const label = `${heading}${run?.startedAt ? ` · ${hhmm(Date.parse(run.startedAt))}` : ''}`;
+    const urls = card.items.map(item => item.url).filter(Boolean);
     more = el('button', 'link', `View all ${card.items.length} in Jobs →`);
-    more.addEventListener('click', () => { openActivity(false); openView('jobs'); });
+    more.addEventListener('click', () => {
+      openActivity(false);
+      openView('jobs');
+      if (urls.length) showJobsIn(label, urls, 'activity');  // no links in the message: the whole list is all there is
+    });
   } else {
     stats.append(stat(card.checked, 'employers checked'), stat(card.fresh, 'new job feeds'));
     heading = 'New employers';
