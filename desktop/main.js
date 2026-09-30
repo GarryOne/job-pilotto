@@ -1097,7 +1097,12 @@ function handlers() {
     return result.ok ? {ok: true, state: {...result.state, text: licenseLib.text(result.state)}} : result;
   });
   ipcMain.handle('licenseRemove', () => { const state = license.remove(); return {...state, text: licenseLib.text(state)}; });
-  ipcMain.handle('telemetryRecord', (_, kind, fields) => { telemetry?.record(String(kind), fields || {}); return true; });
+  ipcMain.handle('telemetryRecord', (_, kind, fields) => {
+    // A window error also goes to app.log (type and message; the stack stays in the report): it was invisible there.
+    if (kind === 'crash') appLog('window', `error on ${String(fields?.page || '?').slice(0, 30)}: ${String(fields?.type || 'Error').slice(0, 40)}: ${String(fields?.message || '').slice(0, 300)}`);
+    telemetry?.record(String(kind), fields || {});
+    return true;
+  });
   ipcMain.handle('telemetryShown', () => ({on: telemetry?.enabled() ?? false, events: telemetry?.shown() || []}));
   // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
   ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));

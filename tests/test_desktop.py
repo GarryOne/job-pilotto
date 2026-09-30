@@ -115,3 +115,34 @@ class StrategyTests(unittest.TestCase):
         self.assertEqual({c['key']: c['value'] for c in data['components']},
                          {'role_fit': 70, 'location': 50, 'compensation': 50, 'growth': 50, 'risk': 80})  # risk shown as "low risk"
         self.assertEqual(data['counts'], {'matches': 2, 'kits': 1, 'sent': 2})
+
+
+class StrategyInsightTests(unittest.TestCase):
+    def test_the_latest_insight_skips_the_interview_patterns_row_without_a_notion_filter(self):
+        # A Notion filter on the "Interview patterns" option is refused (400) before the app's schema repair adds it,
+        # which left the Strategy insight empty: the row is skipped here instead.
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest import mock
+        from src import desktop, store
+        select = lambda name: {'type': 'select', 'select': {'name': name}}
+        title = lambda value: {'type': 'title', 'title': [{'plain_text': value}]}
+        bodies = []
+
+        def request(method, path, body=None):
+            bodies.append(body)
+            if 'filter' in (body or {}):
+                raise RuntimeError('HTTP Error 400: Bad Request')
+            return {'results': [{'url': 'u1', 'properties': {'Category': select('Interview patterns'), 'Insight': title('patterns')}},
+                                {'url': 'u2', 'properties': {'Category': select('Skills'), 'Insight': title('daily')}}]}
+        tracker = SimpleNamespace(url_stages=lambda: {}, page_text=lambda: '', _request=request)
+        with tempfile.TemporaryDirectory() as tmp:
+            db = store.connect(Path(tmp) / 'j.sqlite')
+            with mock.patch.object(desktop.digest, 'eligible_jobs', lambda db: ([], [])), \
+                    mock.patch.object(desktop.score, 'load', lambda db: {}), mock.patch('src.paths.load_search_config', lambda: {}), \
+                    mock.patch('src.ai.insights.INSIGHTS_DATABASE_ID', 'insights-db'):
+                data = desktop.strategy(db, tracker)
+            db.close()
+        self.assertTrue(all('filter' not in (b or {}) for b in bodies))
+        self.assertEqual(data['insight']['headline'], 'daily')

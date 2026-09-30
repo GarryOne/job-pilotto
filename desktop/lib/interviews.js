@@ -6,6 +6,7 @@
 // audio, transcript.txt). Transcription is local and free (src/ai/transcribe.py).
 import fs from 'node:fs';
 import path from 'node:path';
+import {log as appLog} from './log.js';
 import * as pipeline from './pipeline.js';
 
 export const AUDIO = ['webm', 'm4a', 'mp3', 'wav', 'ogg', 'oga', 'opus', 'mp4', 'mov', 'aac', 'flac', 'aiff', 'mkv'];
@@ -181,7 +182,14 @@ async function notionCall(storage, args, run) {
   }
 }
 
-export const saved = (storage, run = pipeline.run) => notionCall(storage, ['list'], run);
+// The library (and its Insights row). A failure is written to app.log with its reason (never values): the page says
+// so too, but the log is where a failure that only shows as "nothing on the page" is found.
+export async function saved(storage, run = pipeline.run, log = appLog) {
+  const result = await notionCall(storage, ['list'], run);
+  if (!result?.ok) log('interviews', `library read failed: ${String(result?.error || 'no answer').slice(0, 300)}`);
+  else if (result.insight_error) log('interviews', `insights unreadable (the library still shows): ${String(result.insight_error).slice(0, 300)}`);
+  return result;
+}
 
 // The Insights card's Refresh (src/ai/interview_insights.py): Claude reads the reviewed interviews together, only when
 // a review changed since the last update (else no AI call). Runs here, even with Always on: the page waits for it.

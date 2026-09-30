@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 
 from ..notion import client as notion
 from ..notion.ledger import plain
@@ -257,7 +258,14 @@ def existing(tracker):
     """The Interview patterns row, or None (the newest if several)."""
     if not insights_db():
         return None
-    rows = tracker.query_database(insights_db(), {'property': 'Category', 'select': {'equals': CATEGORY}})
+    try:
+        rows = tracker.query_database(insights_db(), {'property': 'Category', 'select': {'equals': CATEGORY}})
+    except urllib.error.HTTPError as error:
+        # 400: the workspace doesn't have the "Interview patterns" option (or Category) yet, because the app's schema
+        # repair hasn't run: Notion refuses a filter on an unknown option. Read the rows and pick it here instead.
+        if error.code != 400:
+            raise
+        rows = [r for r in tracker.query_database(insights_db()) if plain((r.get('properties') or {}).get('Category')) == CATEGORY]
     return max(rows, key=lambda r: r.get('last_edited_time', '')) if rows else None
 
 

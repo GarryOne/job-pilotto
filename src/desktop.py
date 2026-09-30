@@ -229,10 +229,12 @@ def strategy(db, tracker=None):
         def latest_insight():
             if not INSIGHTS_DATABASE_ID:
                 return []
-            return tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
-                                    {'page_size': 1, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}],
-                                     # the Interviews page's own row is not a strategy insight
-                                     'filter': {'property': 'Category', 'select': {'does_not_equal': 'Interview patterns'}}})['results']
+            rows = tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
+                                    {'page_size': 5, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]})['results']
+            # The Interviews page's own row is not a strategy insight. Skipped here, not in a Notion filter: a filter on
+            # an option the workspace doesn't have yet (before the schema repair) is refused with a 400.
+            from .notion.ledger import plain
+            return [r for r in rows if plain((r.get('properties') or {}).get('Category')) != 'Interview patterns'][:1]
         quiet = lambda call: lambda: _quietly(call)  # a failed read leaves its part empty; the rest still shows
         url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
         for stage in (url_stages or {}).values():

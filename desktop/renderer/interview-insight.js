@@ -17,29 +17,35 @@ export function ago(at, now = Date.now()) {
 
 // null: no card (no reviewed interview). Otherwise what the card says. rows: the library rows (reviewed = overall set).
 export function insightView(insight, rows = [], now = Date.now()) {
-  const reviewed = rows.filter(row => row.overall);
+  // A row written by another version may lack a field or hold another type: read every list defensively, so the
+  // card can't throw (it once took the library down with it: pages/interviews.js renders both apart now).
+  const list = value => (Array.isArray(value) ? value : []);
+  rows = list(rows);
+  const reviewed = rows.filter(row => row?.overall);
   if (!reviewed.length) return null;
   const known = new Map(rows.map(row => [row.id, row.title]));
-  for (const item of insight?.interviews || []) if (!known.has(item.id)) known.set(item.id, item.title);
+  for (const item of list(insight?.interviews)) if (!known.has(item?.id)) known.set(item?.id, item?.title);
   const link = id => ({id, title: known.get(id) || 'Interview', inLibrary: rows.some(row => row.id === id)});
   if (!insight) {
     return {empty: true, reviewed: reviewed.length, headline: 'No insights yet',
       basis: `${reviewed.length} reviewed interview${reviewed.length === 1 ? '' : 's'} · Refresh to read them together`};
   }
-  const n = insight.sample || insight.interviews?.length || 0;
-  const pending = reviewed.filter(row => !(insight.interviews || []).some(item => item.id === row.id)).length;
+  const n = Number(insight.sample) || list(insight.interviews).length || 0;
+  const pending = reviewed.filter(row => !list(insight.interviews).some(item => item?.id === row.id)).length;
   const when = ago(insight.updated, now);
   const basis = [`Based on ${n} interview${n === 1 ? '' : 's'}`, when && `updated ${when}`,
     pending && `${pending} new review${pending === 1 ? '' : 's'} not included yet`].filter(Boolean).join(' · ');
-  const patterns = (insight.patterns || []).map(p => ({text: p.text, round: p.round_type, tentative: !!p.tentative || n < 2,
-    tag: p.tentative || n < 2 ? 'Tentative' : `${p.interviews.length} interviews`, links: (p.interviews || []).map(link)}));
+  const patterns = list(insight.patterns).map(p => ({text: String(p?.text || ''), round: p?.round_type, tentative: !!p?.tentative || n < 2,
+    tag: p?.tentative || n < 2 ? 'Tentative' : `${list(p?.interviews).length} interviews`, links: list(p?.interviews).map(link)}))
+    .filter(p => p.text);
   // A row written before its Data column existed: its text columns, as lines.
   const lines = text => String(text || '').split('\n').map(line => line.replace(/^\s*•\s*/, '').trim()).filter(Boolean);
-  const steps = insight.next_steps?.length ? insight.next_steps.map(s => ({text: s.text, links: (s.interviews || []).map(link)}))
+  const steps = list(insight.next_steps).length
+    ? list(insight.next_steps).map(s => ({text: String(s?.text || ''), links: list(s?.interviews).map(link)})).filter(s => s.text)
     : lines(insight.action).map(text => ({text, links: []}));
   const bullets = String(insight.evidence || '').split('\n').filter(line => /^\s*•/.test(line));  // not the quotes under them
-  const fallback = !insight.patterns?.length && !insight.nothing_useful ? lines(bullets.join('\n')) : [];
-  return {headline: insight.headline, basis, pending, confidence: CONFIDENCE[insight.confidence] || CONFIDENCE.low,
+  const fallback = !patterns.length && !insight.nothing_useful ? lines(bullets.join('\n')) : [];
+  return {headline: String(insight.headline || 'Insights'), basis, pending, confidence: CONFIDENCE[insight.confidence] || CONFIDENCE.low,
     patterns: patterns.length ? patterns : fallback.map(text => ({text, tag: '', links: []})), steps,
     nothing: !!insight.nothing_useful, url: insight.url || ''};
 }

@@ -294,6 +294,45 @@ class Neighbours(unittest.TestCase):
         hook.assert_called_once()
         self.assertEqual(logged.call_args.args[1]['insight']['usd'], 0.04)
 
+    def test_a_workspace_without_the_interview_patterns_option_yet_reads_no_row_not_an_error(self):
+        # Owner, 30 Sep 2026: the app ran the new code before its schema repair added the option; Notion answers a
+        # select filter on an option it doesn't know with 400. That is "no row yet", and the rows are read unfiltered.
+        import urllib.error
+
+        class Missing(FakeNotion):
+            def query_database(self, database_id, filter_=None):
+                if database_id == 'insights-db' and filter_:
+                    raise urllib.error.HTTPError('https://api.notion.com/v1/databases/x/query', 400, 'Bad Request', {}, None)
+                return super().query_database(database_id, filter_)
+        fake = Missing(list(ONE), PAGES)
+        a, b = env()
+        with a, b:
+            self.assertIsNone(ii.saved(fake))
+            fake.insights.append({'id': 'daily', 'url': '', 'last_edited_time': NOW.isoformat(),
+                                  'properties': {'Category': select('Skills')}})
+            self.assertIsNone(ii.existing(fake))
+            fake.insights.append({'id': 'ins-9', 'url': '', 'last_edited_time': NOW.isoformat(),
+                                  'properties': {'Category': select('Interview patterns'), 'Insight': text('h')}})
+            self.assertEqual(ii.existing(fake)['id'], 'ins-9')
+
+    def test_an_unreadable_insight_is_reported_with_the_list_never_instead_of_it(self):
+        problems = []
+        with mock.patch.object(ii, 'saved', side_effect=RuntimeError('HTTP Error 400: Bad Request')):
+            self.assertIsNone(interviews.saved_insight(object(), problems))
+        self.assertEqual(problems, ['RuntimeError: HTTP Error 400: Bad Request'])
+        tracker = SimpleNamespace()
+        with mock.patch.object(interviews.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(interviews, 'listing', return_value=[{'id': 'iv-1'}]), \
+                mock.patch.object(ii, 'saved', side_effect=RuntimeError('HTTP Error 400: Bad Request')), \
+                mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'interviews-db'), \
+                mock.patch('sys.stdout', new_callable=io.StringIO) as out, mock.patch('sys.stderr', io.StringIO()):
+            code = interviews.main(['list'])
+        shown = json.loads(out.getvalue().strip().splitlines()[-1])
+        self.assertEqual(code, 0)
+        self.assertEqual(shown['interviews'], [{'id': 'iv-1'}])
+        self.assertIsNone(shown['insight'])
+        self.assertIn('400', shown['insight_error'])
+
     def test_the_interviews_list_carries_the_insight(self):
         with mock.patch.object(ii, 'saved', side_effect=RuntimeError('Notion down')):
             self.assertIsNone(interviews.saved_insight(object()))

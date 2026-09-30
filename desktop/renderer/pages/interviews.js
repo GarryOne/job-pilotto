@@ -3,6 +3,7 @@ import * as pendingReviews from '../review-pending.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
+import {afterLoad} from '../interview-library.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
@@ -15,15 +16,16 @@ let ivSavedRows = [];
 let ivInsight = null;       // the Insights card's row (💡 Insights, Interview patterns), read with the library
 let insightBusy = false, insightNote = '';
 const plainId = id => String(id || '').replace(/-/g, '');
-const linkable = () => shared.allJobs.filter(job => job.notion_url);   // jobs with a Notion Applications row
+const jobList = () => (Array.isArray(shared.allJobs) ? shared.allJobs : []);  // unset while the job list loads
+const linkable = () => jobList().filter(job => job.notion_url);   // jobs with a Notion Applications row
 const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
-const jobForPage = pageId => shared.allJobs.find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
+const jobForPage = pageId => jobList().find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
 
 // Every job in the list (applied and tracked ones first); one not in Applications yet is added there on save.
 const PASTE = '__paste__';
 function jobOptions(select, chosenUrl, emptyLabel) {
   const rank = job => (job.status === 'applied' ? 0 : job.notion_url ? 1 : 2);
-  const jobs = shared.allJobs.filter(job => job.url && job.status !== 'dismissed')
+  const jobs = jobList().filter(job => job.url && job.status !== 'dismissed')
     .sort((a, b) => rank(a) - rank(b) || a.company.localeCompare(b.company));
   select.replaceChildren(new Option(emptyLabel, ''), ...jobs.map(job => new Option(jobName(job), job.url, false, job.url === chosenUrl)));
   if (chosenUrl && !jobs.some(job => job.url === chosenUrl)) select.append(new Option(chosenUrl, chosenUrl, false, true));
@@ -56,11 +58,34 @@ async function showPermission(noCallAudio = false) {
   show($('iv-permission'), !!text);
 }
 
-export async function loadInterviews() {
-  showPermission();
-  if (!shared.allJobs.length) { try { shared.allJobs = (await window.pilot.jobs()).jobs; } catch {} }
-  renderDrafts(await iv.drafts());
+// Each part on its own, none waiting for another (owner, 30 Sep 2026: this awaited a fresh job list, a Python run of
+// 10–60 s at start-up, before drawing anything, so the page showed only its table header).
+export function loadInterviews() {
+  showPermission().catch(error => failed('permission', error));
   loadSaved();
+  loadDrafts();
+  loadJobList();
+}
+async function loadDrafts() {
+  try { renderDrafts(await iv.drafts()); } catch (error) { failed('local recordings', error); }
+}
+// The job names in the library and the pickers: the list the Jobs page already has, else its last good copy; a fresh
+// read (slow) only without either. The rows are drawn first and get their job names when it's there.
+let jobListLoading = null;
+function loadJobList() {
+  if (jobList().length || jobListLoading) return jobListLoading;
+  jobListLoading = (async () => {
+    const saved = await window.pilot.cached('jobs').catch(() => null);
+    const jobs = !jobList().length && (saved?.result?.jobs?.length ? saved.result.jobs : (await window.pilot.jobs().catch(() => null))?.jobs);
+    if (Array.isArray(jobs) && jobs.length && !jobList().length) { shared.allJobs = jobs; if (ivSavedRows.length) renderAll(); }
+  })().catch(error => failed('job list', error)).finally(() => { jobListLoading = null; });
+  return jobListLoading;
+}
+// A part that failed: said on the page by the caller, and written to app.log (type and message, never values).
+function failed(part, error) {
+  console.error(`Interviews · ${part}:`, error);
+  window.pilot.telemetryRecord('crash', {where: 'window', page: 'interviews', type: error?.name || 'Error',
+    message: `${part}: ${error?.message || String(error)}`, stack: error?.stack}).catch(() => {});
 }
 
 function renderDrafts(drafts) {
@@ -170,7 +195,7 @@ async function saveToNotion(andReview) {
     show($('iv-editor'), false);
     renderDrafts(await iv.drafts());
     message('iv-message', 'Saved to Notion 🎤 Interviews.', 'ok');
-    await loadSaved();
+    await readAgain();
     if (andReview) reviewRow(result.id);
   } finally {
     for (const button of ['iv-save', 'iv-save-review']) $(button).disabled = false;
@@ -202,39 +227,69 @@ function skeletonRows(n = 3) {
 }
 async function showSavedLoading() {
   show($('iv-empty'), false);
-  if (ivSavedRows.length) { $('iv-lib-stats').textContent = 'Refreshing from Notion…'; return; }
+  if (ivSavedRows.length) { $('iv-lib-stats').textContent = 'Refreshing from Notion…'; return shownAt; }
   const saved = await window.pilot.cached('interviews').catch(() => null);
   if (saved?.result?.interviews?.length && !ivSavedRows.length) {
     ivSavedRows = saved.result.interviews;
     ivInsight = saved.result.insight || null;
-    renderSaved();
-    renderInsight();
+    renderAll();
     $('iv-lib-stats').textContent = `${IV_SAVED_TO} · saved ${agoText(saved.at)}, updating…`;
-    return;
+    return saved.at;
   }
   $('iv-saved').replaceChildren(...skeletonRows());
   $('iv-insight').replaceChildren(...insightSkeleton());
   show($('iv-insight'));
   $('iv-lib-stats').textContent = 'Loading from Notion…';
+  return null;
 }
 function agoText(at) {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60000));
   return minutes < 1 ? 'just now' : minutes < 60 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`;
 }
-async function loadSaved() {
-  await showSavedLoading();
+// One read at a time: coming back to the page while one runs waits for it (they piled up: each a Python run and a
+// share of Notion's rate limit). A change made here (save, link, review, ↻) reads again once that one is done.
+let savedLoad = null, loadAgain = false, shownAt = null;
+function loadSaved(again = false) {
+  if (savedLoad) { if (again) loadAgain = true; return savedLoad; }
+  savedLoad = (async () => { do { loadAgain = false; await loadSavedOnce(); } while (loadAgain); })()
+    .catch(error => failed('library', error)).finally(() => { savedLoad = null; });
+  return savedLoad;
+}
+const readAgain = () => loadSaved(true);
+async function loadSavedOnce() {
+  try { shownAt = await showSavedLoading(); } catch (error) { failed('library (saved copy)', error); }
   const result = await iv.saved().catch(error => ({ok: false, error: String(error?.message || error)}));
-  $('iv-lib-stats').textContent = IV_SAVED_TO;
-  if (!result.ok) { ivSavedRows = []; ivInsight = null; renderInsight(); $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
-  ivSavedRows = result.interviews;
-  ivInsight = result.insight || null;
+  const next = afterLoad(result, {rows: ivSavedRows, at: shownAt});
+  $('iv-lib-stats').textContent = next.ok ? IV_SAVED_TO : next.stats || IV_SAVED_TO;
+  if (!next.ok) {
+    // The rows on screen (the last good copy) stay; without any, the table says why instead of staying empty.
+    if (next.rows.length) { message('iv-message', next.error, 'error'); renderAll(); return; }
+    ivSavedRows = [];
+    $('iv-saved').replaceChildren();
+    renderInsight();
+    show($('iv-empty'));
+    $('iv-empty').textContent = next.error;
+    return;
+  }
+  shownAt = null;
+  ivSavedRows = next.rows;
+  ivInsight = next.insight;
+  insightNote = next.insightError ? "Couldn't read the saved insights (see the app log)" : '';
   // Reviews running on GitHub stay "Reviewing…" until their outcome is in Notion; look again every 30 s meanwhile.
   reviewing = new Set([...reviewing, ...pendingReviews.settle(ivSavedRows)]);
   for (const id of reviewing) if (ivSavedRows.find(row => row.id === id)?.overall) reviewing.delete(id);
   clearTimeout(reviewPoll);
-  if (reviewing.size) reviewPoll = setTimeout(loadSaved, 30 * 1000);
-  renderSaved();
-  renderInsight();
+  if (reviewing.size) reviewPoll = setTimeout(readAgain, 30 * 1000);
+  renderAll();
+}
+// The library, then the Insights card, each on its own: a throw in one never blanks the other, and says so.
+function renderAll() {
+  try { renderSaved(); } catch (error) {
+    failed('library', error);
+    show($('iv-empty'));
+    $('iv-empty').textContent = `Couldn't show your interviews (${error?.message || error}). The details are in the app log.`;
+  }
+  try { renderInsight(); } catch (error) { failed('insights', error); show($('iv-insight'), false); }
 }
 
 // Insights: what the reviewed interviews say together. Hidden until one interview is reviewed.
@@ -272,7 +327,7 @@ function renderSaved() {
   closeMenu();
   const text = $('iv-filter').value.trim().toLowerCase(), outcome = $('iv-outcome').value;
   const rows = ivSavedRows.filter(row => {
-    const job = row.application[0] ? jobForPage(row.application[0]) : null;
+    const job = row.application?.[0] ? jobForPage(row.application[0]) : null;
     const words = `${row.title} ${row.round || ''} ${row.next_step || ''} ${job?.title || ''} ${job?.company || ''}`.toLowerCase();
     return (!text || words.includes(text)) && (!outcome || (outcome === 'none' ? !row.overall : row.overall === outcome));
   });
@@ -282,7 +337,7 @@ function renderSaved() {
     const tr = document.createElement('tr');
     tr.dataset.id = row.id;
     const cell = (...children) => { const td = document.createElement('td'); td.append(...children); tr.append(td); return td; };
-    const job = row.application[0] ? jobForPage(row.application[0]) : null;
+    const job = row.application?.[0] ? jobForPage(row.application[0]) : null;
     cell(row.date ? new Date(`${row.date}T12:00:00`).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) : '').className = 'iv-date';
 
     // Job: company badge, the company and the role it's linked to (or why none is).
@@ -319,8 +374,8 @@ function renderSaved() {
     const picker = el('div', 'iv-picker');
     picker.hidden = true;
     const select = document.createElement('select');
-    jobOptions(select, job?.url || '', row.application[0] && !job ? 'Linked in Notion (job not in this list)' : 'No job linked');
-    if (row.application[0] && !job) select.value = '';
+    jobOptions(select, job?.url || '', row.application?.[0] && !job ? 'Linked in Notion (job not in this list)' : 'No job linked');
+    if (row.application?.[0] && !job) select.value = '';
     const pasted = Object.assign(document.createElement('input'), {type: 'url', placeholder: 'https://… then Enter', hidden: true});
     const relink = async url => {
       select.disabled = pasted.disabled = true;
@@ -329,8 +384,10 @@ function renderSaved() {
       select.disabled = pasted.disabled = false;
       message('iv-message', done.ok ? `"${row.title}" is now ${url ? 'linked to that job' : 'not linked to a job'} in Notion.` : done.error, done.ok ? 'ok' : 'error');
       if (done.ok) {
-        if (url && !shared.allJobs.some(j => j.url === url && j.notion_url)) { try { shared.allJobs = (await window.pilot.jobs()).jobs; } catch {} }  // just added to Applications
-        loadSaved();
+        if (url && !jobList().some(j => j.url === url && j.notion_url)) {  // just added to Applications
+          try { const fresh = (await window.pilot.jobs()).jobs; if (Array.isArray(fresh)) shared.allJobs = fresh; } catch {}
+        }
+        readAgain();
       }
     };
     select.addEventListener('change', () => {
@@ -371,7 +428,7 @@ function renderSaved() {
         const done = await iv.remove(row.id);
         message('iv-message', done.ok ? osText(`Deleted "${row.title}": in Notion's trash for 30 days${done.removed ? ', its recording removed from this Mac' : ''}.`)
           : done.error, done.ok ? 'ok' : 'error');
-        loadSaved();
+        readAgain();
       }},
     ];
     actions.append(main, moreButton(menu, 'More: open in Notion, change job, delete'));
@@ -384,12 +441,12 @@ async function reviewRow(pageId) {
   if (!shared.state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get reviews.', 'error'); return; }
   reviewing.add(pageId);
   message('iv-message', 'Claude is reviewing the interview (about a minute)…');
-  loadSaved();
+  readAgain();
   const result = await iv.review(pageId);
   if (result.ok && result.cloud) pendingReviews.add(pageId);  // GitHub reviews it: keep "Reviewing…" until it lands
   else reviewing.delete(pageId);
   message('iv-message', result.ok ? `${result.summary}. The review is on the Notion page.` : result.error, result.ok ? 'ok' : 'error');
-  loadSaved();
+  readAgain();
 }
 
 // Recorder: your microphone on the left channel, the call's audio (screen capture) on the right, so the
@@ -574,7 +631,7 @@ export async function init() {
   });
   $('iv-filter').addEventListener('input', renderSaved);
   $('iv-outcome').addEventListener('change', renderSaved);
-  $('iv-refresh').addEventListener('click', loadSaved);
+  $('iv-refresh').addEventListener('click', readAgain);
   $('iv-recordings').addEventListener('click', () => iv.recordings());
   // Consent first: Record stays off until the box is ticked, and the tick is asked again for every call.
   $('iv-consent').addEventListener('change', () => { $('iv-record').disabled = !$('iv-consent').checked || !!recorder; });

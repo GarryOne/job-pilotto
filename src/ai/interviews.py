@@ -830,7 +830,10 @@ def main(argv=None):
         return 1
     try:
         if args.command == 'list':
-            out = {'ok': True, 'interviews': listing(tracker), 'insight': saved_insight(tracker)}
+            problems = []
+            out = {'ok': True, 'interviews': listing(tracker), 'insight': saved_insight(tracker, problems)}
+            if problems:
+                out['insight_error'] = problems[0]  # the app logs it and says so on the card; the list still shows
         elif args.command == 'save':
             page = save(tracker, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input,
                         page_id=args.page)
@@ -852,13 +855,17 @@ def main(argv=None):
     return 0 if out['ok'] else 1
 
 
-def saved_insight(tracker):
-    """The Interviews page's insight (💡 Insights, Interview patterns), or None; a failed read never fails the list."""
+def saved_insight(tracker, problems=None):
+    """The Interviews page's insight (💡 Insights, Interview patterns), or None; a failed read never fails the list.
+    problems: gets the reason (error type and message, no values), for the app's log and the card."""
     from . import interview_insights
     try:
         return interview_insights.saved(tracker)
     except Exception as error:  # noqa: BLE001
-        print(f'Warning: interview insights unreadable: {type(error).__name__}: {error}', file=sys.stderr)
+        reason = f'{type(error).__name__}: {error}'
+        print(f'Warning: interview insights unreadable: {reason}', file=sys.stderr)
+        if problems is not None:
+            problems.append(reason)
         return None
 
 
