@@ -1304,8 +1304,16 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* "Today" / "Earlier": a quiet label over each group of rows. */
 .activity-panel .recent-group { padding: var(--sp-3) var(--sp-3) var(--sp-1); font-size: var(--fs-sm); color: var(--muted); }
 .activity-panel .recent-group:first-child { padding-top: 0; }
-.activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+/* The time and the status are one column each, the same in every row (the owner's mockup, 30 Sep 2026). With plain
+   "auto auto" each row sized its own two columns from its own pill, so a narrower "Completed" pushed its time and its
+   badge ~15px right of a "With warnings" row and the badges never lined up. The widths fit the longest of each — the
+   time can read "Wed 12:59" (before today: 56px) and the pill "With warnings" (11px/600: 94px) — and minmax keeps a
+   longer label from being clipped, at the cost of that one row's alignment. */
+.activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) minmax(62px, auto) minmax(100px, auto); gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   border: 0; border-top: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-md); }
+/* A run's badge sits in the middle of its column, so "Completed" and "With warnings" (different widths) share one axis. */
+.activity-panel .recent-row > .ui-pill { justify-self: center; }
 /* The first row under a "Today"/"Earlier" label carries no line of its own (the label separates them). */
 .activity-panel .recent-group + li > .recent-row { border-top-color: transparent; }
 .activity-panel .recent-row.current { background: var(--info-soft); box-shadow: inset 0 0 0 1px var(--info-line); border-top-color: transparent; }
