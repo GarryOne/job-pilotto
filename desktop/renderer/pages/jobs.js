@@ -39,30 +39,67 @@ const MODE_TONE = {remote: 'good', hybrid: 'info'};
 // Work in progress on a job (redrafting its kit, tailoring its CV), shown on its row while the menu is closed.
 const busyNotes = new Map();
 
-// Why a fit score: its five parts (risk: lower is better), what speaks for the job and what against.
-const PARTS = [['role_fit', 'Role'], ['location', 'Location'], ['compensation', 'Pay'], ['growth', 'Growth'], ['risk', 'Risk']];
-function fitDetail(job) {
+// Match analysis (the panel a score ring opens): the score's four parts as bars, risk on its own line (lower is
+// better), then what speaks for the job and what against. Notion Job Matches keeps all of it.
+const PARTS = [['role_fit', 'Role fit'], ['location', 'Location'], ['compensation', 'Pay fit'], ['growth', 'Growth']];
+const FIT_LISTS = [['good', 'Why it fits', 'strengths'], ['warn', 'What to check', 'gaps']];
+// One of those two lists: a circled tick (or bang) and a line each, on the tone's soft background.
+function fitCard(tone, title, text) {
+  const items = String(text || '').split(/;\s+/).filter(Boolean);
+  if (!items.length) return null;
+  const card = el('div', `fit-card tone-${tone}`);
+  const ul = el('ul');
+  ul.append(...items.map(item => {
+    const li = el('li');
+    const mark = el('span', 'fit-mark');
+    mark.append(icon(tone === 'good' ? 'check-circle' : 'bang-circle'));
+    li.append(mark, el('span', '', item));
+    return li;
+  }));
+  card.append(el('b', 'fit-card-title', title), ul);
+  return card;
+}
+function fitDetail(job, close) {
   const {parts = {}, strengths = '', gaps = ''} = job.fit_detail || {};
   const box = el('div', 'fit-detail');
-  const scores = el('div', 'fit-parts');
-  for (const [key, label] of PARTS) {
-    if (parts[key] == null) continue;
-    const good = key === 'risk' ? 100 - parts[key] : parts[key];
-    const part = el('span', `fit-part ${band(good)}`);
-    part.append(el('b', '', String(parts[key])), el('span', 'muted small', key === 'risk' ? `${label} (lower is better)` : label));
-    scores.append(part);
+  const head = el('div', 'fit-head');
+  head.append(el('b', 'fit-title', 'Match analysis'));
+  // The second way to close it, next to the ring (Collapse: the standard wording for one).
+  const collapse = Object.assign(el('button', 'fit-collapse', 'Collapse'), {type: 'button'});
+  collapse.append(icon('chevron'));
+  collapse.addEventListener('click', close);
+  head.append(collapse);
+  const lead = el('div', 'fit-lead');
+  lead.append(head);
+  if (job.reason) lead.append(el('p', 'fit-summary', job.reason));
+  box.append(lead);
+  const metrics = PARTS.filter(([key]) => parts[key] != null).map(([key, label]) => {
+    const cell = el('div', `fit-metric ${band(parts[key])}`);
+    cell.style.setProperty('--p', parts[key]);
+    const value = el('span', 'fit-metric-value');
+    value.append(el('b', '', String(parts[key])), el('span', 'muted', '/ 100'));
+    const track = el('span', 'fit-bar');
+    track.append(el('span', 'fit-bar-fill'));
+    cell.append(el('span', 'fit-metric-label', label), value, track);
+    return cell;
+  });
+  if (metrics.length) {
+    const strip = el('div', 'fit-metrics');
+    strip.append(...metrics);
+    box.append(strip);
   }
-  const list = (title, text, tone) => {
-    const items = String(text || '').split(/;\s+/).filter(Boolean);
-    if (!items.length) return [];
-    const section = el('div', `fit-list tone-${tone}`);
-    const ul = el('ul');
-    ul.append(...items.map(item => el('li', '', item)));
-    section.append(el('b', '', title), ul);
-    return [section];
-  };
-  box.append(el('b', 'fit-detail-title', `Why ${job.fit}`), ...(job.reason ? [el('p', 'muted', job.reason)] : []), scores,
-    ...list('For you', strengths, 'good'), ...list('Against', gaps, 'warn'));
+  if (parts.risk != null) {
+    const risk = el('p', `fit-risk ${band(100 - parts.risk)}`);
+    risk.append(icon('alert'), el('b', 'fit-risk-label', 'Risk'), el('b', '', String(parts.risk)),
+      el('span', 'muted', '/ 100 · Lower is better'));
+    box.append(risk);
+  }
+  const cards = FIT_LISTS.map(([tone, title, key]) => fitCard(tone, title, key === 'strengths' ? strengths : gaps)).filter(Boolean);
+  if (cards.length) {
+    const row = el('div', 'fit-cards');
+    row.append(...cards);
+    box.append(row);
+  }
   return box;
 }
 document.addEventListener('sessions-loaded', () => renderStuck());
@@ -122,13 +159,19 @@ export function renderJobs() {
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
     const row = el('article', 'job-row');
-    // Fit: a ring filled to the score (the compact list adds "Strong match" under it).
+    // Fit: a ring filled to the score (the compact list adds "Strong match" under it). A row whose score has a
+    // breakdown behind it says so with a caret, and the ring opens it.
     const fit = el('div', `fit-cell ${band(job.fit)}`);
     const ring = el('div', 'fit-ring');
     ring.style.setProperty('--p', job.fit ?? 0);
     ring.append(el('span', '', job.fit ?? '–'));
-    fit.append(ring, el('span', 'fit-label', matchLabel(job.fit)));
-    fit.title = job.fit == null ? 'Not scored yet: no description to read, or excluded by your filters' : 'Why this score? Click to see';
+    const canOpen = job.fit != null && !!job.fit_detail;
+    const caret = icon('chevron', `icon fit-caret${canOpen ? '' : ' is-hidden'}`);  // on every row: the rings line up
+    const ringRow = el('div', 'fit-ring-row');
+    ringRow.append(ring, caret);
+    fit.append(ringRow, el('span', 'fit-label', matchLabel(job.fit)));
+    fit.title = job.fit == null ? 'Not scored yet: no description to read, or excluded by your filters'
+      : canOpen ? 'Why this score? Click to see' : matchLabel(job.fit);
     const live = sessionFor(job.url);
     const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
 
@@ -335,13 +378,20 @@ export function renderJobs() {
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
-    // The score circle opens why: the score's parts, strengths and gaps (Notion Job Matches keeps them).
-    if (job.fit != null && job.fit_detail) {
+    // The score ring opens why: Match analysis (the score's parts, strengths and gaps; Notion Job Matches keeps
+    // them). The caret turns with it, and the row's own one-line summary steps aside for the panel's lead.
+    if (canOpen) {
+      const close = () => {
+        row.querySelector('.fit-detail')?.remove();
+        fit.classList.remove('is-open');
+        fit.title = 'Why this score? Click to see';
+      };
       fit.classList.add('is-clickable');
       fit.addEventListener('click', () => {
-        const open = row.querySelector('.fit-detail');
-        if (open) { open.remove(); return; }
-        row.append(fitDetail(job));
+        if (row.querySelector('.fit-detail')) { close(); return; }
+        fit.classList.add('is-open');
+        fit.title = 'Hide the match analysis';
+        row.append(fitDetail(job, close));
       });
     }
     body.append(row);
