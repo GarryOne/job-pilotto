@@ -1472,3 +1472,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .steps-privacy { display: flex; gap: var(--sp-2); align-items: flex-start; margin: var(--sp-3) 12px 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--on-rail-3); }
 .steps-privacy .icon { flex: none; width: 14px; height: 14px; margin-top: 1px; }
 .steps-foot .app-version { margin: var(--sp-2) 12px 0; }
+
+/* The version under the setup sidebar: one quiet line, cut with … if long (the full text on hover). */
+.steps-foot .app-version { margin: var(--sp-2) 12px 0; padding: 0; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }

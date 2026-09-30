@@ -64,10 +64,23 @@ export function claudeSignedIn(home = os.homedir(), read = fs.readFileSync) {
   try { return !!JSON.parse(read(path.join(home, '.claude.json'), 'utf8')).oauthAccount; } catch { return false; }
 }
 
-// What Apply with Claude needs that only the user can set up, for the wizard's checklist (the Claude in
-// Chrome extension can't be seen from here, so it's a link only).
-export function claudePrereqs(platform = process.platform, {binary = claudeBinary, signedIn = claudeSignedIn, bash = gitBash} = {}) {
-  return {claude: !!binary(), signedIn: signedIn(), git: platform === 'win32' ? !!bash() : null, windows: platform === 'win32'};
+// The Claude in Chrome extension (Chrome Web Store id), found in any Chrome profile's Extensions folder. Whether it's
+// signed in can't be seen from here; installed is what we can check.
+export const CLAUDE_IN_CHROME = 'fcoeoabgfenejglbffodgkkbkcdhcgfn';
+export function chromeProfiles(platform = process.platform, home = os.homedir(), env = process.env) {
+  if (platform === 'darwin') return path.join(home, 'Library', 'Application Support', 'Google', 'Chrome');
+  if (platform === 'win32') return path.join(env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Google', 'Chrome', 'User Data');
+  return path.join(home, '.config', 'google-chrome');
+}
+export function claudeInChrome(root = chromeProfiles(), list = dir => fs.readdirSync(dir)) {
+  try {
+    return list(root).some(profile => { try { return list(path.join(root, profile, 'Extensions')).includes(CLAUDE_IN_CHROME); } catch { return false; } });
+  } catch { return false; }
+}
+
+// What Apply with Claude needs that only the user can set up, for the wizard's checklist.
+export function claudePrereqs(platform = process.platform, {binary = claudeBinary, signedIn = claudeSignedIn, bash = gitBash, chrome = claudeInChrome} = {}) {
+  return {claude: !!binary(), signedIn: signedIn(), git: platform === 'win32' ? !!bash() : null, windows: platform === 'win32', chrome: chrome()};
 }
 
 // Apply with Claude works when Claude Code is installed (with Git for Windows there) and Notion holds the kits.

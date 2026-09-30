@@ -33,7 +33,12 @@ export const readable = fragment => fragment.replace(/\\b/g, '').replace(/\[([^\
 export async function init() {
   localize(document.body, window.pilot.platform);
   fillIcons();
-  for (const line of document.querySelectorAll('[data-version]')) line.textContent = `Version ${shared.state.about.label}`;
+  for (const line of document.querySelectorAll('[data-version]')) {
+    // The setup sidebar: a short line (the full label with build and commit on hover); elsewhere the full label.
+    const short = line.closest('.steps-foot');
+    line.textContent = short ? `Version ${shared.state.about.version}${shared.state.about.build ? '' : ' · dev'}` : `Version ${shared.state.about.label}`;
+    line.title = `Version ${shared.state.about.label}`;
+  }
   for (const line of document.querySelectorAll('[data-version-title]')) line.title = `Version ${shared.state.about.label}`;
   // Running from source (npm start): a DEV tag next to the name, so it's never mistaken for the installed app.
   if (shared.state.about.dev) for (const brand of document.querySelectorAll('.brand')) brand.append(Object.assign(document.createElement('span'), {className: 'dev-tag', textContent: 'DEV'}));

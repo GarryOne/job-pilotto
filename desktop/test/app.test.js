@@ -495,8 +495,8 @@ test('Apply with Claude checklist: Claude Code found and signed in, Git for Wind
   const signedIn = apply.claudeSignedIn('/home/x', () => JSON.stringify({oauthAccount: {emailAddress: 'a@b.c'}}));
   assert.equal(signedIn, true);
   assert.equal(apply.claudeSignedIn('/home/x', () => { throw new Error('no file'); }), false);
-  assert.deepEqual(apply.claudePrereqs('darwin', {binary: () => '/usr/local/bin/claude', signedIn: () => false, bash: () => ''}),
-    {claude: true, signedIn: false, git: null, windows: false});
+  assert.deepEqual(apply.claudePrereqs('darwin', {binary: () => '/usr/local/bin/claude', signedIn: () => false, bash: () => '', chrome: () => true}),
+    {claude: true, signedIn: false, git: null, windows: false, chrome: true});
   assert.equal(apply.claudePrereqs('win32', {binary: () => '', signedIn: () => true, bash: () => 'C:\\Program Files\\Git\\bin\\bash.exe'}).git, true);
   const bash = 'C:\\Program Files\\Git\\bin\\bash.exe';
   assert.equal(apply.gitBash({ProgramFiles: 'C:\\Program Files'}, file => file === bash), bash);
@@ -592,4 +592,13 @@ test('the window is one module per page, and every import between them resolves'
   const {readdirSync} = await import('node:fs');
   const pages = readdirSync(new URL('../renderer/pages/', import.meta.url)).filter(file => file.endsWith('.js'));
   assert.ok(pages.length > 10 && pages.includes('shared.js'));
+});
+
+test('Claude in Chrome: found in any Chrome profile, false when Chrome or the extension is missing', async () => {
+  const {claudeInChrome, CLAUDE_IN_CHROME} = await import('../lib/apply.js');
+  const fsTree = {'/c': ['Default', 'Profile 1', 'Local State'], '/c/Default/Extensions': ['abc'], '/c/Profile 1/Extensions': [CLAUDE_IN_CHROME]};
+  const list = dir => { if (!fsTree[dir]) throw new Error('ENOENT'); return fsTree[dir]; };
+  assert.equal(claudeInChrome('/c', list), true);
+  assert.equal(claudeInChrome('/c', dir => (dir === '/c' ? ['Default'] : list(dir))), false);
+  assert.equal(claudeInChrome('/missing', list), false);
 });
