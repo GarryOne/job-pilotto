@@ -237,6 +237,10 @@
             {
               "name": "LinkedIn",
               "color": "purple"
+            },
+            {
+              "name": "Job Pilotto app",
+              "color": "orange"
             }
           ]
         },
@@ -1219,6 +1223,10 @@
             },
             {
               "name": "Calendar",
+              "color": "orange"
+            },
+            {
+              "name": "Job Pilotto app",
               "color": "orange"
             }
           ]
