@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # apply-batch-claude.sh — open one new Terminal window per job, each running its own
-# interactive Claude Code session in the sre-watch repo, pre-seeded with an apply-to-job prompt.
+# interactive Claude Code session in the job-pilotto repo, pre-seeded with an apply-to-job prompt.
 #
 # Unlike send-to-chatgpt.sh (which has to paste into a single shared desktop-app window because
 # there's no CLI/API access to it), Claude Code has a real CLI — so this spawns genuinely separate
@@ -17,7 +17,7 @@
 # No --dry-run here (a spawned Claude Code session has no such mode) — use it on
 # apply-batch-chatgpt.sh or apply-batch-codex-terminal.sh instead to preview a job list.
 #
-# Requires: the `jobpilot` alias's target repo checked out at ~/sre-watch, Terminal.app, and
+# Requires: the `jobpilot` alias's target repo checked out at ~/job-pilotto, Terminal.app, and
 #           Accessibility permission for whichever app runs this script (System Settings ->
 #           Privacy & Security -> Accessibility) so System Events can open Terminal windows.
 #
@@ -37,7 +37,7 @@
 
 set -euo pipefail
 
-REPO_DIR="$HOME/sre-watch"
+REPO_DIR="$HOME/job-pilotto"
 TERMINAL_APP="Terminal"   # switch to "iTerm" if that's what's installed/preferred
 GAP=3                     # seconds between spawning windows, so they don't all hit Chrome/Notion at once simultaneously
 
@@ -96,7 +96,7 @@ TMP_DIR="$(mktemp -d)"
 disown
 
 # Started by the Mac app (it passes its settings in the environment): the Terminal session must use the app's
-# Notion workspace and folder, not ~/sre-watch/.env. They go to each window through a private file (umask 077)
+# Notion workspace and folder, not ~/job-pilotto/.env. They go to each window through a private file (umask 077)
 # that the new shell reads and deletes at once; the folder is removed after a minute anyway.
 write_session_env() {
   [ -n "${JOB_PILOTTO_CONFIG_DIR:-}" ] || return 0

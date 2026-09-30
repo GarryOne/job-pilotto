@@ -156,11 +156,11 @@ in that file next time — keep evolving it.
       of discovering it piecemeal later.
 
 ## Before you start (session/tooling gotchas, 25 Sep 2026)
-- **This skill is project-scoped to sre-watch.** If the session started in a different working
+- **This skill is project-scoped to job-pilotto.** If the session started in a different working
   directory, the `Skill` tool's registry does not pick it up even after `cd`-ing into
-  `/Users/mac/sre-watch` mid-session (observed: two failed `Skill("apply-to-job")` calls in a row).
+  `/Users/mac/job-pilotto` mid-session (observed: two failed `Skill("apply-to-job")` calls in a row).
   Don't retry the `Skill` tool after a `cd` — go straight to `Read` on
-  `/Users/mac/sre-watch/.claude/skills/apply-to-job/SKILL.md` and follow it as plain instructions.
+  `/Users/mac/job-pilotto/.claude/skills/apply-to-job/SKILL.md` and follow it as plain instructions.
 - **Kit lookup: skip the schema fetch.** The Applications data source URL
   (`collection://346d7756-bafc-4dff-881f-2710819d90da`) and the `Job URL` column name are already
   known (see Inputs below) — go straight to a `notion-query-data-sources` SQL query
@@ -723,7 +723,7 @@ gate enforced in code rather than by the model's own judgment call." Re-test bef
   CV uploaded, all 4 dropdowns), verified field-by-field, left open for the owner; nothing
   submitted. One misclick along the way (screenshot-scale bug, see above), caught and corrected.
 - 2026-09-25 · Greenhouse · Canonical Senior SRE · form filled from a session that started outside
-  sre-watch (had to `cd` in and read SKILL.md as a plain file — the `Skill` tool never picked up the
+  job-pilotto (had to `cd` in and read SKILL.md as a plain file — the `Skill` tool never picked up the
   project-scoped skill after `cd`, see "Before you start" above). Owner self-assessed dead time
   afterward and asked for fixes: added the skip-schema-fetch SQL shortcut for kit lookup, the
   phone-country-code-vs-work-country field disambiguation, and the resume-upload verification note

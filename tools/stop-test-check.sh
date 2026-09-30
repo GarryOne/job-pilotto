@@ -21,7 +21,7 @@ if [ -f "$transcript" ]; then
   while IFS= read -r p; do dirs+=("$p"); done < <(
     tail -n 4000 "$transcript" | jq -r 'select(.type=="assistant") | .message.content[]?
       | select(.type=="tool_use") | .input | (.file_path // .notebook_path // empty), (.command // empty)' 2>/dev/null |
-      grep -oE '(/[^[:space:]"'"'"'`;|&()]+)' | grep -E '\.claude/worktrees/|/sre-watch' |
+      grep -oE '(/[^[:space:]"'"'"'`;|&()]+)' | grep -E '\.claude/worktrees/|/job-pilotto' |
       sed -E 's#(\.claude/worktrees/[^/]+).*#\1#' | sort -u | head -50)
 fi
 repos=()

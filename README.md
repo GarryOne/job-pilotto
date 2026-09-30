@@ -743,7 +743,7 @@ order:
      the apply-to-job prompt, so several applications run in parallel unattended until each needs
      your review. Pass job URLs directly, `-f jobs.txt`, or `--max N` / `-n N` to auto-pick the N
      highest-scored jobs with a kit via `python -m src.ai.apply_batch --next N` (score comes from
-     the Job Matches — AI Scored Notion database). The `jobpilot` shell alias (`cd ~/sre-watch &&
+     the Job Matches — AI Scored Notion database). The `jobpilot` shell alias (`cd ~/job-pilotto &&
      claude`) is worth setting up alongside this so a plain `claude` session also always starts in
      the right directory. Each session gets everything in one call
      (`python3 -m src.ai.apply_run --context <URL>`: kit, Profile, Application Answers, learnings),

@@ -37,11 +37,11 @@ uploaded to Notion (expiring links), views.
 4. **Check, then copy:**
    ```
    python3 tools/notion_copy.py ids  --token job-pilotto.notion-app.token          # target found, only one copy?
-   python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/sre-watch/.env \
+   python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/job-pilotto/.env \
        --to job-pilotto.notion-app.token --dry-run                                  # row counts per database
-   python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/sre-watch/.env \
+   python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/job-pilotto/.env \
        --to job-pilotto.notion-app.token --replace                                  # the copy
-   python3 tools/notion_copy.py settings --token job-pilotto.notion-app.token --config ~/sre-watch/config
+   python3 tools/notion_copy.py settings --token job-pilotto.notion-app.token --config ~/job-pilotto/config
    ```
    `--replace` sends the target's own rows (e.g. the wizard's first search) to Notion's trash (restorable 30 days)
    and replaces its Profile / Standard answers with the source's.
@@ -50,7 +50,7 @@ uploaded to Notion (expiring links), views.
 
 ## Switching everything else to the new workspace (only when the owner asks)
 - Terminal: `python3 tools/notion_copy.py ids --token job-pilotto.notion-app.token --env` → replace the
-  `NOTION_*` lines of `~/sre-watch/.env`; keep the old token as `job-pilotto.notion-original.token` and store the
+  `NOTION_*` lines of `~/job-pilotto/.env`; keep the old token as `job-pilotto.notion-original.token` and store the
   new one as `job-pilotto.notion.token`.
 - Telegram bot: `worker/wrangler.toml` `NOTION_*` vars → new IDs, `npx wrangler@4 secret put NOTION_TOKEN`, deploy.
 - GitHub: the engine repo's `NOTION_TOKEN` secret (fill-failure intake) and, if cloud runs are on, the private

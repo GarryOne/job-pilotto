@@ -20,7 +20,7 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
    then Read the printed PNG. Pages other than the first: reach them by clicking (`.nav[data-view=settings]`, `[data-settings-go=…]`).
    State instead of pixels: `--eval "…JSON.stringify(…)" --no-picture`.
 5. Commit (trailer from the session), `git fetch && git rebase origin/main`, test again, `git push origin HEAD:main`,
-   then `git -C ~/sre-watch pull --ff-only`.
+   then `git -C ~/job-pilotto pull --ff-only`.
 6. Tell the owner **⌘R** (window only) or **restart** (main.js, lib/, preload.cjs, Python changed).
 
 ## Traps that caused real bugs

@@ -12,11 +12,11 @@ Tokens are read from the macOS Keychain by service name (never printed), e.g. jo
     python3 tools/notion_copy.py create --token job-pilotto.notion-test.token --parent <page id>
     # 3. Copy (--replace: target rows that didn't come from this source go to Notion's trash first,
     #    and the target's Profile / Standard answers are replaced; --dry-run: only count)
-    python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/sre-watch/.env \
+    python3 tools/notion_copy.py copy --from job-pilotto.notion.token --from-ids ~/job-pilotto/.env \
         --to job-pilotto.notion-app.token [--replace] [--dry-run]
     # (one token that sees both workspaces: --to the same token, --to-ids "~/Library/Application Support/Job Pilotto/settings.json")
     # 4. Optional: write ⚙️ Search settings from a config folder (search.json + preferences.json)
-    python3 tools/notion_copy.py settings --token job-pilotto.notion-app.token --config ~/sre-watch/config
+    python3 tools/notion_copy.py settings --token job-pilotto.notion-app.token --config ~/job-pilotto/config
 
 What isn't copied: people fields (user ids differ per workspace), formulas and rollups (Notion computes them),
 files uploaded to Notion (their links expire; external links are kept), database views (not in the API).
