@@ -588,9 +588,8 @@ function renderMailCard(report) {
   const {interview} = report;
   if (interview) {
     const panel = el('section', 'mail-interview');
-    const head = el('div', 'mail-interview-head');
     const words = el('div', 'mail-interview-words');
-    words.append(el('p', 'mail-kicker', 'Upcoming interview · Existing context'),
+    words.append(el('p', 'mail-kicker', 'Upcoming interview'),
       el('h3', '', [interview.title, interview.company].filter(Boolean).join(' · ')));
     const line = [interview.where, interview.summary].filter(Boolean).join(' · ');
     if (line) words.append(el('p', 'mail-where', line));
@@ -598,7 +597,7 @@ function renderMailCard(report) {
     const side = el('div', 'mail-interview-side');
     if (interview.when) {
       const when = el('span', 'mail-when');
-      when.append(icon('calendar'), interview.when);
+      when.append(icon('calendar'), interview.when.replace(/\s+(\d{1,2}:\d{2})$/, ' · $1'));
       side.append(when);
     }
     if (report.url) {
@@ -606,8 +605,7 @@ function renderMailCard(report) {
       view.dataset.link = report.url;
       side.append(view);
     }
-    head.append(words, side);
-    panel.append(head);
+    panel.append(words, side);
     box.append(panel);
   }
   if (report.topics.length || report.nextSteps.length) {
@@ -617,11 +615,7 @@ function renderMailCard(report) {
       left.append(el('h4', '', 'Prepare for the conversation'),
         el('p', 'mail-sub', 'Topics to strengthen from previous interviews'));
       const list = el('ul', 'mail-topics');
-      report.topics.forEach(topic => {
-        const item = el('li', '');
-        item.append(icon('check-circle'), topic);
-        list.append(item);
-      });
+      report.topics.forEach(topic => list.append(el('li', '', topic)));
       left.append(list);
       columns.append(left);
     }

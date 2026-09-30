@@ -37,8 +37,10 @@ test('the prep message becomes the interview, its topics, the next step and the 
     people: ['Seosahai - Nejati', 'Jayantie'],
   });
   assert.deepEqual(report.topics, ['Tenure / commitment', 'Customer bridge calls', 'Non-public-cloud infrastructure and security']);
-  assert.equal(report.nextSteps.length, 1);
-  assert.match(report.nextSteps[0], /^Recruiter to follow up on nationality/);
+  assert.deepEqual(report.nextSteps, [  // the pipeline's own clause boundary is where the paragraphs break
+    'Recruiter to follow up on nationality/location constraints and salary expectations.',
+    'With a further call planned to discuss compensation and contractual setup (B2B vs employee).',
+  ]);
   assert.equal(report.consent, 'Recording? Ask everyone for consent at the start.');
   assert.equal(report.url, 'https://app.notion.com/p/Principal-SRE-via-Huxley-3ea62be8fd8681299dd8cc115550b8da');
   assert.deepEqual(report.notes, []);  // every line found its place

@@ -27,6 +27,16 @@ export function mailStatus(result) {
   return {title: 'Check complete', sentence: `${read} ${changed}`};
 }
 
+// A next step with a clause in it reads as two paragraphs ("…salary expectations, with a further call planned to
+// discuss …"): the pipeline's own punctuation decides the breaks, no word is added or dropped.
+const paragraphs = text => String(text).split(/,\s+(?=with\b)/i)
+  .flatMap(part => part.split(/(?<=\.)\s+(?=[A-Z])/))
+  .map((part, i) => {
+    const sentence = i ? part.charAt(0).toUpperCase() + part.slice(1) : part;
+    return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;  // a comma became a break: finish the sentence
+  })
+  .filter(Boolean);
+
 export function parseMailReport(message, result = '') {
   const lines = String(message || '').split('\n').map(line => line.trim()).filter(Boolean);
   if (!lines.length) return null;
@@ -42,7 +52,7 @@ export function parseMailReport(message, result = '') {
     const topic = TOPIC.exec(line);
     if (topic && reading === 'topics') { report.topics.push(topic[1]); continue; }
     const step = NEXT_STEP.exec(line);
-    if (step) { report.nextSteps.push(step[1]); reading = 'next'; continue; }
+    if (step) { report.nextSteps.push(...paragraphs(step[1])); reading = 'next'; continue; }
     if (reading === 'meeting' && report.interview) {
       const people = PEOPLE.exec(line);
       if (people) {

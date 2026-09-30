@@ -1360,39 +1360,39 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .activity-warnings li + li { margin-top: var(--sp-1); }
 /* A small inline link's focus ring: still clearly visible, but not a box drawn around two words. */
 .alert-actions .link:focus-visible { outline-width: 2px; outline-offset: 1px; border-radius: var(--r-sm); }
-/* A Gmail check's card (renderer/mail-report.js): what the check did, the interview it is about, what to prepare, the
-   recruiter's next step, and the consent line — one surface, the interview on its own tinted panel. */
-.mail-card { display: grid; gap: var(--sp-3); align-content: start; }
-.mail-status { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+/* A Gmail check's card (renderer/mail-report.js): one surface whose bands are the parts of the check — what it did,
+   the interview it is about, what to prepare and the recruiter's next step, and the consent line (the mockup, 30 Sep). */
+.mail-card { display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.mail-status { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); }
 .mail-tick { display: inline-flex; color: var(--good); flex: none; }
 .mail-tick .icon { width: 20px; height: 20px; }
 .mail-status-text { color: var(--muted); padding-left: var(--sp-3); border-left: 1px solid var(--line); }
-.mail-interview { display: grid; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); background: var(--strip);
-  border: 1px solid var(--line); border-radius: var(--r-lg); }
-.mail-interview-head { display: flex; align-items: flex-start; gap: var(--sp-4); }
+/* The interview, on its own tinted band right across the card. */
+.mail-interview { display: flex; align-items: flex-start; gap: var(--sp-4); padding: var(--sp-4);
+  background: var(--strip); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .mail-interview-words { flex: 1; min-width: 0; }
 .mail-kicker { margin: 0; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .mail-interview-words h3 { margin: var(--sp-1) 0 0; font-size: var(--fs-xl); }
-.mail-where { margin: var(--sp-1) 0 0; color: var(--ink-2); }
-.mail-people { margin: var(--sp-1) 0 0; color: var(--muted); font-size: var(--fs-sm); }
+.mail-where { margin: var(--sp-2) 0 0; color: var(--ink-2); }
+.mail-people { margin: var(--sp-1) 0 0; color: var(--muted); }
 .mail-interview-side { display: grid; gap: var(--sp-3); justify-items: end; flex: none; }
 .mail-when { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3);
   border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface); font-weight: 600; }
 .mail-when .icon { width: 15px; height: 15px; color: var(--muted); }
-.mail-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+/* Two columns while there is room; a narrow panel stacks them rather than squeezing the words. */
+.mail-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-5); padding: var(--sp-4); }
 .mail-block { display: grid; gap: var(--sp-1); align-content: start; }
-.mail-block + .mail-block { border-left: 1px solid var(--line); padding-left: var(--sp-4); }
-.mail-block-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-.mail-block h4 { margin: 0; font-size: var(--fs-xl); font-weight: 600; }
-.mail-block p { margin: var(--sp-1) 0 0; color: var(--ink-2); }
-.mail-sub { color: var(--muted); font-size: var(--fs-sm); }
-.mail-topics, .mail-notes { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
-.mail-topics li { display: flex; align-items: center; gap: var(--sp-2); }
-.mail-topics .icon { width: 18px; height: 18px; color: var(--muted); flex: none; }
+.mail-block + .mail-block { border-left: 1px solid var(--line); padding-left: var(--sp-5); }
+/* The heading and its pill: the pill drops to the next line rather than breaking a word ("Recruiter follow-up"). */
+.mail-block-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.mail-block h4 { margin: 0; font-size: var(--fs-xl); font-weight: 600; white-space: nowrap; }
+.mail-block p { margin: var(--sp-3) 0 0; color: var(--ink-2); }
+.mail-sub { margin-top: var(--sp-1); color: var(--muted); }
+.mail-topics { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-2); color: var(--ink-2); }
+.mail-notes { list-style: none; margin: 0; padding: 0 var(--sp-4) var(--sp-4); display: grid; gap: var(--sp-2); }
 .mail-notes li { display: flex; gap: var(--sp-2); color: var(--ink-2); }
 .mail-note-icon { flex: none; }
-.mail-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding-top: var(--sp-3);
+.mail-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--line); color: var(--muted); }
 .mail-consent .icon { width: 18px; height: 18px; flex: none; }
 .activity-panel .ap-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
