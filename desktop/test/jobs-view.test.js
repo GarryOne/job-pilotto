@@ -194,8 +194,9 @@ test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and Inb
   assert.match(html, /<b id="stat-inbound">–<\/b><span>Inbound<\/span>/);
 });
 
-test('the "I agreed to speak with the recruiter" checkbox only applies before the first call', async () => {
-  const {PAST_FIRST_CALL} = await import('../renderer/jobs-view.js');
-  for (const stage of ['Screening', 'Interview scheduled', 'Interviewing', 'Offer']) assert.ok(PAST_FIRST_CALL.has(stage), stage);
-  for (const stage of ['Recruiter lead', 'Saved', 'Kit ready', 'Applied', '']) assert.ok(!PAST_FIRST_CALL.has(stage), stage);
+test('the "I agreed to speak with the recruiter" checkbox is for a first log or a recruiter lead, never an update', async () => {
+  const {agreeApplies} = await import('../renderer/jobs-view.js');
+  assert.ok(agreeApplies(null));  // no job chosen (automatic or a new job)
+  assert.ok(agreeApplies({stage: 'Recruiter lead'}));
+  for (const stage of ['Screening', 'Interview scheduled', 'Interviewing', 'Offer', 'Applied', 'Saved', 'Kit ready', 'Rejected', '']) assert.ok(!agreeApplies({stage}), stage);
 });

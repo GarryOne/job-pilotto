@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {PAST_FIRST_CALL, ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
+import {agreeApplies, ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
 import {$, message, savedAgo, show} from './core.js';
@@ -500,13 +500,14 @@ export function openLogFor(url, label = '') {
   $('lead-target').value = url;
   syncTalkingRow();
 }
-// "I agreed to speak with the recruiter" only means something for a job not yet at Screening (or one not chosen yet).
+// "I agreed to speak with the recruiter" is for a first log (a new job, or the job not chosen yet) and for a recruiter lead
+// you have just said yes to; an update on any other existing job never shows it.
 function syncTalkingRow() {
   const url = $('lead-target').value;
   const job = url && url !== 'new' ? shared.allJobs.find(entry => pageKey(entry.url) === pageKey(url)) : null;
-  const past = !!job && PAST_FIRST_CALL.has(job.stage);
-  $('lead-talking').closest('.check-row').style.display = past ? 'none' : '';
-  if (past) $('lead-talking').checked = false;
+  const applies = agreeApplies(job);
+  $('lead-talking').closest('.check-row').style.display = applies ? '' : 'none';
+  if (!applies) $('lead-talking').checked = false;
 }
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
 function setDensity(value) {
