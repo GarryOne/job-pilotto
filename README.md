@@ -937,7 +937,6 @@ python3 -m src.notion.ledger sync --dry-run               # what the scheduled s
 python3 -m src.notion.ledger backfill                     # records for applications made before the ledger
 python3 -m src.notion.ledger add <job_url> --applied "on or before 23 Sep"   # an application made elsewhere
 python3 -m src.notion.ledger event <job_url> "Reply received" --note "invited to book a call"
-python3 -m src.notion.ledger --dedupe-events [--apply]   # debugging: list (or trash) repeated events; jobs tidy them automatically
 python3 -m src daily --send --mode insight                # today's insight now (Sonnet 5, ~USD 0.03)
 python3 -m src daily --send --mode weekly                 # the weekly report now (Sonnet 5, ~USD 0.04)
 python3 -m src.sources.google auth --github                # connect Gmail + Calendar (shared app)

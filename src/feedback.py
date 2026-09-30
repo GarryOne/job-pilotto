@@ -5,7 +5,7 @@ import hashlib
 import json
 
 from .notion import client as notion
-from .notion.ledger import EVENTS_DATABASE_ID, add_event, heal_touched, moment, plain
+from .notion.ledger import EVENTS_DATABASE_ID, add_event, moment, plain
 
 REACHED = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
 REQUESTED, RECEIVED, REVIEWED, SKIPPED = ('Feedback requested', 'Feedback received', 'Feedback reviewed', 'Feedback skipped')
@@ -112,7 +112,6 @@ def main(argv=None):
         raise SystemExit('Notion is required to save feedback.')
     try:
         act(tracker, tracker._request('GET', f'pages/{args.page_id}'), args.action, args.text)
-        heal_touched(tracker)
         print(json.dumps({'ok': True}))
     except ValueError as error:
         print(json.dumps({'ok': False, 'error': str(error)}))

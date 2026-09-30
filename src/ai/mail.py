@@ -332,6 +332,7 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
     guessed = index[2] if len(index) > 2 else set()
     if source_id in known:
         return None
+    interview_at = ledger.plausible_interview(interview_at, at) or None  # never a misread year (26 Sep 2024 in 2026)
     if feedback_text and kind != 'Rejected':
         kind = employer_feedback.RECEIVED
     if kind == employer_feedback.RECEIVED and not feedback_text.strip():
@@ -343,17 +344,20 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         employer_feedback.receive(tracker, row, feedback_text)
     event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note,
                                                     source_id=source_id, interview_at=interview_at or '')
-    if event.get('_existing'):  # this job already has that event (same kind, same interview): nothing new to write
-        known.add(source_id)
+    if event.get('_existing') and not (interview_at and not ledger.event_interview_at(event)):
+        known.add(source_id)  # this job already has that event (same kind, same interview): nothing new to write
         return None
+    if event.get('_existing'):  # an interview logged without its time: this item gives it (Changes, Next interview)
+        fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
+        _optional(tracker.update_page, event['id'], {'Changes': changes_text(fields, interview_at, email)})
+        known.add(source_id)
+        return kind if fields else None
     by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
     fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
     adopted = {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}}
     if twin and twin[0] in guessed:  # the watcher's guess ("Stage changed in Notion") was this item: it says so now
         adopted.update({'Source': {'select': {'name': source}}, 'Note': {'rich_text': [{'text': {'content': note[:1900]}}]}})
         guessed.discard(twin[0])
-    if twin:
-        ledger.touched(tracker, row)
     tracker.update_page(event['id'], adopted)
     _optional(tracker.update_page, event['id'], {'Changes': changes_text(fields, interview_at, email)})
     known.add(source_id)
@@ -458,6 +462,8 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
         if email.get('invite_at') and result.get('relevant'):
             # The invitation's own start (its calendar part), never a time the AI read from the text.
             result['interview_at'] = email['invite_at']
+        elif result.get('relevant'):  # an AI reading: never an impossible time (a wrong year), for any job or question
+            result['interview_at'] = ledger.plausible_interview(result.get('interview_at'), email['date'])
         row = apps[result['application']] if result.get('relevant') and 0 <= result.get('application', -1) < len(apps) else None
         guess = None  # the job the AI picked but can't be trusted with: suggested when the owner is asked
         if row is not None and not _names_it(row, email):
@@ -919,7 +925,6 @@ def main(argv=None):
         from . import added  # jobs tracked from an email get facts and a fit score, like found ones
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
                   stats=stats, on_new=added.hook(tracker, JOBS_DB, log), always_report=args.always_report))
-        ledger.heal_touched(tracker)  # duplicate events on the jobs this check wrote to: tidied (listed in its run row)
         if logged:
             log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash

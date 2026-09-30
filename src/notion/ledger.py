@@ -18,8 +18,6 @@ Usage:
   python -m src.notion.ledger record <job URL> [--agent claude] [--force]
   python -m src.notion.ledger event <job URL> <stage> [--note TEXT]
   python -m src.notion.ledger sync [--dry-run]
-  python -m src.notion.ledger --dedupe-events [--apply]   # list (or trash) repeated events (debugging)
-  python -m src.notion.ledger --dedupe-events --auto      # the automatic tidy the app and every event-writing job run
   python -m src.notion.ledger backfill        # record every application tracked before the ledger
   python -m src.notion.ledger add <job URL> [--applied "on or before 23 Sep"] [--channel ...] [--via ...]
 """
@@ -37,7 +35,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from . import client as notion
-from . import origin as origin_rule, titles
+from . import origin as origin_rule
 from ..ai import kit as kit_module
 from ..sources import ats
 
@@ -366,11 +364,39 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
     return row, 'recorded'
 
 
+# The stage watcher's guesses (ledger.sync): a real item (an email, an invite) that matches one adopts it and gives it
+# its own Source and note (src/ai/mail.py record).
+WATCHER_SOURCES = ('Notion edit', 'Backfill')
+
+# An interview time read from a message can be impossible: "Sep 26" in a chat pasted on 21 Sep 2026 once became
+# 26 Sep 2024. Nobody logs a call weeks gone as newly scheduled, nor one over a year ahead: such a time is never stored
+# (the event is written without it; the app's log asks "When is the call?").
+PAST_INTERVIEW_DAYS = 30
+FUTURE_INTERVIEW_DAYS = 365
+
+
+def plausible_interview(interview_at, said_at=None):
+    """interview_at when it can be right for a message sent or logged at said_at (default: now), else '' (with a
+    warning on stderr). A time that can't be read is '' too."""
+    from datetime import timedelta
+    if not interview_at:
+        return ''
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+    when = moment(str(interview_at))
+    if when == floor:
+        return ''
+    said = moment(str(said_at or ''))
+    said = datetime.now(timezone.utc) if said == floor else said
+    if when < said - timedelta(days=PAST_INTERVIEW_DAYS) or when > said + timedelta(days=FUTURE_INTERVIEW_DAYS):
+        print(f'Interview time {str(interview_at)[:16]} not saved: impossible for a message of {said:%Y-%m-%d}',
+              file=sys.stderr)
+        return ''
+    return interview_at
+
+
 # Stage kinds are once per application (one Screening, one Rejected, ...); "Interview scheduled" repeats only for
 # another interview date/time. Every other kind (replies, cancellations, feedback asks) repeats, but never for the
 # same Source ID (a Gmail message id).
-CATCH_UP_NOTES = ('Already talking to the recruiter when tracked', 'Stage changed in Notion',
-                  'First event for an application tracked before the ledger')
 
 
 def _link_ids(event):
@@ -423,7 +449,9 @@ def existing_event(tracker, page, kind, *, source_id='', interview_at=''):
 
 def add_event(tracker, page, kind, source, *, at=None, note='', source_id='', interview_at=''):
     """One 📈 Application Events row linked to the Applications page. Idempotent: an event this one would repeat
-    (see existing_event) is not written again; that existing row is returned, marked `_existing`."""
+    (see existing_event) is not written again; that existing row is returned, marked `_existing`. An impossible
+    interview time (plausible_interview) is never stored."""
+    interview_at = plausible_interview(interview_at, at)
     found = existing_event(tracker, page, kind, source_id=source_id, interview_at=interview_at)
     if found:
         return {**found, '_existing': True}
@@ -447,14 +475,10 @@ def add_event(tracker, page, kind, source, *, at=None, note='', source_id='', in
         properties['Job URL'] = {'url': url}
     if interview_at:  # what makes a second "Interview scheduled" a new one; Changes is optional (older workspaces)
         try:
-            created = tracker.create_page(EVENTS_DATABASE_ID, {**properties, 'Changes': _text(json.dumps({'fields': {}, 'interview_at': interview_at}))})
-            touched(tracker, page)
-            return created
+            return tracker.create_page(EVENTS_DATABASE_ID, {**properties, 'Changes': _text(json.dumps({'fields': {}, 'interview_at': interview_at}))})
         except Exception:  # noqa: BLE001
             pass
-    created = tracker.create_page(EVENTS_DATABASE_ID, properties)
-    touched(tracker, page)  # the job's end tidies this application's events (heal_touched)
-    return created
+    return tracker.create_page(EVENTS_DATABASE_ID, properties)
 
 
 def mark_applied(tracker, url, source='CLI', **record_options):
@@ -557,222 +581,6 @@ def sync(tracker, now=None, no_response_days=NO_RESPONSE_DAYS, dry_run=False):
                           note=f'No reply {(now.date() - applied).days} days after applying')
             silent += 1
     return f'Ledger sync: {len(rows)} applications, {logged} stage change(s) logged, {silent} moved to No response.'
-
-
-def _local_day(value):
-    from zoneinfo import ZoneInfo
-    return moment(value).astimezone(ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))).date()
-
-
-# ---- Duplicate events: found and removed automatically (heal), or listed from the command line (--dedupe-events) ----
-# An "Interview scheduled" whose interview time is this long before the event was logged was misread (a pasted message
-# without a year read as a past year): nobody logs a call scheduled for a date long gone.
-IMPOSSIBLE_INTERVIEW_DAYS = 30
-# An event whose last edit came this long after it was created, with no source of its own (or "Notion edit"), was
-# edited by hand in Notion: the automatic tidy never removes it.
-HAND_EDIT_MINUTES = 60
-WATCHER_SOURCES = ('Notion edit', 'Backfill')
-
-
-def impossible_interview(event):
-    """Why this event's interview time can't be right ("interview date 2024-09-26 is long before it was logged"), or ''."""
-    from datetime import timedelta
-    interview, logged = event_interview_at(event), plain(event['properties'].get('At')) or ''
-    floor = datetime.min.replace(tzinfo=timezone.utc)
-    if not interview or not logged or moment(interview) == floor or moment(logged) == floor:
-        return ''
-    if moment(interview) < moment(logged) - timedelta(days=IMPOSSIBLE_INTERVIEW_DAYS):
-        return f'interview date {interview[:10]} is long before it was logged'
-    return ''
-
-
-def hand_edited(event):
-    """True for an event the owner edited in Notion (a row without a real source, edited well after it was made)."""
-    from datetime import timedelta
-    if (plain(event['properties'].get('Source')) or '') not in ('', 'Notion edit'):
-        return False
-    created, edited = event.get('created_time'), event.get('last_edited_time')
-    return bool(created and edited) and moment(edited) - moment(created) > timedelta(minutes=HAND_EDIT_MINUTES)
-
-
-def _keep_rank(event):
-    """Lower is better: the event with a Source ID, then one with real content (an interview time, a note that
-    is not a catch-up), then a real source over a watcher's guess, then the earliest."""
-    props = event['properties']
-    note = plain(props.get('Note')) or ''
-    return (0 if plain(props.get('Source ID')) else 1,
-            0 if event_interview_at(event) else 1,
-            1 if note.startswith(CATCH_UP_NOTES) or plain(props.get('Source')) in WATCHER_SOURCES else 0,
-            moment(plain(props.get('At')) or ''))
-
-
-def duplicate_groups(events):
-    """[(application page id, kind, [events], kept event, info)] for events that repeat one another, and
-    [(application page id, event, reason)] for interview dates that look wrong but are left alone.
-
-    A stage kind is once per application (per interview time for "Interview scheduled"); any other kind repeats only
-    with another Source ID: same Source ID, or no Source ID on the same day, is one event. An "Interview scheduled"
-    with an impossible interview time (impossible_interview) repeats the application's best plausible one; when it is
-    the application's only interview time it is only reported. info: {'reasons': {event id: why}, 'sure': bool}; sure
-    means the automatic tidy may remove the extras (same Source ID, a stage logged twice, an impossible interview time,
-    and no extra edited by hand)."""
-    by_app = {}
-    for event in events:
-        for app in _link_ids(event):
-            by_app.setdefault(app, []).append(event)
-    groups, wrong = [], []
-    for app, items in by_app.items():
-        items = list({e['id']: e for e in items}.values())
-        interviews = [e for e in items if plain(e['properties'].get('Kind')) == 'Interview scheduled']
-        bad = {e['id']: why for e in interviews if (why := impossible_interview(e))}
-        plausible = [e for e in interviews if e['id'] not in bad and event_interview_at(e)]
-        if not plausible:
-            wrong += [(app, e, bad[e['id']]) for e in interviews if e['id'] in bad]
-            bad = {}  # the only interview times there are: never removed for their date
-        buckets, fuzzy = {}, set()
-        for event in items:
-            if event['id'] in bad:
-                continue
-            props = event['properties']
-            kind, source_id = plain(props.get('Kind')) or '', plain(props.get('Source ID')) or ''
-            if kind in OUTCOME_STAGES:
-                at = event_interview_at(event) if kind == 'Interview scheduled' else ''
-                key = (kind, moment(at) if at else None)
-            elif source_id:
-                key = (kind, 'id', source_id)
-            else:
-                key = (kind, 'day', _local_day(plain(props.get('At')) or ''))
-            buckets.setdefault(key, []).append(event)
-        for key in [k for k in buckets if k[-1] is None or k[1] == 'day']:  # what has no interview time / no id
-            if key not in buckets:
-                continue
-            kind = key[0]
-            if key[1] == 'day':  # joins a sourced event of that kind on that day
-                home = next((o for o in buckets if o[:2] == (kind, 'id') and o != key and any(
-                    _local_day(plain(e['properties'].get('At')) or '') == key[2] for e in buckets[o])), None)
-            else:  # stage kind without an interview time joins the one with a time (or the first)
-                home = next((o for o in buckets if o[0] == kind and o != key and o[1] is not None), None)
-            if home:
-                buckets[home].extend(buckets.pop(key))
-                if key[1] == 'day':
-                    fuzzy.add(home)  # "same day, no id" is a guess: listed, never removed automatically
-            elif key[1] == 'day':
-                fuzzy.add(key)
-        if bad:  # the misread ones repeat the best plausible interview
-            keeper = min(plausible, key=_keep_rank)
-            home = next(k for k, part in buckets.items() if any(e is keeper for e in part))
-            buckets[home] = [keeper] + [e for e in buckets[home] if e is not keeper] + [e for e in interviews if e['id'] in bad]
-        for key, part in buckets.items():
-            if len({e['id'] for e in part}) > 1:
-                rank = lambda e: (1 if e['id'] in bad else 0,) + _keep_rank(e)
-                kept = min(part, key=rank)
-                reasons = {e['id']: bad[e['id']] for e in part if e['id'] in bad}
-                sure = key not in fuzzy and not any(hand_edited(e) for e in part if e is not kept)
-                groups.append((app, key[0], part, kept, {'reasons': reasons, 'sure': sure}))
-    return groups, wrong
-
-
-def _titles(tracker, applications=None):
-    rows = applications if applications is not None else tracker.query_database(tracker.database_id)
-    return {row['id'].replace('-', ''): ' — '.join(p for p in (plain(row['properties'].get('Company')),
-                                                               titles.row_role(row)) if p) for row in rows}
-
-
-def _events_for(tracker, applications=None):
-    """Every event, or (applications: Applications rows) only theirs."""
-    if applications is None:
-        return tracker.query_database(EVENTS_DATABASE_ID)
-    return [event for row in applications for event in events_of(tracker, row)]
-
-
-def dedupe_events(tracker, apply=False, applications=None):
-    """The command line's list (and with apply=True the trashing) of repeated 📈 Application Events: every group,
-    including the guesses the automatic tidy (heal) leaves alone. Returns printable lines; the kept event of a group
-    is never touched. Trashed pages stay restorable in Notion for 30 days."""
-    titles = _titles(tracker, applications)
-    groups, wrong = duplicate_groups(_events_for(tracker, applications))
-    if applications is not None:
-        groups = [g for g in groups if g[0] in titles]
-        wrong = [w for w in wrong if w[0] in titles]
-    lines, extras = [], 0
-    for app, kind, items, kept, info in sorted(groups, key=lambda g: (titles.get(g[0], g[0]), g[1])):
-        lines.append(f'{titles.get(app) or app}: {kind} x{len(items)}'
-                     + ('' if info['sure'] else ' (a guess: the automatic tidy leaves it)'))
-        for event in sorted(items, key=lambda e: moment(plain(e['properties'].get('At')) or '')):
-            props = event['properties']
-            mark = 'KEEP ' if event is kept else 'extra'
-            why = info['reasons'].get(event['id'])
-            lines.append(f'  {mark} {event["id"]}  {(plain(props.get("At")) or "")[:16]}  {plain(props.get("Source")) or "?"}'
-                         f'  {plain(props.get("Source ID")) or "-"}  {(plain(props.get("Note")) or "")[:60]}'
-                         + (f'  ({why})' if why else ''))
-            if event is not kept:
-                extras += 1
-                if apply:
-                    tracker.trash_page(event['id'])
-    for app, event, why in wrong:
-        lines.append(f'{titles.get(app) or app}: Interview scheduled {event["id"]}: date looks wrong ({why}); '
-                     'kept, as the only interview time')
-    verb = 'moved to the Notion trash' if apply else 'would be moved to the Notion trash (run with --apply)'
-    lines.append(f'{extras} duplicate event(s) {verb}; {len(groups)} group(s).' if groups else 'No duplicate events.')
-    return lines
-
-
-def _label(title):
-    company, _, job = title.partition(' — ')
-    return f'{job} at {company}' if job and company else title
-
-
-def heal(tracker, applications=None):
-    """The automatic tidy, run at app start and at the end of every job that writes events: moves the certain
-    duplicates (duplicate_groups' sure groups) to the Notion trash, restorable there for 30 days. Returns one line per
-    application and kind ("Removed 1 duplicate event on Principal SRE at Huxley: Interview scheduled (date looked
-    wrong)"), printed and added to the run's ⏱️ Search runs report. Never raises: a failure is a warning line."""
-    from . import cron_runs
-    try:
-        titles = _titles(tracker, applications)
-        groups, _ = duplicate_groups(_events_for(tracker, applications))
-        lines = []
-        for app, kind, items, kept, info in groups:
-            if not info['sure'] or (applications is not None and app not in titles):
-                continue
-            extras = [e for e in items if e is not kept]
-            for event in extras:
-                tracker.trash_page(event['id'])
-            why = 'date looked wrong' if any(e['id'] in info['reasons'] for e in extras) else 'logged twice'
-            lines.append(f"Removed {len(extras)} duplicate event{'' if len(extras) == 1 else 's'} on "
-                         f"{_label(titles.get(app) or app)}: {kind} ({why})")
-    except Exception as error:  # noqa: BLE001 — tidying never fails the job it follows
-        print(f'Warning: duplicate events not tidied: {type(error).__name__}: {error}', file=sys.stderr)
-        return []
-    for line in lines:
-        print(line, file=sys.stderr)  # stderr: jobs whose stdout is JSON for the app keep it clean; the app logs both
-    cron_runs.TIDIED.extend(lines)
-    return lines
-
-
-# Applications this process wrote events for, per tracker: heal_touched() tidies them when the job ends.
-try:
-    import weakref
-    _TOUCHED = weakref.WeakKeyDictionary()
-except ImportError:  # pragma: no cover
-    _TOUCHED = {}
-
-
-def touched(tracker, page):
-    """Remember that this job wrote an event on this application (add_event, the Gmail check's twin)."""
-    try:
-        _TOUCHED.setdefault(tracker, {})[page['id'].replace('-', '')] = page
-    except TypeError:  # a tracker that can't be remembered: its job isn't tidied
-        pass
-
-
-def heal_touched(tracker):
-    """At the end of a job: the automatic tidy for the applications it wrote events on (nothing when it wrote none)."""
-    try:
-        pages = _TOUCHED.pop(tracker, {})
-    except TypeError:
-        return []
-    return heal(tracker, list(pages.values())) if pages else []
 
 
 MONTHS = {m: i for i, m in enumerate(
@@ -972,21 +780,6 @@ def main(argv=None):
     ad.add_argument('--applied', default='', help='"2026-09-23", "23 Sep", "on or before 23 Sep" (default today)')
     ad.add_argument('--channel', choices=CHANNELS)
     ad.add_argument('--via', help='recruiter platform or agency, e.g. TechTree')
-    if '--dedupe-events' in (argv if argv is not None else sys.argv[1:]):
-        tidy = argparse.ArgumentParser(description='List (and with --apply trash) duplicate Application Events')
-        tidy.add_argument('--dedupe-events', action='store_true')
-        tidy.add_argument('--apply', action='store_true', help='move the extras to the Notion trash (default: only list them)')
-        tidy.add_argument('--auto', action='store_true',
-                          help='the automatic tidy (what the app runs): only the certain duplicates are trashed, one line each')
-        tidy_args = tidy.parse_args(argv)
-        tracker = notion.Tracker.from_env()
-        if not tracker:
-            raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
-        if tidy_args.auto:
-            print(f'Tidy: {len(heal(tracker))} duplicate group(s) removed.')
-            return 0
-        print('\n'.join(dedupe_events(tracker, apply=tidy_args.apply)))
-        return 0
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
@@ -1003,7 +796,6 @@ def main(argv=None):
         print('\n'.join(backfill(tracker)))
     else:
         print(sync(tracker, dry_run=args.dry_run))
-    heal_touched(tracker)
     return 0
 
 

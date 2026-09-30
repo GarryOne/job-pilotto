@@ -36,7 +36,7 @@ from . import feedback
 from .features import disabled
 from .notion import client as notion, titles
 from .notion import funnel as funnel_steps
-from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, heal_touched, plain
+from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
@@ -633,7 +633,6 @@ def main(argv=None):
             raise SystemExit('done needs the application page id')
         row = tracker._request('GET', f'pages/{args.page_id}')
         add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You answered (marked done in Focus)')
-        heal_touched(tracker)
         print(json.dumps({'ok': True}))
         return 0
     focus = load(tracker, target=args.target)

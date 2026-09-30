@@ -1,12 +1,15 @@
 """One 📈 Application Events row per real occurrence: add_event is idempotent, the stage watcher doesn't repeat
-Job Pilotto's own events, and `--dedupe-events` tidies the repeats already in a workspace (the Huxley case)."""
+Job Pilotto's own events, a calendar invite that adopts the watcher's guess says so, and an impossible interview time
+(a pasted chat's "Sep 26" read as 2024 in 2026: the Huxley case) is never stored."""
+import io
 import sys
 import unittest
+from contextlib import redirect_stderr
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src.ai import mail
+from src.ai import inbox, mail
 from src.notion import ledger
 
 NOW = datetime(2026, 9, 30, 12, 0, tzinfo=timezone.utc)
@@ -145,46 +148,83 @@ class WritersDoNotRepeatTests(unittest.TestCase):
         self.assertEqual(tracker.kinds(), ['Interview scheduled', 'Interview scheduled'])
 
 
-class TidyTests(unittest.TestCase):
-    def huxley(self):
-        return Tracker(app('Interview scheduled'), [
-            event('lead', 'Recruiter lead', '2026-09-24T09:00:00+00:00', source_id='g0'),
-            event('screen', 'Screening', '2026-09-24T09:05:00+00:00', 'Job Pilotto app', note='Already talking to the recruiter when tracked'),
-            event('gmail', 'Interview scheduled', '2026-09-28T09:00:00+00:00', source_id='1a0ed2a0b8f85171',
-                  changes='{"fields": {}, "interview_at": "2026-10-02T14:00:00+02:00"}'),
-            event('paste', 'Interview scheduled', '2026-09-30T08:00:00+00:00', 'Telegram', note='pasted LinkedIn chat'),
-            event('watch', 'Interview scheduled', '2026-09-30T10:00:00+00:00', 'Notion edit',
-                  note='Stage changed in Notion; time is when the row was last edited')])
+CATCH_UP = 'Stage changed in Notion; time is when the row was last edited'
 
-    def test_dry_run_lists_exactly_the_duplicates_and_changes_nothing(self):
-        tracker = self.huxley()
-        lines = ledger.dedupe_events(tracker)
-        self.assertEqual([e for e in lines if 'extra' in e or 'KEEP' in e].__len__(), 3)
-        self.assertTrue(any('KEEP  gmail' in line for line in lines))
-        self.assertTrue(any('extra paste' in line for line in lines) and any('extra watch' in line for line in lines))
-        self.assertFalse(any(' lead ' in line or ' screen ' in line for line in lines))
-        self.assertEqual((tracker.trashed, len(tracker.events)), ([], 5))
 
-    def test_apply_trashes_only_the_extras(self):
-        tracker = self.huxley()
-        ledger.dedupe_events(tracker, apply=True)
-        self.assertEqual(sorted(tracker.trashed), ['paste', 'watch'])
-        self.assertEqual([e['id'] for e in tracker.events], ['lead', 'screen', 'gmail'])
-        self.assertEqual(ledger.dedupe_events(tracker), ['No duplicate events.'])
+class CalendarSourceTests(unittest.TestCase):
+    def test_a_calendar_invite_that_adopts_the_watchers_guess_says_it_came_from_the_calendar(self):
+        tracker = Tracker(app('Interview scheduled'), [
+            event('watch', 'Interview scheduled', '2026-09-30T06:00:00+00:00', 'Notion edit', note=CATCH_UP)])
+        note = 'Calendar: Huxley · Principal SRE at Thu 01 Oct 08:30'
+        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-30T07:17:00+00:00', 'Calendar', 'cal:_60q30c1g',
+                    note, mail._events_index(tracker), '2026-10-01T08:30:00+02:00', NOW)
+        props = tracker.events[0]['properties']
+        self.assertEqual([e['id'] for e in tracker.events], ['watch'])  # adopted, not a second event
+        self.assertEqual((ledger.plain(props['Source']), ledger.plain(props['Note']), ledger.plain(props['Source ID'])),
+                         ('Calendar', note, 'cal:_60q30c1g'))
 
-    def test_two_interview_times_and_two_replies_are_not_duplicates(self):
-        tracker = Tracker(app(), [
-            event('a', 'Interview scheduled', '2026-09-28T09:00:00+00:00', source_id='g1', changes='{"interview_at": "2026-10-02T14:00:00+02:00"}'),
-            event('b', 'Interview scheduled', '2026-09-29T09:00:00+00:00', source_id='g2', changes='{"interview_at": "2026-10-09T14:00:00+02:00"}'),
-            event('c', 'Reply received', '2026-09-28T09:00:00+00:00', source_id='r1'),
-            event('d', 'Reply received', '2026-09-28T10:00:00+00:00', source_id='r2')])
-        self.assertEqual(ledger.dedupe_events(tracker), ['No duplicate events.'])
+    def test_a_hand_logged_twin_keeps_its_own_source_and_note(self):
+        tracker = Tracker(app('Interview scheduled'), [
+            event('mine', 'Interview scheduled', '2026-09-30T06:00:00+00:00', 'Telegram', note='Logged: call with Anna')])
+        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-30T07:17:00+00:00', 'Calendar', 'cal:y',
+                    'Calendar: call', mail._events_index(tracker), '2026-10-01T08:30:00+02:00', NOW)
+        props = tracker.events[0]['properties']
+        self.assertEqual((ledger.plain(props['Source']), ledger.plain(props['Note'])), ('Telegram', 'Logged: call with Anna'))
 
-    def test_the_same_source_id_twice_is_one_event(self):
-        tracker = Tracker(app(), [event('a', 'Reply received', '2026-09-28T09:00:00+00:00', source_id='r1'),
-                                  event('b', 'Reply received', '2026-09-28T09:00:01+00:00', source_id='r1')])
-        ledger.dedupe_events(tracker, apply=True)
-        self.assertEqual(tracker.trashed, ['b'])
+
+def quiet(call, *args, **kwargs):
+    with redirect_stderr(io.StringIO()):
+        return call(*args, **kwargs)
+
+
+class ImpossibleInterviewTests(unittest.TestCase):
+    """The real case: a LinkedIn chat pasted in Telegram on 21 Sep 2026 whose "Sep 26" was read as 26 Sep 2024."""
+    PASTED = '2026-09-21T14:36:00+00:00'
+    MISREAD = '2024-09-26T08:30:00+02:00'
+
+    def paste(self, tracker, index=None):
+        return quiet(mail.record, tracker, tracker.rows[0], 'Interview scheduled', self.PASTED, 'Telegram',
+                     'paste:147147426806328e', 'Logged: call with Anna', index or mail._events_index(tracker),
+                     self.MISREAD, datetime(2026, 9, 21, 15, 0, tzinfo=timezone.utc))
+
+    def test_a_paste_whose_interview_date_is_years_before_it_does_not_store_that_date(self):
+        tracker = Tracker(app('Screening'))
+        self.paste(tracker)
+        self.assertEqual(tracker.kinds(), ['Interview scheduled'])  # the event is kept: an interview was scheduled
+        self.assertEqual(ledger.event_interview_at(tracker.events[0]), '')
+        self.assertNotIn('2024', str(tracker.events[0]['properties']))
+        self.assertIsNone(tracker.rows[0]['properties']['Next interview']['date'])
+
+    def test_the_real_invite_later_gives_that_event_its_time_instead_of_being_dropped(self):
+        tracker = Tracker(app('Screening'))
+        index = mail._events_index(tracker)
+        self.paste(tracker, index)
+        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-24T12:35:00+00:00', 'Gmail', 'g-invite', '',
+                    index, '2026-09-30T10:30:00+04:00', datetime(2026, 9, 24, 13, 0, tzinfo=timezone.utc))
+        self.assertEqual(tracker.kinds(), ['Interview scheduled'])
+        self.assertEqual(ledger.event_interview_at(tracker.events[0]), '2026-09-30T10:30:00+04:00')
+        self.assertTrue(tracker.rows[0]['properties']['Next interview']['date'])
+
+    def test_add_event_never_stores_an_impossible_interview_time(self):
+        tracker = Tracker(app())
+        quiet(ledger.add_event, tracker, tracker.rows[0], 'Interview scheduled', 'Telegram', at=self.PASTED,
+              interview_at=self.MISREAD)
+        quiet(ledger.add_event, tracker, tracker.rows[0], 'Interview scheduled', 'Telegram', at=self.PASTED,
+              interview_at='2028-09-26T08:30:00+02:00')  # over a year ahead: as impossible
+        self.assertEqual([ledger.event_interview_at(e) for e in tracker.events], [''])
+
+    def test_plausible_times_are_kept(self):
+        for when in ('2026-09-26T08:30:00+02:00', '2026-09-10T08:30:00+02:00', '2027-03-01T09:00:00+01:00'):
+            self.assertEqual(ledger.plausible_interview(when, self.PASTED), when)
+        self.assertEqual(quiet(ledger.plausible_interview, self.MISREAD, self.PASTED), '')
+        self.assertEqual(ledger.plausible_interview('not a date', self.PASTED), '')
+
+    def test_the_apps_confirmation_step_asks_for_the_call_time_instead_of_showing_the_wrong_year(self):
+        item = {'kind': 'Interview scheduled', 'interview_at': self.MISREAD, 'when': self.PASTED,
+                'seen': {'interview': 'shown', 'year': 'shown', 'channel': 'shown'}, 'platform': 'LinkedIn'}
+        shown = quiet(inbox.fields, item, 'Interview scheduled', new=False,
+                      now=datetime(2026, 9, 21, 15, 0, tzinfo=timezone.utc))['interview']
+        self.assertEqual((shown['value'], shown['state']), ('', 'ask'))
 
 
 if __name__ == '__main__':

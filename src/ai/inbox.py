@@ -447,7 +447,8 @@ def fields(item, kind, *, new, now):
                           'question': 'When did it start?'}
     interview, when_text = seen.get('interview') or ('shown' if item.get('interview_at') else 'none'), item.get('interview_text') or ''
     if interview != 'none' or kind == 'Interview scheduled':
-        full = interview == 'shown' and seen.get('year') != 'missing' and mail._when(item.get('interview_at') or '')
+        full = (interview == 'shown' and seen.get('year') != 'missing' and mail._when(item.get('interview_at') or '')
+                and ledger.plausible_interview(item['interview_at'], now))  # a misread year is asked, never shown
         out['interview'] = {'value': item['interview_at'][:16] if full else '', 'state': 'ok' if full else 'ask',
                             'required': kind == 'Interview scheduled',
                             'question': 'When is the call?', 'as_written': when_text.strip()[:40]}
@@ -584,6 +585,9 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
     source_id = f'paste:{seed}'
     when = item['when'] if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
+    if item.get('interview_at') and not ledger.plausible_interview(item['interview_at'], when):
+        check.append(f"call date {item['interview_at'][:10]} impossible for this message: not saved")
+        item['interview_at'] = ''
     first_here = item.get('first_contact_here')
     # A new job's first contact: its first event is dated when the conversation began, so a later contact logged
     # from another channel can't take its Source (the earliest-contact rule reads the events' dates).
@@ -721,7 +725,6 @@ def main(argv=None):
         raise SystemExit(f'Not a screenshot: {args.image} (use .png, .jpg, .webp or .gif)')
     try:
         print(log(tracker, text=text, image=image, talking=args.talking))
-        ledger.heal_touched(tracker)
     except ValueError as error:
         print(f'⚠️ {error}')
         return 1

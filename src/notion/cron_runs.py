@@ -149,7 +149,6 @@ def run_page(run):
     of run and stay empty on the others (hidden in Notion): a jobs check's crawl numbers, a Gmail check's emails, the
     Application a one-job run was for. Each AI step (model, tokens, cost), the report and the log are on the page."""
     lines = report_lines(run)
-    lines += [line for line in TIDIED if line not in lines]
     crawl, mail = run['mode'] in CRAWL_MODES, run['mode'] == 'mail'
     only = lambda applies, value: {'number': value if applies else None}
     properties = {
@@ -200,8 +199,6 @@ def run_page(run):
 # message it sent or showed) and the last lines of its output. The app, Telegram and Notion all read these rows.
 LOG_LINES = 80
 _output = deque(maxlen=LOG_LINES)
-# Duplicate events this job moved to the Notion trash (src/notion/ledger.py heal): listed in its row's report.
-TIDIED = []
 _open = {}  # the row this process opened with begin(): {'tracker', 'id', 'url', 'run'}
 
 
@@ -306,8 +303,6 @@ def _without_missing(send, properties):
 def log_run(tracker, run, failed=False):
     """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises)."""
     from .. import telegram
-    from . import ledger
-    ledger.heal_touched(tracker)  # the job's end: its applications' duplicate events are tidied, and listed below
     try:
         properties, children = run_page(run)
         if failed:

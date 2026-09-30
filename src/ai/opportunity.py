@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from ..notion import client as notion
 from ..notion import origin as origin_rule
 from ..notion import titles
-from ..notion.ledger import _block, _text, add_event, heal_touched, plain
+from ..notion.ledger import _block, _text, add_event, plain
 from . import cost
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
@@ -313,7 +313,6 @@ def main(argv=None):
     text = open(args.text_file, encoding='utf-8').read() if args.text_file else sys.stdin.read()
     try:
         print('🤝 ' + add_from_text(tracker, text, talking=args.talking))
-        heal_touched(tracker)
     except ValueError as error:
         print(f'⚠️ {error}')
         return 1
