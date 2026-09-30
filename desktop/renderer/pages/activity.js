@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
-import {groupWarnings, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
+import {groupWarnings, humanError, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
 import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -85,10 +85,16 @@ function warningSummary(warnings) {
     return `Your Anthropic API spending limit was reached, so ${plural(limited, 'job')} ${limited === 1 ? 'wasn\'t' : 'weren\'t'} scored. `
       + 'Raise the limit at console.anthropic.com → Settings → Limits; the next check scores them.';
   }
+  // The same limit stopped a step that scores nothing (a Gmail check's own AI call, an insight): say that, not the
+  // API's error dump.
+  if (warnings.some(text => /usage limits?|credit balance|AI limit reached|spending limit/i.test(text))) {
+    return 'Your Anthropic API spending limit was reached, so this step couldn\'t finish. '
+      + 'Raise the limit at console.anthropic.com → Settings → Limits; the next check runs it again.';
+  }
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
     return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';
   }
-  return warnings[0] || '';
+  return humanError(warnings[0]) || '';
 }
 // A Recent activity row's label: gray "Queued" while it waits, gray "Scheduled" for the schedule's runs,
 // green "Started by you" for the ones you started.
@@ -409,12 +415,14 @@ export function renderActivity(fresh) {
     $('activity-warnings-summary').textContent = warnings.length ? warningSummary(warnings)
       : 'The run recorded warnings, with no line about them in its log or report.';
     show($('activity-warnings-limit'), limited > 0);
-    const listShown = warnings.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id);
+    const grouped = groupWarnings(warnings);
+    // One line needs no toggle: it is shown. Two or more fold behind "View N details".
+    const single = grouped.length === 1;
+    const listShown = single || (warnings.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id));
     $('activity-warnings-list').dataset.for = String(run?.id);
     show($('activity-warnings-list'), listShown);
-    const grouped = groupWarnings(warnings);
-    show($('activity-warnings-more'), warnings.length > 0);
-    $('activity-warnings-more').textContent = listShown ? 'Hide 3 details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;
+    show($('activity-warnings-more'), grouped.length > 1);
+    $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;
     $('activity-warnings-list').replaceChildren(...grouped.map(text => el('li', '', text)));
     // Folded away: the headline stays, the rest hides (the chevron turns).
     const folded = foldedWarnings === String(run?.id);

@@ -32,10 +32,42 @@ test('the same API error on many jobs reads as one line, and the spend limit cou
   const limit = id => `Skipped job ${id}: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified API usage limits. You wil`;
   const warnings = [limit(7), limit(6), 'Skipped job 14: BadRequestError: Er', limit(8), 'Skipped job 99: JSONDecodeError: Expecting value',
     'AI limit reached: Anthropic API spending limit, 12 job(s) left for the next check'];
+  // The counted line comes first, said once ("12 jobs left unscored"), then the refusals with their ids.
   assert.deepEqual(groupWarnings(warnings), [
+    '12 jobs left unscored: the Anthropic API spending limit was reached',
     'Skipped 4 jobs (7, 6, 14, 8): the Anthropic API spending limit was reached',
-    'Skipped 1 job (99): Expecting value',
-    'AI limit reached: Anthropic API spending limit, 12 job(s) left for the next check']);
+    'Skipped 1 job (99): Expecting value']);
   assert.equal(limitedJobs(warnings), 16);  // 4 failed on it (one line cut short) + 12 the run stopped before
   assert.equal(limitedJobs(['Skipped job 1: JSONDecodeError: x']), 0);
+});
+
+test('the API\'s own JSON never reaches the owner: it becomes the sentence it means', async () => {
+  const {groupWarnings, humanError} = await import('../renderer/run-warnings.js');
+  const dump = "BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified API usage limits. You will regain access on 2026-10-01 at 00:00 UTC'}}";
+  assert.equal(humanError(dump), 'the Anthropic API spending limit was reached (back on 2026-10-01)');
+  assert.equal(humanError('Error code: 400'), 'the AI service refused the call');           // nothing readable inside
+  assert.equal(humanError('JSONDecodeError: Expecting value'), 'Expecting value');          // not a provider error
+  assert.equal(humanError('plain sentence'), 'plain sentence');
+  // A Gmail check's own failing call: the card says what happened, not the dump.
+  const mail = ['Warning: check failed: ' + dump];
+  assert.deepEqual(groupWarnings(mail), ['check failed: the Anthropic API spending limit was reached (back on 2026-10-01)']);
+});
+
+test('the three wordings of "jobs the limit left" are one line, counted once each', async () => {
+  const {groupWarnings} = await import('../renderer/run-warnings.js');
+  // The real 30 Sep jobs check: seven and two jobs, said twice (what happened and what is left), plus a skipped insight.
+  const warnings = [
+    'Warning: 7 job(s) not read by AI: the Anthropic API spending limit was reached',
+    'Warning: 2 job(s) not scored: the Anthropic API spending limit was reached',
+    'Warning: insight skipped: BadRequestError',
+    'AI limit reached: Anthropic API spending limit, 7 job(s) left for the next check',
+    'AI limit reached: Anthropic API spending limit, 2 job(s) left for the next check',
+    "Warning: insight skipped: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'You have reached your specified API usage limits'}}",
+  ];
+  assert.deepEqual(groupWarnings(warnings), [
+    '9 jobs left unscored: the Anthropic API spending limit was reached',
+    'insight skipped: the Anthropic API spending limit was reached']);
+  // Nothing about the limit: a counted line on another reason is left as it is, never folded into a limit sentence.
+  assert.deepEqual(groupWarnings(['Warning: 3 job(s) not scored: the model answered with no JSON']),
+    ['3 job(s) not scored: the model answered with no JSON']);
 });

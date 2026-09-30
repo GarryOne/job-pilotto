@@ -1355,7 +1355,11 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .ap-detail-actions .activity-notion { margin: 0; }
 .activity-panel .activity-warnings, .activity-panel .activity-job { margin: 0; }
 .activity-panel .activity-warnings p { margin: var(--sp-1) 0; }
-.activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; }
+/* The details under the actions: quiet bullets, one line each, with room between them. */
+.activity-panel .activity-warnings ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); color: var(--ink-2); line-height: 1.5; }
+.activity-panel .activity-warnings li + li { margin-top: var(--sp-1); }
+/* A small inline link's focus ring: still clearly visible, but not a box drawn around two words. */
+.alert-actions .link:focus-visible { outline-width: 2px; outline-offset: 1px; border-radius: var(--r-sm); }
 .activity-panel .ap-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .activity-panel .activity-phases.ap-card { padding: var(--sp-2) var(--sp-4); margin: 0; gap: 0; }
 .activity-panel .activity-phases li { padding: var(--sp-3) 0; font-weight: 600; }
