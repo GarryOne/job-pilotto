@@ -103,8 +103,11 @@ function outcomes(settings) {
 let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
 let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
 let testBuild = null;  // Get Test Builds on: the canary trial (lib/canary.js): {state, canary, line, newestOffer, newestIsCanary}
+// Running from source (npm start): never offer or install an update. It would quit the dev app and open the
+// downloaded one in its place. From source, updating is `git pull` + restart.
+const FROM_SOURCE = !app.isPackaged;
 async function checkForUpdate(asked = false) {
-  if (!app.isPackaged && !asked) return null;
+  if (FROM_SOURCE) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
   try {
     const settings = storage?.settings() || {};
     if (settings.testBuilds) {
@@ -125,6 +128,7 @@ async function checkForUpdate(asked = false) {
 // the newest test build; only when that build is the canary itself does its trial go on.
 async function updateToNewestTestBuild() {
   const parent = window && !window.isDestroyed() ? window : undefined;
+  if (FROM_SOURCE) { dialog.showMessageBox(parent, {type: 'info', message: 'Running from source', detail: 'Update with git pull, then restart npm start.', buttons: ['OK']}); return; }
   const checked = await checkForUpdate(true);
   const newest = testBuild?.newestOffer;
   if (!checked?.ok || !newest) {
@@ -163,6 +167,7 @@ function trackSetup(patch, before) {
 }
 
 async function installUpdate() {
+  if (FROM_SOURCE) return {ok: false, text: 'Running from source (npm start): update with git pull, then restart.'};
   if (!updateOffer) return {ok: false, text: 'No update to install.'};
   try {
     await updater.install(updateOffer, {exe: app.getPath('exe'), onStep: text => toWindow('updateStep', text),
@@ -1066,7 +1071,7 @@ function handlers() {
   ipcMain.handle('telemetrySet', (_, on) => { storage.saveSettings({telemetry: !!on}); if (!on) telemetry?.flush(); return {on: !!on}; });
   ipcMain.handle('updateState', () => updateOffer);
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
-  ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, trial: testBuild?.line || ''}));
+  ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, trial: testBuild?.line || '', fromSource: FROM_SOURCE}));
   ipcMain.handle('updateInstall', () => installUpdate());
   // Why setup stopped (the quit question or "Stuck? Tell us"): a setup report; typed words also reach the owner.
   ipcMain.handle('leaveReason', async (_, answer = {}) => {

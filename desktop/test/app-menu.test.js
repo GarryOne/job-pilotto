@@ -43,3 +43,9 @@ test('Help → Send Feedback… on both platforms', () => {
     assert.deepEqual(help.submenu[0], {label: 'Send Feedback…', click: send});
   }
 });
+
+test('from source (npm start): no update is offered, the menu says to git pull', () => {
+  const shown = answer({ok: true, offer: null, fromSource: true}, '0.4.0-alpha');
+  assert.match(shown.message, /from source/);
+  assert.ok(!shown.install);
+});

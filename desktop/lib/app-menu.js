@@ -19,6 +19,7 @@ export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds,
 
 // What "Check for Updates…" answers: {message, detail, buttons, install?}.
 export function answer(result, current) {
+  if (result?.fromSource) return {type: 'info', message: 'Running from source (npm start)', detail: 'Updates are for the installed app. Here, update with git pull and restart.', buttons: ['OK']};
   if (!result?.ok) return {type: 'warning', message: 'Couldn\'t check for updates', detail: result?.text || 'Try again later.', buttons: ['OK']};
   if (!result.offer) return {type: 'info', message: 'You\'re up to date', buttons: ['OK'],
     detail: result.trial ? `${result.trial}. Newer test builds wait until this trial ends.` : `Job Pilotto ${current} is the latest version.`};

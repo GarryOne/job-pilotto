@@ -11,3 +11,7 @@ test('Updates line: available, up to date (with when it was checked), or not che
     {latest: true, text: 'Test build alpha.66 — trial 1 of 2 days · checked just now'});
   assert.deepEqual(updateText({}, now), {latest: false, text: 'Not checked yet'});
 });
+
+test('from source: says git pull, never offers', () => {
+  assert.deepEqual(updateText({fromSource: true, offer: {version: '9'}}), {latest: true, text: 'Running from source: update with git pull'});
+});
