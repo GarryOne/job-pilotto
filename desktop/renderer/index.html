@@ -568,6 +568,7 @@
           <b>Recording consent required</b><span>Ask everyone before recording. Swiss law requires their consent (Art. 179<sup>ter</sup>); ticked again for every call.</span></div>
         <label class="consent-check"><input type="checkbox" id="iv-consent"> Everyone agreed</label>
       </section>
+      <label class="iv-remind"><input type="checkbox" id="iv-remind"><span>Remind me 10 and 1 minute before an interview (from your calendar and emails), so I can start the recording</span></label>
       <p class="message" id="iv-message"></p>
 
       <section id="iv-drafts-block" hidden>
@@ -598,6 +599,7 @@
           <textarea id="iv-text" rows="16"></textarea>
           <label for="iv-job">Job</label>
           <select id="iv-job"></select>
+          <p class="fine" id="iv-suggest" hidden></p>
           <input id="iv-job-url" type="url" placeholder="Paste the job's link: https://…" hidden>
           <p class="fine">Not in your Applications yet? It's added there when you save (an interview means you applied).</p>
           <div class="inline spaced">

@@ -86,7 +86,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
                             rejection=item.get('rejection') or '', rejection_lesson=item.get('rejection_lesson') or '',
                             feedback_status=item.get('feedback_status') or '', employer_feedback=item.get('employer_feedback') or '',
                             page_id=item.get('page_id') or '', fit_detail=item.get('fit_detail') or None,
-                            kit_state=kit_state))
+                            kit_state=kit_state, next_interview=item.get('next_interview') or ''))
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:
                 fit = fits.get(job['id'])

@@ -42,6 +42,14 @@ class NotionListTests(unittest.TestCase):
         cache.assert_called_once_with(mock.ANY, 7, 'saved')
         self.assertTrue(rows['https://a/new']['unsynced'])
 
+    def test_rows_carry_the_next_interview_time_for_reminders(self):
+        job = notion('https://a/iv', stage='Interview')
+        job['next_interview'] = '2026-10-01T14:00:00+02:00'
+        result, _ = self.run_list([job, notion('https://a/none', stage='Applied')])
+        rows = {r['url']: r for r in result['jobs']}
+        self.assertEqual(rows['https://a/iv']['next_interview'], '2026-10-01T14:00:00+02:00')
+        self.assertEqual(rows['https://a/none']['next_interview'], '')
+
     def test_rows_carry_the_stage_and_applications_survive_the_limit(self):
         with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=([], [])), \
                 mock.patch.object(desktop.score, 'load', return_value={}):

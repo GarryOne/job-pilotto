@@ -197,7 +197,7 @@ class Tracker:
             row.update(stage=select(props.get('Stage')), next_step=text(props.get('Next step')), notion_url=page.get('url') or '',
                        rejection=select(props.get('Rejection reason')) or '', rejection_lesson=text(props.get('Rejection lesson')),
                        feedback_status=select(props.get('Feedback status')) or '', employer_feedback=text(props.get('Employer feedback')),
-                       page_id=page['id'],
+                       page_id=page['id'], next_interview=((props.get('Next interview') or {}).get('date') or {}).get('start') or '',
                        via=text(props.get('Via')), contact=text(props.get('Contact')), kit_inputs=text(props.get('Kit inputs')))
         return list(found.values())
 

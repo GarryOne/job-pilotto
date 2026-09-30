@@ -31,6 +31,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
 - `desktop/lib/google-keys.js` — The Google sign-in (Gmail and Calendar, read-only) as the Python side saved it (src/sources/google.py KEYCHAIN),
+- `desktop/lib/interview-reminders.js` — Interview reminders and job matching (pure; the timer and notifications are in main.js). The jobs come from Notion
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's

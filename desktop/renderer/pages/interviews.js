@@ -112,7 +112,11 @@ async function openDraft(id) {
   if (draft.status === 'failed') message('iv-message', draft.error || 'Transcription failed', 'error');
   if (draft.status === 'ready') {
     $('iv-text').value = await iv.transcript(id);
-    jobOptions($('iv-job'), draft.jobUrl, 'Let Claude find the job when reviewing');
+    jobOptions($('iv-job'), draft.jobUrl || draft.suggestedJobUrl, 'Let Claude find the job when reviewing');
+    // A job matched by time to a calendar interview: shown as a suggestion; saving confirms it, changing the job replaces it.
+    const suggested = !draft.jobUrl && draft.suggestedJobUrl;
+    show($('iv-suggest'), !!suggested);
+    if (suggested) $('iv-suggest').textContent = `Suggested from your calendar: ${draft.suggestedJob}. Change it below if this was a different interview.`;
     show($('iv-job-url'), false);
     $('iv-job-url').value = '';
     renderSpeakers();
@@ -424,6 +428,10 @@ async function startRecording(micOnly) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  const remind = await iv.remindGet().catch(() => ({on: true}));
+  $('iv-remind').checked = remind.on;
+  $('iv-remind').addEventListener('change', event => iv.remindSet(event.target.checked));
+  window.pilot.onOpenInterviews(() => document.querySelector('.nav[data-view="interviews"]').click());
   $('iv-permission-open').addEventListener('click', () => iv.openPrivacy(permissionKind));
   $('iv-permission-restart').addEventListener('click', () => { if (!recorder) iv.relaunch(); });
   $('iv-title').addEventListener('input', () => { clearTimeout(draftTimer); draftTimer = setTimeout(saveOpenDraft, 600); });

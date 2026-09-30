@@ -1485,3 +1485,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .review .goal-edit { flex: none; width: 26px; height: 26px; color: var(--muted); opacity: .7; }
 .review .goal-edit:hover { color: var(--signal); opacity: 1; }
 .review .goal-rows dd.goal:hover .goal-edit { opacity: 1; }
+
+/* Interviews: the reminder switch, a quiet line under the consent card. */
+.iv-remind { display: flex; align-items: center; gap: 8px; margin: 10px 2px 0; color: var(--muted); font-size: var(--fs-sm); cursor: pointer; }
+.iv-remind input { width: auto; margin: 0; flex: none; }

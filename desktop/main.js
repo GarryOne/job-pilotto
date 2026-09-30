@@ -10,6 +10,7 @@ import * as updater from './lib/updater.js';
 import * as canary from './lib/canary.js';
 import * as telemetryLib from './lib/telemetry.js';
 import * as poolShare from './lib/pool-share.js';
+import * as reminders from './lib/interview-reminders.js';
 import * as requestLog from './lib/request-log.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
@@ -354,12 +355,12 @@ function openTailoredCv(code) {
 // If macOS blocks notifications (common for an app run with npm start: "Electron" is off in System
 // Settings), the same message shows as a toast inside the window, with a one-time hint how to allow them.
 let notificationsBlocked = false;
-function notify(title, body) {
+function notify(title, body, onClick = null) {
   if (process.env.JOB_PILOTTO_SMOKE) return;
   const toast = hint => toWindow('toast', {title, body, hint});
   if (!Notification.isSupported() || notificationsBlocked) { toast(false); return; }
   const note = new Notification({title, body, silent: false});
-  note.on('click', () => { window?.show(); window?.focus(); });
+  note.on('click', () => { window?.show(); window?.focus(); onClick?.(); });
   note.on('failed', () => { const first = !notificationsBlocked; notificationsBlocked = true; toast(first); });
   note.show();
 }
@@ -732,7 +733,19 @@ function handlers() {
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
   // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.
   const demoInterviews = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'interviews.json'), 'utf8'));
-  ipcMain.handle('ivDrafts', () => (DEMO ? [demoInterviews().draft] : interviews.drafts(storage)));
+  // Recordings made in the app are matched to the job whose Next interview time is close to when they began (a suggestion only:
+  // the job is confirmed by saving). Imported files have no real start time, so they get none.
+  ipcMain.handle('ivDrafts', () => {
+    if (DEMO) return [demoInterviews().draft];
+    const jobs = viewCache.recall(storage, 'jobs')?.result?.jobs || [];
+    return interviews.drafts(storage).map(draft => {
+      if (draft.jobUrl || draft.file !== 'recording.webm') return draft;
+      const found = reminders.match(jobs, Date.parse(draft.createdAt));
+      return found ? {...draft, suggestedJobUrl: found.url, suggestedJob: `${found.company} — ${found.title}`} : draft;
+    });
+  });
+  ipcMain.handle('ivRemindGet', () => ({on: reminders.on(storage)}));
+  ipcMain.handle('ivRemindSet', (_, value) => { storage.saveSettings({interviewReminders: !!value}); return {on: !!value}; });
   ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
   ipcMain.handle('ivSaved', () => (DEMO ? {ok: true, interviews: demoInterviews().saved} : interviews.saved(storage)));
   ipcMain.handle('ivAdd', async () => {
@@ -1399,6 +1412,23 @@ if (firstCopy) app.whenReady().then(() => {
     // keys kept outside the app's store (the Google sign-in) go along.
     // Updates: shortly after start, then every 6 hours (an installed app only; a source checkout updates with git).
     if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 6 * 3600 * 1000); }
+    // Interview reminders: a Mac notification 10 and 1 minute before each Next interview (from the last read of the Jobs list).
+    const remind = () => {
+      if (DEMO || !storage.settings().setupDone || !reminders.on(storage)) return;
+      const jobs = viewCache.recall(storage, 'jobs')?.result?.jobs || [];
+      const sent = storage.settings().reminded || {};
+      const items = reminders.due(jobs, sent);
+      if (!items.length) return;
+      const next = {...sent};
+      for (const item of items) {
+        const words = reminders.text(item);
+        notify(words.title, words.body, () => toWindow('openInterviews'));
+        for (const key of item.keys) next[key] = true;
+      }
+      storage.saveSettings({reminded: Object.fromEntries(Object.entries(next).slice(-200))});
+    };
+    setInterval(remind, 30000);
+    setTimeout(remind, 15000);
     if (cloud()) github.updateRepo(storage).then(changed => changed.length && log(`Updated in your GitHub repo: ${changed.join(', ')}`),
       error => log(`GitHub repo not updated: ${error.message}`));
     const backupIfDue = () => { if (storage.settings().setupDone && backup.due(storage.settings())) backupNow(); };
