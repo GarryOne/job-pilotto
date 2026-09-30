@@ -71,6 +71,7 @@ test('the landing page reads the pool size from this same route and says users c
   assert.match(page, /id="pool-jobs"/);
   assert.match(page, /Open jobs/);
   assert.match(page, /Can I add my own employers\?/);
+  assert.doesNotMatch(page, /tech jobs in Switzerland/);   // the pool is worldwide; the focus is the kind of job
   assert.match(page, /unless you switch it off/);   // honest, and not shouted
   const privacy = readFileSync(new URL('../public/privacy.html', import.meta.url), 'utf8');
   assert.match(privacy, /on by default/);
