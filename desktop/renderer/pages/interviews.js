@@ -297,7 +297,17 @@ function renderAll() {
 function renderInsight() {
   const view = insightView(ivInsight, ivSavedRows);
   show($('iv-insight'), !!view);
-  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, refresh: refreshInsights, busy: insightBusy, note: insightNote}));
+  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, openUrl: url => window.pilot.openNotion(url), refresh: refreshInsights,
+    onTick: tickStep, busy: insightBusy, note: insightNote}));
+}
+// A "Practice next" tick: shown at once, saved in the insight row in Notion; if Notion refuses, it goes back and says so.
+async function tickStep(step, done) {
+  const steps = ivInsight?.next_steps || [];
+  const mark = value => { const item = steps.find(s => s.text === step.text); if (item) item.done = value; };
+  mark(done);
+  const result = await iv.insightStep(step.text, done).catch(error => ({ok: false, error: String(error?.message || error)}));
+  if (!result.ok) { mark(!done); message('iv-message', `Not saved: ${result.error || 'Notion refused it'}`, 'error'); }
+  renderInsight();
 }
 // An interview named in the insights: its row in the library, scrolled to and lit up briefly.
 function showRow(id) {

@@ -258,6 +258,100 @@ class Update(unittest.TestCase):
         self.assertEqual(shown['sample'], 1)
 
 
+class CardWords(unittest.TestCase):
+    """What the redesigned card shows besides the sentences: a short title and icon kind per pattern, a title and keyword line
+    per step, and a sentence under the headline. Older rows and answers without them still work."""
+
+    def result(self):
+        rich = json.loads(json.dumps(RESULT))
+        rich['headline_detail'] = 'The same pattern showed in tenure and unblocking questions.'
+        rich['patterns'][0].update(title='Answers become unstructured', kind='weakness')
+        rich['next_steps'][0].update(title='Prepare three STAR stories', focus='Team unblocking • Manual intervention')
+        return rich
+
+    def stored(self, result):
+        fake = FakeNotion(list(ONE), PAGES)
+        a, b = env()
+        with a, b:
+            ii.update(fake, client=FakeClient(result), now=NOW, budget_status=lambda t: {'level': 'ok'})
+            return ii.saved(fake)
+
+    def test_the_new_words_are_stored_and_read_back(self):
+        shown = self.stored(self.result())
+        self.assertEqual(shown['headline_detail'], 'The same pattern showed in tenure and unblocking questions.')
+        self.assertEqual((shown['patterns'][0]['title'], shown['patterns'][0]['kind']), ('Answers become unstructured', 'weakness'))
+        self.assertEqual((shown['next_steps'][0]['title'], shown['next_steps'][0]['focus']),
+                         ('Prepare three STAR stories', 'Team unblocking • Manual intervention'))
+
+    def test_an_answer_without_them_still_stores_and_an_unknown_kind_is_a_plain_note(self):
+        shown = self.stored(RESULT)
+        self.assertEqual(shown['headline_detail'], '')
+        self.assertEqual((shown['patterns'][0]['title'], shown['patterns'][0]['kind']), ('', 'note'))
+        odd = self.result()
+        odd['patterns'][0]['kind'] = 'catastrophe'
+        self.assertEqual(self.stored(odd)['patterns'][0]['kind'], 'note')
+
+    def test_the_model_is_asked_for_them(self):
+        for name in ('headline_detail',):
+            self.assertIn(name, ii.SCHEMA['required'])
+        self.assertIn('title', ii.SCHEMA['properties']['patterns']['items']['required'])
+        self.assertIn('kind', ii.SCHEMA['properties']['patterns']['items']['required'])
+        self.assertIn('focus', ii.SCHEMA['properties']['next_steps']['items']['required'])
+
+
+class Ticks(unittest.TestCase):
+    """The "Practice next" tick boxes: saved in the insight row's Data (Notion is the one copy), kept across a Refresh only
+    for a step whose words are still there."""
+    STEP = 'Practise a Postgres failover story with RTO numbers'
+
+    def setUp(self):
+        self.fake = FakeNotion(list(ONE), PAGES)
+        self.client = FakeClient(RESULT)
+        a, b = env()
+        self.enter = (a, b)
+        a.start(), b.start()
+        self.addCleanup(a.stop), self.addCleanup(b.stop)
+        ii.update(self.fake, client=self.client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+
+    def data(self):
+        return json.loads(''.join(t['plain_text'] for t in self.fake.insights[0]['properties']['Data']['rich_text']))
+
+    def test_a_step_key_ignores_case_spacing_and_punctuation(self):
+        self.assertEqual(ii.step_key('  Practise a Postgres failover story, with RTO numbers! '), ii.step_key(self.STEP.lower()))
+
+    def test_ticking_a_step_saves_it_in_the_row_and_saved_reads_it_back(self):
+        out = ii.set_step_done(self.fake, self.STEP, True)
+        self.assertEqual(out['done_steps'], [ii.step_key(self.STEP)])
+        self.assertEqual(self.data()['done_steps'], [ii.step_key(self.STEP)])
+        self.assertEqual(self.data()['patterns'][0]['interviews'], ['iv-1'])  # the rest of the row is untouched
+        self.assertEqual(ii.saved(self.fake)['done_steps'], [ii.step_key(self.STEP)])
+        ii.set_step_done(self.fake, self.STEP, False)
+        self.assertEqual(self.data()['done_steps'], [])
+
+    def test_saved_marks_each_step_done_or_not_for_the_window(self):
+        self.assertEqual([step['done'] for step in ii.saved(self.fake)['next_steps']], [False])
+        ii.set_step_done(self.fake, self.STEP, True)
+        self.assertEqual([step['done'] for step in ii.saved(self.fake)['next_steps']], [True])
+
+    def test_ticking_twice_keeps_one_entry_and_an_unknown_step_is_refused(self):
+        ii.set_step_done(self.fake, self.STEP, True)
+        ii.set_step_done(self.fake, self.STEP, True)
+        self.assertEqual(len(self.data()['done_steps']), 1)
+        with self.assertRaisesRegex(ValueError, 'not a step'):
+            ii.set_step_done(self.fake, 'Something that is not there', True)
+
+    def test_a_refresh_keeps_the_ticks_of_steps_that_are_still_there_and_drops_the_rest(self):
+        ii.set_step_done(self.fake, self.STEP, True)
+        self.fake.rows.append(interview('iv-2', 'Technical 2', 'negative', '2026-09-25'))
+        again = dict(RESULT, next_steps=[RESULT['next_steps'][0], {'action': 'A brand new step', 'interviews': ['I1']}])
+        ii.update(self.fake, client=FakeClient(again), now=NOW, budget_status=lambda t: {'level': 'ok'})
+        self.assertEqual(self.data()['done_steps'], [ii.step_key(self.STEP)])
+        gone = dict(RESULT, next_steps=[{'action': 'Only this now', 'interviews': ['I1']}])
+        self.fake.rows.append(interview('iv-3', 'Screen', 'positive', '2026-09-26'))
+        ii.update(self.fake, client=FakeClient(gone), now=NOW, budget_status=lambda t: {'level': 'ok'})
+        self.assertEqual(self.data()['done_steps'], [])
+
+
 class Neighbours(unittest.TestCase):
     def test_the_daily_insight_is_not_blocked_by_the_interview_patterns_row(self):
         row = lambda category: {'properties': {'Category': select(category)}}

@@ -18,7 +18,7 @@ globalThis.document = {createElement: tag => new FakeNode(tag), createElementNS:
   body: new FakeNode('body'), addEventListener() {}, querySelector: () => null};
 globalThis.window ??= {addEventListener() {}};
 const {insightView, insightCard, ago} = await import('../renderer/interview-insight.js');
-const {refreshInsights} = await import('../lib/interviews.js');
+const {refreshInsights, insightStep} = await import('../lib/interviews.js');
 
 const NOW = Date.parse('2026-09-30T12:00:00Z');
 const row = (id, overall, title = `Acme · ${id}`) => ({id, title, overall, application: []});
@@ -43,9 +43,9 @@ test('one interview: "Based on 1 interview", every pattern tentative, low confid
   assert.equal(view.confidence[1], 'Low confidence');
   const body = insightCard(view);
   const text = body.map(node => node.text()).join(' ');
-  assert.match(text, /Based on 1 interview/);
+  assert.match(text, /Patterns across 1 interview/);
   assert.match(text, /Tentative/);
-  assert.match(text, /What to do next/);
+  assert.match(text, /Practice next/);
 });
 
 test('several interviews: patterns with their interview links; a click opens that interview; new reviews are flagged', () => {
@@ -55,9 +55,9 @@ test('several interviews: patterns with their interview links; a click opens tha
   assert.deepEqual(view.patterns.map(p => p.tag), ['2 interviews', 'Tentative']);
   const opened = [];
   const body = insightCard(view, {open: id => opened.push(id)});
-  const links = body.flatMap(node => node.all(n => n.className === 'link small'));
-  assert.deepEqual(links.map(l => l.textContent).slice(0, 3), ['A', 'B', 'C']);
-  links[1].listeners.click();
+  const chips = body.flatMap(node => node.all(n => n.className === 'iv-chip'));
+  assert.deepEqual(chips.map(l => l.textContent).slice(0, 3), ['A', 'B', 'C']);
+  chips[1].listeners.click();
   assert.deepEqual(opened, ['iv-2']);
 });
 
@@ -99,4 +99,83 @@ test('refreshInsights runs the Python command and returns its answer; garbage is
   assert.deepEqual(ok, {ok: true, status: 'unchanged'});
   const bad = await refreshInsights({}, async (_, __, onLine) => { onLine('Traceback: boom'); return {code: 1, stdout: ''}; });
   assert.deepEqual(bad, {ok: false, error: 'Traceback: boom'});
+});
+
+test('ticking a step runs the engine with the step and the answer; a failure is an error, not a crash', async () => {
+  const calls = [];
+  const ok = await insightStep({}, 'Prepare three STAR stories', true, async (_, args) => { calls.push(args); return {code: 0, stdout: '{"ok": true, "done_steps": ["prepare three star stories"]}\n'}; });
+  assert.deepEqual(calls[0], ['src.ai.interview_insights', 'step', '--text', 'Prepare three STAR stories', '--done', 'yes']);
+  assert.deepEqual(ok, {ok: true, done_steps: ['prepare three star stories']});
+  await insightStep({}, 'x', false, async (_, args) => { calls.push(args); return {code: 0, stdout: '{"ok": true, "done_steps": []}'}; });
+  assert.equal(calls[1].at(-1), 'no');
+  const bad = await insightStep({}, 'x', true, async (_, __, onLine) => { onLine('Traceback: boom'); return {code: 1, stdout: ''}; });
+  assert.deepEqual(bad, {ok: false, error: 'Traceback: boom'});
+});
+
+// The redesigned card (30 Sep 2026 mockup): header with subtitle and confidence chip, a primary-signal banner, patterns
+// with icon, title, detail and company chips, numbered "Practice next" steps with tick boxes, a footer.
+const RICH = {headline: 'Strong substance is being weakened by rambling delivery under pressure.', confidence: 'low', sample: 2,
+  headline_detail: 'The same pattern appeared in tenure and unblocking questions.', updated: '2026-09-30T10:00:00Z', url: 'https://notion.test/ins',
+  patterns: [
+    {text: 'Key recruiter questions take too long to reach the point.', title: 'Answers become unstructured', kind: 'weakness', round_type: 'Recruiter screen',
+      interviews: ['iv-1', 'iv-2'], tentative: false, evidence: [{interview: 'iv-1', quote: 'a'}, {interview: 'iv-2', quote: 'b'}]},
+    {text: 'Operational ownership is a repeatable strength.', title: 'Incident-response stories land well', kind: 'strength', round_type: 'Recruiter screen',
+      interviews: ['iv-1', 'iv-2'], tentative: false, evidence: [{interview: 'iv-1', quote: 'c'}]}],
+  next_steps: [
+    {text: 'Prepare 2-3 tight STAR examples.', title: 'Prepare three 60-second STAR stories', focus: 'Team unblocking • Manual intervention', interviews: ['iv-1'], done: false},
+    {text: 'Draft a 90-second tenure answer.', title: 'Rehearse your tenure answer', focus: '', interviews: ['iv-2'], done: true}],
+  interviews: [{id: 'iv-1', title: 'Laelaps AI · Recruiter screen (via TechTree)', round_type: 'Recruiter screen'},
+    {id: 'iv-2', title: 'Huxley · Recruiter screen', round_type: 'Recruiter screen'}]};
+const RICH_ROWS = [row('iv-1', 'neutral', 'Laelaps AI · Recruiter screen (via TechTree)'), row('iv-2', 'neutral', 'Huxley · Recruiter screen')];
+
+test('the header says what was read, how sure it is, and the primary signal', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  assert.equal(view.title, 'Interview insights');
+  assert.equal(view.subtitle, 'Patterns across 2 recruiter screens · Updated 2 h ago');
+  assert.deepEqual([view.chip.text, view.chip.tone], ['Low confidence · 2 interviews', 'neutral']);
+  assert.match(view.chip.tip, /limited/);
+  assert.deepEqual(view.primary, {headline: RICH.headline, detail: RICH.headline_detail, tag: 'Seen in 2 interviews'});
+});
+
+test('a pattern is an icon kind, a title, a detail line and the companies it came from', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  assert.deepEqual(view.patterns.map(p => [p.kind, p.title, p.detail, p.tag, p.companies.map(c => c.name)]), [
+    ['weakness', 'Answers become unstructured', 'Key recruiter questions take too long to reach the point.', '2 interviews', ['Laelaps AI', 'Huxley']],
+    ['strength', 'Incident-response stories land well', 'Operational ownership is a repeatable strength.', '2 interviews', ['Laelaps AI', 'Huxley']]]);
+  // an insight written before titles existed: its sentence is the title, a plain note
+  const old = insightView({...RICH, patterns: [{...RICH.patterns[0], title: undefined, kind: undefined}]}, RICH_ROWS, NOW);
+  assert.deepEqual([old.patterns[0].title, old.patterns[0].detail, old.patterns[0].kind], [RICH.patterns[0].text, '', 'note']);
+});
+
+test('practice steps are numbered with a heading, a keyword line and their tick', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  assert.deepEqual(view.steps.map(s => [s.n, s.title, s.detail, s.done]), [
+    [1, 'Prepare three 60-second STAR stories', 'Team unblocking • Manual intervention', false],
+    [2, 'Rehearse your tenure answer', 'Draft a 90-second tenure answer.', true]]);
+  const old = insightView({...RICH, next_steps: [{text: 'Do this', interviews: ['iv-1']}]}, RICH_ROWS, NOW);
+  assert.deepEqual([old.steps[0].title, old.steps[0].detail, old.steps[0].done], ['Do this', '', false]);
+});
+
+test('the footer counts the supporting quotes and warns while the evidence is thin', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  assert.deepEqual(view.supporting, {count: 3, url: 'https://notion.test/ins'});
+  assert.match(view.disclaimer, /limited number of interviews/);
+  assert.equal(insightView({...RICH, confidence: 'high'}, RICH_ROWS, NOW).disclaimer, '');
+  assert.equal(insightView({...RICH, url: ''}, RICH_ROWS, NOW).supporting, null);
+});
+
+test('ticking, opening a company\'s interview and the supporting link call back', () => {
+  const ticked = [], opened = [], urls = [];
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  const body = insightCard(view, {onTick: (step, done) => ticked.push([step.text, done]), open: id => opened.push(id), openUrl: url => urls.push(url)});
+  const boxes = body.flatMap(node => node.all(n => n.tag === 'input' && n.type === 'checkbox'));
+  assert.deepEqual(boxes.map(b => b.checked), [false, true]);
+  boxes[0].checked = true; boxes[0].listeners.change();
+  assert.deepEqual(ticked, [['Prepare 2-3 tight STAR examples.', true]]);
+  body.flatMap(node => node.all(n => n.className === 'iv-chip'))[1].listeners.click();
+  assert.deepEqual(opened, ['iv-2']);
+  const more = body.flatMap(node => node.all(n => n.className.includes('iv-supporting')))[0];
+  more.listeners.click();
+  assert.deepEqual(urls, ['https://notion.test/ins']);
+  assert.match(body.map(node => node.text()).join(' '), /View supporting moments \(3\)/);
 });

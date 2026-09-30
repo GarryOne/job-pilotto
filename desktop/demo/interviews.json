@@ -42,15 +42,38 @@
   "insight": {
     "id": "demo-insight",
     "url": "https://www.notion.so/demo-insight",
-    "headline": "Incident ownership is your strongest story; capacity numbers are what's missing",
+    "headline": "Strong technical substance is being weakened by rambling delivery under pressure.",
     "confidence": "low",
     "sample": 2,
     "updated": "2099-01-06T18:00:00+00:00",
     "nothing_useful": false,
     "patterns": [
       {
-        "text": "Both rounds asked how you owned an incident end to end, and your answer landed",
-        "round_type": "All",
+        "text": "Key recruiter questions take too long to reach the point.",
+        "title": "Answers become unstructured",
+        "kind": "weakness",
+        "round_type": "Recruiter screen",
+        "interviews": [
+          "demo-iv-1",
+          "demo-iv-2"
+        ],
+        "tentative": false,
+        "evidence": [
+          {
+            "interview": "demo-iv-1",
+            "quote": "Rambling on the tenure question"
+          },
+          {
+            "interview": "demo-iv-2",
+            "quote": "Long answer before the point"
+          }
+        ]
+      },
+      {
+        "text": "Operational ownership and response examples are a repeatable strength.",
+        "title": "Incident-response stories land well",
+        "kind": "strength",
+        "round_type": "Recruiter screen",
         "interviews": [
           "demo-iv-1",
           "demo-iv-2"
@@ -68,32 +91,54 @@
         ]
       },
       {
-        "text": "Capacity estimates stayed vague in the system design round",
-        "round_type": "Technical",
+        "text": "Strong experience is sometimes hedged instead of framed confidently.",
+        "title": "Relevant experience is understated",
+        "kind": "note",
+        "round_type": "Recruiter screen",
         "interviews": [
+          "demo-iv-1",
           "demo-iv-2"
         ],
-        "tentative": true,
+        "tentative": false,
         "evidence": [
           {
             "interview": "demo-iv-2",
-            "quote": "No numbers for the storage estimate"
+            "quote": "Said \"a bit of Terraform\" for years of it"
+          },
+          {
+            "interview": "demo-iv-1",
+            "quote": "Downplayed the platform work"
           }
         ]
       }
     ],
     "next_steps": [
       {
-        "text": "Practise one back-of-the-envelope capacity estimate out loud",
+        "text": "Prepare 2-3 tight STAR examples.",
+        "title": "Prepare three 60-second STAR stories",
+        "focus": "Team unblocking • Manual intervention • Incident ownership",
         "interviews": [
-          "demo-iv-2"
-        ]
+          "demo-iv-1"
+        ],
+        "done": false
       },
       {
-        "text": "Prepare two questions for the CTO about the platform roadmap",
+        "text": "Draft a confident 90-second answer on tenure.",
+        "title": "Rehearse your tenure answer",
+        "focus": "",
         "interviews": [
           "demo-iv-2"
-        ]
+        ],
+        "done": false
+      },
+      {
+        "text": "Name specific IoT protocols for infra roles.",
+        "title": "Refresh robotics protocols",
+        "focus": "MQTT • CoAP • LoRaWAN • Zigbee",
+        "interviews": [
+          "demo-iv-2"
+        ],
+        "done": false
       }
     ],
     "interviews": [
@@ -109,6 +154,7 @@
       }
     ],
     "evidence": "",
-    "action": ""
+    "action": "",
+    "headline_detail": "The same pattern appeared in tenure, unblocking and security-framing questions."
   }
 }

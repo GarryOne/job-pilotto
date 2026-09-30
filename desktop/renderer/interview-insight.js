@@ -5,6 +5,9 @@ import {el, pill} from './components.js';
 import {icon} from './icons.js';
 
 const CONFIDENCE = {high: ['good', 'High confidence'], medium: ['info', 'Medium confidence'], low: ['neutral', 'Low confidence']};
+const CONFIDENCE_TIP = {low: 'Based on a limited number of interviews: it may change as you add more.',
+  medium: 'Consistent across several interviews, but still a small sample.', high: 'Consistent across many interviews.'};
+const DISCLAIMER = 'These insights are suggestions based on a limited number of interviews and may not be definitive.';
 
 export function ago(at, now = Date.now()) {
   const minutes = Math.max(0, Math.round((now - Date.parse(at)) / 60000));
@@ -35,28 +38,55 @@ export function insightView(insight, rows = [], now = Date.now()) {
   const when = ago(insight.updated, now);
   const basis = [`Based on ${n} interview${n === 1 ? '' : 's'}`, when && `updated ${when}`,
     pending && `${pending} new review${pending === 1 ? '' : 's'} not included yet`].filter(Boolean).join(' · ');
-  const patterns = list(insight.patterns).map(p => ({text: String(p?.text || ''), round: p?.round_type, tentative: !!p?.tentative || n < 2,
-    tag: p?.tentative || n < 2 ? 'Tentative' : `${list(p?.interviews).length} interviews`, links: list(p?.interviews).map(link)}))
-    .filter(p => p.text);
+  // "Patterns across 2 recruiter screens · Updated 2 h ago": the round type when they are all the same one.
+  const rounds = list(insight.interviews).map(item => item?.round_type).filter(Boolean);
+  const same = rounds.length && rounds.every(round => round === rounds[0]) ? rounds[0].toLowerCase() : 'interview';
+  const subtitle = [`Patterns across ${n} ${same}${n === 1 ? '' : 's'}`, when && `Updated ${when}`,
+    pending && `${pending} new review${pending === 1 ? '' : 's'} not included yet`].filter(Boolean).join(' · ');
+  const company = id => String(link(id).title).split(' · ')[0].trim() || 'Interview';
+  const patterns = list(insight.patterns).map(p => {
+    const titled = !!String(p?.title || '').trim();
+    const companies = [...new Map(list(p?.interviews).map(id => [company(id), {id, name: company(id)}])).values()];  // one chip per employer
+    return {text: String(p?.text || ''), round: p?.round_type, tentative: !!p?.tentative || n < 2,
+      kind: ['weakness', 'strength'].includes(p?.kind) ? p.kind : 'note', title: titled ? String(p.title).trim() : String(p?.text || ''),
+      detail: titled ? String(p?.text || '') : '', tag: p?.tentative || n < 2 ? 'Tentative' : `${list(p?.interviews).length} interviews`,
+      companies, links: list(p?.interviews).map(link)};
+  }).filter(p => p.text);
   // A row written before its Data column existed: its text columns, as lines.
   const lines = text => String(text || '').split('\n').map(line => line.replace(/^\s*•\s*/, '').trim()).filter(Boolean);
-  const steps = list(insight.next_steps).length
-    ? list(insight.next_steps).map(s => ({text: String(s?.text || ''), links: list(s?.interviews).map(link)})).filter(s => s.text)
-    : lines(insight.action).map(text => ({text, links: []}));
+  const steps = (list(insight.next_steps).length
+    ? list(insight.next_steps).map(s => ({text: String(s?.text || ''), title: String(s?.title || '').trim(), focus: String(s?.focus || '').trim(), done: !!s?.done,
+      links: list(s?.interviews).map(link)})).filter(s => s.text)
+    : lines(insight.action).map(text => ({text, title: '', focus: '', done: false, links: []})))
+    .map((s, i) => ({...s, n: i + 1, title: s.title || s.text, detail: s.title ? s.focus || s.text : ''}));
   const bullets = String(insight.evidence || '').split('\n').filter(line => /^\s*•/.test(line));  // not the quotes under them
   const fallback = !patterns.length && !insight.nothing_useful ? lines(bullets.join('\n')) : [];
-  return {headline: String(insight.headline || 'Insights'), basis, pending, confidence: CONFIDENCE[insight.confidence] || CONFIDENCE.low,
-    patterns: patterns.length ? patterns : fallback.map(text => ({text, tag: '', links: []})), steps,
+  const confidence = CONFIDENCE[insight.confidence] || CONFIDENCE.low;
+  const quotes = list(insight.patterns).reduce((sum, p) => sum + list(p?.evidence).length, 0);
+  return {title: 'Interview insights', subtitle, headline: String(insight.headline || 'Insights'), basis, pending, confidence,
+    chip: {text: `${confidence[1]} · ${n} interview${n === 1 ? '' : 's'}`, tone: confidence[0], tip: CONFIDENCE_TIP[insight.confidence] || CONFIDENCE_TIP.low},
+    primary: {headline: String(insight.headline || 'Insights'), detail: String(insight.headline_detail || ''), tag: n ? `Seen in ${n} interview${n === 1 ? '' : 's'}` : ''},
+    patterns: patterns.length ? patterns : fallback.map(text => ({text, title: text, detail: '', kind: 'note', tag: '', companies: [], links: []})), steps,
+    supporting: quotes && insight.url ? {count: quotes, url: insight.url} : null,
+    disclaimer: ['low', 'medium'].includes(insight.confidence) || !insight.confidence ? DISCLAIMER : '',
     nothing: !!insight.nothing_useful, url: insight.url || ''};
 }
 
-// The card's body. open(id): show that interview in the library; refresh(): the Refresh button; busy: it's running.
-export function insightCard(view, {open = () => {}, refresh = () => {}, busy = false, note = ''} = {}) {
+// The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
+// refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; busy: it's running.
+export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh = () => {}, onTick = () => {}, busy = false, note = ''} = {}) {
   const head = el('div', 'iv-insight-head');
-  const title = el('h2', 'with-glyph');
-  title.append(icon('bulb'), 'Insights');
+  const title = el('div', 'iv-insight-title');
+  const h2 = el('h2', 'with-glyph');
+  h2.append(icon('bulb'), view.title || 'Interview insights');
+  title.append(h2, el('div', 'muted small iv-insight-basis', view.subtitle || view.basis));
   const side = el('div', 'iv-insight-side');
   if (note) side.append(el('span', 'muted small', note));
+  if (view.chip) {
+    const chip = pill(view.chip.text, view.chip.tone, {dot: true, title: view.chip.tip});
+    chip.classList.add('iv-insight-chip');
+    side.append(chip);
+  }
   const button = Object.assign(el('button', 'secondary with-icon small-btn iv-insight-refresh'), {type: 'button', disabled: busy,
     title: 'Reads your reviewed interviews together. Claude is only asked when a review changed (about $0.05)'});
   button.append(busy ? el('span', 'spinner small') : icon('refresh'), el('span', '', busy ? 'Refreshing…' : 'Refresh insights'));
@@ -64,39 +94,69 @@ export function insightCard(view, {open = () => {}, refresh = () => {}, busy = f
   side.append(button);
   head.append(title, side);
 
-  const top = el('div', 'iv-insight-top');
+  const signal = el('div', 'iv-insight-top iv-signal');
   const words = el('div', 'iv-insight-words');
-  words.append(el('div', 'focus-headline', view.headline), el('div', 'muted small iv-insight-basis', view.basis));
-  top.append(words);
-  if (view.confidence) top.append(pill(view.confidence[1], view.confidence[0], {dot: true}));
+  if (!view.empty) words.append(el('div', 'iv-signal-label', 'Primary signal'));
+  words.append(el('div', 'focus-headline', view.primary?.headline || view.headline));
+  const detail = view.empty ? view.basis : view.primary?.detail;
+  if (detail) words.append(el('div', 'muted small iv-insight-basis', detail));
+  signal.append(words);
+  if (view.primary?.tag && !view.empty) signal.append(pill(view.primary.tag, 'info'));
 
-  const links = items => {
-    const span = el('span', 'iv-insight-links');
-    items.forEach((item, i) => {
-      if (i) span.append(', ');
-      const a = Object.assign(el('button', 'link small', item.title), {type: 'button', title: 'Show this interview in the library'});
-      a.addEventListener('click', () => open(item.id));
-      span.append(a);
-    });
-    return span;
-  };
-  const list = (label, items, withTag) => {
-    const block = el('div', 'iv-insight-block');
-    block.append(el('div', 'iv-insight-label', label));
-    const ul = el('ul', 'iv-insight-list');
-    for (const item of items) {
-      const li = el('li', '');
-      li.append(el('span', '', item.text));
-      if (withTag && item.tag) li.append(' ', pill(item.tag, item.tentative ? 'neutral' : 'info'));
-      if (item.links.length) li.append(el('span', 'muted small', ' · '), links(item.links));
-      ul.append(li);
+  const body = [head, signal];
+  if (view.empty) return body;
+  const columns = el('div', 'iv-insight-cols');
+  if (view.patterns.length) {
+    const block = el('div', 'iv-patterns');
+    block.append(el('h3', '', 'Patterns observed'));
+    for (const p of view.patterns) {
+      const row = el('div', 'iv-pattern');
+      const tile = el('span', `iv-tile is-${p.kind}`);
+      tile.append(icon(p.kind === 'weakness' ? 'alert' : p.kind === 'strength' ? 'chart' : 'file'));
+      const text = el('div', 'iv-row-words');
+      text.append(el('b', '', p.title));
+      if (p.detail) text.append(el('span', 'muted', p.detail));
+      const chips = el('div', 'iv-chips');
+      if (p.tag) chips.append(pill(p.tag, p.tentative ? 'neutral' : 'info'));
+      for (const c of p.companies || []) {
+        const chip = Object.assign(el('button', 'iv-chip', c.name), {type: 'button', title: 'Show this interview in the library'});
+        chip.addEventListener('click', () => open(c.id));
+        chips.append(chip);
+      }
+      row.append(tile, text, chips);
+      block.append(row);
     }
-    block.append(ul);
-    return block;
-  };
-  const body = [head, top];
-  if (!view.empty && view.patterns.length) body.push(list('Patterns', view.patterns, true));
-  if (!view.empty && view.steps.length) body.push(list('What to do next', view.steps, false));
+    columns.append(block);
+  }
+  if (view.steps.length) {
+    const block = el('div', 'iv-practice');
+    block.append(el('h3', '', 'Practice next'));
+    for (const step of view.steps) {
+      const row = el('div', `iv-step${step.done ? ' is-done' : ''}`);
+      const text = el('div', 'iv-row-words');
+      text.append(el('b', '', step.title));
+      if (step.detail) text.append(el('span', 'muted', step.detail));
+      const box = Object.assign(el('input', 'iv-step-box'), {type: 'checkbox', checked: !!step.done, title: 'Mark it done'});
+      box.setAttribute('aria-label', `Done: ${step.title}`);
+      box.addEventListener('change', () => onTick(step, !!box.checked));
+      row.append(el('span', 'iv-step-n', String(step.n)), text, box);
+      block.append(row);
+    }
+    columns.append(block);
+  }
+  if (columns.children.length) body.push(columns);
+  if (view.disclaimer || view.supporting) {
+    const foot = el('div', 'iv-insight-foot');
+    const note = el('span', 'muted small with-glyph');
+    if (view.disclaimer) note.append(icon('info'), view.disclaimer);
+    foot.append(note);
+    if (view.supporting) {
+      const more = Object.assign(el('button', 'link iv-supporting', `View supporting moments (${view.supporting.count}) →`), {type: 'button'});
+      more.addEventListener('click', () => openUrl(view.supporting.url));
+      foot.append(more);
+    }
+    body.push(foot);
+  }
   return body;
 }
 

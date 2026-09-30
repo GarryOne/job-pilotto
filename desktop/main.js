@@ -782,6 +782,8 @@ function handlers() {
   ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
   ipcMain.handle('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved, insight: demoInterviews().insight}
     : viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
+  ipcMain.handle('ivInsightStep', async (_, text, done) => (DEMO ? {ok: true, done_steps: []}
+    : interviews.insightStep(storage, text, !!done)));
   ipcMain.handle('ivInsights', async () => (DEMO ? {ok: true, status: 'unchanged', text: 'Demo mode', insight: demoInterviews().insight}
     : interviews.refreshInsights(storage)));
   ipcMain.handle('ivAdd', async () => {

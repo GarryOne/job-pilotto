@@ -154,16 +154,21 @@ def prompt_input(items):
 
 # ---------- the one AI call ----------
 
+KINDS = ('weakness', 'strength', 'note')  # the icon of a pattern on the card
+
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['nothing_useful', 'headline', 'patterns', 'next_steps', 'confidence'],
+    'required': ['nothing_useful', 'headline', 'headline_detail', 'patterns', 'next_steps', 'confidence'],
     'properties': {
         'nothing_useful': {'type': 'boolean', 'description': 'true only when the reviews give nothing to conclude or act on'},
         'headline': {'type': 'string', 'description': 'One sentence, max 120 characters: the most useful conclusion'},
+        'headline_detail': {'type': 'string', 'description': 'One sentence, max 120 characters, under the headline: what the same pattern covered ("The same pattern appeared in tenure and unblocking questions"); "" when there is nothing to add'},
         'patterns': {'type': 'array', 'description': '0-4 patterns, most useful first', 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['round_type', 'pattern', 'evidence'],
+            'type': 'object', 'additionalProperties': False, 'required': ['round_type', 'title', 'kind', 'pattern', 'evidence'],
             'properties': {
                 'round_type': {'type': 'string', 'enum': list(ROUND_TYPES) + ['All']},
+                'title': {'type': 'string', 'description': 'A short name for the pattern, max 50 characters ("Answers become unstructured")'},
+                'kind': {'type': 'string', 'enum': list(KINDS), 'description': 'weakness = something that costs you; strength = something that lands well; note = anything else'},
                 'pattern': {'type': 'string', 'description': 'One short sentence, max 140 characters'},
                 'evidence': {'type': 'array', 'items': {
                     'type': 'object', 'additionalProperties': False, 'required': ['interview', 'quote'],
@@ -171,8 +176,10 @@ SCHEMA = {
                                    'quote': {'type': 'string', 'description': 'Words copied exactly from that interview\'s review, at most 25 words'}}}},
             }}},
         'next_steps': {'type': 'array', 'description': '1-3 concrete things to do before the next interview', 'items': {
-            'type': 'object', 'additionalProperties': False, 'required': ['action', 'interviews'],
+            'type': 'object', 'additionalProperties': False, 'required': ['action', 'title', 'focus', 'interviews'],
             'properties': {'action': {'type': 'string', 'description': 'max 140 characters'},
+                           'title': {'type': 'string', 'description': 'The step as a short heading, max 50 characters ("Prepare three 60-second STAR stories")'},
+                           'focus': {'type': 'string', 'description': 'The topics to cover, 2-4 short keywords joined by " • ", max 70 characters; "" if none'},
                            'interviews': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Labels it comes from'}}}},
         'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
     },
@@ -191,6 +198,8 @@ that one interview ("In I1, …"), not as something that keeps happening.
 - Keep round types apart: don't draw one conclusion from a recruiter screen and a technical round together unless \
 the same thing clearly shows in both; set round_type to the group it comes from ("All" only then).
 - next_steps: 1-3 concrete things to practise or prepare before the next interview, each citing the interviews it comes from.
+- Each pattern also gets a short title and a kind (weakness / strength / note); each step a short heading and a keyword \
+line of the topics to cover; the headline gets one line under it (headline_detail). Same rules: only what the reviews say.
 - confidence: low with 1-2 interviews or thin reviews; medium with 3-5 consistent ones; high only with more and consistent evidence.
 - If the reviews contain nothing useful to conclude, set nothing_useful=true, say so in the headline, leave the lists empty.
 - Direct and specific, like a sharp colleague. No filler, no encouragement, no emojis.
@@ -226,13 +235,16 @@ def validate(result, items):
         cited = list(dict.fromkeys(e['interview'] for e in evidence))
         if not evidence or not (pattern.get('pattern') or '').strip():
             continue
-        patterns.append({'text': pattern['pattern'].strip()[:200], 'round_type': pattern.get('round_type') or 'Other',
+        patterns.append({'text': pattern['pattern'].strip()[:200], 'title': (pattern.get('title') or '').strip()[:80],
+                         'kind': pattern.get('kind') if pattern.get('kind') in KINDS else 'note',
+                         'round_type': pattern.get('round_type') or 'Other',
                          'interviews': cited, 'evidence': evidence[:4], 'tentative': len(cited) < MIN_SUPPORT})
     steps = []
     for step in result.get('next_steps') or []:
         cited = list(dict.fromkeys(by_label[l]['id'] for l in step.get('interviews') or [] if l in by_label))
         if cited and (step.get('action') or '').strip():
-            steps.append({'text': step['action'].strip()[:200], 'interviews': cited})
+            steps.append({'text': step['action'].strip()[:200], 'title': (step.get('title') or '').strip()[:80],
+                          'focus': (step.get('focus') or '').strip()[:100], 'interviews': cited})
     n = len(items)
     confidence = result.get('confidence') if result.get('confidence') in ('high', 'medium', 'low') else 'low'
     if n < 3 or not any(not p['tentative'] for p in patterns):
@@ -243,7 +255,8 @@ def validate(result, items):
         headline = headline if result.get('nothing_useful') and headline else \
             'Nothing to conclude yet: the reviews name no clear strength, gap or next step.'
         patterns, steps = [], []
-    return {'headline': headline, 'patterns': patterns[:4], 'next_steps': steps[:3], 'confidence': confidence,
+    return {'headline': headline, 'headline_detail': '' if nothing else (result.get('headline_detail') or '').strip()[:200],
+            'patterns': patterns[:4], 'next_steps': steps[:3], 'confidence': confidence,
             'nothing_useful': nothing, 'interviews': n}
 
 
@@ -279,8 +292,23 @@ def evidence_lines(stored, items):
     return '\n'.join(lines) or stored['headline']
 
 
-def properties(stored, items, digest, model_, usd, now):
-    data = {'patterns': stored['patterns'], 'next_steps': stored['next_steps'], 'nothing_useful': stored['nothing_useful'],
+def step_key(text):
+    """A to-do's identity: its words without case, spacing or punctuation. A tick on "Practice next" lives on this key, so it
+    survives a Refresh only while the step's words do."""
+    return re.sub(r'[^a-z0-9]+', ' ', (text or '').lower()).strip()[:80]
+
+
+def _row_data(row):
+    try:
+        return json.loads(plain((row.get('properties') or {}).get('Data')) or '{}')
+    except ValueError:
+        return {}
+
+
+def properties(stored, items, digest, model_, usd, now, done=()):
+    keys = {step_key(step['text']) for step in stored['next_steps']}
+    data = {'headline_detail': stored.get('headline_detail') or '', 'patterns': stored['patterns'], 'next_steps': stored['next_steps'], 'nothing_useful': stored['nothing_useful'],
+            'done_steps': [key for key in done if key in keys],
             'interviews': [{'id': i['id'], 'title': i['title'], 'url': i['url'], 'round_type': i['round_type'], 'date': i['date']}
                            for i in items],
             'updated': now.isoformat(timespec='seconds')}
@@ -321,10 +349,28 @@ def saved(tracker):
         data = {}
     return {'id': row['id'], 'url': row.get('url', ''), 'headline': plain(p.get('Insight')) or '',
             'confidence': plain(p.get('Confidence')) or 'low', 'sample': plain(p.get('Sample size')) or 0,
-            'updated': data.get('updated') or row.get('last_edited_time', ''), 'patterns': data.get('patterns') or [],
-            'next_steps': data.get('next_steps') or [], 'interviews': data.get('interviews') or [],
-            'nothing_useful': bool(data.get('nothing_useful')), 'evidence': plain(p.get('Evidence')) or '',
+            'updated': data.get('updated') or row.get('last_edited_time', ''),
+            'headline_detail': data.get('headline_detail') or '', 'patterns': data.get('patterns') or [],
+            'next_steps': [{**step, 'done': step_key(step.get('text')) in (data.get('done_steps') or [])}
+                           for step in data.get('next_steps') or []], 'interviews': data.get('interviews') or [],
+            'nothing_useful': bool(data.get('nothing_useful')), 'done_steps': data.get('done_steps') or [], 'evidence': plain(p.get('Evidence')) or '',
             'action': plain(p.get('Action')) or '', 'input_hash': plain(p.get('Input hash')) or ''}
+
+
+def set_step_done(tracker, text, done):
+    """Tick or untick one "Practice next" step, saved in the insight row's Data (Notion holds the one copy). Returns
+    {'done_steps': [...]}. ValueError when there are no insights or the step isn't one of them."""
+    row = existing(tracker)
+    if not row:
+        raise ValueError('There are no interview insights yet.')
+    data = _row_data(row)
+    key = step_key(text)
+    if key not in {step_key(step.get('text')) for step in data.get('next_steps') or []}:
+        raise ValueError('That is not a step of the current insights (Refresh may have replaced it).')
+    kept = [k for k in data.get('done_steps') or [] if k != key]
+    data['done_steps'] = kept + [key] if done else kept
+    upsert(tracker, {'Data': _rich(json.dumps(data, ensure_ascii=False))}, row)
+    return {'done_steps': data['done_steps']}
 
 
 def update(tracker, *, client=None, model_=None, stats=None, now=None, force=False, budget_status=None):
@@ -359,7 +405,8 @@ def update(tracker, *, client=None, model_=None, stats=None, now=None, force=Fal
         stats['pending'] = stats.get('pending', 0) + 1
         stats['done'] = stats.get('done', 0) + 1
     stored = validate(result, items)
-    page = upsert(tracker, properties(stored, items, digest, model_, usd, now), row)
+    done = _row_data(row).get('done_steps') or [] if row else []  # ticks stay for steps whose words are still there
+    page = upsert(tracker, properties(stored, items, digest, model_, usd, now, done), row)
     return {'status': 'updated', 'usd': usd, 'url': (page or {}).get('url', ''), 'headline': stored['headline'],
             'text': f"Interview insights updated from {len(items)} interview(s): {stored['headline']} ({usd:.3f} USD)"}
 
@@ -375,15 +422,25 @@ def after_review(tracker, stats=None, client=None):
 
 
 def main(argv=None):
-    """The Interviews page's Refresh: `refresh` prints one JSON line {ok, status, text, insight}."""
+    """The Interviews page's Refresh: `refresh` prints one JSON line {ok, status, text, insight}. `step --text T --done yes|no`
+    ticks or unticks a "Practice next" step and prints {ok, done_steps}."""
     import argparse
     parser = argparse.ArgumentParser(description=main.__doc__)
-    parser.add_argument('command', choices=('refresh',))
-    parser.parse_args(argv)
+    parser.add_argument('command', choices=('refresh', 'step'))
+    parser.add_argument('--text', default='')
+    parser.add_argument('--done', choices=('yes', 'no'), default='yes')
+    args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
         print(json.dumps({'ok': False, 'error': 'Connect Notion first'}))
         return 1
+    if args.command == 'step':
+        try:
+            print(json.dumps({'ok': True, **set_step_done(tracker, args.text, args.done == 'yes')}, ensure_ascii=False))
+            return 0
+        except (ValueError, urllib.error.URLError) as error:
+            print(json.dumps({'ok': False, 'error': str(error)}))
+            return 1
     from ..notion import cron_runs
     run = cron_runs.new_run('insight')
     run['insight'] = {}

@@ -201,6 +201,15 @@ export async function refreshInsights(storage, run = pipeline.run) {
   }
 }
 
+// A "Practice next" tick box (src/ai/interview_insights.py set_step_done): saved in the insight row in Notion.
+export async function insightStep(storage, text, done, run = pipeline.run) {
+  const lines = [];
+  const {stdout} = await run(storage, ['src.ai.interview_insights', 'step', '--text', String(text), '--done', done ? 'yes' : 'no'], line => lines.push(line));
+  try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch {
+    return {ok: false, error: lines.filter(Boolean).pop() || 'Could not save the tick'};
+  }
+}
+
 export function link(storage, pageId, jobUrl, run = pipeline.run) {
   return notionCall(storage, ['link', pageId, ...(jobUrl ? ['--job', jobUrl] : [])], run);
 }
