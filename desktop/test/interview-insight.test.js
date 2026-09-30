@@ -187,8 +187,13 @@ test('the card folds to its header and unfolds; the toggle says which state it i
   const toggle = open.flatMap(node => node.all(n => n.className.includes('iv-insight-toggle')))[0];
   assert.equal(toggle['aria-expanded'], 'true');
   assert.match(open.map(node => node.text()).join(' '), /Patterns observed/);
-  toggle.listeners.click();
+  open[0].listeners.click();  // anywhere on the bar folds it: its own click (the arrow's bubbles up to it)
   assert.deepEqual(flips, ['toggle']);
+  // Refresh is on the bar too, but it only refreshes
+  let refreshed = 0, stopped = 0;
+  const bar = insightCard(view, {onToggle: () => flips.push('toggle'), refresh: () => { refreshed += 1; }});
+  bar[0].all(n => n.className.includes('iv-insight-refresh'))[0].listeners.click({stopPropagation: () => { stopped += 1; }});
+  assert.deepEqual([refreshed, stopped, flips.length], [1, 1, 1]);
   const folded = insightCard(view, {collapsed: true, onToggle: () => {}});
   const text = folded.map(node => node.text()).join(' ');
   assert.match(text, /Interview insights/);
