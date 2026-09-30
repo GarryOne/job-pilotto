@@ -1,9 +1,10 @@
-// "Help the pool grow" (opt-in; docs/superpowers/specs/2026-09-30-pool-contributions.md): off unless the user turns it on in
-// Settings. On, the runs (this Mac and the user's GitHub repo) tell the central pool which employer career pages they use,
-// with coarse role / region tags (src/contribute.py). The app keeps only this switch and the random install id.
+// "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): on by default for new installs, off for
+// installs set up before it existed (migrate.pinPoolShare), and one switch in Settings for everyone. On, the runs (this Mac
+// and the user's GitHub repo) tell the central pool which employer career pages they use, with coarse role / region tags
+// (src/contribute.py). The app keeps only this switch and the random install id.
 import crypto from 'node:crypto';
 
-export const on = storage => storage.settings().shareEmployers === true;
+export const on = storage => storage.settings().shareEmployers !== false;
 
 // The random id technical reports already use (no name, e-mail or account); made here if reports never needed one.
 export function installId(storage) {

@@ -1,7 +1,7 @@
 """Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 
 Only public facts go up (ATS, board slug, company) plus role families and regions from fixed lists. Nothing about jobs,
-applications, the CV or the person. Off unless the user switched it on (JOB_PILOTTO_SHARE_EMPLOYERS=1, set by the app);
+applications, the CV or the person. Sent only when JOB_PILOTTO_SHARE_EMPLOYERS=1 (the app sets it: on by default for new installs, off if the user switched it off);
 `python -m src contribute --show` prints exactly what would be sent, on or off.
 """
 import argparse

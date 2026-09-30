@@ -102,8 +102,19 @@ export function pinScoutSchedule(storage) {
   return keep;
 }
 
+// Once: "Help the pool grow" is on by default for NEW installs; an install already set up before it existed never saw the
+// option and was told nothing goes up, so it starts off and stays the user's choice.
+export function pinPoolShare(storage) {
+  const settings = storage.settings();
+  if (settings.poolShareDefaultPinned) return false;
+  const keepOff = !!settings.setupDone && settings.shareEmployers == null;
+  storage.saveSettings({poolShareDefaultPinned: true, ...(keepOff ? {shareEmployers: false} : {})});
+  return keepOff;
+}
+
 export async function run(storage, onLine = () => {}, steps = STEPS, fetcher) {
   pinScoutSchedule(storage);
+  pinPoolShare(storage);
   const settings = storage.settings();
   if (!settings.setupDone || !storage.secret('NOTION_TOKEN') || !settings.notionIds?.NOTION_PROFILE_PAGE_ID) return [];
   const moved = [];

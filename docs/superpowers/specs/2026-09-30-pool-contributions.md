@@ -1,6 +1,6 @@
 # Help the pool grow: opt-in employer contributions (30 Sep 2026)
 
-**Verdict:** an install may, only if its user switches it on, tell the central pool which employer career pages it
+**Verdict (revised 30 Sep, owner: on by default):** an install tells the central pool which employer career pages it
 uses, tagged with coarse categories, so the pool grows and can later recommend feeds to newcomers like them.
 
 ## What is sent (exactly; Settings → "See what would be sent" prints it)
@@ -32,8 +32,8 @@ Jobs, applications, CV, profile, answers, salaries, Notion content, keys, e-mail
 ## Data ownership
 - Notion stays the source of truth for everything of the user's. Contributions are **product data on our server**, derived
   from public facts plus two coarse tags, kept 90 days; the app keeps only the on/off switch (`settings.shareEmployers`,
-  default **off**) and the date of the last send (a cache).
-- The opt-in is the only way anything is sent; off = nothing leaves the Mac or the user's GitHub runs.
+  default **on for new installs**, pinned **off** for installs set up before it existed) and the date of the last send (a cache).
+- Off = nothing leaves the Mac or the user's GitHub runs. The switch and "See what would be sent" are in Settings; the privacy page says it plainly.
 - Always-on runs read the same choice from repository variables the app sets (`JOB_PILOTTO_SHARE_EMPLOYERS`, `JOB_PILOTTO_INSTALL_ID`).
 
 ## Words

@@ -43,7 +43,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
-- `desktop/lib/pool-share.js` — "Help the pool grow" (opt-in; docs/superpowers/specs/2026-09-30-pool-contributions.md): off unless the user turns it on in
+- `desktop/lib/pool-share.js` — "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): on by default for new installs, off for
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't

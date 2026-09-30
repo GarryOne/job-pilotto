@@ -12,13 +12,33 @@ import {createStorage} from '../lib/storage.js';
 const fakeCrypto = {encrypt: v => Buffer.from(v).toString('base64'), decrypt: s => Buffer.from(s, 'base64').toString()};
 const fresh = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), fakeCrypto);
 
-test('off by default: no variable reaches the run environment', () => {
+test('a new install shares by default; switched off, no variable reaches the run environment', () => {
   const storage = fresh();
+  assert.equal(poolShare.on(storage), true);
+  assert.equal(pipelineEnv(storage, {}).JOB_PILOTTO_SHARE_EMPLOYERS, '1');
+  poolShare.set(storage, false);
   assert.equal(poolShare.on(storage), false);
   assert.equal(poolShare.variables(storage), null);
   const env = pipelineEnv(storage, {});
   assert.equal(env.JOB_PILOTTO_SHARE_EMPLOYERS, undefined);
   assert.equal(env.JOB_PILOTTO_INSTALL_ID, undefined);
+});
+
+test('an install set up before the option existed starts off; a new one stays on; the choice is never overwritten', async () => {
+  const {pinPoolShare} = await import('../lib/migrate.js');
+  const existing = fresh();
+  existing.saveSettings({setupDone: true});
+  assert.equal(pinPoolShare(existing), true);
+  assert.equal(poolShare.on(existing), false);
+  const chose = fresh();
+  chose.saveSettings({setupDone: true, shareEmployers: true});
+  pinPoolShare(chose);
+  assert.equal(poolShare.on(chose), true);   // their own choice stays
+  const brandNew = fresh();
+  assert.equal(pinPoolShare(brandNew), false);
+  brandNew.saveSettings({setupDone: true});   // finishes setup later: still on, the pin ran only once
+  pinPoolShare(brandNew);
+  assert.equal(poolShare.on(brandNew), true);
 });
 
 test('switched on: the run environment gets the switch and the same random id technical reports use', () => {
@@ -39,11 +59,13 @@ test('switching on makes an id when there is none; switching off removes everyth
 });
 
 test('Always on follows the switch: variables set when on, removed when off', async () => {
+  // (a fresh install is on; the first update below is with it switched off)
   const calls = [];
   const fetcher = async (url, options = {}) => { calls.push(`${options.method || 'GET'} ${new URL(url).pathname}`); return new Response('{}', {status: 200}); };
   const storage = fresh();
   storage.saveSettings({cloud: {repo: 'me/job-pilotto-private'}});
   storage.setSecret('GITHUB_TOKEN', 'ghu_x');
+  poolShare.set(storage, false);
   await github.updateRepo(storage, {fetcher});
   assert.ok(calls.some(c => c.startsWith('DELETE') && c.includes('JOB_PILOTTO_SHARE_EMPLOYERS')), calls.join('\n'));
   assert.ok(!calls.some(c => c.startsWith('POST') && c.includes('/variables')));
