@@ -307,8 +307,6 @@ export function renderActivity(fresh) {
     item.append(el('span', 'muted', name), ' ', el('b', '', at ? (at <= Date.now() ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
     return item;
   }));
-  $('ap-where').replaceChildren(...(cloud ? [icon('cloud'), 'Runs on GitHub · Always on'] : ['Runs on this Mac while the app is open']));
-  $('ap-where').title = cloud ? 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.' : '';
   // Check Gmail now: with a selected Gmail check, not in the schedule strip.
   const selected = shown || (running ? null : last);
   show($('check-mail'), !!selected && kindOf(selected) === 'mail');
@@ -524,9 +522,11 @@ function renderRunCard(card) {
   }
   // The counts sit above a bordered box that holds the heading and the rows (nested in the card, as the mockup shows);
   // the link to the whole list stays in the card, under it.
-  const box = el('div', 'run-card-box');
-  box.append(el('h4', 'run-card-title', heading), rows);
-  $('activity-card').replaceChildren(stats, box, ...(more && more.childNodes.length ? [more] : []));
+  // Counts on their own band, then the heading, the rows and the link in the card's plain body: one surface, not a
+  // box inside a box (the owner, 30 Sep: "a table in table").
+  const body = el('div', 'run-card-body');
+  body.append(el('h4', 'run-card-title', heading), rows, ...(more && more.childNodes.length ? [more] : []));
+  $('activity-card').replaceChildren(stats, body);
 }
 
 // A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane
@@ -543,7 +543,9 @@ function renderCardSkeleton() {
     row.append(words, bar('w-20'));
     rows.append(row);
   }
-  $('activity-card').replaceChildren(stats, rows);
+  const body = el('div', 'run-card-body');
+  body.append(rows);
+  $('activity-card').replaceChildren(stats, body);
 }
 
 // The header's filter menu: every kind in the run history with how many, and "All runs".

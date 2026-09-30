@@ -1472,8 +1472,6 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .conn-status { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: var(--fs-sm); color: var(--muted); min-height: 18px; }
 .conn-status.is-done { color: var(--good); }
 .conn-status .icon { width: 14px; height: 14px; }
-/* Where the scheduled jobs run: GitHub (Always on) or this Mac. */
-.ap-where { display: inline-flex; align-items: center; gap: var(--sp-1); align-self: center; font-size: var(--fs-sm); color: var(--muted); font-weight: 600; }
 /* The checks read as one line of text ("Next: Jobs today 23:30 · Gmail tomorrow 07:00"), so they wrap as text, not
    one card per line, with the separator left on the line above. */
 .activity-panel #activity-schedule { display: inline; }
@@ -1496,19 +1494,16 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .ap-strip-manage { margin-left: auto; flex: none; color: var(--signal); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap;
   text-decoration: underline; text-underline-offset: 2px; }
 .ap-strip-manage:hover { color: var(--signal-ink); }
-.ap-upcoming .ap-where { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
-/* Recent activity: Today's list / Find new employers as a compact card (renderer/run-cards.js): one line of counts,
-   one line per item. */
-.run-card { padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
+/* Recent activity: Today's list / Find new employers as a compact card (renderer/run-cards.js). The counts sit on
+   their own tinted band; the heading, the rows and the link share the card's plain body (one surface, no box in a box). */
+.run-card { padding: 0; display: grid; gap: 0; font-size: var(--fs-sm); }
 .run-card[hidden] { display: none; }
-/* The counts read as one line of figures, a hairline between them and one under the row. */
 .run-card-stats { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-3); row-gap: var(--sp-1);
-  padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); color: var(--muted); }
+  padding: var(--sp-3) var(--sp-4); background: var(--strip); border-bottom: 1px solid var(--line); color: var(--muted); }
 .run-card-stat + .run-card-stat { padding-left: var(--sp-3); border-left: 1px solid var(--line); }
 .run-card-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
-/* The heading and the rows sit in their own bordered box inside the card (the mockup); the link to the list stays out. */
-.run-card-box { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); }
-.run-card-title { margin: 0 0 var(--sp-1); font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.run-card-body { padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-2); }
+.run-card-title { margin: 0; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
 .run-card-rows { list-style: none; margin: 0; padding: 0; display: grid; }
 .run-card-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) 0; }
 .run-card-row + .run-card-row { border-top: 1px solid var(--line); }
