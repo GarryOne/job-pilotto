@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
-import {groupWarnings, limitedJobs, runWarnings} from '../run-warnings.js';
+import {groupWarnings, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
 import {el, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -246,7 +246,8 @@ export function renderActivity(fresh) {
     button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
     // Its warnings: from the log (a run on this Mac), else the row's Status in Notion (a GitHub run: no log until opened).
-    const warned = !run.live && !run.waiting && run.ok && !run.off && (run.warned || runWarnings(run.log || []).length > 0);
+    const warned = !run.live && !run.waiting && run.ok && !run.off && (run.warned || runWarningLines(run).length > 0);
+
     if (warned) button.dataset.state = 'warn';
     const words = el('span', 'run-words');
     words.append(el('b', 'run-kind', kind.name), el('span', 'muted run-what', run.live ? `Running now · ${searchPhase(run.step) || 'starting'}` : run.waiting
@@ -326,9 +327,9 @@ export function renderActivity(fresh) {
   // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).
   const lines = shown ? run?.log || [] : liveLines || run?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;
-  const detailWarnings = runWarnings(lines);
+  const detailWarnings = runWarningLines(run);
   const status = !run ? '' : run.live ? 'Running' : run.waiting ? 'Queued' : !run.ok || run.off ? 'Failed'
-    : detailWarnings.length ? 'Completed with warnings' : 'Completed';
+    : (detailWarnings.length || run.warned) ? 'Completed with warnings' : 'Completed';
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
   $('activity-selected').textContent = !run ? 'Nothing has run yet' : `${kind.name} · ${status}`;
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
@@ -373,16 +374,21 @@ export function renderActivity(fresh) {
   show($('activity-card'), !!card);
   $('activity-message').textContent = !run?.live && !card && run?.message || '';
   show($('activity-message'), !run?.live && !card && !!run?.message);
-  // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it.
+  // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
+  // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
+  // pill and this card never contradict each other.
   const warnings = detailWarnings;
-  show($('activity-warnings'), warnings.length > 0);
-  if (warnings.length) {
+  const warnedOnly = !warnings.length && !run?.live && !!run?.warned;
+  show($('activity-warnings'), warnings.length > 0 || warnedOnly);
+  if (warnings.length || warnedOnly) {
     $('activity-warnings-title').textContent = run?.live ? 'Running with warnings' : 'Completed with warnings';
-    $('activity-warnings-summary').textContent = warningSummary(warnings);
-    const listShown = !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id);
+    $('activity-warnings-summary').textContent = warnings.length ? warningSummary(warnings)
+      : 'The run recorded warnings, with no line about them in its log or report.';
+    const listShown = warnings.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id);
     $('activity-warnings-list').dataset.for = String(run?.id);
     show($('activity-warnings-list'), listShown);
     const grouped = groupWarnings(warnings);
+    show($('activity-warnings-more'), warnings.length > 0);
     $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;
     $('activity-warnings-list').replaceChildren(...grouped.map(text => el('li', '', text)));
   }

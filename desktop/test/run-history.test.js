@@ -59,7 +59,7 @@ test('a run\'s page gives its result and technical log', async () => {
       para('paragraph', '💡 Skills'), para('paragraph', 'Go is in 40%'),
       {id: 'toggle-1', type: 'toggle', has_children: true, toggle: {rich_text: [{plain_text: 'Technical log (last 2 lines)'}]}}]});
   const storage = {secret: () => 'secret_x', settings: () => ({})};
-  assert.deepEqual(await history.detail(storage, 'r1', {fetcher}), {message: '💡 Skills\nGo is in 40%', log: ['line 1', 'line 2']});
+  assert.deepEqual(await history.detail(storage, 'r1', {fetcher}), {message: '💡 Skills\nGo is in 40%', log: ['line 1', 'line 2'], report: ['Insight sent: Skills']});
 });
 
 test('every finished job is a notification wherever it ran; a quiet Gmail check and a button action are not', () => {

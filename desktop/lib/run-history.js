@@ -83,7 +83,9 @@ export async function detail(storage, pageId, {fetcher} = {}) {
   }
   const report = blocks.filter(block => block.type === 'bulleted_list_item').map(plain);
   const job = jobFrom(log);  // a Logged activity run: its job's title and whether it was created
-  return {message, log: log.length ? log : report, ...(job ? {job} : {})};
+  // `report` goes along even when a technical log exists: it is where a GitHub run's "Warning: …" lines are (its row's
+  // Summary is only the report's first line, and its log is a single line pointing at the page).
+  return {message, log: log.length ? log : report, report, ...(job ? {job} : {})};
 }
 
 // The activity list: Notion's rows, with this Mac's own record where it's the same run (it has the full log and

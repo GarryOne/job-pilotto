@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {runWarnings} from '../renderer/run-warnings.js';
+import {runWarningLines, runWarnings} from '../renderer/run-warnings.js';
+
+test('a GitHub run\'s warning is in its report, not its one-line log (the list and the card must agree)', () => {
+  // A Notion row: Status Warnings, its Summary only the report's first line, its log one line pointing at its page.
+  const mail = {result: 'Gmail check: 0 new email(s) read, 0 update(s) recorded',
+    log: ['Cronjob run logged: https://app.notion.com/p/2026-09-30-22-39-Gmail-check-abc'],
+    report: ['Gmail check: 0 new email(s) read, 0 update(s) recorded', 'Warning: Gmail read failed (the token expired)']};
+  assert.deepEqual(runWarningLines(mail), ['Gmail read failed (the token expired)']);
+  assert.deepEqual(runWarnings(mail.log), []);  // the log alone says nothing: what the app showed before
+  assert.deepEqual(runWarningLines({result: 'Quiet run: nothing new from 29 feed(s)'}), []);
+  assert.deepEqual(runWarningLines({result: 'failed', log: []}), []);  // a failed run's summary is not a warning line
+});
 
 test('a run\'s warnings: real problems only, never a "0 failed" report line', () => {
   assert.deepEqual(runWarnings([

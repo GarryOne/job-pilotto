@@ -2,8 +2,19 @@
 // one: "Enriched 1 of 1 job(s); 0 failed" is a normal report line, not a warning.
 const WARNING = /^Warning|\b429\b|Too Many Requests|\b(?:skipped|failed)\b|^AI limit reached/i;
 const ZERO = /\b0 (?:failed|skipped)\b/gi;
+const CAP = 180;
+// Long API errors are capped, but at a word: "…API usage limits. You will" reads like a broken sentence.
+const shorten = text => (text.length <= CAP ? text : `${text.slice(0, CAP).replace(/\s+\S*$/, '')}…`);
 export const runWarnings = lines => [...new Set(lines.filter(line => WARNING.test(String(line).replace(ZERO, '')))
-  .map(line => String(line).replace(/^Warning:\s*/i, '').slice(0, 180)))];
+  .map(line => shorten(String(line).replace(/^Warning:\s*/i, ''))))];
+
+// Everywhere a run's warnings are recorded: its log (a run on this Mac) and its page's report (lib/run-history.js
+// `report` — where a GitHub run's "Warning: …" lines are, its log being one line pointing at its page). Not its
+// `result`: that is the row's one-line summary, and a failed run's is just "failed".
+export const runWarningLines = run => runWarnings([
+  ...(Array.isArray(run?.log) ? run.log : []),
+  ...(Array.isArray(run?.report) ? run.report : []),
+]);
 
 // The Anthropic account's spend limit, in any of its wordings (a line cut short still counts when another says it).
 const LIMIT = /usage limits?|credit balance|AI limit reached/i;
