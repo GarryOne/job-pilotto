@@ -203,7 +203,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   - **Outbound only** in the funnel: jobs you went after.
   - **Inbound funnel** card below it: Contacted you → Screening → Interviews → Offers, % of contacted, a click lists them (only once one found you).
 - 📋 **Jobs**: built from Notion (Job Matches + Applications), counters that filter the list (high fit, inbound,
-  companies; applied, waiting, in process, closed), **In conversation** (open inbound opportunities, above the list),
+  companies; applied, waiting, in process, closed), **In conversation** (anyone talking to you: open inbound opportunities and applications at screening or interviews, above the list),
   find a job by its pasted link, and one main button per job:
   - **Show** menu: New matches · Saved · Applied · Dismissed = job matches only; **Inbound** = everything that found
     you (all stages, newest first); All jobs = everything.

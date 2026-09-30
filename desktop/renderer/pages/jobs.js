@@ -1,5 +1,6 @@
 // Jobs: the list, adding jobs and messages, questions to answer once.
 import {closeMenu, el, moreButton, pill, tag, tile} from '../components.js';
+import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
@@ -71,7 +72,8 @@ const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 function renderTalking(narrowed = false) {
   const talking = inConversation(shared.allJobs);
   show($('jobs-talking'), talking.length > 0 && !narrowed);
-  $('jobs-talking-count').textContent = `${talking.length} found you`;
+  const found = talking.filter(isInbound).length;
+  $('jobs-talking-count').textContent = [found && `${found} found you`, talking.length - found && `${talking.length - found} you applied to`].filter(Boolean).join(' · ');
   $('jobs-talking-list').replaceChildren(...talking.map(job => {
     const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
       title: job.notion_url ? 'Open in Notion' : 'Open the link'});

@@ -139,8 +139,10 @@ test('an inbound opportunity counts as workload, as Applied only once you applie
   assert.deepEqual(byStat(jobs, 'applied').map(job => job.url), ['o1', 'i2']);
   // The list below: job matches only (the leads and recruiter pitches are not there).
   assert.deepEqual(matchesOnly(jobs).map(job => job.url), ['o1', 'm1']);
-  // In conversation: the open inbound ones, those with a next step first; the rejected one is over.
-  assert.deepEqual(inConversation(jobs).map(job => job.url), ['i3', 'i1', 'i2']);
+  // In conversation: the open inbound ones and the jobs you applied to that are being talked about; those with a
+  // next step first; the rejected one is over.
+  assert.deepEqual(inConversation(jobs).map(job => job.url), ['i3', 'o1', 'i1', 'i2']);
+  assert.deepEqual(inConversation([{stage: 'Applied', source: 'Job Pilotto app'}, {stage: 'Rejected', source: 'Job Pilotto app'}]), []);
   assert.deepEqual(inConversation([{stage: 'Recruiter lead', source: 'Gmail'}, {stage: 'Dismissed', source: 'LinkedIn'}]).length, 1);
 });
 

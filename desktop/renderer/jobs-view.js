@@ -71,7 +71,9 @@ export function statClick(kind, active, filter) {
 export const statPressed = (kind, active, filter) => kind === active || (!active && kind === {all: 'total', inbound: 'inbound'}[filter]);
 export const byFilter = (jobs, filter) => (filter === 'all' || filter === 'inbound' ? jobs : matchesOnly(jobs))
   .filter(job => inStatus(job, filter));
-export const inConversation = jobs => jobs.filter(job => isInbound(job) && !OVER.has(job.stage))
+// In conversation: a person is talking to you about it. Every open inbound opportunity (a recruiter's pitch included),
+// and the jobs you applied to that reached a screening or interviews.
+export const inConversation = jobs => jobs.filter(job => isInbound(job) ? !OVER.has(job.stage) : TALKING.has(job.stage))
   .sort((a, b) => (b.next_step ? 1 : 0) - (a.next_step ? 1 : 0) || String(a.company).localeCompare(String(b.company)));
 // A job's status pill: its own status, except that an application shows where it stands in Notion (its Stage),
 // e.g. Rejected rather than Applied.
