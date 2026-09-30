@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Jobs you add yourself get what a found job gets: AI stage 1 facts, the stage 2 fit score, a Job Matches row.
+"""Jobs you add yourself get AI stage 1 facts and the stage 2 fit score, on their Applications row (no Job Matches row).
 
 A job applied to elsewhere (/add, the app's "Applied elsewhere"), a recruiter's pitch, or a job logged from a
 message or screenshot never went through the crawl, so it had no seniority, work mode, technologies, languages,
@@ -7,8 +7,12 @@ salary facts or fit score. Here it's written to the job cache like a found job (
 
 1. stage 1 (src/ai/enrich.py, Haiku 4.5): facts from its description (or the recruiter's message);
 2. stage 2 (src/ai/score.py, Sonnet 5): fit score, tier, reason, strengths, gaps against your Profile;
-3. its Job Matches row (src/notion/matches.py properties, Status Applied), and on its Applications row the same
-   columns a found job's application gets (Fit score, Tier, Seniority, Work mode, Salary if empty).
+3. on its Applications row the columns a found job's application gets (Fit score, Tier, Seniority, Work mode,
+   Recruiter, Salary if empty).
+
+No Job Matches row (owner's decision, 30 Sep 2026): Job Matches is what a search found and scored; every job you pursue,
+found or added, has one Applications row. The Jobs list shows an added job from that row (Tracker.notion_jobs), and a
+search never mirrors it into Job Matches (daily.py leaves source "Added by you" out of matches.sync).
 
 Only when the AI stages are on (their models set, as the app does with an Anthropic key); about USD 0.01–0.02
 per job. A job the crawl already scored is left as it is.
@@ -17,7 +21,6 @@ from datetime import datetime, timezone
 
 from .. import features, store
 from ..notion import matches
-from ..notion.client import MATCHES_DATABASE_ID
 from ..notion.ledger import SELECTS, plain
 from ..paths import local_profile
 from . import cost, enrich, score
@@ -38,9 +41,10 @@ def description_of(item, text=''):
 
 
 def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=None):
-    """Stage 1 + stage 2 + Job Matches for one job you added. job: title, company, location, description
-    (optional: work_mode, date_posted). row: its Applications page, to fill the fit columns. Returns a short
-    line ("fit 82/100, tier A"), or None when skipped (AI off, no text, already scored)."""
+    """Stage 1 + stage 2 for one job you added. job: title, company, location, description (optional: work_mode,
+    date_posted). row: its Applications page, whose fit columns are filled. With no row yet (/add scores the job before
+    its row exists), the columns are left in job['application_columns'] for ledger.add_application to write.
+    Returns a short line ("fit 82/100, tier A"), or None when skipped (AI off, no text, already scored)."""
     if not (features.enabled('enrich') and features.enabled('score')):
         return None
     description = (job.get('description') or '').strip()
@@ -68,39 +72,31 @@ def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=Non
     fit, usage = score.score_one(client, score.DEFAULT_MODEL, item, profile)
     score.save(db, item, score.DEFAULT_MODEL, fit, profile)
     cost.add(stats.setdefault('score', {}) if stats is not None else None, score.DEFAULT_MODEL, usage)
-    props = matches.properties(dict(item, fit=fit), 'Applied')
-    _upsert_match(db, tracker, url, props)
+    props = matches.properties(dict(item, fit=fit), 'Applied')  # the same values a found job's match carries
     if row is not None:
         _fill_application(tracker, row, props)
+    else:
+        job['application_columns'] = application_columns(props)
     return f"fit {fit['score']}/100, tier {fit['tier']}"
 
 
-def _upsert_match(db, tracker, url, props):
-    """One Job Matches row for this URL (created, or the existing one updated), remembered like a synced one."""
-    db.executescript(matches.SYNC_TABLE)
-    known = db.execute('SELECT page_id FROM notion_matches WHERE url=?', (url,)).fetchone()
-    page_id = known['page_id'] if known else None
-    if not page_id:
-        rows = tracker.query_database(MATCHES_DATABASE_ID, {'property': 'Job URL', 'url': {'equals': url}})
-        page_id = rows[0]['id'] if rows else None
-    page_id = tracker.upsert_match(props, page_id)
-    db.execute('INSERT INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?) '
-               'ON CONFLICT(url) DO UPDATE SET page_id=excluded.page_id, data_hash=excluded.data_hash',
-               (url, page_id, matches._hash(props)))
-    db.commit()
-
-
-def _fill_application(tracker, row, props):
-    """The Applications columns a found job's application gets from its match; what you set stays."""
-    have = row.get('properties') or {}
+def application_columns(props, have=None):
+    """The Applications columns a found job's application gets from its match; what you set (have) stays."""
+    have = have or {}
     changes = {'Fit score': {'number': props['Score']['number']}}
     for name in SELECTS:
         value = (props.get(name) or {}).get('select')
         if value and value['name'] in SELECTS[name] and not plain(have.get(name)):
             changes[name] = {'select': value}
+    if (props.get('Recruiter') or {}).get('checkbox') and not plain(have.get('Recruiter')):
+        changes['Recruiter'] = {'checkbox': True}
     if (props.get('Salary') or {}).get('rich_text', [{}])[0].get('text', {}).get('content') and not plain(have.get('Salary')):
         changes['Salary'] = props['Salary']
-    tracker.update_page(row['id'], changes)
+    return changes
+
+
+def _fill_application(tracker, row, props):
+    tracker.update_page(row['id'], application_columns(props, row.get('properties')))
 
 
 def hook(tracker, db_path, stats=None):

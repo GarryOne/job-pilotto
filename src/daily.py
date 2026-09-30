@@ -89,6 +89,14 @@ def tracked_job(code, tracker):
             'description': live.get('description', ''), 'work_mode': '', 'city': ''}
 
 
+def for_job_matches(db, hidden):
+    """The scored open jobs mirrored into Notion Job Matches: what the search found. Jobs you added yourself
+    (src/ai/added.py) are left out: they live on Applications only, with their fit columns there."""
+    fits, yours = score.load(db), store.added_source_ids(db)
+    candidates, _ = digest.eligible_jobs(db, hidden)
+    return [dict(j, fit=fits[j['id']]) for j in candidates if j['id'] in fits and j.get('source_id') not in yours]
+
+
 def _job_arg(value):
     value = value.strip()
     return value if '/' in value else value.lower()
@@ -346,8 +354,9 @@ def main():
             meta.update({key: value.strip() for key, value in given.items() if value and value.strip()})
             meta['company'] = ledger.company_for(tracker, args.job, meta)
             with store.connect(args.db) as db:
-                # The same AI stages as a found job (facts, fit score, Job Matches row) before the record is
-                # frozen, so the application record carries them too. AI trouble never blocks tracking it.
+                # The same AI stages as a found job (facts, fit score) before the record is frozen: the fit columns
+                # go on its Applications row (meta['application_columns'], no Job Matches row), so the application
+                # record carries them too. AI trouble never blocks tracking it.
                 fit = None
                 try:
                     fit = added.process(db, tracker, args.job, meta, stats=run)
@@ -513,9 +522,7 @@ def main():
         if tracker and args.mode in ('scheduled', 'run', 'today'):
             # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
             try:
-                fits = score.load(db)
-                candidates, _ = digest.eligible_jobs(db, hidden)
-                scored = [dict(j, fit=fits[j['id']]) for j in candidates if j['id'] in fits]
+                scored = for_job_matches(db, hidden)
                 open_urls = {j['url'].strip() for j in store.digest_jobs(db, limit=10_000) if j.get('url')}
                 applied_urls = hidden - dismissed
                 run['top_new'] = top_new(report, scored)

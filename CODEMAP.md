@@ -155,7 +155,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Python pipeline
 
 - `src/__main__.py` — Command line entry point: python -m src <command> [options].
-- `src/ai/added.py` — Jobs you add yourself get what a found job gets: AI stage 1 facts, the stage 2 fit score, a Job Matches row.
+- `src/ai/added.py` — Jobs you add yourself get AI stage 1 facts and the stage 2 fit score, on their Applications row (no Job Matches row).
 - `src/ai/apply_batch.py` — Queue every ready application kit into the ChatGPT/Codex desktop app, one chat each.
 - `src/ai/apply_run.py` — Run one observable Codex browser fill and record its review handoff.
 - `src/ai/budget.py` — Monthly AI budget: how much of this month's Anthropic spend limit is used, and what to do about it.

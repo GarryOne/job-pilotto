@@ -120,3 +120,22 @@ class NextJobsTests(unittest.TestCase):
                 mock.patch.object(apply_batch, 'still_open', lambda tracker, url: url not in closed):
             self.assertEqual(apply_batch.unstarted_urls_by_score(Tracker(), 2), ['https://b', 'https://d'])
             self.assertEqual(apply_batch.job_details('https://b')['url'], 'https://b')  # --details: the row's title and company
+
+    def test_a_job_you_added_ranks_by_its_applications_fit_score(self):
+        """Jobs added by hand or from a recruiter have no Job Matches row: the Fit score on their row counts."""
+        from unittest import mock
+        def row(url, fit=None):
+            props = {'Job URL': {'type': 'url', 'url': url}, 'Stage': {'type': 'select', 'select': {'name': 'Kit ready'}}}
+            if fit is not None:
+                props['Fit score'] = {'type': 'number', 'number': fit}
+            return {'id': url, 'properties': props}
+
+        class Tracker:
+            database_id = 'apps'
+            def query_database(self, database_id, filter_=None):
+                if database_id == 'apps':
+                    return [row('https://found', 70), row('https://added', 88), row('https://unscored')]
+                return [{'properties': {'Job URL': {'url': 'https://found'}, 'Score': {'number': 70}}}]
+        with mock.patch.object(apply_batch.notion, 'MATCHES_DATABASE_ID', 'matches'), \
+                mock.patch.object(apply_batch, 'still_open', lambda tracker, url: True):
+            self.assertEqual(apply_batch.unstarted_urls_by_score(Tracker(), 3), ['https://added', 'https://found', 'https://unscored'])

@@ -111,6 +111,10 @@ def unstarted_urls_by_score(tracker, max_jobs):
         score = row['properties'].get('Score', {}).get('number')
         if url is not None and score is not None:
             url_score[url] = score
+    for row in rows:  # a job you added has no Job Matches row: its Applications fit score counts instead
+        own = row['properties'].get('Fit score', {}).get('number')
+        if _prop(row, 'Job URL') and own is not None:
+            url_score.setdefault(_prop(row, 'Job URL'), own)
     candidates = [_prop(row, 'Job URL') for row in rows
                   if _prop(row, 'Job URL') and (_prop(row, 'Stage') == 'Kit ready' or _prop(row, 'Next step').startswith(KIT_STEP))]
     unstarted_urls_by_score.rows = {_prop(row, 'Job URL'): row for row in rows}  # for job_details() of the ones picked

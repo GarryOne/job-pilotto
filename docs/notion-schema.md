@@ -8,6 +8,7 @@ variable (see the main README's Configuration section) — property names must m
 ## Applications — Job Tracker (database)
 
 Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or dismissed.
+**Rule:** every job you pursue has one Applications row, found or added (by hand, `/add`, a recruiter's LinkedIn/email message); a job you add gets its facts and fit score here (Fit score, Tier, Seniority, Work mode, Recruiter, Salary), never a Job Matches row.
 
 | Property | Type | Notes |
 |---|---|---|
@@ -80,6 +81,7 @@ so it doesn't need a schema entry.
 
 Env var: `NOTION_MATCHES_DB`. One row per job AI stage 2 has scored; rebuilt from SQLite, safe to
 delete and let it repopulate.
+**Rule:** Job Matches = what a search found and scored; jobs and recruiter leads you add live on Applications only (`src/ai/added.py`).
 
 | Property | Type | Notes |
 |---|---|---|

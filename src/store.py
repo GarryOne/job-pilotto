@@ -83,6 +83,12 @@ def _id(db, table, name, values):
     return cur.lastrowid
 
 
+def added_source_ids(db):
+    """Source ids of jobs you added yourself (src/ai/added.py, kind 'you'): tracked on Applications only, never
+    mirrored into Job Matches, which holds what a search found."""
+    return {row['id'] for row in db.execute("SELECT id FROM sources WHERE kind='you'")}
+
+
 def upsert_job(db, item, source_name, source_url='', source_kind='job board', now=None):
     now = now or _now()
     company_name = item.get('company') or 'Unknown employer'

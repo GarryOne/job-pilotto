@@ -59,5 +59,32 @@ class NotionListTests(unittest.TestCase):
         self.assertEqual(result['total'], 3)
 
 
+class AddedJobTests(unittest.TestCase):
+    def test_a_job_you_added_is_in_the_list_from_its_applications_row_alone(self):
+        """Jobs added by hand or from a recruiter have no Job Matches row (src/ai/added.py): the list shows them
+        from their Applications row, with the fit score written there."""
+        from src.notion import client
+        text = lambda value: {'rich_text': [{'plain_text': value}]}
+        found = {'id': 'm1', 'created_time': '2026-09-20', 'properties': {
+            'Job URL': {'url': 'https://a/found'}, 'Job': {'title': [{'plain_text': 'SRE'}]}, 'Company': text('Acme'),
+            'Score': {'number': 80}, 'Status': {'select': {'name': 'Open'}}}}
+        lead = {'id': 'a1', 'url': 'https://notion/a1', 'created_time': '2026-09-29', 'properties': {
+            'Job URL': {'url': 'https://www.jobpilotto.workers.dev/lead#abc'}, 'Job': {'title': [{'plain_text': 'Platform Lead'}]},
+            'Company': text('Beta'), 'Fit score': {'number': 74}, 'Stage': {'select': {'name': 'Recruiter lead'}},
+            'Work mode': {'select': {'name': 'Remote'}}, 'Contact': text('Jane (recruiter)')}}
+        tracker = client.Tracker('token', 'apps')
+        with mock.patch.object(client, 'MATCHES_DATABASE_ID', 'matches'), \
+                mock.patch.object(tracker, '_query', lambda filter_=None, database_id=None: [found] if database_id == 'matches' else [lead]):
+            jobs = tracker.notion_jobs()
+        row = next(j for j in jobs if j['url'].endswith('#abc'))
+        self.assertEqual((row['title'], row['company'], row['fit'], row['stage'], row['match_status'], row['page_id']),
+                         ('Platform Lead', 'Beta', 74, 'Recruiter lead', None, 'a1'))
+        with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=([], [])), \
+                mock.patch.object(desktop.score, 'load', return_value={}), mock.patch.object(desktop.store, 'set_application_status'):
+            listed = desktop.jobs(sqlite3.connect(':memory:'), notion_jobs=jobs)['jobs']
+        self.assertEqual({(r['url'], r['fit']) for r in listed},
+                         {('https://a/found', 80), ('https://www.jobpilotto.workers.dev/lead#abc', 74)})
+
+
 if __name__ == '__main__':
     unittest.main()

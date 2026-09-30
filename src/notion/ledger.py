@@ -201,10 +201,17 @@ def cv_version(path):
     return f'{Path(path).name} · {digest}'
 
 
-def match_for(tracker, url):
-    """The job's Job Matches row (AI stage 1 facts and stage 2 scores) as plain values, or {}."""
+def match_for(tracker, url, row=None):
+    """The job's Job Matches row (AI stage 1 facts and stage 2 scores) as plain values, or {}. A job you added has
+    no Job Matches row (src/ai/added.py): its Applications row's fit columns stand in for it when row is given."""
     rows = tracker.query_database(notion.MATCHES_DATABASE_ID, {'property': 'Job URL', 'url': {'equals': url}})
-    return {name: plain(prop) for name, prop in rows[0]['properties'].items()} if rows else {}
+    if rows:
+        return {name: plain(prop) for name, prop in rows[0]['properties'].items()}
+    props = (row or {}).get('properties') or {}
+    own = {'Score': plain(props.get('Fit score')), **{name: plain(props.get(name)) for name in (*SELECTS, 'Salary')}}
+    if plain(props.get('Recruiter')):
+        own['Recruiter'] = True
+    return {name: value for name, value in own.items() if value not in (None, '')}
 
 
 def answers_for(kit, form):
@@ -349,7 +356,7 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
     run = run_state(url, run_dir)
     if run is None and hasattr(tracker, '_request'):
         run = run_from_notion(tracker, row)
-    properties, data = build(url, row, kit, match_for(tracker, url), posting(url),
+    properties, data = build(url, row, kit, match_for(tracker, url, row), posting(url),
                              form, run, cv_version(cv_path), now)
     tracker.update_page(row['id'], properties)
     tracker.replace_section(row['id'], RECORD_HEADING, record_blocks(data))
@@ -601,11 +608,15 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
              'Date approximate': {'checkbox': bool(approx)}, 'Channel': {'select': {'name': channel}}}
     if via:
         props['Via'] = text(via)
+    # The fit columns src/ai/added.py worked out before this row existed (a job you add has no Job Matches row).
+    columns = meta.get('application_columns') or {}
     row = tracker.find(url)
     if row:
         stage = plain(row['properties'].get('Stage'))
         if stage in OUTCOME_STAGES and stage != 'Applied':
             return f'Already tracked at {stage}: {plain(row["properties"].get("Job"))}'
+        props.update({name: value for name, value in columns.items()
+                      if name == 'Fit score' or not plain(row['properties'].get(name))})  # what you set stays
         tracker.update_page(row['id'], props)
     else:
         posted = (meta.get('date_posted') or '')[:10]
@@ -616,6 +627,7 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
         })
         if _day(posted):
             props['Posted'] = {'date': {'start': posted}}
+        props.update(columns)
         row = tracker.create_page(tracker.database_id, props)
     row = tracker.find(url) or row
     add_event(tracker, row, 'Applied', source, at=applied.isoformat(),
