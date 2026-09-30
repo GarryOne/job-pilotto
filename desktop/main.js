@@ -715,20 +715,38 @@ function handlers() {
     return image.isEmpty() ? null : {name: 'pasted-screenshot.png', type: 'image/png', data: image.toPNG().toString('base64')};
   });
   // Jobs → Recruiter message: a recruiter lead read by Claude, waited for so the list shows it.
-  ipcMain.handle('addLead', async (_, text, talking = false, image = null, target = '') => {
-    if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
-    if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: recruiter leads are tracked there.'};
-    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'Reading a message or screenshot needs your Anthropic API key (Settings).'};
-    // Screenshots (up to 5) go to temporary files for the run (then to Notion, on the job's page), deleted after.
+  // Two steps: proposeLead reads it (Claude, once; nothing written), the window asks you to confirm the channel and the
+  // start date, then addLead(…, {proposal, confirmed}) writes it to Notion with those instead of Claude's guesses.
+  const leadCheck = () => (!storage.secret('NOTION_TOKEN') ? {ok: false, text: 'Connect Notion first: recruiter leads are tracked there.'}
+    : !storage.secret('ANTHROPIC_API_KEY') ? {ok: false, text: 'Reading a message or screenshot needs your Anthropic API key (Settings).'} : null);
+  // Screenshots (up to 5) go to temporary files for the run (then to Notion, on the job's page), deleted after.
+  const withShots = async (image, task) => {
     const exts = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'};
     const shots = (Array.isArray(image) ? image : image ? [image] : []).filter(shot => exts[shot?.type]).slice(0, 5);
     const files = shots.map((shot, i) => path.join(app.getPath('temp'), `job-pilotto-shot-${Date.now()}-${i}${exts[shot.type]}`));
     try {
       shots.forEach((shot, i) => fs.writeFileSync(files[i], Buffer.from(String(shot.data), 'base64')));
-      // Each step the engine reports ("⏳ …") shows in the Log box while it works.
-      const onLine = line => { log(line); if (/^⏳/.test(line)) toWindow('leadStep', line.replace(/^⏳\s*/, '')); };
-      return await pipeline.addLead(storage, String(text || ''), !!talking, onLine, {file: files.join(','), target: String(target || '')});
+      return await task(files.join(','));
     } catch (error) { return {ok: false, text: error.message}; } finally { files.forEach(file => fs.rmSync(file, {force: true})); }
+  };
+  // Each step the engine reports ("⏳ …") shows in the Log box while it works.
+  const leadLine = line => { log(line); if (/^⏳/.test(line)) toWindow('leadStep', line.replace(/^⏳\s*/, '')); };
+  ipcMain.handle('proposeLead', async (_, text, image = null, target = '') => {
+    if (DEMO) return demo.leadProposal(target);
+    const problem = leadCheck();
+    if (problem) return problem;
+    return withShots(image, file => pipeline.proposeLead(storage, String(text || ''), leadLine, {file, target: String(target || '')}));
+  });
+  ipcMain.handle('addLead', async (_, text, talking = false, image = null, target = '', proposal = null, confirmed = null) => {
+    if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
+    const problem = leadCheck();
+    if (problem) return problem;
+    const reading = proposal ? path.join(app.getPath('temp'), `job-pilotto-reading-${Date.now()}.json`) : '';
+    try {
+      if (reading) fs.writeFileSync(reading, JSON.stringify(proposal));
+      return await withShots(image, file => pipeline.addLead(storage, String(text || ''), !!talking, leadLine,
+        {file, target: String(target || ''), reading, confirmed}));
+    } finally { if (reading) fs.rmSync(reading, {force: true}); }
   });
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
   // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.

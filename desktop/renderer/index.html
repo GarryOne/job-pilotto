@@ -1410,6 +1410,7 @@
       <h2>Log job activity</h2>
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
+    <div id="lead-compose">
     <p class="dialog-lead">Paste a recruiter message or add a screenshot.<span class="muted small">Gmail messages are imported automatically.</span></p>
     <label for="lead-text">Message or screenshot</label>
     <div class="composer" id="lead-composer">
@@ -1426,6 +1427,46 @@
     <div class="select-search"><i data-icon="search"></i><select id="lead-target"></select></div>
     <label class="check-row"><input type="checkbox" id="lead-talking">
       <span><span>I agreed to speak with the recruiter</span><span class="muted small">Move the job to Screening</span></span></label>
+    </div>
+    <!-- Step 2: what Claude read, checked by you before anything is written to Notion (renderer/lead-confirm.js).
+         Marked fields were inferred (confirm or change them); empty ones weren't in the message (answer them). -->
+    <div id="lead-confirm" hidden>
+      <p class="dialog-lead">Check what Claude read before it's saved.<span class="muted small">Nothing goes to Notion until the marked details are confirmed.</span></p>
+      <div class="lead-found"><span id="lead-found-tile"></span>
+        <div><strong id="lead-found-title"></strong><span class="muted small" id="lead-found-meta"></span></div></div>
+      <div class="lead-field" data-field="kind">
+        <div class="lead-field-head"><label for="lead-kind">What is it?</label><span class="lead-flag"></span></div>
+        <select id="lead-kind"></select></div>
+      <div class="lead-field" data-field="channel">
+        <div class="lead-field-head"><label>Where is this conversation from?</label><span class="lead-flag"></span></div>
+        <div class="segmented is-fill" id="lead-channel" role="radiogroup" aria-label="Where is this conversation from?">
+          <button type="button" data-channel="LinkedIn">LinkedIn</button><button type="button" data-channel="Email">Email</button>
+          <button type="button" data-channel="Phone">Phone / call</button><button type="button" data-channel="Other">Other</button></div>
+        <input type="text" id="lead-channel-other" placeholder="Where? e.g. WhatsApp, a job fair" maxlength="40" hidden>
+        <p class="muted small field-hint" id="lead-channel-hint"></p></div>
+      <div class="lead-field" data-field="started">
+        <div class="lead-field-head"><label for="lead-started" id="lead-started-label">When did it start?</label><span class="lead-flag"></span></div>
+        <div class="segmented is-fill" id="lead-years" role="radiogroup" aria-label="Which year?" hidden></div>
+        <input type="date" id="lead-started" class="lead-date">
+        <p class="muted small field-hint" id="lead-started-hint"></p></div>
+      <div class="lead-field" data-field="interview">
+        <div class="lead-field-head"><label for="lead-interview" id="lead-interview-label">When is the call?</label><span class="lead-flag"></span></div>
+        <input type="datetime-local" id="lead-interview" class="lead-date">
+        <p class="muted small field-hint" id="lead-interview-hint"></p></div>
+      <div class="lead-pair" id="lead-pair-box">
+        <div class="lead-field" data-field="company">
+          <div class="lead-field-head"><label for="lead-company">Hiring company</label><span class="lead-flag"></span></div>
+          <input type="text" id="lead-company" placeholder="Not named in the message" maxlength="200"></div>
+        <div class="lead-field" data-field="agency">
+          <div class="lead-field-head"><label for="lead-agency">Agency</label><span class="lead-flag"></span></div>
+          <input type="text" id="lead-agency" placeholder="None (the employer wrote)" maxlength="200"></div>
+      </div>
+      <div class="lead-field" data-field="first">
+        <div class="lead-field-head"><label>Is this the first contact about this job?</label></div>
+        <div class="segmented is-fill" id="lead-first" role="radiogroup" aria-label="Is this the first contact about this job?">
+          <button type="button" data-first="yes">Yes, it started here</button><button type="button" data-first="no">No, it started elsewhere</button></div>
+        <p class="muted small field-hint" id="lead-first-hint"></p></div>
+    </div>
     <p class="message" id="lead-message"></p>
     <div class="alert" id="lead-result" hidden>
       <i data-icon="info"></i>
@@ -1433,7 +1474,8 @@
         <button type="button" class="link" id="lead-result-pick" hidden>Choose a job manually</button></div>
     </div>
     <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button class="ghost" value="cancel" formnovalidate id="lead-cancel">Cancel</button>
+      <button type="button" class="ghost" id="lead-back" hidden>Back</button>
       <button class="primary" id="lead-go" value="default">Log activity</button>
     </div>
   </form>

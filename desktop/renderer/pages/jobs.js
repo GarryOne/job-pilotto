@@ -1,5 +1,6 @@
 // Jobs: the list, adding jobs and messages, questions to answer once.
-import {closeMenu, el, moreButton, pill, tag} from '../components.js';
+import {closeMenu, el, moreButton, pill, tag, tile} from '../components.js';
+import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
 import {ago, applicationStats, avatar, band, byStat, inProcess, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../jobs-view.js';
@@ -350,6 +351,78 @@ function readShot(file) {  // a File from paste, drop or the picker
   reader.readAsDataURL(file);
   return true;
 }
+// Step 2, the confirmation: what Claude read, with what it couldn't see asked (renderer/lead-confirm.js).
+let leadProposal = null, leadState = null;
+const localDay = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+function leadStep2(on) {
+  $('lead-compose').hidden = on;
+  $('lead-confirm').hidden = !on;
+  $('lead-back').hidden = !on;
+  $('lead-cancel').hidden = on;
+  if (!on) { leadProposal = leadState = null; $('lead-go').textContent = 'Log activity'; }
+}
+function showConfirm(proposal) {
+  leadProposal = proposal;
+  leadState = confirmStep.initial(proposal);
+  const fields = proposal.fields || {};
+  const {title, meta} = confirmStep.found(proposal);
+  $('lead-found-tile').replaceChildren(tile(proposal.new ? 'inbox' : 'briefcase', 'info'));
+  $('lead-found-title').textContent = title;
+  $('lead-found-meta').textContent = meta;
+  const option = (value, text) => Object.assign(document.createElement('option'), {value, textContent: text});
+  $('lead-kind').replaceChildren(...(fields.kind?.options || Object.keys(confirmStep.KIND_LABEL)).map(k => option(k, confirmStep.KIND_LABEL[k] || k)));
+  $('lead-kind').value = leadState.values.kind || '';
+  $('lead-channel-other').value = '';
+  const started = fields.started || {};
+  $('lead-started-label').textContent = started.question || 'When did it start?';
+  $('lead-started').value = leadState.values.started || '';
+  $('lead-started').max = localDay();
+  $('lead-years').hidden = !started.years?.length;
+  $('lead-years').replaceChildren(...(started.years || []).map(year => Object.assign(document.createElement('button'),
+    {type: 'button', textContent: String(year), onclick: () => leadSet('started', confirmStep.withYear(started, year))})));
+  $('lead-interview-label').textContent = fields.interview?.question || 'When is the call?';
+  $('lead-interview').value = leadState.values.interview || '';
+  $('lead-company').value = leadState.values.company || '';
+  $('lead-agency').value = leadState.values.agency || '';
+  $('lead-started-hint').textContent = confirmStep.startedHint(proposal.new);
+  leadStep2(true);
+  renderConfirm();
+}
+function leadSet(name, value) { leadState = confirmStep.set(leadState, name, value); renderConfirm(); }
+// Every field's mark (please check / needs an answer / ✓), the choices shown, and the Save button's words.
+function renderConfirm() {
+  if (!leadProposal) return;
+  const fields = leadProposal.fields || {}, v = leadState.values;
+  const left = confirmStep.pending(leadProposal, leadState, localDay());
+  document.querySelectorAll('#lead-confirm .lead-field[data-field]').forEach(box => {
+    const name = box.dataset.field, field = fields[name];
+    if (name === 'first') { box.hidden = !leadProposal.new; return; }
+    box.hidden = !field;
+    if (!field) return;
+    const waiting = left.find(item => item.name === name);
+    box.classList.toggle('is-check', waiting?.why === 'check');
+    box.classList.toggle('is-ask', !!waiting && waiting.why !== 'check');
+    const flag = box.querySelector('.lead-flag');
+    if (!waiting) flag.replaceChildren(...(field.state === 'ok' || !leadState.confirmed.includes(name) ? [] : [pill('Confirmed', 'good', {dot: true})]));
+    else if (waiting.why === 'check') {
+      const ok = Object.assign(document.createElement('button'), {type: 'button', className: 'link', textContent: 'Looks right'});
+      ok.addEventListener('click', () => leadSet(name));
+      flag.replaceChildren(pill('Please check', 'warn'), ok);
+    } else flag.replaceChildren(pill(waiting.why === 'future' ? 'In the future' : 'Needs an answer', 'warn'));
+  });
+  $('lead-pair-box').hidden = !fields.company && !fields.agency;
+  $('lead-channel').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.channel === v.channel));
+  $('lead-channel-other').hidden = v.channel !== 'Other';
+  $('lead-channel-hint').textContent = confirmStep.channelHint(fields.channel, v.channel);
+  if ($('lead-started').value !== (v.started || '')) $('lead-started').value = v.started || '';  // a year picked fills the date
+  $('lead-years').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', (v.started || '').startsWith(b.textContent)));
+  const said = fields.interview?.as_written ? `The message says "${fields.interview.as_written}". ` : '';
+  $('lead-interview-hint').textContent = said + (v.kind === 'Interview scheduled' ? 'A booked call needs its date and time.'
+    : 'Leave empty if no time is fixed yet.');
+  $('lead-first').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.first === leadState.first));
+  $('lead-first-hint').textContent = confirmStep.firstHint(v.channel, leadState.first, leadState.other);
+  $('lead-go').textContent = confirmStep.saveLabel(left);
+}
 function clearLeadShot() { leadShots = []; renderShots(); $('lead-shot-file').value = ''; }
 function leadResult(tone, title, text, pick = false) {
   $('lead-result').hidden = !title;
@@ -592,6 +665,7 @@ export async function init() {
   $('lead-open').addEventListener('click', () => {
     if (!leadRunning) message('lead-message', '');  // a log still running keeps its step and timer
     leadResult('', '');
+    if (!leadRunning && !leadProposal) leadStep2(false);  // an unconfirmed reading stays until Back or a save
     $('lead-go').disabled = leadRunning;
     leadTargets();
     $('lead-dialog').showModal();
@@ -616,32 +690,60 @@ export async function init() {
     if (files.length) { event.preventDefault(); files.forEach(readShot); }
   });
   $('lead-result-pick').addEventListener('click', () => { $('lead-target').focus(); $('lead-target').showPicker?.(); });
-  $('lead-go').addEventListener('click', async event => {
-    event.preventDefault();
-    const text = $('lead-text').value.trim();
-    leadResult('', '');
-    if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
-    if (leadRunning) return;  // one log at a time: reopening the dialog never starts a second one
+  // Step 2's controls: each change confirms that field.
+  $('lead-kind').addEventListener('change', () => leadSet('kind', $('lead-kind').value));
+  $('lead-channel').addEventListener('click', event => { const b = event.target.closest('[data-channel]'); if (b) leadSet('channel', b.dataset.channel); });
+  $('lead-channel-other').addEventListener('input', () => { leadState.other = $('lead-channel-other').value; renderConfirm(); });
+  $('lead-started').addEventListener('input', () => leadSet('started', $('lead-started').value));
+  $('lead-interview').addEventListener('input', () => leadSet('interview', $('lead-interview').value));
+  $('lead-company').addEventListener('input', () => leadSet('company', $('lead-company').value));
+  $('lead-agency').addEventListener('input', () => leadSet('agency', $('lead-agency').value));
+  $('lead-first').addEventListener('click', event => { const b = event.target.closest('[data-first]'); if (b) { leadState.first = b.dataset.first; renderConfirm(); } });
+  $('lead-back').addEventListener('click', () => { leadStep2(false); leadResult('', ''); message('lead-message', ''); });
+  // The engine's steps with a timer while it reads (step 1) or writes (step 2).
+  const working = async (first, task) => {
     leadRunning = true;
     $('lead-go').disabled = true;
-    // What's happening under the hood: the engine's current step (onLeadStep), with the seconds so far.
     const started = Date.now();
-    leadStep = leadShots.length > 1 ? `Sending ${leadShots.length} screenshots` : 'Starting';
+    leadStep = first;
     const tick = () => message('lead-message', `${leadStep}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
     tick();
     const timer = setInterval(tick, 1000);
-    const result = await window.pilot.addLead(text, $('lead-talking').checked, leadShots, $('lead-target').value)
-      .finally(() => { clearInterval(timer); leadRunning = false; });
-    $('lead-go').disabled = false;
-    message('lead-message', '');
-    const said = result.text.replace(/^\S+\s/, '');  // without the leading emoji
-    if (!result.ok) {
-      const notJob = /doesn't look like a message about a job/.test(said);
-      const unsure = /can't tell which company and role/.test(said);
-      leadResult('warn', notJob ? 'No job activity found' : unsure ? 'Which job is it?' : "Couldn't log it",
-        notJob ? 'This looks like something other than a job (e.g. a services pitch), so nothing was added.' : said, notJob || unsure);
+    try { return await task(); } finally { clearInterval(timer); leadRunning = false; $('lead-go').disabled = false; message('lead-message', ''); }
+  };
+  $('lead-go').addEventListener('click', async event => {
+    event.preventDefault();
+    if (leadRunning) return;  // one log at a time: reopening the dialog never starts a second one
+    const text = $('lead-text').value.trim();
+    leadResult('', '');
+    if (!leadProposal) {  // step 1: Claude reads it; nothing is written yet
+      if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
+      const proposal = await working(leadShots.length > 1 ? `Sending ${leadShots.length} screenshots` : 'Starting',
+        () => window.pilot.proposeLead(text, leadShots, $('lead-target').value));
+      if (!proposal.ok) {
+        const said = String(proposal.text || '').replace(/^\S+\s/, '');  // without the leading emoji
+        const notJob = /doesn't look like a message about a job/.test(said);
+        const unsure = /can't tell which company and role/.test(said);
+        leadResult('warn', notJob ? 'No job activity found' : unsure ? 'Which job is it?' : "Couldn't log it",
+          notJob ? 'This looks like something other than a job (e.g. a services pitch), so nothing was added.' : said, notJob || unsure);
+        return;
+      }
+      showConfirm(proposal);
       return;
     }
+    // Step 2: only once every marked detail is confirmed, then it's written with your answers.
+    const left = confirmStep.pending(leadProposal, leadState, localDay());
+    if (left.length) {
+      leadResult('warn', confirmStep.saveLabel(left), 'The marked details were guessed or missing: confirm or fill them in first.');
+      document.querySelector(`#lead-confirm .lead-field[data-field="${left[0].name}"]`)?.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+      return;
+    }
+    const answers = confirmStep.confirmed(leadProposal, leadState);
+    const result = await working('Saving to Notion', () => window.pilot.addLead(text, $('lead-talking').checked, leadShots,
+      $('lead-target').value, leadProposal, answers));
+    const said = result.text.replace(/^\S+\s/, '');
+    if (!result.ok) { leadResult('warn', "Couldn't log it", said); return; }
+    leadStep2(false);
     leadResult(/^ℹ️/.test(result.text) ? 'info' : 'good', /^ℹ️/.test(result.text) ? 'Nothing new' : 'Logged', said);
     if (/^ℹ️/.test(result.text)) return;
     $('lead-text').value = ''; $('lead-talking').checked = false; clearLeadShot();

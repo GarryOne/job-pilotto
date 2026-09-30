@@ -39,9 +39,31 @@ GONE = {'Not seen', 'Closed', 'Dismissed'}
 EARLY = {None, '', 'Saved', 'Kit ready', 'Applying'}  # no application sent yet
 EMOJI = {**mail.EMOJI, OUTREACH: '🤝', APPLIED: '📨'}
 
+# What the item shows outright vs what was inferred: the app asks about everything not shown (owner's rule, 30 Sep
+# 2026: never guess what can't be seen; ask in the confirmation step).
+SEEN = {
+    'type': 'object', 'additionalProperties': False,
+    'required': ['channel', 'year', 'first_contact', 'interview', 'company'],
+    'properties': {
+        'channel': {'type': 'string', 'enum': ['shown', 'guessed', 'unknown'], 'description':
+                    'shown = the platform is plainly visible (LinkedIn\'s chat UI or name, an email\'s From/Subject header); '
+                    'guessed = only from the look or the wording; unknown'},
+        'year': {'type': 'string', 'enum': ['shown', 'missing'], 'description':
+                 'shown = the dates in the item include the year; missing = only day/month, a weekday or a time'},
+        'first_contact': {'type': 'string', 'enum': ['shown', 'guessed', 'unknown'], 'description':
+                          'shown = the date of the earliest message is visible; guessed; unknown'},
+        'interview': {'type': 'string', 'enum': ['shown', 'partial', 'none'], 'description':
+                      'shown = a call/interview with its full date and time; partial = a call mentioned without a full '
+                      'date and time ("Friday at 3", "next week"); none = no call mentioned'},
+        'company': {'type': 'string', 'enum': ['shown', 'guessed', 'unknown'], 'description':
+                    'shown = the hiring company is named; guessed = inferred (e.g. from an agency or a logo); unknown'},
+    },
+}
+
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback', 'job_description']
+    'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback', 'job_description',
+                 'seen', 'first_contact_text', 'interview_text']
                 + opportunity.SCHEMA['required'],
     'properties': {
         'kind': {'type': 'string', 'enum': KINDS},
@@ -52,6 +74,9 @@ SCHEMA = {
         'first_contact': {'type': 'string', 'description': 'ISO 8601 date of the earliest message shown in the conversation (the first time they talked), else ""'},
         'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a call/interview with a fixed time, with offset, else ""'},
         'feedback': {'type': 'string', 'description': 'Specific employer feedback quoted verbatim, else empty; no generic rejections or inferred reasons.'},
+        'seen': SEEN,
+        'first_contact_text': {'type': 'string', 'description': 'The earliest date exactly as written in the item ("Sep 21", "Mon 14:02", "21/09/2026"), else ""'},
+        'interview_text': {'type': 'string', 'description': 'A call/interview time exactly as written ("Friday at 3pm", "26 Sep 15:00"), else ""'},
         **opportunity.SCHEMA['properties'],
     },
 }
@@ -71,6 +96,8 @@ owner (web design, marketing, outsourcing), networking or event invitations, and
 same role), or -1. The list includes pitches already logged: the same recruiter pitching the same role again (or the \
 same message pasted twice) is that job. When the company has several roles and the item doesn't say which, answer -1.
 - The other fields: only what the item states, never guesses. owner_agreed: the owner said yes / agreed to talk.
+- seen: for each of channel, year, first contact, interview and company, whether the item shows it or you inferred it.
+  Dates without a visible year: fill the ISO fields with your best reading but set seen.year "missing".
 The owner's own messages may be in the screenshot; the other person is the recruiter or employer."""
 
 
@@ -162,16 +189,18 @@ def _thumbnails(blocks):
         {'object': 'block', 'type': 'column', 'column': {'children': [block]}} for block in blocks]}}]
 
 
-def _keep(tracker, row, text, image, summary, when, platform=None):
+def _keep(tracker, row, text, image, summary, when, platform=None, check=()):
     """What was logged, on the job's page: one folded entry per log ("📥 29 Sep · what it said"), with the message
     inside and the screenshots as a row of thumbnails, so the page stays readable however many you log."""
     try:
         day = datetime.fromisoformat(when.replace('Z', '+00:00')).strftime('%d %b %Y')
     except ValueError:
         day = when[:10]
-    if platform in opportunity.CHANNEL_SOURCE and _platform_named(summary) != platform:
+    if platform and _platform_named(summary) != platform:
         summary = f'{platform} · {summary}'  # the entry says where it came from (resync_source reads it)
     inside = [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
+    if check:  # logged without your confirmation (Telegram): what to check, on the page itself
+        inside.insert(0, _block('paragraph', f"⚠️ Check these details: {'; '.join(check)}."))
     shots = _image_blocks(tracker, image)
     if len(shots) < 2:
         inside += shots
@@ -186,6 +215,15 @@ def _keep(tracker, row, text, image, summary, when, platform=None):
                 tracker.append_blocks(toggle, _thumbnails(shots))
     except Exception as error:  # noqa: BLE001
         print(f'Warning: not copied to the page: {type(error).__name__}: {error}', file=sys.stderr)
+
+
+def _channel_named(item):
+    """What a log entry names as its channel: a known one (LinkedIn, Email, a confirmed Phone), or what you typed
+    for Other (WhatsApp); None when unknown (then the entry says nothing about it)."""
+    platform = item.get('platform')
+    if platform == 'Other':
+        return item.get('channel_other') or None
+    return platform if platform in opportunity.CHANNEL_SOURCE else None
 
 
 def _day(value):
@@ -260,15 +298,17 @@ FIRST_CONTACT = {'Source', 'Reached via', 'Notes'}
 
 
 def _origin(tracker, row):
-    """When the row's first contact happened: the earliest of its creation and its events from the same Source
-    (e.g. the Gmail check's events carry the email's date; logged pastes carry their own)."""
+    """When the row's first contact happened: the earliest of its creation, its events from the same Source
+    (e.g. the Gmail check's events carry the email's date; logged pastes carry their own) and its "Recruiter lead"
+    event (a job tracked from a paste is dated when the conversation began, as you confirmed it in the app)."""
     moments = [mail._when(row.get('created_time') or '')]
     source = plain(row['properties'].get('Source'))
-    if source and ledger.EVENTS_DATABASE_ID and hasattr(tracker, 'query_database'):
+    if ledger.EVENTS_DATABASE_ID and hasattr(tracker, 'query_database'):
+        first = {'property': 'Kind', 'select': {'equals': opportunity.LEAD_STAGE}}
         try:
             events = tracker.query_database(ledger.EVENTS_DATABASE_ID, {'and': [
                 {'property': 'Application', 'relation': {'contains': row['id']}},
-                {'property': 'Source', 'select': {'equals': source}}]})
+                {'or': [{'property': 'Source', 'select': {'equals': source}}, first]} if source else first]})
         except Exception as error:  # noqa: BLE001 — the row's creation time still tells
             print(f'Warning: events not read: {type(error).__name__}: {error}', file=sys.stderr)
             events = []
@@ -282,6 +322,8 @@ LOGGED = re.compile(r'^📥 (\d{1,2} \w{3} \d{4}) · (.*)$', re.S)
 
 def _platform_named(text):
     lower = (text or '').lower()
+    if lower.startswith('phone · '):  # a call you confirmed ("Phone · …"); "call" in a summary alone isn't one
+        return 'Phone'
     return 'LinkedIn' if 'linkedin' in lower else 'Email' if re.search(r'\b(e-?mail|gmail)\b', lower) else None
 
 
@@ -338,20 +380,81 @@ def step(text):
     print(f'⏳ {text}', file=sys.stderr, flush=True)
 
 
-def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
-        event_source='CLI', stats=None, now=None, target='', on_new=None):
-    """Read one pasted message or screenshot, update or create the job it's about. Returns one line for the reply.
-    target: '' = Claude decides which job; 'new' = a new job; a job URL = that job (the app's "Which job?").
-    on_new(url, job, row): called for a job tracked here for the first time (src/ai/added.hook: facts, fit score,
-    Job Matches row, like a found job); returns a short line for the reply, or None."""
+CHANNELS = ('LinkedIn', 'Email', 'Phone', 'Other')  # the app's "Where is this conversation from?"
+
+
+def _client(client):
+    if client is not None:
+        return client
+    if not os.getenv('ANTHROPIC_API_KEY'):
+        raise ValueError('Reading a message needs your Anthropic API key (Settings → AI).')
+    import anthropic
+    return anthropic.Anthropic()
+
+
+def _as_written(text):
+    return f' "{text.strip()[:40]}"' if (text or '').strip() else ''
+
+
+def _years(value, now):
+    """The years a date shown without one could be (never in the future): this year first, then last year."""
+    moment = mail._when(value or '')
+    years = []
+    for year in (now.year, now.year - 1):
+        try:
+            if not moment or moment.replace(year=year) <= now:
+                years.append(year)
+        except ValueError:  # 29 Feb
+            continue
+    return years
+
+
+def fields(item, kind, *, new, now):
+    """What the app's confirmation step asks, each field {value, state, question…}: state "ok" = shown in the item
+    (pre-filled), "check" = inferred (pre-filled, marked "please check", to be confirmed), "ask" = not shown at all
+    (left empty, with a question). Nothing is written before every required one is confirmed."""
+    seen = item.get('seen') or {}
+    platform = item.get('platform') if item.get('platform') in CHANNELS else ''
+    channel_state = {'shown': 'ok', 'guessed': 'check'}.get(seen.get('channel'), 'ask' if not platform or platform == 'Other' else 'check')
+    out = {
+        'kind': {'value': kind, 'state': 'check', 'options': [k for k in KINDS if k != NOT_JOB]},
+        'channel': {'value': platform if channel_state != 'ask' else '', 'state': channel_state,
+                    'guess': platform, 'question': 'Where is this conversation from?'},
+    }
+    began = item.get('first_contact') if mail._when(item.get('first_contact') or '') else item.get('when') or ''
+    written = item.get('first_contact_text') or ''
+    if not mail._when(began):
+        out['started'] = {'value': '', 'state': 'ask', 'question': 'When did it start?'}
+    elif seen.get('year') == 'missing':
+        # "Sep 21" in a chat: which year is asked, never assumed (it once became 21 Sep 2024).
+        out['started'] = {'value': '', 'state': 'ask', 'month_day': began[5:10], 'years': _years(began, now),
+                          'question': f'Which year was{_as_written(written) or " " + began[5:10]}?'}
+    else:
+        out['started'] = {'value': began[:10], 'state': 'ok' if seen.get('first_contact', 'shown') == 'shown' else 'check',
+                          'question': 'When did it start?'}
+    interview, when_text = seen.get('interview') or ('shown' if item.get('interview_at') else 'none'), item.get('interview_text') or ''
+    if interview != 'none' or kind == 'Interview scheduled':
+        full = interview == 'shown' and seen.get('year') != 'missing' and mail._when(item.get('interview_at') or '')
+        out['interview'] = {'value': item['interview_at'][:16] if full else '', 'state': 'ok' if full else 'ask',
+                            'required': kind == 'Interview scheduled',
+                            'question': 'When is the call?', 'as_written': when_text.strip()[:40]}
+    if new:
+        company_state = {'shown': 'ok', 'guessed': 'check'}.get(seen.get('company'), 'ask')
+        out['company'] = {'value': item.get('company') or '' if company_state != 'ask' else '', 'state': company_state,
+                          'required': False, 'question': 'Which company is hiring?'}
+        out['agency'] = {'value': '' if item.get('in_house') else item.get('recruiter_company') or '', 'state': 'ok',
+                         'required': False, 'question': 'Agency (if a recruiter found you)'}
+    return out
+
+
+def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, stats=None, now=None, target=''):
+    """Step 1 of a log, nothing written to Notion: Claude reads the message once and it's matched to a job. Returns
+    the proposal the app shows for confirming and hands back to log(): {item, job, kind, new, label, stage, fields}
+    (fields: see fields()). Raises ValueError for what can't be logged at all."""
     text = (text or '').strip()
     if not image and len(text) < opportunity.MIN_TEXT:
         raise ValueError('Paste the whole message or a screenshot of it, not just a line.')
-    if client is None:
-        if not os.getenv('ANTHROPIC_API_KEY'):
-            raise ValueError('Reading a message needs your Anthropic API key (Settings → AI).')
-        import anthropic
-        client = anthropic.Anthropic()
+    client = _client(client)
     now = now or datetime.now(timezone.utc)
     step('Reading your jobs in Notion')
     jobs = candidates(tracker)
@@ -359,20 +462,11 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     step(f"Claude is reading {shots} screenshots" if shots > 1 else 'Claude is reading the screenshot' if shots
          else 'Claude is reading the message')
     item = read(client, model, text, image, jobs, stats)
-    step(f"Claude found: {item.get('kind')}{' · ' + (item.get('role') or item.get('title')) if (item.get('role') or item.get('title')) else ''}"
-         " — updating the job in Notion")
     kind = item['kind']
     if kind == NOT_JOB and target:  # you said which job it's about: log it as a reply there
         kind = REPLY
     if kind == NOT_JOB and not target:
         raise ValueError("That doesn't look like a message about a job, so nothing was logged.")
-    talking = talking or bool(item.get('owner_agreed'))
-    seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
-    source_id = f'paste:{seed}'
-    when = _this_year(item.get('when'), now) if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
-    if mail._when(item.get('first_contact') or ''):
-        item['first_contact'] = _this_year(item['first_contact'], now)
-    summary = item.get('summary') or kind
     match = item.get('match', -1)
     if target == 'new':
         match = -1
@@ -383,18 +477,118 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     elif not 0 <= match < len(jobs):
         match = same_job(jobs, item)
     job = jobs[match] if 0 <= match < len(jobs) else None
+    new = not (job and job.get('stage'))
+    shown = job or dict(item, title=item.get('role') or item.get('title'))
+    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': (job or {}).get('stage') or '',
+            'label': ' — '.join(p for p in (shown.get('company') or shown.get('recruiter_company'), opportunity.title(shown)) if p),
+            'fields': fields(item, kind, new=new, now=now)}
+
+
+def confirm(proposal, *, kind='', channel='', other='', started='', interview_at='', company=None, agency=None,
+            first_contact=None):
+    """The proposal with what you confirmed in the app in place of Claude's readings: kind, channel (LinkedIn, Email,
+    Phone, Other; other = what "Other" was, e.g. WhatsApp), started (YYYY-MM-DD, when the conversation began),
+    interview_at (YYYY-MM-DDTHH:MM), company / agency (a new job's), and for a new job whether this was the first
+    contact about it (then its Source follows the channel)."""
+    item = dict(proposal['item'])
+    if kind:
+        if kind not in KINDS or kind == NOT_JOB:
+            raise ValueError(f'Unknown kind "{kind}".')
+    if channel:
+        if channel not in CHANNELS:
+            raise ValueError(f'Unknown channel "{channel}" (LinkedIn, Email, Phone or Other).')
+        item['platform'] = channel
+        item['channel_other'] = (other or '').strip()[:40] if channel == 'Other' else ''
+    if started:
+        day = _day(started)
+        if not day:
+            raise ValueError(f'Not a date: "{started}" (YYYY-MM-DD).')
+        item['first_contact'] = f'{day.isoformat()}T12:00:00+00:00'
+        if (item.get('seen') or {}).get('year') == 'missing' and mail._when(item.get('when') or ''):
+            item['when'] = _in_year(item['when'], day)  # the message's own date: the year you gave
+    if interview_at:
+        if not mail._when(interview_at):
+            raise ValueError(f'Not a date and time: "{interview_at}".')
+        item['interview_at'] = interview_at
+    elif (item.get('seen') or {}).get('interview') in ('partial',) or (item.get('seen') or {}).get('year') == 'missing':
+        item['interview_at'] = ''  # never a guessed time
+    if company is not None:
+        item['company'] = company.strip()[:200]
+    if agency is not None:
+        item['recruiter_company'] = agency.strip()[:200]
+        item['in_house'] = item.get('in_house') and not agency.strip()
+    if first_contact is not None:
+        item['first_contact_here'] = bool(first_contact)
+    return {**proposal, 'item': item, 'kind': kind or proposal['kind'], 'confirmed': True}
+
+
+def _in_year(value, start):
+    """A year-less date read as ISO, moved to the year of the conversation's start (a day before it: the next year)."""
+    moment = mail._when(value)
+    try:
+        moved = moment.replace(year=start.year)
+        if moved.date() < start:
+            moved = moved.replace(year=start.year + 1)
+    except ValueError:
+        return value
+    return moved.isoformat()
+
+
+def unchecked(item, kind):
+    """What a log that wasn't confirmed (Telegram, the terminal) took on trust, for its reply and its page entry."""
+    seen, notes = item.get('seen') or {}, []
+    if seen.get('year') == 'missing' and (item.get('when') or item.get('first_contact')):
+        notes.append(f"year assumed{_as_written(item.get('first_contact_text'))}")
+    if seen.get('channel') != 'shown':
+        notes.append(f"channel {item.get('platform') or 'unknown'} guessed")
+    if seen.get('interview') == 'partial' and item.get('interview_at'):
+        notes.append(f"call time guessed{_as_written(item.get('interview_text'))}")
+    notes.append(f'kind "{kind}" read by Claude')
+    return notes
+
+
+def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talking=False, source='Manual',
+        event_source='CLI', stats=None, now=None, target='', on_new=None, proposal=None):
+    """Read one pasted message or screenshot, update or create the job it's about. Returns one line for the reply.
+    target: '' = Claude decides which job; 'new' = a new job; a job URL = that job (the app's "Which job?").
+    proposal: propose()'s result (confirmed with confirm()): no second reading; without it Claude's guesses stand
+    (Telegram, the terminal).
+    on_new(url, job, row): called for a job tracked here for the first time (src/ai/added.hook: facts, fit score,
+    Job Matches row, like a found job); returns a short line for the reply, or None."""
+    text = (text or '').strip()
+    now = now or datetime.now(timezone.utc)
+    if proposal is None:
+        proposal = propose(tracker, text=text, image=image, client=client, model=model, stats=stats, now=now, target=target)
+    item, job, kind = dict(proposal['item']), proposal['job'], proposal['kind']
+    check = [] if proposal.get('confirmed') else unchecked(item, kind)
+    if not proposal.get('confirmed'):  # nobody confirmed the dates: a year-less one is this year's (and flagged)
+        for key in ('when', 'first_contact'):
+            if mail._when(item.get(key) or ''):
+                item[key] = _this_year(item[key], now)
+    step(f"Claude found: {kind}{' · ' + (item.get('role') or item.get('title')) if (item.get('role') or item.get('title')) else ''}"
+         " — updating the job in Notion")
+    talking = talking or bool(item.get('owner_agreed'))
+    seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
+    source_id = f'paste:{seed}'
+    when = item['when'] if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
+    first_here = item.get('first_contact_here')
+    # A new job's first contact: its first event is dated when the conversation began, so a later contact logged
+    # from another channel can't take its Source (the earliest-contact rule reads the events' dates).
+    began = item['first_contact'] if first_here and mail._when(item.get('first_contact') or '') else None
+    summary = item.get('summary') or kind
     row = _row_for(tracker, job['url']) if job and job.get('stage') else None
 
     if row is None and kind == OUTREACH:  # a recruiter's pitch: an open job it names, or a new lead
         lead = dict(item, job_url=job['url'], company=job.get('company') or item.get('company'),
                     title=job.get('title') or item.get('title')) if job else item
         row, line = opportunity.track(tracker, lead, text, source=source, event_source=event_source, talking=talking,
-                                      at=when, seed=seed, extra_blocks=_image_blocks(tracker, image),
+                                      at=began or when, seed=seed, extra_blocks=([_block('paragraph', f"⚠️ Check these details: {'; '.join(check)}.")] if check else [])
+                                      + _image_blocks(tracker, image),
                                       note=f'Logged: {summary}'[:300])
         if not row:
             return 'ℹ️ ' + line
         fit = _rich(on_new, row, lead, text)
-        return '🤝 ' + line + (f' · {fit}' if fit else '')
+        return '🤝 ' + line + (f' · {fit}' if fit else '') + _check_line(check)
 
     created = False
     if row is None and job:  # an open job, not tracked yet
@@ -402,6 +596,11 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         ledger.add_application(tracker, job['url'], applied=day or now.date(), approx=kind != APPLIED, source=source,
                                meta={'title': job.get('title'), 'company': job.get('company'), 'location': job.get('location')})
         row, created = _row_for(tracker, job['url']), True
+        if row is not None and first_here:  # you said this was the first contact: it's where the job came from
+            where = {'Source': {'select': {'name': opportunity.source_for(item, source)}}}
+            if item.get('platform') in opportunity.REACHED_VIA:
+                where['Reached via'] = {'select': {'name': item['platform']}}
+            tracker.update_page(row['id'], where)
     if row is None:  # a role nothing knows yet
         if not (item.get('company') or item.get('recruiter_company')) or not (item.get('role') or item.get('title')):
             raise ValueError(f"It reads as \"{kind}\", but I can't tell which company and role, so nothing was logged. "
@@ -451,15 +650,19 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'
     if not changed and filled:
-        _keep(tracker, row, text, image, summary, when, item.get('platform'))
-        return f"🧩 Updated: {label}: added {', '.join(filled)}."
+        _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
+        return f"🧩 Updated: {label}: added {', '.join(filled)}.{_check_line(check)}"
     if not changed:
         return f'ℹ️ Already logged: {label} ({stage})'
-    _keep(tracker, row, text, image, summary, when, item.get('platform'))
+    _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
     fit = _rich(on_new, row, item, text) if created and not job else None  # an open job was scored by its search
     verb = 'Tracked' if created else 'Updated'
     return (f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
-            + (f" Added {', '.join(filled)}." if filled else ''))
+            + (f" Added {', '.join(filled)}." if filled else '') + _check_line(check))
+
+
+def _check_line(check):
+    return f" ⚠️ Check: {'; '.join(check)}." if check else ''
 
 
 def _rich(on_new, row, item, text):

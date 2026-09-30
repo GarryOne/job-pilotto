@@ -38,7 +38,7 @@ REACHED_VIA = ('Email', 'LinkedIn', 'Phone', 'Other')
 # Applications "Source" = where the contact started: the channel when it's one we know (a LinkedIn chat, an email),
 # else how the row was added (Telegram, Manual, the app). A later channel never replaces it; something logged from
 # another channel that is dated before the row's first contact does (src/ai/inbox.py _fill_gaps, --resync-source).
-CHANNEL_SOURCE = {'LinkedIn': 'LinkedIn', 'Email': 'Gmail'}
+CHANNEL_SOURCE = {'LinkedIn': 'LinkedIn', 'Email': 'Gmail', 'Phone': 'Phone'}  # Phone: only when you confirm it (the app)
 SOURCE_CHANNEL = {source: channel for channel, source in CHANNEL_SOURCE.items()}
 NOTES_ORIGIN = re.compile(r'^(?:Recruiter message|Logged from a paste) \((Email|LinkedIn|Phone|Other)\)')
 
@@ -114,7 +114,14 @@ def label(lead):
 
 
 def source_for(lead, source):
-    """The row's Source: LinkedIn for a LinkedIn message (however it reached Job Pilotto), else the given one."""
+    """The row's Source: LinkedIn for a LinkedIn message (however it reached Job Pilotto), else the given one.
+    Confirmed in the app (first_contact_here): yes = the channel you named (LinkedIn, Gmail for an email, Phone);
+    no = the job started elsewhere, so how it was added (Manual, Telegram)."""
+    here = lead.get('first_contact_here')
+    if here is False:
+        return source
+    if here and lead.get('platform') in CHANNEL_SOURCE:
+        return CHANNEL_SOURCE[lead['platform']]
     return 'LinkedIn' if lead.get('platform') == 'LinkedIn' else source
 
 
@@ -139,6 +146,8 @@ def first_contact_changes(row, platform, began, origin):
 def properties(lead, url, stage, source, origin='Recruiter message'):
     via = '' if lead.get('in_house') else lead.get('recruiter_company', '')
     notes = [f"{origin} ({lead.get('platform') or 'Other'})"]
+    if lead.get('channel_other'):
+        notes.append(f"On {lead['channel_other']}")
     if lead.get('client'):
         notes.append(f"Client: {lead['client']}")
     if lead.get('contract'):

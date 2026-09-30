@@ -61,6 +61,28 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
   padding: var(--sp-4) var(--sp-6); border-top: 1px solid var(--line); background: var(--surface-2);
   border-radius: 0 0 var(--r-lg) var(--r-lg); }
 
+/* Log job activity, step 2: what was read (icon tile, bold line, muted meta), then the questions. */
+.lead-found { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); padding: var(--sp-3);
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.lead-found > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lead-found strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-dialog .field-hint { margin: var(--sp-1) 0 0; }
+.lead-field { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; border-radius: var(--r-md); }
+.lead-field[hidden] { display: none; }
+.lead-field-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: 24px; }
+.lead-field-head label { margin: 0 !important; }
+.lead-field > select, .lead-field > input, .lead-field > .segmented { margin-top: var(--sp-1); }
+.lead-field > .segmented + input { margin-top: var(--sp-2); }
+.lead-field input, .lead-field select { width: 100%; box-sizing: border-box; }
+.lead-field .lead-date { width: auto; }
+/* Inferred (please check) and not in the message (answer it): amber, like everything that waits for you. */
+.lead-field.is-check, .lead-field.is-ask { border-color: var(--warn-line); background: var(--warn-soft); }
+.lead-flag { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.lead-pair[hidden] { display: none; }
+#lead-confirm .lead-found { margin-bottom: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
+/* A long confirmation scrolls inside the dialog; its Save stays in view. */
+#lead-dialog { max-height: 92vh; overflow-y: auto; }
+#lead-dialog .dialog-foot { position: sticky; bottom: 0; z-index: 1; }
 /* A text box with a tool row inside it (attach / paste). */
 .composer { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
 .composer:focus-within { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
@@ -199,6 +221,10 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r-md); overflow: hidden; }
 .segmented button { border: 0; background: var(--surface); padding: var(--sp-2) var(--sp-6); font-weight: 600; color: var(--ink); cursor: pointer; border-radius: 0; }
 .segmented button.is-active { background: var(--signal-soft); color: var(--signal-ink); box-shadow: inset 0 0 0 1px var(--signal); }
+/* Full width, equal parts (a dialog's choice of 2–4 options). */
+.segmented.is-fill { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
+.segmented.is-fill button { padding: var(--sp-2) var(--sp-3); }
+.segmented.is-fill button + button { border-left: 1px solid var(--line); }
 
 /* A table of tasks: name + hint on the left, its control on the right. */
 .task-table { display: flex; flex-direction: column; }

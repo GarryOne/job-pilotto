@@ -64,7 +64,7 @@ section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, ambe
 })());
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
 
-section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row', (() => {
+section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row; .segmented.is-fill', (() => {
   const box = el('div');
   box.innerHTML = `<div class="composer"><textarea rows="2" placeholder="Paste a message here…"></textarea>
     <div class="composer-tools"><button class="tool"><i data-icon="paperclip"></i>Add screenshot</button>
@@ -72,7 +72,9 @@ section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialo
     <div class="attachment"><img src="logo.png" alt=""><span class="attachment-name">screenshot.png</span><button class="soft-button">Remove</button></div>
     <div class="select-search" style="margin-top: var(--sp-3)"><i data-icon="search"></i><select><option>Find the right job automatically</option></select></div>
     <label class="check-row" style="margin-top: var(--sp-3)"><input type="checkbox"><span><span>I agreed to speak with the recruiter</span>
-    <span class="muted small">Move the job to Screening</span></span></label>`;
+    <span class="muted small">Move the job to Screening</span></span></label>
+    <div class="segmented is-fill" style="margin-top: var(--sp-3)"><button class="is-active">LinkedIn</button><button>Email</button>
+    <button>Phone / call</button><button>Other</button></div>`;
   fillIcons(box);
   return box;
 })());

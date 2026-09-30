@@ -62,3 +62,22 @@ export const guard = handle => (name, listener) => handle(name, BLOCKED.includes
 // Python jobs in demo mode: only the ones that read the demo folder (the Strategy page, a job's posting).
 const LOCAL = ['src.desktop strategy', 'src.desktop posting'];
 export const pipelineAllowed = args => LOCAL.some(prefix => args.join(' ').startsWith(prefix));
+
+// The Log box's confirmation step in demo mode: a fictional reading, nothing read. The default is the 30 Sep 2026
+// case (a LinkedIn chat screenshot without a year, a call mentioned without a date: both asked, the kind to check);
+// JOB_PILOTTO_DEMO_LEAD=existing shows a job already tracked (no company or "first contact" questions).
+export function leadProposal(target = '', kind = process.env.JOB_PILOTTO_DEMO_LEAD) {
+  const existing = kind === 'existing' || (target && target !== 'new');
+  const kinds = ['Recruiter outreach', 'Applied', 'Confirmation received', 'Reply received', 'Interview scheduled', 'Rejected', 'Offer', 'Feedback received'];
+  const fields = {
+    kind: {value: 'Interview scheduled', state: 'check', options: kinds},
+    channel: {value: existing ? '' : 'LinkedIn', state: existing ? 'ask' : 'check', guess: existing ? 'Other' : 'LinkedIn'},
+    started: {value: '', state: 'ask', month_day: '09-21', years: [2026, 2025], question: 'Which year was "Sep 21"?'},
+    interview: {value: '', state: 'ask', required: true, question: 'When is the call?', as_written: 'Friday at 3pm'},
+    ...(existing ? {} : {company: {value: 'Example Robotics', state: 'check', required: false},
+      agency: {value: 'Example Talent', state: 'ok', required: false}}),
+  };
+  return {ok: true, kind: 'Interview scheduled', new: !existing, stage: existing ? 'Applied' : '',
+    label: existing ? 'Northwind AI — Platform Engineer' : 'Example Robotics — Senior SRE',
+    item: {platform: 'LinkedIn', summary: 'Fictional demo reading'}, job: null, fields, stats: {}};
+}

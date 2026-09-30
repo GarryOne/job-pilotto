@@ -273,6 +273,21 @@ def main():
     parser.add_argument('--job-text', default='', help='add mode: the job description, pasted (for the AI stages)')
     parser.add_argument('--target', default='', help="add mode without --job: 'new', or the URL of the job it's about "
                                                       '(default: Claude decides)')
+    parser.add_argument('--propose', action='store_true',
+                        help='add mode without --job: read the message and print the proposal (JSON) to confirm; '
+                             'nothing is written to Notion (the app\'s confirmation step)')
+    parser.add_argument('--reading', default='', help='add mode: a --propose result (JSON file) to write, without reading again')
+    parser.add_argument('--channel', default='', help='add mode: where the conversation is from, as you confirmed it '
+                                                      '(LinkedIn, Email, Phone, Other)')
+    parser.add_argument('--channel-other', default='', help='add mode: what "Other" was (e.g. WhatsApp)')
+    parser.add_argument('--started', default='', help='add mode: when the conversation started, as you confirmed it (YYYY-MM-DD)')
+    parser.add_argument('--kind', default='', help='add mode: what it is, as you confirmed it (e.g. "Reply received")')
+    parser.add_argument('--interview-at', default='', help='add mode: the call\'s date and time, as you confirmed it (YYYY-MM-DDTHH:MM)')
+    parser.add_argument('--company', default=None, help='add mode, a new job: the hiring company, as you confirmed it ("" = not named)')
+    parser.add_argument('--agency', default=None, help='add mode, a new job: the recruiter\'s agency, as you confirmed it ("" = none)')
+    parser.add_argument('--from-app', action='store_true', help='add mode: logged in the Desktop App (Source "Job Pilotto app", even with --send)')
+    parser.add_argument('--first-contact', choices=('yes', 'no'), default=None,
+                        help='add mode, a new job: this was the first contact about it (its Source follows the channel)')
     parser.add_argument('--log-run', action='store_true',
                         help='log this run to Notion ⏰ Search runs even without --send (the desktop app always does)')
     parser.add_argument('--insight', action='store_true',
@@ -324,11 +339,25 @@ def main():
             elif args.file:  # a photo or image file sent to the bot
                 name, data = interviews.download(telegram.credentials()[0], args.file)
                 image = (name, data, inbox.MEDIA.get(Path(name).suffix.lower(), 'image/jpeg'))
-            source = 'Telegram' if args.send else 'Manual'
+            # Where it was added: the app's Log box is the app even when its reply also goes to Telegram (--send).
+            source = 'Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'Manual'
+            if args.propose:  # the app's step 1: nothing written; the proposal comes back to be confirmed
+                proposal = inbox.propose(tracker, text=args.note or '', image=image, stats=run['mail'], target=args.target)
+                print(json.dumps({'ok': True, **proposal, 'stats': run['mail']}, default=str))
+                return 0
+            proposal = None
+            if args.reading:  # step 2: what you confirmed replaces Claude's guesses; no second reading
+                saved = json.loads(Path(args.reading).read_text(encoding='utf-8'))
+                for key, value in (saved.pop('stats', None) or {}).items():  # the reading's cost counts in this run
+                    run['mail'][key] = run['mail'].get(key, 0) + value if isinstance(value, (int, float)) else value
+                proposal = inbox.confirm(saved, kind=args.kind, channel=args.channel, started=args.started,
+                                         other=args.channel_other, interview_at=args.interview_at, company=args.company,
+                                         agency=args.agency,
+                                         first_contact=None if args.first_contact is None else args.first_contact == 'yes')
             reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
-                                     event_source='Telegram' if args.send else 'CLI',
+                                     event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',
                                      talking=args.action == 'talking', stats=run['mail'], target=args.target,
-                                     on_new=added.hook(tracker, args.db, run)))
+                                     on_new=added.hook(tracker, args.db, run), proposal=proposal))
             run['mail'].update(pending=1, done=1)
             queue_mail_check()
         except ValueError as error:

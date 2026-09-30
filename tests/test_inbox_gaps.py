@@ -116,7 +116,7 @@ class SourceIsTheEarliestContactTest(unittest.TestCase):
         tracker = EventsTracker([email])
         with mock.patch.object(inbox.ledger, 'EVENTS_DATABASE_ID', 'events-db'):
             self.assertEqual(inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'LinkedIn', 'first_contact': '2026-09-21'}), [])
-        self.assertEqual(tracker.queries[0]['and'][1], {'property': 'Source', 'select': {'equals': 'Gmail'}})
+        self.assertEqual(tracker.queries[0]['and'][1]['or'][0], {'property': 'Source', 'select': {'equals': 'Gmail'}})
 
     def test_resync_source_reads_the_logged_entries_on_the_page(self):
         def entry(kind, title):
