@@ -169,7 +169,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .service-card { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4); background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; text-align: left; font: inherit; color: inherit; }
 .service-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
-.service-card b { display: block; font-size: var(--fs-md); }
+.service-text > b { display: block; font-size: var(--fs-md); }  /* the card's title; a <b> inside its lines stays inline */
 .service-state { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--warn); }
 .service-state.is-on { color: var(--good); }
 .service-state svg { width: 16px; height: 16px; }
@@ -288,6 +288,7 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .conn-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
 .conn-head-text h3 { margin: 0; font-size: var(--fs-xl); }
 .conn-head-text p { margin: 0; }
+.extras .service-state { align-self: flex-start; }
 .conn-head .service-state { flex: none; padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill);
   background: var(--warn-soft); font-size: var(--fs-sm); font-weight: 600; }
 .conn-head .service-state.is-on { background: var(--good-soft); }
@@ -304,6 +305,12 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .conn-step-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .conn-step-words b { font-size: var(--fs-lg); }
 .conn-step-words code { font-size: var(--fs-base); }
+/* The folder to paste into Chrome's Load unpacked dialog, on the step's tinted band. */
+.conn-step-words .path-line code { background: var(--surface); padding: var(--sp-2) var(--sp-3); }
+/* chrome://extensions in the steps: the code chip it was, but clicking it opens that page in Chrome. */
+.conn-step-words .code-link { font: var(--fs-sm) var(--font-mono); background: var(--sky); color: var(--ink); padding: 2px 6px;
+  border-radius: var(--r-sm); font-weight: 600; }
+.conn-step-words .code-link:hover { color: var(--signal-ink); text-decoration: underline; }
 .conn-steps li > button { flex: none; }
 
 /* The folded questions under a card: one full-width row each, its own icon, a chevron on the right. */

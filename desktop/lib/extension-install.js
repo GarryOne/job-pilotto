@@ -39,9 +39,9 @@ export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync,
       if (!exists(at)) continue;
       const settings = parse(at, read)?.extensions?.settings;
       if (!settings) continue;
-      for (const entry of Object.values(settings)) {
+      for (const [id, entry] of Object.entries(settings)) {
         if (entry?.manifest?.name !== NAME) continue;  // an unpacked copy, under whatever folder it was loaded from
-        found.push({profile, version: entry.manifest.version || '', folder: entry.path || '',
+        found.push({id, profile, version: entry.manifest.version || '', folder: entry.path || '',
           enabled: !(entry.disable_reasons || []).length, unpacked: entry.location === 4});
       }
     }

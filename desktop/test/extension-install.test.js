@@ -25,8 +25,9 @@ test('the Job Pilotto record in a browser profile is found; other extensions are
   };
   const io = fake(files, () => ['Default', 'Profile 1']);
   assert.deepEqual(ext.inProfile('/support/Google/Chrome', io), [
-    {profile: 'Default', version: '0.8.16', folder: '/app/extension', enabled: true, unpacked: true},
-  ]);
+    {id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', profile: 'Default', version: '0.8.16', folder: '/app/extension',
+      enabled: true, unpacked: true},
+  ]);  // the settings key IS the extension's ID: what its options page lives at
 });
 
 test('a turned-off extension is found and said to be off', () => {

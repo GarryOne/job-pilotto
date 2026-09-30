@@ -1291,16 +1291,27 @@ function handlers() {
   });
   // The computer's part of installing it, in one press: Chrome on its extensions page, the extension's folder in
   // front of the user, and its path on the clipboard — the Load unpacked dialog then takes ⌘⇧G, ⌘V, Return.
+  // The step-1 chip: try to open Chrome on its extensions page, and put the URL on the clipboard too — Chrome
+  // ignores chrome:// URLs handed to it from outside often enough that the paste has to be the reliable half.
+  ipcMain.handle('extensionPage', async () => {
+    clipboard.writeText('chrome://extensions');
+    return {opened: await extensionInstall.openExtensionsPage()};
+  });
+  // Step 2's computer part: the folder in front of the user and its path on the clipboard, so Chrome's Load
+  // unpacked dialog takes ⌘⇧G, ⌘V, Return. Chrome's own extensions page is the step-1 chip's job.
   ipcMain.handle('extensionShow', async () => {
     clipboard.writeText(extensionFolder());
-    await shell.openPath(extensionFolder());
-    return {folder: extensionFolder(), opened: await extensionInstall.openExtensionsPage()};
+    const opened = !(await shell.openPath(extensionFolder()));  // openPath resolves to an error string when it fails
+    return {folder: extensionFolder(), opened};
   });
-  // The extension's own options page: its "Connect to the Job Pilotto app" is what starts it reporting.
+  // The extension's own options page: its "Connect to the Job Pilotto app" is what starts it reporting. The ID the
+  // browser recorded is authoritative (a manifest "key" makes it differ from the folder path's hash).
   ipcMain.handle('extensionOptions', async () => {
     const found = extensionInstall.installed({folder: extensionFolder()});
-    const folder = found.find(entry => entry.current)?.folder || found[0]?.folder || extensionFolder();
-    return {opened: await extensionInstall.openOptionsPage(folder)};
+    const copy = found.find(entry => entry.current) || found[0] || null;
+    const opened = copy?.id ? await extensionInstall.openInChrome(`chrome-extension://${copy.id}/options.html`)
+      : await extensionInstall.openOptionsPage(copy?.folder || extensionFolder());
+    return {opened};
   });
 }
 

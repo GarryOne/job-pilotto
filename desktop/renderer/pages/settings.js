@@ -91,7 +91,7 @@ async function serviceStatus() {
     window.pilot.extensionInstall().catch(() => null)]);
   const record = {installed: found?.installed || [], seen, browserUp: found?.browserUp ?? null};
   try { localStorage.setItem(SERVICE_CACHE, JSON.stringify({google: {connected: !!google.connected, email: google.email || ''}, extension: record})); } catch {}
-  return statusFrom({extension: extensionFrom(record), google});
+  return {...statusFrom({extension: extensionFrom(record), google}), folder: found?.folder || ''};
 }
 export function stateLine(on, detail = '', checking = false, words = '') {
   if (checking) {
@@ -184,7 +184,9 @@ function renderExtras({on, detail, words = {}, checking = {}}) {
 export async function showExtrasStatus() {
   if (!shared.state?.secrets) return;
   renderExtras(quickStatus());
-  renderExtras(await serviceStatus());
+  const status = await serviceStatus();
+  renderExtras(status);
+  $('ext-path-extras').textContent = status.folder || '…';  // the folder to paste into Chrome's Load unpacked
 }
 function renderServices(status) {
   const {on, detail, words = {}, missing, checking} = status;

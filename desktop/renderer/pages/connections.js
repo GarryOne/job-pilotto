@@ -55,6 +55,7 @@ export async function showExtensionStatus() {
   $('ext-status').replaceWith(pill);
   if (state.checking) { setTimeout(showExtensionStatus, 1500); return; }  // only until the first profile read lands
   $('ext-line').textContent = EXT_LINE[state.state] || EXT_LINE.absent;
+  $('ext-path').textContent = found?.folder || '';  // what Chrome's Load unpacked dialog wants pasted
   show($('ext-connect'), state.state === 'idle');
   $('ext-setup').open = state.state !== 'connected';
   const SUMMARY = {connected: 'Reinstall or troubleshoot', absent: 'Install the extension'};
@@ -350,15 +351,25 @@ export async function init() {
       loadSettings();
     });
   }
-  // One press does the computer's part of the three steps: Chrome on its extensions page, the folder in front of
-  // the user, its path on the clipboard (so the Load unpacked dialog takes ⌘⇧G, ⌘V, Return instead of hunting).
-  $('open-extension-folder').addEventListener('click', async () => {
-    $('open-extension-folder').disabled = true;
-    const result = await window.pilot.extensionShow().catch(() => null);
-    $('open-extension-folder').disabled = false;
-    message('ext-message', result?.opened ? 'Chrome is on its extensions page, and the folder is open behind it with its path on your clipboard: Load unpacked → ⌘⇧G, ⌘V, Return.'
-      : 'Couldn\'t open Google Chrome. Install it, then press Show extension folder again.', result?.opened ? 'ok' : 'error');
+  // The step-1 chip: best effort at Chrome's page, and the URL on the clipboard so the paste always gets there.
+  $('ext-open-page').addEventListener('click', async () => {
+    const result = await window.pilot.extensionPage().catch(() => null);
+    message('ext-message', result?.opened
+      ? 'Chrome should be opening its extensions page. If it doesn\'t: chrome://extensions is on your clipboard (⌘L, ⌘V, ⏎).'
+      : 'chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.', result?.opened ? 'ok' : 'error');
   });
+  // The folder in front of the user and its path on the clipboard: in Chrome's Load unpacked dialog that is
+  // ⌘⇧G, ⌘V, Return. Bound by attribute, so the setup wizard's own button behaves the same.
+  for (const button of document.querySelectorAll('[data-show-extension-folder]')) {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const result = await window.pilot.extensionShow().catch(() => null);
+      button.disabled = false;
+      toastMessage(result?.opened ? 'Extension folder opened' : 'Couldn\'t open the folder',
+        result?.opened ? 'Its path is on your clipboard: in Chrome press Load unpacked, then ⌘⇧G, ⌘V, Return.'
+          : 'Open the extension folder by hand, then press Load unpacked in Chrome.');
+    });
+  }
   $('ext-connect').addEventListener('click', async () => {
     const result = await window.pilot.extensionOptions().catch(() => null);
     message('ext-message', result?.opened ? 'Its settings page is open: press Connect to the Job Pilotto app there.'
