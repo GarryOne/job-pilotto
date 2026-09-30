@@ -3,6 +3,7 @@
 // insightCard() draws it; pages/interviews.js wires Refresh and the links to the library rows.
 import {el, pill} from './components.js';
 import {icon} from './icons.js';
+import {minutes} from './practice-session.js';
 
 const CONFIDENCE = {high: ['good', 'High confidence'], medium: ['info', 'Medium confidence'], low: ['neutral', 'Low confidence']};
 const CONFIDENCE_TIP = {low: 'Based on a limited number of interviews: it may change as you add more.',
@@ -64,19 +65,25 @@ export function insightView(insight, rows = [], now = Date.now()) {
   const confidence = CONFIDENCE[insight.confidence] || CONFIDENCE.low;
   const quotes = list(insight.patterns).reduce((sum, p) => sum + list(p?.evidence).length, 0);
   return {title: 'Interview insights', subtitle, headline: String(insight.headline || 'Insights'), basis, pending, confidence,
-    chip: {text: `${confidence[1]} · ${n} interview${n === 1 ? '' : 's'}`, tone: confidence[0], tip: CONFIDENCE_TIP[insight.confidence] || CONFIDENCE_TIP.low},
+    chip: {text: `${confidence[1]} · ${n} interview${n === 1 ? '' : 's'}`, tone: confidence[0], level: CONFIDENCE[insight.confidence] ? insight.confidence : 'low', tip: CONFIDENCE_TIP[insight.confidence] || CONFIDENCE_TIP.low},
     primary: {headline: String(insight.headline || 'Insights'), detail: String(insight.headline_detail || ''), tag: n ? `Seen in ${n} interview${n === 1 ? '' : 's'}` : ''},
     patterns: patterns.length ? patterns : fallback.map(text => ({text, title: text, detail: '', kind: 'note', tag: '', companies: [], links: []})), steps,
     supporting: quotes && insight.url ? {count: quotes, url: insight.url} : null,
+    // The quotes behind each pattern (View supporting moments), each with the employer of the interview it came from.
+    moments: list(insight.patterns).map(p => ({title: String(p?.title || '').trim() || String(p?.text || ''),
+      quotes: list(p?.evidence).filter(e => String(e?.quote || '').trim()).map(e => ({quote: String(e.quote).trim(), id: e.interview, name: company(e.interview), where: link(e.interview).title}))}))
+      .filter(group => group.quotes.length),
+    practice: {pending: steps.filter(s => !s.done).length, minutes: minutes(steps.filter(s => !s.done).length)},
     disclaimer: ['low', 'medium'].includes(insight.confidence) || !insight.confidence ? DISCLAIMER : '',
     nothing: !!insight.nothing_useful, url: insight.url || ''};
 }
 
 // The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
-// refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; busy: it's running.
+// refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; onPractice(): Start practice session;
+// onMoments(): View supporting moments; busy: it's running.
 // collapsed: only the header (its arrow, onToggle(), folds and unfolds the rest).
-export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh = () => {}, onTick = () => {}, onToggle = () => {}, collapsed = false,
-  busy = false, note = ''} = {}) {
+export function insightCard(view, {open = () => {}, onMoments = () => {}, onPractice = () => {}, refresh = () => {}, onTick = () => {}, onToggle = () => {},
+  collapsed = false, busy = false, note = ''} = {}) {
   const head = el('div', 'iv-insight-head');
   const title = el('div', 'iv-insight-title');
   const h2 = el('h2', 'with-glyph');
@@ -89,9 +96,11 @@ export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh 
   title.append(h2, el('div', 'muted small iv-insight-basis', view.subtitle || view.basis));
   const side = el('div', 'iv-insight-side');
   if (note) side.append(el('span', 'muted small', note));
-  if (view.chip) {
-    const chip = pill(view.chip.text, view.chip.tone, {dot: true, title: view.chip.tip});
-    chip.classList.add('iv-insight-chip');
+  if (view.chip) {  // a ring that fills with the confidence, the words, and what the words mean on hover
+    const chip = el('span', 'iv-confidence');
+    chip.dataset.level = view.chip.level;
+    chip.title = view.chip.tip;
+    chip.append(el('span', 'iv-ring'), el('span', '', view.chip.text), icon('info'));
     side.append(chip);
   }
   const button = Object.assign(el('button', 'secondary with-icon small-btn iv-insight-refresh'), {type: 'button', disabled: busy,
@@ -150,6 +159,13 @@ export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh 
       row.append(el('span', 'iv-step-n', String(step.n)), text, box);
       block.append(row);
     }
+    if (view.practice?.pending) {
+      const actions = el('div', 'iv-practice-foot');
+      const start = Object.assign(el('button', 'secondary iv-practice-start', 'Start practice session'), {type: 'button'});
+      start.addEventListener('click', () => onPractice());
+      actions.append(start, el('span', 'muted small', `About ${view.practice.minutes} minutes`));
+      block.append(actions);
+    }
     columns.append(block);
   }
   if (columns.children.length) body.push(columns);
@@ -160,7 +176,7 @@ export function insightCard(view, {open = () => {}, openUrl = () => {}, refresh 
     foot.append(note);
     if (view.supporting) {
       const more = Object.assign(el('button', 'link iv-supporting', `View supporting moments (${view.supporting.count}) →`), {type: 'button'});
-      more.addEventListener('click', () => openUrl(view.supporting.url));
+      more.addEventListener('click', () => onMoments());
       foot.append(more);
     }
     body.push(foot);

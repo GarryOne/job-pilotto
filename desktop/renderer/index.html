@@ -1288,6 +1288,31 @@
     </div>
   </form>
 </dialog>
+<!-- Interviews → Insights: Start practice session (a guided rehearsal, renderer/practice-session.js) and View supporting moments. -->
+<dialog id="practice-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mic"></i></span>
+      <h2>Practice session</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <div id="practice-body"></div>
+    <div class="dialog-foot" id="practice-foot"></div>
+  </form>
+</dialog>
+<dialog id="moments-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="bulb"></i></span>
+      <h2>Supporting moments</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p class="dialog-lead muted">What each pattern is based on: words copied from your interview reviews.</p>
+    <div id="moments-body"></div>
+    <div class="dialog-foot">
+      <button type="button" id="moments-notion" class="secondary">Open in Notion</button>
+      <button class="ghost" value="cancel" formnovalidate>Close</button>
+    </div>
+  </form>
+</dialog>
 <!-- The free allowance is over (pages/license.js): new work pauses, everything else keeps working. -->
 <dialog id="allowance-dialog" class="panel-dialog">
   <form method="dialog">

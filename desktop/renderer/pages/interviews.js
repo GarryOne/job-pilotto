@@ -4,6 +4,7 @@ import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
+import * as practice from '../practice-session.js';
 import {afterLoad} from '../interview-library.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
@@ -299,9 +300,71 @@ function renderAll() {
 function renderInsight() {
   const view = insightView(ivInsight, ivSavedRows);
   show($('iv-insight'), !!view);
-  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, openUrl: url => window.pilot.openNotion(url), refresh: refreshInsights,
+  insightShown = view;
+  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: showMoments, onPractice: startPractice, refresh: refreshInsights,
     onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote}));
 }
+let insightShown = null;
+
+// View supporting moments: the quotes behind each pattern; a name opens that interview in the library.
+function showMoments() {
+  const view = insightShown;
+  if (!view?.moments?.length) return;
+  $('moments-body').replaceChildren(...view.moments.map(group => {
+    const box = el('div', 'iv-moments-group');
+    box.append(el('h3', '', group.title));
+    for (const item of group.quotes) {
+      const line = el('div', 'iv-moment');
+      line.append(el('span', '', `“${item.quote}”`));
+      const who = Object.assign(el('button', 'link small', item.where || item.name), {type: 'button', title: 'Show this interview in the library'});
+      who.addEventListener('click', () => { $('moments-dialog').close(); showRow(item.id); });
+      line.append(who);
+      box.append(line);
+    }
+    return box;
+  }));
+  show($('moments-notion'), !!view.supporting?.url);
+  $('moments-notion').onclick = () => window.pilot.openNotion(view.supporting.url);
+  $('moments-dialog').showModal();
+}
+
+// Start practice session: the steps still to do, one at a time, each with a countdown; "Done" ticks it (saved in Notion).
+let session = null, sessionTimer = null;
+function startPractice() {
+  const state = practice.begin(insightShown?.steps || []);
+  if (state.finished) return;
+  session = state;
+  drawPractice();
+  $('practice-dialog').showModal();
+  clearInterval(sessionTimer);
+  sessionTimer = setInterval(() => { session = practice.tick(session); drawPractice(); }, 1000);
+}
+function endPractice() { clearInterval(sessionTimer); sessionTimer = null; session = null; }
+function drawPractice() {
+  if (!session) return;
+  const button = (label, cls, run) => { const b = Object.assign(el('button', cls, label), {type: 'button'}); b.addEventListener('click', run); return b; };
+  const body = $('practice-body'), foot = $('practice-foot');
+  const step = practice.current(session);
+  if (!step) {
+    const {done, skipped, total} = practice.summary(session);
+    body.replaceChildren(el('h3', '', done === total ? 'All done' : `${done} of ${total} practised`),
+      el('p', 'muted', skipped ? `${skipped} skipped: they stay in Practice next.` : 'Ticked in Practice next. Do it again before the next interview.'));
+    foot.replaceChildren(button('Close', 'primary', () => $('practice-dialog').close()));
+    return;
+  }
+  const time = el('div', `iv-practice-clock${session.remaining === 0 ? ' is-over' : ''}`, session.remaining === 0 ? "Time's up" : practice.clock(session.remaining));
+  body.replaceChildren(el('p', 'muted small', `Step ${session.index + 1} of ${session.steps.length}`), el('h3', '', step.title),
+    ...(step.detail ? [el('p', 'muted', step.detail)] : []), el('p', '', 'Say your answer out loud, as you would in the interview. Then mark it done.'), time);
+  const go = button(session.running ? 'Pause' : session.remaining === practice.STEP_SECONDS ? 'Start the clock' : 'Resume', 'secondary', () => { session = practice.toggle(session); drawPractice(); });
+  foot.replaceChildren(go, button('Skip', 'ghost', () => { session = practice.finishStep(session, 'skipped'); drawPractice(); }),
+    button('Done, next', 'primary', () => {
+      const text = step.text;
+      session = practice.finishStep(session, 'done');
+      tickStep({text}, true);
+      drawPractice();
+    }));
+}
+
 // Fold the card to its header (remembered on this Mac: a view preference, not data).
 function toggleInsight() {
   insightCollapsed = !insightCollapsed;
@@ -667,6 +730,7 @@ export async function init() {
   $('iv-outcome').addEventListener('change', renderSaved);
   $('iv-refresh').addEventListener('click', readAgain);
   $('iv-recordings').addEventListener('click', () => iv.recordings());
+  $('practice-dialog').addEventListener('close', endPractice);
   // Consent first: Record stays off until the box is ticked, and the tick is asked again for every call.
   $('iv-consent').addEventListener('change', () => { $('iv-record').disabled = !$('iv-consent').checked || !!recorder; });
 

@@ -167,7 +167,7 @@ test('the footer counts the supporting quotes and warns while the evidence is th
 test('ticking, opening a company\'s interview and the supporting link call back', () => {
   const ticked = [], opened = [], urls = [];
   const view = insightView(RICH, RICH_ROWS, NOW);
-  const body = insightCard(view, {onTick: (step, done) => ticked.push([step.text, done]), open: id => opened.push(id), openUrl: url => urls.push(url)});
+  const body = insightCard(view, {onTick: (step, done) => ticked.push([step.text, done]), open: id => opened.push(id), onMoments: () => urls.push('moments')});
   const boxes = body.flatMap(node => node.all(n => n.tag === 'input' && n.type === 'checkbox'));
   assert.deepEqual(boxes.map(b => b.checked), [false, true]);
   boxes[0].checked = true; boxes[0].listeners.change();
@@ -176,7 +176,7 @@ test('ticking, opening a company\'s interview and the supporting link call back'
   assert.deepEqual(opened, ['iv-2']);
   const more = body.flatMap(node => node.all(n => n.className.includes('iv-supporting')))[0];
   more.listeners.click();
-  assert.deepEqual(urls, ['https://notion.test/ins']);
+  assert.deepEqual(urls, ['moments']);
   assert.match(body.map(node => node.text()).join(' '), /View supporting moments \(3\)/);
 });
 
@@ -195,4 +195,13 @@ test('the card folds to its header and unfolds; the toggle says which state it i
   assert.match(text, /Low confidence · 2 interviews/);  // the header still says how sure it is
   assert.doesNotMatch(text, /Patterns observed|Practice next|PRIMARY SIGNAL|Primary signal/);
   assert.equal(folded.flatMap(node => node.all(n => n.className.includes('iv-insight-toggle')))[0]['aria-expanded'], 'false');
+});
+
+test('supporting moments: the quotes behind each pattern with the interview each came from', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  assert.deepEqual(view.moments.map(g => [g.title, g.quotes.map(q => [q.quote, q.id, q.name])]), [
+    ['Answers become unstructured', [['a', 'iv-1', 'Laelaps AI'], ['b', 'iv-2', 'Huxley']]],
+    ['Incident-response stories land well', [['c', 'iv-1', 'Laelaps AI']]]]);
+  assert.equal(view.supporting.count, 3);
+  assert.equal(insightView({...RICH, patterns: [{...RICH.patterns[0], evidence: []}]}, RICH_ROWS, NOW).moments.length, 0);
 });
