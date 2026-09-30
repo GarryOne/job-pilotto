@@ -367,14 +367,15 @@ SCREEN = re.compile(r'screen|recruiter|talent|phone|intro', re.I)
 
 
 def held_stage(stage, round_=''):
-    """The Stage once an interview was held, or None to leave it: never back, never a closed stage. Talking or
-    booked (Recruiter lead, Screening, Interview scheduled) is Interviewing now; from an earlier stage a
-    recruiter/screening round is Screening, anything later Interviewing."""
+    """The Stage once an interview was held, or None to leave it: never a closed stage, never back from Interviewing.
+    A recruiter/screening round held is Screening (owner, 30 Sep 2026: the funnel's "Interviews" step starts with a
+    technical or hiring-manager round), even when the call was booked as "Interview scheduled"; any other round is
+    Interviewing."""
     if stage in CLOSED or stage == 'Interviewing':
         return None
-    if stage in IN_TALKS:
-        return 'Interviewing'
-    return 'Screening' if SCREEN.search(round_ or '') else 'Interviewing'
+    if SCREEN.search(round_ or ''):
+        return None if stage == 'Screening' else 'Screening'
+    return 'Interviewing'
 
 
 def _moment(value):
@@ -401,7 +402,7 @@ def advance(tracker, app, *, now=None, round_='', next_step='', changes=None, no
     if stage in CLOSED:
         return None
     target = held_stage(stage, round_)
-    kind = target or 'Interviewing'
+    kind = target or ('Screening' if SCREEN.search(round_ or '') else 'Interviewing')  # what was held
     if not any(plain(e['properties'].get('Kind')) == kind for e in _events_of(tracker, app)):
         add_event(tracker, app, kind, source, note=note)
     update = dict(changes or {})

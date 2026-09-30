@@ -283,14 +283,15 @@ class InterviewTests(unittest.TestCase):
         global RESULT
         original, RESULT = RESULT, dict(RESULT, application=0, round='Recruiter screen (via TechTree)')
         try:
-            # Owner's rule (30 Sep 2026): once a call was held, Screening is in process (Interviewing).
+            # Owner's rule (30 Sep 2026): a recruiter screen held stays Screening (Interviewing starts with a
+            # technical or hiring-manager round): no Stage change, and no second Screening event.
             tracker = FakeTracker([app('l-1', 'Laelaps AI', 'Screening', '2026-09-23')])
-            tracker.events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Interviewing'}},
+            tracker.events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
                                               'Application': {'type': 'relation', 'relation': [{'id': 'l-1'}]}}}]
             interviews.run(tracker, note='/interview Laelaps screening\n' + 'Notes about the call. ' * 5,
                            client=FakeClient(), now=NOW)
-            self.assertEqual(tracker.updates[0][1]['Stage'], {'select': {'name': 'Interviewing'}})
-            self.assertEqual(tracker.created, [])  # an Interviewing event is already logged
+            self.assertNotIn('Stage', tracker.updates[0][1] if tracker.updates else {})
+            self.assertEqual(tracker.created, [])  # a Screening event is already logged
             # From an earlier stage, a recruiter screen is Screening.
             tracker = FakeTracker([app('a-1', 'Acme', 'Confirmation received', '2026-09-23')])
             interviews.run(tracker, note='/interview Acme screen\n' + 'Notes about the call. ' * 5,
@@ -427,9 +428,13 @@ FACTS = [{'field': 'salary', 'value': 'CHF 160-180k/year', 'quote': 'the band is
 
 class AdvanceTests(unittest.TestCase):
     def test_a_held_interview_moves_talks_forward_with_its_event_next_step_and_clears_the_past_date(self):
+        # A recruiter screen held: Screening (from a booked call or a lead), unchanged at Screening.
+        for stage, expected in (('Interview scheduled', 'Screening'), ('Recruiter lead', 'Screening'), ('Screening', None)):
+            self.assertEqual(interviews.held_stage(stage, 'Recruiter screen'), expected)
+        # A technical or hiring-manager round: Interviewing.
         for stage in ('Interview scheduled', 'Screening', 'Recruiter lead'):
             tracker = FakeTracker([])
-            self.assertEqual(interviews.advance(tracker, huxley(stage), now=NOW, round_='Recruiter screen',
+            self.assertEqual(interviews.advance(tracker, huxley(stage), now=NOW, round_='Technical interview',
                                                 next_step='Hiring manager call next week'), 'Interviewing')
             self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})
             self.assertEqual(tracker.updates, [('h-1', {
@@ -471,7 +476,7 @@ class FactsTests(unittest.TestCase):
 
     def test_the_review_fills_the_job_and_reports_differences_without_overwriting(self):
         global RESULT
-        original, RESULT = RESULT, dict(RESULT, application=0, round='Recruiter screen', facts=FACTS,
+        original, RESULT = RESULT, dict(RESULT, application=0, round='Technical interview', facts=FACTS,
                                         next_step='Intro with the hiring manager')
         try:
             tracker, sent = FakeTracker([huxley()]), []
@@ -484,7 +489,7 @@ class FactsTests(unittest.TestCase):
         self.assertEqual(update['Salary'], {'rich_text': [{'text': {'content': 'CHF 160-180k/year'}}]})
         self.assertEqual(update['Next interview'], {'date': None})
         self.assertNotIn('Location', update)  # "Remote" stays: the call said something else, reported instead
-        self.assertIn('Huxley, Recruiter screen', log)
+        self.assertIn('Huxley, Technical interview', log)
         self.assertIn('Stage → Interviewing; filled Salary (CHF 160-180k/year), Contract (B2B / contractor)', log)
         self.assertIn('differs from the job, not changed: Location (call: Hybrid, Zurich 2 days; job: Remote)', log)
         page = str(tracker.requests[0]['children'])
