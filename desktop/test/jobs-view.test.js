@@ -151,3 +151,51 @@ test('the funnel card\'s inbound line, hidden when nothing found you', async () 
   assert.equal(inboundLine({contacted: 0}), '');
   assert.equal(inboundLine(undefined), '');
 });
+
+test('the Show menu: inbound only under Inbound (newest activity first), not under New matches / Saved / Applied / Dismissed', async () => {
+  const {byFilter, inboundCount, sorted: order} = await import('../renderer/jobs-view.js');
+  const jobs = [
+    {url: 'm-new', status: 'unreviewed', first_seen_at: '2026-09-01'},
+    {url: 'm-saved', status: 'saved'},
+    {url: 'm-gone', status: 'dismissed'},
+    {url: 'i-lead', status: 'saved', stage: 'Recruiter lead', source: 'Gmail', first_seen_at: '2026-09-02'},
+    {url: 'i-new', status: 'unreviewed', source: 'LinkedIn', first_seen_at: '2026-09-03'},
+    {url: 'i-talk', status: 'applied', stage: 'Screening', source: 'Phone', first_seen_at: '2026-08-01', applied_on: '2026-09-20'},
+    {url: 'i-over', status: 'dismissed', stage: 'Dismissed', source: 'LinkedIn', first_seen_at: '2026-09-04'},
+  ];
+  const urls = filter => byFilter(jobs, filter).map(job => job.url);
+  assert.deepEqual(urls('open'), ['m-new']);
+  assert.deepEqual(urls('saved'), ['m-saved']);
+  assert.deepEqual(urls('applied'), []);
+  assert.deepEqual(urls('dismissed'), ['m-gone']);
+  assert.deepEqual(urls('inbound'), ['i-lead', 'i-new', 'i-talk', 'i-over']);
+  assert.deepEqual(urls('all'), jobs.map(job => job.url));
+  assert.deepEqual(order(byFilter(jobs, 'inbound'), 'activity').map(job => job.url), ['i-talk', 'i-over', 'i-new', 'i-lead']);
+  assert.equal(inboundCount(jobs), 4);
+});
+
+test('the Inbound counter opens the Inbound list; again shows every job; the other counters unchanged', async () => {
+  const {statClick, statPressed} = await import('../renderer/jobs-view.js');
+  assert.deepEqual(statClick('inbound', null, 'open'), {stat: null, filter: 'inbound'});
+  assert.deepEqual(statClick('inbound', 'high', 'all'), {stat: null, filter: 'inbound'});
+  assert.deepEqual(statClick('inbound', null, 'inbound'), {stat: null, filter: 'all'});
+  assert.deepEqual(statClick('high', null, 'inbound'), {stat: 'high', filter: 'all'});
+  assert.deepEqual(statClick('high', 'high', 'all'), {stat: null, filter: 'all'});
+  assert.deepEqual(statClick('total', 'high', 'all'), {stat: null, filter: 'all'});
+  assert.equal(statPressed('inbound', null, 'inbound'), true);
+  assert.equal(statPressed('inbound', 'high', 'inbound'), false);
+  assert.equal(statPressed('total', null, 'all'), true);
+  assert.equal(statPressed('high', 'high', 'all'), true);
+});
+
+test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and Inbound in place of "New this week"', async () => {
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  const menu = html.slice(html.indexOf('<select id="filter-status"'), html.indexOf('</select>', html.indexOf('<select id="filter-status"')));
+  assert.deepEqual([...menu.matchAll(/<option value="(\w+)">([^<]+)</g)].map(m => `${m[1]}:${m[2]}`),
+    ['open:New matches', 'saved:Saved', 'applied:Applied', 'dismissed:Dismissed', 'inbound:Inbound', 'all:All jobs']);
+  assert.ok(!html.includes('To review'));
+  const cards = [...html.matchAll(/data-stat="(\w+)"/g)].map(m => m[1]);
+  assert.deepEqual(cards, ['applied', 'waiting', 'interviews', 'closed', 'total', 'high', 'inbound', 'companies']);
+  assert.match(html, /<b id="stat-inbound">–<\/b><span>Inbound<\/span>/);
+});

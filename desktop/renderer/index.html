@@ -314,7 +314,7 @@
         <button class="stat red" data-stat="closed" aria-pressed="false"><span class="stat-icon"><i data-icon="close"></i></span><div><b id="stat-closed">–</b><span>Closed</span></div></button>
         <button class="stat blue" data-stat="total" aria-pressed="false"><span class="stat-icon"><i data-icon="file"></i></span><div><b id="stat-total">–</b><span>Total matches</span></div></button>
         <button class="stat green" data-stat="high" aria-pressed="false"><span class="stat-icon"><i data-icon="target"></i></span><div><b id="stat-high">–</b><span>High fit (70+)</span></div></button>
-        <button class="stat sky" data-stat="week" aria-pressed="false"><span class="stat-icon"><i data-icon="bookmark"></i></span><div><b id="stat-week">–</b><span>New this week</span></div></button>
+        <button class="stat sky" data-stat="inbound" aria-pressed="false" title="Opportunities that found you (a recruiter, a LinkedIn message, a call), every stage"><span class="stat-icon"><i data-icon="chat"></i></span><div><b id="stat-inbound">–</b><span>Inbound</span></div></button>
         <button class="stat violet" data-stat="companies" aria-pressed="false"><span class="stat-icon"><i data-icon="building"></i></span><div><b id="stat-companies">–</b><span>Unique companies</span></div></button>
       </div>
       <details class="questions" id="questions" hidden>
@@ -331,7 +331,7 @@
       <div class="toolbar">
         <label class="search-box"><i data-icon="search"></i><input id="filter-text" type="search" placeholder="Search jobs, companies or places, or paste a job link" aria-label="Search jobs"></label>
         <select id="filter-status" aria-label="Show">
-          <option value="open">To review</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="dismissed">Dismissed</option><option value="all">All jobs</option>
+          <option value="open">New matches</option><option value="saved">Saved</option><option value="applied">Applied</option><option value="dismissed">Dismissed</option><option value="inbound">Inbound</option><option value="all">All jobs</option>
         </select>
         <label class="sort-box"><i data-icon="sort"></i><select id="sort-by" aria-label="Sort by">
           <option value="best">Best match</option><option value="newest">Newest</option><option value="company">Company A–Z</option>

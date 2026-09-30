@@ -69,17 +69,18 @@ def reached(tracker):
     current Stage. Opportunities that found you (inbound) are not in the funnel."""
     rows = tracker.query_database(tracker.database_id, {'or': [
         {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES + PREPARED_STAGES]})
-    kinds = {}
-    for event in tracker.query_database(EVENTS_DATABASE_ID):
+    kinds = {}  # oldest first: the first contact decides inbound or outbound
+    at = lambda event: ((event['properties'].get('At') or {}).get('date') or {}).get('start') or ''
+    for event in sorted(tracker.query_database(EVENTS_DATABASE_ID), key=at):
         kind = plain(event['properties'].get('Kind'))
         for link in (event['properties'].get('Application') or {}).get('relation', []):
-            kinds.setdefault(link['id'].replace('-', ''), set()).add(kind)
+            kinds.setdefault(link['id'].replace('-', ''), []).append(kind)
     apps = []
     for row in rows:
-        stage, seen = plain(row['properties'].get('Stage')), kinds.get(row['id'].replace('-', ''), set())
-        if row_origin(row, seen) == INBOUND:
+        stage, ordered = plain(row['properties'].get('Stage')), kinds.get(row['id'].replace('-', ''), [])
+        if row_origin(row, ordered) == INBOUND:
             continue
-        apps.append({'stage': stage, 'seen': seen | {stage}})
+        apps.append({'stage': stage, 'seen': set(ordered) | {stage}})
     return apps
 
 

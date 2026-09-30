@@ -11,7 +11,11 @@
     {"name": "recruiter lead by email", "row": {"source": "Gmail", "stage": "Recruiter lead"}, "origin": "inbound"},
     {"name": "recruiter lead logged in Telegram", "row": {"source": "Telegram", "stage": "Recruiter lead", "notes": "Recruiter message (Other)"}, "origin": "inbound"},
     {"name": "lead moved on to screening", "row": {"source": "Job Pilotto app", "stage": "Screening", "notes": "Recruiter message (Email). Client: fintech"}, "origin": "inbound"},
-    {"name": "a pitch logged on a saved job, now interviewing", "row": {"source": "Job Pilotto app", "stage": "Interviewing", "kinds": ["Applied", "Recruiter lead"]}, "origin": "inbound"},
+    {"name": "a pitch logged on a saved job, now interviewing", "row": {"source": "Job Pilotto app", "stage": "Interviewing", "kinds": ["Recruiter lead", "Applied"]}, "origin": "inbound"},
+    {"name": "saved, then a recruiter wrote about it", "row": {"source": "Job Pilotto app", "stage": "Recruiter lead", "kinds": ["Recruiter lead"]}, "origin": "inbound"},
+    {"name": "saved, then a recruiter wrote, then you applied", "row": {"source": "Job Pilotto app", "stage": "Applied", "kinds": ["Recruiter lead", "Applied"]}, "origin": "inbound"},
+    {"name": "applied, then the recruiter replied to it", "row": {"source": "Job Pilotto app", "stage": "Screening", "kinds": ["Applied", "Recruiter lead", "Screening"]}, "origin": "outbound"},
+    {"name": "confirmation received, then a recruiter's message", "row": {"source": "Gmail", "stage": "Screening", "notes": "Recruiter message (Email)", "kinds": ["Confirmation received", "Recruiter lead"]}, "origin": "outbound"},
     {"name": "first contact on LinkedIn", "row": {"source": "LinkedIn", "stage": "Screening"}, "origin": "inbound"},
     {"name": "first contact by phone (confirmed)", "row": {"source": "Phone", "stage": "Interview scheduled"}, "origin": "inbound"},
     {"name": "recruiter lead dismissed", "row": {"source": "LinkedIn", "stage": "Dismissed"}, "origin": "inbound"}

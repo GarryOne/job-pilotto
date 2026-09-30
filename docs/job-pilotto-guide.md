@@ -38,5 +38,6 @@ The Job Pilotto app on your Mac does the work. This Notion workspace is where yo
 
 - **Your data** is in this Notion workspace and on your Mac. Nothing is stored by Job Pilotto on a server.
 - **AI costs** go to your own Anthropic account, usually a few dollars a month. Each search's cost is in Cronjob Runs.
+- **Jobs page, Show menu:** *New matches* = jobs found for you, not reviewed yet. *Inbound* = recruiters and contacts who found you (never mixed into matches).
 - **Fit scores** are a guide, not a verdict: a 65 with a great team can beat an 80.
 - **Anything marked ❓** in your Profile or answers is a fact the app doesn't know yet. Fill it in so drafts don't have to guess.

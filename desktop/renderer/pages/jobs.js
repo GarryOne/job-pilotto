@@ -3,7 +3,7 @@ import {closeMenu, el, moreButton, pill, tag, tile} from '../components.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byStat, inConversation, inProcess, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
 import {$, message, savedAgo, show} from './core.js';
@@ -15,7 +15,7 @@ import {openFeedback} from './feedback.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
-let statFilter = null;  // the counter clicked above the list: 'applied', 'waiting', 'interviews', 'closed', 'high', 'week', 'companies', 'stuck' or null
+let statFilter = null;  // the counter clicked above the list: 'applied', 'waiting', 'interviews', 'closed', 'high', 'companies', 'stuck' or null (Inbound picks the menu's filter)
 // Apply with Claude: offered (and recommended) when Claude Code is installed and Notion is connected.
 let claudeReady = false;
 const claudeStarted = new Set();
@@ -96,13 +96,16 @@ export function renderJobs() {
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
-  // The counters count every application (real workload); without one, the list is job matches only (inbound
-  // opportunities are "In conversation" above it); a pasted link finds any job.
-  const rows = sorted((statFilter === 'stuck' ? shared.allJobs.filter(stuck)
+  // The counters count every application (real workload); without one, the menu decides (byFilter): job matches by
+  // status, the inbound ones under Inbound only (the open ones are also "In conversation" above), all under All jobs;
+  // a pasted link finds any job.
+  const counted = statFilter === 'stuck' ? shared.allJobs.filter(stuck)
     : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(fullKey(job.url)))
-    : statFilter ? byStat(COUNTS_ALL.has(statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), statFilter)
-    : anyStatus ? shared.allJobs : matchesOnly(shared.allJobs)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
-    matches(job, text)), $('sort-by').value);
+    : statFilter ? byStat(COUNTS_ALL.has(statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), statFilter) : null;
+  const by = $('sort-by').value;
+  const rows = sorted((counted || (anyStatus ? shared.allJobs : byFilter(shared.allJobs, filter)))
+    .filter(job => (!counted || anyStatus || inStatus(job, filter)) && matches(job, text)),
+  filter === 'inbound' && !counted && by === 'best' ? 'activity' : by);
   renderTalking();
   const body = $('jobs-body');
   body.replaceChildren();
@@ -332,7 +335,7 @@ export function renderJobs() {
   }
   // What the list is filtered to, said once: a chip (✕ shows every job) and "4 of 195 jobs".
   const statLabel = statFilter?.label || {applied: 'Applied', waiting: 'Waiting for a reply', interviews: 'In process', closed: 'Closed',
-    stuck: 'Still marked Applying', high: 'High fit (70+)', week: 'New this week', companies: 'One per company'}[statFilter];
+    stuck: 'Still marked Applying', high: 'High fit (70+)', companies: 'One per company'}[statFilter];
   renderStuck();
   const plural = count => `${count} job${count === 1 ? '' : 's'}`;
   $('jobs-count').textContent = statLabel ? `${rows.length} of ${plural(shared.allJobs.length)}` : plural(rows.length);
@@ -341,12 +344,12 @@ export function renderJobs() {
   show($('jobs-filter-back'), statFilter?.from === 'focus');
   // A filter from another page (a Focus funnel step) is none of the boxes: they're greyed out until it's cleared.
   document.querySelectorAll('.stat-cards').forEach(cards => cards.classList.toggle('is-dimmed', !!statFilter?.urls));
-  document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String((card.dataset.stat === 'total' && !statFilter && filter === 'all') || card.dataset.stat === statFilter)));
+  document.querySelectorAll('[data-stat]').forEach(card => card.setAttribute('aria-pressed', String(statPressed(card.dataset.stat, statFilter, filter))));
   if (jobsLoading && !shared.allJobs.length) { show($('jobs-empty'), false); showLoading(); return; }  // still loading, not empty
   show($('jobs-empty'), rows.length === 0);
   const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
     applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
-    dismissed: 'No dismissed jobs.'};
+    dismissed: 'No dismissed jobs.', inbound: 'Nothing found you yet. A recruiter\'s message you log (<b>+ Log job activity…</b>) shows here.'};
   $('jobs-empty').innerHTML = !shared.allJobs.length ? 'No jobs here yet. Click <b>Check for new jobs</b>; the first search takes a few minutes.'
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !statFilter && emptyFor[filter] ? emptyFor[filter]
@@ -610,7 +613,7 @@ function showJobsData(data) {
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     $('stat-total').textContent = count.total;
     $('stat-high').textContent = count.high;
-    $('stat-week').textContent = count.week;
+    $('stat-inbound').textContent = inboundCount(shared.allJobs);
     Object.assign($('nav-jobs-badge'), {hidden: !count.week, textContent: count.week, title: `${count.week} new this week`});
     $('stat-companies').textContent = count.companies;
     const applications = applicationStats(shared.allJobs);
@@ -657,8 +660,9 @@ export async function init() {
   // clicking the active one again, or Total matches, shows every job.
   document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('click', () => {
     const kind = card.dataset.stat;
-    statFilter = kind === 'total' || kind === statFilter ? null : kind;
-    $('filter-status').value = 'all';
+    const next = statClick(kind, typeof statFilter === 'string' ? statFilter : null, $('filter-status').value);
+    statFilter = next.stat;
+    $('filter-status').value = next.filter;
     if (kind === 'companies' && statFilter) $('sort-by').value = 'company';
     renderJobs();
   }));

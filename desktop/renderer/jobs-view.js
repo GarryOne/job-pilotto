@@ -54,6 +54,23 @@ export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(j
 // still reach them), and the active ones are "In conversation" above it, the next step first.
 const OVER = new Set([...ENDED, 'Dismissed', 'Closed']);
 export const matchesOnly = jobs => jobs.filter(job => !isInbound(job));
+// The list's "Show" menu: New matches (value open), Saved, Applied, Dismissed = job matches with that status; Inbound =
+// every opportunity that found you, whatever its stage; All jobs = everything.
+export function inStatus(job, filter) {
+  if (filter === 'all') return true;
+  if (filter === 'inbound') return isInbound(job);
+  return job.status === (filter === 'open' ? 'unreviewed' : filter);
+}
+export const inboundCount = jobs => jobs.filter(isInbound).length;
+// A counter clicked above the list: the list it filters to (stat) and the menu's value. Inbound is the menu's own
+// Inbound list; the active counter again, or Total matches, shows every job.
+export function statClick(kind, active, filter) {
+  if (kind === 'inbound') return {stat: null, filter: !active && filter === 'inbound' ? 'all' : 'inbound'};
+  return {stat: kind === 'total' || kind === active ? null : kind, filter: 'all'};
+}
+export const statPressed = (kind, active, filter) => kind === active || (!active && kind === {all: 'total', inbound: 'inbound'}[filter]);
+export const byFilter = (jobs, filter) => (filter === 'all' || filter === 'inbound' ? jobs : matchesOnly(jobs))
+  .filter(job => inStatus(job, filter));
 export const inConversation = jobs => jobs.filter(job => isInbound(job) && !OVER.has(job.stage))
   .sort((a, b) => (b.next_step ? 1 : 0) - (a.next_step ? 1 : 0) || String(a.company).localeCompare(String(b.company)));
 // A job's status pill: its own status, except that an application shows where it stands in Notion (its Stage),
@@ -94,9 +111,12 @@ export function byStat(jobs, kind, now = Date.now()) {
   return jobs;
 }
 
-// The list order: best match (as the engine ranked it), newest first, or by company.
+// The list order: best match (as the engine ranked it), newest first, by company, or the latest activity first (the
+// Inbound list: tracked or applied most recently).
+const lastActivity = job => Math.max(Date.parse(job.first_seen_at) || 0, Date.parse(job.applied_on) || 0);
 export function sorted(jobs, by) {
   const list = [...jobs];
+  if (by === 'activity') list.sort((a, b) => lastActivity(b) - lastActivity(a));
   if (by === 'newest') list.sort((a, b) => (Date.parse(b.first_seen_at) || 0) - (Date.parse(a.first_seen_at) || 0));
   if (by === 'company') list.sort((a, b) => (a.company || '').localeCompare(b.company || ''));
   return list;

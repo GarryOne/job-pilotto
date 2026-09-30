@@ -56,10 +56,15 @@ class FunnelTest(unittest.TestCase):
                 if database_id == 'apps':
                     return [page('a', 'Applied', Source=select('Telegram')), page('b', 'Screening', Source=select('LinkedIn')),
                             page('c', 'Interviewing', Source=select('Job Pilotto app'), Notes=rich('Recruiter message (Email)')),
-                            page('d', 'Rejected')]
-                return []
+                            page('d', 'Rejected'),
+                            page('e', 'Screening', Source=select('Job Pilotto app')), page('f', 'Screening', Source=select('Job Pilotto app'))]
+                # e: applied, then the recruiter answered (outbound); f: the recruiter wrote first, then you applied (inbound).
+                event = lambda pid, kind, at: {'properties': {'Kind': select(kind), 'At': {'date': {'start': at}},
+                                                              'Application': {'relation': [{'id': pid}]}}}
+                return [event('e', 'Recruiter lead', '2026-09-10'), event('e', 'Applied', '2026-09-01'),
+                        event('f', 'Applied', '2026-09-10'), event('f', 'Recruiter lead', '2026-09-01')]
         apps = funnel.reached(Tracker())
-        self.assertEqual(sorted(a['stage'] for a in apps), ['Applied', 'Rejected'])
+        self.assertEqual(sorted(a['stage'] for a in apps), ['Applied', 'Rejected', 'Screening'])
         self.assertEqual(funnel.inbound_counts([app('Screening'), app('Rejected', 'Interviewing'), app('Recruiter lead')]),
                          {'contacted': 3, 'screening': 2, 'interviews': 1})
 

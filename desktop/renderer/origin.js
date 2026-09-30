@@ -2,14 +2,19 @@
 // both checked against tests/fixtures/opportunity_origin.json. Inbound: a recruiter's pitch (Stage "Recruiter lead",
 // a "Recruiter lead" event, Notes "Recruiter message (…)") or a first contact on LinkedIn or by phone (Source).
 // Everything else is outbound, "Applied elsewhere" (Notes "Logged from a paste (…)") and an unknown Source included.
+// The first contact decides: an "Applied" (or "Confirmation received") event before the "Recruiter lead" one (kinds,
+// oldest first) means the recruiter answered your application: outbound.
 export const INBOUND = 'inbound', OUTBOUND = 'outbound';
 const LEAD = 'Recruiter lead';
 const INBOUND_SOURCES = new Set(['LinkedIn', 'Phone']);
+const APPLIED_KINDS = new Set(['Applied', 'Confirmation received']);
 const LEAD_NOTES = 'Recruiter message (', ELSEWHERE_NOTES = 'Logged from a paste (';
 
 export function origin({source = '', stage = '', notes = '', kinds = []} = {}) {
-  const note = String(notes || '').trimStart();
-  if (stage === LEAD || (kinds || []).includes(LEAD) || note.startsWith(LEAD_NOTES)) return INBOUND;
+  const note = String(notes || '').trimStart(), seen = [...(kinds || [])];
+  const applied = seen.findIndex(kind => APPLIED_KINDS.has(kind));
+  if (applied >= 0 && seen.includes(LEAD) && applied < seen.indexOf(LEAD)) return OUTBOUND;
+  if (stage === LEAD || seen.includes(LEAD) || note.startsWith(LEAD_NOTES)) return INBOUND;
   if (note.startsWith(ELSEWHERE_NOTES)) return OUTBOUND;
   return INBOUND_SOURCES.has(String(source || '').trim()) ? INBOUND : OUTBOUND;
 }

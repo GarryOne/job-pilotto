@@ -202,9 +202,11 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   Human reply → Screening → Interviews → Offer, with the step to improve). No AI, no cost.
   - **Outbound only** in the funnel: jobs you went after.
   - **Inbound** on one line below it: "Inbound: 3 contacted you · 1 screening · 0 interviews" (hidden at 0).
-- 📋 **Jobs**: built from Notion (Job Matches + Applications), counters that filter the list (high fit, new this
-  week; applied, active, interviews, rejected), **In conversation** (open inbound opportunities, above the list; not
-  job matches), find a job by its pasted link, and one main button per job:
+- 📋 **Jobs**: built from Notion (Job Matches + Applications), counters that filter the list (high fit, inbound,
+  companies; applied, waiting, in process, closed), **In conversation** (open inbound opportunities, above the list),
+  find a job by its pasted link, and one main button per job:
+  - **Show** menu: New matches · Saved · Applied · Dismissed = job matches only; **Inbound** = everything that found
+    you (all stages, newest first); All jobs = everything.
   **Prepare** (draft the kit) → **Apply with Claude** (recommended, see below) or **Fill in Chrome** (the extension).
   **Apply to N** starts several at once. A ⛔ badge shows the kit's eligibility verdict on hover.
 - 📥 **Everything that reaches you, tracked**: **+ Applied elsewhere…** (link + date; it gets the same AI facts and fit
@@ -372,6 +374,7 @@ doesn't.
   `src/notion/origin.py` = `desktop/renderer/origin.js`, one shared test table):
   - **Inbound** (it found you): a recruiter's pitch (Stage/event "Recruiter lead", Notes "Recruiter message (…)"),
     or Source `LinkedIn` / `Phone`.
+  - **First contact decides**: a recruiter writing about a saved job = inbound; answering your application = outbound.
   - **Outbound** (you went after it): everything else, incl. "Applied elsewhere", confirmation emails, empty Source.
 - 🧭 **How you applied counts**: each application has a Channel (Direct, Recruiter platform, Agency,
   Referral) and Via (e.g. TechTree), detected from the job URL; Company always holds the real
