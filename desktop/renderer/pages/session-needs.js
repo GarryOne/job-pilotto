@@ -395,7 +395,5 @@ export async function init() {
     renderDock();
   });
   $('sd-all').addEventListener('click', event => { event.preventDefault(); openSession(shared.openSessionId || sessionList[0]?.id); });
-  $('ss-crumb-all').addEventListener('click', event => { event.preventDefault(); openSession(shared.openSessionId || sessionList[0]?.id); });
-  document.querySelectorAll('.crumbs [data-go]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); openView(link.dataset.go); }));
   $('ss-new').addEventListener('click', () => openView('jobs'));
 }

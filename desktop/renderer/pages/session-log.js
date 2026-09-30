@@ -42,7 +42,6 @@ export function renderSessionPage() {
   }));
   if (!item) return;
   const [label, tone] = sessionState(item);
-  $('ss-crumb').textContent = sessionCompany(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
   $('ss-status').replaceChildren(pill(sessionReview(item) && tone !== 'good' ? 'Ready for review' : label, tone, {dot: true}));

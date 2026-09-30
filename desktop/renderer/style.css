@@ -1023,8 +1023,6 @@ main { min-width: 0; }
 @media (max-width: 1180px) { .sd-cards { grid-template-columns: 1fr; } }
 
 /* The session page: sessions on the left; the job, Claude's question, the live terminal and the message box */
-.crumbs { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); margin-bottom: var(--sp-2); }
-.crumbs a { color: var(--info); text-decoration: none; }
 .ss-title h1 { margin: 0; }
 .ss-subtitle { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); font-size: var(--fs-base); }
 .ss-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
