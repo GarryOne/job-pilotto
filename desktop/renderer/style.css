@@ -1572,8 +1572,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .run-card-foot .muted { flex-basis: 100%; }
 
 /* Recent activity: each run's AI cost, right-aligned before its status. */
-/* No per-run cost in the list: the detail pane carries it (the run's own line). */
-.recent-row > .ui-pill, .recent-row > :last-child { justify-self: start; }
+/* No per-run cost in the list: the detail pane carries it (the run's own line). The badge's place in its column is
+   the panel's own rule above (centred, so every row's badge shares one axis). */
 .run-what .ui-tag { vertical-align: middle; }
 .focus-meta .is-done { color: var(--good); font-weight: 600; }
 .focus-actions button .spinner { margin-right: 6px; vertical-align: -2px; }
