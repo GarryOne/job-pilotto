@@ -5,7 +5,8 @@ import {moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
-import {noteCheck, refreshServices, renderOverview, showRunMode} from './settings.js';
+import {extensionState} from '../service-status.js';
+import {noteCheck, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
 
@@ -36,22 +37,29 @@ async function showClaudePrereqs() {
   }));
 }
 
-// ---------- Chrome extension: connected? (it checks in every 30 s) ----------
+// ---------- Chrome extension: is it installed (the browser says so at once), and is it awake (its report)? ----------
+// What the card says in each state: the pill is the state, this is the sentence that explains it.
+const EXT_LINE = {
+  connected: 'Connected: it fills application forms with your details and CV.',
+  closed: 'Installed in Chrome. Chrome isn\'t running, so it can\'t reach this app: open it and it reports within 30 seconds.',
+  idle: 'Installed in Chrome but not connected to this app yet. Press Connect the extension, then Connect to the Job Pilotto app.',
+  off: 'Installed in Chrome but turned off: switch it back on in chrome://extensions.',
+  absent: 'Not installed in Chrome yet — the three steps below take a minute.',
+  checking: 'Looking for it in Chrome…',
+};
 export async function showExtensionStatus() {
-  const seen = await window.pilot.extensionSeen();
-  const on = seen && Date.now() - seen.at < 90 * 1000;
-  // Right after the app starts the extension hasn't checked in yet (every 30 s): "Checking…", then look again.
-  if (!on && performance.now() < 60 * 1000) {
-    $('ext-status').textContent = 'Checking… (the extension checks in within 30 seconds)';
-    $('ext-status').className = 'status-line';
-    setTimeout(showExtensionStatus, 60 * 1000 - performance.now() + 500);
-    return;
-  }
-  $('ext-status').textContent = on ? `✓ Installed and connected${seen.version ? ` (version ${seen.version})` : ''}.`
-    : 'Not connected: install it below, or open Chrome if it\'s installed (it checks in within 30 seconds).';
-  $('ext-status').className = `status-line ${on ? 'on' : ''}`;
-  $('ext-setup').open = !on;
-  noteCheck({extension: {on: !!on, version: seen?.version}});  // the cards above follow
+  const [seen, found] = await Promise.all([window.pilot.extensionSeen().catch(() => null), window.pilot.extensionInstall().catch(() => null)]);
+  const state = extensionState({known: !!found || !!seen, installed: found?.installed || [], seen, browserRunning: found?.browserUp ?? null});
+  const pill = stateLine(state.on, state.on && state.version ? `v${state.version}` : '', state.checking, state.words);
+  pill.id = 'ext-status';
+  $('ext-status').replaceWith(pill);
+  if (state.checking) { setTimeout(showExtensionStatus, 1500); return; }  // only until the first profile read lands
+  $('ext-line').textContent = EXT_LINE[state.state] || EXT_LINE.absent;
+  show($('ext-connect'), state.state === 'idle');
+  $('ext-setup').open = state.state !== 'connected';
+  const SUMMARY = {connected: 'Reinstall or troubleshoot', absent: 'Install the extension'};
+  $('ext-setup').querySelector('summary').textContent = SUMMARY[state.state] || 'Troubleshoot the connection';
+  noteCheck({extension: {installed: found?.installed || [], seen, browserUp: found?.browserUp ?? null}});  // the cards above follow
 }
 
 // ---------- how often each job runs ----------
@@ -193,7 +201,7 @@ export async function showGoogle() {
   $('google-connect').textContent = google.connected ? 'Reconnect' : 'Connect Google';
   noteCheck({google: {connected: !!google.connected, email: google.email || ''}});  // the cards above follow
 }
-function alertLine(name, text) { const line = document.querySelector(`[data-secret="${name}"]`); line.textContent = text; line.classList.remove('on'); }
+function alertLine(name, text) { const line = document.querySelector(`[data-secret="${name}"]`); line.textContent = text; line.classList.remove('on'); line.classList.add('is-plain'); }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
@@ -342,7 +350,20 @@ export async function init() {
       loadSettings();
     });
   }
-  $('open-extension-folder').addEventListener('click', () => window.pilot.showFolder('extension'));
+  // One press does the computer's part of the three steps: Chrome on its extensions page, the folder in front of
+  // the user, its path on the clipboard (so the Load unpacked dialog takes ⌘⇧G, ⌘V, Return instead of hunting).
+  $('open-extension-folder').addEventListener('click', async () => {
+    $('open-extension-folder').disabled = true;
+    const result = await window.pilot.extensionShow().catch(() => null);
+    $('open-extension-folder').disabled = false;
+    message('ext-message', result?.opened ? 'Chrome is on its extensions page, and the folder is open behind it with its path on your clipboard: Load unpacked → ⌘⇧G, ⌘V, Return.'
+      : 'Couldn\'t open Google Chrome. Install it, then press Show extension folder again.', result?.opened ? 'ok' : 'error');
+  });
+  $('ext-connect').addEventListener('click', async () => {
+    const result = await window.pilot.extensionOptions().catch(() => null);
+    message('ext-message', result?.opened ? 'Its settings page is open: press Connect to the Job Pilotto app there.'
+      : 'Couldn\'t open the extension\'s settings page. Open it from Chrome: 🧩 → ⋮ next to Job Pilotto → Options.', result?.opened ? 'ok' : 'error');
+  });
   $('open-data').addEventListener('click', () => window.pilot.showFolder('data'));
   $('rerun-wizard').addEventListener('click', () => { show($('app'), false); show($('wizard')); goStep('welcome'); });
   $('ov-review-setup').addEventListener('click', () => $('rerun-wizard').click());  // the same, from Settings → Overview

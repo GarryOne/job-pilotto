@@ -4,6 +4,7 @@ import {icon} from '../icons.js';
 import {updateText} from '../update-text.js';
 import {shared} from './shared.js';
 import {$, aiReady, show} from './core.js';
+import {extensionState} from '../service-status.js';
 import {openView, remembered} from './nav.js';
 import {profileTab, showContact} from './profile.js';
 
@@ -70,40 +71,36 @@ const SERVICES = [
 // their last answer is remembered here and shown meanwhile ("Checking…" the very first time).
 const SERVICE_CACHE = 'serviceChecks';
 const lastChecks = () => { try { return JSON.parse(localStorage.getItem(SERVICE_CACHE) || 'null'); } catch { return null; } };
-function statusFrom(google, extension) {
+function statusFrom({extension, google}) {
   const on = {ai: aiReady(), notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, cloud: !!shared.state.settings.cloud?.repo, 'tg-cloud': !!shared.state.settings.telegramCloud,
-    telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: !!extension?.on};
-  const detail = {ai: aiReady() && (shared.state.settings.aiEngine === 'cli' ? 'Claude Code · your plan' : 'API key'), google: google?.connected && google.email, extension: extension?.on && extension.version && `v${extension.version}`,
+    telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: extension.on};
+  const detail = {ai: aiReady() && (shared.state.settings.aiEngine === 'cli' ? 'Claude Code · your plan' : 'API key'), google: google?.connected && google.email, extension: extension.on && extension.version && `v${extension.version}`,
     telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`,
     cloud: shared.state.settings.cloud?.repo, 'tg-cloud': shared.state.settings.telegramCloud?.url?.replace('https://', '')};
-  const checking = {google: !google, extension: !extension};
-  return {on, detail, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
+  const words = {extension: extension.on || extension.checking ? '' : extension.words};
+  const checking = {google: !google, extension: extension.checking};
+  return {on, detail, words, checking, missing: SERVICES.find(service => service.required && !on[service.id] && !checking[service.id]) || null};
 }
-// From what's known: a cached "extension on" is shown at once, a cached "off" is not trusted (it may be from before the
-// extension's last check-in): the card says Checking… until the real answer, so no false "Finish connecting" alert.
-const quickStatus = () => { const last = lastChecks(); return statusFrom(last?.google, last?.extension?.on ? last.extension : null); };
-// The extension checks in every 30 s: right after the app starts, "not seen yet" means "not known yet".
-const EXTENSION_GRACE_MS = 60 * 1000;
-const justStarted = () => performance.now() < EXTENSION_GRACE_MS;
+// The extension's state, from both facts: what the browser recorded (whether it is installed, and on) and its last
+// report (whether it is awake). The profile read is instant, so nothing here waits a minute to decide.
+const extensionFrom = record => extensionState({known: !!record, installed: record?.installed || [], seen: record?.seen || null, browserRunning: record?.browserUp ?? null});
+// From what's known: the kept answer is shown at once, then the real checks land a moment later.
+const quickStatus = () => { const last = lastChecks(); return statusFrom({extension: extensionFrom(last?.extension), google: last?.google}); };
 async function serviceStatus() {
-  const [google, seen] = await Promise.all([window.pilot.googleStatus().catch(() => ({})), window.pilot.extensionSeen().catch(() => null)]);
-  const on = !!seen && Date.now() - seen.at < 90 * 1000;
-  if (!on && justStarted()) {  // not checked in yet: keep Checking…, look again once the grace period is over
-    setTimeout(() => { if (!document.querySelector('.view[data-view="settings"]')?.hidden) renderOverview(); }, EXTENSION_GRACE_MS - performance.now() + 500);
-    return statusFrom(google, null);
-  }
-  const extension = {on, version: seen?.version};
-  try { localStorage.setItem(SERVICE_CACHE, JSON.stringify({google: {connected: !!google.connected, email: google.email || ''}, extension})); } catch {}
-  return statusFrom(google, extension);
+  const [google, seen, found] = await Promise.all([window.pilot.googleStatus().catch(() => ({})), window.pilot.extensionSeen().catch(() => null),
+    window.pilot.extensionInstall().catch(() => null)]);
+  const record = {installed: found?.installed || [], seen, browserUp: found?.browserUp ?? null};
+  try { localStorage.setItem(SERVICE_CACHE, JSON.stringify({google: {connected: !!google.connected, email: google.email || ''}, extension: record})); } catch {}
+  return statusFrom({extension: extensionFrom(record), google});
 }
-function stateLine(on, detail = '', checking = false) {
+export function stateLine(on, detail = '', checking = false, words = '') {
   if (checking) {
     const line = el('span', 'service-state is-checking');
     line.append(el('span', 'spinner'), 'Checking…');
     return line;
   }
   const line = el('span', `service-state${on ? ' is-on' : ''}`);
-  const text = on ? `Connected${detail ? ` · ${detail}` : ''}` : 'Not connected';
+  const text = on ? `Connected${detail ? ` · ${detail}` : ''}` : (words || 'Not connected');
   line.append(icon(on ? 'check-circle' : 'info'), el('span', 'service-state-text', text));  // long details end in "…"
   line.title = text;
   return line;
@@ -117,16 +114,18 @@ function showAlert(prefix, missing) {
   $(`${prefix}-alert-go`).onclick = () => openSetting(missing.id);
 }
 function renderConnections(status) {
-  const {on, detail, missing, checking = {}} = status;
+  const {on, detail, words = {}, missing, checking = {}} = status;
   show($('connections-dot'), !!missing);
   showAlert('conn', missing);
   const card = service => {
     const box = el('div', 'service-card is-row');
     const text = el('span', 'service-text');
-    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id], checking[service.id]), el('span', 'muted small', service.what));
+    text.append(el('b', '', service.name), el('span', 'muted small', service.what));
     const button = el('button', on[service.id] ? 'secondary' : 'secondary is-signal', on[service.id] ? 'Manage' : service.connect || 'Connect');
     button.addEventListener('click', () => openSetting(service.id));
-    box.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text, button);
+    const actions = el('span', 'service-actions');
+    actions.append(stateLine(on[service.id], detail[service.id], checking[service.id], words[service.id]), button);  // state, then the way in
+    box.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text, actions);
     return box;
   };
   // A service still being checked sits with the connected ones until it answers (it usually is).
@@ -172,12 +171,12 @@ export function showServicesNow() {
 }
 // Setup → Optional extras: the same status as Settings → Connections (Connected · detail / Not connected), and
 // "Manage" instead of "Set up" once a service is on.
-function renderExtras({on, detail, checking = {}}) {
+function renderExtras({on, detail, words = {}, checking = {}}) {
   for (const button of document.querySelectorAll('.extras [data-goto-settings]')) {
     const id = button.dataset.gotoSettings, text = button.closest('.service-card')?.querySelector('.service-text');
     if (!text) continue;
     text.querySelector('.service-state')?.remove();
-    text.querySelector('b').after(stateLine(!!on[id], detail[id] || '', !!checking[id]));
+    text.querySelector('b').after(stateLine(!!on[id], detail[id] || '', !!checking[id], words?.[id] || ''));
     button.textContent = on[id] ? 'Manage' : (button.dataset.connect ||= button.textContent);
   }
 }
@@ -188,7 +187,7 @@ export async function showExtrasStatus() {
   renderExtras(await serviceStatus());
 }
 function renderServices(status) {
-  const {on, detail, missing, checking} = status;
+  const {on, detail, words = {}, missing, checking} = status;
   renderExtras(status);
   renderConnections(status);
   renderDiagnostics(status);
@@ -197,7 +196,7 @@ function renderServices(status) {
   $('ov-services').replaceChildren(...SERVICES.filter(service => service.required).map(service => {
     const card = Object.assign(document.createElement('button'), {type: 'button', className: 'service-card', title: `Open ${service.name}`});
     const text = el('span', 'service-text');
-    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id], checking[service.id]));
+    text.append(el('b', '', service.name), stateLine(on[service.id], detail[service.id], checking[service.id], words[service.id]));
     card.append(tile(service.icon, on[service.id] ? 'good' : 'warn'), text);
     card.addEventListener('click', () => openSetting(service.id));
     return card;

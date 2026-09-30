@@ -51,7 +51,7 @@ export function choiceCards(choices, {selected = null, onPick = () => {}, label 
     text.append(el('b', '', choice.title), el('span', 'muted small', choice.text));
     if (choice.note) text.append(el('span', 'ui-choice-note small', choice.note));
     const check = el('span', 'ui-choice-check');
-    check.append(icon('check-circle'));
+    check.append(icon('tick'));
     card.append(tile(choice.icon, choice.id === selected ? 'signal' : 'neutral'), text, check);
     card.addEventListener('click', () => onPick(choice.id));
     group.append(card);

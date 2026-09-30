@@ -22,6 +22,7 @@ import {cloudNextAt, nextAt, nextMailAt, startSchedule} from './lib/schedule.js'
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
+import * as extensionInstall from './lib/extension-install.js';
 import * as terminals from './lib/terminals.js';
 import * as transcript from './lib/transcript.js';
 import * as quitDialog from './lib/quit-dialog.js';
@@ -1275,6 +1276,32 @@ function handlers() {
   });
   ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? path.join(pipeline.REPO, 'extension') : storage.dir));
   ipcMain.handle('extensionInfo', () => ({url: `http://127.0.0.1:${server.PORT}`, token: server.extensionToken(storage)}));
+  const extensionFolder = () => path.join(pipeline.REPO, 'extension');
+  // The Chrome extension from the browsers' own records: is it installed, is it on, is that browser up, and which
+  // copy is loaded. A file read answers in milliseconds — Settings no longer shows "Checking…" for a minute and then
+  // calls it "not connected" (1 Oct 2026).
+  ipcMain.handle('extensionInstall', async () => {
+    const installed = extensionInstall.installed({folder: extensionFolder()});
+    let browserUp = null;
+    if (installed.length) {
+      const up = await Promise.all([...new Set(installed.map(entry => entry.app))].map(app => extensionInstall.running(app)));
+      browserUp = up.some(Boolean);
+    }
+    return {folder: extensionFolder(), latest: server.latestExtension(), installed, browserUp};
+  });
+  // The computer's part of installing it, in one press: Chrome on its extensions page, the extension's folder in
+  // front of the user, and its path on the clipboard — the Load unpacked dialog then takes ⌘⇧G, ⌘V, Return.
+  ipcMain.handle('extensionShow', async () => {
+    clipboard.writeText(extensionFolder());
+    await shell.openPath(extensionFolder());
+    return {folder: extensionFolder(), opened: await extensionInstall.openExtensionsPage()};
+  });
+  // The extension's own options page: its "Connect to the Job Pilotto app" is what starts it reporting.
+  ipcMain.handle('extensionOptions', async () => {
+    const found = extensionInstall.installed({folder: extensionFolder()});
+    const folder = found.find(entry => entry.current)?.folder || found[0]?.folder || extensionFolder();
+    return {opened: await extensionInstall.openOptionsPage(folder)};
+  });
 }
 
 // Started from a terminal that's since closed, writing a log line fails (EIO/EPIPE); that must never crash the app.

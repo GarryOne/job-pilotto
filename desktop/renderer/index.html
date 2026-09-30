@@ -941,9 +941,11 @@
 
       <div class="setting conn-panel" id="setting-ai" hidden>
         <div class="engine" id="ai-engine-settings"></div>
-        <div><h3>Anthropic API key</h3><p class="muted status-line" data-secret="ANTHROPIC_API_KEY"></p>
-          <p class="muted small">Always on (GitHub) runs on GitHub and needs an API key, whichever engine runs on this Mac.</p></div>
-        <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
+        <div class="conn-foot">
+          <div class="conn-foot-head"><h3>Anthropic API key</h3><span class="status-line" data-secret="ANTHROPIC_API_KEY"></span></div>
+          <p class="muted small">Always on (GitHub) requires an API key, regardless of the engine selected on this Mac.</p>
+          <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
+        </div>
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>
         <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
@@ -968,19 +970,36 @@
         <p class="message" id="google-message"></p>
       </div>
       <div class="setting conn-panel" id="setting-extension" hidden>
-        <div><h3>🧩 Chrome extension</h3>
-          <p class="status-line" id="ext-status"></p>
-          <details id="ext-setup" open><summary class="small">Install, reinstall or troubleshoot</summary>
-          <ol class="howto small">
-            <li>Chrome → <code>chrome://extensions</code> → turn on <b>Developer mode</b>.</li>
-            <li><b>Load unpacked</b> → choose the folder this button opens: <button class="link" id="open-extension-folder">Show extension folder</button></li>
-            <li>The Job Pilotto settings page opens by itself and connects to this app. Keep the app open while you apply; your details and CV come from here (Settings → Your details).</li>
-            <li>Pin it: click the puzzle piece 🧩 at the top right of Chrome → the pin 📌 next to <b>Job Pilotto</b>. Its orange ✈ button then sits in the toolbar.</li>
+        <div class="conn-head">
+          <span class="ui-tile tone-info"><i data-icon="puzzle"></i></span>
+          <div class="conn-head-text"><h3>Chrome extension</h3>
+            <p class="muted" id="ext-line">Already installed? Open Chrome. Connection is checked within 30 seconds.</p></div>
+          <span class="service-state" id="ext-status"></span>
+        </div>
+        <p class="message" id="ext-message"></p>
+        <details class="conn-setup plain" id="ext-setup" open><summary>Install the extension</summary>
+          <ol class="conn-steps">
+            <li><span class="conn-step-words"><b>Enable Developer mode</b>
+              <span class="muted">Open <code>chrome://extensions</code> in Chrome and turn on Developer mode.</span></span></li>
+            <li><span class="conn-step-words"><b>Load the extension</b>
+              <span class="muted">Choose Load unpacked, then select the folder opened below.</span></span>
+              <button class="secondary is-signal" id="open-extension-folder">Show extension folder</button></li>
+            <li><span class="conn-step-words"><b>Connect to Job Pilotto</b>
+              <span class="muted">Keep this app open and connect from the extension's settings page.</span>
+              <span class="muted small">Autofill uses Settings → Your details and your CV.</span></span>
+              <button class="secondary is-signal" id="ext-connect" hidden>Connect the extension</button></li>
           </ol>
-          <p class="muted small">Settings page didn't open or didn't connect? 🧩 → ⋮ next to Job Pilotto → <b>Options</b> → <b>Connect to the Job Pilotto app</b>, or paste these:</p>
-        
-        
         </details>
+        <div class="conn-details">
+          <details class="troubleshoot"><summary><i data-icon="link"></i>Connection troubleshooting</summary>
+            <ul class="small">
+              <li>Installed but the pill stays amber: open the extension (🧩 → ⋮ next to <b>Job Pilotto</b> → <b>Options</b>) and press <b>Connect to the Job Pilotto app</b>.</li>
+              <li>It reports every 30 seconds, so give it that long after opening Chrome or reloading it.</li>
+            </ul>
+          </details>
+          <details class="troubleshoot"><summary><i data-icon="pin"></i>Pin the extension in Chrome</summary>
+            <p class="muted small">Click the puzzle piece 🧩 at the top right of Chrome → the pin 📌 next to <b>Job Pilotto</b>. Its orange ✈ button then sits in the toolbar.</p>
+          </details>
         </div>
       </div>
       <div class="setting conn-panel" id="setting-serpapi" hidden>
@@ -989,12 +1008,11 @@
         <div class="inline"><input type="password" id="set-serpapi" placeholder="SerpApi key"><button class="secondary" id="set-serpapi-save">Save</button></div>
       </div>
           <p class="muted small keychain-note"><i data-icon="shield"></i>Credentials are stored in your Mac’s Keychain and never leave this Mac, except to the service they belong to.</p>
-          <details class="troubleshoot"><summary>Connection troubleshooting</summary>
+          <details class="troubleshoot"><summary>Troubleshooting other services</summary>
             <ul class="small">
               <li><b>Notion</b> says it lost access: Manage → <b>Reconnect with Notion</b> and pick your Job Pilotto page again.</li>
               <li><b>Gmail</b> shows "Sign-in expired": Manage → <b>Reconnect</b>.</li>
               <li><b>Telegram</b> doesn't answer: open your bot, press <b>Start</b>, then Manage → paste the token again → <b>Connect</b>.</li>
-              <li><b>Chrome extension</b> not connected: open Chrome (it checks in every 30 seconds), or Manage → follow the install steps.</li>
               <li>An AI key was rejected: create a new one at console.anthropic.com and paste it under Anthropic → Manage.</li>
             </ul>
           </details>

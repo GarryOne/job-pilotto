@@ -14,41 +14,49 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
   const render = () => {
     const cli = cliStatus(status);
     const cards = choiceCards([
-      {id: 'api', icon: 'key', title: TEXT.api.title, text: TEXT.api.text},
-      {id: 'cli', icon: 'terminal', title: TEXT.cli.title, text: TEXT.cli.text,
+      {id: 'api', icon: 'key', title: TEXT.api.title, text: context === 'settings' ? TEXT.api.short : TEXT.api.text},
+      {id: 'cli', icon: 'terminal', title: TEXT.cli.title, text: context === 'settings' ? TEXT.cli.short : TEXT.cli.text,
         note: status && !status.installed ? 'Not found on this Mac' : ''},
     ], {selected: picked, onPick: pick, label: TEXT.title});
     const head = el('div', 'engine-head');
-    head.append(el('h3', '', TEXT.title), el('p', 'muted small', TEXT.subtitle));
+    head.append(el('h3', '', TEXT.title), el('p', 'muted small', context === 'settings' ? TEXT.settingsSubtitle : TEXT.subtitle));
     const parts = [head];
     if (context === 'settings' && showOffer(shared.state?.settings, hasKey(), status)) parts.push(offerCard());
     parts.push(cards);
     if (notice) parts.push(notice);
     parts.push(statusBlock(cli));
     if (problem) parts.push(el('p', 'message error', problem));
-    if (showFallback(picked, hasKey())) parts.push(fallbackRow());
-    parts.push(el('p', 'muted small engine-note', TEXT.note));
+    const fallback = showFallback(picked, hasKey());
+    if (fallback) parts.push(fallbackRow());
+    // The fallback row's hint carries the retry line in Settings; the wizard (and the states without that row) keep
+    // the full note, which is the only place the billing is explained there.
+    if (!(fallback && context === 'settings')) parts.push(el('p', 'muted small engine-note', TEXT.note));
     box.replaceChildren(...parts);
   };
   const statusBlock = cli => {
-    const block = el('div', 'engine-status');
-    const top = el('div', 'engine-status-head');
+    const block = el('div', 'engine-status');  // one tinted line: the state, then Verify
+    const row = el('div', 'engine-status-row');
     const verify = el('button', 'link', busy ? 'Verifying…' : 'Verify');
     Object.assign(verify, {type: 'button', disabled: busy});
     verify.addEventListener('click', () => check());
-    top.append(el('b', '', 'Claude Code status'), verify);
-    block.append(top);
     const lines = el('div', 'engine-status-lines');
     for (const line of cli.lines) lines.append(pill(line.text, line.tone, {dot: true}));
-    block.append(lines);
-    if (cli.path) block.append(el('code', 'engine-path', cli.path));
+    row.append(el('b', '', 'Claude Code status'), lines, verify);
+    block.append(row);
+    if (cli.path) {  // the path is a detail, not the answer: folded away under the line
+      const details = el('details', 'engine-details plain');
+      details.append(el('summary', 'small', TEXT.details), el('code', 'engine-path', cli.path));
+      block.append(details);
+    }
     return block;
   };
   const fallbackRow = () => {
     const label = el('label', 'check-row');
     const box = Object.assign(document.createElement('input'), {type: 'checkbox', checked: fallbackOn(shared.state?.settings)});
     box.addEventListener('change', async () => { shared.state.settings = await window.pilot.setAiFallback(box.checked); });
-    label.append(box, el('span', '', TEXT.fallback));
+    const words = el('span');
+    words.append(el('span', '', TEXT.fallback), el('span', 'muted small', TEXT.fallbackHint));
+    label.append(box, words);
     return label;
   };
   const offerCard = () => {

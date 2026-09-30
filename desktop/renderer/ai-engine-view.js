@@ -3,11 +3,16 @@
 export const TEXT = {
   title: 'Execution engine',
   subtitle: 'Where Job Pilotto\'s AI tasks run: reading jobs, fit scores, kits, reviews.',
-  api: {title: 'Anthropic API key', text: 'Uses your Anthropic API key. You control the model and costs.'},
-  cli: {title: 'Claude Code', text: 'Uses your Claude Code and its Claude subscription. No API key or per-token costs.'},
+  settingsSubtitle: 'Choose where AI tasks run.',  // Settings → Connections: the two cards under it say the rest
+  details: 'Installation details',                 // the Claude Code path, folded under its status line
+  api: {title: 'Anthropic API key', text: 'Uses your Anthropic API key. You control the model and costs.',
+    short: 'Control the model and API costs.'},  // Settings shows the short line; the wizard explains in full
+  cli: {title: 'Claude Code', text: 'Uses your Claude Code and its Claude subscription. No API key or per-token costs.',
+    short: 'Use your Claude subscription.'},
   note: 'AI tasks run through your Claude Code and bill to your Claude subscription, not to API credits. Always on (GitHub) '
     + 'and the free-credit relay use an API key. Tasks are retried later when your Claude usage window is exhausted.',
-  fallback: 'If Claude Code hits my plan limit, use my API key',
+  fallback: 'Use my API key if Claude Code reaches its limit',
+  fallbackHint: 'Otherwise, tasks retry when your usage window resets.',
   notice: 'Job Pilotto will run your own Claude Code on this Mac. It uses your Claude plan\'s usage limits, not API credits. '
     + 'You stay in control: switch back to an API key any time.',
   offer: 'New: run these AI tasks on your own Claude Code (your Claude plan) instead of API credits. Your API key stays as it is until you switch.',
