@@ -227,6 +227,23 @@ def _image_blocks(tracker, image):
     return blocks
 
 
+def _place_screenshots(tracker, image, summary):
+    """Where a log's screenshots go: on the run that logged them (Logged activity in ⏱️ Search runs), small, side by side.
+    Returns (blocks for the job's page: a link to that run, screenshots for the job's page: only when no run is open, e.g.
+    a terminal log: they stay on the job then)."""
+    shots = _image_blocks(tracker, image)
+    if not shots:
+        return [], []
+    url = cron_runs.attach([_block('heading_3', f'📥 {summary}'[:200])] + _thumbnails(shots))
+    if url is None:
+        return [], shots
+    if not url:
+        return [], []
+    said = {'content': 'Screenshots: saved with this run'}
+    said['link'] = {'url': url}  # Notion's text link, not a column
+    return [{'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': [{'type': 'text', 'text': said}]}}], []
+
+
 def _thumbnails(blocks):
     """Screenshots side by side in columns: small on the page, full size in Notion's viewer when clicked."""
     if len(blocks) < 2:
@@ -251,16 +268,9 @@ def _keep(tracker, row, text, image, summary, when, platform=None, check=(), cha
     if changes:  # a value this log replaced, before → after: a job's big changes leave a trail
         head.append(_block('paragraph', f"Changed: {'; '.join(changes)}"))
     inside = head + inside
-    shots = _image_blocks(tracker, image)
-    # The screenshots belong to the run that logged them (Logged activity in ⏱️ Search runs): small, side by side, there.
-    # The job's page keeps the words and a link to that run. Without an open run (a terminal log) they stay on the job.
-    at_run = cron_runs.attach([_block('heading_3', f'📥 {summary}'[:200])] + _thumbnails(shots)) if shots else None
-    if at_run is not None:
-        shots = []
-        if at_run:
-            said = {'content': 'Screenshots: saved with this run'}
-            said['link'] = {'url': at_run}  # Notion's text link, not a column
-            inside.append({'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': [{'type': 'text', 'text': said}]}})
+    # The job's page keeps the words and a link to the run that holds the screenshots.
+    linked, shots = _place_screenshots(tracker, image, summary)
+    inside += linked
     if len(shots) < 2:
         inside += shots
     entry = {'object': 'block', 'type': 'toggle', 'toggle': {
@@ -858,7 +868,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
                     title=job.get('title') or item.get('title')) if job else item
         row, line = opportunity.track(tracker, lead, text, source=source, event_source=event_source, talking=talking,
                                       at=began or when, seed=seed, extra_blocks=([_block('paragraph', f"⚠️ Check these details: {'; '.join(check)}.")] if check else [])
-                                      + _image_blocks(tracker, image),
+                                      + sum(_place_screenshots(tracker, image, summary), []),
                                       note=_noted(f'Logged: {summary}', item))
         if not row:
             return 'ℹ️ ' + line

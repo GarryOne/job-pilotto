@@ -89,6 +89,17 @@ class ScreenshotsGoToTheRunTests(unittest.TestCase):
         said = [part['paragraph']['rich_text'][0] for part in entry if part['type'] == 'paragraph']
         self.assertTrue(any('run-1' in (part.get('text', {}).get('link') or {}).get('url', '') for part in said), said)  # a link to it
 
+    def test_a_new_leads_page_does_not_get_the_screenshots_either(self):
+        tracker = RunTracker()
+        self.cron_runs._open.clear()
+        self.cron_runs._open.update(tracker=tracker, id='run-1', url='https://notion.test/run-1', run={})
+        run(tracker, reading('Recruiter outreach', -1, role='Senior Web3 Infrastructure Engineer', summary='Web3 platform, remote',
+                             is_opportunity=True, title='Senior Web3 Infrastructure Engineer', recruiter_name='Linomica Irigoyen'))
+        self.assertEqual(len(images(tracker.run_blocks)), 1)
+        page_blocks = [block for _, blocks in tracker.bodies.values() for block in blocks]
+        self.assertEqual(images(page_blocks), [])
+        self.assertIn('run-1', str(page_blocks))  # the page says where they are
+
     def test_without_an_open_run_the_screenshot_stays_on_the_job(self):
         tracker = RunTracker([row('p1', 'https://x.test/1', 'SRE', 'Blockdaemon', 'Screening')], [job('https://x.test/1', 'SRE', 'Blockdaemon', 'Screening')])
         self.cron_runs._open.clear()
