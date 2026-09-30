@@ -214,8 +214,8 @@ test('supporting moments: the quotes behind each pattern with the interview each
 test('an insight saved in the old format is refreshed once by the app, only when Claude can be asked', () => {
   assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true}), true);
   assert.equal(needsUpgrade(RICH, {hasKey: true}), true);  // saved before versions existed
-  assert.equal(needsUpgrade({...RICH, version: 4}, {hasKey: true}), true);  // version 5: the whole review and the transcripts
-  assert.equal(needsUpgrade({...RICH, version: 5}, {hasKey: true}), false);
+  assert.equal(needsUpgrade({...RICH, version: 5}, {hasKey: true}), true);  // version 6: fair patterns, strengths, "you"
+  assert.equal(needsUpgrade({...RICH, version: 6}, {hasKey: true}), false);
   assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: false}), false);
   assert.equal(needsUpgrade(null, {hasKey: true}), false);
   assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true, busy: true}), false);

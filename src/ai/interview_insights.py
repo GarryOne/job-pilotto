@@ -181,7 +181,7 @@ def prompt_input(items):
 KINDS = ('weakness', 'strength', 'note')  # the icon of a pattern on the card
 # 2 = the redesigned card's words (titles, kinds, keyword lines, the banner sentence). A saved insight of an older version is
 # regenerated once on Refresh even when no review changed, so it fills them in.
-DATA_VERSION = 5  # 5 = reads the whole review and the transcripts; merges only the same behaviour (30 Sep 2026)
+DATA_VERSION = 6  # 6 = one moment backs one pattern, three kinds of gap, strengths kept, "you" (30 Sep 2026)
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -239,6 +239,14 @@ long-winded answer are three different things, even if all are "about specifics"
 - Look first at how the answers met what the interviewer said they need (a client's stated pain points, the role's focus): \
 missing that in several interviews is often the most useful pattern.
 - When a strength and a weakness touch (honest about a gap vs underselling it), say how to keep the strength.
+- Before grouping, sort every weak moment into one of three kinds and never mix them in a pattern: a knowledge gap (asked \
+directly and did not know, e.g. could not name IoT protocols), a volunteered gap (offered a limit unprompted), or a delivery \
+problem (the answer was long, unstructured, off the question or had no outcome). A gap counts as "without a bridge" only \
+if the answer stopped there: check the transcript, and when related experience followed, it is not that pattern.
+- Each moment (a question and its answer) backs one pattern only: pick the pattern it shows best.
+- Include at least one strength when the reviews show one landing well in more than one interview; it tells the \
+candidate what to keep doing.
+- Address the candidate as "you" in every sentence, never "he" or "the candidate"
 - You also get the transcript of the newest interviews (speech-to-text, so words can be garbled). Use it to check what was \
 actually asked and answered; quote it only for a clear, readable sentence. The review stays the main source.
 - Each pattern also gets a short title and a kind (weakness / strength / note); each step a short heading and a keyword \
@@ -263,13 +271,14 @@ def validate(result, items):
     than MIN_SUPPORT interviews marked tentative, to-dos citing a real interview. Returns the stored shape."""
     by_label = {item['label']: item for item in items}
     sources = {label: _source(item) for label, item in by_label.items()}
-    patterns = []
+    patterns, used = [], set()
     for pattern in result.get('patterns') or []:
-        evidence, seen = [], set()
+        evidence = []
         for ref in pattern.get('evidence') or []:
             label, quote = (ref.get('interview') or '').strip(), (ref.get('quote') or '').strip().strip('"“”')
-            if label in by_label and len(quote) >= 8 and _norm(quote) in sources[label] and (label, _norm(quote)) not in seen:
-                seen.add((label, _norm(quote)))
+            # a quote backs one pattern only (the first that uses it): the same moment never counts twice
+            if label in by_label and len(quote) >= 8 and _norm(quote) in sources[label] and (label, _norm(quote)) not in used:
+                used.add((label, _norm(quote)))
                 evidence.append({'interview': by_label[label]['id'], 'quote': quote[:300]})
         cited = list(dict.fromkeys(e['interview'] for e in evidence))
         if not evidence or not (pattern.get('pattern') or '').strip():

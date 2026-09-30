@@ -406,7 +406,34 @@ class FullInput(unittest.TestCase):
         self.assertIn('same behaviour', ii.SYSTEM)
         self.assertIn('what the interviewer said they need', ii.SYSTEM)
         self.assertIn('transcript', ii.SYSTEM)
-        self.assertEqual(ii.DATA_VERSION, 5)
+        self.assertGreaterEqual(ii.DATA_VERSION, 5)
+
+
+class FairPatterns(unittest.TestCase):
+    """30 Sep 2026, the owner's two screens: the same moment backed two patterns, a question he was asked and couldn't
+    answer was called a "volunteered" gap, strengths vanished, and the card said "he". One moment backs one pattern (code),
+    the rest is the prompt's job."""
+
+    def items(self):
+        return ii.gather(FakeNotion(list(ONE), PAGES), list(ONE))
+
+    def test_a_quote_backs_only_the_first_pattern_that_uses_it(self):
+        quote = {'interview': 'I1', 'quote': 'Postgres failover answer lacked RTO numbers'}
+        other = {'interview': 'I1', 'quote': 'Clear Kubernetes upgrade process'}
+        result = {'headline': 'h', 'confidence': 'low', 'next_steps': [], 'patterns': [
+            {'round_type': 'Technical', 'title': 'A', 'kind': 'weakness', 'pattern': 'first', 'evidence': [quote]},
+            {'round_type': 'Technical', 'title': 'B', 'kind': 'weakness', 'pattern': 'reuses it only', 'evidence': [quote]},
+            {'round_type': 'Technical', 'title': 'C', 'kind': 'strength', 'pattern': 'reuses it and has its own', 'evidence': [quote, other]}]}
+        stored = ii.validate(result, self.items())
+        self.assertEqual([p['title'] for p in stored['patterns']], ['A', 'C'])  # B had nothing of its own: dropped
+        self.assertEqual([e['quote'] for e in stored['patterns'][1]['evidence']], ['Clear Kubernetes upgrade process'])
+
+    def test_the_prompt_separates_kinds_of_gap_keeps_strengths_and_speaks_to_you(self):
+        system = ii.SYSTEM
+        for rule in ('knowledge gap', 'volunteered', 'delivery', 'one pattern only', 'at least one strength', 'Address the candidate as "you"',
+                     'check the transcript'):
+            self.assertIn(rule, system, rule)
+        self.assertEqual(ii.DATA_VERSION, 6)
 
 
 class Ticks(unittest.TestCase):

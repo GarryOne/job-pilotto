@@ -79,8 +79,8 @@ export function insightView(insight, rows = [], now = Date.now()) {
 }
 
 // An insight saved before the card's new words (titles, kinds) is refreshed once by the app, when Claude can be asked
-// (src/ai/interview_insights.py DATA_VERSION): the two-line pattern rows need them. version 5 = current (reads the whole review and the transcripts).
-export const needsUpgrade = (insight, {hasKey = false, busy = false} = {}) => !!insight && hasKey && !busy && (Number(insight.version) || 1) < 5;
+// (src/ai/interview_insights.py DATA_VERSION): the two-line pattern rows need them. version 6 = current (one moment backs one pattern, three kinds of gap, strengths kept).
+export const needsUpgrade = (insight, {hasKey = false, busy = false} = {}) => !!insight && hasKey && !busy && (Number(insight.version) || 1) < 6;
 
 // The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
 // refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; onPractice(): Start practice session;
