@@ -170,8 +170,26 @@ export function showServicesNow() {
   checkingLine(true);
   renderKnown();
 }
+// Setup → Optional extras: the same status as Settings → Connections (Connected · detail / Not connected), and
+// "Manage" instead of "Set up" once a service is on.
+function renderExtras({on, detail, checking = {}}) {
+  for (const button of document.querySelectorAll('.extras [data-goto-settings]')) {
+    const id = button.dataset.gotoSettings, text = button.closest('.service-card')?.querySelector('.service-text');
+    if (!text) continue;
+    text.querySelector('.service-state')?.remove();
+    text.querySelector('b').after(stateLine(!!on[id], detail[id] || '', !!checking[id]));
+    button.textContent = on[id] ? 'Manage' : (button.dataset.connect ||= button.textContent);
+  }
+}
+// The extras step opened: from what's known at once, then the real checks.
+export async function showExtrasStatus() {
+  if (!shared.state?.secrets) return;
+  renderExtras(quickStatus());
+  renderExtras(await serviceStatus());
+}
 function renderServices(status) {
   const {on, detail, missing, checking} = status;
+  renderExtras(status);
   renderConnections(status);
   renderDiagnostics(status);
   renderUpdate();

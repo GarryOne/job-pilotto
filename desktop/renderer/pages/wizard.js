@@ -18,6 +18,7 @@ export function goStep(name) {
     });
   }
   if (name === 'notion') showNotionNext();
+  if (name === 'extras') import('./settings.js').then(settings => settings.showExtrasStatus());  // Connected / Manage, as in Settings
   // Reviewing a finished setup: the workspace stays as it is (switching it is Settings → Notion).
   const reviewing = !!shared.state.settings.setupDone && !!shared.state.notion;
   $('notion-oauth').disabled = reviewing;
