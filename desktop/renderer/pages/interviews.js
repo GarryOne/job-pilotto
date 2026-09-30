@@ -302,7 +302,7 @@ function renderInsight() {
   show($('iv-insight'), !!view);
   insightShown = view;
   upgradeOldInsight(view);
-  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: showMoments, onPractice: startPractice, refresh: refreshInsights,
+  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: title => showMoments(title), onPractice: startPractice, refresh: refreshInsights,
     onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote}));
 }
 let insightShown = null, upgradeTried = false;
@@ -314,11 +314,12 @@ function upgradeOldInsight(view) {
 }
 
 // View supporting moments: the quotes behind each pattern; a name opens that interview in the library.
-function showMoments() {
+function showMoments(title = '') {
   const view = insightShown;
   if (!view?.moments?.length) return;
   $('moments-body').replaceChildren(...view.moments.map(group => {
     const box = el('div', 'iv-moments-group');
+    box.dataset.title = group.title;
     box.append(el('h3', '', group.title));
     for (const item of group.quotes) {
       const line = el('div', 'iv-moment');
@@ -333,6 +334,8 @@ function showMoments() {
   show($('moments-notion'), !!view.supporting?.url);
   $('moments-notion').onclick = () => window.pilot.openNotion(view.supporting.url);
   $('moments-dialog').showModal();
+  // opened from a pattern's "N quotes": scrolled to that pattern
+  if (typeof title === 'string' && title) [...$('moments-body').children].find(box => box.dataset.title === title)?.scrollIntoView({block: 'start'});
 }
 
 // Start practice session: the steps still to do, one at a time, each with a countdown; "Done" ticks it (saved in Notion).

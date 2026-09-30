@@ -214,8 +214,20 @@ test('supporting moments: the quotes behind each pattern with the interview each
 test('an insight saved in the old format is refreshed once by the app, only when Claude can be asked', () => {
   assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true}), true);
   assert.equal(needsUpgrade(RICH, {hasKey: true}), true);  // saved before versions existed
-  assert.equal(needsUpgrade({...RICH, version: 2}, {hasKey: true}), false);
+  assert.equal(needsUpgrade({...RICH, version: 2}, {hasKey: true}), true);  // version 3: sharper titles and evidence
+  assert.equal(needsUpgrade({...RICH, version: 3}, {hasKey: true}), false);
   assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: false}), false);
   assert.equal(needsUpgrade(null, {hasKey: true}), false);
   assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true, busy: true}), false);
+});
+
+test('each pattern says how many quotes back it, and the count opens the moments at that pattern', () => {
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  assert.deepEqual(view.patterns.map(p => p.quotes), [2, 1]);
+  const asked = [];
+  const body = insightCard(view, {onMoments: title => asked.push(title)});
+  const quotes = body.flatMap(node => node.all(n => n.className.includes('iv-quotes')));
+  assert.deepEqual(quotes.map(q => q.textContent), ['2 quotes', '1 quote']);
+  quotes[1].listeners.click({stopPropagation() {}});
+  assert.deepEqual(asked, ['Incident-response stories land well']);
 });

@@ -329,6 +329,24 @@ class OlderRows(unittest.TestCase):
             self.assertEqual(len(client.calls), 2)  # no third call
 
 
+class SharpInsights(unittest.TestCase):
+    """The prompt asks for what you can act on: patterns that name the thing (the protocol, the question), not a label like
+    "gaps in specifics" (owner, 30 Sep 2026: "vague"), backed by a quote from every interview they claim."""
+
+    def test_the_prompt_demands_named_specifics_and_evidence_from_each_interview(self):
+        system = ii.SYSTEM
+        self.assertIn('Name the thing', system)
+        self.assertIn('IoT protocols', system)  # the worked example of a named specific
+        self.assertIn('dropped', system)  # a pattern that can only be worded in general terms is dropped
+        self.assertIn('a quote from each interview', system)
+        properties = ii.SCHEMA['properties']['patterns']['items']['properties']
+        self.assertIn('never a vague label', properties['title']['description'])
+        self.assertIn('which question', properties['pattern']['description'])
+
+    def test_the_stored_format_is_version_3_so_an_older_insight_is_regenerated_once(self):
+        self.assertEqual(ii.DATA_VERSION, 3)
+
+
 class Ticks(unittest.TestCase):
     """The "Practice next" tick boxes: saved in the insight row's Data (Notion is the one copy), kept across a Refresh only
     for a step whose words are still there."""

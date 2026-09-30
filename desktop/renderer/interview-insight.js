@@ -51,7 +51,7 @@ export function insightView(insight, rows = [], now = Date.now()) {
     return {text: String(p?.text || ''), round: p?.round_type, tentative: !!p?.tentative || n < 2,
       kind: ['weakness', 'strength'].includes(p?.kind) ? p.kind : 'note', title: titled ? String(p.title).trim() : String(p?.text || ''),
       detail: titled ? String(p?.text || '') : '', tag: p?.tentative || n < 2 ? 'Tentative' : `${list(p?.interviews).length} interviews`,
-      companies, links: list(p?.interviews).map(link)};
+      quotes: list(p?.evidence).filter(e => String(e?.quote || '').trim()).length, companies, links: list(p?.interviews).map(link)};
   }).filter(p => p.text);
   // A row written before its Data column existed: its text columns, as lines.
   const lines = text => String(text || '').split('\n').map(line => line.replace(/^\s*•\s*/, '').trim()).filter(Boolean);
@@ -79,8 +79,8 @@ export function insightView(insight, rows = [], now = Date.now()) {
 }
 
 // An insight saved before the card's new words (titles, kinds) is refreshed once by the app, when Claude can be asked
-// (src/ai/interview_insights.py DATA_VERSION): the two-line pattern rows need them. version 2 = current.
-export const needsUpgrade = (insight, {hasKey = false, busy = false} = {}) => !!insight && hasKey && !busy && (Number(insight.version) || 1) < 2;
+// (src/ai/interview_insights.py DATA_VERSION): the two-line pattern rows need them. version 3 = current (sharper wording: patterns name the concrete thing).
+export const needsUpgrade = (insight, {hasKey = false, busy = false} = {}) => !!insight && hasKey && !busy && (Number(insight.version) || 1) < 3;
 
 // The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
 // refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; onPractice(): Start practice session;
@@ -140,6 +140,11 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
       if (p.detail) text.append(el('span', 'muted', p.detail));
       const chips = el('div', 'iv-chips');
       if (p.tag) chips.append(pill(p.tag, p.tentative ? 'neutral' : 'info'));
+      if (p.quotes) {  // the evidence: opens the moments at this pattern
+        const evidence = Object.assign(el('button', 'iv-chip iv-quotes', `${p.quotes} quote${p.quotes === 1 ? '' : 's'}`), {type: 'button', title: 'Show the quotes behind this pattern'});
+        evidence.addEventListener('click', event => { event?.stopPropagation(); onMoments(p.title); });
+        chips.append(evidence);
+      }
       for (const c of p.companies || []) {
         const chip = Object.assign(el('button', 'iv-chip', c.name), {type: 'button', title: 'Show this interview in the library'});
         chip.addEventListener('click', () => open(c.id));
