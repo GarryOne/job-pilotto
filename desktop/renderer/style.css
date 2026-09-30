@@ -1455,14 +1455,17 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .insight-head { display: grid; gap: var(--sp-2); }
 .insight-kicker { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
 .insight-category { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.insight-title { margin: 0; font-size: var(--fs-2xl); line-height: 1.25; }
-.insight-subtitle { margin: 0; font-size: var(--fs-lg); color: var(--ink-2); }
+/* The card's type scale, one step down from the mockup's: its display title was drawn for a short phrase, while a
+   real headline is a whole sentence and a weekly report's runs to two lines. So the title is a heading, not a
+   banner: 20px title > 16px section and figures > 14px body > 12px meta > 11px kicker. */
+.insight-title { margin: 0; font-size: var(--fs-xl); line-height: 1.3; }
+.insight-subtitle { margin: 0; font-size: var(--fs-base); line-height: 1.5; color: var(--ink-2); }
 /* The numbers behind the finding: as many cells as there are, across while there is room, stacked when there isn't. */
 .insight-numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3);
   padding: var(--sp-4); border-radius: var(--r-md); background: var(--surface-2); }
 .insight-number { display: grid; gap: var(--sp-1); min-width: 0; }
 .insight-number-label { font-size: var(--fs-sm); color: var(--muted); }
-.insight-number-value { font-size: var(--fs-xl); font-weight: 600; }
+.insight-number-value { font-size: var(--fs-lg); font-weight: 600; }
 /* Recommended next step: the one action, on its own warm band. */
 .insight-next { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4);
   border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
@@ -1474,7 +1477,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* A section of a card (an insight's "Why this was flagged", a weekly report's lists): heading over one bullet list,
    or over its groups side by side when the card carries source labels. Both cards share it, so they read alike. */
 .insight-section { display: grid; gap: var(--sp-3); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
-.insight-section h4 { margin: 0; font-size: var(--fs-xl); }
+.insight-section h4 { margin: 0; font-size: var(--fs-lg); }
 .insight-evidence { margin: 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-2); color: var(--ink-2); }
 .insight-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-5); }
 .insight-group { display: grid; gap: var(--sp-2); align-content: start; }
