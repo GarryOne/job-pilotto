@@ -1382,8 +1382,8 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 /* Settings → Advanced → Technical reports: the switch, and what's sent. */
 #setting-telemetry .switch-row { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
 #setting-telemetry .switch-row input { width: auto; margin: 0; }
-.telemetry-shown summary { cursor: pointer; font-size: var(--fs-sm); color: var(--signal-ink); font-weight: 600; }
-.telemetry-shown .log { max-height: 260px; overflow: auto; font-size: var(--fs-xs); margin-top: 8px; }
+.telemetry-shown summary, .pool-share-shown summary { cursor: pointer; font-size: var(--fs-sm); color: var(--signal-ink); font-weight: 600; }
+.telemetry-shown .log, .pool-share-shown .log { max-height: 260px; overflow: auto; font-size: var(--fs-xs); margin-top: 8px; }
 /* "Stuck? Tell us" (pages/why-stop.js): at the bottom of the setup sidebar, under "Back to the app" when it shows. */
 .wizard-stuck { -webkit-app-region: no-drag; margin-top: auto; margin-bottom: var(--sp-3); align-self: flex-start; color: var(--on-navy); opacity: .75; }
 .wizard-exit:not([hidden]) + .wizard-stuck { margin-top: 0; }

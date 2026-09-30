@@ -149,8 +149,8 @@ def main():
     body = payload(feed_list, {'sources': []}, tracker)
     body['install'] = (body['install'] or '')[:8] + '…' if body['install'] else '(your random install id)'
     print(json.dumps(body, indent=1, ensure_ascii=False))
-    if not args.show:
-        print('Nothing sent: contributions go out only after a full crawl, and only when switched on.')
+    print('\nThis is a preview and nothing is sent by it. After each full crawl (at most once a day, and only when '
+          'this is switched on) the feeds that gave you a job are added to "feeds"; employers you added yourself are listed above.')
     return 0
 
 
