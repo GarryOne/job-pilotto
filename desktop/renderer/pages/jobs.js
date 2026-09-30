@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {agreeApplies, ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
 import {$, message, savedAgo, show} from './core.js';
@@ -409,9 +409,10 @@ function leadStep2(on) {
   $('lead-cancel').hidden = on;
   if (!on) { leadProposal = leadState = null; $('lead-go').textContent = 'Log activity'; }
 }
-function showConfirm(proposal) {
+function showConfirm(proposal, state = null) {
   leadProposal = proposal;
-  leadState = confirmStep.initial(proposal);
+  leadState = state || confirmStep.initial(proposal);
+  fillJobChoices();
   const fields = proposal.fields || {};
   const {title, meta} = confirmStep.found(proposal);
   $('lead-found-tile').replaceChildren(tile(proposal.new ? 'inbox' : 'briefcase', 'info'));
@@ -440,13 +441,58 @@ function showConfirm(proposal) {
   renderConfirm();
 }
 function leadSet(name, value) { leadState = confirmStep.set(leadState, name, value); renderConfirm(); }
+// "Which job is this?": the likely ones (from the engine), a new job, your other jobs.
+function fillJobChoices() {
+  const option = (value, text) => Object.assign(document.createElement('option'), {value, textContent: text});
+  const groups = confirmStep.jobChoices(leadProposal.fields?.job?.candidates || [], shared.allJobs);
+  $('lead-job').replaceChildren(option('', 'Choose the job…'), ...groups.map(({group, options}) => {
+    if (!group) return options.map(o => option(o.value, o.text));
+    return [Object.assign(document.createElement('optgroup'), {label: group})].map(g => { g.append(...options.map(o => option(o.value, o.text))); return g; });
+  }).flat());
+  $('lead-job').value = '';
+}
+// The engine's steps with a timer while it reads (step 1), proposes again for a job you picked, or writes (step 2).
+async function working(first, task) {
+  leadRunning = true;
+  $('lead-go').disabled = true;
+  const started = Date.now();
+  leadStep = first;
+  const tick = () => message('lead-message', `${leadStep}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
+  tick();
+  const timer = setInterval(tick, 1000);
+  try { return await task(); } finally { clearInterval(timer); leadRunning = false; $('lead-go').disabled = false; message('lead-message', ''); }
+}
+// The job you picked: the same reading proposed again for it (no second AI reading); what you confirmed is kept.
+async function pickJob(target) {
+  if (!target || !leadProposal) return;
+  const text = $('lead-text').value.trim();
+  const next = await working('Reading your jobs in Notion', () => window.pilot.proposeLead(text, [], target, leadProposal));
+  if (!next.ok) { leadResult('warn', "Couldn't use that job", String(next.text || '').replace(/^\S+\s/, '')); return; }
+  showConfirm(next, confirmStep.carry(leadState, next));
+}
 // Every field's mark (please check / needs an answer / ✓), the choices shown, and the Save button's words.
 function renderConfirm() {
   if (!leadProposal) return;
   const fields = leadProposal.fields || {}, v = leadState.values;
   const left = confirmStep.pending(leadProposal, leadState, localDay());
+  const choosing = confirmStep.choosingJob(leadProposal, leadState);
+  const asked = fields.job?.state === 'ask';
+  $('lead-found').hidden = asked;
+  const change = Object.assign(document.createElement('button'), {type: 'button', className: 'link',
+    textContent: leadState.picking ? 'Keep this job' : 'Change'});
+  change.addEventListener('click', () => { leadState = {...leadState, picking: !leadState.picking}; $('lead-job').value = ''; renderConfirm(); });
+  $('lead-found-flag').replaceChildren(...(asked ? [] : [pill('Confirmed', 'good', {dot: true}), change]));
+  $('lead-job-hint').textContent = asked ? 'Several of your jobs are from this recruiter or company: pick one, or a new job. The details follow your pick.'
+    : 'Pick the job it is about, or a new job. The details follow your pick.';
   document.querySelectorAll('#lead-confirm .lead-field[data-field]').forEach(box => {
     const name = box.dataset.field, field = fields[name];
+    if (name === 'job') {
+      box.hidden = !choosing;
+      box.classList.toggle('is-ask', choosing);
+      box.querySelector('.lead-flag').replaceChildren(pill('Needs an answer', 'warn'));
+      return;
+    }
+    if (choosing) { box.hidden = true; return; }
     if (name === 'first') { box.hidden = !leadProposal.new; return; }
     box.hidden = !field;
     if (!field) return;
@@ -461,7 +507,7 @@ function renderConfirm() {
       flag.replaceChildren(pill('Please check', 'warn'), ok);
     } else flag.replaceChildren(pill(waiting.why === 'future' ? 'In the future' : 'Needs an answer', 'warn'));
   });
-  $('lead-pair-box').hidden = !fields.company && !fields.agency;
+  $('lead-pair-box').hidden = choosing || (!fields.company && !fields.agency);
   $('lead-channel').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.channel === v.channel));
   $('lead-channel-other').hidden = v.channel !== 'Other';
   $('lead-channel-hint').textContent = confirmStep.channelHint(fields.channel, v.channel);
@@ -471,6 +517,8 @@ function renderConfirm() {
   $('lead-interview-hint').textContent = said + (v.kind === 'Interview scheduled' ? 'A booked call needs its date and time.'
     : 'Leave empty if no time is fixed yet.');
   if (fields.last) $('lead-last-hint').textContent = confirmStep.lastHint(fields.last, v.last);
+  $('lead-agree').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.agree === v.agree));
+  if (fields.agree) $('lead-agree-hint').textContent = confirmStep.agreeHint(fields.agree, v.agree, leadProposal.new);
   $('lead-first').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.first === leadState.first));
   $('lead-first-hint').textContent = confirmStep.firstHint(v.channel, leadState.first, leadState.other);
   $('lead-go').textContent = confirmStep.saveLabel(left);
@@ -491,27 +539,24 @@ function leadTargets() {
   const group = document.createElement('optgroup');
   group.label = 'Your applications';
   tracked.forEach(job => group.append(option(job.url, `${job.company || job.via || '—'} · ${job.title} (${job.stage})`)));
-  $('lead-target').replaceChildren(option('', 'Find the right job automatically'),
+  $('lead-target').replaceChildren(option('', 'Choose the job…'),
     option('new', 'Not in my list yet: add it from these details'), ...(tracked.length ? [group] : []));
 }
+// "Find the job automatically" (ticked by default): untick it to choose the job yourself.
+function setAuto(on) {
+  $('lead-auto').checked = on;
+  $('lead-target-box').hidden = on;
+}
+const leadTarget = () => confirmStep.targetOf($('lead-auto').checked, $('lead-target').value);
 // The Log box, opened on one job (Focus → Add details): its "Which job?" already set to it.
 export function openLogFor(url, label = '') {
   $('lead-open').click();
   if (!url) return;
+  setAuto(false);
   let chosen = [...$('lead-target').options].find(o => o.value === url);
   if (!chosen) $('lead-target').append(chosen = Object.assign(document.createElement('option'), {value: url}));
   chosen.textContent = label || chosen.textContent.replace(/\s*\(.*\)$/, '');
   $('lead-target').value = url;
-  syncTalkingRow();
-}
-// "I agreed to speak with the recruiter" is for a first log (a new job, or the job not chosen yet) and for a recruiter lead
-// you have just said yes to; an update on any other existing job never shows it.
-function syncTalkingRow() {
-  const url = $('lead-target').value;
-  const job = url && url !== 'new' ? shared.allJobs.find(entry => pageKey(entry.url) === pageKey(url)) : null;
-  const applies = agreeApplies(job);
-  $('lead-talking').closest('.check-row').style.display = applies ? '' : 'none';
-  if (!applies) $('lead-talking').checked = false;
 }
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
 function setDensity(value) {
@@ -735,6 +780,7 @@ export async function init() {
     if (!leadRunning && !leadProposal) leadStep2(false);  // an unconfirmed reading stays until Back or a save
     $('lead-go').disabled = leadRunning;
     leadTargets();
+    if (!leadRunning && !leadProposal) setAuto(true);
     $('lead-dialog').showModal();
     $('lead-text').focus();
   });
@@ -756,9 +802,9 @@ export async function init() {
     const files = [...(event.dataTransfer?.files || [])].filter(f => /^image\//.test(f.type));
     if (files.length) { event.preventDefault(); files.forEach(readShot); }
   });
-  $('lead-target').addEventListener('change', syncTalkingRow);
-  $('lead-open').addEventListener('click', syncTalkingRow);
-  $('lead-result-pick').addEventListener('click', () => { $('lead-target').focus(); $('lead-target').showPicker?.(); });
+  $('lead-result-pick').addEventListener('click', () => { setAuto(false); $('lead-target').focus(); $('lead-target').showPicker?.(); });
+  $('lead-auto').addEventListener('change', () => setAuto($('lead-auto').checked));
+  $('lead-job').addEventListener('change', () => pickJob($('lead-job').value));
   // Step 2's controls: each change confirms that field.
   $('lead-kind').addEventListener('change', () => leadSet('kind', $('lead-kind').value));
   $('lead-channel').addEventListener('click', event => { const b = event.target.closest('[data-channel]'); if (b) leadSet('channel', b.dataset.channel); });
@@ -768,19 +814,9 @@ export async function init() {
   $('lead-last').addEventListener('input', () => leadSet('last', $('lead-last').value));
   $('lead-company').addEventListener('input', () => leadSet('company', $('lead-company').value));
   $('lead-agency').addEventListener('input', () => leadSet('agency', $('lead-agency').value));
+  $('lead-agree').addEventListener('click', event => { const b = event.target.closest('[data-agree]'); if (b) leadSet('agree', b.dataset.agree); });
   $('lead-first').addEventListener('click', event => { const b = event.target.closest('[data-first]'); if (b) { leadState.first = b.dataset.first; renderConfirm(); } });
   $('lead-back').addEventListener('click', () => { leadStep2(false); leadResult('', ''); message('lead-message', ''); });
-  // The engine's steps with a timer while it reads (step 1) or writes (step 2).
-  const working = async (first, task) => {
-    leadRunning = true;
-    $('lead-go').disabled = true;
-    const started = Date.now();
-    leadStep = first;
-    const tick = () => message('lead-message', `${leadStep}… ${Math.round((Date.now() - started) / 1000)} s`, 'waiting');
-    tick();
-    const timer = setInterval(tick, 1000);
-    try { return await task(); } finally { clearInterval(timer); leadRunning = false; $('lead-go').disabled = false; message('lead-message', ''); }
-  };
   $('lead-go').addEventListener('click', async event => {
     event.preventDefault();
     if (leadRunning) return;  // one log at a time: reopening the dialog never starts a second one
@@ -788,8 +824,9 @@ export async function init() {
     leadResult('', '');
     if (!leadProposal) {  // step 1: Claude reads it; nothing is written yet
       if (!leadShots.length && text.length < 40) { leadResult('warn', 'Nothing to log yet', 'Paste the whole message, or add a screenshot of it.'); return; }
+      if (!$('lead-auto').checked && !leadTarget()) { leadResult('warn', 'Which job is it?', 'Choose the job, or tick "Find the job automatically".'); return; }
       const proposal = await working(leadShots.length > 1 ? `Sending ${leadShots.length} screenshots` : 'Starting',
-        () => window.pilot.proposeLead(text, leadShots, $('lead-target').value));
+        () => window.pilot.proposeLead(text, leadShots, leadTarget()));
       if (!proposal.ok) {
         const said = String(proposal.text || '').replace(/^\S+\s/, '');  // without the leading emoji
         const notJob = /doesn't look like a message about a job/.test(said);
@@ -809,14 +846,14 @@ export async function init() {
       return;
     }
     const answers = confirmStep.confirmed(leadProposal, leadState);
-    const result = await working('Saving to Notion', () => window.pilot.addLead(text, $('lead-talking').checked, leadShots,
-      $('lead-target').value, leadProposal, answers));
+    const result = await working('Saving to Notion', () => window.pilot.addLead(text, leadShots,
+      leadProposal.target ?? leadTarget(), leadProposal, answers));
     const said = result.text.replace(/^\S+\s/, '');
     if (!result.ok) { leadResult('warn', "Couldn't log it", said); return; }
     leadStep2(false);
     leadResult(/^ℹ️/.test(result.text) ? 'info' : 'good', /^ℹ️/.test(result.text) ? 'Nothing new' : 'Logged', said);
     if (/^ℹ️/.test(result.text)) return;
-    $('lead-text').value = ''; $('lead-talking').checked = false; clearLeadShot();
+    $('lead-text').value = ''; clearLeadShot();
     $('filter-status').value = 'all';  // it may be saved (a lead) or applied: show both
     loadJobs();
   });

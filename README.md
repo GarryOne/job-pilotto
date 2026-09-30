@@ -142,6 +142,8 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   **🧾 Job description**, scores the fit, and sets **Reached via** to where you talked first. Each step shows while it
   runs; the message and screenshots go on the job's Notion page as one folded entry (`src/ai/inbox.py`, about
   USD 0.005–0.02).
+  - ❓ **Asked only after the reading, only when unclear:** "Which job is this?" (several of your jobs from that
+    recruiter or company) and "Did you agree to talk to the recruiter?" (your reply is ambiguous; new job or Recruiter lead only).
 - 🎤 **Interview prep kit.** Focus → Prepare → **Build prep kit**: what the interview will likely assess, likely
   questions with what from your CV to answer with, stories to have ready, gaps and how to handle them honestly,
   questions to ask, what's still unknown to ask the recruiter, and a prep plan for the time left. It adapts to the

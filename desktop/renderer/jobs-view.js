@@ -179,7 +179,3 @@ export function ago(iso, now = Date.now()) {
 
 // "Applying" that no open session explains: the session was closed without saying whether it was submitted.
 export const isStuck = (job, hasSession) => job.stage === 'Applying' && !hasSession(job);
-
-// "I agreed to speak with the recruiter" (move to Screening): only for a first log (no existing job chosen) or a job
-// that is still a recruiter lead; updating any other existing job never shows it.
-export const agreeApplies = job => !job || job.stage === 'Recruiter lead';

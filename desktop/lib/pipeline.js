@@ -153,21 +153,25 @@ export function confirmedArgs(confirmed = {}) {
   return [...flag('--kind', c.kind), ...flag('--channel', c.channel), ...flag('--channel-other', c.other),
     ...flag('--started', c.started), ...flag('--interview-at', c.interview), ...flag('--last-at', c.lastAt),
     ...(typeof c.company === 'string' ? ['--company', c.company] : []), ...(typeof c.agency === 'string' ? ['--agency', c.agency] : []),
-    ...(typeof c.firstContact === 'boolean' ? ['--first-contact', c.firstContact ? 'yes' : 'no'] : [])];
+    ...(typeof c.firstContact === 'boolean' ? ['--first-contact', c.firstContact ? 'yes' : 'no'] : []),
+    ...(typeof c.agreed === 'boolean' ? ['--agreed', c.agreed ? 'yes' : 'no'] : [])];
 }
 // Two steps, so nothing reaches Notion before you confirmed where the conversation is from and when it started:
 // proposeLead reads it (the one AI call) and says what it would log; addLead with {reading, confirmed} writes it.
-export async function proposeLead(storage, text, onLine = () => {}, {file = '', target = ''} = {}) {
-  const {code, stdout} = await run(storage, [...dailyArgs(storage, {mode: 'add', note: text, file, target}), '--from-app', '--propose'], onLine);
+// With reading (an earlier proposal's JSON file): the same reading proposed again for the job you picked (target), no AI.
+export async function proposeLead(storage, text, onLine = () => {}, {file = '', target = '', reading = ''} = {}) {
+  const {code, stdout} = await run(storage, [...dailyArgs(storage, {mode: 'add', note: text, file, target}), '--from-app', '--propose',
+    ...(reading ? ['--reading', reading] : [])], onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   try { const proposal = JSON.parse(line); if (proposal.ok) return proposal; } catch {}
   const plain = readable(line);
   return {ok: false, text: code === 0 ? 'Could not read it (see the activity log)' : plain || 'Could not read it (see the activity log)'};
 }
-// reading: the path of proposeLead's result, saved as JSON; confirmed: what you confirmed (renderer/lead-confirm.js).
-export async function addLead(storage, text, talking = false, onLine = () => {}, {file = '', target = '', reading = '', confirmed = null} = {}) {
+// reading: the path of proposeLead's result, saved as JSON; confirmed: what you confirmed (renderer/lead-confirm.js),
+// including whether you agreed to talk to the recruiter (asked only when the conversation doesn't show it).
+export async function addLead(storage, text, onLine = () => {}, {file = '', target = '', reading = '', confirmed = null} = {}) {
   const extra = ['--from-app', ...(reading ? ['--reading', reading, ...confirmedArgs(confirmed)] : [])];
-  const {code, stdout} = await run(storage, [...dailyArgs(storage, {mode: 'add', note: text, talking, file, target}), ...extra], onLine);
+  const {code, stdout} = await run(storage, [...dailyArgs(storage, {mode: 'add', note: text, file, target}), ...extra], onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const plain = readable(line);
   return {ok: code === 0 && !plain.startsWith('⚠️'), text: plain || 'Could not add it (see the activity log)'};

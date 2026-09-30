@@ -92,3 +92,108 @@ test('the last day reaches the engine as --last-at', async () => {
   assert.deepEqual(confirmedArgs({kind: 'Update on this job', lastAt: '2026-09-28', firstContact: null}),
     ['--kind', 'Update on this job', '--last-at', '2026-09-28']);
 });
+
+// Did you agree to talk to the recruiter? Read from the conversation (src/ai/inbox.py seen.agreement); the first form
+// has no checkbox, and the confirmation step asks only when your reply leaves it unclear.
+const pitch = {...chat, kind: 'Recruiter outreach', fields: {...chat.fields, kind: {value: 'Recruiter outreach', state: 'ok'},
+  started: {value: '2026-09-21', state: 'ok'}, interview: undefined, company: {value: 'Example Robotics', state: 'ok', required: false}}};
+
+test('an unclear reply asks "Did you agree to talk?"; nothing is saved before it is answered', () => {
+  const unclear = {...pitch, fields: {...pitch.fields, agree: {value: '', state: 'ask', question: 'Did you agree to talk to the recruiter?'}}};
+  let state = lead.initial(unclear);
+  assert.deepEqual(lead.pending(unclear, state), [{name: 'agree', why: 'empty'}]);
+  assert.match(lead.agreeHint(unclear.fields.agree, ''), /Yes moves the job to Screening/);
+  state = lead.set(state, 'agree', 'no');
+  assert.deepEqual(lead.pending(unclear, state), []);
+  assert.equal(lead.confirmed(unclear, state).agreed, false);
+  assert.equal(lead.agreeHint(unclear.fields.agree, 'no', true), 'Saved as a Recruiter lead.');
+  assert.equal(lead.confirmed(unclear, lead.set(state, 'agree', 'yes')).agreed, true);
+});
+
+test('a yes shown in the conversation is pre-filled and marked as confirmed from it; no question otherwise', () => {
+  const shown = {...pitch, fields: {...pitch.fields, agree: {value: 'yes', state: 'ok', question: 'Did you agree to talk to the recruiter?'}}};
+  const state = lead.initial(shown);
+  assert.deepEqual(lead.pending(shown, state), []);
+  assert.equal(lead.agreeHint(shown.fields.agree, 'yes'), 'Confirmed from the conversation: the job moves to Screening.');
+  assert.equal(lead.confirmed(shown, state).agreed, true);
+  assert.ok(!('agreed' in lead.confirmed(pitch, lead.initial(pitch))));  // none / declined / another job: not asked, not sent
+});
+
+test('the answer reaches the engine as --agreed', async () => {
+  const {confirmedArgs} = await import('../lib/pipeline.js');
+  assert.deepEqual(confirmedArgs({channel: 'LinkedIn', agreed: true}), ['--channel', 'LinkedIn', '--agreed', 'yes']);
+  assert.deepEqual(confirmedArgs({channel: 'LinkedIn', agreed: false}), ['--channel', 'LinkedIn', '--agreed', 'no']);
+});
+
+test('the first form has no "I agreed" checkbox; the question lives in the confirmation step', async () => {
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  const compose = html.slice(html.indexOf('<div id="lead-compose">'), html.indexOf('<div id="lead-confirm"'));
+  assert.doesNotMatch(compose, /lead-talking|agreed/i);
+  const confirm = html.slice(html.indexOf('<div id="lead-confirm"'), html.indexOf('id="lead-message"'));
+  assert.match(confirm, /data-field="agree"[\s\S]*Did you agree to talk to the recruiter\?[\s\S]*data-agree="yes">Yes<[\s\S]*data-agree="no">Not yet</);
+});
+
+test('demo mode: the unclear case shows the question; the default and an existing job do not', async () => {
+  const demo = await import('../lib/demo.js');
+  assert.equal(demo.leadProposal('', 'unclear').fields.agree.state, 'ask');
+  assert.equal(demo.leadProposal('', '').fields.agree, undefined);
+  assert.equal(demo.leadProposal('', 'existing').fields.agree, undefined);
+});
+
+// Which job: found automatically by default; the dropdown only when you untick it; asked after the reading when unclear.
+test('the first form finds the job automatically by default; unticking shows the job list and uses your pick', async () => {
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  const compose = html.slice(html.indexOf('<div id="lead-compose">'), html.indexOf('<div id="lead-confirm"'));
+  assert.match(compose, /<input type="checkbox" id="lead-auto" checked>\s*<span><span>Find the job automatically \(an existing one, or a new one\)</);
+  assert.match(compose, /<div id="lead-target-box" hidden>[\s\S]*<select id="lead-target">/);
+  assert.equal(lead.targetOf(true, 'https://x.test/1'), '');  // ticked: Claude finds it
+  assert.equal(lead.targetOf(false, 'https://x.test/1'), 'https://x.test/1');
+  assert.equal(lead.targetOf(false, 'new'), 'new');
+  assert.equal(lead.targetOf(false, ''), '');  // none chosen yet: the dialog asks you to choose
+  const js = fs.readFileSync(new URL('../renderer/pages/jobs.js', import.meta.url), 'utf8');
+  const openFor = js.slice(js.indexOf('export function openLogFor'), js.indexOf('\n}\n', js.indexOf('export function openLogFor')));
+  assert.match(openFor, /setAuto\(false\)[\s\S]*\$\('lead-target'\)\.value = url/);  // Focus → Add details: that job, preselected
+});
+
+const unsure = {...pitch, new: true, target: '', fields: {job: {value: '', state: 'ask', question: 'Which job is this?', candidates: [
+  {url: 'https://x.test/1', label: 'Example Talent · Senior SRE', stage: 'Recruiter lead'},
+  {url: 'https://x.test/2', label: 'Example Talent · Platform Engineer', stage: 'Applied'}]}, ...pitch.fields}};
+
+test('"Which job is this?" is asked first when the match is unclear; the rest waits for the pick', () => {
+  const state = lead.initial(unsure);
+  assert.ok(lead.choosingJob(unsure, state));
+  assert.deepEqual(lead.pending(unsure, state), [{name: 'job', why: 'empty'}]);
+  assert.equal(lead.saveLabel(lead.pending(unsure, state)), 'Confirm 1 detail');
+  const choices = lead.jobChoices(unsure.fields.job.candidates, [
+    {url: 'https://x.test/2', company: 'Example Talent', title: 'Platform Engineer', stage: 'Applied'},
+    {url: 'https://x.test/3', company: 'Globex', title: 'SRE', stage: 'Screening'},
+    {url: 'https://x.test/4', company: 'Old', title: 'SRE', stage: 'Closed'}]);
+  assert.deepEqual(choices, [
+    {group: 'Possible matches', options: [{value: 'https://x.test/1', text: 'Example Talent · Senior SRE (Recruiter lead)'},
+      {value: 'https://x.test/2', text: 'Example Talent · Platform Engineer (Applied)'}]},
+    {options: [{value: 'new', text: 'A new job (not in my list yet)'}]},
+    {group: 'Your other applications', options: [{value: 'https://x.test/3', text: 'Globex · SRE (Screening)'}]}]);
+});
+
+test('a clear match asks nothing about the job; Change opens the question, and your details carry over to the pick', () => {
+  let state = lead.initial(pitch);
+  assert.ok(!lead.choosingJob(pitch, state));
+  assert.ok(!lead.pending(pitch, state).some(p => p.name === 'job'));
+  state = lead.set(state, 'company', 'Example Robotics GmbH');
+  assert.deepEqual(lead.pending(pitch, {...state, picking: true}), [{name: 'job', why: 'empty'}]);
+  const next = {...pitch, new: false, stage: 'Recruiter lead', fields: {...pitch.fields, company: undefined, agency: undefined,
+    channel: {value: 'LinkedIn', state: 'check', guess: 'LinkedIn'}}};
+  const carried = lead.carry(lead.set(state, 'channel', 'Email'), next);
+  assert.equal(carried.values.channel, 'Email');
+  assert.ok(carried.confirmed.includes('channel'));
+  assert.equal(carried.first, '');  // a tracked job: no "first contact" question
+  assert.ok(!carried.picking);
+});
+
+test('demo mode: "which" asks the job first; picking one proposes it without the question', async () => {
+  const demo = await import('../lib/demo.js');
+  assert.equal(demo.leadProposal('', 'which').fields.job.candidates.length, 2);
+  assert.equal(demo.leadProposal('https://demo.example/jobs/1', 'which').fields.job, undefined);
+});

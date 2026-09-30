@@ -11,7 +11,7 @@ export const KIND_LABEL = {'Update on this job': 'Update on this job (already tr
   'Interview scheduled': 'A call or interview booked', Rejected: 'Rejected', Offer: 'Offer', 'Feedback received': 'Feedback'};
 // Applications "Source" when this contact is where the job started (src/ai/opportunity.py CHANNEL_SOURCE).
 const SOURCE = {LinkedIn: 'LinkedIn', Email: 'Gmail', Phone: 'Phone'};
-const ORDER = ['kind', 'channel', 'started', 'interview', 'last', 'company', 'agency'];
+const ORDER = ['kind', 'channel', 'started', 'agree', 'interview', 'last', 'company', 'agency'];
 
 // The form's starting state: values as read, "ok" fields already confirmed; first contact: yes for a new job.
 export function initial(proposal = {}) {
@@ -34,8 +34,13 @@ const required = (proposal, state, name) => {
   return field.required !== false;
 };
 
+// "Which job is this?" open: asked (Claude found no job, several are from the same recruiter or company) or you
+// pressed Change. The other details follow the job you pick (proposed again for it), so they wait.
+export const choosingJob = (proposal = {}, state = {}) => proposal.fields?.job?.state === 'ask' || !!state.picking;
+
 // What still needs you before saving: [{name, why}] ("check" = inferred, confirm it; "empty" = required, not given).
 export function pending(proposal = {}, state, today = '') {
+  if (choosingJob(proposal, state)) return [{name: 'job', why: 'empty'}];
   const out = [];
   for (const name of ORDER) {
     const field = proposal.fields?.[name];
@@ -78,10 +83,49 @@ export function lastHint(field = {}, value = '') {
   return what;
 }
 
+// "Did you agree to talk to the recruiter?" (src/ai/inbox.py fields() 'agree'): there only for a new job or a Recruiter
+// lead, pre-filled when the conversation shows your yes, asked when your reply leaves it unclear.
+export function agreeHint(field = {}, value = '', isNew = false) {
+  if (field.state === 'ok' && value === 'yes') return 'Confirmed from the conversation: the job moves to Screening.';
+  if (value === 'yes') return 'The job moves to Screening.';
+  if (value === 'no') return isNew ? 'Saved as a Recruiter lead.' : 'It stays a Recruiter lead.';
+  return "Your reply doesn't say it clearly. Yes moves the job to Screening.";
+}
+
 export function firstHint(channel, first, other = '') {
   if (first === 'no') return 'Its Source stays how you added it; this is logged as a later contact.';
   const source = SOURCE[channel];
   return source ? `The job's Source will be ${source}.` : `The job's Source will be how you added it${other ? ` (${other} noted)` : ''}.`;
+}
+
+// Step 1's "Link to job": automatic ('' , Claude finds it) while "Find the job automatically" is ticked, else the job
+// you chose ('new' = not in the list yet; '' = none chosen yet).
+export const targetOf = (auto, value = '') => (auto ? '' : String(value || ''));
+
+// "Which job is this?" choices: the likely ones first (same recruiter or company), a new job, then your other jobs.
+// candidates: [{url, label, stage}] from the engine; tracked: the Jobs list ({url, company, via, title, stage}).
+export function jobChoices(candidates = [], tracked = []) {
+  const text = job => `${job.label}${job.stage ? ` (${job.stage})` : ''}`;
+  const likely = candidates.map(job => ({value: job.url, text: text(job)}));
+  const seen = new Set(candidates.map(job => job.url));
+  const others = tracked.filter(job => job.stage && !['Dismissed', 'Closed'].includes(job.stage) && !seen.has(job.url))
+    .map(job => ({value: job.url, text: text({label: `${job.company || job.via || '—'} · ${job.title}`, stage: job.stage})}))
+    .sort((a, b) => a.text.localeCompare(b.text));
+  return [...(likely.length ? [{group: 'Possible matches', options: likely}] : []),
+    {options: [{value: 'new', text: 'A new job (not in my list yet)'}]},
+    ...(others.length ? [{group: likely.length ? 'Your other applications' : 'Your applications', options: others}] : [])];
+}
+
+// The form for the job you picked, keeping what you had already confirmed (the date, the channel…); the kind only when
+// the new job offers it. Whether you agreed to talk follows the job, so it's asked again when it applies.
+export function carry(state = {}, next = {}) {
+  let out = initial(next);
+  for (const name of state.confirmed || []) {
+    if (['job', 'agree'].includes(name) || !next.fields?.[name] || next.fields[name].state === 'ok') continue;
+    if (name === 'kind' && next.fields.kind.options && !next.fields.kind.options.includes(state.values.kind)) continue;
+    out = set(out, name, state.values[name]);
+  }
+  return {...out, other: state.other || '', first: next.new ? state.first || 'yes' : ''};
 }
 
 // The bold line and the muted line under it: what was read and what saving will do.
@@ -92,11 +136,12 @@ export function found(proposal = {}) {
 }
 
 // What goes to the engine (src/daily.py --kind, --channel, --started, --interview-at, --company, --agency,
-// --first-contact). firstContact: null for a job already tracked (the earliest-contact rule decides its Source).
+// --first-contact, --agreed). firstContact: null for a job already tracked (the earliest-contact rule decides its Source);
+// agreed only when the question was there.
 export function confirmed(proposal = {}, state) {
   const v = state.values, has = name => !!proposal.fields?.[name];
   return {kind: v.kind, channel: v.channel, other: v.channel === 'Other' ? String(state.other || '').trim().slice(0, 40) : '',
     started: v.started, interview: has('interview') ? v.interview || '' : '', ...(has('last') ? {lastAt: v.last || ''} : {}),
     ...(has('company') ? {company: String(v.company || '').trim()} : {}), ...(has('agency') ? {agency: String(v.agency || '').trim()} : {}),
-    firstContact: proposal.new ? state.first !== 'no' : null};
+    firstContact: proposal.new ? state.first !== 'no' : null, ...(has('agree') ? {agreed: v.agree === 'yes'} : {})};
 }

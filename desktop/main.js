@@ -731,20 +731,28 @@ function handlers() {
   };
   // Each step the engine reports ("⏳ …") shows in the Log box while it works.
   const leadLine = line => { log(line); if (/^⏳/.test(line)) toWindow('leadStep', line.replace(/^⏳\s*/, '')); };
-  ipcMain.handle('proposeLead', async (_, text, image = null, target = '') => {
+  // earlier: the proposal shown, when you pick another job in the confirmation step (proposed again, no second reading).
+  ipcMain.handle('proposeLead', async (_, text, image = null, target = '', earlier = null) => {
     if (DEMO) return demo.leadProposal(target);
     const problem = leadCheck();
     if (problem) return problem;
+    if (earlier) {
+      const reading = path.join(app.getPath('temp'), `job-pilotto-reading-${Date.now()}.json`);
+      try {
+        fs.writeFileSync(reading, JSON.stringify(earlier));
+        return await pipeline.proposeLead(storage, String(text || ''), leadLine, {target: String(target || ''), reading});
+      } finally { fs.rmSync(reading, {force: true}); }
+    }
     return withShots(image, file => pipeline.proposeLead(storage, String(text || ''), leadLine, {file, target: String(target || '')}));
   });
-  ipcMain.handle('addLead', async (_, text, talking = false, image = null, target = '', proposal = null, confirmed = null) => {
+  ipcMain.handle('addLead', async (_, text, image = null, target = '', proposal = null, confirmed = null) => {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
     const problem = leadCheck();
     if (problem) return problem;
     const reading = proposal ? path.join(app.getPath('temp'), `job-pilotto-reading-${Date.now()}.json`) : '';
     try {
       if (reading) fs.writeFileSync(reading, JSON.stringify(proposal));
-      return await withShots(image, file => pipeline.addLead(storage, String(text || ''), !!talking, leadLine,
+      return await withShots(image, file => pipeline.addLead(storage, String(text || ''), leadLine,
         {file, target: String(target || ''), reading, confirmed}));
     } finally { if (reading) fs.rmSync(reading, {force: true}); }
   });

@@ -40,11 +40,16 @@ GONE = {'Not seen', 'Closed', 'Dismissed'}
 EARLY = {None, '', 'Saved', 'Kit ready', 'Applying'}  # no application sent yet
 EMOJI = {**mail.EMOJI, OUTREACH: '🤝', APPLIED: '📨'}
 
+# Whether the owner agreed to talk to the recruiter, read from the conversation itself (owner's rule, 30 Sep 2026: no
+# checkbox before the reading; the confirmation step asks only when the reply is 'unclear').
+AGREEMENT = ('shown', 'declined', 'none', 'unclear')
+AGREE_QUESTION = 'Did you agree to talk to the recruiter?'
+
 # What the item shows outright vs what was inferred: the app asks about everything not shown (owner's rule, 30 Sep
 # 2026: never guess what can't be seen; ask in the confirmation step).
 SEEN = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['channel', 'year', 'first_contact', 'interview', 'company'],
+    'required': ['channel', 'year', 'first_contact', 'interview', 'company', 'agreement'],
     'properties': {
         'channel': {'type': 'string', 'enum': ['shown', 'guessed', 'unknown'], 'description':
                     'shown = the platform is plainly visible (LinkedIn\'s chat UI or name, an email\'s From/Subject header); '
@@ -58,6 +63,10 @@ SEEN = {
                       'date and time ("Friday at 3", "next week"); none = no call mentioned'},
         'company': {'type': 'string', 'enum': ['shown', 'guessed', 'unknown'], 'description':
                     'shown = the hiring company is named; guessed = inferred (e.g. from an agency or a logo); unknown'},
+        'agreement': {'type': 'string', 'enum': list(AGREEMENT), 'description':
+                      'Did the owner agree to talk? shown = the owner said yes, agreed to a call or booked one '
+                      '(owner_agreed true); declined = the owner said no / not interested; none = the owner has not '
+                      'replied (nothing to tell); unclear = the owner replied, but not clearly yes or no to talking'},
     },
 }
 
@@ -115,6 +124,7 @@ same role), or -1. The list includes pitches already logged: the same recruiter 
 same message pasted twice) is that job. When the company has several roles and the item doesn't say which, answer -1.
 - The other fields: only what the item states, never guesses. owner_agreed: the owner said yes / agreed to talk.
 - seen: for each of channel, year, first contact, interview and company, whether the item shows it or you inferred it.
+  seen.agreement: "shown" when the owner's own reply says yes / agrees to a call / books one (then owner_agreed is true); "declined" when the owner said no or not interested; "none" when the owner hasn't replied; "unclear" when the owner replied but it isn't clear whether they agreed to talk (e.g. only asked a question). Otherwise owner_agreed is false.
   Dates without a visible year: fill the ISO fields with your best reading but set seen.year "missing".
 - last_message: the last visible message of the conversation (for an email: that email): who wrote it (the owner = \
 "you"), its day and time exactly as written (a chat's day divider such as "MONDAY" or "TODAY" above it, plus its time), \
@@ -141,23 +151,37 @@ def _words(text):
     return set(re.findall(r'[a-z0-9]+', (text or '').lower())) - {'senior', 'sr', 'the', 'and', 'of', 'a', 'engineer', 'remote'}
 
 
+def _who(jobs, item):
+    """For each tracked job: (index, same recruiter (name or email), same company/agency) as the item."""
+    people = {p.lower() for p in (item.get('recruiter_name'), item.get('recruiter_email')) if p}
+    orgs = {o.lower() for o in (item.get('company'), item.get('recruiter_company')) if o}
+    for i, job in enumerate(jobs):
+        if job.get('stage'):
+            who = (job.get('contact') or '').lower()
+            yield i, any(p in who for p in people), bool(orgs & ({(job.get('company') or '').lower(), (job.get('via') or '').lower()} - {''}))
+
+
 def same_job(jobs, item):
     """A tracked job this item is plainly about when Claude found none: the same recruiter (name or email) or the
     same company/agency, and the same role words. Pasting one pitch twice (even a new screenshot of it) lands here."""
     role = _words(item.get('role') or item.get('title'))
-    people = {p.lower() for p in (item.get('recruiter_name'), item.get('recruiter_email')) if p}
-    orgs = {o.lower() for o in (item.get('company'), item.get('recruiter_company')) if o}
-    for i, job in enumerate(jobs):
-        if not job.get('stage'):
-            continue
-        who = (job.get('contact') or '').lower()
-        same_person = any(p in who for p in people)
-        same_org = bool(orgs & ({(job.get('company') or '').lower(), (job.get('via') or '').lower()} - {''}))
-        title = _words(job.get('title'))
+    for i, same_person, same_org in _who(jobs, item):
+        title = _words(jobs[i].get('title'))
         same_role = bool(role and title) and (role <= title or title <= role or len(role & title) >= 2)
         if (same_person or same_org) and (same_role or (same_person and not role)):
             return i
     return -1
+
+
+def related(jobs, item):
+    """Tracked jobs from the same recruiter or company/agency as the item (same_job's first test, whatever the role):
+    the candidates for "Which job is this?" when Claude found none."""
+    return [i for i, same_person, same_org in _who(jobs, item) if same_person or same_org]
+
+
+def _job_choice(job):
+    return {'url': job['url'], 'stage': job.get('stage') or '',
+            'label': ' · '.join(p for p in (job.get('company') or job.get('via') or '—', job.get('title') or '?') if p)}
 
 
 MAX_IMAGES = 5  # screenshots per log: a long LinkedIn chat takes a few
@@ -518,12 +542,32 @@ def _resolve_dates(item, now):
 UPDATE = 'Update on this job'  # the app's "What is it?" for a job already tracked that has nothing new of its own kind
 
 
-def fields(item, kind, *, new, now):
+def agreement(item):
+    """Did the owner agree to talk ('shown', 'declined', 'none', 'unclear'): the reading's seen.agreement, else (a
+    reading without it) owner_agreed."""
+    said = (item.get('seen') or {}).get('agreement')
+    return said if said in AGREEMENT else 'shown' if item.get('owner_agreed') else 'none'
+
+
+def agree_applies(new, stage):
+    """Saying yes to the recruiter moves only a new job or a Recruiter lead (to Screening); any other job is past it."""
+    return new or stage == opportunity.LEAD_STAGE
+
+
+def agreed(item):
+    """Whether the job moves to Screening for this log: your answer in the app (item['agreed']) when given, else
+    what the conversation shows ('shown' only)."""
+    return bool(item['agreed']) if item.get('agreed') is not None else agreement(item) == 'shown'
+
+
+def fields(item, kind, *, new, now, stage=''):
     """What the app's confirmation step asks, each field {value, state, question…}: state "ok" = shown in the item
     (pre-filled), "check" = inferred (pre-filled, marked "please check", to be confirmed), "ask" = not shown at all
     (left empty, with a question). Nothing is written before every required one is confirmed. A job already
     tracked defaults to "Update on this job" (UPDATE) when the reading has nothing of its own kind (a first contact
-    for a job you're already talking about): that's no guess, so it isn't marked."""
+    for a job you're already talking about): that's no guess, so it isn't marked. "agree" (did you agree to talk?) is
+    only there for a new job or a Recruiter lead: shown in the conversation = pre-filled yes; 'unclear' = asked;
+    'none' or 'declined' = not there (the job stays where it is)."""
     seen = item.get('seen') or {}
     platform = item.get('platform') if item.get('platform') in CHANNELS else ''
     channel_state = {'shown': 'ok', 'guessed': 'check'}.get(seen.get('channel'), 'ask' if not platform or platform == 'Other' else 'check')
@@ -567,24 +611,35 @@ def fields(item, kind, *, new, now):
         out['last'] = {'value': moment[:10], 'state': 'ok' if moment else 'ask', 'required': False, 'from': last['from'],
                        'snippet': last.get('text_snippet') or '', 'as_written': (last.get('at_text') or '').strip()[:40],
                        'question': 'When was the last message?'}
+    said = agreement(item)
+    if agree_applies(new, stage) and said in ('shown', 'unclear'):
+        out['agree'] = {'value': 'yes' if said == 'shown' else '', 'state': 'ok' if said == 'shown' else 'ask',
+                        'question': AGREE_QUESTION}
     return out
 
 
-def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, stats=None, now=None, target=''):
+def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, stats=None, now=None, target='', item=None):
     """Step 1 of a log, nothing written to Notion: Claude reads the message once and it's matched to a job. Returns
     the proposal the app shows for confirming and hands back to log(): {item, job, kind, new, label, stage, fields}
-    (fields: see fields()). Raises ValueError for what can't be logged at all."""
-    text = (text or '').strip()
-    if not image and len(text) < opportunity.MIN_TEXT:
-        raise ValueError('Paste the whole message or a screenshot of it, not just a line.')
-    client = _client(client)
+    (fields: see fields()). Raises ValueError for what can't be logged at all.
+    item: an earlier proposal's reading, for the job you picked in the confirmation step (target): no second reading.
+    When Claude found no job and several tracked ones are from the same recruiter or company (or one is, but not
+    plainly the same role), fields['job'] asks "Which job is this?" with them as candidates."""
     now = now or datetime.now(timezone.utc)
-    step('Reading your jobs in Notion')
-    jobs = candidates(tracker)
-    shots = len(images_of(image))
-    step(f"Claude is reading {shots} screenshots" if shots > 1 else 'Claude is reading the screenshot' if shots
-         else 'Claude is reading the message')
-    item = read(client, model, text, image, jobs, stats)
+    if item is None:
+        text = (text or '').strip()
+        if not image and len(text) < opportunity.MIN_TEXT:
+            raise ValueError('Paste the whole message or a screenshot of it, not just a line.')
+        client = _client(client)
+        step('Reading your jobs in Notion')
+        jobs = candidates(tracker)
+        shots = len(images_of(image))
+        step(f"Claude is reading {shots} screenshots" if shots > 1 else 'Claude is reading the screenshot' if shots
+             else 'Claude is reading the message')
+        item = read(client, model, text, image, jobs, stats)
+    else:
+        step('Reading your jobs in Notion')
+        jobs = candidates(tracker)
     kind = item['kind']
     if kind == NOT_JOB and target:  # you said which job it's about: log it as a reply there
         kind = REPLY
@@ -597,8 +652,12 @@ def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, s
         match = next((i for i, j in enumerate(jobs) if j['url'] == target), -1)
         if match < 0:
             raise ValueError('That job is no longer in your Notion; pick it again, or choose "A new job".')
-    elif not 0 <= match < len(jobs):
+    unsure = []
+    if not target and not 0 <= match < len(jobs):
         match = same_job(jobs, item)
+        near = related(jobs, item)
+        if len(near) >= 2 or (near and match < 0):
+            unsure = near
     job = jobs[match] if 0 <= match < len(jobs) else None
     new = not (job and job.get('stage'))
     stage = (job or {}).get('stage') or ''
@@ -606,18 +665,25 @@ def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, s
         kind = UPDATE  # a first contact (or an application) for a job you're already past: nothing of that kind is new
     _resolve_dates(item, now)
     shown = job or dict(item, title=item.get('role') or item.get('title'))
-    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': stage,
+    found = fields(item, kind, new=new, now=now, stage=stage)
+    if unsure:  # asked first; the other details follow the job you pick (proposed again for it)
+        found = {'job': {'value': '', 'state': 'ask', 'question': 'Which job is this?',
+                         'candidates': [_job_choice(jobs[i]) for i in unsure]}, **found}
+    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': stage, 'target': target,
             'label': ' — '.join(p for p in (shown.get('company') or shown.get('recruiter_company'), opportunity.title(shown)) if p),
-            'fields': fields(item, kind, new=new, now=now)}
+            'fields': found}
 
 
 def confirm(proposal, *, kind='', channel='', other='', started='', interview_at='', company=None, agency=None,
-            first_contact=None, last_at=''):
+            first_contact=None, last_at='', agreed=None):
     """The proposal with what you confirmed in the app in place of Claude's readings: kind, channel (LinkedIn, Email,
     Phone, Other; other = what "Other" was, e.g. WhatsApp), started (YYYY-MM-DD, when the conversation began),
     interview_at (YYYY-MM-DDTHH:MM), company / agency (a new job's), for a new job whether this was the first
     contact about it (then its Source follows the channel), and last_at (YYYY-MM-DD[THH:MM]): the day of the last
-    message when it couldn't be read (its time, when read, is kept for the same day)."""
+    message when it couldn't be read (its time, when read, is kept for the same day), and agreed: your answer to
+    "Did you agree to talk to the recruiter?" (True moves a new job or a Recruiter lead to Screening)."""
+    if ((proposal.get('fields') or {}).get('job') or {}).get('state') == 'ask':
+        raise ValueError('Say which job this is first.')  # the app proposes again for the job you pick
     item = dict(proposal['item'])
     if last_at:
         day = _day(last_at)
@@ -656,6 +722,8 @@ def confirm(proposal, *, kind='', channel='', other='', started='', interview_at
         item['in_house'] = item.get('in_house') and not agency.strip()
     if first_contact is not None:
         item['first_contact_here'] = bool(first_contact)
+    if agreed is not None:
+        item['agreed'] = bool(agreed)
     return {**proposal, 'item': item, 'kind': kind or proposal['kind'], 'confirmed': True}
 
 
@@ -699,13 +767,21 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         proposal = propose(tracker, text=text, image=image, client=client, model=model, stats=stats, now=now, target=target)
     item, job, kind = dict(proposal['item']), proposal['job'], proposal['kind']
     check = [] if proposal.get('confirmed') else unchecked(item, kind)
+    if not proposal.get('confirmed') and ((proposal.get('fields') or {}).get('job') or {}).get('state') == 'ask':
+        check.append(f"which job it is ({len(proposal['fields']['job']['candidates'])} possible)")
     if not proposal.get('confirmed'):  # nobody confirmed the dates: a year-less one is this year's (and flagged)
         for key in ('when', 'first_contact'):
             if mail._when(item.get(key) or ''):
                 item[key] = _this_year(item[key], now)
     step(f"Claude found: {kind}{' · ' + (item.get('role') or item.get('title')) if (item.get('role') or item.get('title')) else ''}"
          " — updating the job in Notion")
-    talking = talking or bool(item.get('owner_agreed'))
+    # Screening when you said yes: the explicit --talking (Telegram, the terminal), your answer in the app, or the
+    # conversation showing it; an unanswered 'unclear' moves nothing (Telegram says to check it).
+    talking = talking or agreed(item)
+    item['owner_agreed'] = talking  # opportunity.track reads it too: never a yes you didn't give
+    if not (talking or proposal.get('confirmed')) and agreement(item) == 'unclear' \
+            and agree_applies(proposal.get('new', True), proposal.get('stage') or ''):
+        check.append('whether you agreed to talk to the recruiter (not moved to Screening)')
     seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
     source_id = f'paste:{seed}'
     when = item['when'] if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')

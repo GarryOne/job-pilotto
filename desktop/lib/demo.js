@@ -65,7 +65,9 @@ export const pipelineAllowed = args => LOCAL.some(prefix => args.join(' ').start
 
 // The Log box's confirmation step in demo mode: a fictional reading, nothing read. The default is the 30 Sep 2026
 // case (a LinkedIn chat screenshot without a year, a call mentioned without a date: both asked, the kind to check);
-// JOB_PILOTTO_DEMO_LEAD=existing shows a job already tracked (no company or "first contact" questions).
+// JOB_PILOTTO_DEMO_LEAD=existing shows a job already tracked (no company or "first contact" questions); =unclear a new
+// recruiter pitch whose reply leaves open whether you agreed to talk (asked: "Did you agree to talk to the recruiter?");
+// =which a message Claude couldn't place among two jobs from the same agency (asked: "Which job is this?").
 export function leadProposal(target = '', kind = process.env.JOB_PILOTTO_DEMO_LEAD) {
   const existing = kind === 'existing' || (target && target !== 'new');
   const kinds = ['Recruiter outreach', 'Applied', 'Confirmation received', 'Reply received', 'Interview scheduled', 'Rejected', 'Offer', 'Feedback received'];
@@ -76,6 +78,10 @@ export function leadProposal(target = '', kind = process.env.JOB_PILOTTO_DEMO_LE
     interview: {value: '', state: 'ask', required: true, question: 'When is the call?', as_written: 'Friday at 3pm'},
     ...(existing ? {} : {company: {value: 'Example Robotics', state: 'check', required: false},
       agency: {value: 'Example Talent', state: 'ok', required: false}}),
+    ...(kind === 'unclear' && !existing ? {agree: {value: '', state: 'ask', question: 'Did you agree to talk to the recruiter?'}} : {}),
+    ...(kind === 'which' && !target ? {job: {value: '', state: 'ask', question: 'Which job is this?', candidates: [
+      {url: 'https://demo.example/jobs/1', label: 'Example Talent · Senior SRE', stage: 'Recruiter lead'},
+      {url: 'https://demo.example/jobs/2', label: 'Example Talent · Platform Engineer', stage: 'Applied'}]}} : {}),
   };
   return {ok: true, kind: 'Interview scheduled', new: !existing, stage: existing ? 'Applied' : '',
     label: existing ? 'Northwind AI — Platform Engineer' : 'Example Robotics — Senior SRE',

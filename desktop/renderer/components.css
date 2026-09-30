@@ -80,6 +80,8 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .lead-flag { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .lead-pair[hidden] { display: none; }
 #lead-confirm .lead-found { margin-bottom: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
+.lead-found > .lead-flag { margin-left: auto; flex: none; }
+.lead-found[hidden] { display: none; }
 /* A long confirmation scrolls inside the dialog; its Save stays in view. */
 #lead-dialog { max-height: 92vh; overflow-y: auto; }
 #lead-dialog .dialog-foot { position: sticky; bottom: 0; z-index: 1; }

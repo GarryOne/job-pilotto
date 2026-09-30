@@ -276,7 +276,8 @@ def main():
     parser.add_argument('--propose', action='store_true',
                         help='add mode without --job: read the message and print the proposal (JSON) to confirm; '
                              'nothing is written to Notion (the app\'s confirmation step)')
-    parser.add_argument('--reading', default='', help='add mode: a --propose result (JSON file) to write, without reading again')
+    parser.add_argument('--reading', default='', help='add mode: a --propose result (JSON file) to write, without reading again '
+                                                      '(with --propose: proposed again for --target, the job you picked)')
     parser.add_argument('--channel', default='', help='add mode: where the conversation is from, as you confirmed it '
                                                       '(LinkedIn, Email, Phone, Other)')
     parser.add_argument('--channel-other', default='', help='add mode: what "Other" was (e.g. WhatsApp)')
@@ -289,6 +290,8 @@ def main():
     parser.add_argument('--from-app', action='store_true', help='add mode: logged in the Desktop App (Source "Job Pilotto app", even with --send)')
     parser.add_argument('--first-contact', choices=('yes', 'no'), default=None,
                         help='add mode, a new job: this was the first contact about it (its Source follows the channel)')
+    parser.add_argument('--agreed', choices=('yes', 'no'), default=None,
+                        help='add mode: your answer to "Did you agree to talk to the recruiter?" (yes: Screening)')
     parser.add_argument('--log-run', action='store_true',
                         help='log this run to Notion ⏰ Search runs even without --send (the desktop app always does)')
     parser.add_argument('--insight', action='store_true',
@@ -346,8 +349,11 @@ def main():
             # Where it was added: the app's Log box is the app even when its reply also goes to Telegram (--send).
             source = 'Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'Manual'
             if args.propose:  # the app's step 1: nothing written; the proposal comes back to be confirmed
-                proposal = inbox.propose(tracker, text=args.note or '', image=image, stats=run['mail'], target=args.target)
-                print(json.dumps({'ok': True, **proposal, 'stats': run['mail']}, default=str))
+                # With --reading: the job you picked in the confirmation step (--target), for the same reading (no AI).
+                earlier = json.loads(Path(args.reading).read_text(encoding='utf-8')) if args.reading else None
+                proposal = inbox.propose(tracker, text=args.note or '', image=image, stats=run['mail'], target=args.target,
+                                         item=earlier['item'] if earlier else None)
+                print(json.dumps({'ok': True, **proposal, 'stats': (earlier.get('stats') or {}) if earlier else run['mail']}, default=str))
                 return 0
             proposal = None
             if args.reading:  # step 2: what you confirmed replaces Claude's guesses; no second reading
@@ -357,7 +363,8 @@ def main():
                 proposal = inbox.confirm(saved, kind=args.kind, channel=args.channel, started=args.started,
                                          other=args.channel_other, interview_at=args.interview_at, company=args.company,
                                          agency=args.agency, last_at=args.last_at,
-                                         first_contact=None if args.first_contact is None else args.first_contact == 'yes')
+                                         first_contact=None if args.first_contact is None else args.first_contact == 'yes',
+                                         agreed=None if args.agreed is None else args.agreed == 'yes')
             reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
                                      event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',
                                      talking=args.action == 'talking', stats=run['mail'], target=args.target,
