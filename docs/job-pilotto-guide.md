@@ -9,13 +9,13 @@ The Job Pilotto app on your Mac does the work. This Notion workspace is where yo
 | Page | What it's for | Who fills it |
 |---|---|---|
 | **Job Matches — AI Scored** | Every job that fits your search, with a fit score out of 100 and the reason. Start with the **🎯 Best matches** view | The app |
-| **Applications — Job Tracker** | Jobs you saved, prepared, applied to, and what happened next. **✅ Active** shows applications in progress | The app, and you (edit the Stage when something changes) |
+| **Job Tracker** | One row per opportunity: saved, prepared, applied to, or one that found you (a recruiter), and what happened next. **✅ Active** shows what's in progress | The app, and you (edit the Stage when something changes) |
 | **Profile — CV and Preferences** | What jobs are scored against: your experience, places, languages, salary, deal-breakers | Drafted from your CV; **you correct it** |
 | **Application Answers — Standard Form Fields** | Your standard answers to common form questions, and how your cover letters should sound | Drafted; **you correct it** |
 | **📈 Application Events** | The history of every application: applied, confirmation, screening, interview, rejection | The app (and Gmail, if connected) |
 | **🎤 Interviews** | A question-by-question review of each interview you send in | The app |
 | **💡 Insights** | One finding a day about your search, and a weekly report on Mondays | The app |
-| **Pipeline — Application Funnel** | How many applications got replies, screenings and interviews, and the step to improve | The app |
+| **Pipeline — Application Funnel** | How many of the jobs you went after (outbound) got replies, screenings and interviews, and the step to improve. Recruiters who found you (inbound) are counted apart | The app |
 | **Employers & Sources** | The company career pages being checked | The app; untick **Active** to stop checking one |
 | **Job Apply — Agent Runs** | Details of each form an AI agent filled | The app |
 | **Cronjob Runs** | Each search: how many new jobs, what the AI cost | The app |

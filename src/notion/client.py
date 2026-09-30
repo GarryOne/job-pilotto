@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Notion "Applications — Job Tracker": the durable record of jobs applied to.
+"""Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
 
 SQLite in the Actions cache can be evicted; applications cannot be re-crawled,
 so they live in Notion. The canonical job URL is the key shared by both.
@@ -198,7 +198,10 @@ class Tracker:
                        rejection=select(props.get('Rejection reason')) or '', rejection_lesson=text(props.get('Rejection lesson')),
                        feedback_status=select(props.get('Feedback status')) or '', employer_feedback=text(props.get('Employer feedback')),
                        page_id=page['id'], next_interview=((props.get('Next interview') or {}).get('date') or {}).get('start') or '',
-                       via=text(props.get('Via')), contact=text(props.get('Contact')), kit_inputs=text(props.get('Kit inputs')))
+                       via=text(props.get('Via')), contact=text(props.get('Contact')), kit_inputs=text(props.get('Kit inputs')),
+                       # Outbound or inbound (src/notion/origin.py): the app decides from these, the same rule.
+                       source=select(props.get('Source')) or '', notes=text(props.get('Notes'))[:60],
+                       applied_on=((props.get('Applied on') or {}).get('date') or {}).get('start') or '')
         return list(found.values())
 
     def hidden_urls(self):

@@ -1,6 +1,7 @@
 // Focus page.
 import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
+import {inboundLine} from '../origin.js';
 import {shared} from './shared.js';
 import {$, savedAgo, show} from './core.js';
 import {openLogFor, showJobsIn} from './jobs.js';
@@ -316,6 +317,8 @@ function renderFunnel(funnel) {
     nodes.push(li);
   });
   $('funnel-steps').replaceChildren(...nodes);
+  $('funnel-inbound').textContent = inboundLine(funnel.inbound);
+  show($('funnel-inbound'), !!$('funnel-inbound').textContent);
   $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step.replace(/^\S+\s/, '')}. ${funnel.improve.advice}` : '';
   show($('funnel-improve'), !!funnel.improve);
   $('focus-funnel-notion').dataset.url = funnel.notion_url || '';

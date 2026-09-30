@@ -77,6 +77,18 @@ def load(path=SCHEMA):
     return json.loads(Path(path).read_text())
 
 
+# Written by hand, not read from Notion: a snapshot keeps them (a database's former titles, retired columns).
+HAND_KEYS = ('former_titles', 'retired')
+
+
+def keep_hand_keys(fresh, previous):
+    """The snapshot, with each database's hand-written keys carried over from the committed schema."""
+    for env, db in fresh['databases'].items():
+        before = (previous or {}).get('databases', {}).get(env, {})
+        db.update({key: before[key] for key in HAND_KEYS if key in before})
+    return fresh
+
+
 def api_property(entry, database_id=None):
     """A schema column -> a Notion API property definition (relations need their target's id)."""
     kind = entry['type']
@@ -190,7 +202,7 @@ def main(argv=None):
         token = os.getenv('NOTION_TOKEN')
         if not token:
             parser.error('NOTION_TOKEN is required (the owner workspace integration)')
-        schema = snapshot(token)
+        schema = keep_hand_keys(snapshot(token), load() if SCHEMA.exists() else None)
         SCHEMA.write_text(json.dumps(schema, indent=1, ensure_ascii=False) + '\n')
         print(f"Wrote {SCHEMA.relative_to(ROOT)}: {len(schema['databases'])} databases, "
               f"{sum(len(d['columns']) for d in schema['databases'].values())} columns, {len(schema['pages'])} pages.")

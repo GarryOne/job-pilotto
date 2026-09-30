@@ -132,6 +132,8 @@ def ids_from_env_file(path):
 def find_ids(notion):
     """{ENV: id} for every database and page of the schema the token can see (newest when several)."""
     wanted = {norm(db['title']): env for env, db in SCHEMA['databases'].items()}
+    # A workspace made before a rename still has the old title ("Applications — Job Tracker" → "Job Tracker").
+    wanted.update({norm(old): env for env, db in SCHEMA['databases'].items() for old in db.get('former_titles', [])})
     wanted.update({norm(page['title']): env for env, page in SCHEMA['pages'].items()})
     found, newest = {}, {}
     for kind in ('database', 'page'):

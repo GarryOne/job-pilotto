@@ -1,4 +1,5 @@
 // The Jobs page's derived bits, kept free of the DOM so the tests can check them.
+import {isInbound} from './origin.js';
 
 // Skills and topics shown as tags under a role, found in its title and fit summary (first match wins per tag).
 const TAGS = [
@@ -36,10 +37,12 @@ const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
 export const SCREENING = new Set(['Screening', 'Interview scheduled']);
 export const INTERVIEWS = new Set(['Interviewing', 'Offer']);
 const TALKING = new Set([...SCREENING, ...INTERVIEWS]);
-// Sent = waiting + in process + closed: the boxes add up.
+// Sent = waiting + in process + closed: the boxes add up, except for opportunities that found you (inbound,
+// renderer/origin.js): they count in Waiting / In process / Closed (real workload) but as Applied only once you applied
+// (an Applied on date), not because a recruiter's pitch reached Screening.
 const WAITING = new Set(['Applied', 'Confirmation received']);
 const APPLICATION = {
-  applied: job => SENT.has(job.stage),
+  applied: job => SENT.has(job.stage) && (!isInbound(job) || !!job.applied_on),
   waiting: job => WAITING.has(job.stage),
   interviews: job => TALKING.has(job.stage),
   closed: job => ENDED.has(job.stage),  // rejected, withdrawn, or no answer
@@ -47,6 +50,12 @@ const APPLICATION = {
 // The "In process" box's hover: how many are screening and how many interviewing.
 export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(job.stage)).length,
   interviews: jobs.filter(job => INTERVIEWS.has(job.stage)).length});
+// Opportunities that found you are not job matches: the list leaves them out (the counters above it and a pasted link
+// still reach them), and the active ones are "In conversation" above it, the next step first.
+const OVER = new Set([...ENDED, 'Dismissed', 'Closed']);
+export const matchesOnly = jobs => jobs.filter(job => !isInbound(job));
+export const inConversation = jobs => jobs.filter(job => isInbound(job) && !OVER.has(job.stage))
+  .sort((a, b) => (b.next_step ? 1 : 0) - (a.next_step ? 1 : 0) || String(a.company).localeCompare(String(b.company)));
 // A job's status pill: its own status, except that an application shows where it stands in Notion (its Stage),
 // e.g. Rejected rather than Applied.
 const STATUS = {unreviewed: ['New', 'info'], saved: ['Saved', 'signal'], applied: ['Applied', 'good'], dismissed: ['Dismissed', 'neutral']};

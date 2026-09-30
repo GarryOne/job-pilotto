@@ -123,3 +123,31 @@ test('the Interviews Job cell: a listed job opens in Jobs, a Notion-only link op
   assert.deepEqual(interviewJob({application: ['a-1-2']}, null), {kind: 'notion', name: 'Linked in Notion', role: '', notion: notionPageUrl('a-1-2')});
   assert.deepEqual(interviewJob({application: []}, null), {kind: 'none', name: 'No job linked', role: '', notion: ''});
 });
+
+// Inbound (renderer/origin.js): opportunities that found you.
+test('an inbound opportunity counts as workload, as Applied only once you applied, and is not a job match', async () => {
+  const {inConversation, matchesOnly} = await import('../renderer/jobs-view.js');
+  const jobs = [
+    {url: 'o1', stage: 'Screening', source: 'Job Pilotto app', company: 'Acme'},  // you applied
+    {url: 'i1', stage: 'Screening', source: 'LinkedIn', company: 'Beta'},  // a recruiter found you: no Applied on
+    {url: 'i2', stage: 'Interviewing', source: 'Gmail', notes: 'Recruiter message (Email)', applied_on: '2026-09-20', company: 'Gamma'},
+    {url: 'i3', stage: 'Recruiter lead', source: 'Telegram', company: 'Delta', next_step: 'Reply to Jane'},
+    {url: 'i4', stage: 'Rejected', source: 'Phone', company: 'Epsilon'},
+    {url: 'm1', stage: '', company: 'Zeta', fit: 80},
+  ];
+  assert.deepEqual(applicationStats(jobs), {applied: 2, waiting: 0, interviews: 3, closed: 1});
+  assert.deepEqual(byStat(jobs, 'applied').map(job => job.url), ['o1', 'i2']);
+  // The list below: job matches only (the leads and recruiter pitches are not there).
+  assert.deepEqual(matchesOnly(jobs).map(job => job.url), ['o1', 'm1']);
+  // In conversation: the open inbound ones, those with a next step first; the rejected one is over.
+  assert.deepEqual(inConversation(jobs).map(job => job.url), ['i3', 'i1', 'i2']);
+  assert.deepEqual(inConversation([{stage: 'Recruiter lead', source: 'Gmail'}, {stage: 'Dismissed', source: 'LinkedIn'}]).length, 1);
+});
+
+test('the funnel card\'s inbound line, hidden when nothing found you', async () => {
+  const {inboundLine} = await import('../renderer/origin.js');
+  assert.equal(inboundLine({contacted: 4, screening: 2, interviews: 1}), 'Inbound: 4 contacted you · 2 screening · 1 interview');
+  assert.equal(inboundLine({contacted: 3, screening: 0, interviews: 0}), 'Inbound: 3 contacted you · 0 screening · 0 interviews');
+  assert.equal(inboundLine({contacted: 0}), '');
+  assert.equal(inboundLine(undefined), '');
+});

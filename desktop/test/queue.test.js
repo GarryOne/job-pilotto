@@ -13,3 +13,9 @@ test('tasks waiting behind the running one are listed, once each, in order', asy
   assert.deepEqual(pipeline.queued().map(item => [item.kind, item.trigger]), [['insight', 'you'], ['weekly', 'you']]);
   assert.ok(pipeline.queued().every(item => item.id && item.queuedAt));
 });
+
+test('Tidy duplicate events: the dialog\'s summary has no command-line hint (its button applies)', () => {
+  const cli = 'Acme: Interview scheduled x2\n  KEEP  ev-1\n  extra ev-2\n1 duplicate event(s) would be moved to the Notion trash (run with --apply); 1 group(s).';
+  assert.equal(pipeline.tidyText(cli).split('\n').pop(), '1 duplicate event(s) would be moved to the Notion trash; 1 group(s).');
+  assert.equal(pipeline.tidyText('No duplicate events.'), 'No duplicate events.');
+});

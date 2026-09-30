@@ -44,6 +44,25 @@ class FunnelTest(unittest.TestCase):
         self.assertEqual(funnel.focus(many)['step'], '💬 Human reply')
         self.assertIn('Improve 💬 Human reply', funnel.summary(many)[0])
 
+    def test_the_pipeline_page_funnel_leaves_inbound_out(self):
+        select = lambda name: {'type': 'select', 'select': {'name': name}}
+        rich = lambda value: {'type': 'rich_text', 'rich_text': [{'plain_text': value}]}
+        page = lambda pid, stage, **props: {'id': pid, 'properties': {'Stage': select(stage), **props}}
+
+        class Tracker:
+            database_id = 'apps'
+
+            def query_database(self, database_id, query=None):
+                if database_id == 'apps':
+                    return [page('a', 'Applied', Source=select('Telegram')), page('b', 'Screening', Source=select('LinkedIn')),
+                            page('c', 'Interviewing', Source=select('Job Pilotto app'), Notes=rich('Recruiter message (Email)')),
+                            page('d', 'Rejected')]
+                return []
+        apps = funnel.reached(Tracker())
+        self.assertEqual(sorted(a['stage'] for a in apps), ['Applied', 'Rejected'])
+        self.assertEqual(funnel.inbound_counts([app('Screening'), app('Rejected', 'Interviewing'), app('Recruiter lead')]),
+                         {'contacted': 3, 'screening': 2, 'interviews': 1})
+
     def test_blocks_are_a_table_and_a_callout(self):
         table, callout, note = funnel.blocks(funnel.funnel([app('Applied')]), '27 Sep 12:00')
         self.assertEqual(table['table']['table_width'], 5)

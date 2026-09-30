@@ -3,7 +3,7 @@ import {closeMenu, el, moreButton, pill, tag, tile} from '../components.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byStat, inProcess, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byStat, inConversation, inProcess, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
 import {$, message, savedAgo, show} from './core.js';
@@ -61,15 +61,49 @@ function fitDetail(job) {
     ...list('For you', strengths, 'good'), ...list('Against', gaps, 'warn'));
   return box;
 }
+const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
+// In conversation: the opportunities that found you and are still open, one Focus-style row each; a click opens the
+// job in Notion (⌘-click: in a Job Pilotto window), or its link when it has no page.
+function renderTalking() {
+  const talking = inConversation(shared.allJobs);
+  show($('jobs-talking'), talking.length > 0);
+  $('jobs-talking-count').textContent = `${talking.length} found you`;
+  $('jobs-talking-list').replaceChildren(...talking.map(job => {
+    const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
+      title: job.notion_url ? 'Open in Notion' : 'Open the link'});
+    const round = el('span', 'focus-round');
+    round.append(icon('chat'));
+    const top = el('div', 'focus-top');
+    top.append(el('span', 'focus-headline', job.title || 'Role'), pill(job.stage || 'Recruiter lead', 'info', {dot: true}));
+    const meta = el('div', 'focus-meta muted small');
+    const who = [job.company, job.via && job.via !== job.company ? `via ${job.via}` : ''].filter(Boolean).join(' ');
+    [who, job.next_step ? `Next: ${job.next_step}` : ''].filter(Boolean).forEach((part, i) => {
+      if (i) meta.append(el('span', 'sep', '·'));
+      meta.append(el('span', '', part));
+    });
+    const body = el('div', 'focus-body');
+    body.append(top, meta);
+    li.append(round, body);
+    const open = event => (job.notion_url ? window.pilot.openNotion(job.notion_url, event.metaKey) : window.pilot.openExternal(job.url));
+    li.addEventListener('click', open);
+    li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(event); } });
+    return li;
+  }));
+}
 export function renderJobs() {
   closeMenu();
   const filter = $('filter-status').value;
   const text = $('filter-text').value.trim();
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
+  // The counters count every application (real workload); without one, the list is job matches only (inbound
+  // opportunities are "In conversation" above it); a pasted link finds any job.
   const rows = sorted((statFilter === 'stuck' ? shared.allJobs.filter(stuck)
-    : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(fullKey(job.url))) : byStat(shared.allJobs, statFilter)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
+    : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(fullKey(job.url)))
+    : statFilter ? byStat(COUNTS_ALL.has(statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), statFilter)
+    : anyStatus ? shared.allJobs : matchesOnly(shared.allJobs)).filter(job => (anyStatus || filter === 'all' || (filter === 'open' ? job.status === 'unreviewed' : job.status === filter)) &&
     matches(job, text)), $('sort-by').value);
+  renderTalking();
   const body = $('jobs-body');
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
@@ -568,7 +602,9 @@ function showJobsData(data) {
   {
     shared.allJobs = data.jobs;
     const scored = shared.allJobs.filter(job => job.fit != null).length;
-    const count = stats(shared.allJobs, data.total);
+    // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
+    const matched = matchesOnly(shared.allJobs);
+    const count = stats(matched, data.total == null ? undefined : data.total - (shared.allJobs.length - matched.length));
     $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` + (data.filtered ? ` · ${data.filtered} hidden` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');

@@ -71,7 +71,9 @@ class AddedJobTests(unittest.TestCase):
         lead = {'id': 'a1', 'url': 'https://notion/a1', 'created_time': '2026-09-29', 'properties': {
             'Job URL': {'url': 'https://www.jobpilotto.workers.dev/lead#abc'}, 'Job': {'title': [{'plain_text': 'Platform Lead'}]},
             'Company': text('Beta'), 'Fit score': {'number': 74}, 'Stage': {'select': {'name': 'Recruiter lead'}},
-            'Work mode': {'select': {'name': 'Remote'}}, 'Contact': text('Jane (recruiter)')}}
+            'Work mode': {'select': {'name': 'Remote'}}, 'Contact': text('Jane (recruiter)'), 'Via': text('Example Talent'),
+            'Source': {'select': {'name': 'Gmail'}}, 'Notes': text('Recruiter message (Email). Client: logistics software, Series A'),
+            'Next step': text('Reply by Friday')}}
         tracker = client.Tracker('token', 'apps')
         with mock.patch.object(client, 'MATCHES_DATABASE_ID', 'matches'), \
                 mock.patch.object(tracker, '_query', lambda filter_=None, database_id=None: [found] if database_id == 'matches' else [lead]):
@@ -84,6 +86,12 @@ class AddedJobTests(unittest.TestCase):
             listed = desktop.jobs(sqlite3.connect(':memory:'), notion_jobs=jobs)['jobs']
         self.assertEqual({(r['url'], r['fit']) for r in listed},
                          {('https://a/found', 80), ('https://www.jobpilotto.workers.dev/lead#abc', 74)})
+        # What the app needs to tell inbound from outbound (desktop/renderer/origin.js) and to show "In conversation".
+        shown = next(r for r in listed if r['url'].endswith('#abc'))
+        self.assertEqual((shown['source'], shown['notes'], shown['applied_on'], shown['via'], shown['next_step']),
+                         ('Gmail', 'Recruiter message (Email). Client: logistics software, Serie', '', 'Example Talent', 'Reply by Friday'))
+        from src.notion.origin import origin
+        self.assertEqual(origin(source=shown['source'], stage=shown['stage'], notes=shown['notes']), 'inbound')
 
 
 if __name__ == '__main__':

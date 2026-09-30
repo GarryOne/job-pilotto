@@ -247,6 +247,11 @@
       "step": "📞 Screening",
       "advice": "Replies are mostly rejections. Check seniority, location and language requirements before applying."
     },
-    "notion_url": ""
+    "notion_url": "",
+    "inbound": {
+      "contacted": 3,
+      "screening": 1,
+      "interviews": 0
+    }
   }
 }

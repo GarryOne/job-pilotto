@@ -111,7 +111,9 @@ export async function discover(token, fetcher, {root = null} = {}) {
   const inRoot = item => !root || String(parentOf(item)).replace(/-/g, '') === String(root).replace(/-/g, '');
   const groups = new Map();
   for (const [env, title, items] of wanted) {
-    for (const item of items.filter(i => inRoot(i) && normalise(titleOf(i)) === normalise(title))) {
+    // Its title, or one it had before a rename (a copy made from an older template: schema.repair renames it).
+    const names = new Set([title, ...(TEMPLATE.former_titles?.[env] || [])].map(normalise));
+    for (const item of items.filter(i => inRoot(i) && names.has(normalise(titleOf(i))))) {
       const group = groups.get(parentOf(item)) || {ids: {}, newest: ''};
       if (!group.ids[env] || item.last_edited_time > group.newestFor?.[env]) {
         group.ids[env] = item.id.replace(/-/g, '');

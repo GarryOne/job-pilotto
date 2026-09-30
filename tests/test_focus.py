@@ -121,6 +121,24 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(funnel['💬 Human reply']['urls'], ['https://x.test/a', 'https://x.test/b'])
         self.assertEqual(funnel['📞 Screening']['urls'], ['https://x.test/b'])
 
+    def test_the_funnel_counts_outbound_only_and_inbound_apart(self):
+        select = lambda name: {'type': 'select', 'select': {'name': name}}
+        rows = [row('a', 'A', 'x', stage='Screening', Source=select('Job Pilotto app')),  # you applied: outbound
+                row('b', 'B', 'y', stage='Applied', Source=select('Gmail')),  # a confirmation email: outbound
+                row('l', 'Agency', 'SRE', stage='Recruiter lead', applied=None, Source=select('Gmail')),
+                row('m', 'Acme', 'SRE', stage='Screening', applied=None, Source=select('Job Pilotto app'),
+                    Notes='Recruiter message (Email). Client: fintech'),
+                row('n', 'Beta', 'SRE', stage='Interviewing', applied=None, Source=select('LinkedIn')),
+                row('o', 'Old', 'SRE', stage='Rejected', applied=None, Source=select('Phone'))]
+        events = [event('o', 'Screening', '2026-09-20T10:00:00Z')]
+        result = focus.build(rows, events, now=NOW)['funnel']
+        steps = {s['step']: s['reached'] for s in result['steps']}
+        self.assertEqual([steps[k] for k in ('📝 Prepared', '📨 Applied', '📞 Screening', '🧑‍💻 Interviews')], [2, 2, 1, 0])
+        self.assertEqual(result['inbound'], {'contacted': 4, 'screening': 3, 'interviews': 1})
+        # No Source at all: outbound, as before.
+        plain_rows = [row('a', 'A', 'x', stage='Applied')]
+        self.assertEqual(focus.build(plain_rows, [], now=NOW)['funnel']['inbound'], {'contacted': 0, 'screening': 0, 'interviews': 0})
+
     def test_reminder_only_when_worth_it(self):
         calm = {'today': {'applied': 30, 'target': 30, 'kits_ready': 0}, 'items': []}
         self.assertEqual(focus.reminder(calm, now=NOW), '')

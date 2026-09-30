@@ -120,6 +120,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back
+- `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same rule as src/notion/origin.py,
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents.
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered
@@ -185,12 +186,13 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/features.py` — Optional features: what each one needs, what it costs, and one switch to turn any of them off.
 - `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
-- `src/notion/client.py` — Notion "Applications — Job Tracker": the durable record of jobs applied to.
+- `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
 - `src/notion/cron_runs.py` — Notion "⏰ Cronjob Runs": one row per scheduled pipeline run, with its cost and a mini-report.
 - `src/notion/dedupe.py` — One Job Matches row per job: find rows that are the same job (same URL, ignoring tracking parameters, a
 - `src/notion/funnel.py` — Application funnel: how many applications reached each step, the conversion between steps,
 - `src/notion/ledger.py` — The application ledger: what was sent for each application, and what happened afterwards.
 - `src/notion/matches.py` — Mirror AI-scored jobs into the Notion database "Job Matches — AI Scored".
+- `src/notion/origin.py` — Outbound or inbound: did you go after this opportunity, or did it find you? Derived from the Applications row
 - `src/notion/pace.py` — One Notion pace shared with the desktop app and every other process on this computer using the same connection.
 - `src/notion/runs.py` — Notion "🤖 Agent Runs": one row per form-filling session, and the learnings read back from it.
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).

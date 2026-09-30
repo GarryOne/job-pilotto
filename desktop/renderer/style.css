@@ -886,7 +886,10 @@ main { min-width: 0; }
 .funnel-bar span { display: block; height: 100%; background: var(--info); border-radius: var(--r-pill); }
 .funnel-arrow { display: grid; place-items: center; color: var(--muted); }
 .funnel-arrow .icon { width: 16px; height: 16px; }
-#funnel-improve { margin: var(--sp-3) 0 0; }
+#funnel-improve, #funnel-inbound { margin: var(--sp-3) 0 0; }
+/* Jobs → In conversation: opportunities that found you, as Focus rows; a click opens the job in Notion. */
+.jobs-talking .focus-item { cursor: pointer; }
+.jobs-talking .focus-item:hover, .jobs-talking .focus-item:focus-visible { border-color: var(--line-strong); border-left-color: var(--info); }
 /* Skeleton placeholders while Focus loads */
 .skeleton { display: block; height: 10px; border-radius: var(--r-pill); background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%);
   background-size: 200% 100%; animation: shimmer 1.4s var(--ease) infinite; }

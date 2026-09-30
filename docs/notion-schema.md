@@ -5,9 +5,14 @@ from scratch rather than guessing from the source code. Create each as a **datab
 marked "page"), share it with your Notion integration, and set its ID via the matching environment
 variable (see the main README's Configuration section) — property names must match exactly.
 
-## Applications — Job Tracker (database)
+## Job Tracker (database)
 
-Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or dismissed.
+Env var: `NOTION_APPLICATIONS_DB`. One row per opportunity: applied, saved or inbound. Formerly "Applications — Job Tracker" (the app renames it; it finds either title).
+
+- **Outbound or inbound**: derived from the row, no column (`src/notion/origin.py`, `desktop/renderer/origin.js`)
+  - Inbound: Stage or event `Recruiter lead`, Notes `Recruiter message (…)`, or Source `LinkedIn` / `Phone`
+  - Outbound: the rest; Notes `Logged from a paste (…)` (applied elsewhere) and an empty Source included
+  - Funnel: outbound only; inbound on its own line
 **Rule:** every job you pursue has one Applications row, found or added (by hand, `/add`, a recruiter's LinkedIn/email message); a job you add gets its facts and fit score here (Fit score, Tier, Seniority, Work mode, Recruiter, Salary), never a Job Matches row.
 
 | Property | Type | Notes |
@@ -157,7 +162,7 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 | Property | Type | Notes |
 |---|---|---|
 | Event | Title | "Kind · Company" |
-| Application | Relation | To Applications — Job Tracker (two-way, shows there as "Events") |
+| Application | Relation | To Job Tracker (two-way, shows there as "Events") |
 | Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Interview cancelled` (you said in Focus the call did not happen; no Stage change) |
 | At | Date | With time |
 | Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill`, `Gmail`, `Calendar` |
@@ -179,7 +184,7 @@ its Overall is empty until it's reviewed.
 | Property | Type | Notes |
 |---|---|---|
 | Interview | Title | "Company · Round" |
-| Application | Relation | To Applications — Job Tracker (two-way, shows there as "Interviews"); empty when unclear |
+| Application | Relation | To Job Tracker (two-way, shows there as "Interviews"); empty when unclear |
 | Date | Date | |
 | Round | Text | e.g. Recruiter screen, Technical 1 |
 | Overall | Select | `positive`, `neutral`, `negative` |
@@ -270,7 +275,7 @@ recorded locally without it. Rows never contain applicant values, only field lab
 | Property | Type | Notes |
 |---|---|---|
 | Run | Title | "Company · Job · Agent" |
-| Job | Relation | To Applications — Job Tracker (two-way, shows there as "Agent runs") |
+| Job | Relation | To Job Tracker (two-way, shows there as "Agent runs") |
 | Job URL | URL | |
 | Company | Text | |
 | Agent | Select | Options: `Claude`, `Codex`, `ChatGPT`, `Manual` |

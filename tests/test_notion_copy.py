@@ -129,5 +129,25 @@ class NotionCopyTests(unittest.TestCase):
             self.assertEqual(len(json.loads(state.read_text())), 2)
 
 
+class RenamedTitleTests(unittest.TestCase):
+    """The Applications database was renamed "Job Tracker"; workspaces made before still say "Applications — Job Tracker"."""
+
+    def test_find_ids_knows_the_old_and_the_new_title(self):
+        for title in ('💠 Applications — Job Tracker', 'Job Tracker'):
+            item = {'object': 'database', 'id': 'ab-cd', 'title': [{'plain_text': title}], 'last_edited_time': '2026-09-30'}
+            notion = lambda method, path, body=None, item=item: {'results': [item] if body['filter']['value'] == 'database' else [],
+                                                                  'has_more': False}
+            self.assertEqual(c.find_ids(notion).get('NOTION_APPLICATIONS_DB'), 'abcd', title)
+
+    def test_a_snapshot_keeps_the_hand_written_keys(self):
+        import notion_schema
+        fresh = {'databases': {'APPS': {'title': 'Job Tracker', 'columns': {}}, 'RUNS': {'title': 'Runs', 'columns': {}}}}
+        before = {'databases': {'APPS': {'former_titles': ['Applications — Job Tracker']}, 'RUNS': {'retired': ['Kits']}}}
+        kept = notion_schema.keep_hand_keys(fresh, before)
+        self.assertEqual(kept['databases']['APPS']['former_titles'], ['Applications — Job Tracker'])
+        self.assertEqual(kept['databases']['RUNS']['retired'], ['Kits'])
+        self.assertEqual(notion_schema.problems(notion_schema.load(), json.loads(notion_schema.TEMPLATE.read_text())), [])
+
+
 if __name__ == '__main__':
     unittest.main()

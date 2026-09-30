@@ -1,8 +1,8 @@
 {
-  "_comment": "The public Job Pilotto Notion template (tools/notion_template.py builds it). The desktop app opens template_url for the user to duplicate, then finds each database and page in their copy by these titles and checks the columns in required_properties.",
+  "_comment": "The public Job Pilotto Notion template (tools/notion_template.py builds it). The desktop app opens template_url for the user to duplicate, then finds each database and page in their copy by these titles (or a former title, for copies made before a rename) and checks the columns in required_properties.",
   "template_url": "https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c",
   "databases": {
-    "NOTION_APPLICATIONS_DB": "Applications — Job Tracker",
+    "NOTION_APPLICATIONS_DB": "Job Tracker",
     "NOTION_MATCHES_DB": "Job Matches — AI Scored",
     "NOTION_AGENT_RUNS_DB": "Job Apply — Agent Runs",
     "NOTION_CRON_RUNS_DB": "Cronjob Runs",
@@ -10,6 +10,9 @@
     "NOTION_INSIGHTS_DB": "💡 Insights",
     "NOTION_INTERVIEWS_DB": "🎤 Interviews",
     "NOTION_EMPLOYERS_DB": "Employers & Sources"
+  },
+  "former_titles": {
+    "NOTION_APPLICATIONS_DB": ["Applications — Job Tracker"]
   },
   "pages": {
     "NOTION_PROFILE_PAGE_ID": "Profile — CV and Preferences",

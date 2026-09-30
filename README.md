@@ -200,8 +200,11 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   apply to the next role), your **daily target** (applications per day, default 30, stored in ⚙️ Search settings)
   with progress and reminders at the times you pick, the latest insight, and your **funnel** (Prepared → Applied →
   Human reply → Screening → Interviews → Offer, with the step to improve). No AI, no cost.
+  - **Outbound only** in the funnel: jobs you went after.
+  - **Inbound** on one line below it: "Inbound: 3 contacted you · 1 screening · 0 interviews" (hidden at 0).
 - 📋 **Jobs**: built from Notion (Job Matches + Applications), counters that filter the list (high fit, new this
-  week; applied, active, interviews, rejected), find a job by its pasted link, and one main button per job:
+  week; applied, active, interviews, rejected), **In conversation** (open inbound opportunities, above the list; not
+  job matches), find a job by its pasted link, and one main button per job:
   **Prepare** (draft the kit) → **Apply with Claude** (recommended, see below) or **Fill in Chrome** (the extension).
   **Apply to N** starts several at once. A ⛔ badge shows the kit's eligibility verdict on hover.
 - 📥 **Everything that reaches you, tracked**: **+ Applied elsewhere…** (link + date; it gets the same AI facts and fit
@@ -365,6 +368,11 @@ doesn't.
   "Where to improve" box names the step below its rule of thumb once at least 5 applications are
   decided there (`src/notion/funnel.py`, refreshed by every scheduled run, no AI cost). The daily
   insight gets the same numbers.
+- ↔️ **Outbound vs inbound**: one Job Tracker, two kinds of opportunity, told apart from each row (no extra column;
+  `src/notion/origin.py` = `desktop/renderer/origin.js`, one shared test table):
+  - **Inbound** (it found you): a recruiter's pitch (Stage/event "Recruiter lead", Notes "Recruiter message (…)"),
+    or Source `LinkedIn` / `Phone`.
+  - **Outbound** (you went after it): everything else, incl. "Applied elsewhere", confirmation emails, empty Source.
 - 🧭 **How you applied counts**: each application has a Channel (Direct, Recruiter platform, Agency,
   Referral) and Via (e.g. TechTree), detected from the job URL; Company always holds the real
   employer, even when a platform reveals it only later. Insights compare reply rates by channel and
@@ -373,8 +381,8 @@ doesn't.
   application tracked before the ledger existed.
 
 ### 🗂️ Tracking in Notion
-- 📋 Job Matches (every scored job, with its technologies and role family), Applications — Job
-  Tracker (with the frozen application record), 📈 Application Events, 🎤 Interviews, 💡 Insights, 🎯 Pipeline (funnel), Employers & Sources.
+- 📋 Job Matches (every scored job, with its technologies and role family), Job Tracker (one row per
+  opportunity, applied, saved or inbound, with the frozen application record), 📈 Application Events, 🎤 Interviews, 💡 Insights, 🎯 Pipeline (funnel), Employers & Sources.
 - 👤 Profile and Application Answers pages — the single source for the scorer, the kit drafter and
   every form filler. Answer a question once and it's reused on every form.
 

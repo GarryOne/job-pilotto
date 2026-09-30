@@ -21,7 +21,7 @@ export const STEPS = [
   // The workspace itself: columns and databases the code needs that it lacks (config/notion_schema.json).
   {name: 'workspace', run: async (storage, fetcher) => {
     const fixed = await schema.repair(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, schema.load(), fetcher);
-    if (!fixed.created.length && !fixed.columns.length) return false;
+    if (!fixed.created.length && !fixed.columns.length && !fixed.renamed?.length) return false;
     storage.saveSettings({notionIds: fixed.ids});
     return true;
   }},

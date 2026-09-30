@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {repair, load} from '../lib/schema.js';
+import {renameFor, repair, load} from '../lib/schema.js';
 
 const SCHEMA = {
   databases: {
@@ -17,7 +17,7 @@ const SCHEMA = {
 };
 
 // A fake Notion holding databases (their columns) and pages.
-function fakeWorkspace(databases, choices = {}) {
+function fakeWorkspace(databases, choices = {}, titles = {}) {
   const calls = [];
   let next = 1;
   const fetcher = async (url, init = {}) => {
@@ -29,7 +29,8 @@ function fakeWorkspace(databases, choices = {}) {
     else if (init.method === 'GET' && route.startsWith('databases/')) {
       const id = route.split('/')[1];
       data = {properties: Object.fromEntries([...databases[id]].map(n => [n, choices[`${id}/${n}`]
-        ? {type: 'select', select: {options: choices[`${id}/${n}`].map(label => ({id: `id-${label}`, name: label}))}} : {}]))};
+        ? {type: 'select', select: {options: choices[`${id}/${n}`].map(label => ({id: `id-${label}`, name: label}))}} : {}])),
+        ...(titles[id] ? {title: [{plain_text: titles[id].title}], description: [{plain_text: titles[id].description || ''}]} : {})};
     }
     else if (init.method === 'POST' && route === 'databases') {
       const id = `db${next++}`;
@@ -37,7 +38,8 @@ function fakeWorkspace(databases, choices = {}) {
       data = {id};
     } else if (init.method === 'PATCH' && route.startsWith('databases/')) {
       const id = route.split('/')[1];
-      for (const [name, prop] of Object.entries(body.properties)) {
+      if (body.title) titles[id] = {title: body.title.map(t => t.text.content).join(''), description: (body.description || []).map(t => t.text.content).join('')};
+      for (const [name, prop] of Object.entries(body.properties || {})) {
         if (prop === null) { databases[id].delete(name); continue; }  // a retired column removed
         if (prop.select && databases[id].has(name)) { choices[`${id}/${name}`] = prop.select.options.map(o => o.name); continue; }
         if (prop.name) { databases[id].delete(name); databases[id].add(prop.name); continue; }
@@ -117,4 +119,41 @@ test('the page to build in: exactly one top-level page shared with the connectio
   assert.equal(await sharedRoot('t', search([page('root-1', {type: 'workspace'}), page('child', {page_id: 'root-1'})])), 'root1');
   assert.equal(await sharedRoot('t', search([page('a', {type: 'workspace'}), page('b', {type: 'workspace'})])), null);
   assert.equal(await sharedRoot('t', search([])), null);
+});
+
+test('a database still called by a former title gets the new title and description, once; a title of your own stays', async () => {
+  const schema = {databases: {APPS: {title: 'Job Tracker', former_titles: ['Applications — Job Tracker'], description: 'One row per opportunity.',
+    columns: {Job: {type: 'title'}}}}, pages: {}};
+  const titles = {apps: {title: '💠 Applications — Job Tracker', description: 'One row per job applied to or saved.'}};
+  const {calls, fetcher} = fakeWorkspace({apps: new Set(['Job'])}, {}, titles);
+  const fixed = await repair('ntn_x', {APPS: 'apps', NOTION_PROFILE_PAGE_ID: 'profile'}, schema, fetcher);
+  assert.deepEqual(fixed.renamed, ['💠 Applications — Job Tracker → Job Tracker']);
+  assert.deepEqual(titles.apps, {title: 'Job Tracker', description: 'One row per opportunity.'});
+  assert.equal(fixed.ids.APPS, 'apps');  // the same database, found by its id: nothing created
+  assert.deepEqual(fixed.created, []);
+  const before = calls.length;
+  const again = await repair('ntn_x', fixed.ids, schema, fetcher);
+  assert.deepEqual(again.renamed, []);
+  assert.ok(!calls.slice(before).some(call => call.startsWith('PATCH')));
+  // Renamed by the user: never touched.
+  const own = {apps: {title: 'My applications'}};
+  const mine = fakeWorkspace({apps: new Set(['Job'])}, {}, own);
+  assert.deepEqual((await repair('ntn_x', {APPS: 'apps', NOTION_PROFILE_PAGE_ID: 'profile'}, schema, mine.fetcher)).renamed, []);
+  assert.equal(own.apps.title, 'My applications');
+});
+
+test('the committed schema renames the old Applications title, and the app still finds a copy that has it', async () => {
+  const committed = load();
+  const apps = committed.databases.NOTION_APPLICATIONS_DB;
+  assert.equal(apps.title, 'Job Tracker');
+  assert.ok(renameFor(apps, 'Applications — Job Tracker'));
+  assert.equal(renameFor(apps, 'Job Tracker'), null);
+  assert.match(apps.description, /^One row per opportunity: applied, saved or inbound\./);
+  const {discover} = await import('../lib/notion.js');
+  const found = (title, id) => ({object: 'database', id, title: [{plain_text: title}], parent: {page_id: 'root'}, last_edited_time: '2026-09-30'});
+  for (const title of ['Applications — Job Tracker', 'Job Tracker']) {
+    const fetcher = async (url, init) => ({ok: true, json: async () => ({has_more: false,
+      results: JSON.parse(init.body).filter.value === 'database' ? [found(title, 'apps-1')] : []})});
+    assert.equal((await discover('t', fetcher)).ids.NOTION_APPLICATIONS_DB, 'apps1', title);
+  }
 });

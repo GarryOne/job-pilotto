@@ -427,9 +427,11 @@ export async function describeJob(storage, pageId, text = '', url = '') {
   return lastJson(stdout, {ok: false, text: 'The description could not be saved to Notion. Try again.'});
 }
 // Settings → Data & backup → "Tidy duplicate events" (src/notion/ledger.py --dedupe-events): the list, or (apply) the trashing.
+// The command line's "(run with --apply)" hint means nothing in the dialog (its button applies): left out there.
+export const tidyText = text => String(text || '').replace(/ \(run with --apply\)/g, '');
 export async function tidyEvents(storage, apply = false) {
   const {code, stdout} = await run(storage, ['src.notion.ledger', '--dedupe-events', ...(apply ? ['--apply'] : [])]);
-  return {ok: code === 0, text: stdout.trim() || 'Notion could not be read. Try again.'};
+  return {ok: code === 0, text: tidyText(stdout.trim()) || 'Notion could not be read. Try again.'};
 }
 // An email the Gmail check placed, or wasn't sure where to place: move it to a job ("new", "none" or a job URL).
 export async function reassignEmail(storage, eventId, target) {

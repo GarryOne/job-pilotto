@@ -15,6 +15,7 @@ import sys
 
 from . import client as notion
 from .ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
+from .origin import INBOUND, origin
 
 PIPELINE_PAGE_ID = os.getenv('NOTION_PIPELINE_PAGE', '')
 HEADING = '📈 Conversion'
@@ -48,8 +49,24 @@ STEPS = [
 ]
 
 
+def row_origin(row, kinds=()):
+    """'inbound' or 'outbound' for an Applications row (src/notion/origin.py), from its Source, Stage and Notes."""
+    props = row.get('properties') or {}
+    return origin(source=plain(props.get('Source')) or '', stage=plain(props.get('Stage')) or '',
+                  notes=plain(props.get('Notes')) or '', kinds=kinds)
+
+
+def inbound_counts(apps):
+    """Opportunities that found you: how many contacted you, and how many of them reached a screening and interviews
+    (the funnel's own step sets, so "screening" means the same on both lines)."""
+    screening, interviews = STEPS[3][1], STEPS[4][1]
+    return {'contacted': len(apps), 'screening': sum(1 for a in apps if a['seen'] & screening),
+            'interviews': sum(1 for a in apps if a['seen'] & interviews)}
+
+
 def reached(tracker):
-    """Per application: the set of stages and event kinds it has reached, and its current Stage."""
+    """Per outbound application (src/notion/origin.py): the set of stages and event kinds it has reached, and its
+    current Stage. Opportunities that found you (inbound) are not in the funnel."""
     rows = tracker.query_database(tracker.database_id, {'or': [
         {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES + PREPARED_STAGES]})
     kinds = {}
@@ -59,8 +76,10 @@ def reached(tracker):
             kinds.setdefault(link['id'].replace('-', ''), set()).add(kind)
     apps = []
     for row in rows:
-        stage = plain(row['properties'].get('Stage'))
-        apps.append({'stage': stage, 'seen': kinds.get(row['id'].replace('-', ''), set()) | {stage}})
+        stage, seen = plain(row['properties'].get('Stage')), kinds.get(row['id'].replace('-', ''), set())
+        if row_origin(row, seen) == INBOUND:
+            continue
+        apps.append({'stage': stage, 'seen': seen | {stage}})
     return apps
 
 

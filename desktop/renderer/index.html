@@ -324,6 +324,10 @@
         <p class="message error" id="questions-error" hidden></p>
         <div id="questions-list"></div>
       </details>
+      <section class="card jobs-talking" id="jobs-talking" hidden>
+        <div class="focus-card-head"><h2>In conversation</h2><span class="muted small" id="jobs-talking-count"></span></div>
+        <ol class="focus-list" id="jobs-talking-list"></ol>
+      </section>
       <div class="toolbar">
         <label class="search-box"><i data-icon="search"></i><input id="filter-text" type="search" placeholder="Search jobs, companies or places, or paste a job link" aria-label="Search jobs"></label>
         <select id="filter-status" aria-label="Show">
@@ -377,6 +381,7 @@
             <div class="focus-card-head"><h2 class="with-glyph"><i data-icon="chart"></i>Application funnel <span class="muted small" title="Each application counts at every step it ever reached, even if it was rejected later: the counts only grow. What's open now: the Jobs boxes.">· ever reached</span></h2>
               <a href="#" class="link small" id="focus-funnel-notion">Open in Notion ↗</a></div>
             <ol class="funnel-steps" id="funnel-steps"></ol>
+            <p class="muted small" id="funnel-inbound" title="Opportunities that found you (a recruiter, a LinkedIn message, a call): counted apart from the funnel, which counts the jobs you went after." hidden></p>
             <p class="muted small" id="funnel-improve" hidden></p>
           </section>
         </div>

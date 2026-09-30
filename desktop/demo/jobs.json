@@ -132,8 +132,30 @@
       "fit": null,
       "reason": "",
       "rank": 92
+    },
+    {
+      "id": null,
+      "code": "",
+      "title": "Platform Engineer",
+      "company": "Alpenglow Logistics",
+      "location": "Zurich",
+      "work_mode": "Hybrid",
+      "url": "https://example.com/lead/9",
+      "posted_at": "",
+      "first_seen_at": "2099-01-01",
+      "status": "saved",
+      "fit": 72,
+      "reason": "",
+      "rank": 0,
+      "notion_url": "",
+      "stage": "Recruiter lead",
+      "source": "LinkedIn",
+      "notes": "Recruiter message (LinkedIn)",
+      "applied_on": "",
+      "via": "Example Talent",
+      "next_step": "Reply to the recruiter"
     }
   ],
-  "total": 214,
+  "total": 215,
   "filtered": 37
 }

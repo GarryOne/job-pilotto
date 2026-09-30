@@ -1,0 +1,19 @@
+{
+  "_comment": "One table for src/notion/origin.py and desktop/renderer/origin.js: both must give these answers (tests/test_origin.py, desktop/test/origin.test.js).",
+  "cases": [
+    {"name": "empty row", "row": {}, "origin": "outbound"},
+    {"name": "unknown source", "row": {"source": "Carrier pigeon", "stage": "Applied"}, "origin": "outbound"},
+    {"name": "applied from the app", "row": {"source": "Job Pilotto app", "stage": "Applied"}, "origin": "outbound"},
+    {"name": "saved from Telegram", "row": {"source": "Telegram", "stage": "Saved"}, "origin": "outbound"},
+    {"name": "manual add", "row": {"source": "Manual", "stage": "Interviewing"}, "origin": "outbound"},
+    {"name": "confirmation email", "row": {"source": "Gmail", "stage": "Applied", "notes": "Tracked from an email: \"Thanks for applying\""}, "origin": "outbound"},
+    {"name": "applied elsewhere, logged from a LinkedIn paste", "row": {"source": "LinkedIn", "stage": "Applied", "notes": "Logged from a paste (LinkedIn). Via Example Talent"}, "origin": "outbound"},
+    {"name": "recruiter lead by email", "row": {"source": "Gmail", "stage": "Recruiter lead"}, "origin": "inbound"},
+    {"name": "recruiter lead logged in Telegram", "row": {"source": "Telegram", "stage": "Recruiter lead", "notes": "Recruiter message (Other)"}, "origin": "inbound"},
+    {"name": "lead moved on to screening", "row": {"source": "Job Pilotto app", "stage": "Screening", "notes": "Recruiter message (Email). Client: fintech"}, "origin": "inbound"},
+    {"name": "a pitch logged on a saved job, now interviewing", "row": {"source": "Job Pilotto app", "stage": "Interviewing", "kinds": ["Applied", "Recruiter lead"]}, "origin": "inbound"},
+    {"name": "first contact on LinkedIn", "row": {"source": "LinkedIn", "stage": "Screening"}, "origin": "inbound"},
+    {"name": "first contact by phone (confirmed)", "row": {"source": "Phone", "stage": "Interview scheduled"}, "origin": "inbound"},
+    {"name": "recruiter lead dismissed", "row": {"source": "LinkedIn", "stage": "Dismissed"}, "origin": "inbound"}
+  ]
+}

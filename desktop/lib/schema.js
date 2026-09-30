@@ -1,12 +1,13 @@
 // The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 // tools/notion_schema.py): a missing column is added, a missing database or page is created next to the
 // Profile page, so a workspace can always be rebuilt from scratch and never drifts from what the code needs.
-// Runs when Notion is connected and at start-up. Nothing is renamed; the only deletions are columns the schema lists
-// as "retired" (a column the code stopped writing, e.g. Cronjob Runs' per-step costs), so every workspace follows.
-// Views aren't in the API.
+// Runs when Notion is connected and at start-up. The only rename is a database still called by one of its schema
+// "former_titles" (e.g. "Applications — Job Tracker" → "Job Tracker"): it gets the schema's title and description, once;
+// a title the user chose is left alone. The only deletions are columns the schema lists as "retired" (a column the
+// code stopped writing, e.g. Cronjob Runs' per-step costs), so every workspace follows. Views aren't in the API.
 import fs from 'node:fs';
 import path from 'node:path';
-import {call} from './notion.js';
+import {call, normalise} from './notion.js';
 import {REPO} from './pipeline.js';
 
 export function load(file = path.join(REPO, 'config', 'notion_schema.json')) {
@@ -27,13 +28,20 @@ export function apiProperty(column, targetId) {
 }
 const PASSES = [type => !['relation', 'rollup', 'formula'].includes(type), type => type === 'relation', type => type === 'rollup', type => type === 'formula'];
 
-// -> {ids (with anything created), created: [titles], columns: ["Database: Column"]}
+// A database still called by a former title: the schema's title and description (null when nothing to do).
+export function renameFor(db, liveTitle) {
+  const former = new Set((db.former_titles || []).map(normalise));
+  if (!liveTitle || !former.has(normalise(liveTitle)) || normalise(liveTitle) === normalise(db.title)) return null;
+  return {title: [{text: {content: db.title}}], ...(db.description ? {description: [{text: {content: db.description}}]} : {})};
+}
+
+// -> {ids (with anything created), created: [titles], columns: ["Database: Column"], renamed: ["Old → New"]}
 // root: the page to build in when the workspace is new (an empty page shared with the connection); else the
 // parent of the Profile page.
 export async function repair(token, ids, schema = load(), fetcher, root = null) {
-  if (!schema || (!ids.NOTION_PROFILE_PAGE_ID && !root)) return {ids, created: [], columns: []};
+  if (!schema || (!ids.NOTION_PROFILE_PAGE_ID && !root)) return {ids, created: [], columns: [], renamed: []};
   const api = (method, route, body) => call(token, method, route, body, fetcher);
-  const out = {ids: {...ids}, created: [], columns: []};
+  const out = {ids: {...ids}, created: [], columns: [], renamed: []};
   const parent = async () => {
     root ||= (await api('GET', `pages/${ids.NOTION_PROFILE_PAGE_ID}`)).parent?.page_id;
     if (!root) throw new Error('The Profile page has no parent page to create the missing parts in');
@@ -44,8 +52,15 @@ export async function repair(token, ids, schema = load(), fetcher, root = null) 
   const have = {}, existing = {};
   for (const [env, db] of Object.entries(schema.databases)) {
     if (out.ids[env]) {
-      existing[env] = (await api('GET', `databases/${out.ids[env]}`)).properties || {};
+      const live = await api('GET', `databases/${out.ids[env]}`);
+      existing[env] = live.properties || {};
       have[env] = new Set(Object.keys(existing[env]));
+      const liveTitle = (live.title || []).map(t => t.plain_text ?? t.text?.content ?? '').join('');
+      const rename = renameFor(db, liveTitle);
+      if (rename) {
+        await api('PATCH', `databases/${out.ids[env]}`, rename);
+        out.renamed.push(`${liveTitle} → ${db.title}`);
+      }
       continue;
     }
     const properties = Object.fromEntries(Object.entries(db.columns).filter(([, c]) => PASSES[0](c.type)).map(([name, c]) => [name, apiProperty(c)]));
