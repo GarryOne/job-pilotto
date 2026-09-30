@@ -9,6 +9,7 @@ import {openSession} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
 import {settingsPage, showServicesNow} from './settings.js';
 import {loadStrategy} from './strategy.js';
+import * as viewHistory from '../view-history.js';
 
 // ---------- app ----------
 // The page (and Settings section) open now, kept for a reload (⌘R): the app comes back where it was.
@@ -17,7 +18,10 @@ export const remembered = (key, value) => {
   try { if (value === undefined) return sessionStorage.getItem(key); sessionStorage.setItem(key, value); } catch {}
   return null;
 };
-export function openView(name) {
+// Back / forward (⌘← ⌘→, ⌘[ ⌘], the mouse's side buttons): every screen opened through here, in order.
+let history = viewHistory.start(null);
+export function openView(name, {fromHistory = false} = {}) {
+  if (!fromHistory) history = viewHistory.visit(history, name);
   remembered('view', name);
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
@@ -66,7 +70,23 @@ function paletteCommands() {
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
+function go(way) {
+  const step = way === 'back' ? viewHistory.back(history) : viewHistory.forward(history);
+  if (!step.name) return;
+  history = step.history;
+  openView(step.name, {fromHistory: true});
+}
+const editable = target => !!target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"], .xterm');
+
 export async function init() {
+  const mac = /Mac/.test(navigator.platform);
+  document.addEventListener('keydown', event => {
+    const way = viewHistory.navKey(event, {mac, editable: editable(event.target)});
+    if (way) { event.preventDefault(); go(way); }
+  });
+  document.addEventListener('mouseup', event => {  // the mouse's side buttons: 3 back, 4 forward
+    if (event.button === 3 || event.button === 4) { event.preventDefault(); go(event.button === 3 ? 'back' : 'forward'); }
+  });
   document.querySelectorAll('.nav').forEach(nav => {
     nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
     nav.addEventListener('click', () => {
