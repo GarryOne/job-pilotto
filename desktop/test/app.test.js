@@ -596,7 +596,8 @@ test('the window is one module per page, and every import between them resolves'
 
 test('Claude in Chrome: found in any Chrome profile, false when Chrome or the extension is missing', async () => {
   const {claudeInChrome, CLAUDE_IN_CHROME} = await import('../lib/apply.js');
-  const fsTree = {'/c': ['Default', 'Profile 1', 'Local State'], '/c/Default/Extensions': ['abc'], '/c/Profile 1/Extensions': [CLAUDE_IN_CHROME]};
+  const {join} = await import('node:path');  // the platform's separators (the Windows run uses backslashes)
+  const fsTree = {'/c': ['Default', 'Profile 1', 'Local State'], [join('/c', 'Default', 'Extensions')]: ['abc'], [join('/c', 'Profile 1', 'Extensions')]: [CLAUDE_IN_CHROME]};
   const list = dir => { if (!fsTree[dir]) throw new Error('ENOENT'); return fsTree[dir]; };
   assert.equal(claudeInChrome('/c', list), true);
   assert.equal(claudeInChrome('/c', dir => (dir === '/c' ? ['Default'] : list(dir))), false);
