@@ -53,7 +53,8 @@ class SharedPaceTest(unittest.TestCase):
 
     def test_a_request_waits_for_its_turn(self):
         waits = []
-        with mock.patch.object(pace, 'clock', lambda: 1000.0):  # a fixed clock: exactly one turn to wait
+        # GitHub runs set JOB_PILOTTO_NOTION_GAP_MS=700 (daily.yml): this test checks the default gap.
+        with mock.patch.object(pace, 'clock', lambda: 1000.0), mock.patch.object(pace, 'GAP_MS', 340):  # a fixed clock: exactly one turn to wait
             pace.claim(self.token)
             pace.wait_turn(self.token, waits.append)
         self.assertEqual(waits, [0.34])

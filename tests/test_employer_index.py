@@ -121,8 +121,10 @@ class RelevantTest(unittest.TestCase):
         self.assertEqual(employer_index.relevant(index, feeds.wanted_location)[1]['company'], 'Old')  # the real matcher
 
     def test_daily_uses_the_filter_unless_asked_for_everything(self):
-        from src import daily
+        from src import daily, features
         index = [{'company': 'Zh', 'ats': 'lever', 'slug': 'zh', 'places': ['Nowhere-land']}]
+        # The run's own switches (JOB_PILOTTO_DISABLE, keys present) must not decide this test.
+        self.enterContext(mock.patch.object(features, 'disabled', lambda name: False))
         with mock.patch.object(employer_index, 'load', return_value=index), \
                 mock.patch.dict('os.environ', {'JOB_PILOTTO_INDEX_ALL': ''}):
             self.assertEqual(daily.downloaded_index(), [])
