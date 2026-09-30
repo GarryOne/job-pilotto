@@ -341,6 +341,14 @@ class WaitingForYouTests(unittest.TestCase):
         items = focus.build([row_], events, target=0, now=NOW)['items']
         self.assertEqual(len([i for i in items if i['kind'] == 'book']), 1)
 
+    def test_a_waiting_confirmation_does_not_hide_the_preparation_for_the_interview(self):
+        row_ = row('h1', '', 'Principal SRE', stage='Interview scheduled', Via='Huxley', interview='2026-10-01T08:30:00+02:00',
+                   Salary='EUR 100-150k')
+        events = [event('h1', 'Reply received', '2026-09-30T07:16:00Z', note='Recruiter asks you to confirm the meeting time', source_id='m')]
+        kinds = [i['kind'] for i in focus.build([row_], events, target=0, now=NOW)['items']]
+        self.assertIn('reply', kinds)
+        self.assertIn('prepare', kinds)
+
     def test_a_real_later_event_still_clears_it(self):
         row_ = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent')
         events = [event('a1', 'Reply received', '2026-09-29T08:41:00Z', note='Recruiter sent a booking calendar'),

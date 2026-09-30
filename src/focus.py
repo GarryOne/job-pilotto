@@ -392,7 +392,11 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    detail, row, link,
                                    'Open email' if 'mail.google' in link else 'Open LinkedIn' if 'linkedin' in link else '', done=True,
                                    lead=last['kind'] == 'Recruiter lead'))
-            continue
+            # An interview still ahead keeps its own "Prepare" item next to the answer that is waiting (the recruiter
+            # asking you to confirm the time must not hide the preparation for it).
+            upcoming = _when(_field(row, 'Next interview'))
+            if not (upcoming and upcoming > now and last['kind'] != 'Offer'):
+                continue
         coming = _when(_field(row, 'Next interview'))
         if coming and coming > now:
             hours = (coming - now).total_seconds() / 3600
