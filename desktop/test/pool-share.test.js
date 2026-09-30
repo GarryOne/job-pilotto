@@ -75,3 +75,12 @@ test('Always on follows the switch: variables set when on, removed when off', as
   assert.ok(calls.some(c => c.includes('/actions/variables')), calls.join('\n'));
   assert.ok(!calls.some(c => c.startsWith('DELETE') && c.includes('JOB_PILOTTO_SHARE_EMPLOYERS')));
 });
+
+test('the first screen of setup says, in one plain sentence, that employer pages are shared and where to switch it off', () => {
+  const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
+  const start = html.indexOf('<div class="step" data-step="welcome">');
+  const welcome = html.slice(start, html.indexOf('<div class="step" data-step="ai">', start));
+  assert.match(welcome, /shares which employer career pages you use/);
+  assert.match(welcome, /Turn either off any time in\s+Settings → Advanced/);
+  assert.match(welcome, /Never your answers, CV, emails or names/);
+});
