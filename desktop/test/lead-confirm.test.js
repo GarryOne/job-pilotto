@@ -197,3 +197,60 @@ test('demo mode: "which" asks the job first; picking one proposes it without the
   assert.equal(demo.leadProposal('', 'which').fields.job.candidates.length, 2);
   assert.equal(demo.leadProposal('https://demo.example/jobs/1', 'which').fields.job, undefined);
 });
+
+// Laelaps AI (30 Sep 2026): applied on TechTree 26 Sep as an Outbound manual add; the LinkedIn chat began 11 Sep.
+const laelaps = {new: false, stage: 'Rejected', label: 'Laelaps AI — Infrastructure Engineer', first_known: '2026-09-26T15:00:00+00:00',
+  current: {Origin: 'Outbound', Source: 'Manual', 'Reached via': '', Stage: 'Rejected'}, fields: {
+    kind: {value: 'Update on this job', state: 'ok'}, channel: {value: 'LinkedIn', state: 'ok', guess: 'LinkedIn'},
+    started: {value: '2026-09-11', state: 'ok'},
+    origin: {value: '', state: 'ask', required: false, question: 'Who reached out first?', current: 'Outbound', first_known: '2026-09-26T15:00:00+00:00'}}};
+
+test('who reached out first is asked only once the day you confirmed is before the first contact', () => {
+  const state = lead.initial(laelaps);
+  assert.deepEqual(lead.pending(laelaps, state).map(p => `${p.name}:${p.why}`), ['origin:empty']);
+  assert.equal(lead.originShown(laelaps, state), true);
+  const later = lead.set(state, 'started', '2026-09-28');  // after the application: nothing to ask
+  assert.equal(lead.originShown(laelaps, later), false);
+  assert.deepEqual(lead.pending(laelaps, later), []);
+  const unknown = lead.set(state, 'started', '');  // the year isn't answered yet: not asked yet
+  assert.equal(lead.originShown(laelaps, unknown), false);
+  assert.deepEqual(lead.pending(laelaps, lead.set(state, 'origin', 'inbound')), []);
+});
+
+test('your answer goes to the engine only when the question was shown', () => {
+  const answered = lead.set(lead.initial(laelaps), 'origin', 'inbound');
+  assert.equal(lead.confirmed(laelaps, answered).origin, 'inbound');
+  assert.equal('origin' in lead.confirmed(laelaps, lead.set(answered, 'started', '2026-09-28')), false);
+  assert.equal('origin' in lead.confirmed({...laelaps, fields: {...laelaps.fields, origin: undefined}}, lead.initial(laelaps)), false);
+});
+
+test('the "This will change" box lists only values a save replaces, with the funnel effect of Origin', () => {
+  const inbound = lead.set(lead.initial(laelaps), 'origin', 'inbound');
+  assert.deepEqual(lead.changes(laelaps, inbound).map(c => `${c.name}: ${c.from} → ${c.to}`),
+    ['Origin: Outbound → Inbound', 'Source: Manual → LinkedIn']);
+  assert.match(lead.changes(laelaps, inbound)[0].note, /application funnel/);
+  assert.deepEqual(lead.changes(laelaps, lead.set(lead.initial(laelaps), 'origin', 'outbound')).map(c => c.name), ['Source']);
+  assert.deepEqual(lead.changes(laelaps, lead.set(inbound, 'started', '2026-09-28')), []);  // a later conversation changes neither
+  assert.deepEqual(lead.changes({...laelaps, current: {...laelaps.current, Source: 'LinkedIn'}}, lead.set(lead.initial(laelaps), 'origin', 'outbound')), []);
+  assert.deepEqual(lead.changes({...chat}, lead.initial(chat)), []);  // a new job replaces nothing
+});
+
+test('a stage a save moves the job to is listed too', () => {
+  const applied = {...laelaps, current: {...laelaps.current, Stage: 'Applied'}, stage: 'Applied'};
+  const rejected = lead.set(lead.set(lead.initial(applied), 'kind', 'Rejected'), 'started', '2026-09-28');
+  assert.deepEqual(lead.changes(applied, rejected).map(c => `${c.name}: ${c.from} → ${c.to}`), ['Stage: Applied → Rejected']);
+});
+
+test('the answer to who reached out first is sent as --origin', async () => {
+  const {confirmedArgs} = await import('../lib/pipeline.js');
+  assert.deepEqual(confirmedArgs({channel: 'LinkedIn', started: '2026-09-11', firstContact: null, origin: 'inbound'}),
+    ['--channel', 'LinkedIn', '--started', '2026-09-11', '--origin', 'inbound']);
+  assert.equal(confirmedArgs({channel: 'LinkedIn', started: '2026-09-11', firstContact: null}).includes('--origin'), false);
+});
+
+test('the question says which two days it compares, in short form', () => {
+  const state = lead.initial(laelaps);
+  assert.equal(lead.originHint(laelaps.fields.origin, state),
+    "Your conversation on LinkedIn (11 Sep) came before this job's first contact (26 Sep). If they wrote first, it counts as inbound.");
+  assert.match(lead.originHint(laelaps.fields.origin, lead.set(state, 'origin', 'inbound')), /Counted as inbound\.$/);
+});

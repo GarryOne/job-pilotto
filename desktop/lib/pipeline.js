@@ -135,9 +135,9 @@ export async function jobs(storage) {
 
 // A job applied to elsewhere: Applications row (Applied, with the date), the event, the frozen record, a Gmail
 // check, and the job in the Jobs list as Applied. Waits for it, so the list can refresh; returns its one line.
-// details: {title, company, text} for pages that aren't read (LinkedIn…); the AI stages then score it like a found job.
+// details: {title, company, text, origin} (origin: 'inbound' when a recruiter or company wrote first) for pages that aren't read (LinkedIn…); the AI stages then score it like a found job.
 export async function addApplied(storage, url, when = '', onLine = () => {}, details = {}) {
-  const inputs = {mode: 'add', job: url, note: when, jobTitle: details.title, jobCompany: details.company, jobText: details.text};
+  const inputs = {mode: 'add', job: url, note: when, jobTitle: details.title, jobCompany: details.company, jobText: details.text, origin: details.origin};
   const {code, stdout} = await run(storage, dailyArgs(storage, inputs), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const text = readable(line);
@@ -156,7 +156,7 @@ export function confirmedArgs(confirmed = {}) {
     ...flag('--started', c.started), ...flag('--interview-at', c.interview), ...flag('--last-at', c.lastAt),
     ...(typeof c.company === 'string' ? ['--company', c.company] : []), ...(typeof c.agency === 'string' ? ['--agency', c.agency] : []),
     ...(typeof c.firstContact === 'boolean' ? ['--first-contact', c.firstContact ? 'yes' : 'no'] : []),
-    ...(typeof c.agreed === 'boolean' ? ['--agreed', c.agreed ? 'yes' : 'no'] : [])];
+    ...(typeof c.agreed === 'boolean' ? ['--agreed', c.agreed ? 'yes' : 'no'] : []), ...flag('--origin', c.origin)];
 }
 // Two steps, so nothing reaches Notion before you confirmed where the conversation is from and when it started:
 // proposeLead reads it (the one AI call) and says what it would log; addLead with {reading, confirmed} writes it.
@@ -206,6 +206,7 @@ export function dailyArgs(storage, inputs = {}) {
   if (inputs.seed) args.push('--seed', String(inputs.seed));
   if (inputs.file) args.push('--file', String(inputs.file));
   if (inputs.note) args.push('--note', String(inputs.note));
+  if (inputs.origin) args.push('--origin', String(inputs.origin));
   if (inputs.interview) args.push('--interview', String(inputs.interview));
   if (ai && ['scheduled', 'run', 'today'].includes(mode)) args.push('--enrich-max', '100', '--score-max', '60');
   const {insights, kits} = cadence(storage.settings());

@@ -1258,6 +1258,10 @@
     <label for="applied-when">When you applied</label>
     <input id="applied-when" type="date" required>
     <label class="radio"><input type="checkbox" id="applied-approx"><span>Not sure of the day: on or before this date</span></label>
+    <label id="applied-origin-label">How did this job come to you?</label>
+    <div class="segmented is-fill" id="applied-origin" role="radiogroup" aria-labelledby="applied-origin-label">
+      <button type="button" data-origin="outbound" class="is-active">I found it and applied</button><button type="button" data-origin="inbound">A recruiter or company wrote first</button></div>
+    <p class="muted small field-hint">A job someone brought you counts in the inbound funnel, not in your application funnel.</p>
     <p class="message" id="applied-message"></p>
     <div class="actions">
       <button class="ghost" value="cancel" formnovalidate>Close</button>
@@ -1471,6 +1475,12 @@
         <div class="segmented is-fill" id="lead-years" role="radiogroup" aria-label="Which year?" hidden></div>
         <input type="date" id="lead-started" class="lead-date">
         <p class="muted small field-hint" id="lead-started-hint"></p></div>
+      <!-- Who reached out first? Only for a tracked Outbound job, once the start you confirmed is before its first contact. -->
+      <div class="lead-field" data-field="origin">
+        <div class="lead-field-head"><label id="lead-origin-label">Who reached out first?</label><span class="lead-flag"></span></div>
+        <div class="segmented is-fill" id="lead-origin" role="radiogroup" aria-labelledby="lead-origin-label">
+          <button type="button" data-origin="inbound">They wrote to me first</button><button type="button" data-origin="outbound">I reached out first</button></div>
+        <p class="muted small field-hint" id="lead-origin-hint"></p></div>
       <!-- Did you agree to talk? Only when the conversation leaves it unclear (asked), or shows it (pre-filled). -->
       <div class="lead-field" data-field="agree">
         <div class="lead-field-head"><label id="lead-agree-label">Did you agree to talk to the recruiter?</label><span class="lead-flag"></span></div>
@@ -1482,7 +1492,7 @@
         <input type="datetime-local" id="lead-interview" class="lead-date">
         <p class="muted small field-hint" id="lead-interview-hint"></p></div>
       <div class="lead-field" data-field="last">
-        <div class="lead-field-head"><label for="lead-last" id="lead-last-label">When was the last message?</label><span class="lead-flag"></span></div>
+        <div class="lead-field-head"><label for="lead-last" id="lead-last-label">Last message in this conversation</label><span class="lead-flag"></span></div>
         <input type="date" id="lead-last" class="lead-date">
         <p class="muted small field-hint" id="lead-last-hint"></p></div>
       <div class="lead-pair" id="lead-pair-box">
@@ -1498,6 +1508,10 @@
         <div class="segmented is-fill" id="lead-first" role="radiogroup" aria-label="Is this the first contact about this job?">
           <button type="button" data-first="yes">Yes, it started here</button><button type="button" data-first="no">No, it started elsewhere</button></div>
         <p class="muted small field-hint" id="lead-first-hint"></p></div>
+      <!-- What saving replaces on this tracked job (Origin, Source, Stage), before → after. -->
+      <div class="lead-changes" id="lead-changes" hidden>
+        <strong>This will change</strong>
+        <ul id="lead-changes-list"></ul></div>
     </div>
     <p class="message" id="lead-message"></p>
     <div class="alert" id="lead-result" hidden>

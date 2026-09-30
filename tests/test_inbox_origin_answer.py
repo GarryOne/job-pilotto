@@ -46,6 +46,7 @@ class AskedTests(unittest.TestCase):
     def test_the_row_as_it_is_now_comes_with_the_proposal_for_the_will_change_box(self):
         proposal = inbox.propose(tracker_for(laelaps()), image=SHOT, client=Client(conversation()), now=NOW)
         self.assertEqual(proposal['current'], {'Origin': 'Outbound', 'Source': 'Manual', 'Reached via': '', 'Stage': 'Rejected'})
+        self.assertEqual(proposal['first_known'][:10], '2026-09-26')  # the box compares the conversation's start with it
 
     def test_not_asked_for_a_new_job_an_inbound_job_or_nothing_known(self):
         new = inbox.propose(Writes(), image=SHOT, client=Client(chat(when='2026-09-11T10:00:00+00:00')), now=NOW)
@@ -106,6 +107,15 @@ class StageChangeIsSaidTests(unittest.TestCase):
         proposal = inbox.propose(tracker, image=SHOT, client=Client(conversation(kind='Rejected')), now=NOW)
         line = inbox.log(tracker, image=SHOT, now=NOW, proposal=inbox.confirm(proposal, channel='LinkedIn', started='2026-09-28', kind='Rejected'))
         self.assertIn('Changed: Stage Applied → Rejected', line)
+
+    def test_a_kind_that_moves_nothing_is_not_reported_as_a_stage_change(self):
+        # "Interview scheduled" on a job already Interviewing: the stage stays (forward only), so nothing is said.
+        page = laelaps(stage='Interviewing')
+        tracker = tracker_for(page)
+        proposal = inbox.propose(tracker, image=SHOT, client=Client(conversation(kind='Interview scheduled')), now=NOW)
+        line = inbox.log(tracker, image=SHOT, now=NOW, proposal=inbox.confirm(
+            proposal, channel='LinkedIn', started='2026-09-28', kind='Interview scheduled', interview_at='2026-10-03T15:00'))
+        self.assertNotIn('Changed: Stage', line)
 
 
 if __name__ == '__main__':

@@ -69,7 +69,7 @@ export const pipelineAllowed = args => LOCAL.some(prefix => args.join(' ').start
 // recruiter pitch whose reply leaves open whether you agreed to talk (asked: "Did you agree to talk to the recruiter?");
 // =which a message Claude couldn't place among two jobs from the same agency (asked: "Which job is this?").
 export function leadProposal(target = '', kind = process.env.JOB_PILOTTO_DEMO_LEAD) {
-  const existing = kind === 'existing' || (target && target !== 'new');
+  const existing = kind === 'existing' || kind === 'origin' || (target && target !== 'new');
   const kinds = ['Recruiter outreach', 'Applied', 'Confirmation received', 'Reply received', 'Interview scheduled', 'Rejected', 'Offer', 'Feedback received'];
   const fields = {
     kind: {value: 'Interview scheduled', state: 'check', options: kinds},
@@ -83,6 +83,13 @@ export function leadProposal(target = '', kind = process.env.JOB_PILOTTO_DEMO_LE
       {url: 'https://demo.example/jobs/1', label: 'Example Talent · Senior SRE', stage: 'Recruiter lead'},
       {url: 'https://demo.example/jobs/2', label: 'Example Talent · Platform Engineer', stage: 'Applied'}]}} : {}),
   };
+  if (kind === 'origin') {  // a tracked Outbound job whose LinkedIn chat began before its first contact (asks who reached out first)
+    const first = '2026-09-26T15:00:00+00:00';
+    return {ok: true, kind: 'Update on this job', new: false, stage: 'Rejected', label: 'Northwind AI — Platform Engineer', first_known: first,
+      current: {Origin: 'Outbound', Source: 'Manual', 'Reached via': '', Stage: 'Rejected'}, item: {platform: 'LinkedIn', summary: 'Fictional demo reading'}, job: null, stats: {},
+      fields: {kind: {value: 'Update on this job', state: 'ok', options: ['Update on this job', ...kinds]}, channel: {value: 'LinkedIn', state: 'ok', guess: 'LinkedIn'},
+        started: {value: '2026-09-11', state: 'ok'}, origin: {value: '', state: 'ask', required: false, question: 'Who reached out first?', current: 'Outbound', first_known: first}}};
+  }
   return {ok: true, kind: 'Interview scheduled', new: !existing, stage: existing ? 'Applied' : '',
     label: existing ? 'Northwind AI — Platform Engineer' : 'Example Robotics — Senior SRE',
     item: {platform: 'LinkedIn', summary: 'Fictional demo reading'}, job: null, fields, stats: {}};

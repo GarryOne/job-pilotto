@@ -11,7 +11,15 @@ export const KIND_LABEL = {'Update on this job': 'Update on this job (already tr
   'Interview scheduled': 'A call or interview booked', Rejected: 'Rejected', Offer: 'Offer', 'Feedback received': 'Feedback'};
 // Applications "Source" when this contact is where the job started (src/ai/opportunity.py CHANNEL_SOURCE).
 const SOURCE = {LinkedIn: 'LinkedIn', Email: 'Gmail', Phone: 'Phone'};
-const ORDER = ['kind', 'channel', 'started', 'agree', 'interview', 'last', 'company', 'agency'];
+const ORDER = ['kind', 'channel', 'started', 'origin', 'agree', 'interview', 'last', 'company', 'agency'];
+const day = value => String(value || '').slice(0, 10);
+
+// "Who reached out first?" (src/ai/inbox.py fields() 'origin'): asked for a tracked Outbound job, but shown only once
+// the day you confirmed for the conversation's start is before the job's first known contact.
+export const originShown = (proposal = {}, state = {}) => {
+  const field = proposal.fields?.origin;
+  return !!field && !!state.values?.started && day(state.values.started) < day(field.first_known);
+};
 
 // The form's starting state: values as read, "ok" fields already confirmed; first contact: yes for a new job.
 export function initial(proposal = {}) {
@@ -31,6 +39,7 @@ const required = (proposal, state, name) => {
   const field = proposal.fields?.[name];
   if (!field) return false;
   if (name === 'interview') return state.values.kind === 'Interview scheduled';  // follows the kind you chose
+  if (name === 'origin') return originShown(proposal, state);
   return field.required !== false;
 };
 
@@ -44,7 +53,7 @@ export function pending(proposal = {}, state, today = '') {
   const out = [];
   for (const name of ORDER) {
     const field = proposal.fields?.[name];
-    if (!field) continue;
+    if (!field || (name === 'origin' && !originShown(proposal, state))) continue;
     const value = state.values[name];
     if (required(proposal, state, name) && !value) out.push({name, why: 'empty'});
     else if (field.state === 'check' && !state.confirmed.includes(name)) out.push({name, why: 'check'});
@@ -92,6 +101,40 @@ export function agreeHint(field = {}, value = '', isNew = false) {
   return "Your reply doesn't say it clearly. Yes moves the job to Screening.";
 }
 
+// Under "Who reached out first?": why it is asked, and what each answer means.
+const shortDay = value => { const [y, m, d] = day(value).split('-').map(Number); return y ? `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]}` : ''; };
+export function originHint(field = {}, state = {}) {
+  const channel = CHANNEL_LABEL[state.values?.channel] || 'this channel';
+  const first = `Your conversation on ${channel} (${shortDay(state.values?.started)}) came before this job's first contact (${shortDay(field.first_known)}).`;
+  if (state.values?.origin === 'inbound') return `${first} Counted as inbound.`;
+  if (state.values?.origin === 'outbound') return `${first} Stays in your application funnel.`;
+  return `${first} If they wrote first, it counts as inbound.`;
+}
+
+// The outcomes a save always applies to a tracked job's Stage (src/ai/mail.py _stage_for: a terminal kind moves any job
+// that isn't already Rejected, Withdrawn or Offer). Other kinds move a stage only forward: not promised here.
+const TERMINAL_KIND = new Set(['Rejected', 'Offer']);
+const TERMINAL_STAGE = new Set(['Rejected', 'Withdrawn', 'Offer']);
+
+// "This will change": the values of a tracked job a save would replace, {name, from, to, note}: Origin (your answer),
+// Source (the conversation is where it started: src/ai/opportunity.py first_contact_changes) and Stage. Never what it
+// only adds (a salary, the description) and nothing for a new job.
+export function changes(proposal = {}, state = {}) {
+  const now = proposal.current || {}, v = state.values || {}, out = [];
+  if (proposal.new || !Object.keys(now).length) return out;
+  const earlier = !!v.started && !!proposal.first_known && day(v.started) < day(proposal.first_known);
+  if (earlier && originShown(proposal, state) && v.origin === 'inbound' && now.Origin === 'Outbound') {
+    out.push({name: 'Origin', from: 'Outbound', to: 'Inbound', note: 'Leaves your application funnel and joins the inbound funnel.'});
+  }
+  const source = SOURCE[v.channel], was = now.Source;
+  const wasChannel = Object.keys(SOURCE).find(channel => SOURCE[channel] === was);
+  if (earlier && source && was && wasChannel !== v.channel) out.push({name: 'Source', from: was, to: source, note: ''});
+  if (TERMINAL_KIND.has(v.kind) && now.Stage && !TERMINAL_STAGE.has(now.Stage) && now.Stage !== v.kind) {
+    out.push({name: 'Stage', from: now.Stage, to: v.kind, note: ''});
+  }
+  return out;
+}
+
 export function firstHint(channel, first, other = '') {
   if (first === 'no') return 'Its Source stays how you added it; this is logged as a later contact.';
   const source = SOURCE[channel];
@@ -136,12 +179,13 @@ export function found(proposal = {}) {
 }
 
 // What goes to the engine (src/daily.py --kind, --channel, --started, --interview-at, --company, --agency,
-// --first-contact, --agreed). firstContact: null for a job already tracked (the earliest-contact rule decides its Source);
+// --first-contact, --agreed, --origin). firstContact: null for a job already tracked (the earliest-contact rule decides its Source);
 // agreed only when the question was there.
 export function confirmed(proposal = {}, state) {
   const v = state.values, has = name => !!proposal.fields?.[name];
   return {kind: v.kind, channel: v.channel, other: v.channel === 'Other' ? String(state.other || '').trim().slice(0, 40) : '',
     started: v.started, interview: has('interview') ? v.interview || '' : '', ...(has('last') ? {lastAt: v.last || ''} : {}),
     ...(has('company') ? {company: String(v.company || '').trim()} : {}), ...(has('agency') ? {agency: String(v.agency || '').trim()} : {}),
-    firstContact: proposal.new ? state.first !== 'no' : null, ...(has('agree') ? {agreed: v.agree === 'yes'} : {})};
+    firstContact: proposal.new ? state.first !== 'no' : null, ...(has('agree') ? {agreed: v.agree === 'yes'} : {}),
+    ...(originShown(proposal, state) ? {origin: v.origin} : {})};
 }

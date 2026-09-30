@@ -87,6 +87,9 @@ test('Telegram actions run the same pipeline command as the GitHub workflow', ()
   // A screenshot for a job you picked.
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'add', file: '/tmp/shot.png', target: 'https://x.test/1'}),
     ['src', 'daily', '--mode', 'add', '--send', '--log-run', '--target', 'https://x.test/1', '--file', '/tmp/shot.png']);
+  // Applied elsewhere: who reached out first (a recruiter wrote first = inbound) goes along.
+  assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'add', job: 'https://x.test/1', note: '2026-09-23', origin: 'inbound'}),
+    ['src', 'daily', '--mode', 'add', '--send', '--log-run', '--job', 'https://x.test/1', '--action', 'applied', '--note', '2026-09-23', '--origin', 'inbound']);
 });
 
 test('pairing waits for Start in a private chat, then greets the user', async () => {

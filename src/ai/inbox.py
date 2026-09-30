@@ -710,6 +710,7 @@ def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, s
         found = {'job': {'value': '', 'state': 'ask', 'question': 'Which job is this?',
                          'candidates': [_job_choice(jobs[i]) for i in unsure]}, **found}
     return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': stage, 'target': target, 'current': current,
+            'first_known': first_known.isoformat() if first_known else '',
             'label': ' — '.join(p for p in (shown.get('company') or shown.get('recruiter_company'), opportunity.title(shown)) if p),
             'fields': found}
 
@@ -926,8 +927,10 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'
     noted = _last_message(tracker, row, item, event_source, kind)
-    if changed and not created and stage and changed != stage:
-        changes.append(f'Stage {stage} → {changed}')
+    if changed and not created and stage:  # the stage the job really has now (a kind that moved nothing changes nothing)
+        after = plain(((_row_for(tracker, url) or row)['properties']).get('Stage'))
+        if after and after != stage:
+            changes.append(f'Stage {stage} → {after}')
     said = f" Changed: {'; '.join(changes)}." if changes else ''
     if not changed and filled:
         _keep(tracker, row, text, image, summary, when, _channel_named(item), check, changes)

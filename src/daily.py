@@ -290,6 +290,8 @@ def main():
     parser.add_argument('--from-app', action='store_true', help='add mode: logged in the Desktop App (Source "Job Pilotto app", even with --send)')
     parser.add_argument('--first-contact', choices=('yes', 'no'), default=None,
                         help='add mode, a new job: this was the first contact about it (its Source follows the channel)')
+    parser.add_argument('--origin', choices=('inbound', 'outbound'), default=None,
+                        help='add mode, a tracked job: who reached out first, as you answered it (inbound: they did)')
     parser.add_argument('--agreed', choices=('yes', 'no'), default=None,
                         help='add mode: your answer to "Did you agree to talk to the recruiter?" (yes: Screening)')
     parser.add_argument('--log-run', action='store_true',
@@ -365,7 +367,7 @@ def main():
                                          other=args.channel_other, interview_at=args.interview_at, company=args.company,
                                          agency=args.agency, last_at=args.last_at,
                                          first_contact=None if args.first_contact is None else args.first_contact == 'yes',
-                                         agreed=None if args.agreed is None else args.agreed == 'yes')
+                                         agreed=None if args.agreed is None else args.agreed == 'yes', origin=args.origin)
             reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
                                      event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',
                                      talking=args.action == 'talking', stats=run['mail'], target=args.target,
@@ -407,7 +409,7 @@ def main():
                 except Exception as error:  # noqa: BLE001
                     print(f'Warning: AI stages skipped: {type(error).__name__}: {error}')
                 reply = '📥 ' + escape(ledger.add_application(tracker, args.job, applied=applied, approx=approx,
-                                                              source='Telegram', meta=meta, found=found))
+                                                              source='Telegram', meta=meta, found=found, origin=args.origin))
                 if fit:
                     reply += f' · {escape(fit)}'
                 if ledger.no_fetch(args.job) and not meta.get('description'):

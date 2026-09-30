@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Outbound or inbound: did you go after this opportunity, or did it find you? The Applications row's own Origin column
 (select Inbound / Outbound) says it: a fact set once when the row is created (stamp(), by every path that creates a
-row), which you can change by hand in Notion (e.g. a job you had saved before a recruiter wrote about it). The same
+row), which you can change by hand in Notion, or answer in the app's Log job activity ("Who reached out first?", when the
+conversation began before the job's first contact: src/ai/inbox.py) (e.g. a job you had saved before a recruiter wrote about it). The same
 reading here and in the desktop app (desktop/renderer/origin.js); both are checked against one table,
 tests/fixtures/opportunity_origin.json, so they cannot drift.
 

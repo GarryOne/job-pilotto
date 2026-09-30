@@ -79,6 +79,12 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .lead-field.is-check, .lead-field.is-ask { border-color: var(--warn-line); background: var(--warn-soft); }
 .lead-flag { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .lead-pair[hidden] { display: none; }
+/* "This will change": the values a save replaces on a tracked job, before → after. */
+.lead-changes { margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.lead-changes[hidden] { display: none; }
+.lead-changes ul { margin: var(--sp-1) 0 0; padding: 0; list-style: none; display: grid; gap: var(--sp-1); font-size: var(--fs-md); }
+.lead-changes li b { font-weight: 600; }
+.lead-changes li .muted { display: block; }
 #lead-confirm .lead-found { margin-bottom: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
 .lead-found > .lead-flag { margin-left: auto; flex: none; }
 .lead-found[hidden] { display: none; }

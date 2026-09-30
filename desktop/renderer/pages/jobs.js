@@ -495,8 +495,8 @@ function renderConfirm() {
     }
     if (choosing) { box.hidden = true; return; }
     if (name === 'first') { box.hidden = !leadProposal.new; return; }
-    box.hidden = !field;
-    if (!field) return;
+    box.hidden = !field || (name === 'origin' && !confirmStep.originShown(leadProposal, leadState));
+    if (box.hidden) return;
     const waiting = left.find(item => item.name === name);
     box.classList.toggle('is-check', waiting?.why === 'check');
     box.classList.toggle('is-ask', !!waiting && waiting.why !== 'check');
@@ -518,6 +518,19 @@ function renderConfirm() {
   $('lead-interview-hint').textContent = said + (v.kind === 'Interview scheduled' ? 'A booked call needs its date and time.'
     : 'Leave empty if no time is fixed yet.');
   if (fields.last) $('lead-last-hint').textContent = confirmStep.lastHint(fields.last, v.last);
+  if (fields.origin) {
+    $('lead-origin').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.origin === v.origin));
+    $('lead-origin-hint').textContent = confirmStep.originHint(fields.origin, leadState);
+  }
+  const changing = confirmStep.changes(leadProposal, leadState);
+  $('lead-changes').hidden = !changing.length;
+  $('lead-changes-list').replaceChildren(...changing.map(change => {
+    const item = document.createElement('li');
+    const what = Object.assign(document.createElement('b'), {textContent: change.name});
+    item.append(what, ` ${change.from} → ${change.to}`);
+    if (change.note) item.append(Object.assign(document.createElement('span'), {className: 'muted small', textContent: change.note}));
+    return item;
+  }));
   $('lead-agree').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.agree === v.agree));
   if (fields.agree) $('lead-agree-hint').textContent = confirmStep.agreeHint(fields.agree, v.agree, leadProposal.new);
   $('lead-first').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.first === leadState.first));
@@ -741,6 +754,9 @@ export async function init() {
     renderJobs();
   }));
   // Applied elsewhere: tracked in Notion like /add, then shown in the list as Applied.
+  const setAppliedOrigin = value => $('applied-origin').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.origin === value));
+  const appliedOrigin = () => $('applied-origin').querySelector('.is-active')?.dataset.origin || 'outbound';
+  $('applied-origin').addEventListener('click', event => { const b = event.target.closest('[data-origin]'); if (b) setAppliedOrigin(b.dataset.origin); });
   $('applied-open').addEventListener('click', () => {
     const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);  // local day
     $('applied-when').value = today;
@@ -765,12 +781,13 @@ export async function init() {
     if (!day) { message('applied-message', 'Pick the day you applied.', 'error'); return; }
     const manual = !$('applied-manual').hidden;
     if (manual && !$('applied-title').value.trim()) { message('applied-message', 'Add the job title (the page itself isn\'t read).', 'error'); return; }
-    const details = manual ? {title: $('applied-title').value.trim(), company: $('applied-company').value.trim(), text: $('applied-text').value.trim()} : {};
+    const details = {...(manual ? {title: $('applied-title').value.trim(), company: $('applied-company').value.trim(), text: $('applied-text').value.trim()} : {}),
+      ...(appliedOrigin() === 'inbound' ? {origin: 'inbound'} : {})};
     const result = await window.pilot.addApplied(url, $('applied-approx').checked ? `on or before ${day}` : day, details);
     $('applied-go').disabled = false;
     message('applied-message', result.text, result.ok ? 'ok' : 'error');
     if (!result.ok) return;
-    $('applied-url').value = ''; $('applied-approx').checked = false;
+    $('applied-url').value = ''; $('applied-approx').checked = false; setAppliedOrigin('outbound');
     ['applied-title', 'applied-company', 'applied-text'].forEach(id => { $(id).value = ''; });
     $('applied-manual').hidden = true;
     $('filter-status').value = 'applied';  // show it where it now is
@@ -816,6 +833,7 @@ export async function init() {
   $('lead-last').addEventListener('input', () => leadSet('last', $('lead-last').value));
   $('lead-company').addEventListener('input', () => leadSet('company', $('lead-company').value));
   $('lead-agency').addEventListener('input', () => leadSet('agency', $('lead-agency').value));
+  $('lead-origin').addEventListener('click', event => { const b = event.target.closest('[data-origin]'); if (b) leadSet('origin', b.dataset.origin); });
   $('lead-agree').addEventListener('click', event => { const b = event.target.closest('[data-agree]'); if (b) leadSet('agree', b.dataset.agree); });
   $('lead-first').addEventListener('click', event => { const b = event.target.closest('[data-first]'); if (b) { leadState.first = b.dataset.first; renderConfirm(); } });
   $('lead-back').addEventListener('click', () => { leadStep2(false); leadResult('', ''); message('lead-message', ''); });
