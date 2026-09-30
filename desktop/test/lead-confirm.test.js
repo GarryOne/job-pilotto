@@ -74,7 +74,7 @@ test('a tracked job defaults to "Update on this job", unmarked; nothing about da
   assert.deepEqual(lead.pending(tracked, state, '2026-09-30'), []);
   assert.equal(lead.KIND_LABEL['Update on this job'], 'Update on this job (already tracked)');
   assert.equal(lead.confirmed(tracked, state).lastAt, '2026-09-28');
-  assert.match(lead.lastHint(tracked.fields.last, '2026-09-28'), /^You wrote last "Hi Márton, thanks for reaching out!": Focus reminds you to follow up after 3 days/);
+  assert.match(lead.lastHint(tracked.fields.last, '2026-09-28'), /^You wrote last "Hi Márton, thanks for reaching out!": Focus reminds you to follow up after 24 hours/);
 });
 
 test('an unreadable last day is asked but never required; empty saves nothing about it', () => {

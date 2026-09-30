@@ -208,15 +208,17 @@ class FollowUpFocusTest(unittest.TestCase):
     def items(self, rows, events, now):
         return [i for i in focus.build(rows, events, now=now)['items'] if i['page_id'] == 'd1']
 
-    def test_the_real_case_follow_up_after_three_days(self):
+    def test_the_real_case_follow_up_after_a_day(self):
         rows, events = self.duvo()
-        self.assertEqual(self.items(rows, events, NOW), [])  # Wednesday: 2 days, too early (and no nudge)
-        thursday = datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)
-        [item] = self.items(rows, events, thursday)
+        # Monday 18:05: the owner's "Yes"; Wednesday (NOW) it is more than 24 h with no answer.
+        [item] = self.items(rows, events, NOW)
         self.assertEqual((item['kind'], item['title'], item['done']), ('follow_up', 'Follow up with Duvo.ai', True))
-        self.assertEqual(item['detail'], 'You wrote Mon 28 Sep (3 days ago), no reply yet.')
+        self.assertEqual(item['detail'], 'You wrote Mon 28 Sep (2 days ago), no reply yet.')
         self.assertEqual((item['headline'], item['badge'], item['icon']), ('Follow up with Duvo.ai', 'Follow up', 'send'))
-        self.assertEqual(item['meta'], ['Senior SRE', 'you wrote Mon 28 Sep', '3 days, no reply'])
+        self.assertEqual(item['meta'], ['Senior SRE', 'you wrote Mon 28 Sep', '2 days, no reply'])
+        # Not before 24 hours: the same message, 20 hours later, is too early.
+        early = datetime(2026, 9, 29, 6, 5, tzinfo=timezone.utc)
+        self.assertEqual(self.items(rows, events, early), [])
 
     def test_their_later_message_means_no_follow_up(self):
         rows, events = self.duvo(focus_event('d1', 'Reply received', '2026-09-29T09:00:00Z', 'Thursday?', 'gm9', 'Gmail'))
@@ -227,9 +229,9 @@ class FollowUpFocusTest(unittest.TestCase):
     def test_done_re_arms_after_another_interval(self):
         rows, events = self.duvo(focus_event('d1', 'Replied', '2026-10-01T10:00:00+02:00', 'You followed up (marked done in Focus)',
                                              source='Job Pilotto app'))
-        self.assertEqual(self.items(rows, events, datetime(2026, 10, 2, 9, 0, tzinfo=timezone.utc)), [])
-        [item] = self.items(rows, events, datetime(2026, 10, 4, 9, 0, tzinfo=timezone.utc))
-        self.assertEqual(item['detail'], 'You wrote Thu 1 Oct (3 days ago), no reply yet.')
+        self.assertEqual(self.items(rows, events, datetime(2026, 10, 2, 6, 0, tzinfo=timezone.utc)), [])  # 22 h later
+        [item] = self.items(rows, events, datetime(2026, 10, 2, 9, 0, tzinfo=timezone.utc))
+        self.assertEqual(item['detail'], 'You wrote Thu 1 Oct (yesterday), no reply yet.')
 
     def test_an_interview_ahead_or_an_ended_job_never_asks(self):
         later = datetime(2026, 10, 2, 9, 0, tzinfo=timezone.utc)

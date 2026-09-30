@@ -7,7 +7,7 @@ Read from Notion (Applications, 📈 Application Events, 🎤 Interviews), in th
 2. 🎤 Prepare: an interview is coming (within 48 h first); ❓ did it happen? once its time passed and nothing was
    recorded (yes: notes and a review; no: moved or cancelled), or 📝 review one that was recorded.
    📨 Follow up: you wrote last (a "Replied" event: your logged chat, your sent Gmail, Done here) and nothing came
-   back for FOLLOW_UP_DAYS; no interview ahead. It replaces "Move it forward" for that job.
+   back for FOLLOW_UP_HOURS; no interview ahead. It replaces "Move it forward" for that job.
    🤝 Move it forward: a Screening with nothing booked and no news for 3 days. ⏳ Waiting for their next step
    after an interview you reviewed, until 3 days without news.
 3. 📨 Apply: today's applications against the daily target, with the jobs whose kit is ready.
@@ -50,7 +50,7 @@ ENDED = {'Rejected', 'Withdrawn', 'No response', 'Closed', 'Dismissed'}
 NEEDS_ANSWER = {REPLY, 'Recruiter lead', 'Offer'}
 BOOKING = re.compile(r'\b(book|slot|schedul|calendly|cal\.com|availability|available|pick a time|time that works)', re.I)
 WAITING_DAYS, QUIET_DAYS, SOON_HOURS, STALE_DAYS = 7, 3, 48, 30
-FOLLOW_UP_DAYS = 3  # your message unanswered this long: Focus recommends a follow-up
+FOLLOW_UP_HOURS = 24  # your message unanswered this long: Focus recommends a follow-up
 # Messages, for "who wrote last": yours (a reply you sent or logged, Done in Focus) and theirs. Stage moves and
 # the app's own bookkeeping are not messages.
 YOURS = {REPLIED}
@@ -125,7 +125,7 @@ def present(item):
         icon, badge, tone = 'send', 'Follow up', 'warn'
         headline = f'Follow up with {who}'
         meta = [_short(item['job'], 40), f"you wrote {at.astimezone(TZ):%a %d %b}" if at else '',
-                f"{item.get('quiet', 0)} days, no reply"]
+                f"{_days_ago(item.get('quiet', 0), short=True)}, no reply"]
     elif kind == 'nudge':
         quiet = item.get('quiet', 0)
         icon, badge, tone = 'send', 'Follow up', 'warn'
@@ -515,23 +515,31 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             'generated_at': now.isoformat(timespec='seconds')}
 
 
+def _days_ago(days, short=False):
+    """"yesterday" / "3 days ago" (short: "1 day" / "3 days")."""
+    if short:
+        return f"{days} day{'s' if days != 1 else ''}"
+    return 'yesterday' if days <= 1 else f'{days} days ago'
+
+
 def follow_up(row, history, now):
     """The follow-up item for one application, or None: its latest message (bookkeeping aside) is yours ("Replied":
-    sent by email, logged from a chat, or Done in Focus), at least FOLLOW_UP_DAYS old and at most STALE_DAYS, and
+    sent by email, logged from a chat, or Done in Focus), at least FOLLOW_UP_HOURS old and at most STALE_DAYS, and
     nothing of theirs came after it. Done logs another "Replied" (now): it comes back after another interval."""
     messages = [e for e in history if e['kind'] in YOURS | THEIRS and e['at'] and not _bookkeeping(e)]
     last = messages[-1] if messages else None
     if not last or last['kind'] not in YOURS:
         return None
-    days = (now.astimezone(TZ).date() - last['at'].astimezone(TZ).date()).days
-    if not FOLLOW_UP_DAYS <= days <= STALE_DAYS:
+    hours = (now - last['at']).total_seconds() / 3600
+    if not FOLLOW_UP_HOURS <= hours <= STALE_DAYS * 24:
         return None
+    days = int(hours // 24)  # whole days since; 1 for the first 24-48 hours
     job_url = _field(row, 'Job URL')
     link = _gmail(last['source_id']) if last['source'] == 'Gmail' else ''
     link = link or (job_url if re.search(r'mail\.google\.com|linkedin\.com/messaging', job_url) else '')
     who = _field(row, 'Company') or _field(row, 'Via') or _field(row, 'Contact').split(' · ')[0] or 'the recruiter'
     said = f"{last['at'].astimezone(TZ):%a} {last['at'].astimezone(TZ).day} {last['at'].astimezone(TZ):%b}"
-    return _item(2, 'follow_up', '📨', f'Follow up with {who}', f'You wrote {said} ({days} days ago), no reply yet.', row,
+    return _item(2, 'follow_up', '📨', f'Follow up with {who}', f'You wrote {said} ({_days_ago(days)}), no reply yet.', row,
                  link, 'Open email' if 'mail.google' in link else 'Open chat' if 'linkedin' in link else '', done=True,
                  at=last['at'].isoformat(), quiet=days)
 

@@ -72,7 +72,7 @@ export function startedHint(isNew) {
 // Who wrote last (src/ai/inbox.py fields() 'last'): what saving it does for Focus, and what they wrote.
 export function lastHint(field = {}, value = '') {
   const said = field.snippet ? ` "${field.snippet.length > 60 ? `${field.snippet.slice(0, 59)}…` : field.snippet}"` : '';
-  const what = field.from === 'you' ? `You wrote last${said}: Focus reminds you to follow up after 3 days without an answer.`
+  const what = field.from === 'you' ? `You wrote last${said}: Focus reminds you to follow up after 24 hours without an answer.`
     : `They wrote last${said}: Focus shows it as waiting for your answer.`;
   if (field.state === 'ask' && !value) return `Couldn't read the day${field.as_written ? ` ("${field.as_written}")` : ''}. Leave it empty if you don't know: then nothing is saved about it.`;
   return what;
