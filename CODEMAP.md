@@ -84,6 +84,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/demo.js` — "Look around first": the wizard's buttons that restart the app on the fictional demo data, and in that demo the
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.
 - `desktop/renderer/pages/focus.js` — Focus page.
+- `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 - `desktop/renderer/pages/interviews.js` — Interviews page.
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 30 free applications · 41 days left"), pasting a key (checked on this

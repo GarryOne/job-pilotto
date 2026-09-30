@@ -1353,6 +1353,35 @@
   </form>
 </dialog>
 <!-- "Is this about …?" and "Not this job": where an email belongs (pages/reassign.js → src/ai/reassign.py). -->
+<!-- Focus → "Did the interview happen?" (pages/happened.js): yes with notes, or moved / cancelled. -->
+<dialog id="happened-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mic"></i></span>
+      <h2 id="happened-title">How did it go?</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p id="happened-context" class="dialog-lead"></p>
+    <div id="happened-yes">
+      <label for="happened-notes">What did you learn? Salary, next steps, people, questions asked
+        <span class="muted">(optional)</span></label>
+      <textarea id="happened-notes" rows="8" placeholder="e.g. 30 min with the recruiter. Band CHF 160–180k, B2B possible. They asked about on-call and Kafka. Next: a call with the CTO next week."></textarea>
+      <p class="muted small">Saved to 🎤 Interviews in Notion and the job moves on to Interviewing. With a few lines, Claude reviews them
+        like a recording: the next step, and salary, contract or place filled in on the job.</p>
+    </div>
+    <fieldset id="happened-no">
+      <legend>What happened?</legend>
+      <label class="radio"><input type="radio" name="happened-why" value="moved" checked>
+        <span><b>Moved to a new date</b><br><input id="happened-at" type="datetime-local"></span></label>
+      <label class="radio"><input type="radio" name="happened-why" value="cancelled">
+        <span><b>Cancelled</b><br><span class="muted">Logged on the job; its stage stays.</span></span></label>
+    </fieldset>
+    <p id="happened-message" class="message"></p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button id="happened-save" class="primary" value="default">Save</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="reassign-dialog" class="panel-dialog">
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="mail"></i></span>

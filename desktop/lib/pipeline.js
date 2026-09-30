@@ -416,6 +416,15 @@ export async function emailUpdates(storage, pageId) {
   const {stdout} = await run(storage, ['src.ai.reassign', 'list', pageId]);
   return lastJson(stdout, {ok: false, text: 'Notion could not be read. Try again.', items: []});
 }
+// Focus → "Did the interview happen?" (src/ai/interviews.py held | moved | cancelled, no AI).
+export async function interviewHappened(storage, pageId, answer, {notes = '', at = ''} = {}) {
+  if (!['held', 'moved', 'cancelled'].includes(answer)) return {ok: false, error: 'Unknown answer'};
+  const args = ['src.ai.interviews', answer, pageId, ...(answer === 'held' && notes ? [`--notes=${notes}`] : []),
+    ...(answer === 'moved' ? [`--at=${at}`] : [])];
+  const {code, stdout} = await run(storage, args);
+  const result = lastJson(stdout, {ok: false, error: 'Notion could not be updated. Try again.'});
+  return {...result, ok: code === 0 && !!result.ok};
+}
 export async function feedbackAction(storage, pageId, action, text = '') {
   const {code, stdout} = await run(storage, ['src.feedback', pageId, action, ...(text ? ['--text', text] : [])]);
   try { const result = JSON.parse(stdout.trim().split('\n').pop()); return {...result, ok: code === 0 && result.ok}; }

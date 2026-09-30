@@ -912,6 +912,9 @@ function handlers() {
   ipcMain.handle('emailUpdates', (_, pageId) => (DEMO ? {ok: true, items: []} : pipeline.emailUpdates(storage, String(pageId))));
   ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : pipeline.focusHistory(storage)));
   ipcMain.handle('focusDone', (_, pageId) => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId))));
+  // Focus → "Did the interview happen?": held (notes), moved (a new time) or cancelled; Notion first.
+  ipcMain.handle('interviewHappened', (_, pageId, answer, detail = {}) => (DEMO ? {ok: true, review: false}
+    : pipeline.interviewHappened(storage, String(pageId), String(answer), detail || {})));
   ipcMain.handle('feedbackAction', (_, pageId, action, text = '') => (DEMO ? {ok: true}
     : pipeline.feedbackAction(storage, String(pageId), String(action), String(text))));
   // A rejected job's menu → Why was I rejected? (also runs by itself after the Gmail check logs a rejection).

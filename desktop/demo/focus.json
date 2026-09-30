@@ -49,6 +49,30 @@
       "job_url": ""
     },
     {
+      "priority": 1,
+      "kind": "happened",
+      "icon": "calendar",
+      "badge": "Did it happen?",
+      "tone": "warn",
+      "headline": "Interview with Harbor Staffing",
+      "meta": [
+        "Principal SRE",
+        "Tue 29 Sep 08:30"
+      ],
+      "title": "Did the interview happen? Harbor Staffing — Principal SRE",
+      "detail": "It was Tue 29 Sep, 08:30. Yes: note how it went (salary, next steps, people, questions) and it moves on. No: say if it moved or was cancelled.",
+      "link": "",
+      "link_label": "",
+      "done": false,
+      "page_id": "demo-happened",
+      "notion_url": "",
+      "company": "Harbor Staffing",
+      "job": "Principal SRE",
+      "job_url": "",
+      "stage": "Interview scheduled",
+      "at": "2026-09-29T06:30:00+00:00"
+    },
+    {
       "priority": 2,
       "kind": "feedback",
       "icon": "chat",
@@ -89,6 +113,31 @@
       "company": "",
       "job": "",
       "job_url": ""
+    },
+    {
+      "priority": 4,
+      "kind": "waiting",
+      "icon": "pulse",
+      "badge": "Waiting",
+      "tone": "neutral",
+      "headline": "Waiting for Globex Cloud's next step",
+      "meta": [
+        "Platform Engineer",
+        "Call with the CTO next week"
+      ],
+      "title": "Waiting for Globex Cloud's next step",
+      "detail": "Interview reviewed. Next: Call with the CTO next week. Nothing to do yet; follow up if there is no news in 2 days.",
+      "link": "",
+      "link_label": "",
+      "done": false,
+      "page_id": "demo-waiting",
+      "notion_url": "",
+      "company": "Globex Cloud",
+      "job": "Platform Engineer",
+      "job_url": "",
+      "stage": "Interviewing",
+      "after_interview": true,
+      "next_step": "Call with the CTO next week"
     }
   ],
   "today": {

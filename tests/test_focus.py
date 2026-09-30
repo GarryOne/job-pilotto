@@ -148,7 +148,7 @@ class AfterInterviewTests(unittest.TestCase):
         items = focus.build(rows, [], now=NOW)['items']
         asked = [i for i in items if i['job'] == 'Principal SRE']
         self.assertEqual([i['kind'] for i in asked], ['happened'])  # no 3-day limit, and no nudge next to it
-        self.assertEqual(asked[0]['headline'], 'Did the interview with Huxley happen?')
+        self.assertEqual(asked[0]['headline'], 'Interview with Huxley')
         self.assertEqual(asked[0]['badge'], 'Did it happen?')
 
     def test_after_a_reviewed_interview_it_waits_calmly_then_nudges_after_quiet_days(self):

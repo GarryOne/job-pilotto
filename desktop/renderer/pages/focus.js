@@ -8,6 +8,7 @@ import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {openFeedback, saveFeedbackAction} from './feedback.js';
+import {openHappened} from './happened.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openPrep} from './prep.js';
 
@@ -147,6 +148,11 @@ function focusCard(item) {
   }
   if (item.kind === 'apply') actions.append(focusButton('Browse jobs', 'primary', () => openView('jobs')));
   if (item.kind === 'review') actions.append(focusButton('Interviews', 'primary', () => openView('interviews')));
+  if (item.kind === 'happened' && item.page_id) {  // its time passed, nothing recorded: yes (notes) or no (moved/cancelled)
+    const no = focusButton('No', 'secondary', () => openHappened(item, 'no'));
+    no.title = 'It was cancelled or moved';  // a short label: the row keeps room for the company's name
+    actions.append(focusButton('Yes, it happened', 'primary', () => openHappened(item, 'yes')), no);
+  }
   if (item.kind === 'prepare' && item.page_id) {  // the prep kit: built on the job's page, then opened there
     if (item.building) {
       const busy = focusButton('Building…', 'secondary', () => openPrep(item));  // reopens the dialog, joins the run
@@ -155,7 +161,7 @@ function focusCard(item) {
     } else if (item.prep_at) actions.append(focusButton('Open prep kit', 'primary', event => openLink(item.notion_url, event)));
     else actions.append(focusButton('Build prep kit', 'primary', () => openPrep(item)));
   }
-  if (!item.link && ['reply', 'book', 'offer', 'nudge'].includes(item.kind) && item.notion_url) {
+  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting'].includes(item.kind) && item.notion_url) {
     actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
   }
   if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', async event => {

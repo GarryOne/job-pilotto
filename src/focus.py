@@ -136,8 +136,8 @@ def present(item):
     elif kind == 'happened':
         at = _when(item.get('at', ''))
         icon, badge, tone = 'calendar', 'Did it happen?', 'warn'
-        headline = f'Did the interview with {who} happen?'
-        meta = [_short(item['job'], 40), f"was {at.astimezone(TZ):%a %d %b, %H:%M}" if at else '']
+        headline = f'Interview with {who}'  # the badge asks "Did it happen?"
+        meta = [_short(item['job'], 40), f"{at.astimezone(TZ):%a %d %b %H:%M}" if at else '']
     elif kind == 'waiting' and item.get('after_interview'):
         icon, badge, tone = 'pulse', 'Waiting', 'neutral'
         headline = f"Waiting for {who}'s next step"
