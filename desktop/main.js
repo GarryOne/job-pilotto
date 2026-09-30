@@ -200,7 +200,7 @@ github.setEngineRef(app.isPackaged ? `desktop-v${app.getVersion()}` : 'main');
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build
 // (scripts/stage.mjs --app); without it this is a development copy (npm start).
 const buildInfo = (() => { try { return JSON.parse(fs.readFileSync(path.join(here, 'build-info.json'), 'utf8')); } catch { return null; } })();
-const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null, dev: !app.isPackaged && !DEMO,
+const about = {version: app.getVersion(), build: buildInfo?.build || null, commit: buildInfo?.commit || null,
   label: DEMO ? app.getVersion() : buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
 let storage;
 let window;
