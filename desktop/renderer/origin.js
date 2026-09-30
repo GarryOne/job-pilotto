@@ -1,16 +1,24 @@
-// Outbound or inbound: did you go after this opportunity, or did it find you? The same rule as src/notion/origin.py,
-// both checked against tests/fixtures/opportunity_origin.json. Inbound: a recruiter's pitch (Stage "Recruiter lead",
-// a "Recruiter lead" event, Notes "Recruiter message (…)") or a first contact on LinkedIn or by phone (Source).
-// Everything else is outbound, "Applied elsewhere" (Notes "Logged from a paste (…)") and an unknown Source included.
-// The first contact decides: an "Applied" (or "Confirmation received") event before the "Recruiter lead" one (kinds,
-// oldest first) means the recruiter answered your application: outbound.
+// Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,
+// both checked against tests/fixtures/opportunity_origin.json. The job's Origin column (job.origin: Inbound / Outbound,
+// set when the row was created, or by you in Notion) wins. Empty (rows from before the column): derived. Inbound: a
+// recruiter's pitch (Stage "Recruiter lead", a "Recruiter lead" event, Notes "Recruiter message (…)") or a first contact
+// on LinkedIn or by phone (Source). Everything else is outbound, "Applied elsewhere" (Notes "Logged from a paste (…)")
+// and an unknown Source included. The first contact decides: an "Applied" (or "Confirmation received") event before
+// the "Recruiter lead" one (kinds, oldest first) means the recruiter answered your application: outbound.
 export const INBOUND = 'inbound', OUTBOUND = 'outbound';
 const LEAD = 'Recruiter lead';
 const INBOUND_SOURCES = new Set(['LinkedIn', 'Phone']);
 const APPLIED_KINDS = new Set(['Applied', 'Confirmation received']);
 const LEAD_NOTES = 'Recruiter message (', ELSEWHERE_NOTES = 'Logged from a paste (';
 
-export function origin({source = '', stage = '', notes = '', kinds = []} = {}) {
+// The Origin column's value as 'inbound' / 'outbound', '' when empty or not one of the two.
+export const stored = value => {
+  const v = String(value || '').trim().toLowerCase();
+  return v === INBOUND || v === OUTBOUND ? v : '';
+};
+
+export function origin({source = '', stage = '', notes = '', kinds = [], origin: column = ''} = {}) {
+  if (stored(column)) return stored(column);
   const note = String(notes || '').trimStart(), seen = [...(kinds || [])];
   const applied = seen.findIndex(kind => APPLIED_KINDS.has(kind));
   if (applied >= 0 && seen.includes(LEAD) && applied < seen.indexOf(LEAD)) return OUTBOUND;

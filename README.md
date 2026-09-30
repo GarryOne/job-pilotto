@@ -211,6 +211,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   find a job by its pasted link, and one main button per job:
   - **Show** menu: New matches · Saved · Applied · Dismissed = job matches only; **Inbound** = everything that found
     you (all stages, newest first); All jobs = everything.
+  - **Inbound / Outbound** = the Job Tracker's **Origin** column: set when the row is created, yours to change in Notion.
   **Prepare** (draft the kit) → **Apply with Claude** (recommended, see below) or **Fill in Chrome** (the extension).
   **Apply to N** starts several at once. A ⛔ badge shows the kit's eligibility verdict on hover.
 - 📥 **Everything that reaches you, tracked**: **+ Applied elsewhere…** (link + date; it gets the same AI facts and fit

@@ -122,7 +122,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back
-- `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same rule as src/notion/origin.py,
+- `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents.
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
@@ -196,7 +196,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/funnel.py` — Application funnel: how many applications reached each step, the conversion between steps,
 - `src/notion/ledger.py` — The application ledger: what was sent for each application, and what happened afterwards.
 - `src/notion/matches.py` — Mirror AI-scored jobs into the Notion database "Job Matches — AI Scored".
-- `src/notion/origin.py` — Outbound or inbound: did you go after this opportunity, or did it find you? Derived from the Applications row
+- `src/notion/origin.py` — Outbound or inbound: did you go after this opportunity, or did it find you? The Applications row's own Origin column
 - `src/notion/pace.py` — One Notion pace shared with the desktop app and every other process on this computer using the same connection.
 - `src/notion/runs.py` — Notion "🤖 Agent Runs": one row per form-filling session, and the learnings read back from it.
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).

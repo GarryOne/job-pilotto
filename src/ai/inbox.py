@@ -26,6 +26,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from ..notion import client as notion, ledger
+from ..notion import origin as origin_rule
 from ..notion.ledger import REPLY, _block, add_event, plain
 from . import added, cost, mail, opportunity
 
@@ -242,7 +243,8 @@ def _new_row(tracker, item, url, source, event_source, when, note):
     day = _day(when)
     if day:
         props.update({'Applied on': {'date': {'start': day.isoformat()}}, 'Date approximate': {'checkbox': True}})
-    row = tracker.create_page(tracker.database_id, props)
+    # Applied elsewhere: you went after it (Outbound, src/notion/origin.py).
+    row = tracker.create_page(tracker.database_id, origin_rule.stamp(props, origin_rule.OUTBOUND))
     known = row.setdefault('properties', {})
     for name, value in (('Company', {'rich_text': [{'plain_text': item.get('company') or ''}]}),
                         ('Job', {'title': [{'plain_text': opportunity.title(item)}]}), ('Job URL', {'url': url}),
@@ -593,8 +595,11 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     created = False
     if row is None and job:  # an open job, not tracked yet
         day = _day(when) if kind == APPLIED else None
+        # You said this was the first contact (a LinkedIn message, a call): its channel decides (src/notion/origin.py).
+        first = origin_rule.origin(source=opportunity.source_for(item, source)) if first_here else None
         ledger.add_application(tracker, job['url'], applied=day or now.date(), approx=kind != APPLIED, source=source,
-                               meta={'title': job.get('title'), 'company': job.get('company'), 'location': job.get('location')})
+                               meta={'title': job.get('title'), 'company': job.get('company'), 'location': job.get('location')},
+                               origin=first)
         row, created = _row_for(tracker, job['url']), True
         if row is not None and first_here:  # you said this was the first contact: it's where the job came from
             where = {'Source': {'select': {'name': opportunity.source_for(item, source)}}}

@@ -88,7 +88,8 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
                             page_id=item.get('page_id') or '', fit_detail=item.get('fit_detail') or None,
                             kit_state=kit_state, next_interview=item.get('next_interview') or '',
                             # Outbound or inbound (desktop/renderer/origin.js), and what the "In conversation" rows show.
-                            source=item.get('source') or '', notes=item.get('notes') or '', applied_on=item.get('applied_on') or '',
+                            origin=item.get('origin') or '', source=item.get('source') or '', notes=item.get('notes') or '',
+                            applied_on=item.get('applied_on') or '',
                             via=item.get('via') or '', next_step=item.get('next_step') or ''))
         for url, job in local.items():  # found by a search, not in Notion yet (its sync failed): shown, marked
             if url and url not in seen:

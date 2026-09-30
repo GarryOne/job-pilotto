@@ -33,6 +33,15 @@ export const STEPS = [
     storage.saveSettings({reachedViaFilled: true});
     return true;
   }},
+  // Origin (Inbound / Outbound) on rows tracked before the column existed, from the derived rule (src/notion/origin.py),
+  // once. After 'workspace', which adds the column; rows that have an Origin are never touched.
+  {name: 'origin', run: async (storage, _fetcher, run = pipeline.run) => {
+    if (storage.settings().originFilled) return false;
+    const {code} = await run(storage, ['src.notion.origin', '--backfill', '--apply']);
+    if (code !== 0) throw new Error('could not fill Origin');
+    storage.saveSettings({originFilled: true});
+    return true;
+  }},
   // The job line at the top of every 🎤 Interviews page (and placeholder titles renamed), once.
   {name: 'interview job links', run: async storage => {
     if (storage.settings().interviewLinksFilled) return false;

@@ -9,8 +9,11 @@ variable (see the main README's Configuration section) — property names must m
 
 Env var: `NOTION_APPLICATIONS_DB`. One row per opportunity: applied, saved or inbound. Formerly "Applications — Job Tracker" (the app renames it; it finds either title).
 
-- **Outbound or inbound**: derived from the row, no column (`src/notion/origin.py`, `desktop/renderer/origin.js`)
-  - Inbound: Stage or event `Recruiter lead`, Notes `Recruiter message (…)`, or Source `LinkedIn` / `Phone`
+- **Outbound or inbound**: the **Origin** column (`src/notion/origin.py`, `desktop/renderer/origin.js`)
+  - Set once at creation: recruiter contact = Inbound; match, kit, apply, saved, applied elsewhere = Outbound
+  - Never overwritten; change it by hand in Notion (e.g. saved before a recruiter wrote)
+  - Empty (older rows) → derived; the app fills it once at start-up (`python -m src.notion.origin --backfill [--apply]`)
+  - Derived rule: Inbound = Stage or event `Recruiter lead`, Notes `Recruiter message (…)`, or Source `LinkedIn` / `Phone`
   - Outbound: the rest; Notes `Logged from a paste (…)` (applied elsewhere) and an empty Source included
   - Funnel: outbound only; inbound in its own Focus card (Inbound funnel)
 **Rule:** every job you pursue has one Applications row, found or added (by hand, `/add`, a recruiter's LinkedIn/email message); a job you add gets its facts and fit score here (Fit score, Tier, Seniority, Work mode, Recruiter, Salary), never a Job Matches row.
@@ -73,6 +76,7 @@ replies:
 | Interview prep | Date | When the interview prep kit was built, with the time (🎤 Interview prep on the page; Focus → Prepare; a review of this job's interview after it marks the kit stale) |
 | Contract | Select | Options: `Employee`, `B2B / contractor`, `Employee or B2B`. Filled from an interview review when the call said it (never overwritten) |
 | Call facts | Text | Facts an interview revealed, `Label: value · …` (Your ask, Relocation, Team size, Company size, Visa/permit, Start date); a review adds missing ones and never overwrites |
+| Origin | Select | Options: `Inbound`, `Outbound`. Who made the first contact: Inbound = a recruiter/lead you logged (Recruiter lead, Gmail pitch, a logged message); Outbound = a job you went after (match, kit, apply, applied elsewhere, saved). Set once when the row is created, never overwritten; change it by hand when it's wrong. Empty (older rows): derived from Source/Stage/Notes/events, and filled once by the app (`python -m src.notion.origin --backfill`) |
 
 The page body gets a "🗂 Application record" toggle section: every question with the answer sent
 (and the kit's draft, marked ✏️ when edited), the cover letter, and a JSON block with the job

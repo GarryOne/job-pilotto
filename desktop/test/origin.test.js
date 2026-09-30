@@ -16,3 +16,14 @@ test('a job without any of the fields is outbound', () => {
   assert.equal(isInbound(null), false);
   assert.equal(isInbound({source: 'Phone'}), true);
 });
+
+test("the job's Origin column decides the Inbound list, the counts and In conversation", async () => {
+  const {inStatus, inboundCount, inConversation} = await import('../renderer/jobs-view.js');
+  const saved = {stage: 'Recruiter lead', source: 'Gmail', origin: 'Outbound', status: 'saved'};  // you saved it first
+  const found = {stage: 'Screening', source: 'Job Pilotto app', origin: 'Inbound', kinds: ['Applied']};
+  const older = {stage: 'Recruiter lead', source: 'Gmail', origin: ''};  // before the column: derived
+  assert.equal(inStatus(saved, 'inbound'), false);
+  assert.equal(inStatus(found, 'inbound'), true);
+  assert.equal(inboundCount([saved, found, older]), 2);
+  assert.deepEqual(inConversation([saved, found, older]).map(j => j.origin), ['Inbound', '']);
+});

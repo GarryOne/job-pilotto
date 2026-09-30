@@ -34,6 +34,7 @@ from zoneinfo import ZoneInfo
 
 from .. import telegram
 from ..notion import client as notion, cron_runs
+from ..notion import origin as origin_rule
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
@@ -579,7 +580,8 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
              'Notes': {'rich_text': [{'text': {'content': f'Tracked from an email: "{email["subject"][:150]}"'}}]}}
     if applied:
         props['Applied on'] = {'date': {'start': applied}}
-    row = tracker.create_page(tracker.database_id, props)
+    # An application you made elsewhere, found by its email: Outbound (src/notion/origin.py).
+    row = tracker.create_page(tracker.database_id, origin_rule.stamp(props, origin_rule.OUTBOUND))
     known = row.setdefault('properties', {})  # Notion returns the new row's properties; test fakes may not
     for name, value in (('Company', {'rich_text': [{'plain_text': company}]}), ('Job', {'title': [{'plain_text': role}]}),
                         ('Stage', {'select': {'name': 'Applied'}}), ('Applied on', {'date': {'start': applied}})):

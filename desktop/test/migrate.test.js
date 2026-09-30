@@ -58,3 +58,16 @@ test('the interview job line is backfilled once per install, and retried when it
   storage.saveSettings({interviewLinksFilled: true});
   assert.equal(await step.run(storage), false);  // already done: nothing runs
 });
+
+test('Origin is backfilled once, after the workspace step adds the column; a failed run is retried next start', async () => {
+  const names = migrate.STEPS.map(s => s.name);
+  assert.ok(names.indexOf('workspace') < names.indexOf('origin'));
+  const step = migrate.STEPS.find(s => s.name === 'origin');
+  const storage = connected(), calls = [];
+  await assert.rejects(step.run(storage, undefined, async (_, args) => { calls.push(args); return {code: 1}; }), /could not fill Origin/);
+  assert.equal(storage.settings().originFilled, undefined);  // not marked: next start tries again
+  assert.equal(await step.run(storage, undefined, async (_, args) => { calls.push(args); return {code: 0}; }), true);
+  assert.deepEqual(calls[1], ['src.notion.origin', '--backfill', '--apply']);
+  assert.equal(storage.settings().originFilled, true);
+  assert.equal(await step.run(storage, undefined, async () => { throw new Error('must not run again'); }), false);
+});

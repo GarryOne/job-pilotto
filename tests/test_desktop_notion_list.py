@@ -73,7 +73,7 @@ class AddedJobTests(unittest.TestCase):
             'Company': text('Beta'), 'Fit score': {'number': 74}, 'Stage': {'select': {'name': 'Recruiter lead'}},
             'Work mode': {'select': {'name': 'Remote'}}, 'Contact': text('Jane (recruiter)'), 'Via': text('Example Talent'),
             'Source': {'select': {'name': 'Gmail'}}, 'Notes': text('Recruiter message (Email). Client: logistics software, Series A'),
-            'Next step': text('Reply by Friday')}}
+            'Next step': text('Reply by Friday'), 'Origin': {'select': {'name': 'Inbound'}}}}
         tracker = client.Tracker('token', 'apps')
         with mock.patch.object(client, 'MATCHES_DATABASE_ID', 'matches'), \
                 mock.patch.object(tracker, '_query', lambda filter_=None, database_id=None: [found] if database_id == 'matches' else [lead]):
@@ -92,6 +92,7 @@ class AddedJobTests(unittest.TestCase):
                          ('Gmail', 'Recruiter message (Email). Client: logistics software, Serie', '', 'Example Talent', 'Reply by Friday'))
         from src.notion.origin import origin
         self.assertEqual(origin(source=shown['source'], stage=shown['stage'], notes=shown['notes']), 'inbound')
+        self.assertEqual(shown['origin'], 'Inbound')  # the Origin column, which the app reads first
 
 
 if __name__ == '__main__':

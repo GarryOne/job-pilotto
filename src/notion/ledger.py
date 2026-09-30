@@ -36,6 +36,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from . import client as notion
+from . import origin as origin_rule
 from ..ai import kit as kit_module
 from ..sources import ats
 
@@ -746,7 +747,7 @@ def company_for(tracker, url, meta):
 
 
 def add_application(tracker, url, *, applied=None, approx=False, channel=None, via=None, source='CLI',
-                    meta=None, today=None):
+                    meta=None, today=None, origin=None):
     """Track an application made outside Job Pilotto (or before it): the Applications row, an Applied
     event on the application's date, and the frozen record. Returns a one-line summary."""
     today = today or date.today()
@@ -780,7 +781,8 @@ def add_application(tracker, url, *, applied=None, approx=False, channel=None, v
         if _day(posted):
             props['Posted'] = {'date': {'start': posted}}
         props.update(columns)
-        row = tracker.create_page(tracker.database_id, props)
+        # Applied elsewhere: a job you went after (Outbound), unless the caller knows it found you (origin).
+        row = tracker.create_page(tracker.database_id, origin_rule.stamp(props, origin or origin_rule.OUTBOUND))
     row = tracker.find(url) or row
     add_event(tracker, row, 'Applied', source, at=applied.isoformat(),
               note='Applied outside Job Pilotto' + ('; date is an upper bound (on or before)' if approx else ''))

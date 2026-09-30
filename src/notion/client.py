@@ -14,6 +14,7 @@ import urllib.error
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
+from . import origin
 
 NOTION_VERSION = '2022-06-28'
 # The default IDs below (here and in scout.py, kit.py) are the maintainer's own Notion workspace.
@@ -199,8 +200,9 @@ class Tracker:
                        feedback_status=select(props.get('Feedback status')) or '', employer_feedback=text(props.get('Employer feedback')),
                        page_id=page['id'], next_interview=((props.get('Next interview') or {}).get('date') or {}).get('start') or '',
                        via=text(props.get('Via')), contact=text(props.get('Contact')), kit_inputs=text(props.get('Kit inputs')),
-                       # Outbound or inbound (src/notion/origin.py): the app decides from these, the same rule.
-                       source=select(props.get('Source')) or '', notes=text(props.get('Notes'))[:60],
+                       # Outbound or inbound (src/notion/origin.py): the Origin column, else the app derives it from
+                       # these, the same rule.
+                       origin=select(props.get('Origin')) or '', source=select(props.get('Source')) or '', notes=text(props.get('Notes'))[:60],
                        applied_on=((props.get('Applied on') or {}).get('date') or {}).get('start') or '')
         return list(found.values())
 
@@ -268,6 +270,8 @@ class Tracker:
             properties['Posted'] = {'date': {'start': posted}}
         if not job.get('posted_at'):
             properties['Notes'] = text('Posted date is when Job Pilotto first saw the job.')
+        # A job you went after (saved, kit, applying, applied): Outbound (src/notion/origin.py).
+        properties = origin.stamp(properties, origin.OUTBOUND)
         return self._request('POST', 'pages', {'parent': {'database_id': self.database_id},
                                                'properties': properties})
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "One table for src/notion/origin.py and desktop/renderer/origin.js: both must give these answers (tests/test_origin.py, desktop/test/origin.test.js).",
+  "_comment": "One table for src/notion/origin.py and desktop/renderer/origin.js: both must give these answers; a row's origin is the Origin column (it wins when set) (tests/test_origin.py, desktop/test/origin.test.js).",
   "cases": [
     {"name": "empty row", "row": {}, "origin": "outbound"},
     {"name": "unknown source", "row": {"source": "Carrier pigeon", "stage": "Applied"}, "origin": "outbound"},
@@ -18,6 +18,11 @@
     {"name": "confirmation received, then a recruiter's message", "row": {"source": "Gmail", "stage": "Screening", "notes": "Recruiter message (Email)", "kinds": ["Confirmation received", "Recruiter lead"]}, "origin": "outbound"},
     {"name": "first contact on LinkedIn", "row": {"source": "LinkedIn", "stage": "Screening"}, "origin": "inbound"},
     {"name": "first contact by phone (confirmed)", "row": {"source": "Phone", "stage": "Interview scheduled"}, "origin": "inbound"},
-    {"name": "recruiter lead dismissed", "row": {"source": "LinkedIn", "stage": "Dismissed"}, "origin": "inbound"}
+    {"name": "recruiter lead dismissed", "row": {"source": "LinkedIn", "stage": "Dismissed"}, "origin": "inbound"},
+    {"name": "Origin Outbound wins over recruiter-lead hints", "row": {"origin": "Outbound", "source": "LinkedIn", "stage": "Recruiter lead", "notes": "Recruiter message (LinkedIn)", "kinds": ["Recruiter lead"]}, "origin": "outbound"},
+    {"name": "Origin Inbound wins over an Applied event first", "row": {"origin": "Inbound", "source": "Job Pilotto app", "stage": "Screening", "kinds": ["Applied", "Recruiter lead"]}, "origin": "inbound"},
+    {"name": "Origin Inbound on a plain applied job", "row": {"origin": "Inbound", "source": "Gmail", "stage": "Applied", "kinds": ["Applied"]}, "origin": "inbound"},
+    {"name": "empty Origin falls back to the derived rule", "row": {"origin": "", "source": "Gmail", "stage": "Recruiter lead"}, "origin": "inbound"},
+    {"name": "an unknown Origin value falls back too", "row": {"origin": "Maybe", "source": "Phone", "stage": "Screening"}, "origin": "inbound"}
   ]
 }

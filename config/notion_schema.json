@@ -454,6 +454,19 @@
         },
         "Call facts": {
           "type": "rich_text"
+        },
+        "Origin": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Inbound",
+              "color": "purple"
+            },
+            {
+              "name": "Outbound",
+              "color": "blue"
+            }
+          ]
         }
       }
     },

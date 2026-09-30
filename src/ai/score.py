@@ -12,6 +12,7 @@ import hashlib
 import json
 import re
 import os
+import threading
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
@@ -212,12 +213,27 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     client = client or anthropic.Anthropic()
     scored = failures = 0
     usage_totals = {'input': 0, 'output': 0, 'cache_read': 0}
+    stop = threading.Event()  # the spend limit was hit: jobs still queued don't call the API
+
+    def one(job):
+        if stop.is_set():
+            return None
+        try:
+            return score_one(client, model, job, profile)
+        except Exception as error:
+            if cost.limit_reached(error):
+                stop.set()
+            raise
+
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(score_one, client, model, job, profile): job for job in jobs}
+        futures = {pool.submit(one, job): job for job in jobs}
         for future in as_completed(futures):
             job = futures[future]
             try:
-                data, usage = future.result()
+                result = future.result()
+                if result is None:  # skipped: the spend limit was reached
+                    continue
+                data, usage = result
             except transient as error:
                 print(f'Stopping early, API unavailable: {type(error).__name__}')
                 for pending in futures:

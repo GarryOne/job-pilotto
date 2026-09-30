@@ -15,7 +15,7 @@ import sys
 
 from . import client as notion
 from .ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
-from .origin import INBOUND, origin
+from .origin import INBOUND, row_origin as _row_origin
 
 PIPELINE_PAGE_ID = os.getenv('NOTION_PIPELINE_PAGE', '')
 HEADING = '📈 Conversion'
@@ -50,10 +50,8 @@ STEPS = [
 
 
 def row_origin(row, kinds=()):
-    """'inbound' or 'outbound' for an Applications row (src/notion/origin.py), from its Source, Stage and Notes."""
-    props = row.get('properties') or {}
-    return origin(source=plain(props.get('Source')) or '', stage=plain(props.get('Stage')) or '',
-                  notes=plain(props.get('Notes')) or '', kinds=kinds)
+    """'inbound' or 'outbound' for an Applications row (src/notion/origin.py): its Origin column, else derived."""
+    return _row_origin(row, kinds)
 
 
 # The inbound funnel (Focus): the outbound funnel's own step sets, so "screening" means the same on both.

@@ -26,6 +26,7 @@ import sys
 from datetime import datetime, timezone
 
 from ..notion import client as notion
+from ..notion import origin as origin_rule
 from ..notion.ledger import _block, _text, add_event, plain
 from . import cost
 
@@ -234,7 +235,8 @@ def track(tracker, lead, text, *, source, event_source, talking=False, at=None, 
         return None, f'Already tracked: {label(lead)}'
     talking = talking or bool(lead.get('owner_agreed'))
     stage = 'Screening' if talking else LEAD_STAGE
-    row = tracker.create_page(tracker.database_id, properties(lead, url, stage, source))
+    # A recruiter's pitch: it found you (Inbound, src/notion/origin.py).
+    row = tracker.create_page(tracker.database_id, origin_rule.stamp(properties(lead, url, stage, source), origin_rule.INBOUND))
     known = row.setdefault('properties', {})  # Notion returns the new row's properties; test fakes may not
     for name, value in (('Company', {'rich_text': [{'plain_text': lead.get('company') or ''}]}),
                         ('Job', {'title': [{'plain_text': title(lead)}]}), ('Job URL', {'url': url})):
