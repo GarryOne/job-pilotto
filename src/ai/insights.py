@@ -40,6 +40,10 @@ GOOD_FIT = 60
 NEAR_MISS = 45
 # Groups smaller than this are shown to the model but flagged as too small to explain outcomes.
 MIN_GROUP = 10
+# Room for the model's thinking plus the whole answer: output_config effort 'medium' makes it think, and thinking
+# is drawn from max_tokens like the answer itself. 3000 cut both insight answers off (stop_reason 'max_tokens') and
+# failed the run; as in prep.py, 8000 fits. The cap costs nothing when unused.
+MAX_TOKENS = 8000
 CATEGORIES = ['Skills', 'CV', 'Location', 'Salary', 'Seniority', 'Role focus', 'Timing', 'Activity', 'Process']
 WEEKLY = 'Weekly report'
 WEEKLY_DAY = 0  # Monday
@@ -263,7 +267,7 @@ def sent_today(tracker, today):
 def generate(client, model, profile, stats):
     """(insight dict, usage) from one schema-constrained call."""
     response = client.messages.create(
-        model=model, max_tokens=3000,
+        model=model, max_tokens=MAX_TOKENS,
         system=[{'type': 'text', 'text': SYSTEM.format(min_group=MIN_GROUP) + profile}],
         messages=[{'role': 'user', 'content': 'Statistics as of today (JSON):\n' + json.dumps(stats, ensure_ascii=False)}],
         output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
@@ -376,7 +380,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
         from . import engine
         client = engine.client()
     response = client.messages.create(
-        model=model, max_tokens=3000,
+        model=model, max_tokens=MAX_TOKENS,
         system=[{'type': 'text', 'text': WEEKLY_SYSTEM.format(min_group=MIN_GROUP) + profile}],
         messages=[{'role': 'user', 'content': 'Statistics as of today (JSON):\n' + json.dumps(data, ensure_ascii=False)}],
         output_config={'format': {'type': 'json_schema', 'schema': WEEKLY_SCHEMA}, 'effort': 'medium'},

@@ -176,6 +176,21 @@ class RunTests(unittest.TestCase):
             with self.subTest(schema='weekly' if schema is insights.WEEKLY_SCHEMA else 'daily'):
                 check(schema)
 
+    def test_both_insight_calls_leave_room_for_the_model_thinking(self):
+        # effort 'medium' makes the model think, and thinking is drawn from max_tokens like the answer itself:
+        # a 3000 cap cut both answers off (stop_reason 'max_tokens') and failed the whole scheduled run.
+        daily = FakeClient()
+        with patched():
+            insights.run(None, FakeTracker(), 'claude-sonnet-5', now=NOW, client=daily)
+        monday, weekly = datetime(2026, 9, 28, 5, 0, tzinfo=timezone.utc), FakeClient(WEEKLY)
+        with patched():
+            insights.run(None, FakeTracker(), 'claude-sonnet-5', now=monday, client=weekly)
+        self.assertEqual(len(daily.calls), len(weekly.calls))  # one call each: the daily insight, the weekly report
+        for call in (daily.calls[0], weekly.calls[0]):
+            self.assertEqual(call['output_config']['effort'], 'medium')
+            self.assertEqual(call['max_tokens'], insights.MAX_TOKENS)
+        self.assertGreaterEqual(insights.MAX_TOKENS, 8000)
+
     def test_sends_one_insight_with_feedback_buttons_and_records_cost(self):
         tracker, client, sent, stats = FakeTracker(), FakeClient(), [], {}
         with patched():
