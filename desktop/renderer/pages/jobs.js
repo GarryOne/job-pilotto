@@ -496,7 +496,7 @@ export function openLogFor(url, label = '') {
   if (!url) return;
   let chosen = [...$('lead-target').options].find(o => o.value === url);
   if (!chosen) $('lead-target').append(chosen = Object.assign(document.createElement('option'), {value: url}));
-  chosen.textContent = `${label || chosen.textContent.replace(/\s*\(.*\)$/, '')} (details missing: what you paste fills them in)`;
+  chosen.textContent = label || chosen.textContent.replace(/\s*\(.*\)$/, '');
   $('lead-target').value = url;
 }
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
