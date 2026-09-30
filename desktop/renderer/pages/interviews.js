@@ -1,4 +1,5 @@
 // Interviews page.
+import * as pendingReviews from '../review-pending.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, placeAndMode} from '../jobs-view.js';
 import {shared} from './shared.js';
@@ -172,7 +173,8 @@ async function saveToNotion(andReview) {
 }
 
 // Saved interviews, from Notion. Changing the job updates the row's Application there.
-const reviewing = new Set();
+let reviewing = new Set();  // being reviewed: here (awaiting the call) or on GitHub (review-pending.js)
+let reviewPoll = null;
 const OUTCOME = {positive: 'Positive', neutral: 'Neutral', negative: 'Negative'};
 const OUTCOME_TONE = {positive: 'good', neutral: 'warn', negative: 'bad'};
 // While the library loads from Notion (like the Jobs list): a spinner in the empty table the first time;
@@ -197,6 +199,11 @@ async function loadSaved() {
   $('iv-lib-stats').textContent = IV_SAVED_TO;
   if (!result.ok) { ivSavedRows = []; $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
   ivSavedRows = result.interviews;
+  // Reviews running on GitHub stay "Reviewing…" until their outcome is in Notion; look again every 30 s meanwhile.
+  reviewing = new Set([...reviewing, ...pendingReviews.settle(ivSavedRows)]);
+  for (const id of reviewing) if (ivSavedRows.find(row => row.id === id)?.overall) reviewing.delete(id);
+  clearTimeout(reviewPoll);
+  if (reviewing.size) reviewPoll = setTimeout(loadSaved, 30 * 1000);
   renderSaved();
 }
 function renderSaved() {
@@ -294,7 +301,8 @@ async function reviewRow(pageId) {
   message('iv-message', 'Claude is reviewing the interview (about a minute)…');
   loadSaved();
   const result = await iv.review(pageId);
-  reviewing.delete(pageId);
+  if (result.ok && result.cloud) pendingReviews.add(pageId);  // GitHub reviews it: keep "Reviewing…" until it lands
+  else reviewing.delete(pageId);
   message('iv-message', result.ok ? `${result.summary}. The review is on the Notion page.` : result.error, result.ok ? 'ok' : 'error');
   loadSaved();
 }

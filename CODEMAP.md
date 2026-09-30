@@ -120,6 +120,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents.
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
+- `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered
 - `desktop/renderer/run-cards.js` — Recent activity: a run's message (the Telegram text) as a small card, for the two long ones: Today's list /
 - `desktop/renderer/run-warnings.js` — Lines of a run's log that are warnings (Notion busy, a step skipped or failed…), each once. A count of zero is not
 - `desktop/renderer/session-message.js` — Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only
