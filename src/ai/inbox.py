@@ -162,13 +162,15 @@ def _thumbnails(blocks):
         {'object': 'block', 'type': 'column', 'column': {'children': [block]}} for block in blocks]}}]
 
 
-def _keep(tracker, row, text, image, summary, when):
+def _keep(tracker, row, text, image, summary, when, platform=None):
     """What was logged, on the job's page: one folded entry per log ("📥 29 Sep · what it said"), with the message
     inside and the screenshots as a row of thumbnails, so the page stays readable however many you log."""
     try:
         day = datetime.fromisoformat(when.replace('Z', '+00:00')).strftime('%d %b %Y')
     except ValueError:
         day = when[:10]
+    if platform in opportunity.CHANNEL_SOURCE and _platform_named(summary) != platform:
+        summary = f'{platform} · {summary}'  # the entry says where it came from (resync_source reads it)
     inside = [_block('quote', part) for part in re.split(r'\n\s*\n', text.strip())[:40] if part.strip()] if text else []
     shots = _image_blocks(tracker, image)
     if len(shots) < 2:
@@ -238,19 +240,81 @@ def _fill_gaps(tracker, row, item):
     words = lambda text: set(re.findall(r'[a-z0-9]+', text.lower()))
     if title and current and len(title) > len(current) and words(current) <= words(title):
         changes['Job'] = {'title': [{'text': {'content': title[:200]}}]}
-    platform, began = item.get('platform'), mail._when(item.get('first_contact') or '')
+    platform = item.get('platform')
+    began = mail._when(item.get('first_contact') or '') or mail._when(item.get('when') or '')
     tracked = mail._when(row.get('created_time') or '')
-    if (platform in opportunity.REACHED_VIA and platform != 'Other' and began and tracked and began < tracked
-            and plain(row['properties'].get('Reached via')) != platform):
-        changes['Reached via'] = {'select': {'name': platform}}
+    if began and tracked and began < tracked:  # before the row was tracked: was it before its first contact too?
+        changes.update(opportunity.first_contact_changes(row, platform, began, _origin(tracker, row)))
     if changes:
         tracker.update_page(row['id'], changes)
         for name, value in changes.items():
             row['properties'][name] = ({'type': 'select', 'select': value['select']} if 'select' in value else
                                        {'type': 'title', 'title': [{'plain_text': value['title'][0]['text']['content']}]} if 'title' in value else
                                        {'type': 'rich_text', 'rich_text': [{'plain_text': value['rich_text'][0]['text']['content']}]})
-    named = {'Job': f'the title "{title}"', 'Reached via': f'first contact on {platform}'}
-    return [GAPS.get(name) or named[name] for name in changes]
+    named = {'Job': f'the title "{title}"'}
+    filled = [GAPS.get(name) or named[name] for name in changes if name in GAPS or name in named]
+    return filled + ([f'first contact on {platform}'] if set(changes) & FIRST_CONTACT else [])
+
+
+FIRST_CONTACT = {'Source', 'Reached via', 'Notes'}
+
+
+def _origin(tracker, row):
+    """When the row's first contact happened: the earliest of its creation and its events from the same Source
+    (e.g. the Gmail check's events carry the email's date; logged pastes carry their own)."""
+    moments = [mail._when(row.get('created_time') or '')]
+    source = plain(row['properties'].get('Source'))
+    if source and ledger.EVENTS_DATABASE_ID and hasattr(tracker, 'query_database'):
+        try:
+            events = tracker.query_database(ledger.EVENTS_DATABASE_ID, {'and': [
+                {'property': 'Application', 'relation': {'contains': row['id']}},
+                {'property': 'Source', 'select': {'equals': source}}]})
+        except Exception as error:  # noqa: BLE001 — the row's creation time still tells
+            print(f'Warning: events not read: {type(error).__name__}: {error}', file=sys.stderr)
+            events = []
+        moments += [mail._when(plain(e['properties'].get('At')) or '') for e in events]
+    moments = [m for m in moments if m]
+    return min(moments) if moments else None
+
+
+LOGGED = re.compile(r'^📥 (\d{1,2} \w{3} \d{4}) · (.*)$', re.S)
+
+
+def _platform_named(text):
+    lower = (text or '').lower()
+    return 'LinkedIn' if 'linkedin' in lower else 'Email' if re.search(r'\b(e-?mail|gmail)\b', lower) else None
+
+
+def logged_contacts(blocks):
+    """[(datetime, platform)] of the "📥 <day> · …" entries on a job's page that name their channel."""
+    found = []
+    for block in blocks:
+        rich = (block.get(block.get('type')) or {}).get('rich_text') or []
+        entry = LOGGED.match(''.join(t.get('plain_text', '') for t in rich).strip())
+        if not entry:
+            continue
+        try:
+            day = datetime.strptime(entry.group(1), '%d %b %Y').replace(hour=12, tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        platform = _platform_named(entry.group(2))
+        if platform:
+            found.append((day, platform))
+    return sorted(found)
+
+
+def resync_source(tracker, page_id):
+    """Recompute a job's Source (and Reached via, and the Notes' "(Email)") from what is logged on its page: the
+    earliest dated entry from another channel than the row's own, before its first contact, wins. Returns the changes."""
+    row = tracker._request('GET', f'pages/{page_id}')
+    contacts = logged_contacts(tracker._children(page_id))
+    origin = _origin(tracker, row)
+    for began, platform in contacts:
+        changes = opportunity.first_contact_changes(row, platform, began, origin)
+        if changes:
+            tracker.update_page(row['id'], changes)
+            return changes
+    return {}
 
 
 def _this_year(value, now):
@@ -306,6 +370,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     seed = hashlib.sha256(re.sub(r'\s+', ' ', text).lower().encode() + b''.join(s[1] for s in images_of(image))).hexdigest()[:16]
     source_id = f'paste:{seed}'
     when = _this_year(item.get('when'), now) if mail._when(item.get('when') or '') else now.isoformat(timespec='seconds')
+    if mail._when(item.get('first_contact') or ''):
+        item['first_contact'] = _this_year(item['first_contact'], now)
     summary = item.get('summary') or kind
     match = item.get('match', -1)
     if target == 'new':
@@ -385,11 +451,11 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'
     if not changed and filled:
-        _keep(tracker, row, text, image, summary, when)
+        _keep(tracker, row, text, image, summary, when, item.get('platform'))
         return f"🧩 Updated: {label}: added {', '.join(filled)}."
     if not changed:
         return f'ℹ️ Already logged: {label} ({stage})'
-    _keep(tracker, row, text, image, summary, when)
+    _keep(tracker, row, text, image, summary, when, item.get('platform'))
     fit = _rich(on_new, row, item, text) if created and not job else None  # an open job was scored by its search
     verb = 'Tracked' if created else 'Updated'
     return (f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
@@ -417,10 +483,19 @@ def main(argv=None):
     parser.add_argument('--text-file', help='the message (default: stdin, unless --image is given)')
     parser.add_argument('--image', help='a screenshot (.png, .jpg, .webp, .gif)')
     parser.add_argument('--talking', action='store_true', help="you've already said yes to the recruiter")
+    parser.add_argument('--resync-source', metavar='PAGE_ID',
+                        help="recompute a job's Source from its logged entries (the earliest contact wins)")
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker:
         raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+    if args.resync_source:
+        page_id = re.sub(r'[^0-9a-f]', '', args.resync_source.split('?')[0].lower())[-32:]
+        changes = resync_source(tracker, page_id)
+        shown = lambda value: (value.get('select') or {}).get('name') or ''.join(
+            t['text']['content'] for t in value.get('rich_text') or [])
+        print(', '.join(f'{name} → {shown(value)}' for name, value in changes.items()) or 'Source already right: nothing changed.')
+        return 0
     text = open(args.text_file, encoding='utf-8').read() if args.text_file else ('' if args.image else sys.stdin.read())
     image = load_image(args.image) if args.image else None
     if args.image and not image:

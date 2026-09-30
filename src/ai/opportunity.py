@@ -26,7 +26,7 @@ import sys
 from datetime import datetime, timezone
 
 from ..notion import client as notion
-from ..notion.ledger import _block, _text, add_event
+from ..notion.ledger import _block, _text, add_event, plain
 from . import cost
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
@@ -35,6 +35,12 @@ HEADING = '🤝 Recruiter message'
 MIN_TEXT = 40  # shorter than this isn't a recruiter's message (e.g. a date after /add)
 WORK_MODES = ('On-site', 'Hybrid', 'Remote')
 REACHED_VIA = ('Email', 'LinkedIn', 'Phone', 'Other')
+# Applications "Source" = where the contact started: the channel when it's one we know (a LinkedIn chat, an email),
+# else how the row was added (Telegram, Manual, the app). A later channel never replaces it; something logged from
+# another channel that is dated before the row's first contact does (src/ai/inbox.py _fill_gaps, --resync-source).
+CHANNEL_SOURCE = {'LinkedIn': 'LinkedIn', 'Email': 'Gmail'}
+SOURCE_CHANNEL = {source: channel for channel, source in CHANNEL_SOURCE.items()}
+NOTES_ORIGIN = re.compile(r'^(?:Recruiter message|Logged from a paste) \((Email|LinkedIn|Phone|Other)\)')
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -107,6 +113,29 @@ def label(lead):
     return ' — '.join(p for p in (title(lead), who) if p) + (f' via {via}' if via and via != who else '')
 
 
+def source_for(lead, source):
+    """The row's Source: LinkedIn for a LinkedIn message (however it reached Job Pilotto), else the given one."""
+    return 'LinkedIn' if lead.get('platform') == 'LinkedIn' else source
+
+
+def first_contact_changes(row, platform, began, origin):
+    """Property changes when a contact on `platform` at `began` (a datetime) predates the row's first known contact
+    (`origin`): Source, Reached via and the Notes' "(Email)" follow the earliest contact. {} otherwise: a later
+    contact, or the same channel again, changes nothing."""
+    if platform not in CHANNEL_SOURCE or not began or not origin or began >= origin:
+        return {}
+    props, changes = row.get('properties') or {}, {}
+    if SOURCE_CHANNEL.get(plain(props.get('Source')) or '') != platform:
+        changes['Source'] = {'select': {'name': CHANNEL_SOURCE[platform]}}
+    if plain(props.get('Reached via')) != platform:
+        changes['Reached via'] = {'select': {'name': platform}}
+    notes = plain(props.get('Notes')) or ''
+    found = NOTES_ORIGIN.match(notes)
+    if found and found.group(1) != platform:
+        changes['Notes'] = _text(notes[:found.start(1)] + platform + notes[found.end(1):])
+    return changes
+
+
 def properties(lead, url, stage, source, origin='Recruiter message'):
     via = '' if lead.get('in_house') else lead.get('recruiter_company', '')
     notes = [f"{origin} ({lead.get('platform') or 'Other'})"]
@@ -124,7 +153,7 @@ def properties(lead, url, stage, source, origin='Recruiter message'):
         'Company': _text(lead.get('company')), 'Location': _text(lead.get('location')), 'Salary': _text(lead.get('salary')),
         'Channel': {'select': {'name': 'Direct' if lead.get('in_house') else 'Agency'}},
         'Via': _text(via), 'Contact': _text(contact(lead)), 'Recruiter': {'checkbox': not lead.get('in_house')},
-        'Notes': _text('. '.join(notes)), 'Source': {'select': {'name': source}},
+        'Notes': _text('. '.join(notes)), 'Source': {'select': {'name': source_for(lead, source)}},
         # Where the recruiter reached you: where to answer (Focus says "Reply by email / on LinkedIn").
         'Reached via': {'select': {'name': lead.get('platform') if lead.get('platform') in REACHED_VIA else 'Other'}},
     }

@@ -16,7 +16,7 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Location | Text | |
 | Job URL | URL | Canonical posting URL — the match key everything uses |
 | Stage | Select | Options: `Kit ready` (a kit was drafted automatically), `Saved` (you tapped ⭐), `Applying`, `Applied`, `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Dismissed`, `Closed` (posting gone) |
-| Source | Select | Options: `Telegram`, `Manual` |
+| Source | Select | Where the contact started: `LinkedIn`, `Gmail` (an email), else how the row was added (`Telegram`, `Manual`, `Job Pilotto app`). A later channel never replaces it; something logged later but dated before the first contact does (`python -m src.ai.inbox --resync-source <page>` recomputes it) |
 | Applied on | Date | Set when Stage becomes Applied |
 | Posted | Date | Posting date from the source, or first-seen date if unknown |
 | Next interview | Date | You fill this in manually |

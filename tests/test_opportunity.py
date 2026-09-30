@@ -91,6 +91,10 @@ class OpportunityTests(unittest.TestCase):
         tracker = Tracker()
         opportunity.add_from_text(tracker, CHAT_PITCH, client=Client(CHAT_LEAD))
         self.assertEqual(tracker.created[0]['Reached via'], {'select': {'name': 'LinkedIn'}})
+        # Source = where it started: a LinkedIn chat pasted into the app is LinkedIn; a pasted email keeps the app's
+        self.assertEqual(tracker.created[0]['Source'], {'select': {'name': 'LinkedIn'}})
+        opportunity.add_from_text(tracker, EMAIL_PITCH, client=Client(EMAIL_LEAD))
+        self.assertEqual([p for p in tracker.created if 'Stage' in p][-1]['Source'], {'select': {'name': 'Manual'}})
 
     def test_the_same_pitch_from_gmail_and_pasted_is_one_lead(self):
         emailed = app('g1', '', 'Senior DevOps Engineer', stage='Recruiter lead', contact='Alex Morgan · alex@example-talent.test')

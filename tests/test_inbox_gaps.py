@@ -31,9 +31,10 @@ class FillGapsTest(unittest.TestCase):
         tracker = FakeTracker()
         filled = inbox._fill_gaps(tracker, row, {'platform': 'LinkedIn', 'first_contact': '2026-09-22T10:00:00+02:00'})
         self.assertEqual(filled, ['first contact on LinkedIn'])
-        self.assertEqual(tracker.updates[0][1], {'Reached via': {'select': {'name': 'LinkedIn'}}})
+        self.assertEqual(tracker.updates[0][1]['Reached via'], {'select': {'name': 'LinkedIn'}})
         later = {**row, 'properties': {**row['properties'], 'Reached via': {'type': 'select', 'select': {'name': 'Email'}}}}
         self.assertEqual(inbox._fill_gaps(FakeTracker(), later, {'platform': 'LinkedIn', 'first_contact': '2026-09-30'}), [])
+
 
     def test_the_fuller_title_replaces_an_invitations_short_one_never_another_role(self):
         row = {'id': 'h1', 'properties': {'Job': {'type': 'title', 'title': [{'plain_text': 'SRE'}]}}}
@@ -52,6 +53,104 @@ class FillGapsTest(unittest.TestCase):
         tracker = FakeTracker()
         self.assertEqual(inbox._fill_gaps(tracker, {'id': 'x', 'properties': {'Company': text('Acme')}}, {'company': 'Other'}), [])
         self.assertEqual(tracker.updates, [])
+
+
+def select(value):
+    return {'type': 'select', 'select': {'name': value} if value else None}
+
+
+def gmail_lead(**extra):
+    """The Huxley row: tracked from the Gmail check's call invite on 29 Sep."""
+    return {'id': 'h1', 'created_time': '2026-09-29T13:09:00Z', 'properties': {
+        'Company': text(''), 'Source': select('Gmail'), 'Reached via': select('Email'),
+        'Notes': text('Recruiter message (Email)'), **extra}}
+
+
+class EventsTracker(FakeTracker):
+    def __init__(self, events=()):
+        super().__init__()
+        self.events, self.queries = list(events), []
+
+    def query_database(self, database_id, filter_=None):
+        self.queries.append(filter_)
+        return self.events
+
+
+class SourceIsTheEarliestContactTest(unittest.TestCase):
+    """Source = where the contact started: a later channel never replaces it, an earlier one logged later does."""
+
+    def test_email_first_then_linkedin_later_stays_gmail(self):
+        tracker = EventsTracker()
+        self.assertEqual(inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'LinkedIn', 'when': '2026-09-30T09:00:00Z',
+                                                                 'first_contact': '2026-09-30T09:00:00Z'}), [])
+        self.assertEqual(tracker.updates, [])
+
+    def test_linkedin_logged_later_but_dated_earlier_becomes_the_source(self):
+        row, tracker = gmail_lead(), EventsTracker()
+        filled = inbox._fill_gaps(tracker, row, {'platform': 'LinkedIn', 'first_contact': '2026-09-21T14:36:00Z'})
+        self.assertEqual(filled, ['first contact on LinkedIn'])
+        self.assertEqual(tracker.updates, [('h1', {
+            'Source': {'select': {'name': 'LinkedIn'}}, 'Reached via': {'select': {'name': 'LinkedIn'}},
+            'Notes': {'rich_text': [{'text': {'content': 'Recruiter message (LinkedIn)'}}]}})])
+        self.assertEqual(inbox.plain(row['properties']['Source']), 'LinkedIn')
+
+    def test_the_messages_own_date_counts_when_the_chat_start_isnt_shown(self):
+        tracker = EventsTracker()
+        inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'LinkedIn', 'first_contact': '', 'when': '2026-09-21T14:36:00Z'})
+        self.assertEqual(tracker.updates[0][1]['Source'], {'select': {'name': 'LinkedIn'}})
+
+    def test_the_same_channel_twice_changes_nothing(self):
+        row = gmail_lead(Source=select('LinkedIn'), **{'Reached via': select('LinkedIn')},
+                         Notes=text('Recruiter message (LinkedIn)'))
+        tracker = EventsTracker()
+        self.assertEqual(inbox._fill_gaps(tracker, row, {'platform': 'LinkedIn', 'first_contact': '2026-09-21T10:00:00Z'}), [])
+        self.assertEqual(tracker.updates, [])
+        tracker = EventsTracker()
+        self.assertEqual(inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'Email', 'first_contact': '2026-09-21'}), [])
+        self.assertEqual(tracker.updates, [])
+
+    def test_an_email_older_than_the_row_itself_still_came_first(self):
+        # The Gmail check tracked on 29 Sep an email from 20 Sep: a LinkedIn chat from the 21st is later.
+        from unittest import mock
+        email = {'properties': {'At': {'type': 'date', 'date': {'start': '2026-09-20T09:00:00Z'}}}}
+        tracker = EventsTracker([email])
+        with mock.patch.object(inbox.ledger, 'EVENTS_DATABASE_ID', 'events-db'):
+            self.assertEqual(inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'LinkedIn', 'first_contact': '2026-09-21'}), [])
+        self.assertEqual(tracker.queries[0]['and'][1], {'property': 'Source', 'select': {'equals': 'Gmail'}})
+
+    def test_resync_source_reads_the_logged_entries_on_the_page(self):
+        def entry(kind, title):
+            return {'type': kind, kind: {'rich_text': [{'plain_text': title}]}}
+
+        class Page(EventsTracker):
+            def _request(self, method, path):
+                self.asked = path
+                return gmail_lead()
+
+            def _children(self, page_id):
+                return [entry('heading_2', '🤝 Recruiter message'), entry('paragraph', 'Subject: Connect Igor / Jaya - SRE'),
+                        entry('toggle', '📥 30 Sep 2026 · Email · follow-up'),
+                        entry('heading_3', '📥 21 Sep 2026 · LinkedIn chat with Jayantie Nejati (Huxley)')]
+        tracker = Page()
+        changes = inbox.resync_source(tracker, '3ea62be8fd8681299dd8cc115550b8da')
+        self.assertEqual(tracker.asked, 'pages/3ea62be8fd8681299dd8cc115550b8da')
+        self.assertEqual(changes['Source'], {'select': {'name': 'LinkedIn'}})
+        self.assertEqual(changes['Notes'], {'rich_text': [{'text': {'content': 'Recruiter message (LinkedIn)'}}]})
+        self.assertEqual(len(tracker.updates), 1)
+        tracker = Page()
+        tracker._children = lambda page_id: [entry('toggle', '📥 30 Sep 2026 · LinkedIn · thanks')]  # later: kept
+        self.assertEqual(inbox.resync_source(tracker, 'x'), {})
+
+    def test_a_logged_entry_names_its_channel(self):
+        appended = []
+
+        class Tracker:
+            def append_blocks(self, parent, blocks):
+                appended.append(blocks)
+        inbox._keep(Tracker(), {'id': 'job'}, 'hi', None, 'Call booked', '2026-09-21T10:00:00Z', 'LinkedIn')
+        inbox._keep(Tracker(), {'id': 'job'}, 'hi', None, 'LinkedIn chat', '2026-09-21T10:00:00Z', 'LinkedIn')
+        titles = [b[0]['toggle']['rich_text'][0]['text']['content'] for b in appended]
+        self.assertEqual(titles, ['📥 21 Sep 2026 · LinkedIn · Call booked', '📥 21 Sep 2026 · LinkedIn chat'])
 
 
 

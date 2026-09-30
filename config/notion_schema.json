@@ -233,6 +233,10 @@
             {
               "name": "Gmail",
               "color": "red"
+            },
+            {
+              "name": "LinkedIn",
+              "color": "purple"
             }
           ]
         },
