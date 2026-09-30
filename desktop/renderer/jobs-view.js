@@ -36,6 +36,8 @@ export const SENT = new Set(['Applied', 'Confirmation received', 'Screening', 'I
 const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
 export const SCREENING = new Set(['Screening', 'Interview scheduled']);
 export const INTERVIEWS = new Set(['Interviewing', 'Offer']);
+// Past the first call: "I agreed to speak with the recruiter" (move to Screening) no longer applies.
+export const PAST_FIRST_CALL = new Set([...SCREENING, ...INTERVIEWS]);
 const TALKING = new Set([...SCREENING, ...INTERVIEWS]);
 // Sent = waiting + in process + closed: the boxes add up, except for opportunities that found you (inbound,
 // renderer/origin.js): they count in Waiting / In process / Closed (real workload) but as Applied only once you applied

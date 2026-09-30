@@ -193,3 +193,9 @@ test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and Inb
   assert.deepEqual(cards, ['applied', 'waiting', 'interviews', 'closed', 'total', 'high', 'inbound', 'companies']);
   assert.match(html, /<b id="stat-inbound">–<\/b><span>Inbound<\/span>/);
 });
+
+test('the "I agreed to speak with the recruiter" checkbox only applies before the first call', async () => {
+  const {PAST_FIRST_CALL} = await import('../renderer/jobs-view.js');
+  for (const stage of ['Screening', 'Interview scheduled', 'Interviewing', 'Offer']) assert.ok(PAST_FIRST_CALL.has(stage), stage);
+  for (const stage of ['Recruiter lead', 'Saved', 'Kit ready', 'Applied', '']) assert.ok(!PAST_FIRST_CALL.has(stage), stage);
+});
