@@ -67,8 +67,8 @@ test('the landing page reads the pool size from this same route and says users c
   const {readFileSync} = await import('node:fs');
   const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(page, /fetch\('\/api\/index'\)/);
-  assert.match(page, /<small>Portals<\/small>/);     // each card of the first row has its own tile
-  assert.match(page, /<small>Your own<\/small>/);
+  assert.match(page, /<small>Portals<\/small>/);     // each card of the first row has two tiles
+  assert.match(page, /<b>SCOUT<\/b><small>Your own<\/small>/);
   assert.match(page, /id="pool-employers"/);
   assert.match(page, /id="pool-jobs"/);
   assert.match(page, /Open jobs/);
