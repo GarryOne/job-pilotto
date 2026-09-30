@@ -47,14 +47,40 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 .steps li.current { background: var(--navy-active); color: var(--on-accent); }
 .steps li.current::before { border-color: var(--amber); color: var(--amber); }
 .steps .fine { color: var(--on-navy-3); }
-.step-body { overflow-y: auto; padding: 48px 56px var(--sp-6); }
+/* Step pages: one content column (banner, header, cards, actions) with the app pages' padding and header. */
+.step-body { overflow-y: auto; padding: var(--sp-6) var(--sp-6) var(--sp-5); }
 .step-body::after { content: ""; display: block; height: var(--sp-6); }
-.step { max-width: 720px; }
-.checks { padding-left: 20px; color: var(--muted); }
-.howto { padding-left: 20px; color: var(--muted); }
-.howto li { margin: 4px 0; }
-.dropzone { border: 2px dashed var(--line); border-radius: var(--r-lg); background: var(--surface); padding: 32px; display: grid; justify-items: center; gap: 10px; margin-top: 16px; }
-.file-icon { font-size: var(--fs-display); }
+.step, .step-body > .review-mode { max-width: 1040px; }
+.step-head { margin-bottom: var(--sp-5); }
+.step-head .subtitle { max-width: 72ch; margin: var(--sp-1) 0 0; }
+.step-head h1 { margin-bottom: 0; }
+.step-card { display: grid; gap: var(--sp-4); padding: var(--sp-5); margin-bottom: var(--sp-4); }
+.step-field label { margin-top: 0; }
+.step-field .message { margin-bottom: 0; }
+.step-field .message:empty { display: none; }
+.step .troubleshoot { margin: 0 0 var(--sp-4); }
+.step .troubleshoot[open] summary { margin-bottom: var(--sp-3); }
+.step .troubleshoot .howto { margin-top: 0; }
+.step .troubleshoot > .muted { margin: 0 0 var(--sp-3); }
+/* The steps to follow, as numbered rows. */
+.howto { margin: 0; padding-left: var(--sp-5); color: var(--ink-2); display: grid; gap: var(--sp-2); }
+.howto li { padding-left: var(--sp-1); }
+.howto li::marker { color: var(--muted); font-weight: 600; }
+/* Welcome: what setup does, as rows with a line icon (like the Strategy page's rows). */
+.checks { list-style: none; margin: 0; padding: 0; display: grid; }
+.checks li { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; font-weight: 600; }
+.checks li + li { border-top: 1px solid var(--line); }
+.checks li:first-child { padding-top: 0; }
+.checks li:last-child { padding-bottom: 0; }
+/* Fine print under a step (as Settings → Connections' Keychain note): a line icon, muted text. */
+.step-note { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
+.step-note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+/* Your CV: the file as a row (tile, name, button), then the note. */
+.cv-pick { display: flex; align-items: center; gap: var(--sp-3); padding-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.cv-pick b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A step's actions: Back on the left, the rest on the right, under a rule. */
+.step > .actions { border-top: 1px solid var(--line); padding-top: var(--sp-4); margin-top: var(--sp-4); }
+.actions > [data-back]:first-child { margin-right: auto; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
 .grid .full { grid-column: 1 / -1; }
 .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 24px 0; }
@@ -69,14 +95,13 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 12px; margin-top: 10px; }
 summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 details textarea { margin-top: 8px; }
-.extra { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; margin-top: 10px; }
-.extra p { color: var(--muted); margin: 0; }
-.extra h3 { display: flex; align-items: center; gap: var(--sp-2); }
-.extra h3 .icon { color: var(--muted); }
-.extra-stack { align-items: flex-start; }
-.prereqs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
-.prereqs li { color: var(--muted); }
-.prereqs li.done { color: var(--good); }
+/* Optional extras: Settings → Connections' service rows; Apply with Claude spans both columns with its checklist. */
+.extras .service-card.is-wide { grid-column: 1 / -1; }
+.extras .service-card > button { white-space: nowrap; flex: none; }
+.prereqs { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-md); }
+.prereqs li { display: flex; align-items: flex-start; gap: var(--sp-2); color: var(--ink-2); }
+.prereqs li svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--muted); }
+.prereqs li.done svg { color: var(--good); }
 
 /* App */
 .app { display: grid; grid-template-columns: 200px 1fr; grid-template-rows: minmax(0, 1fr) auto auto; height: 100vh; }
@@ -589,13 +614,12 @@ button.danger-solid { background: var(--bad); color: var(--on-accent); border-co
 button.danger-solid:disabled { opacity: .45; cursor: not-allowed; }
 
 /* Wizard → Notion: one button, the token way folded below */
-.oauth { display: grid; gap: 8px; justify-items: start; margin: 18px 0 6px; }
-button.big { font-size: var(--fs-lg); padding: 12px 22px; }
-details.manual { margin-top: 18px; }
+.oauth .step-field { display: grid; gap: var(--sp-3); justify-items: start; }
+.oauth .step-field > * { margin: 0; }
+.oauth .found { justify-self: stretch; }
 
 .subsetting { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .subsetting h4 { margin: 0 0 4px; }
-.extra > button { white-space: nowrap; flex-shrink: 0; }
 
 /* Wizard → strategy: what Claude is doing, line by line */
 .draft-feed { list-style: none; padding: 0; margin: 12px 0 4px; display: grid; gap: 4px; font-size: var(--fs-md); color: var(--muted); max-width: 720px; }
@@ -605,20 +629,20 @@ details.manual { margin-top: 18px; }
 .draft-feed li.now::before { content: '●'; color: var(--signal); display: inline-block; width: 20px; animation: pulse 1.2s ease-in-out infinite; }
 
 /* ---------- Wizard step 5: review your strategy ---------- */
-.review-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.review-head h1 { margin-bottom: 4px; }
 .pill-ai { border: 1px solid var(--info-line); color: var(--info); background: var(--info-soft); border-radius: var(--r-pill); padding: 6px 14px; font-size: var(--fs-md); font-weight: 600; white-space: nowrap; }
 .review { display: grid; gap: 14px; margin-top: 16px; padding-bottom: 12px; }
 .review .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
 .review .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .review .card-head h2 { font-size: var(--fs-xl); margin: 0 0 4px; }
-.review .card-head h3 { font-size: var(--fs-base); margin: 0; }
+.review .card-head h3 { font-size: var(--fs-base); margin: 0; display: flex; align-items: center; gap: var(--sp-2); }
+.review .card-head h3 svg { width: 18px; height: 18px; color: var(--ink-2); }
 .review .card-head p { margin: 0; }
-.review .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.review .tile { display: flex; gap: 10px; align-items: center; background: var(--sky); border-radius: var(--r-md); padding: 12px; }
-.review .tile-icon { font-size: var(--fs-xl); }
-.review .tile small { display: block; color: var(--muted); font-size: var(--fs-sm); }
-.review .tile b { font-size: var(--fs-base); }
+/* Goals: label/value rows (the Strategy page's .target-rows); long values clamp to two lines, whole on hover/edit. */
+.review .goal-rows { margin: 0; grid-template-columns: 220px minmax(0, 1fr); }
+.review .goal-rows dt, .review .goal-rows dd { align-items: flex-start; }
+.review .goal-rows dt svg { margin-top: 2px; }
+.review .goal-value { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; overflow-wrap: anywhere; }
+.review .goal-value[contenteditable="plaintext-only"] { display: block; -webkit-line-clamp: unset; }
 .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .review .chips { gap: 6px; }
 .review .chip.removable { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; font-size: var(--fs-sm); background: var(--sky); }
@@ -627,7 +651,6 @@ details.manual { margin-top: 18px; }
 .review #draft-summary { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
 .review #draft-summary.open { -webkit-line-clamp: unset; }
 .review .card-head .link { white-space: nowrap; }
-.review .tile b { font-size: var(--fs-md); }
 .review .goals-hint { margin: 0; }
 #q-more { font-family: var(--font-sans); }
 .review .chip .x:hover { color: var(--bad); }
@@ -636,7 +659,6 @@ details.manual { margin-top: 18px; }
 .review .priority { background: var(--good-soft); border-radius: var(--r-md); padding: 8px 10px; display: grid; gap: 6px; }
 .review .priority b { color: var(--good); font-size: var(--fs-md); }
 .review .sub { margin: 2px 0 0; font-size: var(--fs-md); color: var(--muted); }
-.review .icon-btn { background: transparent; border: 0; color: var(--muted); font-size: var(--fs-lg); padding: 2px 6px; cursor: pointer; }
 .review input.add { font-size: var(--fs-md); padding: 6px 10px; }
 .review .questions-card { background: var(--signal-soft); border-color: var(--signal-line); }
 .review .bang { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--signal); color: var(--on-accent); font-size: var(--fs-md); margin-right: 4px; }
@@ -656,13 +678,14 @@ details.manual { margin-top: 18px; }
 .review .doc-view ul { margin: 4px 0 8px; padding-left: 18px; }
 .review textarea { width: 100%; margin-top: 8px; font: var(--fs-md)/1.5 var(--font-mono); }
 .review .doc-edit { margin-top: 6px; }
-.step[data-step="draft"] .actions.sticky { position: sticky; bottom: -48px; margin-bottom: -48px; background: var(--sky); padding: 12px 0 60px; border-top: 1px solid var(--line); z-index: 5; align-items: center; }
+.step[data-step="draft"] .actions.sticky { position: sticky; bottom: calc(-1 * var(--sp-5)); margin-bottom: calc(-1 * var(--sp-5)); background: var(--sky);
+  padding: var(--sp-4) 0 calc(var(--sp-4) + var(--sp-5)); border-top: 1px solid var(--line); z-index: 5; align-items: center; }
 .saved-note { margin-right: auto; color: var(--teal); font-size: var(--fs-md); }
 
 /* Step 5: values edit in place */
-.review .doc-view .editable, .review .tile .editable { cursor: text; border-radius: var(--r-sm); }
-.review .doc-view .editable:hover, .review .tile .editable:hover { outline: 1px dashed var(--line); outline-offset: 2px; }
-.review .doc-view .editable[contenteditable="plaintext-only"], .review .tile .editable[contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
+.review .doc-view .editable, .review .goal .editable { cursor: text; border-radius: var(--r-sm); }
+.review .doc-view .editable:hover, .review .goal .editable:hover { outline: 1px dashed var(--line-strong); outline-offset: 2px; }
+.review .doc-view .editable[contenteditable="plaintext-only"], .review .goal .editable[contenteditable="plaintext-only"] { outline: 2px solid var(--signal); outline-offset: 2px; background: var(--surface); }
 
 .review .doc-view li.ask, .review .doc-view p.ask { background: var(--warn-soft); }
 
@@ -678,7 +701,11 @@ details.manual { margin-top: 18px; }
 .save-steps li.done::before { content: '✓'; color: var(--teal); font-weight: 700; }
 .save-steps .count { color: var(--muted); font-weight: 400; }
 .save-dialog .bar { margin: 4px 0 12px; }
-.save-dialog .actions { justify-content: flex-end; }
+.save-dialog.panel-dialog { padding: var(--sp-6) var(--sp-6) 0; }
+/* While saving, no button shows: no empty footer bar, the dialog's own padding below. */
+.save-dialog .message:empty { display: none; }
+.save-dialog .dialog-foot:not(:has(button:not([hidden]))) { display: none; }
+.save-dialog.panel-dialog:not(:has(.dialog-foot button:not([hidden]))) { padding-bottom: var(--sp-6); }
 
 /* Wizard: finished steps open from the sidebar; the way back to the app / to setup */
 #step-list li.jump { cursor: pointer; -webkit-app-region: no-drag; }
@@ -690,8 +717,9 @@ details.manual { margin-top: 18px; }
 .back-to-setup span { flex: 1; }
 
 /* Setup reopened after it was done: a review; replacing the strategy is confirmed */
-.review-mode { display: flex; gap: var(--sp-2); align-items: flex-start; background: var(--teal-soft); border: 1px solid var(--teal-line);
-  border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-5); font-size: var(--fs-base); color: var(--ink); max-width: 1100px; }
+.review-mode.alert { margin: 0 0 var(--sp-5); padding: var(--sp-3) var(--sp-4); align-items: center; font-size: var(--fs-md); color: var(--ink-2); }
+.review-mode.alert > svg { width: 20px; height: 20px; }
+.review-mode strong { color: var(--ink); }
 .stale-draft { display: flex; align-items: center; gap: var(--sp-3); background: var(--warn-soft); border: 1px solid var(--warn-line);
   border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); margin: var(--sp-3) 0; font-size: var(--fs-base); }
 .stale-draft span { flex: 1; }

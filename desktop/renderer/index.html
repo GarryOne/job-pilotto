@@ -35,44 +35,55 @@
   </aside>
 
   <div class="step-body">
-    <div class="review-mode" id="review-mode" hidden>🔒 <span><b>Your setup is done.</b> You're looking at it: nothing changes here unless you replace your
-      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</span></div>
+    <div class="alert tone-good review-mode" id="review-mode" hidden><i data-icon="shield"></i>
+      <div><strong>Your setup is done.</strong> You're looking at it: nothing changes here unless you replace your
+      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</div></div>
     <div class="step" data-step="welcome">
-      <span class="eyebrow">Check-in · about 5 minutes</span>
-      <h1>Let's set up your job search</h1>
-      <p class="lede">Job Pilotto finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p>
-      <ul class="checks">
-        <li>Add your AI key (Anthropic)</li>
-        <li>Set up your Job Pilotto workspace in Notion (free)</li>
-        <li>Choose your CV</li>
-        <li>Check the goals and strategy it proposes from your CV</li>
-      </ul>
-      <div class="actions">
-        <button class="secondary" data-look-around="welcome" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
-        <button class="primary" data-next>Start</button>
-      </div>
-      <p class="fine">Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
+      <header class="view-head step-head">
+        <div><span class="eyebrow">Check-in · about 5 minutes</span>
+          <h1>Let's set up your job search</h1>
+          <p class="muted subtitle">Job Pilotto finds openings that fit you, scores them against your CV, and helps you fill applications. You review and click Submit yourself.</p></div>
+        <div class="head-actions">
+          <button class="secondary" data-look-around="welcome" title="A fictional candidate and jobs. Nothing of yours is used or sent.">Look around first (demo data)</button>
+          <button class="primary" data-next>Start</button>
+        </div>
+      </header>
+      <section class="card step-card">
+        <ul class="checks">
+          <li><span class="ui-tile tone-signal"><i data-icon="zap"></i></span>Add your AI key (Anthropic)</li>
+          <li><span class="ui-tile tone-signal"><i data-icon="database"></i></span>Set up your Job Pilotto workspace in Notion (free)</li>
+          <li><span class="ui-tile tone-signal"><i data-icon="file"></i></span>Choose your CV</li>
+          <li><span class="ui-tile tone-signal"><i data-icon="target"></i></span>Check the goals and strategy it proposes from your CV</li>
+        </ul>
+      </section>
+      <p class="muted small step-note"><i data-icon="shield"></i><span>Job Pilotto sends technical reports (errors, forms it couldn't fill, anonymous counts like forms filled and
         interviews) to improve it for everyone, and shares which employer career pages you use, with two labels (your kind of role and
         your region), to grow the shared pool of employers. Never your answers, CV, emails or names. Turn either off any time in
-        Settings → Advanced.</p>
+        Settings → Advanced.</span></p>
     </div>
 
     <div class="step" data-step="ai">
-      <span class="eyebrow">Step 1 of 5</span>
-      <h1>Connect your AI</h1>
-      <p class="lede">Job Pilotto uses Claude to read job postings, score them and draft answers. It runs on this computer with your own key,
-        and you pay Anthropic directly: usually a few dollars a month during an active search, capped by the monthly budget you set.</p>
-      <ol class="howto">
-        <li>Open <a href="#" data-link="https://console.anthropic.com/settings/keys">console.anthropic.com → API keys</a> and sign up or sign in
-          (a separate account from a Claude.ai subscription).</li>
-        <li>New account? Go to <a href="#" data-link="https://console.anthropic.com/settings/billing">Billing</a> and add a small amount
-          of credit, e.g. $5: it lasts weeks. Keys don't work without credit.</li>
-        <li>Back in <b>API keys</b>: click <b>Create Key</b>, name it "Job Pilotto", copy it, and paste it here.</li>
-      </ol>
-      <label for="anthropic-key">Anthropic API key</label>
-      <input id="anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off">
-      <p class="message" id="ai-message"></p>
-      <details class="trial-offer" id="ai-trial">
+      <header class="view-head step-head">
+        <div><span class="eyebrow">Step 1 of 5</span>
+          <h1>Connect your AI</h1>
+          <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. It runs on this computer with your own key,
+            and you pay Anthropic directly: usually a few dollars a month during an active search, capped by the monthly budget you set.</p></div>
+      </header>
+      <section class="card step-card">
+        <ol class="howto">
+          <li>Open <a href="#" data-link="https://console.anthropic.com/settings/keys">console.anthropic.com → API keys</a> and sign up or sign in
+            (a separate account from a Claude.ai subscription).</li>
+          <li>New account? Go to <a href="#" data-link="https://console.anthropic.com/settings/billing">Billing</a> and add a small amount
+            of credit, e.g. $5: it lasts weeks. Keys don't work without credit.</li>
+          <li>Back in <b>API keys</b>: click <b>Create Key</b>, name it "Job Pilotto", copy it, and paste it here.</li>
+        </ol>
+        <div class="step-field">
+          <label for="anthropic-key">Anthropic API key</label>
+          <input id="anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off">
+          <p class="message" id="ai-message"></p>
+        </div>
+      </section>
+      <details class="troubleshoot trial-offer" id="ai-trial">
         <summary>No Anthropic key yet? Try it with $1 of free AI</summary>
         <p class="muted small">For invited testers: paste the founder key you got with your invite. While you use the free credit, AI
           requests go through the Job Pilotto website to Anthropic (nothing is stored). With your own key they go straight from this Mac
@@ -88,19 +99,23 @@
     </div>
 
     <div class="step" data-step="notion">
-      <span class="eyebrow">Step 2 of 5</span>
-      <h1>Your Job Pilotto workspace in Notion</h1>
-      <p class="lede">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p>
-      <div class="oauth">
+      <header class="view-head step-head">
+        <div><span class="eyebrow">Step 2 of 5</span>
+          <h1>Your Job Pilotto workspace in Notion</h1>
+          <p class="muted subtitle">Notion is where you'll see and track everything: your matches, applications, replies, interviews and insights. A free Notion account is enough.</p></div>
+      </header>
+      <section class="card step-card oauth">
         <ol class="howto">
           <li><b>Click Connect with Notion</b> below. Notion opens in your browser.</li>
           <li>Keep <b>Use a template provided by the developer</b> → <b>Allow access</b>. Notion adds a ready
             <b>Job Pilotto</b> page to your workspace.</li>
           <li><b>Come back here</b>. Job Pilotto finishes setting it up, about a minute.</li>
         </ol>
-        <button class="primary big" id="notion-oauth">Connect with Notion</button>
-      </div>
-      <details class="manual" id="notion-own">
+        <div class="step-field"><button class="primary with-icon" id="notion-oauth"><i data-icon="link"></i><span>Connect with Notion</span></button>
+          <p class="message" id="notion-message"></p>
+          <div id="notion-found" class="found" hidden></div></div>
+      </section>
+      <details class="troubleshoot manual" id="notion-own">
         <summary>I already have a Job Pilotto page</summary>
         <ol class="howto">
           <li>Click <b>Connect with Notion</b> above. On Notion's page choose <b>Select pages</b> → tick <b>only</b> your
@@ -108,9 +123,7 @@
           <li>Job Pilotto uses what's there and adds anything missing. (An empty page named Job Pilotto works too: everything is built inside it.)</li>
         </ol>
       </details>
-      <div id="notion-found" class="found" hidden></div>
-      <p class="message" id="notion-message"></p>
-      <details class="manual" id="notion-manual" hidden>
+      <details class="troubleshoot manual" id="notion-manual" hidden>
         <summary>Having trouble? Use a token instead</summary>
         <ol class="howto">
           <li><b>Make a page for it:</b> in Notion's sidebar, <b>+</b> (new page) → name it <b>Job Pilotto</b> and leave it empty. Job Pilotto builds everything inside it when you connect. (Or copy <button class="link" id="notion-template">the Job Pilotto template</button> → <b>Duplicate</b>; missing parts are added the same way.)</li>
@@ -129,32 +142,38 @@
     </div>
 
     <div class="step" data-step="cv">
-      <span class="eyebrow">Step 3 of 5</span>
-      <h1>Your CV</h1>
-      <p class="lede">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
-        It stays on this Mac and in your Notion; only the AI reads it when building your strategy.</p>
-      <div class="dropzone">
-        <div class="file-icon">📄</div>
-        <div id="cv-name" class="muted">No CV chosen yet</div>
-        <button class="secondary" id="cv-choose">Choose PDF…</button>
-      </div>
-      <label for="q-more">Anything else I should know? <span class="muted">(optional)</span></label>
-      <textarea id="q-more" rows="3" placeholder="e.g. only remote jobs, no on-call, moving to Berlin in spring, skip my current employer"></textarea>
+      <header class="view-head step-head">
+        <div><span class="eyebrow">Step 3 of 5</span>
+          <h1>Your CV</h1>
+          <p class="muted subtitle">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
+            It stays on this Mac and in your Notion; only the AI reads it when building your strategy.</p></div>
+      </header>
+      <section class="card step-card">
+        <div class="cv-pick">
+          <span class="ui-tile tone-signal"><i data-icon="file-text"></i></span>
+          <b id="cv-name">No CV chosen yet</b>
+          <button class="secondary with-icon" id="cv-choose"><i data-icon="upload"></i><span>Choose PDF…</span></button>
+        </div>
+        <div class="step-field">
+          <label for="q-more">Anything else I should know? <span class="muted">(optional)</span></label>
+          <textarea id="q-more" rows="3" placeholder="e.g. only remote jobs, no on-call, moving to Berlin in spring, skip my current employer"></textarea>
+        </div>
+      </section>
+      <p class="muted small step-note" id="goals-cost" hidden><i data-icon="info"></i><span>Rebuilding reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20.
+        Nothing in your strategy changes until you review the result and pick what to apply.</span></p>
       <div class="actions">
         <button class="ghost" data-back>Back</button>
         <button class="primary" id="cv-next" disabled>Build my strategy</button>
       </div>
-      <p class="muted small" id="goals-cost" hidden>Rebuilding reads your CV and your note with Claude Sonnet 5: about $0.10–$0.20.
-        Nothing in your strategy changes until you review the result and pick what to apply.</p>
     </div>
 
     <div class="step" data-step="draft">
-      <div class="review-head">
+      <header class="view-head step-head">
         <div><span class="eyebrow">Step 4 of 5</span>
           <h1 id="draft-title">Your strategy</h1>
-          <p class="muted" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
-        <span class="pill-ai" id="draft-cost" hidden></span>
-      </div>
+          <p class="muted subtitle" id="draft-subtitle" hidden>Check what Job Pilotto will search for, score jobs against and use in applications.</p></div>
+        <div class="head-actions"><span class="pill-ai" id="draft-cost" hidden></span></div>
+      </header>
       <div id="draft-loading" class="progress">
         <div class="progress-head"><span class="spinner"></span><b id="draft-part">Reading your CV</b><span id="draft-percent" class="muted"></span></div>
         <div class="bar"><span id="draft-bar"></span></div>
@@ -167,20 +186,20 @@
       <div id="draft-view" class="review" hidden>
         <section class="card overview">
           <div class="card-head"><div><h2>Your search strategy</h2><p class="muted" id="draft-summary"></p></div>
-            <button class="link" data-goto-step="cv">✎ CV or note</button></div>
+            <button class="link with-icon" data-goto-step="cv"><i data-icon="edit"></i><span>CV or note</span></button></div>
           <p class="muted small goals-hint">Your goals, proposed from your CV. Click a value to correct it.</p>
-          <div class="tiles" id="draft-tiles"></div>
+          <dl class="target-rows goal-rows" id="draft-tiles"></dl>
         </section>
         <div class="review-grid">
-          <section class="card" data-list="roles"><div class="card-head"><h3>💼 Target roles</h3><button class="icon-btn" data-edit title="Add a role">✎</button></div>
+          <section class="card" data-list="roles"><div class="card-head"><h3><i data-icon="briefcase"></i>Target roles</h3><button class="icon-button" data-edit title="Add a role" aria-label="Add a role"><i data-icon="edit"></i></button></div>
             <div class="chips" id="chips-roles"></div></section>
-          <section class="card" data-list="places"><div class="card-head"><h3>📍 Target locations</h3><button class="icon-btn" data-edit title="Add a place">✎</button></div>
+          <section class="card" data-list="places"><div class="card-head"><h3><i data-icon="pin"></i>Target locations</h3><button class="icon-button" data-edit title="Add a place" aria-label="Add a place"><i data-icon="edit"></i></button></div>
             <div class="priority"><b>Priority</b><div class="chips" id="chips-places"></div></div>
             <p class="sub">Anywhere in</p><div class="chips" id="chips-country"></div>
             <p class="sub">Relocation (open to)</p><div class="chips" id="chips-abroad"></div></section>
-          <section class="card" data-list="queries"><div class="card-head"><h3>🔎 Search terms</h3><button class="icon-btn" data-edit title="Add a search">✎</button></div>
+          <section class="card" data-list="queries"><div class="card-head"><h3><i data-icon="search"></i>Search terms</h3><button class="icon-button" data-edit title="Add a search" aria-label="Add a search"><i data-icon="edit"></i></button></div>
             <div class="chips" id="chips-queries"></div></section>
-          <section class="card" data-list="languages"><div class="card-head"><h3>🚫 Excluded requirements</h3><button class="icon-btn" data-edit title="Add a language">✎</button></div>
+          <section class="card" data-list="languages"><div class="card-head"><h3><i data-icon="alert"></i>Excluded requirements</h3><button class="icon-button" data-edit title="Add a language" aria-label="Add a language"><i data-icon="edit"></i></button></div>
             <p class="sub">Hide jobs that require these languages.</p><div class="chips bad" id="chips-languages"></div></section>
         </div>
         <section class="card questions-card" id="open-questions" hidden>
@@ -209,29 +228,28 @@
     </div>
 
     <div class="step" data-step="extras">
-      <span class="eyebrow">Step 5 of 5 · optional</span>
-      <h1>Optional extras</h1>
-      <p class="lede">Everything works without these. You can add them later in Settings.</p>
-      <div class="extra">
-        <div><h3><i data-icon="puzzle"></i>Chrome extension</h3><p>Fills application forms in Chrome in seconds. You review and submit.</p></div>
-        <button class="secondary" data-goto-settings="extension">Set up</button>
-      </div>
-      <div class="extra extra-stack">
-        <div><h3><i data-icon="bot"></i>Apply with Claude</h3><p>Claude opens each job, signs up on the employer's site if needed and fills every page. You review and submit. It needs a few things only you can install:</p>
-          <ul class="prereqs" id="claude-prereqs"></ul></div>
-        <button class="secondary" id="claude-prereqs-check">Check again</button>
-      </div>
-      <div class="extra">
-        <div><h3><i data-icon="send"></i>Telegram</h3><p>Your best new matches on your phone after each search, with buttons to save, apply or dismiss.</p></div>
-        <button class="secondary" data-goto-settings="telegram">Set up</button>
-      </div>
-      <div class="extra">
-        <div><h3><i data-icon="cloud"></i>Always on</h3><p>Runs on GitHub, even when your Mac is off: searches, application kits, insights and mail checks, on your schedule, from your own private repository (free).</p></div>
-        <button class="secondary" data-goto-settings="cloud">Set up</button>
-      </div>
-      <div class="extra">
-        <div><h3><i data-icon="search"></i>Google Jobs</h3><p>Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</p></div>
-        <button class="secondary" data-goto-settings="serpapi">Add key</button>
+      <header class="view-head step-head">
+        <div><span class="eyebrow">Step 5 of 5 · optional</span>
+          <h1>Optional extras</h1>
+          <p class="muted subtitle">Everything works without these. You can add them later in Settings.</p></div>
+      </header>
+      <div class="service-grid is-rows extras">
+        <div class="service-card is-row"><span class="ui-tile tone-signal"><i data-icon="puzzle"></i></span>
+          <span class="service-text"><b>Chrome extension</b><span class="muted small">Fills application forms in Chrome in seconds. You review and submit.</span></span>
+          <button class="secondary" data-goto-settings="extension">Set up</button></div>
+        <div class="service-card is-row"><span class="ui-tile tone-signal"><i data-icon="send"></i></span>
+          <span class="service-text"><b>Telegram</b><span class="muted small">Your best new matches on your phone after each search, with buttons to save, apply or dismiss.</span></span>
+          <button class="secondary" data-goto-settings="telegram">Set up</button></div>
+        <div class="service-card is-row"><span class="ui-tile tone-signal"><i data-icon="cloud"></i></span>
+          <span class="service-text"><b>Always on</b><span class="muted small">Runs on GitHub, even when your Mac is off: searches, application kits, insights and mail checks, on your schedule, from your own private repository (free).</span></span>
+          <button class="secondary" data-goto-settings="cloud">Set up</button></div>
+        <div class="service-card is-row"><span class="ui-tile tone-signal"><i data-icon="search"></i></span>
+          <span class="service-text"><b>Google Jobs</b><span class="muted small">Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</span></span>
+          <button class="secondary" data-goto-settings="serpapi">Add key</button></div>
+        <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="bot"></i></span>
+          <span class="service-text"><b>Apply with Claude</b><span class="muted small">Claude opens each job, signs up on the employer's site if needed and fills every page. You review and submit. It needs a few things only you can install:</span>
+            <ul class="prereqs" id="claude-prereqs"></ul></span>
+          <button class="secondary" id="claude-prereqs-check">Check again</button></div>
       </div>
       <div class="actions"><button class="primary" id="finish">Go to my jobs</button></div>
     </div>
@@ -1154,9 +1172,9 @@
 </dialog>
 
 <!-- A replaced CV after setup: what follows it (lib/cv-change.js) -->
-<dialog id="cv-dialog" class="save-dialog">
-  <h2>📄 What changes with your new CV</h2>
-  <p class="muted small" id="cv-dialog-name"></p>
+<dialog id="cv-dialog" class="save-dialog panel-dialog">
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="file-text"></i></span><h2>What changes with your new CV</h2></div>
+  <p class="dialog-lead" id="cv-dialog-name"></p>
   <ul class="impact">
     <li class="good"><b>Done:</b> new applications upload this CV (the extension and Apply with Claude).</li>
     <li><b>Your Profile in Notion:</b> <span id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</span>
@@ -1171,13 +1189,13 @@
       <div id="cv-kits" class="cv-kits"></div></li>
     <li class="good"><b>Not changed:</b> your searches and preferences, job matches and their scores, and applications already sent (they keep the CV you sent).</li>
   </ul>
-  <div class="actions"><button class="secondary" id="cv-later">Later</button><button class="primary" id="cv-done">Done</button></div>
+  <div class="dialog-foot"><button class="secondary" id="cv-later">Later</button><button class="primary" id="cv-done">Done</button></div>
 </dialog>
 
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->
-<dialog id="save-dialog" class="save-dialog">
-  <h2 id="save-title">Saving your strategy to Notion</h2>
-  <p class="muted small">Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
+<dialog id="save-dialog" class="save-dialog panel-dialog">
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="upload"></i></span><h2 id="save-title">Saving your strategy to Notion</h2></div>
+  <p class="dialog-lead">Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
   <ol class="save-steps" id="save-steps">
     <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy in Notion</li>
     <li data-save-step="local">Saving your search settings on this computer</li>
@@ -1187,7 +1205,7 @@
   </ol>
   <div class="bar"><span id="save-bar"></span></div>
   <p class="message" id="save-message"></p>
-  <div class="actions"><button class="secondary" id="save-close" hidden>Close</button><button class="primary" id="save-retry" hidden>Try again</button></div>
+  <div class="dialog-foot"><button class="secondary" id="save-close" hidden>Close</button><button class="primary" id="save-retry" hidden>Try again</button></div>
 </dialog>
 
 <dialog id="applied-dialog">

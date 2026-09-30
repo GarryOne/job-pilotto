@@ -1,5 +1,6 @@
 // Setup step 5: review the drafted strategy.
 import {el, pill} from '../components.js';
+import {icon} from '../icons.js';
 import {applyGoal, replaceCell, replaceLine, withLine} from '../markdown-edit.js';
 import {shared} from './shared.js';
 import {buildDraft, currentAnswers, showSearchStatus} from './activity.js';
@@ -200,19 +201,24 @@ function renderQuestions() {
 // The goals the AI proposed from the CV, as tiles; a click edits one (Enter or click away saves, Esc cancels). The
 // correction goes into the drafted Profile (markdown-edit.js applyGoal), which is what's saved to Notion.
 // A draft from before goals were proposed (a whole questionnaire then) shows the questionnaire's answers, read-only.
-const GOAL_TILES = [['seniority', '👤', 'Target level'], ['work_mode', '🏢', 'Work mode'], ['minimum_salary', '💰', 'Minimum salary'],
-  ['languages', '🗣️', 'Languages you work in']];
+// Label/value rows as on the Strategy page (What you're targeting): a long value (a salary in three currencies, many
+// languages) is clamped to two lines, with the whole text on hover and while editing.
+const GOAL_TILES = [['seniority', 'user', 'Target level'], ['work_mode', 'building', 'Work mode'], ['minimum_salary', 'chart', 'Minimum salary'],
+  ['languages', 'globe', 'Languages you work in']];
 function renderGoals() {
   const goals = shared.draft.goals, old = shared.state.settings.questionnaire || {};
-  $('draft-tiles').replaceChildren(...GOAL_TILES.map(([key, icon, label]) => {
-    const box = el('div', 'tile');
+  $('draft-tiles').replaceChildren(...GOAL_TILES.flatMap(([key, glyph, label]) => {
+    const term = el('dt', '', icon(glyph));
+    term.append(label);
+    const box = el('dd', 'goal');
     box.dataset.goal = key;
-    const value = el('b', '', (goals ? goals[key] : old[key]) || '—');
-    box.append(el('span', 'tile-icon', icon), el('div'));
-    box.lastChild.append(el('small', '', label), value);
-    if (!goals) return box;
+    const text = (goals ? goals[key] : old[key]) || '—';
+    const value = el('span', 'goal-value', text);
+    value.title = text;
+    box.append(value);
+    if (!goals) return [term, box];
     value.classList.add('editable');
-    value.title = 'Click to correct';
+    value.title = `${text}\n(click to correct)`;
     value.addEventListener('click', () => {
       if (value.isContentEditable) return;
       value.contentEditable = 'plaintext-only';
@@ -238,7 +244,7 @@ function renderGoals() {
       });
       value.addEventListener('blur', () => finish(true), {once: true});
     });
-    return box;
+    return [term, box];
   }));
 }
 

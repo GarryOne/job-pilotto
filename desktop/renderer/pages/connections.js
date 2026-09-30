@@ -2,6 +2,7 @@
 import {shared} from './shared.js';
 import {$, message, osText, show} from './core.js';
 import {moreButton, pill} from '../components.js';
+import {icon} from '../icons.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {noteCheck, refreshServices, renderOverview, showRunMode} from './settings.js';
@@ -26,8 +27,10 @@ async function showClaudePrereqs() {
   $('claude-prereqs').replaceChildren(...items.map(([done, text, action]) => {
     const li = document.createElement('li');
     li.className = done ? 'done' : '';
-    li.append(`${done ? '✓' : done === false ? '○' : '•'} ${text}`);
-    if (!done) li.append(' · ', action);
+    const words = document.createElement('span');
+    words.append(text);
+    if (!done) words.append(' · ', action);
+    li.append(icon(done ? 'check-circle' : 'info'), words);
     return li;
   }));
 }
