@@ -145,6 +145,26 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   assert.match(request.messages[0].content, /drafted_kit/);
 });
 
+test('AI answer endpoint: the desktop app\'s Claude Code client answers without an API key (no cost)', async () => {
+  const { default: worker } = await import('../src/index.js');
+  mockFetch();
+  const seen = [];
+  const aiClient = { messages: { create: async (request) => {
+    seen.push(request);
+    return { stop_reason: 'end_turn', usage: { input_tokens: 900, output_tokens: 90, billing: 'subscription' },
+      content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [{ field: 'q1', value: 'yes', confidence: 'high', note: '' }] }) }] };
+  } } };
+  const noKey = { ...env, ANTHROPIC_API_KEY: '', aiClient, PROFILE_TEXT: 'SRE', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '' };
+  const response = await worker.fetch(new Request('https://bot.test/extension/answer', { method: 'POST',
+    headers: { Authorization: `Bearer ${env.EXTENSION_TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ url: JOB, fields: [{ field: 'q1', label: 'Q', type: 'text' }] }) }), noKey, {});
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.usd, 0);
+  assert.deepEqual(body.answers.map((a) => a.field), ['q1']);
+  assert.equal(seen.length, 1);
+});
+
 test('AI answer endpoint: validates input and reports a missing key', async () => {
   mockFetch();
   assert.equal((await call('/extension/answer', { method: 'POST', body: { url: JOB } })).status, 400);

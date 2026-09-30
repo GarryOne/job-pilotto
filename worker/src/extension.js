@@ -190,7 +190,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const text = response.content.find((block) => block.type === 'text')?.text;
   const result = JSON.parse(text);
   const usage = response.usage || {};
-  const usd = ((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output
+  // Answered on the user's Claude plan (Claude Code): no per-token cost.
+  const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output
     + (usage.cache_read_input_tokens || 0) * PRICE.cacheRead + (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite) / 1e6;
   const known = new Set(fields.map((f) => f.field));
   return {
@@ -312,14 +313,16 @@ export async function handleExtension(request, env) {
     if (request.method === 'POST' && url.pathname === '/extension/answer') {
       const body = await request.json().catch(() => ({}));
       if (!body.url || !Array.isArray(body.fields) || !body.fields.length) return json({ error: 'url and fields are required' }, 400);
-      if (!anthropicKey(env)) return json({ error: 'AI is not set up on this Worker (ANTHROPIC_API_KEY)' }, 503);
+      // The desktop app can answer with the user's own Claude Code (env.aiClient); the Worker needs its key.
+      const aiClient = env.aiClient || null;
+      if (!aiClient && !anthropicKey(env)) return json({ error: 'AI is not set up on this Worker (ANTHROPIC_API_KEY)' }, 503);
       const fields = body.fields.slice(0, 80).map((f) => ({
         field: String(f.field || '').slice(0, 200), label: String(f.label || '').slice(0, 300),
         type: String(f.type || '').slice(0, 30), required: !!f.required,
         ...(Array.isArray(f.options) && f.options.length ? { options: f.options.slice(0, 60).map((o) => String(o).slice(0, 150)) } : {}),
       }));
       try {
-        return json(await answerForm(env, { url: body.url, fields, page_text: body.page_text, test: !!body.test }));
+        return json(await answerForm(env, { url: body.url, fields, page_text: body.page_text, test: !!body.test }, aiClient));
       } catch (error) {
         const limit = /credit|spend|limit|billing/i.test(error.message);
         return json({ error: limit ? 'The Anthropic spend limit is reached; fill without AI for now.' : `AI answer failed: ${error.message}` }, limit ? 402 : 502);

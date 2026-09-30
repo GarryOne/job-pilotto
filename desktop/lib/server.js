@@ -53,6 +53,8 @@ export function localEnv(storage) {
     get KNOWLEDGE_TEXT() { return kept(ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
+    // The user's own Claude Code answers the form when they chose it (Settings → AI); the API key otherwise.
+    get aiClient() { return claudeCode.client(storage); },
     NOTION_TOKEN: notionToken,
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_AGENT_RUNS_DB: ids.NOTION_AGENT_RUNS_DB || '',
