@@ -888,6 +888,13 @@ main { min-width: 0; }
 .funnel-arrow .icon { width: 16px; height: 16px; }
 #funnel-improve { margin: var(--sp-3) 0 0; }
 /* Jobs → In conversation: opportunities that found you, as Focus rows; a click opens the job in Notion. */
+.jobs-talking > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; }
+.jobs-talking > summary::-webkit-details-marker { display: none; }
+.jobs-talking > summary::before { content: '▸'; color: var(--muted); font-size: var(--fs-xs); transition: transform .15s; }
+.jobs-talking[open] > summary::before { transform: rotate(90deg); }
+.jobs-talking > summary h2 { font-size: var(--fs-lg); margin: 0; }
+.jobs-talking > summary .muted { margin-left: auto; }
+.jobs-talking[open] > summary { margin-bottom: var(--sp-3); }
 .jobs-talking .focus-item { cursor: pointer; }
 .jobs-talking .focus-item:hover, .jobs-talking .focus-item:focus-visible { border-color: var(--line-strong); border-left-color: var(--info); }
 /* Skeleton placeholders while Focus loads */

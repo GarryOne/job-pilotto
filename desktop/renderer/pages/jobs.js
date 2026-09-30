@@ -69,6 +69,8 @@ const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 // job in Notion (⌘-click: in a Job Pilotto window), or its link when it has no page.
 // It gives way to the list whenever the list is narrowed to something (a counter or Focus step clicked, the Inbound
 // menu choice, words typed): the same jobs would show twice.
+// Folded or open as you last left it (a click on the bar).
+const TALKING_OPEN = 'jobsTalkingOpen';
 function renderTalking(narrowed = false) {
   const talking = inConversation(shared.allJobs);
   show($('jobs-talking'), talking.length > 0 && !narrowed);
@@ -654,6 +656,8 @@ export function showJobsIn(label, urls, from = '') {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  try { $('jobs-talking').open = localStorage.getItem(TALKING_OPEN) !== '0'; } catch {}
+  $('jobs-talking').addEventListener('toggle', event => { try { localStorage.setItem(TALKING_OPEN, event.target.open ? '1' : '0'); } catch {} });
   $('jobs-stuck-show').addEventListener('click', () => {
     statFilter = 'stuck';
     $('filter-status').value = 'all';
