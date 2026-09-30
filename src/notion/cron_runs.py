@@ -263,6 +263,19 @@ def begin(tracker, run):
         return None
 
 
+def attach(blocks):
+    """Add blocks (a log's screenshots) to the row begin() opened, while its run is going. Returns that row's URL, or None
+    when no row is open or Notion refuses (the caller keeps them elsewhere). Never raises."""
+    if not blocks or not _open.get('id') or not _open.get('tracker'):
+        return None
+    try:
+        _open['tracker']._request('PATCH', f"blocks/{_open['id']}/children", {'children': blocks[:100]})
+        return _open.get('url') or ''
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: not added to the run: {type(error).__name__}: {error}', file=sys.stderr)
+        return None
+
+
 STEP_EVERY = 10  # seconds between progress updates of a running row
 _last_step = {'at': 0.0}
 

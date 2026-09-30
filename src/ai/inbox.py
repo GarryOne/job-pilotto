@@ -25,7 +25,7 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from ..notion import client as notion, ledger
+from ..notion import client as notion, cron_runs, ledger
 from ..notion import origin as origin_rule, titles
 from ..notion.ledger import REPLY, _block, add_event, plain
 from . import added, cost, mail, opportunity
@@ -89,7 +89,7 @@ LAST_MESSAGE = {
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback', 'job_description',
-                 'seen', 'first_contact_text', 'interview_text', 'last_message']
+                 'seen', 'first_contact_text', 'interview_text', 'last_message', 'booking_link']
                 + opportunity.SCHEMA['required'],
     'properties': {
         'kind': {'type': 'string', 'enum': KINDS},
@@ -103,6 +103,7 @@ SCHEMA = {
         'seen': SEEN,
         'first_contact_text': {'type': 'string', 'description': 'The earliest date exactly as written in the item, with the day divider above the first message and its time ("Sep 21", "MONDAY 12:33 AM", "Mon 14:02", "21/09/2026"), else ""'},
         'last_message': LAST_MESSAGE,
+        'booking_link': {'type': 'string', 'description': 'The scheduling link (Calendly, Cal.com, Google Calendar, Chili Piper…) they sent for the owner to pick a time, exactly as written; "" when they sent none. Never a link the owner sent, a job posting or a profile'},
         'interview_text': {'type': 'string', 'description': 'A call/interview time exactly as written ("Friday at 3pm", "26 Sep 15:00"), else ""'},
         **opportunity.SCHEMA['properties'],
     },
@@ -126,6 +127,7 @@ same message pasted twice) is that job. When the company has several roles and t
 - seen: for each of channel, year, first contact, interview and company, whether the item shows it or you inferred it.
   seen.agreement: "shown" when the owner's own reply says yes / agrees to a call / books one (then owner_agreed is true); "declined" when the owner said no or not interested; "none" when the owner hasn't replied; "unclear" when the owner replied but it isn't clear whether they agreed to talk (e.g. only asked a question). Otherwise owner_agreed is false.
   Dates without a visible year: fill the ISO fields with your best reading but set seen.year "missing".
+- booking_link: a link the other person sent for the owner to book a call or pick a time, exactly as written; "" if none.
 - last_message: the last visible message of the conversation (for an email: that email): who wrote it (the owner = \
 "you"), its day and time exactly as written (a chat's day divider such as "MONDAY" or "TODAY" above it, plus its time), \
 and its first words.
@@ -215,10 +217,9 @@ def _image_blocks(tracker, image):
     """The screenshots as Notion image blocks (uploaded); one that fails to upload is left out."""
     blocks, shots = [], images_of(image)
     for number, shot in enumerate(shots, 1):
-        step(f"Saving screenshot {number} of {len(shots)} on the job's Notion page" if len(shots) > 1
-             else "Saving the screenshot on the job's Notion page")
+        step(f"Saving screenshot {number} of {len(shots)} in Notion" if len(shots) > 1 else "Saving the screenshot in Notion")
         try:
-            upload = tracker.upload_file(shot[0], shot[1], shot[2])
+            upload = tracker.upload_file(*(shot[3] if len(shot) > 3 else shot[:3]))  # the small copy when the app made one
         except Exception as error:  # noqa: BLE001 — the update matters more than the picture
             print(f'Warning: screenshot not uploaded to Notion: {type(error).__name__}: {error}', file=sys.stderr)
             continue
@@ -251,6 +252,15 @@ def _keep(tracker, row, text, image, summary, when, platform=None, check=(), cha
         head.append(_block('paragraph', f"Changed: {'; '.join(changes)}"))
     inside = head + inside
     shots = _image_blocks(tracker, image)
+    # The screenshots belong to the run that logged them (Logged activity in ⏱️ Search runs): small, side by side, there.
+    # The job's page keeps the words and a link to that run. Without an open run (a terminal log) they stay on the job.
+    at_run = cron_runs.attach([_block('heading_3', f'📥 {summary}'[:200])] + _thumbnails(shots)) if shots else None
+    if at_run is not None:
+        shots = []
+        if at_run:
+            said = {'content': 'Screenshots: saved with this run'}
+            said['link'] = {'url': at_run}  # Notion's text link, not a column
+            inside.append({'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': [{'type': 'text', 'text': said}]}})
     if len(shots) < 2:
         inside += shots
     entry = {'object': 'block', 'type': 'toggle', 'toggle': {
@@ -849,7 +859,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         row, line = opportunity.track(tracker, lead, text, source=source, event_source=event_source, talking=talking,
                                       at=began or when, seed=seed, extra_blocks=([_block('paragraph', f"⚠️ Check these details: {'; '.join(check)}.")] if check else [])
                                       + _image_blocks(tracker, image),
-                                      note=f'Logged: {summary}'[:300])
+                                      note=_noted(f'Logged: {summary}', item))
         if not row:
             return 'ℹ️ ' + line
         if found is not None:
@@ -910,7 +920,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         pass
     elif kind == OUTREACH:
         tracker.update_page(row['id'], {'Stage': {'select': {'name': opportunity.LEAD_STAGE}}})
-        add_event(tracker, row, opportunity.LEAD_STAGE, event_source, at=when, note=f'Logged: {summary}'[:300])
+        add_event(tracker, row, opportunity.LEAD_STAGE, event_source, at=when, note=_noted(f'Logged: {summary}', item))
         changed = opportunity.LEAD_STAGE
     elif kind == APPLIED:
         if stage in EARLY or stage == opportunity.LEAD_STAGE:
@@ -921,7 +931,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     else:
         index = mail._events_index(tracker)
         changed = mail.record(tracker, row, REPLY if kind == OUTREACH else kind, when, event_source, source_id,
-                              f'Logged: {summary}'[:300], index, item.get('interview_at') or None, now,
+                              _noted(f'Logged: {summary}', item), index, item.get('interview_at') or None, now,
                               feedback_text=(item.get('feedback') or '') if image else mail.verified_feedback(item.get('feedback'), text))
     if talking and (stage == opportunity.LEAD_STAGE or changed == opportunity.LEAD_STAGE):
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
@@ -958,6 +968,16 @@ def last_message_id(last):
     return 'chat:' + hashlib.sha256(f"{last.get('from')}|{last.get('resolved')}|{words}".encode()).hexdigest()[:16]
 
 
+def _noted(text, item, limit=300):
+    """An event's note, with the scheduling link they sent when there is one ("Booking link: https://calendly.com/…"): Focus
+    shows "Book the call" with a button that opens it (src/focus.py). Only a web address is kept."""
+    link = (item.get('booking_link') or '').strip()
+    if not re.match(r'https?://\S+$', link) or len(link) > 200:
+        return text[:limit]
+    suffix = f' Booking link: {link}'
+    return text[:limit - len(suffix)] + suffix
+
+
 def _last_message(tracker, row, item, source, kind):
     """Who wrote last in the conversation, as an event on the job (📈 Application Events, idempotent): yours =
     "Replied" (Focus recommends a follow-up when it stays unanswered), theirs = "Reply received" (Focus: reply),
@@ -969,8 +989,8 @@ def _last_message(tracker, row, item, source, kind):
         return ''
     snippet = re.sub(r'\s+', ' ', last.get('text_snippet') or '').strip()[:120]
     event = add_event(tracker, row, mail.YOU_REPLIED if who == 'you' else REPLY, source, at=at,
-                      note=(f'You wrote: {snippet}' if who == 'you' else f'They wrote: {snippet}') if snippet else
-                      ('Your last message' if who == 'you' else 'Their last message'),
+                      note=_noted((f'You wrote: {snippet}' if who == 'you' else f'They wrote: {snippet}') if snippet else
+                                  ('Your last message' if who == 'you' else 'Their last message'), item if who == 'them' else {}),
                       source_id=last_message_id(last))
     if (event or {}).get('_existing'):
         return ''
@@ -995,9 +1015,15 @@ def _rich(on_new, row, item, text):
 
 
 def load_image(path):
-    """(name, bytes, media type) of a screenshot file, or None for anything that isn't an image."""
+    """(name, bytes, media type) of a screenshot file, or None for anything that isn't an image. With the small copy the
+    app writes beside it (desktop/lib/shots.js: "<file>.small.jpg"): a fourth item, that copy in the same shape, which
+    is what goes to Notion; Claude reads the original."""
     media = MEDIA.get(Path(path).suffix.lower())
-    return (Path(path).name, Path(path).read_bytes(), media) if media else None
+    if not media:
+        return None
+    shot = (Path(path).name, Path(path).read_bytes(), media)
+    small = Path(f'{path}.small.jpg')
+    return shot + ((small.name, small.read_bytes(), 'image/jpeg'),) if small.is_file() else shot
 
 
 def main(argv=None):

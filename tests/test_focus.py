@@ -357,6 +357,33 @@ class WaitingForYouTests(unittest.TestCase):
         self.assertFalse([i for i in items if i['kind'] in ('book', 'reply')])
 
 
+class LinkedInBookingTests(unittest.TestCase):
+    """30 Sep 2026: a LinkedIn chat whose last message is a Calendly link showed "Reply to the recruiter" with "Open email"."""
+
+    def items(self, source_id, note, kind='Reply received'):
+        row_ = row('b1', 'Blockdaemon', 'Senior Web3 Infrastructure / DevOps Engineer', stage='Screening', Reached_via='LinkedIn')
+        events = [event('b1', kind, '2026-09-30T10:33:00Z', note=note, source_id=source_id, source='Job Pilotto app')]
+        return focus.build([row_], events, target=0, now=NOW)['items']
+
+    def test_a_logged_chat_never_gets_a_gmail_link(self):
+        for source_id in ('paste:3f2a9c', 'chat:8c1d02', 'cal:abc'):
+            for item in self.items(source_id, 'They wrote: Hi Igor'):
+                self.assertNotIn('mail.google', item.get('link', ''), source_id)
+                self.assertNotEqual(item.get('link_label'), 'Open email', source_id)
+        self.assertIn('mail.google', focus._gmail('18c2f0a1b2c3d4e5'))  # a real Gmail message id still does
+
+    def test_a_booking_link_in_a_chat_is_the_calls_button(self):
+        note = 'Logged: asked for a call. Booking link: https://calendly.com/discussion_meeting/meeting'
+        book = [i for i in self.items('paste:3f2a9c', note) if i['kind'] == 'book']
+        self.assertEqual(len(book), 1)
+        self.assertEqual((book[0]['link'], book[0]['link_label']), ('https://calendly.com/discussion_meeting/meeting', 'Open booking link'))
+        self.assertIn('LinkedIn', focus.present(book[0])['meta'])
+
+    def test_a_booking_request_without_a_link_still_says_book_but_has_no_email_button(self):
+        book = [i for i in self.items('paste:3f2a9c', 'Recruiter asks you to schedule a call') if i['kind'] == 'book']
+        self.assertEqual((len(book), book[0]['link']), (1, ''))
+
+
 class ParallelReadsTests(unittest.TestCase):
     def test_reads_run_at_the_same_time_and_keep_their_order(self):
         import threading

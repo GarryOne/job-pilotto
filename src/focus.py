@@ -83,7 +83,15 @@ def _role(row):
 
 
 def _gmail(source_id):
-    return f'https://mail.google.com/mail/u/0/#all/{source_id}' if source_id and not source_id.startswith('cal:') else ''
+    """The Gmail link of a message id. Only Gmail's own ids: a calendar event ("cal:") and a chat or screenshot you logged
+    ("paste:", "chat:") are not emails, so a LinkedIn conversation never gets an "Open email" button."""
+    return f'https://mail.google.com/mail/u/0/#all/{source_id}' if source_id and not source_id.startswith(('cal:', 'paste:', 'chat:')) else ''
+
+
+def _booking_link(note):
+    """The scheduling link the log saved in an event's note ("Booking link: https://calendly.com/…"), '' when none."""
+    found = re.search(r'Booking link:\s*(https?://[^\s<>"\')]+)', note or '')
+    return found.group(1).rstrip('.,;') if found else ''
 
 
 def _item(priority, kind, emoji, title, detail, row=None, link='', link_label='', done=False, **extra):
@@ -394,8 +402,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                 items.append(_item(1, 'offer', '🎉', f'Answer the offer: {label}', f'Offer {when}. {last["note"][:140]}', row,
                                    link, 'Open email' if link else '', done=True))
             elif BOOKING.search(last['note']):
+                booking = _booking_link(last['note'])  # a chat's Calendly link: the button opens it, wherever they wrote
                 items.append(_item(1, 'book', '📅', f'Book the call: {label}', f'They asked you to pick a time ({when}). {last["note"][:140]}',
-                                   row, link, 'Open email' if 'mail.google' in link else 'Open', done=True))
+                                   row, booking or link, 'Open booking link' if booking else 'Open email' if 'mail.google' in link else 'Open',
+                                   done=True))
             else:
                 if last['kind'] == 'Recruiter lead':  # the facts that decide the answer, not the event's note
                     facts = ' · '.join(p for p in (_field(row, 'Salary'), _field(row, 'Location'), _field(row, 'Contact').split(' · ')[0]) if p)

@@ -1,5 +1,6 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {smallCopy} from './lib/shots.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -725,9 +726,14 @@ function handlers() {
     const shots = (Array.isArray(image) ? image : image ? [image] : []).filter(shot => exts[shot?.type]).slice(0, 5);
     const files = shots.map((shot, i) => path.join(app.getPath('temp'), `job-pilotto-shot-${Date.now()}-${i}${exts[shot.type]}`));
     try {
-      shots.forEach((shot, i) => fs.writeFileSync(files[i], Buffer.from(String(shot.data), 'base64')));
+      shots.forEach((shot, i) => {
+        const data = Buffer.from(String(shot.data), 'base64');
+        fs.writeFileSync(files[i], data);  // Claude reads this one
+        const small = smallCopy(nativeImage, data);  // Notion gets this one: a narrow JPEG (src/ai/inbox.py load_image)
+        if (small) fs.writeFileSync(`${files[i]}.small.jpg`, small);
+      });
       return await task(files.join(','));
-    } catch (error) { return {ok: false, text: error.message}; } finally { files.forEach(file => fs.rmSync(file, {force: true})); }
+    } catch (error) { return {ok: false, text: error.message}; } finally { files.forEach(file => { fs.rmSync(file, {force: true}); fs.rmSync(`${file}.small.jpg`, {force: true}); }); }
   };
   // Each step the engine reports ("⏳ …") shows in the Log box while it works.
   const leadLine = line => { log(line); if (/^⏳/.test(line)) toWindow('leadStep', line.replace(/^⏳\s*/, '')); };
