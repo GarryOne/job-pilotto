@@ -1475,3 +1475,13 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 
 /* The version under the setup sidebar: one quiet line, cut with … if long (the full text on hover). */
 .steps-foot .app-version { margin: var(--sp-2) 12px 0; padding: 0; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+
+/* Strategy review: the summary reads as a short paragraph, not a full-width wall of text. */
+#draft-summary { max-width: 75ch; }
+/* Goals: clearly editable (a dashed underline, a pencil, a light background on hover). */
+.review .goal-rows dd.goal { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.review .goal-value.editable { cursor: text; border-bottom: 1px dashed var(--line-strong); border-radius: var(--r-sm); padding: 0 var(--sp-1); margin: 0 calc(-1 * var(--sp-1)); }
+.review .goal-value.editable:hover { background: var(--surface-2); border-bottom-color: var(--signal); }
+.review .goal-edit { flex: none; width: 26px; height: 26px; color: var(--muted); opacity: .7; }
+.review .goal-edit:hover { color: var(--signal); opacity: 1; }
+.review .goal-rows dd.goal:hover .goal-edit { opacity: 1; }

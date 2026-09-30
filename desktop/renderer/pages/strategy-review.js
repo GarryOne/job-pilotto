@@ -219,6 +219,13 @@ function renderGoals() {
     if (!goals) return [term, box];
     value.classList.add('editable');
     value.title = `${text}\n(click to correct)`;
+    // A visible edit button, so it's clear the value can be corrected (clicking the value works too).
+    const edit = el('button', 'icon-button goal-edit', icon('edit'));
+    edit.type = 'button';
+    edit.title = `Correct ${label.toLowerCase()}`;
+    edit.setAttribute('aria-label', edit.title);
+    edit.addEventListener('click', () => value.click());
+    box.append(edit);
     value.addEventListener('click', () => {
       if (value.isContentEditable) return;
       value.contentEditable = 'plaintext-only';
