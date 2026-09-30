@@ -157,7 +157,8 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin',
     checkForUpdates: checkForUpdatesNow, testBuilds: storage ? !!storage.settings().testBuilds : undefined,
     setTestBuilds, updateToNewest: updateToNewestTestBuild,
-    sendFeedback: () => { if (window && !window.isDestroyed()) { window.show(); toWindow('openFeedback'); } }})));
+    sendFeedback: () => { if (window && !window.isDestroyed()) { window.show(); toWindow('openFeedback'); } },
+    find: what => toWindow('find', what)})));
 }
 
 // Setup funnel (lib/setup-funnel.js): the furthest step each install reached, sent at once so a quit mid-setup still counts.

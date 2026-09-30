@@ -1572,5 +1572,13 @@
   </form>
 </dialog>
 <script src="app.js" type="module"></script>
+<!-- ⌘F: find in the page (renderer/pages/find.js); the count is drawn from data-count so it never matches itself. -->
+<div class="find-bar" id="find-bar" role="search" hidden>
+  <i data-icon="search"></i>
+  <input id="find-text" type="text" placeholder="Find on this page" aria-label="Find on this page" spellcheck="false">
+  <button type="button" class="icon-button" id="find-prev" title="Previous (⇧Enter)" aria-label="Previous match"><i data-icon="chevron"></i></button>
+  <button type="button" class="icon-button" id="find-next" title="Next (Enter)" aria-label="Next match"><i data-icon="chevron"></i></button>
+  <button type="button" class="icon-button" id="find-close" title="Close (Esc)" aria-label="Close"><i data-icon="close"></i></button>
+</div>
 </body>
 </html>

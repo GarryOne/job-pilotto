@@ -85,6 +85,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/data.js` — Your data: export, import, backup, reset.
 - `desktop/renderer/pages/demo.js` — "Look around first": the wizard's buttons that restart the app on the fictional demo data, and in that demo the
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.
+- `desktop/renderer/pages/find.js` — ⌘F on every page: a small find bar (top right) that highlights what the page shows (CSS Highlight API) and scrolls to each
 - `desktop/renderer/pages/focus.js` — Focus page.
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 - `desktop/renderer/pages/interviews.js` — Interviews page.
@@ -116,6 +117,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
+- `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
 - `desktop/renderer/icons.js` — Line icons (paths from Lucide, ISC licence), drawn in the current text colour.

@@ -413,3 +413,19 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .aon-sub p, .aon-sub ol { margin: 0; }
 .aon-sub a { color: var(--signal-ink); font-weight: 600; text-decoration: none; }
 .aon-sub a:hover { text-decoration: underline; }
+
+/* ⌘F find bar (renderer/pages/find.js): a small floating box at the top right; the count comes from data-count. */
+.find-bar { position: fixed; top: var(--sp-3); right: var(--sp-4); z-index: 1000; display: flex; align-items: center; gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3); background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: var(--r-md); box-shadow: var(--shadow-md); }
+.find-bar[hidden] { display: none; }
+.find-bar > .icon { width: 15px; height: 15px; color: var(--muted); flex: none; }
+.find-bar input { width: 200px; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: var(--fs-md); padding: var(--sp-1) 0; }
+.find-bar::after { content: attr(data-count); order: 2; min-width: 58px; text-align: right; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.find-bar.is-none::after { color: var(--bad); }
+::highlight(find) { background-color: var(--warn-soft); }
+::highlight(find-active) { background-color: var(--warn-bright); color: var(--ink); }
+.find-bar input { order: 1; }
+.find-bar button { order: 3; }
+#find-prev .icon { transform: rotate(-90deg); }
+#find-next .icon { transform: rotate(90deg); }

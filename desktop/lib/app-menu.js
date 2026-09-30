@@ -2,8 +2,9 @@
 // (Job Pilotto menu, under About); on Windows it sits in Help. Under it, once settings are loaded (testBuilds not
 // undefined): "Get Test Builds" (pre-releases, trialled one canary build at a time: lib/canary.js) and, when on, the
 // escape hatch "Update to the Newest Test Build Now".
-// Help → Send Feedback… on both platforms (lib/app-feedback.js).
-export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds, updateToNewest, sendFeedback = () => {}}) {
+// Help → Send Feedback… on both platforms (lib/app-feedback.js). Edit → Find… (⌘F), Find Next (⌘G), Find Previous
+// (⇧⌘G): find(what) tells the window ('open' | 'next' | 'previous'; renderer/pages/find.js).
+export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds, updateToNewest, sendFeedback = () => {}, find = () => {}}) {
   const feedback = {label: 'Send Feedback…', click: sendFeedback};
   const check = [{label: 'Check for Updates…', click: checkForUpdates},
     ...(testBuilds === undefined ? [] : [
@@ -12,7 +13,13 @@ export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds,
   return [
     ...(mac ? [{label: name, submenu: [{role: 'about'}, ...check, {type: 'separator'}, {role: 'services'}, {type: 'separator'},
       {role: 'hide'}, {role: 'hideOthers'}, {role: 'unhide'}, {type: 'separator'}, {role: 'quit'}]}] : []),
-    {role: 'fileMenu'}, {role: 'editMenu'}, {role: 'viewMenu'}, {role: 'windowMenu'},
+    {role: 'fileMenu'},
+    {label: 'Edit', submenu: [{role: 'undo'}, {role: 'redo'}, {type: 'separator'}, {role: 'cut'}, {role: 'copy'}, {role: 'paste'},
+      ...(mac ? [{role: 'pasteAndMatchStyle'}] : []), {role: 'delete'}, {role: 'selectAll'}, {type: 'separator'},
+      {label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => find('open')},
+      {label: 'Find Next', accelerator: 'CmdOrCtrl+G', click: () => find('next')},
+      {label: 'Find Previous', accelerator: 'Shift+CmdOrCtrl+G', click: () => find('previous')}]},
+    {role: 'viewMenu'}, {role: 'windowMenu'},
     {role: 'help', submenu: mac ? [feedback] : [feedback, ...check]},
   ];
 }

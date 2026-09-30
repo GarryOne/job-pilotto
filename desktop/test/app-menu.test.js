@@ -9,7 +9,8 @@ test('Mac: Check for Updates… right under About; standard menus kept', () => {
   assert.equal(menu[0].submenu[0].role, 'about');
   assert.deepEqual(menu[0].submenu[1], {label: 'Check for Updates…', click});
   assert.ok(menu[0].submenu.some(item => item.role === 'quit'));
-  for (const role of ['editMenu', 'viewMenu', 'windowMenu']) assert.ok(menu.some(item => item.role === role), role);
+  for (const role of ['viewMenu', 'windowMenu']) assert.ok(menu.some(item => item.role === role), role);
+  assert.ok(menu.some(item => item.label === 'Edit'));
 });
 
 test('Windows: no app menu; Check for Updates… in Help', () => {
@@ -48,4 +49,15 @@ test('from source (npm start): no update is offered, the menu says to git pull',
   const shown = answer({ok: true, offer: null, fromSource: true}, '0.4.0-alpha');
   assert.match(shown.message, /from source/);
   assert.ok(!shown.install);
+});
+
+test('Edit keeps copy/paste and adds Find… (⌘F), Find Next (⌘G) and Find Previous (⇧⌘G)', () => {
+  const calls = [];
+  const menu = template({name: 'Job Pilotto', mac: true, checkForUpdates: () => {}, find: what => calls.push(what)});
+  const edit = menu.find(item => item.label === 'Edit').submenu;
+  for (const role of ['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll']) assert.ok(edit.some(item => item.role === role), role);
+  const find = label => edit.find(item => item.label === label);
+  assert.deepEqual(['Find…', 'Find Next', 'Find Previous'].map(label => find(label).accelerator), ['CmdOrCtrl+F', 'CmdOrCtrl+G', 'Shift+CmdOrCtrl+G']);
+  find('Find…').click(); find('Find Next').click(); find('Find Previous').click();
+  assert.deepEqual(calls, ['open', 'next', 'previous']);
 });

@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onAskWhyLeaving: callback => ipcRenderer.on('askWhyLeaving', () => callback()),
   startTrialCredit: call('startTrialCredit'), trialCredit: call('trialCredit'),
   onOpenFeedback: callback => ipcRenderer.on('openFeedback', () => callback()),
+  onFind: callback => ipcRenderer.on('find', (_, what) => callback(what)),
   onOpenInterviews: callback => ipcRenderer.on('openInterviews', () => callback()),
   onUpdateStep: callback => ipcRenderer.on('updateStep', (_, step) => callback(step)),
   onNotionProgress: callback => ipcRenderer.on('notionProgress', (_, progress) => callback(progress)),
