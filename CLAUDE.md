@@ -19,7 +19,7 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 ## Working rules
 - Code changes happen in a git worktree on their own branch (see AGENTS.md → Working with git); other agents work on this repo at the same time.
 - After each change: tests pass → commit → push to `main` → update Notion (hub current state, Run Log, Technical Reference; Decision Log when a decision changes; Handoff "Current state" / "Open threads" at the end of a session).
-- Wrong data is a bug: fix the root cause in the code first (with a regression test) and push; repair Notion only after, preferably by re-running the fixed code (reset its state, run it again), hand edits only for what code can't redo.
+- Wrong data is a bug: fix the root cause in the code first, so it cannot happen again (with a regression test), and push; then repair the owner's existing rows by hand through the Notion MCP (read them, change only what is wrong, say what changed). Never build code meant to be used once for one specific / edge-case repair (no one-off migration, backfill or tidy command/button for the owner's data). Product code is fine when every user needs it: schema evolution (a new column + its backfill) and runtime guards that prevent the problem.
 - Ask before spending money on AI (new model or large re-runs); show measured cost.
 - **Every fix works for any user, through the Desktop App.** When something is set up, repaired or unblocked by hand
   (a terminal command, a Keychain read, `gh secret set`, a Notion edit), that was a product bug: build the same step
