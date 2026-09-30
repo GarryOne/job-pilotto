@@ -43,7 +43,8 @@ export function insightView(insight, rows = [], now = Date.now()) {
   const rounds = list(insight.interviews).map(item => item?.round_type).filter(Boolean);
   const same = rounds.length && rounds.every(round => round === rounds[0]) ? rounds[0].toLowerCase() : 'interview';
   const subtitle = [`Patterns across ${n} ${same}${n === 1 ? '' : 's'}`, when && `Updated ${when}`,
-    pending && `${pending} new review${pending === 1 ? '' : 's'} not included yet`].filter(Boolean).join(' · ');
+    pending ? `${pending} new review${pending === 1 ? '' : 's'} not included yet` : insight.outdated && 'A review changed since · Refresh to update']
+    .filter(Boolean).join(' · ');
   const company = id => String(link(id).title).split(' · ')[0].trim() || 'Interview';
   const patterns = list(insight.patterns).map(p => {
     const titled = !!String(p?.title || '').trim();
@@ -85,9 +86,10 @@ export const needsUpgrade = (insight, {hasKey = false, busy = false} = {}) => !!
 // The card (the 30 Sep 2026 mockup). open(id): show that interview in the library; openUrl(url): the insight row in Notion;
 // refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; onPractice(): Start practice session;
 // onMoments(): View supporting moments; busy: it's running.
-// collapsed: only the header (its arrow, onToggle(), folds and unfolds the rest).
+// collapsed: only the header (its arrow, onToggle(), folds and unfolds the rest). updating: this is this Mac's saved
+// copy while Notion is read (said under the title).
 export function insightCard(view, {open = () => {}, onMoments = () => {}, onPractice = () => {}, refresh = () => {}, onTick = () => {}, onToggle = () => {},
-  collapsed = false, busy = false, note = ''} = {}) {
+  collapsed = false, busy = false, note = '', updating = false} = {}) {
   const head = el('div', 'iv-insight-head');
   const title = el('div', 'iv-insight-title');
   const h2 = el('h2', 'with-glyph');
@@ -97,6 +99,7 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
   toggle.append(icon('chevron'));  // its click (or Enter) bubbles to the bar, which does the folding
   h2.append(icon('bulb'), view.title || 'Interview insights', toggle);  // the arrow sits right after the title
   title.append(h2, el('div', 'muted small iv-insight-basis', view.subtitle || view.basis));
+  if (updating) title.append(el('div', 'muted small iv-insight-basis', 'Saved copy · checking Notion…'));
   const side = el('div', 'iv-insight-side');
   if (note) side.append(el('span', 'muted small', note));
   if (view.chip) {  // a ring that fills with the confidence, the words, and what the words mean on hover

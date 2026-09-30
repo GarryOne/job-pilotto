@@ -402,7 +402,17 @@ def saved(tracker):
             'next_steps': [{**step, 'done': step_key(step.get('text')) in (data.get('done_steps') or [])}
                            for step in data.get('next_steps') or []], 'interviews': data.get('interviews') or [],
             'nothing_useful': bool(data.get('nothing_useful')), 'done_steps': data.get('done_steps') or [], 'evidence': plain(p.get('Evidence')) or '',
-            'action': plain(p.get('Action')) or '', 'input_hash': plain(p.get('Input hash')) or ''}
+            'action': plain(p.get('Action')) or '', 'input_hash': plain(p.get('Input hash')) or '',
+            'outdated': _outdated(tracker, plain(p.get('Input hash')))}
+
+
+def _outdated(tracker, stored):
+    """A review changed (or one was added) since the insight was written: Review again doesn't refresh it, and a review
+    on GitHub writes it after the review. The card says so instead of looking current. False when it can't tell."""
+    try:
+        return bool(stored) and fingerprint(reviewed_rows(tracker)) != stored
+    except Exception:  # noqa: BLE001 - the card shows the insight either way
+        return False
 
 
 def set_step_done(tracker, text, done):

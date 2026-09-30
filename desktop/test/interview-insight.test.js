@@ -18,7 +18,7 @@ globalThis.document = {createElement: tag => new FakeNode(tag), createElementNS:
   body: new FakeNode('body'), addEventListener() {}, querySelector: () => null};
 globalThis.window ??= {addEventListener() {}};
 const {insightView, insightCard, ago, needsUpgrade} = await import('../renderer/interview-insight.js');
-const {refreshInsights, insightStep} = await import('../lib/interviews.js');
+const {refreshInsights, insightStep, cacheWithInsight} = await import('../lib/interviews.js');
 
 const NOW = Date.parse('2026-09-30T12:00:00Z');
 const row = (id, overall, title = `Acme · ${id}`) => ({id, title, overall, application: []});
@@ -258,4 +258,19 @@ test('the confidence chip is only text: clicking it never folds the card, and a 
   globalThis.window.getSelection = () => ({toString: () => ''});
   head.listeners.click({});
   assert.deepEqual(flips, ['toggle']);
+});
+
+test('the card says when it is out of date or still the saved copy', () => {
+  const stale = insightView({...RICH, outdated: true}, RICH_ROWS, NOW);
+  assert.match(stale.subtitle, /A review changed since · Refresh to update/);
+  const text = insightCard(insightView(RICH, RICH_ROWS, NOW), {updating: true}).map(node => node.text()).join(' ');
+  assert.match(text, /Saved copy · checking Notion…/);
+  assert.doesNotMatch(insightCard(insightView(RICH, RICH_ROWS, NOW)).map(node => node.text()).join(' '), /Saved copy/);
+});
+
+test('a Refresh result goes into this Mac\'s saved copy, so the next start shows it, not an older one', () => {
+  const cached = {at: '2026-09-30T09:00:00Z', result: {ok: true, interviews: [{id: 'iv-1'}], insight: {headline: 'old'}}};
+  assert.deepEqual(cacheWithInsight(cached, {ok: true, insight: {headline: 'new'}}), {ok: true, interviews: [{id: 'iv-1'}], insight: {headline: 'new'}});
+  assert.equal(cacheWithInsight(cached, {ok: false, error: 'x'}), null);  // a failed refresh changes nothing
+  assert.equal(cacheWithInsight(null, {ok: true, insight: {}}), null);  // no saved copy yet: nothing to update
 });

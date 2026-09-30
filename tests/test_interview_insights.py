@@ -436,6 +436,20 @@ class FairPatterns(unittest.TestCase):
         self.assertEqual(ii.DATA_VERSION, 6)
 
 
+class Staleness(unittest.TestCase):
+    """The card says when a review changed after the insight was written (Review again changes a review but doesn't refresh
+    the insight; a GitHub review writes the insight after the review): saved() compares the stored input with the rows now."""
+
+    def test_saved_says_stale_when_a_review_changed_since(self):
+        fake = FakeNotion(list(ONE), PAGES)
+        a, b = env()
+        with a, b:
+            ii.update(fake, client=FakeClient(RESULT), now=NOW, budget_status=lambda t: {'level': 'ok'})
+            self.assertFalse(ii.saved(fake)['outdated'])
+            fake.rows[0]['properties']['Questions'] = {'type': 'number', 'number': 13}  # reviewed again: 13 questions now
+            self.assertTrue(ii.saved(fake)['outdated'])
+
+
 class Ticks(unittest.TestCase):
     """The "Practice next" tick boxes: saved in the insight row's Data (Notion is the one copy), kept across a Refresh only
     for a step whose words are still there."""

@@ -784,8 +784,13 @@ function handlers() {
     : viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
   ipcMain.handle('ivInsightStep', async (_, text, done) => (DEMO ? {ok: true, done_steps: []}
     : interviews.insightStep(storage, text, !!done)));
-  ipcMain.handle('ivInsights', async () => (DEMO ? {ok: true, status: 'unchanged', text: 'Demo mode', insight: demoInterviews().insight}
-    : interviews.refreshInsights(storage)));
+  ipcMain.handle('ivInsights', async () => {
+    if (DEMO) return {ok: true, status: 'unchanged', text: 'Demo mode', insight: demoInterviews().insight};
+    const result = await interviews.refreshInsights(storage);
+    const cached = interviews.cacheWithInsight(viewCache.recall(storage, 'interviews'), result);
+    if (cached) viewCache.remember(storage, 'interviews', cached);  // the next start shows this one
+    return result;
+  });
   ipcMain.handle('ivAdd', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Choose an interview recording or transcript',
       filters: [{name: 'Recording or transcript', extensions: [...interviews.AUDIO, ...interviews.TEXT]}], properties: ['openFile']});

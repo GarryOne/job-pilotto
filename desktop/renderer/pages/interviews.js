@@ -282,10 +282,16 @@ async function loadSavedOnce() {
   insightFresh = true;
   insightNote = next.insightError ? "Couldn't read the saved insights (see the app log)" : '';
   // Reviews running on GitHub stay "Reviewing…" until their outcome is in Notion; look again every 30 s meanwhile.
+  const before = new Set(reviewing);
   reviewing = new Set([...reviewing, ...pendingReviews.settle(ivSavedRows)]);
   for (const id of reviewing) if (ivSavedRows.find(row => row.id === id)?.overall) reviewing.delete(id);
+  // A review that just finished on GitHub writes its insight a little after the review row: while the insight is out of
+  // date, look again a few times (30 s apart) so the card catches up by itself.
+  const settled = [...before].some(id => !reviewing.has(id));
+  if (settled) insightWaits = 4;
   clearTimeout(reviewPoll);
   if (reviewing.size) reviewPoll = setTimeout(readAgain, 30 * 1000);
+  else if (next.insight?.outdated && insightWaits > 0) { insightWaits -= 1; reviewPoll = setTimeout(readAgain, 30 * 1000); }
   renderAll();
 }
 // The library, then the Insights card, each on its own: a throw in one never blanks the other, and says so.
@@ -305,9 +311,11 @@ function renderInsight() {
   insightShown = view;
   upgradeOldInsight(view);
   if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: title => showMoments(title), onPractice: startPractice, refresh: refreshInsights,
-    onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote}));
+    onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote, updating: !insightFresh && !!ivInsight}));
 }
-let insightShown = null, upgradeTried = false, insightFresh = false;
+let insightShown = null, upgradeTried = false, insightFresh = false, insightWaits = 0;
+// "Updated 3 min ago" keeps up while the page is open.
+setInterval(() => { if (insightShown && !$('iv-insight')?.hidden) renderInsight(); }, 60 * 1000);
 // An insight saved in the old format: refreshed once per app run (about $0.02; the page says so while it works).
 function upgradeOldInsight(view) {
   if (upgradeTried || !insightFresh || !view || view.empty || !needsUpgrade(ivInsight, {hasKey: !!shared.state.secrets?.ANTHROPIC_API_KEY, busy: insightBusy})) return;

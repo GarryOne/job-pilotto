@@ -208,6 +208,13 @@ async function refreshOnce(storage, run) {
   }
 }
 
+// The saved copy of the Interviews page (lib/view-cache.js 'interviews') with a Refresh's new insight in it, or null
+// when there's nothing to update: the next start shows the latest insight, not the one before the Refresh.
+export function cacheWithInsight(cached, result) {
+  if (!cached?.result || !result?.ok || result.insight === undefined) return null;
+  return {...cached.result, insight: result.insight};
+}
+
 // A "Practice next" tick box (src/ai/interview_insights.py set_step_done): saved in the insight row in Notion.
 export async function insightStep(storage, text, done, run = pipeline.run) {
   const lines = [];
