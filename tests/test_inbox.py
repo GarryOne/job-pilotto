@@ -80,7 +80,8 @@ class InboxTests(unittest.TestCase):
                    contact='Alex Morgan · alex@example-talent.test')
         tracker = Inbox([row('p9', 'https://lead.test/1', 'Senior DevOps Engineer', stage='Recruiter lead')], [lead])
         line = run(tracker, reading('Recruiter outreach', -1), image=('again.png', b'other pixels', 'image/png'))
-        self.assertTrue(line.startswith('ℹ️ Already tracked'))
+        # The same lead, updated (what it lacked is filled in), never a second row; a pitch again is no new event.
+        self.assertTrue(line.startswith('🧩 Updated: ? — Senior DevOps Engineer: added location, salary.'), line)
         self.assertEqual(tracker.created, [])
 
     def test_saying_yes_later_moves_the_lead_to_screening(self):

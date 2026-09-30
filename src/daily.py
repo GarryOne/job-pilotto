@@ -282,6 +282,7 @@ def main():
     parser.add_argument('--channel-other', default='', help='add mode: what "Other" was (e.g. WhatsApp)')
     parser.add_argument('--started', default='', help='add mode: when the conversation started, as you confirmed it (YYYY-MM-DD)')
     parser.add_argument('--kind', default='', help='add mode: what it is, as you confirmed it (e.g. "Reply received")')
+    parser.add_argument('--last-at', default='', help='add mode: the day of the last message, as you gave it (YYYY-MM-DD)')
     parser.add_argument('--interview-at', default='', help='add mode: the call\'s date and time, as you confirmed it (YYYY-MM-DDTHH:MM)')
     parser.add_argument('--company', default=None, help='add mode, a new job: the hiring company, as you confirmed it ("" = not named)')
     parser.add_argument('--agency', default=None, help='add mode, a new job: the recruiter\'s agency, as you confirmed it ("" = none)')
@@ -297,7 +298,10 @@ def main():
         parser.error('--limit must be between 1 and 50')
     apply_switches(args)
     tracker = notion.Tracker.from_env()
-    if tracker and (args.send or args.log_run):
+    # The app's check-first step (--propose) is a preview, not a run: no ⏱️ Search runs row (it once ended as
+    # "Failed: ended before its report", toasting "had problems" for a good reading). Its cost is counted in the
+    # confirmed step's run (--reading carries it).
+    if tracker and (args.send or args.log_run) and not args.propose:
         cron_runs.auto_begin(tracker)  # the run's ⏱️ Search runs row opens when it starts
     if args.mode == 'apply':
         if not args.job or not tracker:
@@ -352,7 +356,7 @@ def main():
                     run['mail'][key] = run['mail'].get(key, 0) + value if isinstance(value, (int, float)) else value
                 proposal = inbox.confirm(saved, kind=args.kind, channel=args.channel, started=args.started,
                                          other=args.channel_other, interview_at=args.interview_at, company=args.company,
-                                         agency=args.agency,
+                                         agency=args.agency, last_at=args.last_at,
                                          first_contact=None if args.first_contact is None else args.first_contact == 'yes')
             reply = escape(inbox.log(tracker, text=args.note or '', image=image, source=source,
                                      event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',

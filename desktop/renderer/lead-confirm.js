@@ -4,12 +4,14 @@
 // (test/lead-confirm.test.js); pages/jobs.js draws it.
 export const CHANNELS = ['LinkedIn', 'Email', 'Phone', 'Other'];
 export const CHANNEL_LABEL = {LinkedIn: 'LinkedIn', Email: 'Email', Phone: 'Phone / call', Other: 'Other'};
-export const KIND_LABEL = {'Recruiter outreach': 'First contact (a recruiter or employer pitches a role)',
+// "Update on this job" (src/ai/inbox.py UPDATE): the default for a job already tracked when the message has nothing of
+// its own kind (the same recruiter's chat again): its gaps, its description and who wrote last are saved.
+export const KIND_LABEL = {'Update on this job': 'Update on this job (already tracked)', 'Recruiter outreach': 'First contact (a recruiter or employer pitches a role)',
   Applied: 'I applied', 'Confirmation received': 'Application received (automatic)', 'Reply received': 'A reply (no fixed time)',
   'Interview scheduled': 'A call or interview booked', Rejected: 'Rejected', Offer: 'Offer', 'Feedback received': 'Feedback'};
 // Applications "Source" when this contact is where the job started (src/ai/opportunity.py CHANNEL_SOURCE).
 const SOURCE = {LinkedIn: 'LinkedIn', Email: 'Gmail', Phone: 'Phone'};
-const ORDER = ['kind', 'channel', 'started', 'interview', 'company', 'agency'];
+const ORDER = ['kind', 'channel', 'started', 'interview', 'last', 'company', 'agency'];
 
 // The form's starting state: values as read, "ok" fields already confirmed; first contact: yes for a new job.
 export function initial(proposal = {}) {
@@ -41,7 +43,7 @@ export function pending(proposal = {}, state, today = '') {
     const value = state.values[name];
     if (required(proposal, state, name) && !value) out.push({name, why: 'empty'});
     else if (field.state === 'check' && !state.confirmed.includes(name)) out.push({name, why: 'check'});
-    else if (name === 'started' && today && value > today) out.push({name, why: 'future'});
+    else if ((name === 'started' || name === 'last') && today && value > today) out.push({name, why: 'future'});
   }
   return out;
 }
@@ -67,6 +69,15 @@ export function startedHint(isNew) {
     : "Earlier than this job's first contact? Then this conversation becomes where it started (its Source).";
 }
 
+// Who wrote last (src/ai/inbox.py fields() 'last'): what saving it does for Focus, and what they wrote.
+export function lastHint(field = {}, value = '') {
+  const said = field.snippet ? ` "${field.snippet.length > 60 ? `${field.snippet.slice(0, 59)}…` : field.snippet}"` : '';
+  const what = field.from === 'you' ? `You wrote last${said}: Focus reminds you to follow up after 3 days without an answer.`
+    : `They wrote last${said}: Focus shows it as waiting for your answer.`;
+  if (field.state === 'ask' && !value) return `Couldn't read the day${field.as_written ? ` ("${field.as_written}")` : ''}. Leave it empty if you don't know: then nothing is saved about it.`;
+  return what;
+}
+
 export function firstHint(channel, first, other = '') {
   if (first === 'no') return 'Its Source stays how you added it; this is logged as a later contact.';
   const source = SOURCE[channel];
@@ -85,7 +96,7 @@ export function found(proposal = {}) {
 export function confirmed(proposal = {}, state) {
   const v = state.values, has = name => !!proposal.fields?.[name];
   return {kind: v.kind, channel: v.channel, other: v.channel === 'Other' ? String(state.other || '').trim().slice(0, 40) : '',
-    started: v.started, interview: has('interview') ? v.interview || '' : '',
+    started: v.started, interview: has('interview') ? v.interview || '' : '', ...(has('last') ? {lastAt: v.last || ''} : {}),
     ...(has('company') ? {company: String(v.company || '').trim()} : {}), ...(has('agency') ? {agency: String(v.agency || '').trim()} : {}),
     firstContact: proposal.new ? state.first !== 'no' : null};
 }

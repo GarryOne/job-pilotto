@@ -123,6 +123,33 @@
       "job_url": ""
     },
     {
+      "priority": 2,
+      "kind": "follow_up",
+      "icon": "send",
+      "badge": "Follow up",
+      "tone": "warn",
+      "headline": "Follow up with Lumen Robotics",
+      "meta": [
+        "Platform Engineer",
+        "you wrote Sat 26 Sep",
+        "4 days, no reply"
+      ],
+      "title": "Follow up with Lumen Robotics",
+      "detail": "You wrote Sat 26 Sep (4 days ago), no reply yet.",
+      "link": "https://www.linkedin.com/messaging/",
+      "link_label": "Open chat",
+      "done": true,
+      "page_id": "demo-follow-up",
+      "notion_url": "",
+      "company": "Lumen Robotics",
+      "job": "Platform Engineer",
+      "job_url": "",
+      "stage": "Screening",
+      "reached": "LinkedIn",
+      "at": "2026-09-26T10:05:00+02:00",
+      "quiet": 4
+    },
+    {
       "priority": 3,
       "kind": "apply",
       "icon": "briefcase",

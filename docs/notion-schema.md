@@ -175,10 +175,10 @@ guess ("Notion edit") gives it Source `Calendar` and its own note.
 |---|---|---|
 | Event | Title | "Kind · Company" |
 | Application | Relation | To Job Tracker (two-way, shows there as "Events") |
-| Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Interview cancelled` (you said in Focus the call did not happen; no Stage change) |
+| Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Replied` (you wrote: Done in Focus, your last message in a logged chat, or your sent Gmail to the job's contact; Focus → Follow up after 3 days without an answer), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Interview cancelled` (you said in Focus the call did not happen; no Stage change) |
 | At | Date | With time |
 | Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill`, `Gmail`, `Calendar` |
-| Source ID | Text | Gmail message id, or `cal:<event id>`; an email or calendar event is never logged twice |
+| Source ID | Text | Gmail message id, `cal:<event id>`, `paste:<hash>` (a logged message) or `chat:<hash>` (a chat's last message: who + when + first words); never logged twice |
 | Note | Text | |
 | Job URL | URL | |
 | Changes | Text | JSON: what the email changed (before/after per field), its interview time and sender; "Undo an email update" puts it back |

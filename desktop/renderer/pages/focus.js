@@ -164,12 +164,12 @@ function focusCard(item) {
     if (prep.primary.run === 'join') main.prepend(el('span', 'spinner small'));
     actions.append(main);
   }
-  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting'].includes(item.kind) && item.notion_url) {
+  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting', 'follow_up'].includes(item.kind) && item.notion_url) {
     actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
   }
   if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', async event => {
     event.currentTarget.disabled = true;
-    const done = await window.pilot.focusDone(item.page_id);
+    const done = await window.pilot.focusDone(item.page_id, item.kind === 'follow_up' ? 'followed_up' : 'replied');
     if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
     loadFocus();
   }));

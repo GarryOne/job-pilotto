@@ -25,6 +25,7 @@ The Job Pilotto app on your Mac does the work. This Notion workspace is where yo
 1. **Look at new matches** in Job Matches or in Telegram (a few minutes a day). ⭐ Save the ones you like, dismiss the rest.
 2. **Apply** from the app: **Apply to jobs…**, pick how many. Each form is filled for you; check every field, then click Submit yourself.
 3. **Record what happens:** confirmations and replies are logged automatically if Gmail is connected; otherwise change the **Stage** in Applications.
+   - Log a chat screenshot in the app: it notes **who wrote last**. Your message unanswered 3 days → Focus says **Follow up**.
 4. **After an interview,** send the transcript or your notes; you get a review of each answer.
 5. **On Mondays,** read the weekly report in Insights.
 

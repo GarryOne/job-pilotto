@@ -101,3 +101,14 @@ test('the wizard offers the demo on Welcome and Notion, and the demo banner is t
   assert.match(html, /nothing is real, nothing is sent/);
   assert.match(html, /id="demo-leave">Set up my own</);
 });
+
+test('the demo Focus shows a follow-up card: your message unanswered, its chat and Done', () => {
+  const {items} = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'focus.json'), 'utf8'));
+  const item = items.find(one => one.kind === 'follow_up');
+  assert.ok(item, 'a follow_up item');
+  assert.equal(item.headline, `Follow up with ${item.company}`);
+  assert.match(item.detail, /^You wrote \w{3} \d{1,2} \w{3} \(\d+ days ago\), no reply yet\.$/);
+  assert.ok(item.link && item.link_label && item.done && item.page_id);
+  const focusPage = fs.readFileSync(path.join(here, 'renderer', 'pages', 'focus.js'), 'utf8');
+  assert.match(focusPage, /item\.kind === 'follow_up' \? 'followed_up' : 'replied'/, 'Done logs your follow-up, which re-arms it');
+});

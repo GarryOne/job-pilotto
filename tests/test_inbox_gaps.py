@@ -112,11 +112,41 @@ class SourceIsTheEarliestContactTest(unittest.TestCase):
     def test_an_email_older_than_the_row_itself_still_came_first(self):
         # The Gmail check tracked on 29 Sep an email from 20 Sep: a LinkedIn chat from the 21st is later.
         from unittest import mock
-        email = {'properties': {'At': {'type': 'date', 'date': {'start': '2026-09-20T09:00:00Z'}}}}
+        email = {'properties': {'At': {'type': 'date', 'date': {'start': '2026-09-20T09:00:00Z'}}, 'Source': select('Gmail'),
+                                'Kind': select('Reply received')}}
         tracker = EventsTracker([email])
         with mock.patch.object(inbox.ledger, 'EVENTS_DATABASE_ID', 'events-db'):
             self.assertEqual(inbox._fill_gaps(tracker, gmail_lead(), {'platform': 'LinkedIn', 'first_contact': '2026-09-21'}), [])
-        self.assertEqual(tracker.queries[0]['and'][1]['or'][0], {'property': 'Source', 'select': {'equals': 'Gmail'}})
+        # Queried by the job only: the Source is compared here (a select filter on a missing option is a 400).
+        self.assertEqual(tracker.queries[0], {'property': 'Application', 'relation': {'contains': 'h1'}})
+
+    def test_the_30_sep_bug_a_source_the_events_do_not_have_is_never_sent_as_a_filter(self):
+        # The Duvo.ai log: the job's Source "Manual" isn't an option of the events' Source; Notion answered 400
+        # ("events not read") and the earliest contact was decided without the events.
+        from unittest import mock
+
+        class Strict(EventsTracker):
+            OPTIONS = {'Source': {'Gmail', 'Telegram', 'Job Pilotto app', 'CLI'}, 'Kind': {'Recruiter lead', 'Reply received'}}
+
+            def query_database(self, database_id, filter_=None):
+                def check(f):
+                    if isinstance(f, dict):
+                        if 'select' in f and f['select'].get('equals') not in self.OPTIONS.get(f['property'], set()):
+                            raise RuntimeError('HTTP Error 400: Bad Request')
+                        for value in f.values():
+                            check(value)
+                    elif isinstance(f, list):
+                        for value in f:
+                            check(value)
+                check(filter_)
+                return super().query_database(database_id, filter_)
+        lead = {'properties': {'At': {'type': 'date', 'date': {'start': '2026-09-20T09:00:00Z'}}, 'Source': select('Job Pilotto app'),
+                               'Kind': select('Recruiter lead')}}
+        manual = gmail_lead(Source=select('Manual'))
+        tracker = Strict([lead])
+        with mock.patch.object(inbox.ledger, 'EVENTS_DATABASE_ID', 'events-db'), mock.patch('sys.stderr') as err:
+            self.assertEqual(inbox._fill_gaps(tracker, manual, {'platform': 'LinkedIn', 'first_contact': '2026-09-21'}), [])
+        self.assertNotIn('events not read', ''.join(str(c) for c in err.mock_calls))
 
     def test_a_logged_entry_names_its_channel(self):
         appended = []

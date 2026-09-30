@@ -22,7 +22,7 @@ import json
 import os
 import re
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from ..notion import client as notion, ledger
@@ -61,10 +61,26 @@ SEEN = {
     },
 }
 
+# Who wrote last in the conversation shown, and when (the same single reading): Focus recommends a follow-up when your
+# message got no answer (src/focus.py follow_up). The date comes from what is written ("MONDAY", "Today", "Sep 28"),
+# resolved against the day it's logged by resolve_day(), never from the model's own date guess.
+LAST_MESSAGE = {
+    'type': 'object', 'additionalProperties': False,
+    'required': ['from', 'at', 'at_text', 'text_snippet'],
+    'properties': {
+        'from': {'type': 'string', 'enum': ['you', 'them', 'unknown'], 'description':
+                 'Who wrote the last visible message: you = the owner, them = the recruiter or employer, unknown = unclear'},
+        'at': {'type': 'string', 'description': 'ISO 8601 date/time of that message only when a full date with its year is shown, else ""'},
+        'at_text': {'type': 'string', 'description': 'Its day and time exactly as shown: the day divider above it and its time '
+                                                     '("MONDAY 12:33 AM", "Today 09:10", "Sep 28", "28/09/2026 14:02"), else ""'},
+        'text_snippet': {'type': 'string', 'description': 'Its first words, as written, at most 120 characters'},
+    },
+}
+
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['kind', 'match', 'role', 'when', 'first_contact', 'interview_at', 'feedback', 'job_description',
-                 'seen', 'first_contact_text', 'interview_text']
+                 'seen', 'first_contact_text', 'interview_text', 'last_message']
                 + opportunity.SCHEMA['required'],
     'properties': {
         'kind': {'type': 'string', 'enum': KINDS},
@@ -76,7 +92,8 @@ SCHEMA = {
         'interview_at': {'type': 'string', 'description': 'ISO 8601 start of a call/interview with a fixed time, with offset, else ""'},
         'feedback': {'type': 'string', 'description': 'Specific employer feedback quoted verbatim, else empty; no generic rejections or inferred reasons.'},
         'seen': SEEN,
-        'first_contact_text': {'type': 'string', 'description': 'The earliest date exactly as written in the item ("Sep 21", "Mon 14:02", "21/09/2026"), else ""'},
+        'first_contact_text': {'type': 'string', 'description': 'The earliest date exactly as written in the item, with the day divider above the first message and its time ("Sep 21", "MONDAY 12:33 AM", "Mon 14:02", "21/09/2026"), else ""'},
+        'last_message': LAST_MESSAGE,
         'interview_text': {'type': 'string', 'description': 'A call/interview time exactly as written ("Friday at 3pm", "26 Sep 15:00"), else ""'},
         **opportunity.SCHEMA['properties'],
     },
@@ -99,6 +116,9 @@ same message pasted twice) is that job. When the company has several roles and t
 - The other fields: only what the item states, never guesses. owner_agreed: the owner said yes / agreed to talk.
 - seen: for each of channel, year, first contact, interview and company, whether the item shows it or you inferred it.
   Dates without a visible year: fill the ISO fields with your best reading but set seen.year "missing".
+- last_message: the last visible message of the conversation (for an email: that email): who wrote it (the owner = \
+"you"), its day and time exactly as written (a chat's day divider such as "MONDAY" or "TODAY" above it, plus its time), \
+and its first words.
 The owner's own messages may be in the screenshot; the other person is the recruiter or employer."""
 
 
@@ -317,14 +337,16 @@ def _origin(tracker, row):
     moments = [mail._when(row.get('created_time') or '')]
     source = plain(row['properties'].get('Source'))
     if ledger.EVENTS_DATABASE_ID and hasattr(tracker, 'query_database'):
-        first = {'property': 'Kind', 'select': {'equals': opportunity.LEAD_STAGE}}
+        # By the Application relation only: the Source and Kind are compared here. The row's Source ("Manual",
+        # "Telegram") need not be an option of the events' Source, and Notion answers 400 to a select filter on a
+        # value its column doesn't have (30 Sep 2026: "events not read: HTTP Error 400").
         try:
-            events = tracker.query_database(ledger.EVENTS_DATABASE_ID, {'and': [
-                {'property': 'Application', 'relation': {'contains': row['id']}},
-                {'or': [{'property': 'Source', 'select': {'equals': source}}, first]} if source else first]})
+            events = tracker.query_database(ledger.EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})
         except Exception as error:  # noqa: BLE001 — the row's creation time still tells
             print(f'Warning: events not read: {type(error).__name__}: {error}', file=sys.stderr)
             events = []
+        events = [e for e in events if plain(e['properties'].get('Kind')) == opportunity.LEAD_STAGE
+                  or (source and plain(e['properties'].get('Source')) == source)]
         moments += [mail._when(plain(e['properties'].get('At')) or '') for e in events]
     moments = [m for m in moments if m]
     return min(moments) if moments else None
@@ -387,15 +409,127 @@ def _years(value, now):
     return years
 
 
+WEEKDAYS = {'monday': 0, 'mon': 0, 'tuesday': 1, 'tues': 1, 'tue': 1, 'wednesday': 2, 'wed': 2, 'thursday': 3,
+            'thurs': 3, 'thur': 3, 'thu': 3, 'friday': 4, 'fri': 4, 'saturday': 5, 'sat': 5, 'sunday': 6, 'sun': 6}
+MONTHS = {name: number for number, names in enumerate(
+    (('jan', 'january'), ('feb', 'february'), ('mar', 'march'), ('apr', 'april'), ('may',), ('jun', 'june'),
+     ('jul', 'july'), ('aug', 'august'), ('sep', 'sept', 'september'), ('oct', 'october'), ('nov', 'november'),
+     ('dec', 'december')), 1) for name in names}
+MONTH_DAY_DAYS = 7  # "Sep 28" without a year: read only when it can only be this last week (else the year is asked)
+
+
+def resolve_day(text, today):
+    """A day and time as a chat or mail app writes them ("MONDAY 12:33 AM", "Today", "Yesterday 14:02", "Sep 28",
+    "28 Sep 2026", "2026-09-28"), resolved against `today` (the day it's logged). Pure, never guesses:
+    - TODAY / YESTERDAY; a weekday name = the most recent such day, not after today (today itself included);
+    - a full date with its year = that date, as written (a numeric one only when day and month can't be swapped);
+    - a month and day without the year = the most recent such day, only within MONTH_DAY_DAYS (else unknown).
+    Returns {'date': date or None, 'time': 'HH:MM' or '', 'how': 'relative'|'full'|'month_day'|''}."""
+    low = re.sub(r'\s+', ' ', (text or '').lower()).strip()
+    out = {'date': None, 'time': '', 'how': ''}
+    if not low:
+        return out
+    clock = re.search(r'\b(\d{1,2})(?:[:.](\d{2}))?\s*([ap])\.?\s?m\b\.?', low) or re.search(r'\b(\d{1,2}):(\d{2})\b', low)
+    if clock:
+        hour, minute = int(clock.group(1)), int(clock.group(2) or 0)
+        if clock.lastindex == 3 and clock.group(3):
+            hour = hour % 12 + (12 if clock.group(3) == 'p' else 0)
+        if hour < 24 and minute < 60:
+            out['time'] = f'{hour:02d}:{minute:02d}'
+        low = (low[:clock.start()] + ' ' + low[clock.end():]).strip()
+
+    def day(year, month, number):
+        try:
+            return date(year, month, number)
+        except ValueError:
+            return None
+
+    def done(found, how):
+        if found and found <= today:
+            out.update(date=found, how=how)
+        return out
+
+    if found := re.search(r'\b(\d{4})-(\d{1,2})-(\d{1,2})\b', low):
+        return done(day(int(found.group(1)), int(found.group(2)), int(found.group(3))), 'full')
+    if found := re.search(r'\b(\d{1,2})([./])(\d{1,2})\2(\d{4}|\d{2})\b', low):
+        first, second, year = int(found.group(1)), int(found.group(3)), int(found.group(4))
+        year += 2000 if year < 100 else 0
+        if found.group(2) == '.' or first > 12:  # 28.09.2026 (day first), 28/09/2026
+            return done(day(year, second, first), 'full')
+        if second > 12:  # 9/28/2026
+            return done(day(year, first, second), 'full')
+        return out if first != second else done(day(year, first, second), 'full')  # 03/04/2026: which is the month?
+    month_words = '|'.join(sorted(MONTHS, key=len, reverse=True))
+    written = (re.search(rf'\b(\d{{1,2}})(?:st|nd|rd|th)?\.? ({month_words})\b\.?,?(?: (\d{{4}}))?', low)
+               or re.search(rf'\b({month_words})\b\.? (\d{{1,2}})(?:st|nd|rd|th)?\b,?(?: (\d{{4}}))?', low))
+    if written:
+        number, month = (written.group(1), written.group(2)) if written.group(1).isdigit() else (written.group(2), written.group(1))
+        number, month = int(number), MONTHS[month]
+        if written.group(3):
+            return done(day(int(written.group(3)), month, number), 'full')
+        found = day(today.year, month, number)
+        if found and found > today:
+            found = day(today.year - 1, month, number)
+        out['how'] = 'month_day'
+        return done(found, 'month_day') if found and (today - found).days <= MONTH_DAY_DAYS else out
+    if re.search(r'\btoday\b', low):
+        return done(today, 'relative')
+    if re.search(r'\byesterday\b', low):
+        return done(today - timedelta(days=1), 'relative')
+    if found := re.search(rf"\b({'|'.join(sorted(WEEKDAYS, key=len, reverse=True))})\b", low):
+        return done(today - timedelta(days=(today.weekday() - WEEKDAYS[found.group(1)]) % 7), 'relative')
+    return out
+
+
+def resolve_at(text, today, tz=None):
+    """resolve_day() as an ISO moment in the owner's time zone ("2026-09-28T00:33:00+02:00"), a day ("2026-09-28")
+    when no time is written, or '' when the day can't be told."""
+    found = resolve_day(text, today)
+    if not found['date']:
+        return ''
+    if not found['time']:
+        return found['date'].isoformat()
+    hour, minute = map(int, found['time'].split(':'))
+    return datetime.combine(found['date'], datetime.min.time().replace(hour=hour, minute=minute), tz or mail.TZ).isoformat()
+
+
+def _resolve_dates(item, now):
+    """Dates the item writes as a chat does ("MONDAY"), resolved against the day it's logged: the last message's
+    moment (item['last_message']['resolved'], '' = ask) and, when the first message's day is written that way, the
+    conversation's start (item['first_contact'], flagged first_contact_resolved: no year question)."""
+    today = now.astimezone(mail.TZ).date()
+    started = resolve_day(item.get('first_contact_text'), today)
+    if started['date']:
+        item['first_contact'] = resolve_at(item.get('first_contact_text'), today) if started['time'] \
+            else f"{started['date'].isoformat()}T12:00:00+00:00"
+        item['first_contact_resolved'] = True
+    last = dict(item.get('last_message') or {})
+    if last.get('from') in ('you', 'them'):
+        moment = resolve_at(last.get('at_text'), today)
+        if not moment and (item.get('seen') or {}).get('year') == 'shown' and mail._when(last.get('at') or '') \
+                and mail._when(last['at']) <= now:
+            moment = last['at']  # a full date with its year, read from the item
+        last['resolved'] = moment
+        last['text_snippet'] = re.sub(r'\s+', ' ', last.get('text_snippet') or '').strip()[:120]
+        item['last_message'] = last
+    return item
+
+
+UPDATE = 'Update on this job'  # the app's "What is it?" for a job already tracked that has nothing new of its own kind
+
+
 def fields(item, kind, *, new, now):
     """What the app's confirmation step asks, each field {value, state, question…}: state "ok" = shown in the item
     (pre-filled), "check" = inferred (pre-filled, marked "please check", to be confirmed), "ask" = not shown at all
-    (left empty, with a question). Nothing is written before every required one is confirmed."""
+    (left empty, with a question). Nothing is written before every required one is confirmed. A job already
+    tracked defaults to "Update on this job" (UPDATE) when the reading has nothing of its own kind (a first contact
+    for a job you're already talking about): that's no guess, so it isn't marked."""
     seen = item.get('seen') or {}
     platform = item.get('platform') if item.get('platform') in CHANNELS else ''
     channel_state = {'shown': 'ok', 'guessed': 'check'}.get(seen.get('channel'), 'ask' if not platform or platform == 'Other' else 'check')
+    options = [k for k in KINDS if k != NOT_JOB]
     out = {
-        'kind': {'value': kind, 'state': 'check', 'options': [k for k in KINDS if k != NOT_JOB]},
+        'kind': {'value': kind, 'state': 'ok' if kind == UPDATE else 'check', 'options': options if new else [UPDATE] + options},
         'channel': {'value': platform if channel_state != 'ask' else '', 'state': channel_state,
                     'guess': platform, 'question': 'Where is this conversation from?'},
     }
@@ -403,6 +537,8 @@ def fields(item, kind, *, new, now):
     written = item.get('first_contact_text') or ''
     if not mail._when(began):
         out['started'] = {'value': '', 'state': 'ask', 'question': 'When did it start?'}
+    elif item.get('first_contact_resolved'):  # "MONDAY" above the first message: that Monday (resolve_day), no question
+        out['started'] = {'value': began[:10], 'state': 'ok', 'question': 'When did it start?', 'as_written': written.strip()[:40]}
     elif seen.get('year') == 'missing':
         # "Sep 21" in a chat: which year is asked, never assumed (it once became 21 Sep 2024).
         out['started'] = {'value': '', 'state': 'ask', 'month_day': began[5:10], 'years': _years(began, now),
@@ -423,6 +559,14 @@ def fields(item, kind, *, new, now):
                           'required': False, 'question': 'Which company is hiring?'}
         out['agency'] = {'value': '' if item.get('in_house') else item.get('recruiter_company') or '', 'state': 'ok',
                          'required': False, 'question': 'Agency (if a recruiter found you)'}
+    last = item.get('last_message') or {}
+    if last.get('from') in ('you', 'them'):
+        # Who wrote last and when: saved as an event so Focus can say "follow up" (yours unanswered) or "reply".
+        # A day that can't be read is asked, never guessed; left empty, nothing is saved about it.
+        moment = last.get('resolved') or ''
+        out['last'] = {'value': moment[:10], 'state': 'ok' if moment else 'ask', 'required': False, 'from': last['from'],
+                       'snippet': last.get('text_snippet') or '', 'as_written': (last.get('at_text') or '').strip()[:40],
+                       'question': 'When was the last message?'}
     return out
 
 
@@ -457,21 +601,35 @@ def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, s
         match = same_job(jobs, item)
     job = jobs[match] if 0 <= match < len(jobs) else None
     new = not (job and job.get('stage'))
+    stage = (job or {}).get('stage') or ''
+    if not new and stage not in EARLY and (kind == OUTREACH or (kind == APPLIED and stage != opportunity.LEAD_STAGE)):
+        kind = UPDATE  # a first contact (or an application) for a job you're already past: nothing of that kind is new
+    _resolve_dates(item, now)
     shown = job or dict(item, title=item.get('role') or item.get('title'))
-    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': (job or {}).get('stage') or '',
+    return {'item': item, 'job': job, 'kind': kind, 'new': new, 'stage': stage,
             'label': ' — '.join(p for p in (shown.get('company') or shown.get('recruiter_company'), opportunity.title(shown)) if p),
             'fields': fields(item, kind, new=new, now=now)}
 
 
 def confirm(proposal, *, kind='', channel='', other='', started='', interview_at='', company=None, agency=None,
-            first_contact=None):
+            first_contact=None, last_at=''):
     """The proposal with what you confirmed in the app in place of Claude's readings: kind, channel (LinkedIn, Email,
     Phone, Other; other = what "Other" was, e.g. WhatsApp), started (YYYY-MM-DD, when the conversation began),
-    interview_at (YYYY-MM-DDTHH:MM), company / agency (a new job's), and for a new job whether this was the first
-    contact about it (then its Source follows the channel)."""
+    interview_at (YYYY-MM-DDTHH:MM), company / agency (a new job's), for a new job whether this was the first
+    contact about it (then its Source follows the channel), and last_at (YYYY-MM-DD[THH:MM]): the day of the last
+    message when it couldn't be read (its time, when read, is kept for the same day)."""
     item = dict(proposal['item'])
+    if last_at:
+        day = _day(last_at)
+        if not day:
+            raise ValueError(f'Not a date: "{last_at}" (YYYY-MM-DD).')
+        last = dict(item.get('last_message') or {})
+        if (last.get('resolved') or '')[:10] != day.isoformat():
+            moment = mail._when(last_at) if len(last_at) > 10 else None
+            last['resolved'] = moment.isoformat() if moment else day.isoformat()
+        item['last_message'] = last
     if kind:
-        if kind not in KINDS or kind == NOT_JOB:
+        if kind not in KINDS + [UPDATE] or kind == NOT_JOB:
             raise ValueError(f'Unknown kind "{kind}".')
     if channel:
         if channel not in CHANNELS:
@@ -516,13 +674,14 @@ def _in_year(value, start):
 def unchecked(item, kind):
     """What a log that wasn't confirmed (Telegram, the terminal) took on trust, for its reply and its page entry."""
     seen, notes = item.get('seen') or {}, []
-    if seen.get('year') == 'missing' and (item.get('when') or item.get('first_contact')):
+    if seen.get('year') == 'missing' and not item.get('first_contact_resolved') and (item.get('when') or item.get('first_contact')):
         notes.append(f"year assumed{_as_written(item.get('first_contact_text'))}")
     if seen.get('channel') != 'shown':
         notes.append(f"channel {item.get('platform') or 'unknown'} guessed")
     if seen.get('interview') == 'partial' and item.get('interview_at'):
         notes.append(f"call time guessed{_as_written(item.get('interview_text'))}")
-    notes.append(f'kind "{kind}" read by Claude')
+    if kind != UPDATE:  # "Update on this job" follows from the job being tracked, not from Claude's reading
+        notes.append(f'kind "{kind}" read by Claude')
     return notes
 
 
@@ -559,6 +718,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     began = item['first_contact'] if first_here and mail._when(item.get('first_contact') or '') else None
     summary = item.get('summary') or kind
     row = _row_for(tracker, job['url']) if job and job.get('stage') else None
+    if kind == UPDATE and row is None:  # "Update on this job" is for a tracked one; anything else is their reply
+        kind = REPLY
 
     if row is None and kind == OUTREACH:  # a recruiter's pitch: an open job it names, or a new lead
         lead = dict(item, job_url=job['url'], company=job.get('company') or item.get('company'),
@@ -570,7 +731,8 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         if not row:
             return 'ℹ️ ' + line
         fit = _rich(on_new, row, lead, text)
-        return '🤝 ' + line + (f' · {fit}' if fit else '') + _check_line(check)
+        noted = _last_message(tracker, row, item, event_source, kind)
+        return '🤝 ' + line + (f' · {fit}' if fit else '') + (f' {noted}' if noted else '') + _check_line(check)
 
     created = False
     if row is None and job:  # an open job, not tracked yet
@@ -615,7 +777,10 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     changed = None
     if kind == OUTREACH and stage not in EARLY:  # the same pitch again (a follow-up would read as a reply)
         if not (talking and stage == opportunity.LEAD_STAGE):
-            return f'ℹ️ Already tracked: {label} ({stage}). Nothing new to log.'
+            noted = _last_message(tracker, row, item, event_source, kind)
+            return f'ℹ️ Already tracked: {label} ({stage}). ' + (f'Nothing new about the job. {noted}' if noted else 'Nothing new to log.')
+    elif kind == UPDATE:  # a job already tracked: only its gaps, its description and who wrote last
+        pass
     elif kind == OUTREACH:
         tracker.update_page(row['id'], {'Stage': {'select': {'name': opportunity.LEAD_STAGE}}})
         add_event(tracker, row, opportunity.LEAD_STAGE, event_source, at=when, note=f'Logged: {summary}'[:300])
@@ -634,16 +799,53 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
     if talking and (stage == opportunity.LEAD_STAGE or changed == opportunity.LEAD_STAGE):
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'
+    noted = _last_message(tracker, row, item, event_source, kind)
     if not changed and filled:
         _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
-        return f"🧩 Updated: {label}: added {', '.join(filled)}.{_check_line(check)}"
+        return f"🧩 Updated: {label}: added {', '.join(filled)}.{' ' + noted if noted else ''}{_check_line(check)}"
+    if not changed and noted:
+        _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
+        return f'ℹ️ Already tracked: {label} ({stage}). Nothing new about the job. {noted}{_check_line(check)}'
     if not changed:
-        return f'ℹ️ Already logged: {label} ({stage})'
+        return f'ℹ️ Already tracked: {label} ({stage}). Nothing new to log.' if kind == UPDATE else f'ℹ️ Already logged: {label} ({stage})'
     _keep(tracker, row, text, image, summary, when, _channel_named(item), check)
     fit = _rich(on_new, row, item, text) if created and not job else None  # an open job was scored by its search
     verb = 'Tracked' if created else 'Updated'
     return (f"{EMOJI.get(kind, '•')} {verb}: {label} → {changed}. {summary}" + (f' · {fit}' if fit else '')
-            + (f" Added {', '.join(filled)}." if filled else '') + _check_line(check))
+            + (f" Added {', '.join(filled)}." if filled else '') + (f' {noted}' if noted else '') + _check_line(check))
+
+
+# Kinds that are themselves a message from them: their last message needs no event of its own.
+THEIRS = {OUTREACH, 'Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer', mail.employer_feedback.RECEIVED}
+
+
+def last_message_id(last):
+    """The last message's fingerprint (Source ID): who, when, its first words. The same message logged again, from
+    another screenshot or another day, is the same event."""
+    words = re.sub(r'\s+', ' ', last.get('text_snippet') or '').strip().lower()[:120]
+    return 'chat:' + hashlib.sha256(f"{last.get('from')}|{last.get('resolved')}|{words}".encode()).hexdigest()[:16]
+
+
+def _last_message(tracker, row, item, source, kind):
+    """Who wrote last in the conversation, as an event on the job (📈 Application Events, idempotent): yours =
+    "Replied" (Focus recommends a follow-up when it stays unanswered), theirs = "Reply received" (Focus: reply),
+    unless the log's own event already is their message. Nothing when the day is unknown (the app asks it). Returns
+    the sentence for the reply, or '' when nothing new was saved."""
+    last = item.get('last_message') or {}
+    who, at = last.get('from'), last.get('resolved') or ''
+    if who not in ('you', 'them') or not mail._when(at if 'T' in at else f'{at}T12:00:00') or (who == 'them' and kind in THEIRS):
+        return ''
+    snippet = re.sub(r'\s+', ' ', last.get('text_snippet') or '').strip()[:120]
+    event = add_event(tracker, row, mail.YOU_REPLIED if who == 'you' else REPLY, source, at=at,
+                      note=(f'You wrote: {snippet}' if who == 'you' else f'They wrote: {snippet}') if snippet else
+                      ('Your last message' if who == 'you' else 'Their last message'),
+                      source_id=last_message_id(last))
+    if (event or {}).get('_existing'):
+        return ''
+    day = date.fromisoformat(at[:10])
+    said = f'{day:%a} {day.day} {day:%b}'
+    return (f'Your last message was on {said}: saved so Focus can remind you to follow up.' if who == 'you'
+            else f'Their last message was on {said}, waiting for your answer: saved for Focus.')
 
 
 def _check_line(check):

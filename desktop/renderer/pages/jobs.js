@@ -430,6 +430,9 @@ function showConfirm(proposal) {
     {type: 'button', textContent: String(year), onclick: () => leadSet('started', confirmStep.withYear(started, year))})));
   $('lead-interview-label').textContent = fields.interview?.question || 'When is the call?';
   $('lead-interview').value = leadState.values.interview || '';
+  $('lead-last-label').textContent = fields.last?.question || 'When was the last message?';
+  $('lead-last').value = leadState.values.last || '';
+  $('lead-last').max = localDay();
   $('lead-company').value = leadState.values.company || '';
   $('lead-agency').value = leadState.values.agency || '';
   $('lead-started-hint').textContent = confirmStep.startedHint(proposal.new);
@@ -467,6 +470,7 @@ function renderConfirm() {
   const said = fields.interview?.as_written ? `The message says "${fields.interview.as_written}". ` : '';
   $('lead-interview-hint').textContent = said + (v.kind === 'Interview scheduled' ? 'A booked call needs its date and time.'
     : 'Leave empty if no time is fixed yet.');
+  if (fields.last) $('lead-last-hint').textContent = confirmStep.lastHint(fields.last, v.last);
   $('lead-first').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.first === leadState.first));
   $('lead-first-hint').textContent = confirmStep.firstHint(v.channel, leadState.first, leadState.other);
   $('lead-go').textContent = confirmStep.saveLabel(left);
@@ -761,6 +765,7 @@ export async function init() {
   $('lead-channel-other').addEventListener('input', () => { leadState.other = $('lead-channel-other').value; renderConfirm(); });
   $('lead-started').addEventListener('input', () => leadSet('started', $('lead-started').value));
   $('lead-interview').addEventListener('input', () => leadSet('interview', $('lead-interview').value));
+  $('lead-last').addEventListener('input', () => leadSet('last', $('lead-last').value));
   $('lead-company').addEventListener('input', () => leadSet('company', $('lead-company').value));
   $('lead-agency').addEventListener('input', () => leadSet('agency', $('lead-agency').value));
   $('lead-first').addEventListener('click', event => { const b = event.target.closest('[data-first]'); if (b) { leadState.first = b.dataset.first; renderConfirm(); } });

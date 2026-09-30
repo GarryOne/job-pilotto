@@ -933,7 +933,7 @@ function handlers() {
     : pipeline.reassignEmail(storage, String(eventId), String(target))));
   ipcMain.handle('emailUpdates', (_, pageId) => (DEMO ? {ok: true, items: []} : pipeline.emailUpdates(storage, String(pageId))));
   ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : pipeline.focusHistory(storage)));
-  ipcMain.handle('focusDone', (_, pageId) => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId))));
+  ipcMain.handle('focusDone', (_, pageId, what = 'replied') => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId), String(what))));
   // Focus → "Did the interview happen?": held (notes), moved (a new time) or cancelled; Notion first.
   ipcMain.handle('interviewHappened', (_, pageId, answer, detail = {}) => (DEMO ? {ok: true, review: false}
     : pipeline.interviewHappened(storage, String(pageId), String(answer), detail || {})));

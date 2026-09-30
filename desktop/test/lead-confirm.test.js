@@ -59,3 +59,36 @@ test('your answers reach the engine as flags; company "" means not named', async
   assert.deepEqual(confirmedArgs({channel: 'LinkedIn', started: '2026-09-21', firstContact: null}),
     ['--channel', 'LinkedIn', '--started', '2026-09-21']);
 });
+
+// The 30 Sep 2026 Duvo.ai case: a job already tracked (Screening); the chat's MONDAY divider was readable.
+const tracked = {new: false, stage: 'Screening', label: 'Duvo.ai — Senior SRE', kind: 'Update on this job', fields: {
+  kind: {value: 'Update on this job', state: 'ok', options: ['Update on this job', 'Recruiter outreach', 'Reply received']},
+  channel: {value: 'LinkedIn', state: 'ok', guess: 'LinkedIn'},
+  started: {value: '2026-09-28', state: 'ok', as_written: 'MONDAY 12:33 AM'},
+  last: {value: '2026-09-28', state: 'ok', required: false, from: 'you', snippet: 'Hi Márton, thanks for reaching out!',
+    as_written: 'MONDAY 10:05 AM', question: 'When was the last message?'}}};
+
+test('a tracked job defaults to "Update on this job", unmarked; nothing about dates is asked when MONDAY was readable', () => {
+  const state = lead.initial(tracked);
+  assert.equal(state.values.kind, 'Update on this job');
+  assert.deepEqual(lead.pending(tracked, state, '2026-09-30'), []);
+  assert.equal(lead.KIND_LABEL['Update on this job'], 'Update on this job (already tracked)');
+  assert.equal(lead.confirmed(tracked, state).lastAt, '2026-09-28');
+  assert.match(lead.lastHint(tracked.fields.last, '2026-09-28'), /^You wrote last "Hi Márton, thanks for reaching out!": Focus reminds you to follow up after 3 days/);
+});
+
+test('an unreadable last day is asked but never required; empty saves nothing about it', () => {
+  const asked = {...tracked, fields: {...tracked.fields, last: {...tracked.fields.last, value: '', state: 'ask', as_written: '10:05 AM'}}};
+  let state = lead.initial(asked);
+  assert.deepEqual(lead.pending(asked, state, '2026-09-30'), []);
+  assert.match(lead.lastHint(asked.fields.last, ''), /Couldn't read the day \("10:05 AM"\)\. Leave it empty/);
+  assert.equal(lead.confirmed(asked, state).lastAt, '');
+  state = lead.set(state, 'last', '2026-10-02');
+  assert.deepEqual(lead.pending(asked, state, '2026-09-30'), [{name: 'last', why: 'future'}]);
+});
+
+test('the last day reaches the engine as --last-at', async () => {
+  const {confirmedArgs} = await import('../lib/pipeline.js');
+  assert.deepEqual(confirmedArgs({kind: 'Update on this job', lastAt: '2026-09-28', firstContact: null}),
+    ['--kind', 'Update on this job', '--last-at', '2026-09-28']);
+});

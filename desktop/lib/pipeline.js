@@ -151,7 +151,7 @@ export function confirmedArgs(confirmed = {}) {
   const c = confirmed || {};
   const flag = (name, value) => (value ? [name, String(value)] : []);
   return [...flag('--kind', c.kind), ...flag('--channel', c.channel), ...flag('--channel-other', c.other),
-    ...flag('--started', c.started), ...flag('--interview-at', c.interview),
+    ...flag('--started', c.started), ...flag('--interview-at', c.interview), ...flag('--last-at', c.lastAt),
     ...(typeof c.company === 'string' ? ['--company', c.company] : []), ...(typeof c.agency === 'string' ? ['--agency', c.agency] : []),
     ...(typeof c.firstContact === 'boolean' ? ['--first-contact', c.firstContact ? 'yes' : 'no'] : [])];
 }
@@ -406,8 +406,9 @@ export async function focus(storage) {
   try { return {ok: code === 0, focus: JSON.parse(stdout.trim().split('\n').pop())}; }
   catch { return {ok: false, error: 'Could not read your Notion (see the activity log).'}; }
 }
-export async function focusDone(storage, pageId) {
-  const {code} = await run(storage, ['src.focus', 'done', pageId, 'replied']);
+// what: 'replied' (you answered them) or 'followed_up' (Focus → Follow up: your nudge, which re-arms it).
+export async function focusDone(storage, pageId, what = 'replied') {
+  const {code} = await run(storage, ['src.focus', 'done', pageId, what === 'followed_up' ? 'followed_up' : 'replied']);
   return {ok: code === 0};
 }
 // What you resolved from Focus, newest first (Notion: 📈 Application Events from the app, 💡 Insights you rated).

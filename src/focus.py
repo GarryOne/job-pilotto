@@ -6,6 +6,8 @@ Read from Notion (Applications, 📈 Application Events, 🎤 Interviews), in th
    📅 Book the call: the reply invites you to pick a slot.
 2. 🎤 Prepare: an interview is coming (within 48 h first); ❓ did it happen? once its time passed and nothing was
    recorded (yes: notes and a review; no: moved or cancelled), or 📝 review one that was recorded.
+   📨 Follow up: you wrote last (a "Replied" event: your logged chat, your sent Gmail, Done here) and nothing came
+   back for FOLLOW_UP_DAYS; no interview ahead. It replaces "Move it forward" for that job.
    🤝 Move it forward: a Screening with nothing booked and no news for 3 days. ⏳ Waiting for their next step
    after an interview you reviewed, until 3 days without news.
 3. 📨 Apply: today's applications against the daily target, with the jobs whose kit is ready.
@@ -48,6 +50,11 @@ ENDED = {'Rejected', 'Withdrawn', 'No response', 'Closed', 'Dismissed'}
 NEEDS_ANSWER = {REPLY, 'Recruiter lead', 'Offer'}
 BOOKING = re.compile(r'\b(book|slot|schedul|calendly|cal\.com|availability|available|pick a time|time that works)', re.I)
 WAITING_DAYS, QUIET_DAYS, SOON_HOURS, STALE_DAYS = 7, 3, 48, 30
+FOLLOW_UP_DAYS = 3  # your message unanswered this long: Focus recommends a follow-up
+# Messages, for "who wrote last": yours (a reply you sent or logged, Done in Focus) and theirs. Stage moves and
+# the app's own bookkeeping are not messages.
+YOURS = {REPLIED}
+THEIRS = NEEDS_ANSWER | {'Interview scheduled', 'Rejected', 'Confirmation received', 'Feedback received'}
 
 
 def _when(value):
@@ -113,6 +120,12 @@ def present(item):
     elif kind == 'review':
         icon, badge, tone = 'file', 'Review', 'warn'
         headline, meta = f'Review your {who} interview', [_short(item['job'], 40), 'import the recording or transcript']
+    elif kind == 'follow_up':
+        at = _when(item.get('at', ''))
+        icon, badge, tone = 'send', 'Follow up', 'warn'
+        headline = f'Follow up with {who}'
+        meta = [_short(item['job'], 40), f"you wrote {at.astimezone(TZ):%a %d %b}" if at else '',
+                f"{item.get('quiet', 0)} days, no reply"]
     elif kind == 'nudge':
         quiet = item.get('quiet', 0)
         icon, badge, tone = 'send', 'Follow up', 'warn'
@@ -162,6 +175,7 @@ def summary(items):
     phrases = {'offer': 'answer the offer', 'book': 'book the call you were invited to', 'reply': 'reply to recruiters',
                'prepare': 'prepare for your interview', 'review': 'review your last interview',
                'happened': 'confirm your last interview happened', 'nudge': 'follow up where things went quiet',
+               'follow_up': 'follow up where your message got no answer',
                'apply': 'review ready applications', 'waiting': 'follow up on applications waiting for a reply',
                'feedback': 'ask for feedback to improve your next interview', 'feedback_review': 'learn from employer feedback'}
     order = []
@@ -425,6 +439,10 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    f"It was {coming.astimezone(TZ):%a %d %b}. It's recorded: review it (Interviews) "
                                    'while you remember it: you get a review of every answer.', row))
                 continue
+        follow = follow_up(row, history, now) if not (coming and coming > now) else None
+        if follow:  # you wrote last and they haven't answered: before "move it forward", which it replaces
+            items.append(follow)
+            continue
         talking = ('Recruiter lead', 'Screening', 'Interview scheduled', 'Interviewing')
         if seen.get('reviewed') and stage in talking and not (coming and coming > now):
             # An interview was held and reviewed: their move. Calm until QUIET_DAYS pass without news.
@@ -486,7 +504,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         items.append(_item(4, 'waiting', '⏳', f'{len(waiting)} application{"s" if len(waiting) != 1 else ""} waiting {WAITING_DAYS}+ days',
                            'No human reply yet. For the ones you care most about, message the recruiter or a team member '
                            'on LinkedIn; let the rest go (they close as No response after 21 days).'))
-    order = {'offer': 0, 'book': 1, 'which_job': 1.2, 'happened': 1.3, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
+    order = {'offer': 0, 'book': 1, 'which_job': 1.2, 'happened': 1.3, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4,
+             'follow_up': 4.5, 'feedback_review': 5,
              'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     items = [present(item) for item in items]
@@ -494,6 +513,27 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                       'history': _applied_by_day(rows, by_app, today)},
             'insight': insight, 'summary': summary(items), 'funnel': funnel(rows, events),
             'generated_at': now.isoformat(timespec='seconds')}
+
+
+def follow_up(row, history, now):
+    """The follow-up item for one application, or None: its latest message (bookkeeping aside) is yours ("Replied":
+    sent by email, logged from a chat, or Done in Focus), at least FOLLOW_UP_DAYS old and at most STALE_DAYS, and
+    nothing of theirs came after it. Done logs another "Replied" (now): it comes back after another interval."""
+    messages = [e for e in history if e['kind'] in YOURS | THEIRS and e['at'] and not _bookkeeping(e)]
+    last = messages[-1] if messages else None
+    if not last or last['kind'] not in YOURS:
+        return None
+    days = (now.astimezone(TZ).date() - last['at'].astimezone(TZ).date()).days
+    if not FOLLOW_UP_DAYS <= days <= STALE_DAYS:
+        return None
+    job_url = _field(row, 'Job URL')
+    link = _gmail(last['source_id']) if last['source'] == 'Gmail' else ''
+    link = link or (job_url if re.search(r'mail\.google\.com|linkedin\.com/messaging', job_url) else '')
+    who = _field(row, 'Company') or _field(row, 'Via') or _field(row, 'Contact').split(' · ')[0] or 'the recruiter'
+    said = f"{last['at'].astimezone(TZ):%a} {last['at'].astimezone(TZ).day} {last['at'].astimezone(TZ):%b}"
+    return _item(2, 'follow_up', '📨', f'Follow up with {who}', f'You wrote {said} ({days} days ago), no reply yet.', row,
+                 link, 'Open email' if 'mail.google' in link else 'Open chat' if 'linkedin' in link else '', done=True,
+                 at=last['at'].isoformat(), quiet=days)
 
 
 def funnel(rows, events):
@@ -650,7 +690,8 @@ def main(argv=None):
         if not args.page_id:
             raise SystemExit('done needs the application page id')
         row = tracker._request('GET', f'pages/{args.page_id}')
-        add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You answered (marked done in Focus)')
+        add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You followed up (marked done in Focus)'
+                  if args.what == 'followed_up' else 'You answered (marked done in Focus)')
         print(json.dumps({'ok': True}))
         return 0
     focus = load(tracker, target=args.target)

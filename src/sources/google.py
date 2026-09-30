@@ -114,8 +114,9 @@ class Google:
             sent = parsedate_to_datetime(headers.get('date', '')).isoformat()
         except (TypeError, ValueError):
             sent = datetime.fromtimestamp(int(data.get('internalDate', 0)) / 1000, timezone.utc).isoformat()
-        email = {'id': data['id'], 'from': headers.get('from', ''), 'to': headers.get('to', ''),
-                 'subject': headers.get('subject', ''), 'date': sent, 'body': body_text(data['payload'])[:4000]}
+        email = {'id': data['id'], 'from': headers.get('from', ''), 'to': headers.get('to', ''), 'cc': headers.get('cc', ''),
+                 'subject': headers.get('subject', ''), 'date': sent, 'body': body_text(data['payload'])[:4000],
+                 'labels': data.get('labelIds') or []}
         # An emailed calendar invitation: its start comes from the invitation itself, never from the email's text
         # (Outlook's text often has no date at all, only the meeting link).
         ics = calendar_text(data['payload'], lambda attachment: self.get(
