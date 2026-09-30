@@ -481,6 +481,19 @@ def history(tracker, days=90):
                 continue
             items.append({'at': plain(props.get('Date')) or '', 'kind': 'insight', 'emoji': '💡', 'title': f'Insight: {rated}',
                           'note': (plain(props.get('Insight')) or '')[:240], 'url': row.get('url', '')})
+    # Interviews reviewed (their "Review the interview" step leaves Up next once the review is in Notion).
+    from .ai.interviews import INTERVIEWS_DATABASE_ID
+    if INTERVIEWS_DATABASE_ID:
+        rows = tracker.query_database(INTERVIEWS_DATABASE_ID, {'property': 'Overall', 'select': {'is_not_empty': True}})
+        for row in rows:
+            at = row.get('last_edited_time', '')
+            if at[:10] < since:
+                continue
+            props = row['properties']
+            title = plain(props.get('Interview')) or 'an interview'
+            overall = (plain(props.get('Overall')) or '').capitalize()
+            items.append({'at': at, 'kind': 'interview_review', 'emoji': '🎤', 'title': f'Reviewed the interview: {title}',
+                          'note': f'Outcome: {overall}' if overall else '', 'url': row.get('url', '')})
     return sorted(items, key=lambda item: item['at'], reverse=True)
 
 

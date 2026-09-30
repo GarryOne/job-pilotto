@@ -182,3 +182,27 @@ class ParallelReadsTests(unittest.TestCase):
             {'type': 'paragraph', 'paragraph': {'rich_text': [{'plain_text': 'Salary: CHF 150k'}]}}]
         self.assertEqual(tracker.page_text('p1'), tracker.page_text('p1'))
         self.assertEqual(calls, ['p1'])
+
+
+class HistoryInterviewTest(unittest.TestCase):
+    def test_reviewed_interviews_show_in_history(self):
+        from datetime import date as _date
+        from unittest import mock
+        from src import focus
+        from src.ai import interviews
+        today = _date.today().isoformat()
+        rows = [{'url': 'https://notion.so/i1', 'last_edited_time': f'{today}T08:00:00.000Z',
+                 'properties': {'Interview': {'type': 'title', 'title': [{'plain_text': 'Unframe · Recruiter screen'}]},
+                                'Overall': {'type': 'select', 'select': {'name': 'neutral'}}}},
+                {'url': 'https://notion.so/old', 'last_edited_time': '2000-01-01T08:00:00.000Z',
+                 'properties': {'Interview': {'type': 'title', 'title': [{'plain_text': 'Old'}]},
+                                'Overall': {'type': 'select', 'select': {'name': 'positive'}}}}]
+
+        class Tracker:
+            def query_database(self, db, filt=None):
+                return rows if db == 'IV' else []
+        with mock.patch.object(focus, 'EVENTS_DATABASE_ID', ''), mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'IV'), \
+                mock.patch('src.ai.insights.INSIGHTS_DATABASE_ID', ''):
+            items = focus.history(Tracker())
+        self.assertEqual([i['title'] for i in items], ['Reviewed the interview: Unframe · Recruiter screen'])
+        self.assertEqual(items[0]['note'], 'Outcome: Neutral')
