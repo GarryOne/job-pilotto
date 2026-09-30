@@ -273,7 +273,9 @@ export function renderNextStep(item) {
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
   const empty = emptyFields(item, needs);
   show($('ss-needs-card'), needs.length + empty.length > 0);
-  $('ss-needs-title').textContent = review ? 'What Claude needs from you' : 'What Claude flagged';
+  $('ss-needs-title').textContent = 'Needs your attention';
+  $('ss-needs-sub').textContent = review ? 'Claude filled most of the form, but a few items need your review.'
+    : 'Claude flagged these while it worked.';
   $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))), ...empty.map(label => emptyRow(label, item)));
   watchAgreements(item, needs.filter(need => need.kind === 'agree' || need.kind === 'ask'));
   applyFormStates(item);

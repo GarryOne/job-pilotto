@@ -1079,29 +1079,49 @@ main { min-width: 0; }
 .ss-check.is-problem .ss-check-line { color: var(--warn); }
 .ss-check.is-problem .ss-check-line .icon { color: var(--warn); }
 .ss-audit { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
-/* What Claude needs from you: the page's to-do, in the step's warm tone. */
+/* Needs your attention: the page's to-do, a numbered row each, in the card's warm tone. */
 .ss-needs { border-color: var(--warn-line); }
 .ss-needs .ss-fact-head .icon { color: var(--warn); }
-.ss-need { display: flex; gap: var(--sp-2); padding: 6px 0; border-top: 1px solid var(--line); }
-.ss-need-glyph { flex: none; width: 22px; color: var(--muted); }
-.ss-need-glyph .icon { width: 18px; height: 18px; }
-.ss-need-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1; }
-.ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ss-needs-words { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ss-needs-words b { font-size: var(--fs-lg); }
+.ss-needs-list { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-3) 0 0; }
+.ss-need { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.ss-need-num { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+  border-radius: 50%; background: rgb(var(--amber-rgb) / .22); color: var(--warn); font-size: var(--fs-sm); font-weight: 700; }
+.ss-need-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.ss-need-title { font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-need-desc { color: var(--muted); }
+.ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; flex-wrap: wrap; }
 .ss-need-button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
 .ss-need-outcome { color: var(--good); }
-.ss-need.is-done > .ss-need-body > div:first-child { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Done: one quiet line (the answer box goes; saving it to your answers stays). */
-.ss-need.is-done .ss-need-glyph { opacity: .45; }
+/* A handled row: quiet, its outcome on the right, its answer box gone (saving it to your answers stays). */
+.ss-need.is-done { background: var(--surface-2); border-color: var(--line); }
+.ss-need.is-done .ss-need-num { background: var(--good-soft); color: var(--good); }
+.ss-need.is-done .ss-need-title { font-weight: 500; color: var(--muted); }
+.ss-need.is-done .ss-need-desc { display: none; }
 .ss-need.is-done .ss-ask-input, .ss-need.is-done .ss-need-hint { display: none; }
 .ss-need.is-done .ss-ask-q b { font-weight: 500; }
 .ss-need.is-done .ss-ask-save { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
 /* Everything handled: the card folds to its header; a click opens it. */
 .ss-needs.is-all-done { border-color: var(--line); }
-/* Now vs history: handled rows show only on "Show history"; with nothing open, one line says so */
+/* Now vs history: handled rows show only on the footer's click; with nothing open, one line says so */
 .ss-needs:not(.show-history) .ss-need.is-done { display: none; }
 .ss-needs-none { display: none; margin: var(--sp-1) 0 0; }
 .ss-needs.is-all-done:not(.show-history) .ss-needs-none { display: block; }
-.ss-needs-history { margin-top: var(--sp-2); }
+/* What you already handled: one quiet row under the open ones. */
+.ss-needs-history { display: flex; align-items: center; gap: var(--sp-2); width: 100%; margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3); border: 0; border-radius: var(--r-md); background: var(--surface-2);
+  color: var(--muted); font-size: var(--fs-sm); font-weight: 500; text-align: left; }
+.ss-needs-history:hover { color: var(--ink); }
+.ss-needs-history .icon { flex: none; width: 16px; height: 16px; color: var(--good); }
+/* The answer chip: Claude's proposed answer, and any you saved for the same question, in one control. */
+.ss-answer { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-1) 0 var(--sp-3);
+  border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
+.ss-answer-label { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
+.ss-answer select { width: auto; max-width: 240px; padding: var(--sp-1) 0; border: 0; background: none;
+  color: var(--good); font-size: var(--fs-md); font-weight: 600; }
+.ss-answer select:focus-visible { outline-offset: 0; }
 /* Claude's report (its own words, from when it finished): folded to its header */
 .ss-happened .ss-fact-head { cursor: pointer; margin-bottom: 0; }
 .ss-happened .ss-fact-head .icon { transition: transform .15s; }
@@ -1127,25 +1147,27 @@ main { min-width: 0; }
 .ss-check-more .rich-p { margin: 0; }
 .ss-log-head { cursor: pointer; }
 .ss-audit-summary { margin: 0 0 var(--sp-2); }
-/* In the form (as on the website): where, the count and the bar always; the fields folded */
+/* Form completion (as on the website): the count and the bar always; the fields folded under them. */
 .ss-form-head, .ss-form-progress, .ss-needs .ss-fact-head { cursor: pointer; }
-.ss-form-head { display: flex; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-1); font-size: var(--fs-xs);
-  font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.ss-form-progress { display: flex; align-items: center; gap: var(--sp-3); }
-.ss-form-count { display: flex; align-items: baseline; gap: var(--sp-1); flex: none; }
-.ss-form-count b { font-size: var(--fs-xl); line-height: 1.2; }
+.ss-form-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3);
+  font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ss-form-head .ui-pill { text-transform: none; letter-spacing: normal; }
+.ss-form-progress { display: block; }
+.ss-form-count { display: flex; align-items: baseline; gap: var(--sp-1); }
+.ss-form-count b { font-size: var(--fs-2xl); line-height: 1.1; }
 .ss-form-count span { font-size: var(--fs-md); color: var(--ink-2); }
 .ss-form-count em { margin-left: var(--sp-2); font-style: normal; font-size: var(--fs-md); font-weight: 600; color: var(--good); }
-.ss-form-bar { flex: 1; height: 7px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+.ss-form-bar { height: 8px; margin-top: var(--sp-2); border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
 .ss-form-bar span { display: block; height: 100%; width: 0; border-radius: var(--r-pill); background: var(--signal); transition: width .3s ease; }
 .ss-form.is-ready .ss-form-bar span { background: var(--good); }
-details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-radius: 0; background: none; }
-.ss-form-more > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: var(--sp-1);
-  font-size: var(--fs-md); color: var(--ink-2); }
+details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-radius: 0; background: none; }
+.ss-form-more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--fs-md); font-weight: 400; color: var(--muted); }
 .ss-form-more > summary::-webkit-details-marker { display: none; }
-.ss-form-more > summary::after { content: '▸'; font-size: var(--fs-xs); color: var(--muted); transition: transform .15s; }
-.ss-form-more[open] > summary::after { transform: rotate(90deg); }
+#ss-form-summary::after { content: '▸'; display: inline-block; margin-left: var(--sp-1); font-size: var(--fs-xs); color: var(--muted); transition: transform .15s; }
+.ss-form-more[open] #ss-form-summary::after { transform: rotate(90deg); }
 .ss-form-more > summary:hover { color: var(--ink); }
+.ss-form-where { margin-left: auto; color: var(--muted); font-size: var(--fs-sm); font-weight: 400; white-space: nowrap; }
 .ss-form-fields { list-style: none; padding: var(--sp-2) 0 0; margin: var(--sp-2) 0 0; border-top: 1px solid var(--line);
   display: grid; gap: 5px; max-height: 280px; overflow: auto; font-size: var(--fs-md); }
 .ss-form-fields li { display: grid; grid-template-columns: 40px 14px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline; }

@@ -3,6 +3,7 @@ import {el, pill} from '../components.js';
 import {splitLabel} from '../session-message.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
+import {answerOptions} from '../answer-options.js';
 import {shared} from './shared.js';
 import {$} from './core.js';
 import {openView} from './nav.js';
@@ -11,8 +12,8 @@ import {openSession, renderSessionPage, say} from './session-log.js';
 import {firstLine, renderDock, sessionCompany, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
 
-// Something only you can do, with its most likely action one click away: a judgement call (Claude's recommended
-// action, else "Looks right"; "Change…" tells Claude what to change) or an agreement (open the form to tick it).
+// Something only you can do, with its most likely action one click away: a judgement call (Claude's proposed
+// answer, or another you saved for the same question) or an agreement (open the form to tick it).
 // A handled row stays, marked done, until the page is closed.
 // What you did on each row ("Done", "Looks right", ticked in the form), kept across a reload (⌘R) and a restart: in this
 // window's local storage (a note of what you clicked, not data: Notion and the form hold the answers).
@@ -23,27 +24,70 @@ const remembered = (map, entries) => { for (const [key, value] of entries || [])
 const handled = remembered(new Map(), keptRows.handled);  // `${session}|${text}` → what was done
 const KEEP = /^(?:keep|leave|ok|fine|no change|looks right|as is|nothing)/i;
 const offline = item => (item.live === false ? 'The session has ended: resume it to send this to Claude' : '');
+// The answers you already saved (Notion → Application Answers, the same page the Profile shows), for the rows that
+// offer a choice: read once, on the side, the first time a row wants them. Offline or without Notion the row still
+// offers Claude's own answer and "Change with Claude…".
+let knownAnswers = [], answersAsked = false;
+function loadAnswers() {
+  if (answersAsked) return;
+  answersAsked = true;
+  window.pilot.standardAnswers().then(result => {
+    if (!result?.ok) return;
+    knownAnswers = (result.groups || []).flatMap(group => group.items || [])
+      .filter(item => item?.question && item?.answer && !item.open && !item.guidance);
+    if (knownAnswers.length && !$('ss-needs-card').hidden) renderSessionPage();
+  }).catch(() => {});
+}
+// The answer you have for one question (this page's own memory first, then the ones saved in Notion).
+const savedFor = question => (knownAnswers.find(item => sameQuestion(item.question, question)) || {}).answer || '';
+// The row's badge: its place in the list (updateNeedsCount numbers the open ones), a tick once it's handled.
+const badge = () => el('span', 'ss-need-num', '');
+// The row's two lines: a bold title, and under it Claude's own words about it (a judgement call's "**Pay:** below
+// your minimum." reads as the title "Pay" and the line "below your minimum.").
+function rowWords(need) {
+  if (need.kind === 'ask') return {title: need.question || firstLine(need.text || '', 80), desc: need.why || ''};
+  const {label, text} = splitLabel(need.text || '');
+  const title = need.label || label || firstLine(text, 80);
+  return {title, desc: (need.label || label) ? text : text.slice(title.length).trim()};
+}
+// A title keeps to one line (the row is a summary): the whole question on hover.
+function titleLine(text) {
+  const node = el('b', 'ss-need-title', text);
+  node.title = text;
+  return node;
+}
 function doneRow(li, key, outcome) {
   handled.set(key, outcome);
   keep();
   li.classList.add('is-done');
+  const number = li.querySelector('.ss-need-num');
+  if (number) number.textContent = '✓';
   li.querySelector('.ss-need-actions')?.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${outcome}`));
   updateNeedsCount();
 }
 // The form page says every required field is filled (the extension's ring is green).
 export const formReady = item => !!reviewStates.get(item.id)?.ready;
-// What's left, said the way you act on it: "2 in the form · 3 to check" (judgement calls apart from form fields).
+// What's left, said the way you act on it: "2 actions remaining". The split it counts (in the form, to check) is the
+// pill's tooltip — the rows themselves say which is which.
 export function updateNeedsCount() {
   const open = [...document.querySelectorAll('#ss-needs .ss-need:not(.is-done)')];
   const check = open.filter(li => li.classList.contains('is-confirm')).length, form = open.length - check;
-  const text = [form && `${form} in the form`, check && `${check} to check`].filter(Boolean).join(' · ');
-  $('ss-needs-count').replaceChildren(open.length ? pill(text, 'warn') : pill('All handled', 'good', {dot: true}));
+  const detail = [form && `${form} in the form`, check && `${check} to check`].filter(Boolean).join(' · ');
+  $('ss-needs-count').replaceChildren(open.length
+    ? pill(`${open.length} action${open.length === 1 ? '' : 's'} remaining`, 'warn', {title: detail})
+    : pill('All handled', 'good', {dot: true}));
+  // The open rows are the numbered list you work through, in order.
+  open.forEach((li, i) => { const number = li.querySelector('.ss-need-num'); if (number) number.textContent = String(i + 1); });
   // Now: only what's still open. What was handled (by you or in the form) is the history, one click away.
   const done = document.querySelectorAll('#ss-needs .ss-need.is-done').length;
+  // Expanded: the handled rows read as the history the footer counts, under the open ones.
+  const list = $('ss-needs');
+  if ($('ss-needs-card').classList.contains('show-history')) for (const li of list.querySelectorAll('.ss-need.is-done')) list.append(li);
   $('ss-needs-card').classList.toggle('is-all-done', !open.length);
   const history = $('ss-needs-history');
   history.hidden = !done;
-  history.textContent = `${$('ss-needs-card').classList.contains('show-history') ? 'Hide' : 'Show'} history · ${done} handled`;
+  history.replaceChildren(icon('check'), el('span', '', `${done} completed action${done === 1 ? '' : 's'}`));
+  history.title = $('ss-needs-card').classList.contains('show-history') ? 'Hide what you handled' : 'Show what you handled';
   const head = $('ss-needs-card').querySelector('.ss-fact-head .icon');
   if (head && head.dataset.state !== String(!open.length)) { const glyph = icon(open.length ? 'alert' : 'check'); glyph.dataset.state = String(!open.length); head.replaceWith(glyph); }
 }
@@ -72,15 +116,11 @@ export function watchAgreements(item, needs) {
 // The pill beside the step's title: what the form page says is left, or that it's ready to submit.
 export function showFormState(item) {
   const state = reviewStates.get(item.id);
-  const box = $('ss-form-state');
   showFormCard(item, state);
-  box.replaceChildren();  // the "In the form" card says it (count, bar, Ready to submit): once
-  if (true) return;
-  box.replaceChildren(state.ready ? pill('Form ready to submit', 'good', {dot: true})
-    : pill(`Form: ${state.left} required left`, 'warn', {dot: true, title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists them)`}));
+  $('ss-form-state').replaceChildren();  // the "Form completion" card says it (count, bar, pill): once
 }
-// "In the form", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded: what's left
-// first, then each filled one with its time since the fill started (the first field filled).
+// "Form completion", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded under
+// them: what's left first, then each filled one with its time since the fill started (the first field filled).
 const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 function showFormCard(item, state) {
   const card = $('ss-form-card');
@@ -90,9 +130,10 @@ function showFormCard(item, state) {
   let host = '';
   try { host = state.url ? new URL(state.url).hostname.replace(/^www\./, '') : ''; } catch {}
   $('ss-form-where').textContent = host ? `Chrome · ${host}` : '';
+  $('ss-form-pill').replaceChildren(state.ready ? pill('Ready to submit', 'good', {dot: true})
+    : pill(`${state.left} remaining`, 'warn', {title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists the rest)`}));
   const count = $('ss-form-count');
-  count.replaceChildren(el('b', '', String(done)), el('span', '', ` / ${state.total} required fields`));
-  if (state.ready) count.append(el('em', '', 'Ready to submit'));
+  count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
   // An extension older than 0.8.12 sends no filled fields: then only what's left.
@@ -153,12 +194,13 @@ export function emptyRow(label, item) {
   const li = el('li', 'ss-need is-empty'), body = el('div', 'ss-need-body'), actions = el('div', 'ss-need-actions');
   li.dataset.empty = label;
   const more = /^\d+ more fields?$/.test(label);
-  body.append(el('div', '', more ? `${label} ${label.startsWith('1 ') ? 'is' : 'are'} still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
-    : `Still empty in the form: ${(text => (text.length > 90 ? `${text.slice(0, 89).replace(/\s+\S*$/, '')}…` : text))(label.replace(/\s*\*\s*$/, ''))}`));
+  const name = label.replace(/\s*\*\s*$/, '');
+  body.append(titleLine(name), el('span', 'ss-need-desc small', more
+    ? `Still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
+    : 'This section is still empty in the form.'));
   actions.append(more ? smallButton('Open the form', 'primary', event => opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id)))
-    : smallButton('Show it in the form', 'secondary', event => showInForm(item, label, event.currentTarget)));
-  body.append(actions);
-  li.append(el('span', 'ss-need-glyph', icon('edit')), body);
+    : smallButton('Open in form', 'secondary is-signal', event => showInForm(item, label, event.currentTarget)));
+  li.append(badge(), body, actions);
   return li;
 }
 // A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to fix it.
@@ -195,22 +237,32 @@ export function needRow(need, item) {
   const key = `${item.id}|${need.text}`, li = el('li', `ss-need is-${need.kind}`);
   li.dataset.key = key;
   const body = el('div', 'ss-need-body');
-  const words = el('div');
-  words.append(...richText(need.text).flatMap(node => [...node.childNodes]));
+  const {title, desc} = rowWords(need);
+  body.append(titleLine(title));
+  if (desc) body.append(el('span', 'ss-need-desc small', desc));
   const actions = el('div', 'ss-need-actions');
   const name = need.label || 'this';
   if (need.kind === 'agree') {
     // Chrome comes forward on the form and the page scrolls to this field (extension/review.js picks it up).
-    actions.append(smallButton('Show it in the form', 'secondary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
+    actions.append(smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)),
       smallButton('Done', 'secondary', () => doneRow(li, key, 'Ticked in the form')));
     li.dataset.watch = watchId(need.text);
   } else {
-    const change = !!need.recommended && !KEEP.test(need.recommended);
-    actions.append(smallButton(need.recommended ? `✓ ${capital(need.recommended)}` : '✓ Looks right', 'secondary', () => {
-      if (change) say(`${name}: ${need.recommended}. Change it in the form, then tell me.`);
-      doneRow(li, key, change ? `Asked Claude: ${need.recommended}` : 'Checked');
-    }, change ? offline(item) : ''));
-    const ask = smallButton('Change…', 'link', () => {
+    // A judgement call: Claude's proposed answer is chosen; the list holds the other answers you saved for the same
+    // question, and the last entry asks Claude for a different one instead.
+    loadAnswers();
+    const choices = answerOptions(need, knownAnswers);
+    const chip = el('span', 'ss-answer');
+    chip.append(el('span', 'ss-answer-label', 'Proposed answer'));
+    const select = el('select', 'ss-answer-select');
+    select.title = 'Claude\'s answer, or one of the answers you saved for this question';
+    for (const choice of choices) {
+      const node = el('option', '', choice.kind === 'change' ? choice.label : `✓ ${capital(choice.label)}`);
+      node.value = choice.value;
+      select.append(node);
+    }
+    // "Change with Claude…": say what it should be instead, in your own words.
+    const ask = () => {
       const input = el('input', 'ss-ask-input');
       input.placeholder = `What should ${name} be?`;
       const send = () => {
@@ -221,11 +273,22 @@ export function needRow(need, item) {
       input.addEventListener('keydown', event => { if (event.key === 'Enter') send(); });
       actions.replaceChildren(input, smallButton('Send to Claude', 'primary', send, offline(item)));
       input.focus();
-    }, offline(item));
-    actions.append(ask);
+    };
+    select.addEventListener('change', () => {
+      const chosen = choices.find(choice => choice.value === select.value);
+      if (!chosen || chosen.kind === 'change') { ask(); return; }
+      // A recommendation that isn't "keep it as it is" is an instruction for Claude, not just an acknowledgement.
+      const change = chosen.kind === 'proposed' && !!need.recommended && !KEEP.test(need.recommended);
+      if (chosen.kind === 'saved') say(`Fill "${name}" in the form with: ${chosen.value}`);
+      else if (change) say(`${name}: ${chosen.value}. Change it in the form, then tell me.`);
+      doneRow(li, key, chosen.kind === 'saved' ? `Asked Claude to fill: ${chosen.value}`
+        : change ? `Asked Claude: ${chosen.value}` : 'Checked');
+    });
+    if (offline(item)) { select.disabled = true; select.title = offline(item); }
+    chip.append(select);
+    actions.append(chip, smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
   }
-  body.append(words, actions);
-  li.append(el('span', 'ss-need-glyph', icon(need.kind === 'agree' ? 'scale' : 'eye')), body);
+  li.append(badge(), body, actions);
   if (handled.has(key)) doneRow(li, key, handled.get(key));
   return li;
 }
@@ -235,14 +298,14 @@ const savedAnswers = remembered(new Map(), keptRows.saved);  // question → the
 export function askRow(need, item) {
   const li = el('li', 'ss-need is-ask');
   const body = el('div', 'ss-need-body');
-  const head = el('div', 'ss-ask-q');
-  head.append(el('b', '', need.question));
-  if (need.why) head.append(el('span', 'muted small', ` · ${need.why}`));
+  body.append(titleLine(need.question));
+  if (need.why) body.append(el('span', 'ss-need-desc small', need.why));
   const input = el('input', 'ss-ask-input');
   input.type = 'text';
   input.placeholder = 'Your answer';
-  const saved = savedAnswers.get(need.question);
-  input.value = saved ?? need.suggested;
+  loadAnswers();
+  const saved = savedAnswers.get(need.question) ?? savedFor(need.question);
+  input.value = saved || need.suggested;
   const box = el('label', 'ss-ask-save');
   const tick = el('input');
   tick.type = 'checkbox';
@@ -276,7 +339,10 @@ export function askRow(need, item) {
     if (!value) { note.textContent = 'Write an answer first'; input.focus(); return; }
     say(`Fill "${need.question}" in the form with: ${value}`);
     handled.set(key, `Asked Claude to fill: ${value}`);
+    keep();
     li.classList.add('is-done');
+    const number = li.querySelector('.ss-need-num');
+    if (number) number.textContent = '✓';
     fill.replaceWith(el('span', 'small ss-need-outcome', `✓ Asked Claude to fill: ${value}`));
     updateNeedsCount();
   }, offline(item));
@@ -284,22 +350,22 @@ export function askRow(need, item) {
   const actions = el('span', 'ss-need-actions');
   actions.append(fill);
   line.append(input, actions, box);
-  body.append(head, line);
-  li.append(el('span', 'ss-need-glyph', icon('help')), body);
+  body.append(line);
+  li.append(badge(), body);
   if (handled.has(key)) { li.classList.add('is-done'); actions.replaceChildren(el('span', 'small ss-need-outcome', `✓ ${handled.get(key)}`)); }
   return li;
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  // The cards' header bars fold and unfold them: In the form's field list, the needs' history.
+  // The cards' header bars fold and unfold them: Form completion's field list, the needs' history.
   const toggleHistory = () => {
     if ($('ss-needs-history').hidden) return;
     $('ss-needs-card').classList.toggle('show-history');
     updateNeedsCount();
   };
   $('ss-needs-history').addEventListener('click', toggleHistory);
-  $('ss-needs-card').querySelector('.ss-fact-head').addEventListener('click', event => { if (!event.target.closest('a, button, input')) toggleHistory(); });
+  $('ss-needs-card').querySelector('.ss-fact-head').addEventListener('click', event => { if (!event.target.closest('a, button, input, select')) toggleHistory(); });
   for (const bar of ['.ss-form-head', '.ss-form-progress'])
     $('ss-form-card').querySelector(bar).addEventListener('click', () => { const more = $('ss-form-more'); if (!more.hidden) more.open = !more.open; });
   // A window that just loaded (⌘R, a restart) asks for every form's last state: the app passes them on only when they

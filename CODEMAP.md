@@ -117,6 +117,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Desktop window: shared modules
 
 - `desktop/renderer/ai-engine-view.js` — The AI engine chooser's words and states (the setup wizard's AI step and Settings → Connections → AI), kept free of
+- `desktop/renderer/answer-options.js` — What a "needs you" row can offer as an answer, kept free of the window so a test can check it (session-needs.js
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
