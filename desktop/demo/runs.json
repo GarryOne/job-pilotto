@@ -1,5 +1,17 @@
 [
   {
+    "id": 1790622000000,
+    "kind": "insight",
+    "mode": "insight",
+    "trigger": "you",
+    "startedAt": "2026-09-28T17:20:00Z",
+    "endedAt": "2026-09-28T17:20:40Z",
+    "ok": true,
+    "summary": "Salary — the advertised ceiling sits under your floor",
+    "log": [],
+    "message": "💡 Insight · Salary\nNorthwind AI's Staff SRE role caps pay at EUR 100-150k/year, below your CHF150k floor\n• Recruiter call: the budget was stated as '100 to 150 K per year' for a ~500-person finance company.\n• The same role was posted as Principal, but the CTO wants a hands-on senior operational SRE.\n• 9 of 15 disclosed remote salaries last month sit in the EUR 94-141k range.\n👉 Ask for the budget range before agreeing to a screening call; skip it if the cap is under your floor.\nConfidence low · applications data, 1 applications"
+  },
+  {
     "id": 1790620000000,
     "kind": "search",
     "trigger": "schedule",
@@ -55,7 +67,8 @@
     "endedAt": "2026-09-28T06:01:00Z",
     "ok": true,
     "summary": "9 applications sent, 2 interviews landed",
-    "log": []
+    "log": [],
+    "message": "📊 Weekly report\nQuiet week: 9 applications sent, 2 interviews landed\nIn the last 7 days you sent 9 of 13 total applications, heard back on 10 (77% reply rate), and converted 5 of 10 decided applications to interviews (50%). Six rejections came in this week (Northwind AI x4, Lakeside Payments x2) against two recruiter screens.\n✅ Worked\n• All 5 interview outcomes recorded to date came through the Recruiter channel, while direct applications produced none.\n• Applying within three days of a posting matched every interview that followed.\n🔧 Change next week\n• Send more of the 31 already-drafted kits: only 9 were applied this week.\n• Prefer SRE and Platform titles over generic software listings, which converted far less often.\n🎯 Push more of the 31 drafted-but-unsent kits out the door this week, favouring SRE and Platform titles.\nFull report in Notion"
   },
   {
     "id": 1790590000000,

@@ -94,6 +94,8 @@ textarea { font: var(--fs-md)/1.5 var(--font-sans); resize: vertical; }
 .callout { background: var(--signal-soft); border-radius: var(--r-md); padding: 12px 14px; margin: 12px 0; }
 .callout ul { margin: 6px 0; padding-left: 18px; }
 details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 12px; margin-top: 10px; }
+/* A fold that isn't a box of its own (inside a strip, or under a card): just its summary line. */
+details.plain { background: none; border: 0; border-radius: 0; padding: 0; margin-top: 0; }
 summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 details textarea { margin-top: 8px; }
 /* Optional extras: Settings → Connections' service rows; Apply with Claude spans both columns with its checklist. */
@@ -167,6 +169,8 @@ main { overflow-y: auto; padding: 28px 32px; }
 .row-actions { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
 .empty { color: var(--muted); padding: 24px; text-align: center; }
 .setting { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; margin-bottom: 12px; display: grid; gap: 10px; }
+/* A panel a Connections card opens: the same gap as between the cards, so it never touches the one above it. */
+.setting.conn-panel { margin-bottom: var(--sp-5); }
 /* The card a link opened (openSetting): a short signal glow. */
 .is-arrived { animation: arrived 2.4s ease-out; }
 @keyframes arrived { 0%, 40% { box-shadow: 0 0 0 3px rgb(var(--signal-rgb) / .45); border-color: rgb(var(--signal-rgb) / .8); } 100% { box-shadow: 0 0 0 3px rgb(var(--signal-rgb) / 0); } }
@@ -1442,6 +1446,45 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--line); color: var(--muted); }
 .mail-consent .icon { width: 18px; height: 18px; flex: none; }
+/* An insight's card (Recent activity): the finding, the numbers behind it, the one action, and where it came from.
+   Its padding is 20px and its sections sit 12–16px apart. The numbers strip, the subtitle and the labelled evidence
+   groups are drawn only when the insight carries them (structured data the AI does not emit yet), so with today's
+   fields the card is the head, the action, the bullets and the source line, and it reads complete. */
+.insight-card { display: grid; gap: var(--sp-4); padding: 20px; border: 1px solid var(--line);
+  border-radius: var(--r-lg); background: var(--surface); }
+.insight-head { display: grid; gap: var(--sp-2); }
+.insight-kicker { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.insight-category { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.insight-title { margin: 0; font-size: var(--fs-2xl); line-height: 1.25; }
+.insight-subtitle { margin: 0; font-size: var(--fs-lg); color: var(--ink-2); }
+/* The numbers behind the finding: as many cells as there are, across while there is room, stacked when there isn't. */
+.insight-numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3);
+  padding: var(--sp-4); border-radius: var(--r-md); background: var(--surface-2); }
+.insight-number { display: grid; gap: var(--sp-1); min-width: 0; }
+.insight-number-label { font-size: var(--fs-sm); color: var(--muted); }
+.insight-number-value { font-size: var(--fs-xl); font-weight: 600; }
+/* Recommended next step: the one action, on its own warm band. */
+.insight-next { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4);
+  border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.insight-next-icon { display: inline-flex; flex: none; color: var(--warn); }
+.insight-next-icon .icon { width: 20px; height: 20px; }
+.insight-next-words { display: grid; gap: var(--sp-1); min-width: 0; }
+.insight-next-words b { color: var(--signal-ink); }
+.insight-next-words p { margin: 0; color: var(--ink-2); }
+/* A section of a card (an insight's "Why this was flagged", a weekly report's lists): heading over one bullet list,
+   or over its groups side by side when the card carries source labels. Both cards share it, so they read alike. */
+.insight-section { display: grid; gap: var(--sp-3); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.insight-section h4 { margin: 0; font-size: var(--fs-xl); }
+.insight-evidence { margin: 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-2); color: var(--ink-2); }
+.insight-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-5); }
+.insight-group { display: grid; gap: var(--sp-2); align-content: start; }
+.insight-source { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+/* The dividers belong to the side-by-side layout only: stacked, a leading border would read as a stray line. The
+   breakpoint is where the detail pane is wide enough for every column to fit — 3 numbers, or 2 evidence groups. */
+@media (min-width: 1200px) {
+  .insight-number + .insight-number { border-left: 1px solid var(--line); padding-left: var(--sp-4); }
+  .insight-group + .insight-group { border-left: 1px solid var(--line); padding-left: var(--sp-5); }
+}
 .activity-panel .ap-card { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .activity-panel .activity-phases.ap-card { padding: var(--sp-2) var(--sp-4); margin: 0; gap: 0; }
 .activity-panel .activity-phases li { padding: var(--sp-3) 0; font-weight: 600; }
@@ -1709,16 +1752,21 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .iv-job { min-width: 180px; max-width: 260px; }
 
 /* The AI engine chooser (pages/ai-engine.js): wizard AI step and Settings → Connections → AI. */
-.engine { display: flex; flex-direction: column; gap: var(--sp-3); }
+.engine { display: flex; flex-direction: column; gap: var(--sp-4); }
 .engine > * { margin: 0; }
 .engine-head h3 { margin: 0; }
 .engine-head p { margin: var(--sp-1) 0 0; }
 .engine .alert { margin-top: 0; align-items: center; }
 .engine .alert > div, .engine .alert > p { flex: 1; }
-.engine-status { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); }
-.engine-status-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); align-self: stretch; }
-.engine-status-head .link { padding: 0; }
+.engine .ui-choice { align-items: center; }
+/* Claude Code status: one tinted line (the state, then Verify), its install path folded under it. */
+.engine-status { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2); border-radius: var(--r-md); }
+.engine-status-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); }
+.engine-status-row b { font-size: var(--fs-md); }
+.engine-status-row .link { margin-left: auto; padding: 0; }
 .engine-status-lines { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.engine-details summary { cursor: pointer; color: var(--ink-2); }
+.engine-details[open] summary { margin-bottom: var(--sp-2); }
 .engine-path { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--ink-2); word-break: break-all; }
 .engine-note { color: var(--muted); }

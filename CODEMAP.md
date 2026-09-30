@@ -125,6 +125,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
 - `desktop/renderer/icons.js` — Line icons (paths from Lucide, ISC licence), drawn in the current text colour.
+- `desktop/renderer/insight-card.js` — A daily insight's message as its card reads it, kept free of the DOM, like run-cards.js and mail-report.js, so the
 - `desktop/renderer/interview-insight.js` — Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 - `desktop/renderer/interview-library.js` — Interviews → the library's read from Notion (src/ai/interviews.py list, through lib/interviews.js): what the page
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
@@ -147,6 +148,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/session-state.js` — A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's
 - `desktop/renderer/update-text.js` — Settings → Diagnostics → Updates: whether this is the latest version, from main's updateStatus.
 - `desktop/renderer/view-history.js` — Back and forward through the screens you opened (⌘← / ⌘→, ⌘[ / ⌘], the mouse's side buttons; Alt+← / Alt+→ on
+- `desktop/renderer/weekly-card.js` — A weekly report's message as its card reads it, kept free of the DOM, like run-cards.js, mail-report.js and
 - `desktop/renderer/wheel.js` — The session log's mouse wheel. Claude Code turns on the terminal's mouse reporting and scrolls its own view, so
 
 ## Desktop scripts

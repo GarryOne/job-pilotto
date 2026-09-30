@@ -6,6 +6,8 @@ import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
 import {parseMailReport} from '../mail-report.js';
+import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
+import {parseWeekly} from '../weekly-card.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
@@ -399,13 +401,20 @@ export function renderActivity(fresh) {
   // A Gmail check's message has no digest header but plenty of structure (the interview it is about, the topics to
   // strengthen, the recruiter's next step): it gets its own card, not its raw lines in a <pre>.
   const mail = !run?.live && !card && kindOf(run) === 'mail' && run?.message ? parseMailReport(run.message, run.result) : null;
+  // An insight is written to be sent, not read: its card is the finding, the numbers behind it and the one action
+  // (the mockup, 30 Sep). Only what the insight carries is drawn — anything else is absent, never an empty slot.
+  const insight = !run?.live && !card && !mail && run?.message ? parseInsight(run.message) : null;
+  // The week's report: the same card, with what worked and what to change in place of the finding's evidence.
+  const weekly = !run?.live && !card && !mail && !insight && run?.message ? parseWeekly(run.message) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) renderMailCard(mail);
+  else if (insight) renderInsightCard(insight);
+  else if (weekly) renderWeeklyCard(weekly);
   else if (reading) renderCardSkeleton();
-  show($('activity-card'), !!card || !!mail || reading);
-  $('activity-message').textContent = !run?.live && !card && !mail && run?.message || '';
-  show($('activity-message'), !run?.live && !card && !mail && !reading && !!run?.message);
+  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || reading);
+  $('activity-message').textContent = !run?.live && !card && !mail && !insight && !weekly && run?.message || '';
+  show($('activity-message'), !run?.live && !card && !mail && !insight && !weekly && !reading && !!run?.message);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
@@ -643,6 +652,91 @@ function renderMailCard(report) {
     const consent = el('p', 'mail-consent');
     consent.append(icon('mic'), report.consent);
     box.append(consent);
+  }
+  $('activity-card').replaceChildren(box);
+}
+
+// A daily insight's card: the finding, the numbers behind it, the one action and where it came from (the mockup,
+// 30 Sep). Its subtitle, its numbers strip and its labelled evidence groups are drawn only when the insight carries
+// them — structured data the AI does not emit yet — so nothing is guessed from the bullets and nothing is left blank.
+export function renderInsightCard(insight) {
+  const box = el('div', 'insight-card');
+  const head = el('header', 'insight-head');
+  const kicker = el('div', 'insight-kicker');
+  kicker.append(el('span', 'insight-category', insight.category));
+  if (insight.confidence) kicker.append(pill(confidenceLabel(insight.confidence), confidenceTone(insight.confidence)));
+  head.append(kicker, el('h3', 'insight-title', insight.headline));
+  if (insight.subtitle) head.append(el('p', 'insight-subtitle', insight.subtitle));
+  box.append(head);
+  if (insight.metrics.length) {
+    const strip = el('div', 'insight-numbers');
+    for (const {label, value} of insight.metrics) {
+      const cell = el('div', 'insight-number');
+      cell.append(el('span', 'insight-number-label', label), el('b', 'insight-number-value', value));
+      strip.append(cell);
+    }
+    box.append(strip);
+  }
+  if (insight.action) {
+    const words = el('div', 'insight-next-words');
+    words.append(el('b', '', 'Recommended next step'), el('p', '', insight.action));
+    const next = el('section', 'insight-next');
+    next.append(el('span', 'insight-next-icon', icon('target')), words);
+    box.append(next);
+  }
+  if (insight.evidence.length || insight.groups.length) {
+    const why = el('section', 'insight-section');
+    why.append(el('h4', '', 'Why this was flagged'));
+    if (insight.groups.length) {
+      const columns = el('div', 'insight-groups');
+      for (const group of insight.groups) {
+        const block = el('div', 'insight-group');
+        block.append(el('b', '', group.title));
+        const list = el('ul', 'insight-evidence');
+        group.items.forEach(item => list.append(el('li', '', item)));
+        block.append(list);
+        columns.append(block);
+      }
+      why.append(columns);
+    } else {
+      const list = el('ul', 'insight-evidence');
+      insight.evidence.forEach(line => list.append(el('li', '', line)));
+      why.append(list);
+    }
+    box.append(why);
+  }
+  const source = sourceLine(insight);
+  if (source) box.append(el('p', 'insight-source', source));
+  $('activity-card').replaceChildren(box);
+}
+
+// The week's report as a card, wearing the insight card's shape: the headline sentence, the paragraph under it, the
+// one focus to carry into next week on the same warm band, then what worked and what to change. A report without a
+// focus, or without worked items, simply has no such block, and its lists are drawn only when they have something in
+// them. The report's confidence and its recurring-evidence priorities sit on the Notion page, not in this message.
+export function renderWeeklyCard(weekly) {
+  const box = el('div', 'insight-card');
+  const head = el('header', 'insight-head');
+  const kicker = el('div', 'insight-kicker');
+  kicker.append(el('span', 'insight-category', 'Weekly report'));
+  head.append(kicker, el('h3', 'insight-title', weekly.headline));
+  if (weekly.summary) head.append(el('p', 'insight-subtitle', weekly.summary));
+  box.append(head);
+  if (weekly.focus) {
+    const words = el('div', 'insight-next-words');
+    words.append(el('b', '', 'Focus next week'), el('p', '', weekly.focus));
+    const focus = el('section', 'insight-next');
+    focus.append(el('span', 'insight-next-icon', icon('target')), words);
+    box.append(focus);
+  }
+  for (const [title, items] of [['What worked', weekly.worked], ['Change next week', weekly.change]]) {
+    if (!items.length) continue;
+    const section = el('section', 'insight-section');
+    section.append(el('h4', '', title));
+    const list = el('ul', 'insight-evidence');
+    items.forEach(item => list.append(el('li', '', item)));
+    section.append(list);
+    box.append(section);
   }
   $('activity-card').replaceChildren(box);
 }
