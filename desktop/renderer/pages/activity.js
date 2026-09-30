@@ -184,6 +184,10 @@ const byYou = run => run.trigger === 'you' && !run.live && !run.waiting;
 // email, a search with nothing new to score), not a missing number.
 // A run on the user's own Claude Code says so ("Claude Code · your plan"): no API dollars (⏱️ Search runs "Billed to").
 const costOf = run => billingLabel(run) || (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '$0');
+// How many finished runs the list shows at once; "View more" adds another page and the list scrolls. The app reads
+// the newest 25 from Notion, so that is as far as it goes without asking Notion again.
+const RUNS_PAGE = 8;
+let shownRuns = RUNS_PAGE;
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -232,7 +236,7 @@ export function renderActivity(fresh) {
   const queue = data.queued || [];
   const waiting = queue.map((run, i) => ({...run, waiting: true,
     after: i ? KIND[kindOf(queue[i - 1])].name : running ? KIND[kindOf(running)].name : 'the current task'})).reverse();
-  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, 8));
+  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, shownRuns));
   $('activity-count').textContent = `${recent.length} recent`;
   // One row: the task and what it found, where it ran, its AI cost, its time and its status pill. The time is its
   // own column (not part of the sentence), and the rows are grouped Today / Earlier (renderer/run-list.js).
@@ -261,6 +265,8 @@ export function renderActivity(fresh) {
     Object.assign(document.createElement('li'), {className: 'recent-group', textContent: group.label}),
     ...group.runs.map(run => { const item = document.createElement('li'); item.append(recentRow(run)); return item; })]));
   if (!runs.length && !running) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted', textContent: 'Nothing has run yet.'}));
+  // "View more": the runs the app already read but the list hasn't shown yet (they scroll in below).
+  show($('activity-all'), runs.length > shownRuns);
 
   // How often: from Settings → How often (GitHub does it when Always on is on).
   const cloud = !!shared.state?.settings?.cloud?.repo;
@@ -609,7 +615,7 @@ export async function init() {
     $('sort-by').value = 'newest';  // the new ones first
     renderJobs();
   });
-  $('activity-all').addEventListener('click', event => window.pilot.openNotion(shared.state?.notion?.NOTION_CRON_RUNS_DB, event.metaKey));
+  $('activity-all').addEventListener('click', () => { shownRuns += RUNS_PAGE; renderActivity(lastActivity); });
   $('activity-backdrop').addEventListener('click', () => openActivity(false));
   $('activity-manage').addEventListener('click', event => {
     event.preventDefault();
