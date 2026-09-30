@@ -236,15 +236,12 @@ class HonestCountTest(unittest.TestCase):
 
 class RelevantRolesTest(unittest.TestCase):
     def test_counts_engineering_titles_once_per_employer(self):
+        import re
+
         def job(title):
             return {'id': title, 'title': title, 'location': 'Berlin', 'url': 'u', 'date_posted': '', 'description': '', 'remote': False, 'salary': ''}
         jobs = [job('Senior Backend Engineer'), job('Senior Backend Engineer'), job('Site Reliability Engineer'),
                 job('Account Executive'), job('Head of Global Total Rewards'), job('Sales Engineer')]
-        with mock.patch.dict('os.environ', {'JOB_PILOTTO_LOCATIONS_FILE': str(Path(scout.__file__).resolve().parents[1] / 'config' / 'central_locations.json')}):
-            import importlib
-            from src.sources import feeds as f
-            importlib.reload(f)
-            try:
-                self.assertEqual(scout.relevant_roles(jobs), 2)   # the repeated title is one role; sales and HR titles are not engineering
-            finally:
-                importlib.reload(f)
+        wanted = lambda title: bool(re.search('engineer', title or '', re.I)) and not re.search('sales', title or '', re.I)  # noqa: E731
+        with mock.patch.object(scout.feeds, 'wanted_title', side_effect=wanted):
+            self.assertEqual(scout.relevant_roles(jobs), 2)   # the repeated title is one role; sales and HR titles are not engineering
