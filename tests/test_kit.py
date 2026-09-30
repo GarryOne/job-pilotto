@@ -127,6 +127,16 @@ class KitTests(unittest.TestCase):
         self.assertIn('USD 0.007', log)
         self.assertIn('Application kit', messages[0])
 
+    def test_the_kit_run_links_to_the_job_it_was_for(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [
+                    {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
+                     'description': 'Kubernetes.'}]})
+                run = {'mode': 'prepare'}
+                daily.prepare_kit(db, notion.job_code(URL), FakeTracker(), FakeClient(), 'claude-sonnet-5', opener, run=run)
+        self.assertEqual(run['application'], 'page-1')  # its ⏱️ Search runs row shows on the job's page (Runs)
+
     def test_find_job_by_page_url(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

@@ -31,7 +31,7 @@ export async function connectWorkspace(token, {templateRoot = null, onProgress =
   // Missing columns or databases (an older template, or a deleted one): add them from the schema, check again.
   if (!result.ok && (result.ids?.NOTION_PROFILE_PAGE_ID || (root && Object.keys(result.ids || {}).length))) {
     const fixed = await repair(token, result.ids, schema.load(), fetcher, root);
-    if (fixed.created.length || fixed.columns.length) result = {...await notion.connect(token, fetcher, {root}), repaired: fixed};
+    if (fixed.created.length || fixed.columns.length || fixed.manual?.length) result = {...await notion.connect(token, fetcher, {root}), repaired: fixed};
   }
   return result;
 }

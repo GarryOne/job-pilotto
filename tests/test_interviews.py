@@ -270,6 +270,17 @@ class InterviewTests(unittest.TestCase):
                        now=NOW, job_url='https://x.test/s-1')
         self.assertEqual(tracker.requests[0]['properties']['Application'], {'relation': [{'id': 's-1'}]})
 
+    def test_the_review_run_learns_the_job_the_interview_is_linked_to(self):
+        apps = [app('a-new', 'Anthropic', 'Applied', '2026-09-25'), app('g-1', 'Grafana Labs', 'Applied', '2026-09-20')]
+        found = {}
+        interviews.run(FakeTracker(apps), note='/interview round 1\n' + 'Notes about the call. ' * 5, client=FakeClient(),
+                       now=NOW, job_url='https://x.test/a-new', found=found)
+        self.assertEqual(found, {'application': 'a-new'})
+        found = {}  # an interview linked to no job: the run links to none
+        interviews.run(FakeTracker([]), note='/interview Mystery Co\n' + 'Long notes about the call. ' * 5,
+                       client=FakeClient(), now=NOW, found=found)
+        self.assertEqual(found, {})
+
     def test_later_stage_is_not_moved_back_and_unknown_application_is_unlinked(self):
         tracker = FakeTracker([app('o-1', 'Acme', 'Offer', '2026-09-01')])
         global RESULT
@@ -667,7 +678,9 @@ class ReviewAgainTests(unittest.TestCase):
         self.assertEqual((plain(job['Stage']), plain(job.get('Next step')), plain(job.get('Salary'))), ('Screening', None, None))
         cost_before = tracker.pages[page_id]['properties']['Cost (USD)']['number']
         client, sent = ResultClient(AGAIN_REVIEW), []
-        log = interviews.run(tracker, page_id=page_id, client=client, now=NOW, send=sent.append)
+        found = {}
+        log = interviews.run(tracker, page_id=page_id, client=client, now=NOW, send=sent.append, found=found)
+        self.assertEqual(found, {'application': tracker.apps[0]['id']})  # Review again: its run links to the job too
 
         self.assertEqual(len(client.calls), 1)  # one Sonnet call
         self.assertIn('HQ Greece', client.calls[0]['messages'][0]['content'] + AGAIN_REVIEW['summary'])

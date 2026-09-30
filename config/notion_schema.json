@@ -467,6 +467,11 @@
               "color": "blue"
             }
           ]
+        },
+        "Runs": {
+          "type": "relation",
+          "database": "NOTION_CRON_RUNS_DB",
+          "synced_property": "Application"
         }
       }
     },
@@ -966,7 +971,8 @@
         },
         "Application": {
           "type": "relation",
-          "database": "NOTION_APPLICATIONS_DB"
+          "database": "NOTION_APPLICATIONS_DB",
+          "synced_property": "Runs"
         },
         "Changed jobs": {
           "type": "number",

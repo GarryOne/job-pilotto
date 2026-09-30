@@ -229,6 +229,8 @@ def main(argv=None):
     stats, profile, lines = {}, tracker.page_text(), []
     cron_runs.auto_begin(tracker)  # the review's ⏱️ Search runs row opens when it starts
     log = cron_runs.new_run('rejection')
+    if len(rows) == 1:  # a review of one job: the run links to it (several: about none in particular)
+        log['application'] = rows[0]['id']
     try:
         for row in rows:
             _, summary = review(tracker, row, stats=stats, profile=profile)

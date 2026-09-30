@@ -89,6 +89,11 @@ class ReportTest(unittest.TestCase):
         self.assertTrue(printed.call_args.args[0].startswith('Job logged: {'))
         self.assertEqual(cron_runs.run_page(run)[0]['Application'], {'relation': [{'id': '3e5-app-1'}]})
 
+    def test_runs_about_many_jobs_link_to_none(self):
+        for mode in ('scheduled', 'run', 'mail', 'scout', 'insight', 'weekly'):
+            run = dict(cron_runs.new_run(mode), seconds=5)
+            self.assertNotIn('Application', cron_runs.run_page(run)[0], mode)
+
     def test_a_gmail_check_fills_its_own_columns(self):
         props, _ = cron_runs.run_page({'mode': 'mail', 'started_at': '2026-09-29T12:19:00+00:00', 'warnings': [],
                                        'mail': {'done': 4, 'usd': 0.0039}, 'updates': ['Reply received · Acme']})

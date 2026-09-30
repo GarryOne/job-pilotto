@@ -157,3 +157,96 @@ test('the committed schema renames the old Applications title, and the app still
     assert.equal((await discover('t', fetcher)).ids.NOTION_APPLICATIONS_DB, 'apps1', title);
   }
 });
+
+// Cronjob Runs → Application, one-way before; the schema now wants it two-way ("Runs" on the Job Tracker).
+const RUNS_SCHEMA = {databases: {
+  APPS: {title: 'Job Tracker', columns: {Job: {type: 'title'}, Runs: {type: 'relation', database: 'RUNS', synced_property: 'Application'}}},
+  RUNS: {title: 'Cronjob Runs', columns: {Run: {type: 'title'}, Application: {type: 'relation', database: 'APPS', synced_property: 'Runs'}}},
+}, pages: {}};
+
+// A fake Notion that keeps each relation's kind: {db: {column: {relation: {type, database_id, dual_property}} | {}}}.
+function relationWorkspace(dbs, {refuse = false} = {}) {
+  const calls = [];
+  const fetcher = async (url, init = {}) => {
+    const route = url.replace('https://api.notion.com/v1/', '');
+    const body = init.body ? JSON.parse(init.body) : {};
+    calls.push(`${init.method} ${route}`);
+    let data = {};
+    if (init.method === 'GET' && route.startsWith('pages/')) data = {parent: {page_id: 'root'}};
+    else if (init.method === 'GET' && route.startsWith('databases/')) data = {properties: dbs[route.split('/')[1]]};
+    else if (init.method === 'PATCH' && route.startsWith('databases/')) {
+      const id = route.split('/')[1];
+      for (const [name, prop] of Object.entries(body.properties || {})) {
+        if (prop.name) { dbs[id][prop.name] = dbs[id][name]; delete dbs[id][name]; continue; }
+        const relation = prop.relation;
+        if (relation?.type === 'dual_property') {
+          if (refuse && dbs[id][name]) return {ok: false, status: 400, json: async () => ({message: 'Cannot change relation type'}), text: async () => 'Cannot change relation type'};
+          const other = `Related to ${id} (${name})`;
+          dbs[id][name] = {relation: {database_id: relation.database_id, type: 'dual_property', dual_property: {synced_property_name: other}}};
+          dbs[relation.database_id][other] = {relation: {database_id: id, type: 'dual_property', dual_property: {synced_property_name: name}}};
+        } else dbs[id][name] = prop;
+      }
+    }
+    return {ok: true, json: async () => data};
+  };
+  return {calls, fetcher};
+}
+const IDS = {APPS: 'apps', RUNS: 'runs', NOTION_PROFILE_PAGE_ID: 'profile'};
+const oneWay = () => ({relation: {database_id: 'apps', type: 'single_property', single_property: {}}});
+const twoWay = other => ({relation: {database_id: 'apps', type: 'dual_property', dual_property: {synced_property_name: other}}});
+
+test('no relation yet: Application is made two-way and its other side is called Runs', async () => {
+  const dbs = {apps: {Job: {}}, runs: {Run: {}}};
+  const {fetcher} = relationWorkspace(dbs);
+  const fixed = await repair('ntn_x', IDS, RUNS_SCHEMA, fetcher);
+  assert.deepEqual(Object.keys(dbs.apps).sort(), ['Job', 'Runs']);
+  assert.deepEqual(Object.keys(dbs.runs).sort(), ['Application', 'Run']);
+  assert.equal(dbs.runs.Application.relation.type, 'dual_property');
+  assert.equal(fixed.columns.length, 1);
+  assert.deepEqual(fixed.manual, []);
+});
+
+test('a one-way Application relation is upgraded in place to two-way, with Runs on the Job Tracker; once', async () => {
+  const dbs = {apps: {Job: {}}, runs: {Run: {}, Application: oneWay()}};
+  const {calls, fetcher} = relationWorkspace(dbs);
+  const fixed = await repair('ntn_x', IDS, RUNS_SCHEMA, fetcher);
+  assert.deepEqual(fixed.columns, ['Cronjob Runs: Application (two-way, "Runs" on Job Tracker)']);
+  assert.deepEqual(Object.keys(dbs.apps).sort(), ['Job', 'Runs']);  // no second relation
+  assert.deepEqual(Object.keys(dbs.runs).sort(), ['Application', 'Run']);  // the same column, its links kept
+  assert.equal(dbs.runs.Application.relation.type, 'dual_property');
+  const before = calls.length;
+  const again = await repair('ntn_x', IDS, RUNS_SCHEMA, fetcher);
+  assert.deepEqual([again.columns, again.manual], [[], []]);
+  assert.ok(!calls.slice(before).some(call => call.startsWith('PATCH')));
+});
+
+test('an Application relation already two-way (or a Runs column of its own) is left alone', async () => {
+  for (const dbs of [{apps: {Job: {}, Runs: twoWay('Application')}, runs: {Run: {}, Application: twoWay('Runs')}},
+    {apps: {Job: {}, 'My runs': {}}, runs: {Run: {}, Application: twoWay('My runs')}},  // made by hand, named its own way
+    {apps: {Job: {}, Runs: {}}, runs: {Run: {}, Application: oneWay()}}]) {  // the user's own "Runs"
+    const snapshot = JSON.stringify(dbs);
+    const {calls, fetcher} = relationWorkspace(dbs);
+    const fixed = await repair('ntn_x', IDS, RUNS_SCHEMA, fetcher);
+    assert.deepEqual([fixed.columns, fixed.manual], [[], []]);
+    assert.ok(!calls.some(call => call.startsWith('PATCH')), snapshot);
+    assert.equal(JSON.stringify(dbs), snapshot);
+  }
+});
+
+test('Notion refusing the upgrade: the rest of the repair goes on, no second relation, the manual step is named', async () => {
+  const schema = structuredClone(RUNS_SCHEMA);
+  schema.databases.RUNS.columns.Details = {type: 'rich_text'};
+  const dbs = {apps: {Job: {}}, runs: {Run: {}, Application: oneWay()}};
+  const {fetcher} = relationWorkspace(dbs, {refuse: true});
+  const fixed = await repair('ntn_x', IDS, schema, fetcher);
+  assert.deepEqual(fixed.columns, ['Cronjob Runs: Details']);
+  assert.deepEqual(Object.keys(dbs.apps), ['Job']);
+  assert.equal(fixed.manual.length, 1);
+  assert.match(fixed.manual[0], /Cronjob Runs: open the "Application" column's menu .*"Show on Job Tracker".*"Runs"/);
+});
+
+test('the committed schema: Cronjob Runs → Application is two-way, shown on the Job Tracker as Runs', () => {
+  const {databases} = load();
+  assert.deepEqual(databases.NOTION_CRON_RUNS_DB.columns.Application, {type: 'relation', database: 'NOTION_APPLICATIONS_DB', synced_property: 'Runs'});
+  assert.deepEqual(databases.NOTION_APPLICATIONS_DB.columns.Runs, {type: 'relation', database: 'NOTION_CRON_RUNS_DB', synced_property: 'Application'});
+});

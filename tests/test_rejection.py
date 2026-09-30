@@ -107,6 +107,26 @@ class RejectionTests(unittest.TestCase):
         self.assertEqual([r['id'] for r in rejection.pending(Tracker([done, todo, old_workspace]))], ['b'])
 
 
+class RejectionRunTests(unittest.TestCase):
+    def logged(self, argv, rows):
+        tracker, logged = Tracker(rows, record=RECORD), []
+        tracker.find = lambda url: rows[0]
+        with mock.patch.object(rejection.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(rejection, 'pending', return_value=rows), \
+                mock.patch.object(rejection, 'review', side_effect=lambda t, row, **_: (None, f"reviewed {row['id']}")), \
+                mock.patch.object(rejection.cron_runs, 'auto_begin'), \
+                mock.patch.object(rejection.cron_runs, 'log_run', side_effect=lambda t, run: logged.append(run)), \
+                mock.patch('builtins.print'):
+            rejection.main(argv)
+        return logged[0]
+
+    def test_a_review_of_one_job_links_its_run_to_it_several_link_none(self):
+        one = [app('p1', 'Canonical', 'Senior SRE', stage='Rejected')]
+        self.assertEqual(self.logged(['--job', 'https://x.test/p1'], one)['application'], 'p1')
+        two = one + [app('p2', 'Grafana Labs', 'Staff SRE', stage='Rejected')]
+        self.assertNotIn('application', self.logged(['--pending'], two))
+
+
 class GmailCheckTriggersTests(unittest.TestCase):
     def test_a_rejection_email_starts_a_review_with_the_email_text(self):
         with tempfile.TemporaryDirectory() as folder:

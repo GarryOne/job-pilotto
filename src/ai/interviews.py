@@ -533,12 +533,12 @@ def by_url(tracker, apps, job_url):
 
 
 def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_MODEL, client=None,
-        now=None, opener=urllib.request.urlopen, stats=None, job_url=None, page_id=None):
+        now=None, opener=urllib.request.urlopen, stats=None, job_url=None, page_id=None, found=None):
     """Analyse one interview (a recording, a transcript file, or notes text) and record it. Returns a log
     line ending with the 🎤 Interviews page URL. job_url links it to that application instead of guessing.
     page_id reviews a row saved earlier (save()): its transcript is read from Notion, the review is added
     to that page and its Application is kept unless job_url changes it. A row already reviewed is reviewed again
-    (review_again)."""
+    (review_again). found (a dict) gets the reviewed job's Applications row id as 'application', once known."""
     now = now or datetime.now(timezone.utc)
     caption, transcript, recorded = note, '', False
     saved = tracker._request('GET', f'pages/{page_id}') if page_id else None
@@ -576,6 +576,8 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     app = chosen or (apps[result['application']] if 0 <= result['application'] < len(apps) else None)
     if again:  # a review again: the row keeps its job; no guess links it elsewhere
         app = chosen
+    if app and found is not None:
+        found['application'] = app['id']
     source = (plain(saved['properties'].get('Input')) or 'Transcript') if saved else (
         'Recording' if recorded else 'Transcript' if file_id else 'Notes')
     props = properties(result, app, now.date(), model, usd, source)

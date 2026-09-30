@@ -35,13 +35,14 @@ export function renameFor(db, liveTitle) {
   return {title: [{text: {content: db.title}}], ...(db.description ? {description: [{text: {content: db.description}}]} : {})};
 }
 
-// -> {ids (with anything created), created: [titles], columns: ["Database: Column"], renamed: ["Old → New"]}
+// -> {ids (with anything created), created: [titles], columns: ["Database: Column"], renamed: ["Old → New"],
+//     manual: [steps Notion refused, for the user to do by hand]}
 // root: the page to build in when the workspace is new (an empty page shared with the connection); else the
 // parent of the Profile page.
 export async function repair(token, ids, schema = load(), fetcher, root = null) {
-  if (!schema || (!ids.NOTION_PROFILE_PAGE_ID && !root)) return {ids, created: [], columns: [], renamed: []};
+  if (!schema || (!ids.NOTION_PROFILE_PAGE_ID && !root)) return {ids, created: [], columns: [], renamed: [], manual: []};
   const api = (method, route, body) => call(token, method, route, body, fetcher);
-  const out = {ids: {...ids}, created: [], columns: [], renamed: []};
+  const out = {ids: {...ids}, created: [], columns: [], renamed: [], manual: []};
   const parent = async () => {
     root ||= (await api('GET', `pages/${ids.NOTION_PROFILE_PAGE_ID}`)).parent?.page_id;
     if (!root) throw new Error('The Profile page has no parent page to create the missing parts in');
@@ -70,6 +71,41 @@ export async function repair(token, ids, schema = load(), fetcher, root = null) 
     out.ids[env] = made.id.replace(/-/g, '');
     have[env] = new Set(Object.keys(properties));
     out.created.push(db.title);
+  }
+
+  // One-way relations the schema now wants two-way (e.g. Cronjob Runs → Application, whose other side "Runs" lists a
+  // job's runs on its page): the existing column is switched to a synced (dual_property) relation in place, so its
+  // links stay and show on the other side at once; Notion then names that side itself and it gets the schema's name.
+  // Left alone: a relation already two-way, one pointing at another database, or a target that already has the
+  // schema's name (the user's own column). API limits: the PATCH /databases relation update accepts type
+  // "dual_property" on an existing relation, but Notion doesn't document converting one in place (it may refuse,
+  // e.g. on an older workspace or without edit access to the target); then nothing changes, the rest of the repair
+  // goes on, `manual` says what to do by hand (the column's menu → "Show on <target>"), and no second relation is
+  // created (a new one would stay empty: the code writes the existing column).
+  for (const [env, db] of Object.entries(schema.databases)) {
+    for (const [name, column] of Object.entries(db.columns)) {
+      const live = existing[env]?.[name]?.relation;
+      const target = out.ids[column.database];
+      if (column.type !== 'relation' || !column.synced_property || !live || !target || !have[column.database]) continue;
+      const bare = id => String(id || '').replace(/-/g, '').toLowerCase();
+      if (live.database_id && bare(live.database_id) !== bare(target)) continue;
+      if (live.type === 'dual_property' || have[column.database].has(column.synced_property)) {
+        have[column.database].add(column.synced_property);  // its other side exists, maybe under another name: never a second one
+        continue;
+      }
+      have[column.database].add(column.synced_property);
+      try {
+        const before = new Set(Object.keys((await api('GET', `databases/${target}`)).properties || {}));
+        await api('PATCH', `databases/${out.ids[env]}`, {properties: {[name]: apiProperty(column, target)}});
+        const synced = Object.keys((await api('GET', `databases/${target}`)).properties || {}).find(n => !before.has(n));
+        if (!synced) throw new Error('Notion kept it one-way');
+        if (synced !== column.synced_property) await api('PATCH', `databases/${target}`, {properties: {[synced]: {name: column.synced_property}}});
+        out.columns.push(`${db.title}: ${name} (two-way, "${column.synced_property}" on ${schema.databases[column.database].title})`);
+      } catch (error) {
+        out.manual.push(`${db.title}: open the "${name}" column's menu → Relation → turn on "Show on ${schema.databases[column.database].title}", `
+          + `named "${column.synced_property}" (Notion refused to do it: ${error.message})`);
+      }
+    }
   }
 
   // Missing columns, in dependency order: plain, relations, rollups, formulas.

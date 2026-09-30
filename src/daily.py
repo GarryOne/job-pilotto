@@ -173,8 +173,9 @@ def log_ai_run(tracker, run, args, failed=False):
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
 
-def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None):
-    """Draft the application kit for one job; save it on its Notion Applications row.
+def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None):
+    """Draft the application kit for one job; save it on its Notion Applications row (run: its ⏱️ Search runs row
+    links to that row, shown on the job's page as Runs).
 
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
     job = find_job(db, code) or tracked_job(code, tracker)
@@ -196,6 +197,8 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     if stats is not None:
         stats.update(pending=1, done=1)
     page, _ = tracker.mark(job, 'Kit ready')
+    if run is not None:
+        run['application'] = page['id']  # the run links to the job it was for
     tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
     kit.record_next_step(tracker, page, drafted)
     kit.record_cost(tracker, page, model, usage)
@@ -324,7 +327,7 @@ def main():
         run = new_cron_run('prepare')
         run['kits'] = {}
         with store.connect(args.db) as db:
-            messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'])
+            messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run)
         print(log)
         log_ai_run(tracker, run, args)
         print('\n\n'.join(messages))
@@ -440,9 +443,12 @@ def main():
         sender = (lambda text: telegram.send(text, token, chat_id)) if args.send else None
         run = new_cron_run('interview')
         run['interview'] = {}
+        reviewed = {}  # the job the interview is linked to, once known (interviews.run fills it)
         try:
             result = interviews.run(tracker, file_id=args.file, note=args.note, token=token, send=sender,
-                                    stats=run['interview'], job_url=args.job, page_id=args.interview)
+                                    stats=run['interview'], job_url=args.job, page_id=args.interview, found=reviewed)
+            if reviewed.get('application'):
+                run['application'] = reviewed['application']  # the run links to the job it was for
             run['headline'] = result.split(' https://')[0]
             print(result)
             run['interview'].update(pending=1, done=1)

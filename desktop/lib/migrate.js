@@ -3,6 +3,7 @@
 // copy after Notion confirmed it has the data, so nothing is ever lost. A failed step retries next start.
 import * as contact from './contact.js';
 import * as knowledge from './knowledge.js';
+import {log} from './log.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
 import * as schema from './schema.js';
@@ -21,6 +22,7 @@ export const STEPS = [
   // The workspace itself: columns and databases the code needs that it lacks (config/notion_schema.json).
   {name: 'workspace', run: async (storage, fetcher) => {
     const fixed = await schema.repair(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, schema.load(), fetcher);
+    for (const step of fixed.manual || []) log('notion', `Do by hand in Notion: ${step}`);
     if (!fixed.created.length && !fixed.columns.length && !fixed.renamed?.length) return false;
     storage.saveSettings({notionIds: fixed.ids});
     return true;

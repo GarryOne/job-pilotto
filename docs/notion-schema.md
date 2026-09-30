@@ -78,6 +78,7 @@ replies:
 | Contract | Select | Options: `Employee`, `B2B / contractor`, `Employee or B2B`. Filled from an interview review when the call said it (never overwritten) |
 | Call facts | Text | Facts an interview revealed, `Label: value · …` (Your ask, Relocation, Team size, Company size, Visa/permit, Start date); a review adds missing ones and never overwrites |
 | Origin | Select | Options: `Inbound`, `Outbound`. Who made the first contact: Inbound = a recruiter/lead you logged (Recruiter lead, Gmail pitch, a logged message); Outbound = a job you went after (match, kit, apply, applied elsewhere, saved). Set once when the row is created, never overwritten by the app on its own; only your answer to "Who reached out first?" in Log job activity (a conversation that began before the job's first contact) flips Outbound to Inbound, and the reply and the job's page say so. Change it by hand when it's wrong. Empty (older rows): derived from Source/Stage/Notes/events, and filled once by the app (`python -m src.notion.origin --backfill`) |
+| Runs | Relation | Two-way with ⏰ Cronjob Runs "Application": every run about this job (logged activity, kit, interview prep/review, rejection review). An older one-way "Application" is made two-way by the app at connect/start-up; if Notion refuses, the app says: Cronjob Runs → Application column menu → turn on "Show on Job Tracker", name it "Runs" |
 
 The page body gets a "🗂 Application record" toggle section: every question with the answer sent
 (and the kit's draft, marked ✏️ when edited), the cover letter, and a JSON block with the job
@@ -277,7 +278,7 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Kits | Number |  |
 | New jobs | Number |  |
 | Scored | Number |  |
-| Application | Relation | To NOTION_APPLICATIONS_DB |
+| Application | Relation | To Job Tracker (two-way, shows there as "Runs"): the one job a run was about; empty for runs about many jobs (search, Gmail check, insights) |
 | Updates | Number |  |
 
 Views: **Latest runs** (newest first), **AI cost per day** (column chart).
