@@ -547,6 +547,11 @@ def main():
             except Exception as error:
                 print(f'Warning: ledger sync skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'ledger sync skipped: {type(error).__name__}')
+            # A recorded interview whose application still says Interview scheduled (saved before the app moved it on).
+            try:
+                print(interviews.sweep(tracker))
+            except Exception as error:
+                print(f'Warning: interview sweep skipped: {type(error).__name__}: {error}')
             # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI).
             try:
                 funnel.write(tracker, funnel.funnel(funnel.reached(tracker)),

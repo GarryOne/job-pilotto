@@ -427,6 +427,26 @@
         },
         "Interview prep": {
           "type": "date"
+        },
+        "Contract": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Employee",
+              "color": "blue"
+            },
+            {
+              "name": "B2B / contractor",
+              "color": "orange"
+            },
+            {
+              "name": "Employee or B2B",
+              "color": "purple"
+            }
+          ]
+        },
+        "Call facts": {
+          "type": "rich_text"
         }
       }
     },
@@ -1184,6 +1204,10 @@
             {
               "name": "Feedback skipped",
               "color": "blue"
+            },
+            {
+              "name": "Interview cancelled",
+              "color": "gray"
             }
           ]
         },

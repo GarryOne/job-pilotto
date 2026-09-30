@@ -9,9 +9,17 @@ free). This module strips subtitle timing (.srt/.vtt), and asks Claude Sonnet 5 
 (2) pull out the questions by topic, how each was answered, strengths, weak spots, signals from the
 interviewers, the next step and what to practise.
 
+The same call (3) pulls out the facts the call revealed about the job (salary, contract, relocation, place,
+team, visa, start date), each only when said and with a short quote.
+
 The result is a 🎤 Interviews row linked to the application (analysis plus the full transcript in its
-page body), an Interviewing event in 📈 Application Events, the Stage moved forward to Interviewing
-(never back), and a Telegram summary. The daily insight and weekly report read the Interviews rows.
+page body) and the application moved on (advance(): the call happened, so a Recruiter lead, Screening or
+Interview scheduled is Interviewing now; never back, never a closed stage), with its 📈 Application Events row,
+Next step from the review, a past Next interview cleared and the call's facts filled into empty fields (a
+different value already there is not overwritten: the review page and the summary show both). Then a Telegram
+summary. The daily insight and weekly report read the Interviews rows.
+A recording saved without a review moves the application on the same way (save(), link()); an interview
+that wasn't recorded is confirmed from Focus ("Did it happen?": held(), moved(), cancelled()).
 Each user's Notion is their own private database; the transcript stays there and in Telegram.
 """
 from datetime import datetime, timezone
@@ -32,13 +40,37 @@ INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 TEXT_TYPES = ('.txt', '.md', '.srt', '.vtt', '.text')
 MAX_CHARS = 180_000  # about 3 hours of speech, within Notion's request size; longer files are cut, with a note
 # Stages an interview can move an application forward from; later stages are never overwritten.
-BEFORE_INTERVIEW = ('Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Applying', 'No response')
+BEFORE_INTERVIEW = ('Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Applying', 'No response',
+                    'Recruiter lead')
 CANDIDATE_STAGES = BEFORE_INTERVIEW + ('Interviewing', 'Offer', 'Rejected')
+# Talking to them, or a call booked: once a call was held, the application is in process (Interviewing).
+IN_TALKS = ('Recruiter lead', 'Screening', 'Interview scheduled')
+# Never touched by an interview: an offer, or the application is over.
+CLOSED = ('Offer', 'Rejected', 'Withdrawn', 'Closed', 'Dismissed')
+CANCELLED = 'Interview cancelled'  # 📈 Application Events kind: the call didn't happen (Stage stays)
+APP_SOURCE = 'Job Pilotto app'
+
+# Facts a call can reveal about the job -> (label, Applications column, kind). Kind 'text' and 'select' are columns
+# of their own; 'fact' lines share the "Call facts" column ("Label: value · Label: value").
+FACTS = {
+    'salary': ('Salary', 'Salary', 'text'),
+    'salary_ask': ('Your ask', 'Call facts', 'fact'),
+    'contract': ('Contract', 'Contract', 'select'),
+    'location': ('Location', 'Location', 'text'),
+    'work_mode': ('Work mode', 'Work mode', 'select'),
+    'relocation': ('Relocation', 'Call facts', 'fact'),
+    'team_size': ('Team size', 'Call facts', 'fact'),
+    'company_size': ('Company size', 'Call facts', 'fact'),
+    'visa': ('Visa/permit', 'Call facts', 'fact'),
+    'start_date': ('Start date', 'Call facts', 'fact'),
+}
+SELECT_OPTIONS = {'Contract': ('Employee', 'B2B / contractor', 'Employee or B2B'), 'Work mode': ('On-site', 'Hybrid', 'Remote')}
+NOT_STATED = re.compile(r'^\s*(not stated|unknown|none|n/?a|-)?\s*\.?\s*$', re.I)
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['application', 'company', 'round', 'interviewers', 'duration_min', 'questions', 'strengths',
-                 'weaknesses', 'signals', 'red_flags', 'next_step', 'practice', 'overall', 'summary'],
+                 'weaknesses', 'signals', 'red_flags', 'next_step', 'practice', 'overall', 'summary', 'facts'],
     'properties': {
         'application': {'type': 'integer', 'description': 'Index of the matching application in the list, or -1 if unclear'},
         'company': {'type': 'string', 'description': 'Company as named in the caption or transcript'},
@@ -64,6 +96,13 @@ SCHEMA = {
         'practice': {'type': 'array', 'items': {'type': 'string'}, 'description': '1-3 concrete things to practise before the next round'},
         'overall': {'type': 'string', 'enum': ['positive', 'neutral', 'negative']},
         'summary': {'type': 'string', 'description': '2-3 sentences'},
+        'facts': {'type': 'array', 'items': {
+            'type': 'object', 'additionalProperties': False, 'required': ['field', 'value', 'quote'],
+            'properties': {
+                'field': {'type': 'string', 'enum': list(FACTS)},
+                'value': {'type': 'string', 'description': 'The fact, short (see the rules for each field)'},
+                'quote': {'type': 'string', 'description': 'The words said in the call, verbatim, at most 20 words'},
+            }}, 'description': 'Facts about the job the call revealed; only what was actually said, each field at most once'},
     },
 }
 
@@ -79,6 +118,11 @@ was wrong; say what a stronger answer would add, using the candidate's real expe
 - Only report what the transcript supports. Notes written by the candidate are their own recollection; \
 say less when the input is thin.
 - Interviewers by role only; never names.
+- facts: only what someone actually said in this call, never guesses or the posting. salary = the employer's \
+range or offer, with currency and period (e.g. "CHF 150-170k/year gross"); salary_ask = what the candidate asked \
+for, same format; contract = exactly "Employee", "B2B / contractor" or "Employee or B2B"; work_mode = exactly \
+"On-site", "Hybrid" or "Remote"; location = city/country or region (e.g. "Zurich, 2 days in office"); relocation, \
+team_size, company_size, visa (work permit/sponsorship), start_date = short, as said.
 
 The candidate's profile follows.
 
@@ -149,15 +193,17 @@ def transcript_toggle(transcript):
     return toggle
 
 
-def analysis_blocks(result):
-    """The review: summary, strengths, weak spots, signals, practice and every question. At most 94 blocks."""
+def analysis_blocks(result, merged=None):
+    """The review: summary, strengths, weak spots, signals, facts from the call, practice and every question.
+    merged (merge_facts) marks each fact as filled on the job or different from it. At most 94 blocks."""
     marks = {'strong': '✅', 'ok': '➖', 'weak': '⚠️', 'not_answered': '❌'}
     blocks = [_block('paragraph', result['summary'])]
     for title, items in (('Strengths', result['strengths']), ('Weak spots', result['weaknesses']),
                          ('Signals from them', result['signals']), ('Could count against you', result['red_flags']),
+                         ('Facts from the call', fact_lines(result, merged)),
                          ('Practise before the next round', result['practice'])):
         if items:
-            blocks += [_block('heading_3', title)] + [_block('bulleted_list_item', item) for item in items[:6]]
+            blocks += [_block('heading_3', title)] + [_block('bulleted_list_item', item) for item in items[:10]]
     blocks.append(_block('heading_3', 'Questions'))
     for q in result['questions'][:20]:
         text = f"{marks.get(q['quality'], '')} [{q['topic']}] {q['question']} — {q['answer']}"
@@ -165,9 +211,83 @@ def analysis_blocks(result):
     return blocks[:94]
 
 
-def page_blocks(result, transcript):
+def _norm(value):
+    return re.sub(r'[\W_]+', ' ', str(value or '')).strip().casefold()
+
+
+def _call_facts(text):
+    """The "Call facts" column as {label: value} ("Label: value" parts, separated by · or new lines)."""
+    facts = {}
+    for part in re.split(r'\s+·\s+|\n', text or ''):
+        label, sep, value = part.partition(':')
+        if sep and label.strip():
+            facts[label.strip()] = value.strip()
+    return facts
+
+
+def facts_of(result):
+    """The call's facts, one per field, without empty or "not stated" ones; selects only with a known option."""
+    seen = {}
+    for fact in result.get('facts') or []:
+        field, value = fact.get('field'), (fact.get('value') or '').strip()
+        if field not in FACTS or field in seen or NOT_STATED.match(value):
+            continue
+        column = FACTS[field][1]
+        if column in SELECT_OPTIONS:
+            value = next((o for o in SELECT_OPTIONS[column] if _norm(o) == _norm(value)), '')
+            if not value:
+                continue
+        seen[field] = {'field': field, 'label': FACTS[field][0], 'value': value[:300], 'quote': (fact.get('quote') or '').strip()[:300]}
+    return list(seen.values())
+
+
+def merge_facts(app, result):
+    """What the call adds to the application. Pure. Empty fields are filled; a field that already says the same
+    (or more) is left; a different value is never overwritten: it's reported. Returns
+    {'changes': Notion properties, 'filled': [fact], 'differs': [fact + 'current'], 'same': [fact]}."""
+    props = (app or {}).get('properties', {})
+    merged = {'changes': {}, 'filled': [], 'differs': [], 'same': []}
+    known = _call_facts(plain(props.get('Call facts')) or '')
+    added = dict(known)
+    for fact in facts_of(result):
+        label, column, kind = FACTS[fact['field']]
+        current = known.get(label, '') if kind == 'fact' else (plain(props.get(column)) or '')
+        if not current:
+            merged['filled'].append(fact)
+            if kind == 'fact':
+                added[label] = fact['value']
+            elif kind == 'select':
+                merged['changes'][column] = {'select': {'name': fact['value']}}
+            else:
+                merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
+        elif _norm(fact['value']) == _norm(current) or _norm(fact['value']) in _norm(current):
+            merged['same'].append(fact)
+        else:
+            merged['differs'].append(dict(fact, current=current))
+    if added != known:
+        text = ' · '.join(f'{label}: {value}' for label, value in added.items())
+        merged['changes']['Call facts'] = {'rich_text': [{'text': {'content': text[:2000]}}]}
+    return merged
+
+
+def fact_lines(result, merged=None):
+    """One line per fact for the review page: the value, the quote, and what happened on the job."""
+    filled = {f['field'] for f in (merged or {}).get('filled', [])}
+    differs = {f['field']: f['current'] for f in (merged or {}).get('differs', [])}
+    lines = []
+    for fact in facts_of(result):
+        line = f"{fact['label']}: {fact['value']}" + (f' — “{fact["quote"]}”' if fact['quote'] else '')
+        if fact['field'] in differs:
+            line += f" ⚠️ The job says “{differs[fact['field']]}”: not changed, update it in Notion if the call is right."
+        elif fact['field'] in filled:
+            line += ' (added to the job)'
+        lines.append(line)
+    return lines
+
+
+def page_blocks(result, transcript, merged=None):
     """Analysis first, then the full transcript in a toggle (within Notion's 100 blocks per request)."""
-    return analysis_blocks(result) + [transcript_toggle(transcript)]
+    return analysis_blocks(result, merged) + [transcript_toggle(transcript)]
 
 
 def properties(result, app, today, model, usd, source):
@@ -195,7 +315,7 @@ def properties(result, app, today, model, usd, source):
     return props
 
 
-def message(result, app, page_url, usd, truncated=False):
+def message(result, app, page_url, usd, truncated=False, merged=None, stage=None):
     title = (f"{escape(plain(app['properties'].get('Company')) or '')} — {escape(plain(app['properties'].get('Job')) or '')}"
              if app else f"{escape(result['company'] or 'Unknown company')} (not linked to an application)")
     weak = [q for q in result['questions'] if q['quality'] in ('weak', 'not_answered')]
@@ -208,6 +328,9 @@ def message(result, app, page_url, usd, truncated=False):
     if result['practice']:
         lines += ['', '🏋️ <b>Practise</b>'] + [f'• {escape(p)}' for p in result['practice'][:3]]
     lines += ['', f"➡️ Next: {escape(result['next_step'])}"]
+    if stage:
+        lines.append(f'📈 Stage → {escape(stage)}')
+    lines += changes_lines(merged)
     if truncated:
         lines.append('<i>The transcript was very long; only the first part was analysed.</i>')
     if not app:
@@ -216,25 +339,82 @@ def message(result, app, page_url, usd, truncated=False):
     return '\n'.join(lines)
 
 
+def changes_lines(merged):
+    """What the call filled on the job, and where it said something else (Telegram lines)."""
+    if not merged:
+        return []
+    lines = []
+    if merged['filled']:
+        lines.append('📋 Added to the job: ' + escape('; '.join(f"{f['label']}: {f['value']}" for f in merged['filled'])))
+    for fact in merged['differs']:
+        lines.append(f"⚠️ {escape(fact['label'])}: the call said “{escape(fact['value'])}”, the job says "
+                     f"“{escape(fact['current'])}” (not changed)")
+    return lines
+
+
+def changes_summary(merged, stage=None):
+    """The same, short, for the run's one-line result (the app shows it after a review)."""
+    parts = [f'stage → {stage}'] if stage else []
+    if merged and merged['filled']:
+        parts.append('filled ' + ', '.join(f"{f['label']} ({f['value'][:40]})" for f in merged['filled']))
+    if merged and merged['differs']:
+        parts.append('differs from the job, not changed: ' + ', '.join(
+            f"{f['label']} (call: {f['value'][:40]}; job: {f['current'][:40]})" for f in merged['differs']))
+    return '; '.join(parts)
+
+
 SCREEN = re.compile(r'screen|recruiter|talent|phone|intro', re.I)
-FUNNEL = ('Applying', 'Applied', 'No response', 'Confirmation received', 'Screening', 'Interview scheduled',
-          'Interviewing', 'Offer')
 
 
-def progress(tracker, app, result):
-    """Stage and event for a reviewed interview. A recruiter/screening round is Screening, anything later is
-    Interviewing. Stage only moves forward, and the event is skipped when one of that kind already exists
-    (a review is often sent days after the call, which was usually logged already)."""
-    kind = 'Screening' if SCREEN.search(result.get('round') or '') else 'Interviewing'
+def held_stage(stage, round_=''):
+    """The Stage once an interview was held, or None to leave it: never back, never a closed stage. Talking or
+    booked (Recruiter lead, Screening, Interview scheduled) is Interviewing now; from an earlier stage a
+    recruiter/screening round is Screening, anything later Interviewing."""
+    if stage in CLOSED or stage == 'Interviewing':
+        return None
+    if stage in IN_TALKS:
+        return 'Interviewing'
+    return 'Screening' if SCREEN.search(round_ or '') else 'Interviewing'
+
+
+def _moment(value):
+    try:
+        moment = datetime.fromisoformat((value or '').replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+def _events_of(tracker, app):
     page = app['id'].replace('-', '')
-    logged = any(plain(e['properties'].get('Kind')) == kind
-                 for e in tracker.query_database(EVENTS_DATABASE_ID)
-                 if any(l['id'].replace('-', '') == page for l in (e['properties'].get('Application') or {}).get('relation', [])))
-    if not logged:
-        add_event(tracker, app, kind, 'Telegram', note=f"{result['round']}: {result['overall']}")
-    stage = plain(app['properties'].get('Stage'))
-    if stage in FUNNEL and FUNNEL.index(kind) > FUNNEL.index(stage):
-        tracker.update_page(app['id'], {'Stage': {'select': {'name': kind}}})
+    return [e for e in tracker.query_database(EVENTS_DATABASE_ID)
+            if any(l['id'].replace('-', '') == page for l in (e['properties'].get('Application') or {}).get('relation', []))]
+
+
+def advance(tracker, app, *, now=None, round_='', next_step='', changes=None, note='', source='Telegram', clear_past=True):
+    """An interview of this application was held: Stage forward (held_stage), a 📈 Application Events row of that
+    kind unless one exists (a review is often sent days after the call, which was usually logged already), Next
+    step from the review, a past Next interview cleared (clear_past), plus `changes` (the call's facts), in one
+    Notion update. An application at a closed stage (Offer, Rejected, …) is left alone. Returns the new Stage or None."""
+    now = now or datetime.now(timezone.utc)
+    stage = plain(app['properties'].get('Stage')) or ''
+    if stage in CLOSED:
+        return None
+    target = held_stage(stage, round_)
+    kind = target or 'Interviewing'
+    if not any(plain(e['properties'].get('Kind')) == kind for e in _events_of(tracker, app)):
+        add_event(tracker, app, kind, source, note=note)
+    update = dict(changes or {})
+    if target:
+        update['Stage'] = {'select': {'name': target}}
+    if next_step and not NOT_STATED.match(next_step):
+        update['Next step'] = {'rich_text': [{'text': {'content': next_step[:2000]}}]}
+    coming = _moment(plain(app['properties'].get('Next interview')))
+    if clear_past and coming and coming <= now:
+        update['Next interview'] = {'date': None}
+    if update:
+        tracker.update_page(app['id'], update)
+    return target
 
 
 def read_input(file_id, token, opener, speakers=0):
@@ -326,21 +506,28 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
     app = chosen or (apps[result['application']] if 0 <= result['application'] < len(apps) else None)
-    props = properties(result, app, now.date(), model, usd, 'Recording' if recorded else 'Transcript' if file_id or saved else 'Notes')
+    source = (plain(saved['properties'].get('Input')) or 'Transcript') if saved else (
+        'Recording' if recorded else 'Transcript' if file_id else 'Notes')
+    props = properties(result, app, now.date(), model, usd, source)
+    # An application at a closed stage is never touched: its facts are only listed on the review.
+    merged = merge_facts(app, result) if app and plain(app['properties'].get('Stage')) not in CLOSED else None
     if saved:
         props.pop('Date')  # the day it was held, set when it was saved
         page = tracker._request('PATCH', f'pages/{page_id}', {'properties': props})
-        add_review(tracker, page_id, analysis_blocks(result))
+        add_review(tracker, page_id, analysis_blocks(result, merged))
     else:
         page = tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID},
-                                                  'properties': props, 'children': page_blocks(result, transcript)})
+                                                  'properties': props, 'children': page_blocks(result, transcript, merged)})
+    stage = None
     if app:
-        progress(tracker, app, result)
+        stage = advance(tracker, app, now=now, round_=result['round'], next_step=result['next_step'],
+                        changes=(merged or {}).get('changes'), note=f"{result['round']}: {result['overall']}")
     if send:
-        send(message(result, app, page.get('url', ''), usd, truncated))
-    where = f"{plain(app['properties'].get('Company'))}" if app else 'unlinked'
+        send(message(result, app, page.get('url', ''), usd, truncated, merged, stage))
+    where = f"{plain(app['properties'].get('Company')) or plain(app['properties'].get('Via')) or 'linked'}" if app else 'unlinked'
+    extra = changes_summary(merged, stage)
     return (f"Interview analysed ({where}, {result['round']}, {len(result['questions'])} questions, ${usd:.3f})"
-            f" {page.get('url', '')}").strip()
+            f"{f'. {extra[0].upper()}{extra[1:]}' if extra else ''} {page.get('url', '')}").strip()
 
 
 PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Job Pilotto app.'
@@ -350,7 +537,9 @@ def save(tracker, transcript, title, *, job_url=None, source='Recording', now=No
     """A transcript as a 🎤 Interviews row, without AI: title, date, Input, the chosen job, and the
     transcript in the page (a placeholder marks where the review goes). Returns the created page.
     With page_id (the row the app created as soon as the transcript was ready), that row is updated instead:
-    title, job, and the transcript toggle replaced by the edited one (speakers named)."""
+    title, job, and the transcript toggle replaced by the edited one (speakers named).
+    A recorded call was held: the chosen job moves on (advance), keeping a past Next interview until the review,
+    so Focus asks to review it."""
     now = now or datetime.now(timezone.utc)
     transcript = transcript.strip()[:MAX_CHARS]
     if len(transcript) < 40:
@@ -370,9 +559,12 @@ def save(tracker, transcript, title, *, job_url=None, source='Recording', now=No
             if block['type'] == 'heading_3' and plain({'type': 'rich_text', 'rich_text': body.get('rich_text', [])}) == 'Transcript':
                 tracker._request('DELETE', f"blocks/{block['id']}")
         tracker._request('PATCH', f'blocks/{page_id}/children', {'children': [transcript_toggle(transcript)]})
-        return page
-    return tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': props,
-                                              'children': [_block('paragraph', PLACEHOLDER), transcript_toggle(transcript)]})
+    else:
+        page = tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': props,
+                                                  'children': [_block('paragraph', PLACEHOLDER), transcript_toggle(transcript)]})
+    if app:
+        advance(tracker, app, now=now, round_=title, note=f'{source} saved', source=APP_SOURCE, clear_past=False)
+    return page
 
 
 def saved_transcript(tracker, page_id):
@@ -398,6 +590,8 @@ def link(tracker, page_id, job_url=None):
     """Set (or with no job_url, clear) the application a 🎤 Interviews row belongs to."""
     app = application_for(tracker, job_url) if job_url else None
     tracker.update_page(page_id, {'Application': {'relation': [{'id': app['id']}] if app else []}})
+    if app:  # a recorded call belongs to this job: it was held
+        advance(tracker, app, note='Interview linked', source=APP_SOURCE, clear_past=False)
     return app['id'] if app else None
 
 
@@ -436,6 +630,71 @@ def listing(tracker, limit=100):
     return rows
 
 
+NO_NOTES = 'No notes written. The interview was held (confirmed in Focus).'
+
+
+def held(tracker, app_id, notes='', *, now=None):
+    """Focus → "Yes, it happened": a 🎤 Interviews row (Input Notes, dated the day of the interview) with the notes
+    where a transcript goes, and the application moved on. review: the notes are long enough for a review (the
+    app then runs it, on this Mac or on GitHub)."""
+    now = now or datetime.now(timezone.utc)
+    app = tracker._request('GET', f'pages/{app_id}')
+    props = app['properties']
+    coming = _moment(plain(props.get('Next interview')))
+    day = (coming if coming and coming <= now else now).date().isoformat()
+    who = plain(props.get('Company')) or plain(props.get('Via')) or 'Interview'
+    notes = (notes or '').strip()[:MAX_CHARS]
+    page = tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': {
+        'Interview': {'title': [{'text': {'content': f"{who} · {plain(props.get('Job')) or 'interview'}"[:200]}}]},
+        'Date': {'date': {'start': day}}, 'Input': {'select': {'name': 'Notes'}},
+        'Application': {'relation': [{'id': app['id']}]}},
+        'children': [_block('paragraph', PLACEHOLDER), transcript_toggle(notes or NO_NOTES)]})
+    stage = advance(tracker, app, now=now, note='Held (confirmed in Focus)', source=APP_SOURCE)
+    return {'ok': True, 'id': page['id'], 'url': page.get('url', ''), 'stage': stage, 'review': len(notes) >= 40}
+
+
+def moved(tracker, app_id, at):
+    """Focus → "No: moved": Next interview is the new time, and an Interview scheduled event says so."""
+    moment = _moment(at)
+    if not moment:
+        raise ValueError('Pick the new date and time')
+    app = tracker._request('GET', f'pages/{app_id}')
+    tracker.update_page(app['id'], {'Next interview': {'date': {'start': at}}})
+    add_event(tracker, app, 'Interview scheduled', APP_SOURCE, note=f'Moved to {at} (from Focus)')
+    return {'ok': True}
+
+
+def cancelled(tracker, app_id):
+    """Focus → "No: cancelled": an Interview cancelled event, Next interview cleared; the Stage stays."""
+    app = tracker._request('GET', f'pages/{app_id}')
+    add_event(tracker, app, CANCELLED, APP_SOURCE, note='The interview did not happen (from Focus)')
+    tracker.update_page(app['id'], {'Next interview': {'date': None}})
+    return {'ok': True}
+
+
+def sweep(tracker, now=None):
+    """Applications still at Recruiter lead / Screening / Interview scheduled whose Next interview has passed and
+    which have a 🎤 Interviews row from that day on (recorded): moved on (advance), as a review would.
+    For rows saved before save() did it. Returns a one-line summary."""
+    now = now or datetime.now(timezone.utc)
+    if not INTERVIEWS_DATABASE_ID:
+        return 'Interview sweep: no 🎤 Interviews database'
+    days = {}
+    for row in tracker.query_database(INTERVIEWS_DATABASE_ID):
+        day = (plain(row['properties'].get('Date')) or '')[:10]
+        for link in (row['properties'].get('Application') or {}).get('relation', []):
+            key = link['id'].replace('-', '')
+            days[key] = max(days.get(key, ''), day)
+    moved_on = 0
+    for app in tracker.query_database(tracker.database_id, {'or': [
+            {'property': 'Stage', 'select': {'equals': stage}} for stage in IN_TALKS]}):
+        coming = _moment(plain(app['properties'].get('Next interview')))
+        if coming and coming <= now and days.get(app['id'].replace('-', ''), '') >= coming.date().isoformat():
+            advance(tracker, app, now=now, note='Recorded interview', source='Auto rule', clear_past=False)
+            moved_on += 1
+    return f'Interview sweep: {moved_on} application(s) moved on after a recorded interview.'
+
+
 def main(argv=None):
     """JSON commands for the desktop app's Interviews page (Notion is the database; nothing here uses AI)."""
     import argparse
@@ -453,6 +712,14 @@ def main(argv=None):
     linking = sub.add_parser('link', help="set a row's application (no --job: clear it)")
     linking.add_argument('page')
     linking.add_argument('--job')
+    holding = sub.add_parser('held', help='Focus: the interview happened (notes optional)')
+    holding.add_argument('app')
+    holding.add_argument('--notes', default='')
+    moving = sub.add_parser('moved', help='Focus: the interview moved to a new time')
+    moving.add_argument('app')
+    moving.add_argument('--at', required=True)
+    cancelling = sub.add_parser('cancelled', help='Focus: the interview did not happen')
+    cancelling.add_argument('app')
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker or not INTERVIEWS_DATABASE_ID:
@@ -468,6 +735,12 @@ def main(argv=None):
         elif args.command == 'delete':
             delete(tracker, args.page)
             out = {'ok': True}
+        elif args.command == 'held':
+            out = held(tracker, args.app, args.notes)
+        elif args.command == 'moved':
+            out = moved(tracker, args.app, args.at)
+        elif args.command == 'cancelled':
+            out = cancelled(tracker, args.app)
         else:
             out = {'ok': True, 'application': link(tracker, args.page, args.job)}
     except ValueError as error:

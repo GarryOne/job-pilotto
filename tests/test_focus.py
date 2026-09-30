@@ -94,9 +94,13 @@ class FocusTests(unittest.TestCase):
                 row('b', 'Beta', 'SRE', stage='Screening')]
         events = [event('b', 'Screening', '2026-09-22T10:00:00Z')]
         kinds = [i['kind'] for i in focus.build(rows, events, now=NOW)['items']]
-        self.assertEqual(kinds[:2], ['review', 'nudge'])
+        self.assertEqual(kinds[:2], ['happened', 'nudge'])  # nothing recorded: did it happen?
         saved = [{'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-27'}},
                                  'Application': {'type': 'relation', 'relation': [{'id': 'a'}]}}}]
+        kinds = [i['kind'] for i in focus.build(rows, events, saved, now=NOW)['items']]
+        self.assertIn('review', kinds)  # recorded, not reviewed: one item, review it
+        self.assertNotIn('happened', kinds)
+        saved[0]['properties']['Overall'] = {'type': 'select', 'select': {'name': 'positive'}}
         self.assertNotIn('review', [i['kind'] for i in focus.build(rows, events, saved, now=NOW)['items']])
 
     def test_rejected_jobs_leave_the_list_but_their_lesson_is_shown(self):
@@ -129,6 +133,48 @@ class FocusTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AfterInterviewTests(unittest.TestCase):
+    """The owner's Huxley case (30 Sep 2026): after the call, Focus said "Move Huxley forward · nothing booked"."""
+
+    @staticmethod
+    def reviewed(page_id, day, next_step='Call with the CTO next week'):
+        return {'properties': {'Date': {'type': 'date', 'date': {'start': day}}, 'Overall': {'type': 'select', 'select': {'name': 'positive'}},
+                               'Next step': text(next_step), 'Application': {'type': 'relation', 'relation': [{'id': page_id}]}}}
+
+    def test_nothing_recorded_after_the_time_asks_if_it_happened_one_item_per_interview(self):
+        rows = [row('h', 'Huxley', 'Principal SRE', stage='Interview scheduled', interview='2026-09-20T08:30:00+02:00')]
+        items = focus.build(rows, [], now=NOW)['items']
+        asked = [i for i in items if i['job'] == 'Principal SRE']
+        self.assertEqual([i['kind'] for i in asked], ['happened'])  # no 3-day limit, and no nudge next to it
+        self.assertEqual(asked[0]['headline'], 'Did the interview with Huxley happen?')
+        self.assertEqual(asked[0]['badge'], 'Did it happen?')
+
+    def test_after_a_reviewed_interview_it_waits_calmly_then_nudges_after_quiet_days(self):
+        # The review moved it to Interviewing and cleared the past date; Stage left at Interview scheduled works too.
+        for stage, interview in (('Interviewing', None), ('Interview scheduled', '2026-09-27T08:30:00+02:00')):
+            rows = [row('h', 'Huxley', 'Principal SRE', stage=stage, interview=interview)]
+            events = [event('h', 'Interview scheduled', '2026-09-20T10:00:00Z')]
+            item, = [i for i in focus.build(rows, events, [self.reviewed('h', '2026-09-27')], now=NOW)['items'] if i['job']]
+            self.assertEqual((item['kind'], item['headline'], item['badge']), ('waiting', "Waiting for Huxley's next step", 'Waiting'))
+            self.assertIn('Call with the CTO next week', item['meta'])
+            self.assertIn('Call with the CTO next week', item['detail'])
+        rows = [row('h', 'Huxley', 'Principal SRE', stage='Interviewing')]
+        focus_ = focus.build(rows, events, [self.reviewed('h', '2026-09-27')], now=NOW)
+        self.assertNotIn('Follow up on applications waiting', focus_['summary'])
+        # QUIET_DAYS without news since the interview: now it's a nudge.
+        quiet = focus.build(rows, events, [self.reviewed('h', '2026-09-24')], now=NOW)['items']
+        nudge, = [i for i in quiet if i['job']]
+        self.assertEqual(nudge['kind'], 'nudge')
+        self.assertIn('No news for 4 days since the interview', nudge['detail'])
+        # News after the interview (the Gmail check logged a step) restarts the quiet time.
+        news = events + [event('h', 'Interviewing', '2026-09-27T09:00:00Z')]
+        self.assertEqual([i['kind'] for i in focus.build(rows, news, [self.reviewed('h', '2026-09-24')], now=NOW)['items'] if i['job']],
+                         ['waiting'])
+        # A month of silence after an interview isn't a to-do any more.
+        self.assertEqual([i for i in focus.build(rows, [], [self.reviewed('h', '2026-08-20')], now=NOW)['items'] if i['job']
+                          and i['stage'] == 'Interviewing'], [])
 
 
 class AddDetailsTests(unittest.TestCase):

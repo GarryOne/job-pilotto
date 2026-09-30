@@ -197,7 +197,9 @@ class InterviewTests(unittest.TestCase):
         self.assertLessEqual(len(body['children']), 100)
         self.assertEqual(tracker.created[0][0], ledger.EVENTS_DATABASE_ID)
         self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})
-        self.assertEqual(tracker.updates, [('g-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
+        self.assertEqual(tracker.updates, [('g-1', {'Stage': {'select': {'name': 'Interviewing'}},
+                                                     'Next step': {'rich_text': [{'text': {'content': 'System design next week'}}]}})])
+        self.assertIn('Stage → Interviewing', log)
         self.assertIn('⚠️ <b>Weak answers (1 of 2)</b>', sent[0])
         self.assertIn('Mention Patroni', sent[0])
         self.assertEqual(stats['tokens_in'], 15000)
@@ -277,20 +279,23 @@ class InterviewTests(unittest.TestCase):
         self.assertIn('not linked to an application', sent[0])
         self.assertEqual(tracker.created, [])
 
-    def test_a_screening_review_never_jumps_to_interviewing_or_duplicates_the_event(self):
+    def test_a_screening_review_moves_talks_to_interviewing_and_never_duplicates_the_event(self):
         global RESULT
         original, RESULT = RESULT, dict(RESULT, application=0, round='Recruiter screen (via TechTree)')
         try:
+            # Owner's rule (30 Sep 2026): once a call was held, Screening is in process (Interviewing).
             tracker = FakeTracker([app('l-1', 'Laelaps AI', 'Screening', '2026-09-23')])
-            tracker.events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
+            tracker.events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Interviewing'}},
                                               'Application': {'type': 'relation', 'relation': [{'id': 'l-1'}]}}}]
             interviews.run(tracker, note='/interview Laelaps screening\n' + 'Notes about the call. ' * 5,
                            client=FakeClient(), now=NOW)
-            self.assertEqual((tracker.updates, tracker.created), ([], []))  # already at Screening, already logged
+            self.assertEqual(tracker.updates[0][1]['Stage'], {'select': {'name': 'Interviewing'}})
+            self.assertEqual(tracker.created, [])  # an Interviewing event is already logged
+            # From an earlier stage, a recruiter screen is Screening.
             tracker = FakeTracker([app('a-1', 'Acme', 'Confirmation received', '2026-09-23')])
             interviews.run(tracker, note='/interview Acme screen\n' + 'Notes about the call. ' * 5,
                            client=FakeClient(), now=NOW)
-            self.assertEqual(tracker.updates, [('a-1', {'Stage': {'select': {'name': 'Screening'}}})])
+            self.assertEqual(tracker.updates[0][1]['Stage'], {'select': {'name': 'Screening'}})
             self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Screening'}})
         finally:
             RESULT = original
@@ -343,7 +348,11 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(kinds[-1], 'heading_3')
         self.assertNotIn(interviews.PLACEHOLDER, str(tracker.blocks[page['id']]))
         self.assertEqual(len(tracker.requests), 2)  # the review added no row (2 = the two saves above)
-        self.assertEqual(tracker.updates, [('g-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
+        # Saving a recorded call moves its job on at once; the review then adds the next step.
+        self.assertEqual(tracker.updates[:2], [('g-1', {'Stage': {'select': {'name': 'Interviewing'}}}),
+                                               ('n-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
+        self.assertEqual(tracker.updates[-1][1]['Next step'], {'rich_text': [{'text': {'content': 'System design next week'}}]})
+        self.assertEqual(patched['properties']['Input'], {'select': {'name': 'Recording'}})  # kept, not "Transcript"
 
     def test_the_row_made_when_the_transcript_was_ready_is_updated_by_save_not_duplicated(self):
         tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20')])
@@ -363,7 +372,8 @@ class InterviewTests(unittest.TestCase):
         page = interviews.save(tracker, SPOKEN, 'Call', now=NOW)
         self.assertNotIn('Application', tracker.requests[0]['properties'])
         self.assertEqual(interviews.link(tracker, page['id'], 'https://x.test/s-1'), 's-1')
-        self.assertEqual(tracker.updates[-1], (page['id'], {'Application': {'relation': [{'id': 's-1'}]}}))
+        self.assertEqual(tracker.updates[-2], (page['id'], {'Application': {'relation': [{'id': 's-1'}]}}))
+        self.assertEqual(tracker.updates[-1], ('s-1', {'Stage': {'select': {'name': 'Interviewing'}}}))  # the call was held
         interviews.link(tracker, page['id'])
         self.assertEqual(tracker.updates[-1], (page['id'], {'Application': {'relation': []}}))
         interviews.delete(tracker, page['id'])
@@ -394,6 +404,136 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(stats['topics_asked'], {'Postgres': 2, 'Kubernetes': 1})
         self.assertEqual(stats['topics_answered_weakly'], {'Postgres': 2})
         self.assertEqual(stats['overall'], {'positive': 1, 'neutral': 1, 'negative': 0})
+
+
+def huxley(stage='Interview scheduled', **props):
+    """The owner's case (30 Sep 2026): an agency's call, booked, held and reviewed."""
+    row = app('h-1', '', stage, '')
+    row['properties'].update({'Via': text('Huxley'), 'Location': text('Remote'),
+                              'Next interview': {'type': 'date', 'date': {'start': '2026-09-26T06:30:00.000Z'}}})
+    row['properties'].update(props)
+    return row
+
+
+FACTS = [{'field': 'salary', 'value': 'CHF 160-180k/year', 'quote': 'the band is 160 to 180 thousand francs'},
+         {'field': 'contract', 'value': 'b2b / contractor', 'quote': 'it would be a B2B contract'},
+         {'field': 'location', 'value': 'Hybrid, Zurich 2 days', 'quote': 'two days a week in Zurich'},
+         {'field': 'work_mode', 'value': 'Remote', 'quote': 'mostly remote'},
+         {'field': 'relocation', 'value': 'Not stated', 'quote': ''},
+         {'field': 'team_size', 'value': '8 SREs', 'quote': 'a team of eight SREs'},
+         {'field': 'salary_ask', 'value': 'CHF 170k', 'quote': 'I am looking at 170'},
+         {'field': 'work_mode', 'value': 'Hybrid', 'quote': 'twice the same field: the first wins'}]
+
+
+class AdvanceTests(unittest.TestCase):
+    def test_a_held_interview_moves_talks_forward_with_its_event_next_step_and_clears_the_past_date(self):
+        for stage in ('Interview scheduled', 'Screening', 'Recruiter lead'):
+            tracker = FakeTracker([])
+            self.assertEqual(interviews.advance(tracker, huxley(stage), now=NOW, round_='Recruiter screen',
+                                                next_step='Hiring manager call next week'), 'Interviewing')
+            self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})
+            self.assertEqual(tracker.updates, [('h-1', {
+                'Stage': {'select': {'name': 'Interviewing'}},
+                'Next step': {'rich_text': [{'text': {'content': 'Hiring manager call next week'}}]},
+                'Next interview': {'date': None}})])
+        # A coming interview stays; "not stated" is no next step.
+        tracker = FakeTracker([])
+        row = huxley(**{'Next interview': {'type': 'date', 'date': {'start': '2026-10-02T09:00:00Z'}}})
+        interviews.advance(tracker, row, now=NOW, next_step='not stated')
+        self.assertEqual(tracker.updates, [('h-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
+
+    def test_never_backwards_and_never_a_closed_stage(self):
+        tracker = FakeTracker([])
+        self.assertIsNone(interviews.advance(tracker, huxley('Interviewing'), now=NOW, next_step='Final round'))
+        self.assertNotIn('Stage', tracker.updates[0][1])  # already there: next step and the date only
+        for stage in ('Offer', 'Rejected', 'Withdrawn', 'Closed', 'Dismissed'):
+            tracker = FakeTracker([])
+            self.assertIsNone(interviews.advance(tracker, huxley(stage), now=NOW, next_step='x',
+                                                 changes={'Salary': {'rich_text': []}}))
+            self.assertEqual((tracker.updates, tracker.created), ([], []), stage)
+
+
+class FactsTests(unittest.TestCase):
+    def test_empty_fields_are_filled_same_values_left_and_different_ones_reported(self):
+        row = huxley(**{'Work mode': {'type': 'select', 'select': {'name': 'Remote'}},
+                        'Call facts': text('Team size: about 10')})
+        merged = interviews.merge_facts(row, {'facts': FACTS})
+        self.assertEqual(merged['changes'], {
+            'Salary': {'rich_text': [{'text': {'content': 'CHF 160-180k/year'}}]},
+            'Contract': {'select': {'name': 'B2B / contractor'}},  # the option's own spelling
+            'Call facts': {'rich_text': [{'text': {'content': 'Team size: about 10 · Your ask: CHF 170k'}}]}})
+        self.assertEqual([f['label'] for f in merged['filled']], ['Salary', 'Contract', 'Your ask'])
+        self.assertEqual([(f['label'], f['current'], f['value']) for f in merged['differs']],
+                         [('Location', 'Remote', 'Hybrid, Zurich 2 days'), ('Team size', 'about 10', '8 SREs')])
+        self.assertEqual([f['label'] for f in merged['same']], ['Work mode'])
+        # Unknown select values and "not stated" are dropped.
+        self.assertEqual(interviews.facts_of({'facts': [{'field': 'contract', 'value': 'freelance-ish', 'quote': ''}]}), [])
+
+    def test_the_review_fills_the_job_and_reports_differences_without_overwriting(self):
+        global RESULT
+        original, RESULT = RESULT, dict(RESULT, application=0, round='Recruiter screen', facts=FACTS,
+                                        next_step='Intro with the hiring manager')
+        try:
+            tracker, sent = FakeTracker([huxley()]), []
+            log = interviews.run(tracker, note='/interview Huxley\n' + 'Notes about the call. ' * 5,
+                                 client=FakeClient(), now=NOW, send=sent.append)
+        finally:
+            RESULT = original
+        (page_id, update), = tracker.updates
+        self.assertEqual(update['Stage'], {'select': {'name': 'Interviewing'}})
+        self.assertEqual(update['Salary'], {'rich_text': [{'text': {'content': 'CHF 160-180k/year'}}]})
+        self.assertEqual(update['Next interview'], {'date': None})
+        self.assertNotIn('Location', update)  # "Remote" stays: the call said something else, reported instead
+        self.assertIn('Huxley, Recruiter screen', log)
+        self.assertIn('Stage → Interviewing; filled Salary (CHF 160-180k/year), Contract (B2B / contractor)', log)
+        self.assertIn('differs from the job, not changed: Location (call: Hybrid, Zurich 2 days; job: Remote)', log)
+        page = str(tracker.requests[0]['children'])
+        self.assertIn('Facts from the call', page)
+        self.assertIn('“two days a week in Zurich” ⚠️ The job says “Remote”: not changed', page)
+        self.assertIn('Salary: CHF 160-180k/year — “the band is 160 to 180 thousand francs” (added to the job)', page)
+        self.assertIn('📋 Added to the job: Salary: CHF 160-180k/year', sent[0])
+        self.assertIn('⚠️ Location: the call said “Hybrid, Zurich 2 days”, the job says “Remote” (not changed)', sent[0])
+        self.assertIn('facts', interviews.SCHEMA['required'])  # the same single call extracts them
+
+
+class FocusAnswerTests(unittest.TestCase):
+    def test_yes_it_happened_saves_the_notes_as_an_interview_and_moves_the_job_on(self):
+        tracker = NotionPages([huxley()])
+        notes = 'Talked to Jaya for 30 minutes: salary band 160-180k, B2B possible, next a call with the CTO.'
+        out = interviews.held(tracker, 'h-1', notes, now=NOW)
+        self.assertEqual((out['ok'], out['stage'], out['review']), (True, 'Interviewing', True))
+        row = tracker.pages[out['id']]['properties']
+        self.assertEqual(row['Input'], {'select': {'name': 'Notes'}})
+        self.assertEqual(row['Date'], {'date': {'start': '2026-09-26'}})  # the day it was held
+        self.assertEqual(row['Application'], {'relation': [{'id': 'h-1'}]})
+        self.assertEqual(interviews.saved_transcript(tracker, out['id']), notes)  # the review reads the notes
+        self.assertEqual(tracker.updates[-1][1]['Stage'], {'select': {'name': 'Interviewing'}})
+        self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})
+        # Without notes it's still recorded as held, and there's nothing to review.
+        self.assertFalse(interviews.held(NotionPages([huxley()]), 'h-1', '', now=NOW)['review'])
+
+    def test_moved_updates_the_next_interview_and_cancelled_logs_it_without_moving_the_stage(self):
+        tracker = NotionPages([huxley()])
+        interviews.moved(tracker, 'h-1', '2026-10-03T09:00:00+02:00')
+        self.assertEqual(tracker.updates, [('h-1', {'Next interview': {'date': {'start': '2026-10-03T09:00:00+02:00'}}})])
+        self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interview scheduled'}})
+        with self.assertRaises(ValueError):
+            interviews.moved(tracker, 'h-1', '')
+        tracker = NotionPages([huxley()])
+        interviews.cancelled(tracker, 'h-1')
+        self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interview cancelled'}})
+        self.assertEqual(tracker.updates, [('h-1', {'Next interview': {'date': None}})])  # no Stage
+
+    def test_the_sweep_moves_on_a_recorded_interview_saved_before(self):
+        tracker = FakeTracker([huxley(), huxley() | {'id': 'h-2'}])
+        tracker.query_database = lambda database_id, filter_=None: (
+            [] if database_id == ledger.EVENTS_DATABASE_ID else
+            [{'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-26'}},
+                             'Application': {'type': 'relation', 'relation': [{'id': 'h-1'}]}}}]
+            if database_id == interviews.INTERVIEWS_DATABASE_ID else tracker.apps)
+        with mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'ivdb'):
+            self.assertIn('1 application(s)', interviews.sweep(tracker, now=NOW))
+        self.assertEqual(tracker.updates, [('h-1', {'Stage': {'select': {'name': 'Interviewing'}}})])  # h-2: not recorded
 
 
 if __name__ == '__main__':

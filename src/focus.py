@@ -4,8 +4,10 @@
 Read from Notion (Applications, 📈 Application Events, 🎤 Interviews), in this order:
 1. 💬 Reply: a person wrote (a reply, a recruiter's pitch, an offer) and nothing was done since.
    📅 Book the call: the reply invites you to pick a slot.
-2. 🎤 Prepare: an interview is coming (within 48 h first), or 📝 review one that just happened.
-   🤝 Move it forward: a Screening with nothing booked and no news for 3 days.
+2. 🎤 Prepare: an interview is coming (within 48 h first); ❓ did it happen? once its time passed and nothing was
+   recorded (yes: notes and a review; no: moved or cancelled), or 📝 review one that was recorded.
+   🤝 Move it forward: a Screening with nothing booked and no news for 3 days. ⏳ Waiting for their next step
+   after an interview you reviewed, until 3 days without news.
 3. 📨 Apply: today's applications against the daily target, with the jobs whose kit is ready.
 4. 🔎 Learn: the latest rejection lesson; ⏳ applications waiting 7+ days without a human reply.
 
@@ -45,7 +47,7 @@ ENDED = {'Rejected', 'Withdrawn', 'No response', 'Closed', 'Dismissed'}
 # Events that come from the other side and wait for an answer; anything later (your reply, a booking) settles them.
 NEEDS_ANSWER = {REPLY, 'Recruiter lead', 'Offer'}
 BOOKING = re.compile(r'\b(book|slot|schedul|calendly|cal\.com|availability|available|pick a time|time that works)', re.I)
-WAITING_DAYS, QUIET_DAYS, SOON_HOURS = 7, 3, 48
+WAITING_DAYS, QUIET_DAYS, SOON_HOURS, STALE_DAYS = 7, 3, 48, 30
 
 
 def _when(value):
@@ -131,6 +133,15 @@ def present(item):
         headline = 'Apply to your next role' if not done else f'Apply to {left} more today'
         meta = [f'{kits} application kit{"s" if kits != 1 else ""} ready to review' if kits else 'Prepare kits from your best matches',
                 f"{done} of {item.get('target', DEFAULT_TARGET)} today"]
+    elif kind == 'happened':
+        at = _when(item.get('at', ''))
+        icon, badge, tone = 'calendar', 'Did it happen?', 'warn'
+        headline = f'Did the interview with {who} happen?'
+        meta = [_short(item['job'], 40), f"was {at.astimezone(TZ):%a %d %b, %H:%M}" if at else '']
+    elif kind == 'waiting' and item.get('after_interview'):
+        icon, badge, tone = 'pulse', 'Waiting', 'neutral'
+        headline = f"Waiting for {who}'s next step"
+        meta = [_short(item['job'], 40), _short(item.get('next_step') or 'next step not stated', 60)]
     else:  # waiting
         icon, badge, tone = 'pulse', 'When you can', 'neutral'
         headline, meta = item['title'], ['No human reply yet', 'follow up or let them go']
@@ -141,12 +152,13 @@ def present(item):
 def summary(items):
     """One sentence for "Your focus": the first two kinds of work, in order."""
     phrases = {'offer': 'answer the offer', 'book': 'book the call you were invited to', 'reply': 'reply to recruiters',
-               'prepare': 'prepare for your interview', 'review': 'review your last interview', 'nudge': 'follow up where things went quiet',
+               'prepare': 'prepare for your interview', 'review': 'review your last interview',
+               'happened': 'confirm your last interview happened', 'nudge': 'follow up where things went quiet',
                'apply': 'review ready applications', 'waiting': 'follow up on applications waiting for a reply',
                'feedback': 'ask for feedback to improve your next interview', 'feedback_review': 'learn from employer feedback'}
     order = []
     for item in items:
-        phrase = phrases.get(item['kind'])
+        phrase = None if item.get('after_interview') else phrases.get(item['kind'])
         if phrase and phrase not in order:
             order.append(phrase)
     if not order:
@@ -169,14 +181,19 @@ def _events_by_app(events):
 
 
 def _interviewed(interviews):
-    """Application page id -> the latest day an interview of it was saved in 🎤 Interviews."""
-    days = {}
+    """Application page id -> {'day': the latest day an interview of it was saved in 🎤 Interviews, 'reviewed': the
+    latest reviewed one's day (Overall set), 'next_step': that review's next step}."""
+    seen = {}
     for row in interviews:
-        day = (plain(row['properties'].get('Date')) or '')[:10]
-        for link in (row['properties'].get('Application') or {}).get('relation', []):
-            key = link['id'].replace('-', '')
-            days[key] = max(days.get(key, ''), day)
-    return days
+        props = row['properties']
+        day = (plain(props.get('Date')) or '')[:10]
+        reviewed = bool(plain(props.get('Overall')))
+        for link in (props.get('Application') or {}).get('relation', []):
+            info = seen.setdefault(link['id'].replace('-', ''), {'day': '', 'reviewed': '', 'next_step': ''})
+            info['day'] = max(info['day'], day)
+            if reviewed and day >= info['reviewed']:
+                info.update(reviewed=day, next_step=plain(props.get('Next step')) or '')
+    return seen
 
 
 def _applied_today(rows, by_app, today):
@@ -318,10 +335,36 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    'and practise the topics you answered weakly before.', row, at=coming.isoformat(),
                                    prep_at=_field(row, 'Interview prep')))
                 continue
-        if coming and now - timedelta(days=3) < coming <= now and interviewed.get(key, '') < coming.astimezone(TZ).date().isoformat():
-            items.append(_item(2, 'review', '📝', f'Review the interview: {label}',
-                               f"It was {coming.astimezone(TZ):%a %d %b}. Import the recording or transcript (Interviews) "
-                               'while you remember it: you get a review of every answer.', row))
+        seen = interviewed.get(key, {})
+        if coming and coming <= now:
+            held_day = coming.astimezone(TZ).date().isoformat()
+            if seen.get('day', '') < held_day:  # nothing recorded since: ask (one item per interview)
+                items.append(_item(1, 'happened', '❓', f'Did the interview happen? {label}',
+                                   f"It was {coming.astimezone(TZ):%a %d %b, %H:%M}. Yes: note how it went (salary, next "
+                                   "steps, people, questions) and it moves on. No: say if it moved or was cancelled.",
+                                   row, at=coming.isoformat()))
+                continue
+            if seen.get('reviewed', '') < held_day and now - timedelta(days=3) < coming:
+                items.append(_item(2, 'review', '📝', f'Review the interview: {label}',
+                                   f"It was {coming.astimezone(TZ):%a %d %b}. It's recorded: review it (Interviews) "
+                                   'while you remember it: you get a review of every answer.', row))
+                continue
+        talking = ('Recruiter lead', 'Screening', 'Interview scheduled', 'Interviewing')
+        if seen.get('reviewed') and stage in talking and not (coming and coming > now):
+            # An interview was held and reviewed: their move. Calm until QUIET_DAYS pass without news.
+            news = max([seen['reviewed']] + [e['at'].astimezone(TZ).date().isoformat() for e in history if e['at']])
+            quiet = (today - date.fromisoformat(news)).days
+            if quiet >= STALE_DAYS:
+                continue  # long quiet after an interview: not a to-do any more (as before reviews were read)
+            if quiet < QUIET_DAYS:
+                items.append(_item(4, 'waiting', '⏳', f"Waiting for {company}'s next step",
+                                   f"Interview reviewed. Next: {seen['next_step'] or 'not stated'}. Nothing to do yet; "
+                                   f'follow up if there is no news in {QUIET_DAYS - quiet} day{"s" if QUIET_DAYS - quiet != 1 else ""}.',
+                                   row, next_step=seen['next_step'], after_interview=True, quiet=quiet))
+            else:
+                items.append(_item(2, 'nudge', '🤝', f'Move it forward: {label}',
+                                   f"No news for {quiet} days since the interview. Next step was: {seen['next_step'] or 'not stated'}. "
+                                   'Ask where things stand.', row, quiet=quiet))
             continue
         if stage in ('Screening', 'Interview scheduled') and not (coming and coming > now):
             quiet = (now - last['at']).days if last and last['at'] else QUIET_DAYS
@@ -366,7 +409,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         items.append(_item(4, 'waiting', '⏳', f'{len(waiting)} application{"s" if len(waiting) != 1 else ""} waiting {WAITING_DAYS}+ days',
                            'No human reply yet. For the ones you care most about, message the recruiter or a team member '
                            'on LinkedIn; let the rest go (they close as No response after 21 days).'))
-    order = {'offer': 0, 'book': 1, 'which_job': 1.2, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
+    order = {'offer': 0, 'book': 1, 'which_job': 1.2, 'happened': 1.3, 'details': 1.5, 'reply': 2, 'prepare': 3, 'review': 4, 'feedback_review': 5,
              'feedback': 6, 'nudge': 7, 'apply': 8, 'learn': 9, 'feedback_wait': 10, 'waiting': 11}
     items.sort(key=lambda i: (i['priority'], order[i['kind']]))
     items = [present(item) for item in items]
@@ -453,6 +496,10 @@ HISTORY_TITLES = {
     'Feedback received': ('📥', 'Got feedback from {company}'),
     'Feedback reviewed': ('📝', "Reviewed {company}'s feedback"),
     'Feedback skipped': ('⏭️', 'Skipped asking {company} for feedback'),
+    'Interview cancelled': ('🚫', 'Interview with {company} cancelled'),
+    'Interview scheduled': ('📅', 'Interview with {company} moved'),
+    'Interviewing': ('🎤', 'Interview with {company} held'),
+    'Screening': ('🎤', 'Screening call with {company} held'),
 }
 
 

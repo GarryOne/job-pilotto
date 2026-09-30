@@ -19,8 +19,8 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per job you've saved, applied to, or 
 | Source | Select | Where the contact started: `LinkedIn`, `Gmail` (an email), else how the row was added (`Telegram`, `Manual`, `Job Pilotto app`). A later channel never replaces it; something logged later but dated before the first contact does (`python -m src.ai.inbox --resync-source <page>` recomputes it) |
 | Applied on | Date | Set when Stage becomes Applied |
 | Posted | Date | Posting date from the source, or first-seen date if unknown |
-| Next interview | Date | You fill this in manually |
-| Next step | Text | You fill this in manually |
+| Next interview | Date | Set by the Gmail check or by you; cleared once the interview is reviewed or confirmed held |
+| Next step | Text | Yours to edit; an interview review sets it to what the call said happens next |
 | Form fill time (min) | Number | Active AI form-filling minutes, written at the ready-for-review handoff |
 | Kit cost (USD) | Number (dollar) | Anthropic API cost of drafting this job's kit, written when it's drafted |
 | Notes | Text | You fill this in manually |
@@ -65,6 +65,8 @@ replies:
 | Feedback status | Select | Options: `Not asked`, `Asked for feedback`, `Received feedback`, `Skipped` |
 | Employer feedback | Text |  |
 | Interview prep | Date | When the interview prep kit was built (🎤 Interview prep on the page; Focus → Prepare) |
+| Contract | Select | Options: `Employee`, `B2B / contractor`, `Employee or B2B`. Filled from an interview review when the call said it (never overwritten) |
+| Call facts | Text | Facts an interview revealed, `Label: value · …` (Your ask, Relocation, Team size, Company size, Visa/permit, Start date); a review adds missing ones and never overwrites |
 
 The page body gets a "🗂 Application record" toggle section: every question with the answer sent
 (and the kit's draft, marked ✏️ when edited), the cover letter, and a JSON block with the job
@@ -154,7 +156,7 @@ Stage edited by hand in Notion, and the 30-day no-response rule).
 |---|---|---|
 | Event | Title | "Kind · Company" |
 | Application | Relation | To Applications — Job Tracker (two-way, shows there as "Events") |
-| Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response` |
+| Kind | Select | `Applied`, `Reply received` (a human answered; no Stage change), `Confirmation received`, `Screening`, `Interview scheduled`, `Interviewing`, `Offer`, `Rejected`, `Withdrawn`, `No response`, `Interview cancelled` (you said in Focus the call did not happen; no Stage change) |
 | At | Date | With time |
 | Source | Select | `Telegram`, `Notion edit`, `Watcher`, `Auto rule`, `CLI`, `Backfill`, `Gmail`, `Calendar` |
 | Source ID | Text | Gmail message id, or `cal:<event id>`; an email or calendar event is never logged twice |
