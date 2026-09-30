@@ -576,6 +576,7 @@ def main():
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     message = telegram_summary(summary, results)
     log['headline'] = cron_runs.plain(message).split('\n')[0]
+    log['subject'] = cron_runs.counted(sum(1 for _, outcome in results if outcome['status'] == 'found'), 'new feed')
     if args.send and not disabled('telegram'):
         print(message)
         telegram.send(message, *telegram.credentials())

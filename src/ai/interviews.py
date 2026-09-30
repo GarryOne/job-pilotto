@@ -578,6 +578,9 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
         app = chosen
     if app and found is not None:
         found['application'] = app['id']
+    if found is not None:  # the interview's title, for the run's ("Huxley · Recruiter screen"); a review again keeps its own
+        found['title'] = (plain(saved['properties'].get('Interview')) if again else '') or \
+            interview_title(result['company'], result['round'], app)
     source = (plain(saved['properties'].get('Input')) or 'Transcript') if saved else (
         'Recording' if recorded else 'Transcript' if file_id else 'Notes')
     props = properties(result, app, now.date(), model, usd, source)

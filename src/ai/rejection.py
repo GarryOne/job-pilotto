@@ -231,6 +231,7 @@ def main(argv=None):
     log = cron_runs.new_run('rejection')
     if len(rows) == 1:  # a review of one job: the run links to it (several: about none in particular)
         log['application'] = rows[0]['id']
+    log['subject'] = cron_runs.job_subject(rows[0]) if len(rows) == 1 else cron_runs.counted(len(rows), 'application')
     try:
         for row in rows:
             _, summary = review(tracker, row, stats=stats, profile=profile)

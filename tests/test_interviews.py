@@ -275,11 +275,12 @@ class InterviewTests(unittest.TestCase):
         found = {}
         interviews.run(FakeTracker(apps), note='/interview round 1\n' + 'Notes about the call. ' * 5, client=FakeClient(),
                        now=NOW, job_url='https://x.test/a-new', found=found)
-        self.assertEqual(found, {'application': 'a-new'})
+        self.assertEqual(found['application'], 'a-new')
+        self.assertEqual(found['title'], 'Grafana Labs · Technical 1')  # the interview's title names the run too
         found = {}  # an interview linked to no job: the run links to none
         interviews.run(FakeTracker([]), note='/interview Mystery Co\n' + 'Long notes about the call. ' * 5,
                        client=FakeClient(), now=NOW, found=found)
-        self.assertEqual(found, {})
+        self.assertNotIn('application', found)
 
     def test_later_stage_is_not_moved_back_and_unknown_application_is_unlinked(self):
         tracker = FakeTracker([app('o-1', 'Acme', 'Offer', '2026-09-01')])
@@ -680,7 +681,7 @@ class ReviewAgainTests(unittest.TestCase):
         client, sent = ResultClient(AGAIN_REVIEW), []
         found = {}
         log = interviews.run(tracker, page_id=page_id, client=client, now=NOW, send=sent.append, found=found)
-        self.assertEqual(found, {'application': tracker.apps[0]['id']})  # Review again: its run links to the job too
+        self.assertEqual(found, {'application': tracker.apps[0]['id'], 'title': 'Huxley · Recruiter screen'})  # Review again: its run links to the job too, under the row's own title
 
         self.assertEqual(len(client.calls), 1)  # one Sonnet call
         self.assertIn('HQ Greece', client.calls[0]['messages'][0]['content'] + AGAIN_REVIEW['summary'])

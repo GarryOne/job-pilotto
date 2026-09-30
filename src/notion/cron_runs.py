@@ -131,18 +131,58 @@ def report_lines(run):
 
 # A jobs check crawls feeds; its counters (feeds, new, changed…) mean nothing on other runs, so those stay empty.
 CRAWL_MODES = {'scheduled', 'run', 'today'}
-NAMES = {'scheduled': 'Jobs check', 'run': 'Jobs check', 'today': "Today's list", 'mail': 'Gmail check', 'rejection': 'Rejection review'}
+# The row's kind, the second part of its title (its Mode column keeps the raw mode; nothing matches rows by title).
+KINDS = {'scheduled': 'Jobs check', 'run': 'Jobs check', 'today': 'Jobs check', 'mail': 'Gmail check', 'scout': 'Find employers',
+         'add': 'Log activity', 'interview': 'Interview review', 'prepare': 'Application kit', 'prep': 'Interview prep',
+         'rejection': 'Rejection review', 'insight': 'Insight', 'weekly': 'Weekly report'}
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
+SUBJECT_MAX = 60
 
 
-def title(run):
-    """'2026-09-29 16:02 · Interview prep kit · Huxley': local time (as Started shows it), what ran, about what."""
+def counted(n, one, many=None, none='nothing new'):
+    """'1 new job', '12 new jobs', or `none` for 0."""
+    return f"{n} {one if n == 1 else many or one + 's'}" if n else none
+
+
+def job_subject(row=None, company='', role='', via=''):
+    """What a one-job run was about: "Company — Role" ("via Agency — Role" when only the agency is known), from its
+    Applications row (a Notion page or its properties) or the given names. The role without a generated " · Company" /
+    " · via Agency" suffix (titles.role_of), so the employer is never named twice."""
+    from . import titles
+    if row:
+        props = row.get('properties', row) or {}
+        company, via = titles.text_value(props.get('Company')), titles.text_value(props.get('Via'))
+        role = titles.row_role(row)
+    else:
+        role = titles.role_of(role, company, via)
+    who = titles.named(company) or (titles.VIA + titles.named(via) if titles.named(via) else '')
+    return ' — '.join(part for part in (who, (role or '').strip()) if part)
+
+
+def subject(run):
+    """What the run was about, in a few words: set by the job itself (a job's "Company — Role", an interview's title, an
+    insight's category), else from the run's own numbers (a jobs check's new jobs, a Gmail check's updates). '' when
+    there's nothing to say (a weekly report). Never an email address or anything not already in Notion."""
+    text = run.get('subject') or ''
+    if not text and run.get('mode') in CRAWL_MODES and 'new' in run:
+        text = counted(run['new'], 'new job')
+    elif not text and run.get('mode') == 'mail' and 'mail' in run:
+        updates, emails = len(run.get('updates') or []), (run.get('mail') or {}).get('done', 0)
+        text = counted(updates, 'update') if updates else counted(emails, 'email checked', 'emails checked', 'no updates')
+    text = ' '.join(str(text).split())
+    return text if len(text) <= SUBJECT_MAX else text[:SUBJECT_MAX - 1].rstrip(' ,·-–—/|(') + '…'
+
+
+def title(run, final=True):
+    """'2026-09-29 16:02 · Interview prep · Huxley — Principal SRE': local time (as Started shows it), what ran, about
+    what. The subject is known at the end: a row opened at the start (final=False) or a run that failed keeps
+    'date · Kind'."""
     try:
         at = datetime.fromisoformat(run['started_at']).astimezone(TZ).strftime('%Y-%m-%d %H:%M')
     except (KeyError, ValueError):
         at = str(run.get('started_at', ''))[:16].replace('T', ' ')
-    name = NAMES.get(run['mode']) or ONE_OFF.get(run['mode']) or run['mode']
-    return ' · '.join(part for part in (at, name, run.get('subject')) if part)[:200]
+    name = KINDS.get(run['mode']) or ONE_OFF.get(run['mode']) or run['mode']
+    return ' · '.join(part for part in (at, name, subject(run) if final else '') if part)[:200]
 
 
 JOB_LINE = 'Job logged: '
@@ -159,19 +199,21 @@ def log_job(run, row, created):
     job = {'page_id': row['id'], 'url': row.get('url') or f"https://www.notion.so/{row['id'].replace('-', '')}",
            'title': title, 'job_url': (props.get('Job URL') or {}).get('url') or '', 'created': bool(created)}
     run['application'] = row['id']
+    run['subject'] = job_subject(row)  # the run's title names the job
     print(JOB_LINE + json.dumps(job, ensure_ascii=False))
     return job
 
 
-def run_page(run):
+def run_page(run, final=True):
     """(properties, children) for one Cronjob Runs row. The core columns every run fills; the rest belong to one kind
     of run and stay empty on the others (hidden in Notion): a jobs check's crawl numbers, a Gmail check's emails, the
-    Application a one-job run was for. Each AI step (model, tokens, cost), the report and the log are on the page."""
+    Application a one-job run was for. Each AI step (model, tokens, cost), the report and the log are on the page.
+    final: the end-of-run write, whose title names what the run was about (title())."""
     lines = report_lines(run)
     crawl, mail = run['mode'] in CRAWL_MODES, run['mode'] == 'mail'
     only = lambda applies, value: {'number': value if applies else None}
     properties = {
-        'Run': {'title': [{'text': {'content': title(run)}}]},
+        'Run': {'title': [{'text': {'content': title(run, final)}}]},
         'Started': {'date': {'start': run['started_at']}},
         'Duration (s)': {'number': run.get('seconds')},
         'Mode': {'select': {'name': run['mode']}},
@@ -251,7 +293,7 @@ def begin(tracker, run):
     if not tracker or not CRON_RUNS_DATABASE_ID:
         return None
     try:
-        properties = {key: value for key, value in run_page(run)[0].items()
+        properties = {key: value for key, value in run_page(run, final=False)[0].items()
                       if key in ('Run', 'Started', 'Mode', 'Trigger', 'Run URL')}
         properties['Status'] = {'select': {'name': 'Running'}}
         page = tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID}, 'properties': properties})
@@ -336,7 +378,7 @@ def log_run(tracker, run, failed=False):
     """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises)."""
     from .. import telegram
     try:
-        properties, children = run_page(run)
+        properties, children = run_page(run, final=not failed)
         if failed:
             properties['Status'] = {'select': {'name': 'Failed'}}
         children = children[:50] + extra_blocks(telegram.MESSAGES, list(_output))

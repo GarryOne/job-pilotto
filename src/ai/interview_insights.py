@@ -387,6 +387,7 @@ def main(argv=None):
     from ..notion import cron_runs
     run = cron_runs.new_run('insight')
     run['insight'] = {}
+    run['subject'] = CATEGORY  # "Interview patterns", in the run's title
     try:
         out = update(tracker, stats=run['insight'])
     except Exception as error:  # noqa: BLE001 - the page says what failed

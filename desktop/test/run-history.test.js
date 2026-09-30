@@ -84,3 +84,15 @@ test('two runs started in the same minute keep apart (the activity list selects 
   assert.notEqual(a.id, b.id);
   assert.ok(Math.abs(a.id - Date.parse(props.started)) < 1000 && Math.abs(b.id - Date.parse(props.started)) < 1000);
 });
+
+test('a row reads the same with an old or a new title: the kind comes from Mode, never from the title', () => {
+  const props = {started: '2026-09-30T09:44:00Z', mode: 'add', status: 'OK', trigger: 'Mac (you)', seconds: 20, summary: 'Tracked recruiter lead'};
+  const titled = run => ({...row('3ea62be8-fd86-8145-b7a4-f8301f01b089', props), properties: {...row('x', props).properties, Run: {title: [{plain_text: run}]}}});
+  const old = history.fromRow(titled('2026-09-30 11:44 · Logged activity'), NOW);
+  const bare = history.fromRow(titled('add'), NOW);
+  const fresh = history.fromRow(titled('2026-09-30 11:44 · Log activity · Duvo.ai — SRE'), NOW);
+  assert.deepEqual(fresh, old);
+  assert.deepEqual(bare, old);
+  assert.equal(fresh.kind, 'add');
+  assert.equal(fresh.mode, 'add');
+});

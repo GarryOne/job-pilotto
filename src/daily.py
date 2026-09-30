@@ -198,7 +198,8 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
         stats.update(pending=1, done=1)
     page, _ = tracker.mark(job, 'Kit ready')
     if run is not None:
-        run['application'] = page['id']  # the run links to the job it was for
+        run['application'] = page['id']  # the run links to the job it was for, and its title names it
+        run['subject'] = cron_runs.job_subject(page) or cron_runs.job_subject(company=job.get('company', ''), role=job.get('title', ''))
     tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
     kit.record_next_step(tracker, page, drafted)
     kit.record_cost(tracker, page, model, usage)
@@ -449,6 +450,7 @@ def main():
                                     stats=run['interview'], job_url=args.job, page_id=args.interview, found=reviewed)
             if reviewed.get('application'):
                 run['application'] = reviewed['application']  # the run links to the job it was for
+            run['subject'] = reviewed.get('title', '')  # the run's title names the interview ("Huxley · Recruiter screen")
             run['headline'] = result.split(' https://')[0]
             print(result)
             run['interview'].update(pending=1, done=1)
@@ -487,6 +489,7 @@ def main():
                 run['headline'] = make(db, tracker, send=sender, stats=run['insight'],
                                        **({'force': True} if args.mode == 'insight' else {})) or \
                     ('No new insight: nothing worth saying today' if args.mode == 'insight' else 'Weekly report: nothing to report')
+                run['subject'] = insights.category_of(run['headline']) if args.mode == 'insight' else ''
                 print(run['headline'])
                 log_ai_run(tracker, run, args)
             except Exception as error:

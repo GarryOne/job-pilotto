@@ -245,7 +245,7 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 
 | Property | Type | Notes |
 |---|---|---|
-| Run | Title | "YYYY-MM-DD HH:MM · mode" (UTC) |
+| Run | Title | "YYYY-MM-DD HH:MM · Kind · subject" (local time), e.g. "2026-09-30 11:44 · Log activity · Duvo.ai — SRE", "… · Gmail check · 3 updates". Subject set at the end; a running or failed run keeps "date · Kind". Code reads Mode, never this title |
 | Started | Date | With time |
 | Duration (s) | Number | |
 | Mode | Select | `scheduled`, `run`, `today`, `prepare`, `insight`, `weekly`, `interview`, `mail` — every AI job logs a row, so they add up to the month's AI spend (the budget guard sums them) |

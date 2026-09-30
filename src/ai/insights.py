@@ -440,6 +440,14 @@ def notion_properties(insight, today, model, usd):
     }
 
 
+SENT = 'Insight sent: '
+
+
+def category_of(summary):
+    """The category of the insight run() sent, from its summary line ('' when none was sent)."""
+    return summary[len(SENT):].split(' — ')[0].strip() if (summary or '').startswith(SENT) and ' — ' in summary else ''
+
+
 def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, client=None, stats=None):
     """Make and send today's insight unless one exists already (or it's before SEND_HOUR_UTC).
     send(text, keyboard) delivers it; returns a one-line summary."""
@@ -467,4 +475,4 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
     learning.publish(tracker, insight['issues'], now, model)
     if send:
         send(message(insight), keyboard(page['id']))
-    return f"Insight sent: {insight['category']} — {insight['headline']} ({usd:.3f} USD)"
+    return f"{SENT}{insight['category']} — {insight['headline']} ({usd:.3f} USD)"

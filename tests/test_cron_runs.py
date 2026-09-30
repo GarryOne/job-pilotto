@@ -53,7 +53,7 @@ class ReportTest(unittest.TestCase):
 
     def test_page_properties(self):
         props, children = cron_runs.run_page(sample_run())
-        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-26 10:00 · Jobs check')  # local time, as Started shows it
+        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-26 10:00 · Jobs check · 3 new jobs')  # local time, as Started shows it
         self.assertEqual(props['Status']['select']['name'], 'Warnings')  # one feed failed
         self.assertEqual(props['AI cost (USD)']['number'], 0.034)
         self.assertNotIn('Cost kits (USD)', props)  # retired: each step's cost is on the page
@@ -64,10 +64,10 @@ class ReportTest(unittest.TestCase):
 
     def test_a_one_off_run_fills_only_what_applies_to_it(self):
         run = {'mode': 'prep', 'started_at': '2026-09-29T14:02:00+00:00', 'trigger': 'Mac (you)', 'warnings': [], 'seconds': 73,
-               'subject': 'Huxley', 'application': 'app-page-1', 'headline': 'Huxley · Principal SRE: Prep kit ready',
+               'subject': 'Huxley — Principal SRE', 'application': 'app-page-1', 'headline': 'Huxley · Principal SRE: Prep kit ready',
                'interview': {'model': 'claude-sonnet-5', 'usd': 0.0475, 'tokens_in': 10486, 'tokens_out': 3148}}
         props, children = cron_runs.run_page(run)
-        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-29 16:02 · Interview prep kit · Huxley')
+        self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-29 16:02 · Interview prep · Huxley — Principal SRE')
         for name in ('Feeds', 'New jobs', 'Closed stale', 'Emails', 'Updates', 'Kits', 'Scored'):
             self.assertIsNone(props[name]['number'], name)  # another kind's column: empty, not 0
         self.assertEqual(props['Application'], {'relation': [{'id': 'app-page-1'}]})
@@ -128,6 +128,91 @@ class ReportTest(unittest.TestCase):
                 return {'url': 'https://notion.so/row'}
         self.assertEqual(cron_runs.log_run(Tracker(), sample_run()), 'https://notion.so/row')
         self.assertEqual(calls[0]['parent']['database_id'], cron_runs.CRON_RUNS_DATABASE_ID)
+
+
+def row(job, company='', via=''):
+    rich = lambda value: {'rich_text': [{'plain_text': value}]}
+    return {'id': 'app-1', 'properties': {'Job': {'title': [{'plain_text': job}]}, 'Company': rich(company), 'Via': rich(via)}}
+
+
+class RunTitleTest(unittest.TestCase):
+    """"date · Kind · subject": each row says what ran and what it was about, so the list is read without opening it."""
+    AT = '2026-09-30T09:44:00+00:00'  # 11:44 in Zurich
+
+    def title(self, mode, final=True, **extra):
+        return cron_runs.title(dict({'mode': mode, 'started_at': self.AT, 'warnings': []}, **extra), final)
+
+    def test_each_kind_names_what_it_was_about(self):
+        cases = [
+            (('scheduled',), {'new': 12, 'feeds': 40}, 'Jobs check · 12 new jobs'),
+            (('run',), {'new': 1}, 'Jobs check · 1 new job'),
+            (('today',), {'new': 0}, 'Jobs check · nothing new'),
+            (('mail',), {'mail': {'done': 5}, 'updates': ['a']}, 'Gmail check · 1 update'),
+            (('mail',), {'mail': {'done': 5}, 'updates': ['a', 'b', 'c']}, 'Gmail check · 3 updates'),
+            (('mail',), {'mail': {'done': 5}, 'updates': []}, 'Gmail check · 5 emails checked'),
+            (('mail',), {'mail': {'done': 0}, 'updates': []}, 'Gmail check · no updates'),
+            (('scout',), {'subject': cron_runs.counted(4, 'new feed')}, 'Find employers · 4 new feeds'),
+            (('scout',), {'subject': cron_runs.counted(0, 'new feed')}, 'Find employers · nothing new'),
+            (('add',), {'subject': cron_runs.job_subject(row('SRE', 'Duvo.ai'))}, 'Log activity · Duvo.ai — SRE'),
+            (('interview',), {'subject': 'Huxley · Recruiter screen'}, 'Interview review · Huxley · Recruiter screen'),
+            (('prepare',), {'subject': 'Acme — Platform Engineer'}, 'Application kit · Acme — Platform Engineer'),
+            (('prep',), {'subject': 'Acme — Staff SRE'}, 'Interview prep · Acme — Staff SRE'),
+            (('rejection',), {'subject': 'Acme — Staff SRE'}, 'Rejection review · Acme — Staff SRE'),
+            (('insight',), {'subject': 'Interview patterns'}, 'Insight · Interview patterns'),
+            (('weekly',), {'headline': '9 applications sent'}, 'Weekly report'),
+        ]
+        for (mode,), extra, expected in cases:
+            self.assertEqual(self.title(mode, **extra), f'2026-09-30 11:44 · {expected}', (mode, extra))
+
+    def test_no_subject_leaves_date_and_kind(self):
+        for mode in ('add', 'interview', 'prepare', 'insight', 'scheduled', 'mail', 'scout'):
+            self.assertEqual(self.title(mode).count(' · '), 1, mode)  # no crawl/mail numbers yet: none invented
+
+    def test_a_job_subject_never_names_the_employer_twice(self):
+        self.assertEqual(cron_runs.job_subject(row('Principal SRE · via Huxley', via='Huxley')), 'via Huxley — Principal SRE')
+        self.assertEqual(cron_runs.job_subject(row('Principal SRE · Acme', 'Acme', 'Huxley')), 'Acme — Principal SRE')
+        self.assertEqual(cron_runs.job_subject(row('SRE', 'unknown')), 'SRE')
+        self.assertEqual(cron_runs.job_subject(company='Acme', role='SRE · Acme'), 'Acme — SRE')
+
+    def test_a_long_subject_is_shortened(self):
+        long = 'Acme — ' + 'Senior Principal Site Reliability Engineer, Platform Infrastructure'
+        text = self.title('prepare', subject=long).split(' · ', 2)[2]
+        self.assertLessEqual(len(text), cron_runs.SUBJECT_MAX)
+        self.assertTrue(text.endswith('…') and text.startswith('Acme — Senior'))
+
+    def test_opened_and_failed_rows_keep_the_simple_title(self):
+        self.assertEqual(self.title('prep', final=False, subject='Acme — SRE'), '2026-09-30 11:44 · Interview prep')
+        sent = []
+        class Tracker:
+            def _request(self, method, path, body):
+                sent.append(body)
+                return {'id': 'row-1', 'url': 'https://notion.so/row'}
+        run = {'mode': 'prep', 'started_at': self.AT, 'warnings': [], 'subject': 'Acme — SRE'}
+        cron_runs.log_run(Tracker(), run, failed=True)
+        self.assertEqual(sent[0]['properties']['Run']['title'][0]['text']['content'], '2026-09-30 11:44 · Interview prep')
+        self.assertEqual(sent[0]['properties']['Status']['select']['name'], 'Failed')
+
+    def test_the_end_of_run_write_sets_the_title_once(self):
+        from unittest import mock
+        titles = []
+        class Tracker:
+            def _request(self, method, path, body):
+                if 'Run' in (body.get('properties') or {}):
+                    titles.append(body['properties']['Run']['title'][0]['text']['content'])
+                return {'id': 'row-1', 'url': 'https://notion.so/row'}
+        run = {'mode': 'add', 'started_at': self.AT, 'warnings': []}
+        with mock.patch.object(cron_runs, 'CRON_RUNS_DATABASE_ID', 'db'), mock.patch.dict(cron_runs._open, clear=True), \
+                mock.patch.object(cron_runs, 'capture'), mock.patch('builtins.print'):
+            cron_runs.begin(Tracker(), run)
+            cron_runs.log_job(run, row('SRE', 'Duvo.ai'), True)
+            cron_runs.log_run(Tracker(), run)
+        self.assertEqual(titles, ['2026-09-30 11:44 · Log activity', '2026-09-30 11:44 · Log activity · Duvo.ai — SRE'])
+        self.assertEqual(cron_runs.title(run), titles[-1])  # the same run always gives the same title
+
+    def test_an_insights_category_comes_from_its_summary(self):
+        from src.ai import insights
+        self.assertEqual(insights.category_of('Insight sent: Market — Fewer SRE roles (0.010 USD)'), 'Market')
+        self.assertEqual(insights.category_of('Insight: nothing new today (0.010 USD)'), '')
 
 
 class DailyHelpersTest(unittest.TestCase):

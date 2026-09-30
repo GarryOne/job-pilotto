@@ -440,7 +440,7 @@ def logged_build(tracker, row, client=None, now=None):
     Failed with the error, so nothing only lives in the dialog. It counts toward the month's AI budget."""
     from ..notion import cron_runs
     run = cron_runs.new_run('prep')
-    run['subject'] = mail._field(row, 'Company') or mail._field(row, 'Via')  # the row's title names the employer
+    run['subject'] = cron_runs.job_subject(row)  # the row's title (at the end) names the job: "Company — Role"
     run['application'] = row['id']  # the run links to the job it was for
     run['headline'] = f"{mail._field(row, 'Company') or mail._field(row, 'Via')} · {mail._role(row)}"[:200]
     started = datetime.now(timezone.utc)
