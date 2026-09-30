@@ -19,6 +19,13 @@ const storage = (settings = {}, secrets = {}) => {
 
 // A fake `claude`: --version, --help, and `-p` answers as FAKE_MODE says; each call's args, stdin, folder and the
 // auth variables it saw are appended to calls.json.
+// POSIX only: the fake is a script with a shebang, and Windows runs a program only with a real extension. Its
+// claude.exe (the native installer, what claudeBinary prefers there) cannot be faked in a test, and npm's claude.cmd
+// cannot be launched at all without cmd.exe quoting this integration cannot do for a system prompt and a JSON schema
+// (lib/claude-code.js runs it with execFile/spawn; lib/claude-session.js:107 says the same for its long argument).
+// So the three tests that need a RUNNING Claude Code are Mac/Linux; the Windows discovery path is in app.test.js
+// ("claudeBinary ... claude.cmd"), and Windows runs the app's own smoke test after build.
+const FAKE_ONLY_POSIX = process.platform === 'win32' && 'the fake is a shebang script: Windows runs .exe/.cmd only';
 function fakeClaude(mode) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-claude-'));
   const file = path.join(dir, 'claude'), log = path.join(dir, 'calls.json');
@@ -75,7 +82,7 @@ test('Claude Code gets the user\'s own environment: never the app\'s API key or 
   assert.deepEqual(env, {PATH: '/bin', HOME: '/h'});
 });
 
-test('detect: installed with its version and path; missing', async () => {
+test('detect: installed with its version and path; missing', {skip: FAKE_ONLY_POSIX}, async () => {
   const fake = fakeClaude('ok');
   try {
     assert.deepEqual(await claudeCode.detect({binary: () => fake.file}), {installed: true, path: fake.file, version: '2.1.7'});
@@ -83,7 +90,7 @@ test('detect: installed with its version and path; missing', async () => {
   } finally { fake.cleanup(); }
 });
 
-test('verify: one tiny haiku call, no tools; signed in, signed out, over the limit, not installed', async () => {
+test('verify: one tiny haiku call, no tools; signed in, signed out, over the limit, not installed', {skip: FAKE_ONLY_POSIX}, async () => {
   for (const [mode, authenticated, error] of [['ok', true, ''], ['signed-out', false, /run claude in Terminal|sign in/i], ['limit', true, /usage window/]]) {
     const fake = fakeClaude(mode), st = storage({}, {ANTHROPIC_API_KEY: 'sk-test'});
     try {
@@ -105,7 +112,7 @@ test('verify: one tiny haiku call, no tools; signed in, signed out, over the lim
   assert.match(missing.error, /not installed/);
 });
 
-test('the app\'s own calls on Claude Code: a PDF becomes a file only Read may open; structured answers; one repair', async () => {
+test('the app\'s own calls on Claude Code: a PDF becomes a file only Read may open; structured answers; one repair', {skip: FAKE_ONLY_POSIX}, async () => {
   const fake = fakeClaude('schema');
   try {
     const client = claudeCode.cliClient(fake.file);
