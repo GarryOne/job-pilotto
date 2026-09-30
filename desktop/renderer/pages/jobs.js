@@ -75,7 +75,8 @@ function renderTalking(narrowed = false) {
   const talking = inConversation(shared.allJobs);
   show($('jobs-talking'), talking.length > 0 && !narrowed);
   const found = talking.filter(isInbound).length;
-  $('jobs-talking-count').textContent = [found && `${found} found you`, talking.length - found && `${talking.length - found} you applied to`].filter(Boolean).join(' · ');
+  const mixed = found > 0 && found < talking.length;  // a tag per row only tells something when both kinds are listed
+  $('jobs-talking-count').textContent = [found && `${found} inbound`, talking.length - found && `${talking.length - found} outbound`].filter(Boolean).join(' · ');
   $('jobs-talking-list').replaceChildren(...talking.map(job => {
     const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
       title: job.notion_url ? 'Open in Notion' : 'Open the link'});
@@ -85,7 +86,7 @@ function renderTalking(narrowed = false) {
     top.append(el('span', 'focus-headline', job.title || 'Role'), pill(job.stage || 'Recruiter lead', 'info', {dot: true}));
     const meta = el('div', 'focus-meta muted small');
     const who = [job.company, job.via && job.via !== job.company ? `via ${job.via}` : ''].filter(Boolean).join(' ');
-    [who, job.next_step ? `Next: ${job.next_step}` : ''].filter(Boolean).forEach((part, i) => {
+    [who, mixed ? (isInbound(job) ? 'Inbound' : 'Outbound') : '', job.next_step ? `Next: ${job.next_step}` : ''].filter(Boolean).forEach((part, i) => {
       if (i) meta.append(el('span', 'sep', '·'));
       meta.append(el('span', '', part));
     });
