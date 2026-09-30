@@ -87,11 +87,11 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
   const head = el('div', 'iv-insight-head');
   const title = el('div', 'iv-insight-title');
   const h2 = el('h2', 'with-glyph');
-  h2.append(icon('bulb'), view.title || 'Interview insights');
   const toggle = Object.assign(el('button', 'ghost iv-insight-toggle'), {type: 'button', title: collapsed ? 'Show the insights' : 'Hide the insights'});
   toggle.setAttribute('aria-expanded', String(!collapsed));
   toggle.setAttribute('aria-label', collapsed ? 'Show the insights' : 'Hide the insights');
   toggle.append(icon('chevron'));  // its click (or Enter) bubbles to the bar, which does the folding
+  h2.append(icon('bulb'), view.title || 'Interview insights', toggle);  // the arrow sits right after the title
   title.append(h2, el('div', 'muted small iv-insight-basis', view.subtitle || view.basis));
   const side = el('div', 'iv-insight-side');
   if (note) side.append(el('span', 'muted small', note));
@@ -107,7 +107,7 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
   button.append(busy ? el('span', 'spinner small') : icon('refresh'), el('span', '', busy ? 'Refreshing…' : 'Refresh insights'));
   button.addEventListener('click', event => { event?.stopPropagation(); refresh(); });  // on the bar, but it only refreshes
   side.append(button);
-  head.append(toggle, title, side);
+  head.append(title, side);
   head.addEventListener('click', () => onToggle());  // anywhere on the bar folds and unfolds the card
   head.classList.add('is-clickable');
   if (collapsed) return [head];
