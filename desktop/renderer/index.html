@@ -28,10 +28,12 @@
       <li data-step="draft">Your strategy</li>
       <li data-step="extras">Optional extras</li>
     </ol>
-    <button class="wizard-exit" id="wizard-exit" hidden>✕ Back to the app</button>
-    <button class="link wizard-stuck" id="wizard-stuck" type="button">Stuck? Tell us</button>
-    <p class="fine">Your data stays in your own accounts: this Mac and your Notion. Keys are encrypted with your Mac's Keychain.</p>
-    <p class="fine app-version" data-version></p>
+    <div class="steps-foot">
+      <button class="nav wizard-exit" id="wizard-exit" type="button" hidden><i data-icon="undo"></i>Back to the app</button>
+      <button class="nav wizard-stuck" id="wizard-stuck" type="button"><i data-icon="help"></i>Stuck? Tell us</button>
+      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Your data stays in your accounts: this Mac and your Notion. Keys are encrypted in your Keychain.</span></p>
+      <p class="fine app-version" data-version></p>
+    </div>
   </aside>
 
   <div class="step-body">

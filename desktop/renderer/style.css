@@ -1454,3 +1454,15 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .steps .brand:has(.dev-tag) { font-size: var(--fs-md); white-space: nowrap; gap: var(--sp-2); }
 /* Done steps: a quiet outline check in the rail's colours, no turquoise (owner, 30 Sep); amber stays for the current step. */
 .steps li.done::before { background: transparent; border-color: var(--on-rail-3); color: var(--on-rail); }
+
+/* Setup sidebar foot: like the app menu's bottom (a line above, nav-style rows with line icons, quiet fine print). */
+.steps-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: var(--sp-3); border-top: 1px solid var(--rail-line); }
+.steps-foot .nav { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 10px; width: 100%; margin: 0; background: transparent;
+  color: var(--on-rail); font-weight: 600; font-size: var(--fs-md); padding: 8px 12px; border: 1px solid transparent; border-left-width: 3px;
+  border-radius: var(--r-md); text-align: left; opacity: 1; align-self: stretch; }
+.steps-foot .nav[hidden] { display: none; }
+.steps-foot .nav:hover { background: var(--rail-hover); color: var(--on-rail); }
+.steps-foot .nav .icon { width: 18px; height: 18px; color: var(--on-rail-3); }
+.steps-privacy { display: flex; gap: var(--sp-2); align-items: flex-start; margin: var(--sp-3) 12px 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--on-rail-3); }
+.steps-privacy .icon { flex: none; width: 14px; height: 14px; margin-top: 1px; }
+.steps-foot .app-version { margin: var(--sp-2) 12px 0; }
