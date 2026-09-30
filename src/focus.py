@@ -34,7 +34,7 @@ from zoneinfo import ZoneInfo
 from . import telegram
 from . import feedback
 from .features import disabled
-from .notion import client as notion
+from .notion import client as notion, titles
 from .notion import funnel as funnel_steps
 from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, heal_touched, plain
 
@@ -69,6 +69,12 @@ def _field(row, name):
     return plain(row['properties'].get(name)) or ''
 
 
+def _role(row):
+    """The job's role, without the " · Acme" / " · via Huxley" its title carries (src/notion/titles.py): every Focus
+    line names the employer or agency itself."""
+    return titles.row_role(row) if row else ''
+
+
 def _gmail(source_id):
     return f'https://mail.google.com/mail/u/0/#all/{source_id}' if source_id and not source_id.startswith('cal:') else ''
 
@@ -76,7 +82,7 @@ def _gmail(source_id):
 def _item(priority, kind, emoji, title, detail, row=None, link='', link_label='', done=False, **extra):
     field = lambda name: _field(row, name) if row else ''
     return {'priority': priority, 'kind': kind, 'emoji': emoji, 'title': title, 'detail': detail,
-            'company': field('Company'), 'job': field('Job'), 'via': field('Via'), 'stage': field('Stage'),
+            'company': field('Company'), 'job': _role(row), 'via': field('Via'), 'stage': field('Stage'),
             'salary': field('Salary'), 'location': field('Location'), 'reached': field('Reached via'),
             'job_url': field('Job URL'), 'page_id': row['id'] if row else '',
             'notion_url': (row or {}).get('url', ''), 'link': link, 'link_label': link_label, 'done': done, **extra}
@@ -293,7 +299,7 @@ def questions(rows, events):
         suggested = by_url.get((props.get('Suggested job') or {}).get('url') or '')
         note, kind = plain(props.get('Note')), plain(props.get('Kind'))
         at = _when(((props.get('At') or {}).get('date') or {}).get('start') or '')
-        label = f"{_field(suggested, 'Company') or _field(suggested, 'Via') or '?'} — {_field(suggested, 'Job')[:60]}" if suggested else ''
+        label = f"{_field(suggested, 'Company') or _field(suggested, 'Via') or '?'} — {_role(suggested)[:60]}" if suggested else ''
         title = f'Is this email about {label}?' if suggested else 'Which job is this email about?'
         detail = f"{kind}{f', {at.astimezone(TZ):%a %d %b %H:%M}' if at else ''}: {note[:220]}"
         asked.append(_item(1, 'which_job', '❓', title, detail, suggested, event_id=event['id'], event_kind=kind, note=note,
@@ -343,13 +349,13 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             coming_at = _when(_field(row, 'Next interview'))
             when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
             who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
-            items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_field(row, 'Job')[:70]}",
+            items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_role(row)[:70]}",
                                f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
                                "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
                                row, missing=missing))
         last = history[-1] if history else None
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
-        label = f"{company} — {_field(row, 'Job')[:70]}"
+        label = f"{company} — {_role(row)[:70]}"
         if last and last['kind'] in NEEDS_ANSWER:
             job_url = _field(row, 'Job URL')
             link = _gmail(last['source_id']) or (job_url if re.search(r'mail\.google\.com|linkedin\.com/messaging', job_url) else '')
@@ -445,7 +451,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         lesson = _field(row, 'Rejection lesson')
         first = re.split(r'(?<=[.;])\s', lesson, maxsplit=1)[0].rstrip('.;')
         insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 110),
-                   'detail': f"{_field(row, 'Company')} — {_field(row, 'Job')}", 'lesson': lesson,
+                   'detail': f"{_field(row, 'Company')} — {_role(row)}", 'lesson': lesson,
                    'notion_url': row.get('url', ''), 'page_id': row['id']}
     fresh = [r for r in insights if _field(r, 'Date')[:10] >= (now - timedelta(days=7)).date().isoformat()
              and _field(r, 'Category') != 'Interview patterns']  # that one is shown on the Interviews page

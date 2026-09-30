@@ -1,7 +1,7 @@
 """Cross-application learning evidence and conservative validation of global advice. No model calls."""
 from datetime import timedelta
 import os
-from ..notion import client as notion
+from ..notion import client as notion, titles
 from ..notion.ledger import plain
 from . import interviews
 
@@ -47,7 +47,7 @@ def evidence(tracker, now):
             return
         props = row['properties']
         out.append({'source_id': source_id or f"{row['id']}:{source}", 'application': row['id'].replace('-', ''),
-                    'company': plain(props.get('Company')) or '', 'role': plain(props.get('Job')) or '',
+                    'company': plain(props.get('Company')) or '', 'role': titles.row_role(props),
                     'stage': plain(props.get('Stage')) or '', 'date': date, 'source_type': source,
                     'url': row.get('url', ''), 'text': text[:6000]})
 

@@ -26,7 +26,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from ..notion import client as notion, ledger
-from ..notion import origin as origin_rule
+from ..notion import origin as origin_rule, titles
 from ..notion.ledger import REPLY, _block, add_event, plain
 from . import added, cost, mail, opportunity
 
@@ -276,10 +276,21 @@ def _fill_gaps(tracker, row, item):
                for name, key in GAPS.items() if item.get(key) and not plain(row['properties'].get(name))}
     # A job known only from an invitation ("SRE"): the fuller title the message gives ("Principal SRE"), when it
     # contains the one there (never a different role).
-    title, current = (item.get('role') or item.get('title') or '').strip(), plain(row['properties'].get('Job'))
+    props = row['properties']
+    title, current = (item.get('role') or item.get('title') or '').strip(), plain(props.get('Job')) or ''
+    company, via = plain(props.get('Company')) or '', plain(props.get('Via')) or ''
+    role = titles.role_of(current, company, via)
     words = lambda text: set(re.findall(r'[a-z0-9]+', text.lower()))
-    if title and current and len(title) > len(current) and words(current) <= words(title):
-        changes['Job'] = {'title': [{'text': {'content': title[:200]}}]}
+    fuller = title if title and role and len(title) > len(role) and words(role) <= words(title) else ''
+    if origin_rule.row_origin(row) == origin_rule.INBOUND:
+        # It found you: its title names who it is for, now the employer is known ("Principal SRE · Acme"), unless
+        # you edited it (src/notion/titles.py).
+        known = changes['Company']['rich_text'][0]['text']['content'] if 'Company' in changes else company
+        new = titles.retitled(current, known, via, was=(company, via), role=fuller or None)
+        if new:
+            changes['Job'] = titles.title_property(new)
+    elif fuller:
+        changes['Job'] = titles.title_property(fuller)
     platform = item.get('platform')
     began = mail._when(item.get('first_contact') or '') or mail._when(item.get('when') or '')
     tracked = mail._when(row.get('created_time') or '')
@@ -291,7 +302,7 @@ def _fill_gaps(tracker, row, item):
             row['properties'][name] = ({'type': 'select', 'select': value['select']} if 'select' in value else
                                        {'type': 'title', 'title': [{'plain_text': value['title'][0]['text']['content']}]} if 'title' in value else
                                        {'type': 'rich_text', 'rich_text': [{'plain_text': value['rich_text'][0]['text']['content']}]})
-    named = {'Job': f'the title "{title}"'}
+    named = {'Job': f'the title "{title}"'} if fuller else {}
     filled = [GAPS.get(name) or named[name] for name in changes if name in GAPS or name in named]
     return filled + ([f'first contact on {platform}'] if set(changes) & FIRST_CONTACT else [])
 

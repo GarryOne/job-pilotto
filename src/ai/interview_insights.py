@@ -23,7 +23,7 @@ import re
 import sys
 import urllib.error
 
-from ..notion import client as notion
+from ..notion import client as notion, titles
 from ..notion.ledger import plain
 from . import budget, cost, interviews
 
@@ -103,7 +103,7 @@ def _app(tracker, app_id, seen):
     if app_id not in seen:
         try:
             props = tracker._request('GET', f'pages/{app_id}')['properties']
-            seen[app_id] = {'company': plain(props.get('Company')) or plain(props.get('Via')) or '', 'job': plain(props.get('Job')) or ''}
+            seen[app_id] = {'company': plain(props.get('Company')) or plain(props.get('Via')) or '', 'job': titles.row_role(props)}
         except Exception:  # noqa: BLE001 - a trashed or unshared application: the interview still counts
             seen[app_id] = {}
     return seen[app_id]

@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
-from . import origin
+from . import origin, titles
 
 NOTION_VERSION = '2022-06-28'
 # The default IDs below (here and in scout.py, kit.py) are the maintainer's own Notion workspace.
@@ -204,6 +204,9 @@ class Tracker:
                        # these, the same rule.
                        origin=select(props.get('Origin')) or '', source=select(props.get('Source')) or '', notes=text(props.get('Notes'))[:60],
                        applied_on=((props.get('Applied on') or {}).get('date') or {}).get('start') or '')
+            # The role alone: an Inbound row's title also names the employer or agency ("Principal SRE · via Huxley",
+            # src/notion/titles.py), which the app shows on its own line.
+            row['title'] = titles.role_of(row['title'], row['company'], row['via'])
         return list(found.values())
 
     def hidden_urls(self):

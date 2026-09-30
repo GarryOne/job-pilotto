@@ -322,7 +322,7 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
     earlier = earlier_interviews(tracker, row)
     follow_up = follow_up_text(earlier, latest_events(tracker, row) if earlier else [])
     coming = mail._when(mail._field(row, 'Next interview'))
-    facts = [f"Role: {mail._field(row, 'Job')}", f"Employer: {mail._field(row, 'Company') or 'not named'}",
+    facts = [f"Role: {mail._role(row)}", f"Employer: {mail._field(row, 'Company') or 'not named'}",
              f"Via: {mail._field(row, 'Via') or '—'} (contact: {mail._field(row, 'Contact') or '—'})",
              f"Stage: {mail._field(row, 'Stage')}", f"Salary: {mail._field(row, 'Salary') or 'unknown'}",
              f"Interview: {coming.astimezone(mail.TZ):%a %d %b %H:%M} ({round((coming - now).total_seconds() / 3600)} h from now)"
@@ -442,7 +442,7 @@ def logged_build(tracker, row, client=None, now=None):
     run = cron_runs.new_run('prep')
     run['subject'] = mail._field(row, 'Company') or mail._field(row, 'Via')  # the row's title names the employer
     run['application'] = row['id']  # the run links to the job it was for
-    run['headline'] = f"{mail._field(row, 'Company') or mail._field(row, 'Via')} · {mail._field(row, 'Job')}"[:200]
+    run['headline'] = f"{mail._field(row, 'Company') or mail._field(row, 'Via')} · {mail._role(row)}"[:200]
     started = datetime.now(timezone.utc)
     cron_runs.begin(tracker, run)
     try:

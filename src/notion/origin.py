@@ -24,6 +24,8 @@ Usage:
 import argparse
 import sys
 
+from . import titles
+
 INBOUND, OUTBOUND = 'inbound', 'outbound'
 COLUMN = 'Origin'
 LABELS = {INBOUND: 'Inbound', OUTBOUND: 'Outbound'}
@@ -88,11 +90,17 @@ def row_origin(row, kinds=()):
 def stamp(properties, value=None):
     """A new Applications row's properties with its Origin: `value` ('inbound' / 'outbound') when the creating path
     knows it, else derived from the row as created. The one place every creating path decides it; an Origin already
-    in the properties is kept."""
-    if stored(_plain(properties.get(COLUMN))):
-        return properties
-    decided = stored(value) or origin(**{**row_fields(properties), 'origin': ''})
-    return {**properties, COLUMN: {'select': {'name': LABELS[decided]}}}
+    in the properties is kept. An Inbound row's Job title also names who it is for ("Principal SRE · via Huxley",
+    src/notion/titles.py); an Outbound row keeps the bare role."""
+    decided = stored(_plain(properties.get(COLUMN)))
+    if not decided:
+        decided = stored(value) or origin(**{**row_fields(properties), 'origin': ''})
+        properties = {**properties, COLUMN: {'select': {'name': LABELS[decided]}}}
+    if decided == INBOUND and 'Job' in properties:
+        title = titles.job_title(_plain(properties['Job']), _plain(properties.get('Company')), _plain(properties.get('Via')))
+        if title:
+            properties = {**properties, 'Job': titles.title_property(title)}
+    return properties
 
 
 def backfill(tracker, apply=False):

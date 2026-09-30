@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 
 from ..notion import client as notion
 from ..notion import origin as origin_rule
+from ..notion import titles
 from ..notion.ledger import _block, _text, add_event, heal_touched, plain
 from . import cost
 
@@ -185,7 +186,7 @@ def same_pitch(tracker, lead):
     for row in rows:
         props = row.get('properties', {})
         text = lambda name: ''.join(t.get('plain_text', '') for t in (props.get(name) or {}).get('rich_text') or (props.get(name) or {}).get('title') or [])
-        if words(text('Job')) != role:
+        if words(titles.role_of(text('Job'), text('Company'), text('Via'))) != role:  # the role, not " · via Huxley"
             continue
         if (email and email in text('Contact').lower()) or (agency and words(text('Via')) == agency):
             return row
@@ -236,10 +237,13 @@ def track(tracker, lead, text, *, source, event_source, talking=False, at=None, 
     talking = talking or bool(lead.get('owner_agreed'))
     stage = 'Screening' if talking else LEAD_STAGE
     # A recruiter's pitch: it found you (Inbound, src/notion/origin.py).
-    row = tracker.create_page(tracker.database_id, origin_rule.stamp(properties(lead, url, stage, source), origin_rule.INBOUND))
+    # Its Job title names who it is for: "Principal SRE · via Huxley" (src/notion/titles.py).
+    props = origin_rule.stamp(properties(lead, url, stage, source), origin_rule.INBOUND)
+    row = tracker.create_page(tracker.database_id, props)
     known = row.setdefault('properties', {})  # Notion returns the new row's properties; test fakes may not
     for name, value in (('Company', {'rich_text': [{'plain_text': lead.get('company') or ''}]}),
-                        ('Job', {'title': [{'plain_text': title(lead)}]}), ('Job URL', {'url': url})):
+                        ('Via', {'rich_text': [{'plain_text': titles.text_value(props.get('Via'))}]}),
+                        ('Job', {'title': [{'plain_text': titles.text_value(props.get('Job'))}]}), ('Job URL', {'url': url})):
         known.setdefault(name, value)
     blocks = message_blocks(text) + list(extra_blocks)  # e.g. the screenshot it was read from
     try:

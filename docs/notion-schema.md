@@ -16,11 +16,12 @@ Env var: `NOTION_APPLICATIONS_DB`. One row per opportunity: applied, saved or in
   - Derived rule: Inbound = Stage or event `Recruiter lead`, Notes `Recruiter message (…)`, or Source `LinkedIn` / `Phone`
   - Outbound: the rest; Notes `Logged from a paste (…)` (applied elsewhere) and an empty Source included
   - Funnel: outbound only; inbound in its own Focus card (Inbound funnel)
+- **Inbound title**: `Role · Company`, else `Role · via Agency` (Job column, `src/notion/titles.py`); outbound = role only
 **Rule:** every job you pursue has one Applications row, found or added (by hand, `/add`, a recruiter's LinkedIn/email message); a job you add gets its facts and fit score here (Fit score, Tier, Seniority, Work mode, Recruiter, Salary), never a Job Matches row.
 
 | Property | Type | Notes |
 |---|---|---|
-| Job | Title | |
+| Job | Title | The role. Inbound rows also name who it is for: `Principal SRE · Acme`, or `Principal SRE · via Huxley` while the employer is unknown (`src/notion/titles.py`; updated once the employer is known, never over your own edit). Outbound rows: the role only (Company says the employer) |
 | Company | Text | |
 | Location | Text | |
 | Job URL | URL | Canonical posting URL — the match key everything uses |

@@ -37,7 +37,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from . import client as notion
-from . import origin as origin_rule
+from . import origin as origin_rule, titles
 from ..ai import kit as kit_module
 from ..sources import ats
 
@@ -675,7 +675,7 @@ def duplicate_groups(events):
 def _titles(tracker, applications=None):
     rows = applications if applications is not None else tracker.query_database(tracker.database_id)
     return {row['id'].replace('-', ''): ' — '.join(p for p in (plain(row['properties'].get('Company')),
-                                                               plain(row['properties'].get('Job'))) if p) for row in rows}
+                                                               titles.row_role(row)) if p) for row in rows}
 
 
 def _events_for(tracker, applications=None):

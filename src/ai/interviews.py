@@ -34,6 +34,8 @@ from pathlib import Path
 import urllib.request
 
 from ..notion import client as notion
+from ..notion import titles
+from ..notion.titles import named  # noqa: F401 — the one placeholder rule (job titles too)
 from ..notion.ledger import EVENTS_DATABASE_ID, add_event, heal_touched, plain
 from . import cost, transcribe
 
@@ -170,7 +172,7 @@ def candidates(tracker):
 
 def analyse(client, model, profile, apps, caption, transcript):
     listing = '\n'.join(
-        f"{i}. {plain(r['properties'].get('Company'))} — {plain(r['properties'].get('Job'))} "
+        f"{i}. {plain(r['properties'].get('Company'))} — {titles.row_role(r)} "
         f"(stage {plain(r['properties'].get('Stage'))}, applied {plain(r['properties'].get('Applied on')) or '?'})"
         for i, r in enumerate(apps))
     response = client.messages.create(
@@ -200,7 +202,7 @@ def job_line(app):
         return _block('paragraph', f'🔗 {NO_JOB}')
     props = app.get('properties', {})
     who = plain(props.get('Company')) or plain(props.get('Via')) or 'Job'
-    title = plain(props.get('Job'))
+    title = titles.row_role(app)  # the role: who is already said
     url = app.get('url') or f"https://www.notion.so/{app['id'].replace('-', '')}"
     text = lambda content, link=None: {'type': 'text', 'text': {'content': content, **({'link': dict(url=url)} if link else {})}}
     return {'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': [
@@ -342,21 +344,12 @@ def page_blocks(result, transcript, merged=None):
     return analysis_blocks(result, merged) + [transcript_toggle(transcript)]
 
 
-def named(value):
-    """A company name the call really gave: short, no "unnamed"/"unknown" and no parentheses (a description such as
-    "(unnamed finance client via recruiter)" is not a name). '' when it is not named."""
-    value = (value or '').strip()
-    if not value or len(value) > 60 or '(' in value or ')' in value or re.search(r'unnamed|unknown|not stated|not named|\bn/?a\b', value, re.I):
-        return ''
-    return value
-
-
 def interview_title(company, round_, app=None):
     """"Company · Round": the employer if named (in the call, else the application's Company), else the application's
     Via (agency), else its job title, else just the round."""
     props = (app or {}).get('properties', {})
     name = (named(company) or named(plain(props.get('Company'))) or named(plain(props.get('Via')))
-            or named(plain(props.get('Job'))))
+            or named(titles.row_role(app)))
     return ' · '.join(part for part in (name, (round_ or '').strip()) if part)[:200] or 'Interview'
 
 
@@ -386,7 +379,7 @@ def properties(result, app, today, model, usd, source):
 
 
 def message(result, app, page_url, usd, truncated=False, merged=None, stage=None):
-    title = (f"{escape(plain(app['properties'].get('Company')) or '')} — {escape(plain(app['properties'].get('Job')) or '')}"
+    title = (f"{escape(plain(app['properties'].get('Company')) or '')} — {escape(titles.row_role(app))}"
              if app else f"{escape(named(result['company']) or 'Unknown company')} (not linked to an application)")
     weak = [q for q in result['questions'] if q['quality'] in ('weak', 'not_answered')]
     lines = [f"🎤 <b>Interview · {escape(result['round'])}</b>", title, '', escape(result['summary'])]
@@ -822,7 +815,7 @@ def held(tracker, app_id, notes='', *, now=None):
     who = plain(props.get('Company')) or plain(props.get('Via')) or 'Interview'
     notes = (notes or '').strip()[:MAX_CHARS]
     page = tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': {
-        'Interview': {'title': [{'text': {'content': f"{who} · {plain(props.get('Job')) or 'interview'}"[:200]}}]},
+        'Interview': {'title': [{'text': {'content': f"{who} · {titles.row_role(props) or 'interview'}"[:200]}}]},
         'Date': {'date': {'start': day}}, 'Input': {'select': {'name': 'Notes'}},
         'Application': {'relation': [{'id': app['id']}]}},
         'children': [job_line(app), _block('paragraph', PLACEHOLDER), transcript_toggle(notes or NO_NOTES)]})

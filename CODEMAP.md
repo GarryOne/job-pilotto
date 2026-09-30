@@ -202,6 +202,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/pace.py` — One Notion pace shared with the desktop app and every other process on this computer using the same connection.
 - `src/notion/runs.py` — Notion "🤖 Agent Runs": one row per form-filling session, and the learnings read back from it.
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
+- `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the

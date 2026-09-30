@@ -34,7 +34,7 @@ from zoneinfo import ZoneInfo
 
 from .. import telegram
 from ..notion import client as notion, cron_runs, ledger
-from ..notion import origin as origin_rule
+from ..notion import origin as origin_rule, titles
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
@@ -160,6 +160,12 @@ def _field(row, name):
     return plain(row['properties'].get(name)) or ''
 
 
+def _role(row):
+    """The row's role: its Job title without " · Acme" / " · via Huxley" (src/notion/titles.py), for matching by role
+    words and for lines that name the employer or agency themselves."""
+    return titles.row_role(row)
+
+
 def verified_feedback(value, original):
     """The mail reader may classify, but it cannot invent employer quotations."""
     normal = lambda text: re.sub(r'\s+', ' ', text or '').strip()
@@ -196,7 +202,7 @@ def role_words():
 
 
 def listing(apps):
-    return '\n'.join(f"{i}. {_field(r, 'Company') or '(employer not named)'} — {_field(r, 'Job')} (stage {_field(r, 'Stage')}"
+    return '\n'.join(f"{i}. {_field(r, 'Company') or '(employer not named)'} — {_role(r)} (stage {_field(r, 'Stage')}"
                      f"{', via ' + _field(r, 'Via') if _field(r, 'Via') else ''}"
                      f"{', recruiter ' + _field(r, 'Contact') if _field(r, 'Contact') else ''}, applied {_field(r, 'Applied on') or '?'})"
                      for i, r in enumerate(apps))
@@ -408,7 +414,7 @@ def _ambiguous(apps, row, email):
     mine = org(row)
     if not mine or not any(r is not row and org(r) == mine and _field(r, 'Stage') not in ENDED for r in apps):
         return False
-    title = words(_field(row, 'Job')) - STOP
+    title = words(_role(row)) - STOP
     text = words(f"{email.get('subject', '')} {email.get('body', '')[:6000]}")
     return bool(title) and len(title & text) < max(1, (len(title) + 1) // 2)
 
@@ -422,7 +428,7 @@ SHORT_KIND = {'Confirmation received': 'Application received'}
 def _short(stats, kind, row, extra=''):
     """One short plain line per recorded update, for the desktop app ("❌ Rejected · Grafana Labs — SRE")."""
     if stats is not None:
-        job = re.sub(r'\s*\|\s*Remote\s*$', '', _field(row, 'Job'))[:70]
+        job = re.sub(r'\s*\|\s*Remote\s*$', '', _role(row))[:70]
         stats.setdefault('updates', []).append(
             f"{EMOJI.get(kind, '•')} {SHORT_KIND.get(kind, kind)} · {_who(row)} — {job}{extra}")
 
@@ -433,7 +439,7 @@ def _who(row):
 
 
 def _label(row):
-    return f"{escape(_who(row))} — {escape(_field(row, 'Job'))[:60]}"
+    return f"{escape(_who(row))} — {escape(_role(row))[:60]}"
 
 
 def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None, rejected=None,
@@ -556,7 +562,7 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     company, role = result['company'].strip(), result['role'].strip()
     words = lambda text: ' '.join(re.findall(r'[a-z0-9]+', text.lower()))
     same = [r for r in apps if words(_field(r, 'Company')) == words(company)
-            and words(_field(r, 'Job')) and (words(role) in words(_field(r, 'Job')) or words(_field(r, 'Job')) in words(role))]
+            and words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     if same:
         return same[0]
     applied = (email['date'] or '')[:10]
@@ -564,7 +570,7 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     # that row becomes the application, so the job keeps its posting, kit and fit instead of getting a twin.
     try:
         earlier = [r for r in tracker.query_database(tracker.database_id, {'property': 'Company', 'rich_text': {'equals': company}})
-                   if words(_field(r, 'Job')) and (words(role) in words(_field(r, 'Job')) or words(_field(r, 'Job')) in words(role))]
+                   if words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     except Exception:  # noqa: BLE001 — then a new row, as before
         earlier = []
     if earlier:
