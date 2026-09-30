@@ -2,7 +2,7 @@
 // one a minute later is not — the boundary the owner sees when a schedule runs near midnight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {groupRuns, runTime} from '../renderer/run-list.js';
+import {filterRuns, groupRuns, kindCounts, runTime} from '../renderer/run-list.js';
 
 // Local times on purpose (what the panel compares), so the test means the same in any timezone.
 const at = (iso) => ({startedAt: iso, endedAt: iso});
@@ -35,4 +35,17 @@ test('Today comes first, an empty group is left out, and no run is lost', () => 
   assert.equal(groups.flatMap(group => group.runs).length, runs.length);
   assert.deepEqual(groupRuns([], NOW), []);
   assert.deepEqual(groupRuns([at(new Date(2026, 8, 28, 9, 0).toISOString())], NOW).map(group => group.label), ['Earlier']);
+});
+
+test('the header\'s filter: the kinds with their counts, most runs first, and what each keeps', () => {
+  const runs = [{kind: 'search'}, {kind: 'interviewInsight'}, {kind: 'search'}, {kind: 'mail'}, {kind: 'search'}, {}];
+  // A record without a kind counts as the default search, like the rest of the app reads it.
+  assert.deepEqual(kindCounts(runs), [
+    {kind: 'search', count: 4}, {kind: 'interviewInsight', count: 1}, {kind: 'mail', count: 1}]);
+  assert.deepEqual(kindCounts([]), []);
+  // '' keeps everything; a kind keeps its own rows.
+  assert.equal(filterRuns(runs, '').length, runs.length);
+  assert.deepEqual(filterRuns(runs, 'search').map(run => run.kind), ['search', 'search', 'search', undefined]);
+  assert.deepEqual(filterRuns(runs, 'mail').map(run => run.kind), ['mail']);
+  assert.deepEqual(filterRuns(runs, 'nothing'), []);
 });

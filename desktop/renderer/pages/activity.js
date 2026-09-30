@@ -1,11 +1,11 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
 import {groupWarnings, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
-import {el, pill, tag, tile} from '../components.js';
+import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
-import {groupRuns, runTime} from '../run-list.js';
+import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
@@ -180,14 +180,25 @@ function withKept(data) {
 // Recent activity lists every run that took time or AI money, scheduled or started by you; the ones you started
 // (a Log box entry, an interview prep kit, a Check now) carry a "By you" tag, and every row shows its AI cost.
 const byYou = run => run.trigger === 'you' && !run.live && !run.waiting;
-// Every run records its AI cost (⏰ Cronjob Runs "AI cost (USD)"): $0 means it used no AI (a Gmail check with no new
-// email, a search with nothing new to score), not a missing number.
-// A run on the user's own Claude Code says so ("Claude Code · your plan"): no API dollars (⏱️ Search runs "Billed to").
-const costOf = run => billingLabel(run) || (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '$0');
 // How many finished runs the list shows at once; "View more" adds another page and the list scrolls. The app reads
 // the newest 25 from Notion, so that is as far as it goes without asking Notion again.
 const RUNS_PAGE = 8;
 let shownRuns = RUNS_PAGE;
+// The panel's height, as you drag its top edge: never smaller than this, never taller than 90% of the window, kept
+// for the next time the app opens.
+const PANEL_MIN = 320;
+const PANEL_HEIGHT = 'jobpilotto.activity-height';
+const panelMax = () => Math.round(window.innerHeight * 0.9);
+function setPanelHeight(height, keep = true) {
+  const value = Math.max(PANEL_MIN, Math.min(panelMax(), Math.round(height)));
+  $('activity-panel').style.height = `${value}px`;
+  if (keep) { try { localStorage.setItem(PANEL_HEIGHT, String(value)); } catch {} }
+  return value;
+}
+let kindFilter = '';        // the header's filter: one kind of run at a time ('' = every kind)
+let foldedWarnings = '';    // the run whose warnings card is folded away, by id
+let detailRunId = '';       // the run the detail pane is showing (the fold button needs to know)
+const readingPages = new Set();  // run pages being read from Notion right now: their card shows as skeleton bars
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -236,8 +247,13 @@ export function renderActivity(fresh) {
   const queue = data.queued || [];
   const waiting = queue.map((run, i) => ({...run, waiting: true,
     after: i ? KIND[kindOf(queue[i - 1])].name : running ? KIND[kindOf(running)].name : 'the current task'})).reverse();
-  const recent = waiting.concat(running ? [{...running, live: true}] : [], runs.slice(0, shownRuns));
+  // The header's filter keeps one kind of run; the list then shows a page of them (queued and running first).
+  const liveRows = filterRuns(waiting.concat(running ? [{...running, live: true}] : []), kindFilter, kindOf);
+  const kept = filterRuns(runs, kindFilter, kindOf);
+  const recent = liveRows.concat(kept.slice(0, shownRuns));
   $('activity-count').textContent = `${recent.length} recent`;
+  show($('activity-filter'), runs.length > 1);
+  $('activity-filter').classList.toggle('is-active', !!kindFilter);
   // One row: the task and what it found, where it ran, its AI cost, its time and its status pill. The time is its
   // own column (not part of the sentence), and the rows are grouped Today / Earlier (renderer/run-list.js).
   const recentRow = run => {
@@ -254,20 +270,19 @@ export function renderActivity(fresh) {
       ? `Waiting · starts after ${run.after}`
       : [capital(outcome(run)), WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
-    const cost = el('span', `run-cost${run.usd > 0 || billingLabel(run) ? '' : ' is-zero'}`, run.live || run.waiting ? '' : costOf(run));
-    cost.title = billingLabel(run) ? 'Ran on your own Claude Code: your Claude plan\'s usage, no API credits'
-      : run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI used in this run';
+    // No cost here: the list is for finding a run and seeing its state; the run's own AI cost is in the detail pane.
     const when = el('span', 'run-time', run.live || run.waiting ? '' : runTime(run));
-    button.append(el('span', 'run-icon', icon(kind.line)), words, cost, when, pill(...runStatus(run, warned)));
+    button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     return button;
   };
   $('activity-recent').replaceChildren(...groupRuns(recent).flatMap(group => [
     Object.assign(document.createElement('li'), {className: 'recent-group', textContent: group.label}),
     ...group.runs.map(run => { const item = document.createElement('li'); item.append(recentRow(run)); return item; })]));
-  if (!runs.length && !running) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted', textContent: 'Nothing has run yet.'}));
-  // "View more": the runs the app already read but the list hasn't shown yet (they scroll in below).
-  show($('activity-all'), runs.length > shownRuns);
+  if (!recent.length) $('activity-recent').append(Object.assign(document.createElement('li'), {className: 'muted',
+    textContent: runs.length ? `No ${KIND[kindFilter]?.name || kindFilter} runs here.` : 'Nothing has run yet.'}));
+  // "View more": the runs the filter keeps that the list hasn't shown yet (they scroll in below).
+  show($('activity-all'), kept.length > shownRuns);
 
   // How often: from Settings → How often (GitHub does it when Always on is on).
   const cloud = !!shared.state?.settings?.cloud?.repo;
@@ -286,20 +301,12 @@ export function renderActivity(fresh) {
   const items = [['Jobs', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
     ...(cloud ? [['Employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off']] : [])];
   const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
-  $('activity-schedule').replaceChildren(...items.map(([name, glyph, at, none]) => {
+  $('activity-schedule').replaceChildren(...items.map(([name, , at, none]) => {
     const item = el('span', `ap-item${at && at === soonest ? ' is-next' : ''}${at ? '' : ' is-off'}`);
-    const words = el('span', 'ap-item-words');
-    words.append(el('span', 'muted', name), el('b', '', at ? (at <= Date.now() ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
-    const mark = el('span', 'ap-item-icon');
-    mark.append(icon(glyph));
-    item.append(mark, words);
+    if (at && at === soonest) item.append(el('span', 'ap-next', 'Next:'));
+    item.append(el('span', 'muted', name), ' ', el('b', '', at ? (at <= Date.now() ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
     return item;
   }));
-  // A narrow window shows the soonest one and "+2" (a click shows the rest).
-  const hiddenCount = items.filter(([, , at]) => !(at && at === soonest)).length;
-  $('ap-strip-more').textContent = `+${hiddenCount}`;
-  show($('ap-strip-more'), hiddenCount > 0);
-  fitStrip();
   $('ap-where').replaceChildren(...(cloud ? [icon('cloud'), 'Runs on GitHub · Always on'] : ['Runs on this Mac while the app is open']));
   $('ap-where').title = cloud ? 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.' : '';
   // Check Gmail now: with a selected Gmail check, not in the schedule strip.
@@ -310,50 +317,63 @@ export function renderActivity(fresh) {
   // Notion brings its result and log from its page the first time it's shown.
   const picked = shown || (running ? {...running, live: true} : last);
   const run = picked?.pageId && !picked.log && !picked.live ? {...picked, ...runDetails.get(picked.pageId)} : picked;
+  detailRunId = run?.id ?? '';
   if (run?.pageId && !run.log && !run.live && !runDetails.has(run.pageId)) {
-    runDetails.set(run.pageId, {log: ['Reading from Notion…']});
+    const pageId = run.pageId;
+    readingPages.add(pageId);
+    runDetails.set(pageId, {log: ['Reading from Notion…']});
     // A run that just finished may not have its log on its page yet (it's written a moment after the status):
     // an empty answer is read again a few times before it's kept.
-    const read = (tries = 0) => window.pilot.runDetail(run.pageId).then(detail => {
+    const read = (tries = 0) => window.pilot.runDetail(pageId).then(detail => {
       const empty = !detail?.message && !(detail?.log || []).length;
       if (empty && tries < 4) {
-        runDetails.set(run.pageId, {log: ['Waiting for the log from Notion…']});
+        runDetails.set(pageId, {log: ['Waiting for the log from Notion…']});
         setTimeout(() => read(tries + 1), 5000);
-      } else runDetails.set(run.pageId, empty ? {log: ['This run left no log on its Notion page.']} : detail);
+      } else {
+        readingPages.delete(pageId);
+        runDetails.set(pageId, empty ? {log: ['This run left no log on its Notion page.']} : detail);
+      }
       renderActivity(lastActivity);
-    });
+    }).catch(() => { readingPages.delete(pageId); renderActivity(lastActivity); });
     read();
   }
   // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).
   const lines = shown ? run?.log || [] : liveLines || run?.log || [];
   const kind = run ? KIND[kindOf(run)] : null;
   const detailWarnings = runWarningLines(run);
-  const status = !run ? '' : run.live ? 'Running' : run.waiting ? 'Queued' : !run.ok || run.off ? 'Failed'
-    : (detailWarnings.length || run.warned) ? 'Completed with warnings' : 'Completed';
+  // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
+  // took, what it cost and where it ran (the mockup's "Nothing new · Finished 18:06 · 62 s · GitHub").
+  const status = !run ? null : run.live ? ['Running', 'info', {dot: true}] : run.waiting ? ['Queued', 'neutral']
+    : !run.ok || run.off ? ['Failed', 'bad'] : (detailWarnings.length || run.warned) ? ['Completed with warnings', 'warn'] : ['Completed', 'good'];
   $('activity-icon').replaceChildren(...(kind ? [icon(kind.line)] : []));
-  $('activity-selected').textContent = !run ? 'Nothing has run yet' : `${kind.name} · ${status}`;
+  $('activity-selected').textContent = run ? kind.name : 'Nothing has run yet';
+  $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
   // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
   const said = run && !run.live ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
-  $('activity-sub').textContent = !run ? '' : [run.live ? (searchPhase(run.step) || 'starting') : said,
-    checkedCount && `${checkedCount} companies checked`].filter(Boolean).join(' · ');
-  // Small facts under it: when, how long, the AI cost, where it ran.
   const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
-  const facts = !run ? [] : [
-    run.live ? `Started ${hhmm(Date.parse(run.startedAt))}` : `Finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`,
+  // A run that used no AI shows no cost: "$0" on every row was noise.
+  const cost = run && !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}`));
+  $('activity-sub').textContent = !run ? '' : [
+    run.live ? (searchPhase(run.step) || 'starting') : said,
+    checkedCount && `${checkedCount} companies checked`,
+    !run.live && `Finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`,
     !run.live && seconds > 0 && (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`),
-    !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd.toFixed(3)}`)),
-    run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : ''].filter(Boolean);
-  $('activity-facts').replaceChildren(...facts.map(text => el('span', 'ap-fact', text)));
-  show($('activity-facts'), facts.length > 0);
+    cost,
+    run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : '',
+  ].filter(Boolean).join(' · ');
   // A search that found new jobs: straight to them (newest first).
   const found = !run?.live && kindOf(run) === 'search' ? run?.new || 0 : 0;
   show($('activity-go'), found > 0);
   $('activity-go').textContent = `View new job${found === 1 ? '' : 's'} →`;
+  // The header's one visible link, then the rest under ⋯: a Notion page is the run's record, its GitHub run the build
+  // behind it. A GitHub-only run shows that link itself; with nothing else to offer there is no ⋯ at all.
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
-  show($('activity-github'), !!run?.url);  // a run in the user's GitHub repo (Always on)
+  show($('activity-github'), !!run?.url && !run?.notionUrl);
   $('activity-github').dataset.url = run?.url || '';
+  $('activity-more').replaceChildren(...(run?.url && run?.notionUrl
+    ? [moreButton([{label: 'View GitHub run ↗', run: () => window.pilot.openExternal(run.url)}], 'More links')] : []));
   const result = run && !run.live ? runResults.get(run.id) || '' : '';
   $('activity-result').textContent = result;
   show($('activity-result'), !!result);
@@ -367,30 +387,42 @@ export function renderActivity(fresh) {
       return Object.assign(document.createElement('li'), {className: status, textContent: phase.label});
     })));
   show($('activity-phases'), updates.length > 0 || at >= 0);
-  // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram.
-  // Today's list and Find new employers read better as a small card; anything else stays text.
+  // What a one-off job produced (the insight, the list, the report) when it wasn't sent to Telegram. Today's list and
+  // Find new employers read better as a small card; anything else stays text. While its Notion page is still being
+  // read, the card's own shape shows as skeleton bars, so the pane never looks half-built and then jumps.
   const card = !run?.live && run?.message ? parseRunMessage(run.message) : null;
+  const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card);
-  show($('activity-card'), !!card);
+  else if (reading) renderCardSkeleton();
+  show($('activity-card'), !!card || reading);
   $('activity-message').textContent = !run?.live && !card && run?.message || '';
-  show($('activity-message'), !run?.live && !card && !!run?.message);
+  show($('activity-message'), !run?.live && !card && !reading && !!run?.message);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
   const warnings = detailWarnings;
   const warnedOnly = !warnings.length && !run?.live && !!run?.warned;
+  const limited = limitedJobs(warnings);
   show($('activity-warnings'), warnings.length > 0 || warnedOnly);
   if (warnings.length || warnedOnly) {
-    $('activity-warnings-title').textContent = run?.live ? 'Running with warnings' : 'Completed with warnings';
+    // The headline says what it means for you ("9 jobs still need scoring"), not which card this is.
+    $('activity-warnings-title').textContent = limited ? `${plural(limited, 'job')} still ${limited === 1 ? 'needs' : 'need'} scoring`
+      : run?.live ? 'Running with warnings' : 'Completed with warnings';
     $('activity-warnings-summary').textContent = warnings.length ? warningSummary(warnings)
       : 'The run recorded warnings, with no line about them in its log or report.';
+    show($('activity-warnings-limit'), limited > 0);
     const listShown = warnings.length > 0 && !$('activity-warnings-list').hidden && $('activity-warnings-list').dataset.for === String(run?.id);
     $('activity-warnings-list').dataset.for = String(run?.id);
     show($('activity-warnings-list'), listShown);
     const grouped = groupWarnings(warnings);
     show($('activity-warnings-more'), warnings.length > 0);
-    $('activity-warnings-more').textContent = listShown ? 'Hide details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;
+    $('activity-warnings-more').textContent = listShown ? 'Hide 3 details' : `View ${grouped.length} detail${grouped.length === 1 ? '' : 's'}`;
     $('activity-warnings-list').replaceChildren(...grouped.map(text => el('li', '', text)));
+    // Folded away: the headline stays, the rest hides (the chevron turns).
+    const folded = foldedWarnings === String(run?.id);
+    $('activity-warnings').classList.toggle('is-folded', folded);
+    $('activity-warnings-fold').setAttribute('aria-expanded', String(!folded));
+    $('activity-warnings-fold').title = folded ? 'Show' : 'Hide';
   }
   // The full log stays folded (the stages come first); open by itself only when the task went wrong.
   const failed = run && !run.live && (!run.ok || run.off);
@@ -451,12 +483,11 @@ function renderRunCard(card) {
       // Two lines: the job, then who it is with. Its fit as a pill ("Not scored" when an AI limit or no score), so
       // the row never shows a bare "–"; the posting opens from the arrow.
       const words = el('span', 'run-card-words');
-      words.append(el('b', '', item.title), el('span', 'muted', item.company));
+      words.append(el('b', '', item.title), el('span', 'muted', [item.company, item.percent != null ? `${item.percent}%` : ''].filter(Boolean).join(' · ')));
       const scored = item.fit != null;
       const fit = pill(scored ? String(item.fit) : 'Not scored', scored && item.fit >= 70 ? 'warn' : 'neutral');
       fit.title = scored ? 'Fit score for this job' : 'Not scored yet (no AI score for this job)';
-      const view = Object.assign(el('a', 'run-card-open'), {href: '#', title: 'Open the job posting'});
-      view.append(icon('external'));
+      const view = Object.assign(el('a', 'run-card-open', '↗'), {href: '#', title: 'Open the job posting'});
       view.dataset.link = item.url;
       row.append(words, fit, ...(item.url ? [view] : []));
       return row;
@@ -491,7 +522,41 @@ function renderRunCard(card) {
     }
     if (card.note) more.append(el('span', 'muted', card.note));
   }
-  $('activity-card').replaceChildren(stats, el('h4', 'run-card-title', heading), rows, ...(more && more.childNodes.length ? [more] : []));
+  // The counts sit above a bordered box that holds the heading and the rows (nested in the card, as the mockup shows);
+  // the link to the whole list stays in the card, under it.
+  const box = el('div', 'run-card-box');
+  box.append(el('h4', 'run-card-title', heading), rows);
+  $('activity-card').replaceChildren(stats, box, ...(more && more.childNodes.length ? [more] : []));
+}
+
+// A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane
+// keeps its size and nothing pops in when the data lands (renderer/pages/focus.js does the same for a first load).
+function renderCardSkeleton() {
+  const bar = (className = '') => el('span', `skeleton ${className}`);
+  const stats = el('div', 'run-card-stats');
+  stats.append(bar('w-30'), bar('w-20'), bar('w-20'));
+  const rows = el('div', 'run-card-rows');
+  for (const width of ['w-60', 'w-40', 'w-60']) {
+    const row = el('div', 'run-card-row');
+    const words = el('span', 'run-card-words');
+    words.append(bar(`${width} tall`), bar('w-20'));
+    row.append(words, bar('w-20'));
+    rows.append(row);
+  }
+  $('activity-card').replaceChildren(stats, rows);
+}
+
+// The header's filter menu: every kind in the run history with how many, and "All runs".
+function filterMenu() {
+  const runs = lastActivity?.runs || [];
+  return [
+    {label: `${kindFilter ? '' : '✓ '}All runs · ${runs.length}`, run: () => { kindFilter = ''; renderActivity(lastActivity); }},
+    '-',
+    ...kindCounts(runs, kindOf).map(({kind, count}) => ({
+      label: `${kindFilter === kind ? '✓ ' : ''}${KIND[kind]?.name || kind} · ${count}`,
+      run: () => { kindFilter = kind; renderActivity(lastActivity); },
+    })),
+  ];
 }
 // The bar's action: hide the open panel, watch what's running, or see the details.
 function barLabel() {
@@ -573,15 +638,6 @@ export async function buildDraft() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 // Every upcoming check shows, unless they don't fit the strip: then only the soonest and "+N" (style.css .is-tight).
-function fitStrip() {
-  const strip = $('ap-strip'), items = $('activity-schedule');
-  if (!strip || !items) return;
-  strip.classList.remove('is-tight');  // measure with everything shown: the checks' own widths against the room they have
-  const gap = parseFloat(getComputedStyle(items).columnGap) || 0;
-  const needed = [...items.children].reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) + gap * Math.max(items.children.length - 1, 0);
-  strip.classList.toggle('is-tight', needed > items.clientWidth + 1);
-}
-
 export async function init() {
   showKeptStatusBar();
   $('log').addEventListener('click', event => {
@@ -595,8 +651,37 @@ export async function init() {
     event.preventDefault();
     if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
   });
-  $('ap-strip-more').addEventListener('click', () => $('ap-strip').classList.toggle('is-expanded'));
-  new ResizeObserver(fitStrip).observe($('ap-strip'));  // a wider window or panel shows them all again
+  $('activity-filter').addEventListener('click', () => openMenu($('activity-filter'), filterMenu()));
+  // The panel's top edge drags: taller upward (it sits on the bottom bar), kept for next time, re-clamped when the
+  // window changes. Between PANEL_MIN and 90% of the window.
+  try { const saved = Number(localStorage.getItem(PANEL_HEIGHT) || 0); if (saved) setPanelHeight(saved, false); } catch {}
+  $('activity-resize').addEventListener('pointerdown', event => {
+    event.preventDefault();
+    const grip = $('activity-resize'), startY = event.clientY, startHeight = $('activity-panel').getBoundingClientRect().height;
+    try { grip.setPointerCapture(event.pointerId); } catch {}
+    grip.classList.add('is-dragging');
+    const move = moved => setPanelHeight(startHeight + (startY - moved.clientY), false);
+    const stop = () => {
+      grip.classList.remove('is-dragging');
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', stop);
+      grip.removeEventListener('pointercancel', stop);
+      setPanelHeight($('activity-panel').getBoundingClientRect().height);
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', stop);
+    grip.addEventListener('pointercancel', stop);
+  });
+  window.addEventListener('resize', () => {
+    const height = $('activity-panel').getBoundingClientRect().height;
+    if (height) setPanelHeight(height, false);
+  });
+  // The Anthropic console, where the spending limit lives: the warning card's one action.
+  $('activity-warnings-limit').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal('https://console.anthropic.com/settings/limits'); });
+  $('activity-warnings-fold').addEventListener('click', () => {
+    foldedWarnings = foldedWarnings === String(detailRunId) ? '' : String(detailRunId);
+    renderActivity(lastActivity);
+  });
   $('check-mail').addEventListener('click', async () => {
     $('check-mail').disabled = true;
     shared.selectedRun = null;
