@@ -1452,3 +1452,5 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 
 /* The DEV tag (npm start) must fit the setup sidebar too: the name shrinks a step when it's there. */
 .steps .brand:has(.dev-tag) { font-size: var(--fs-md); white-space: nowrap; gap: var(--sp-2); }
+/* Done steps: a quiet outline check in the rail's colours, no turquoise (owner, 30 Sep); amber stays for the current step. */
+.steps li.done::before { background: transparent; border-color: var(--on-rail-3); color: var(--on-rail); }
