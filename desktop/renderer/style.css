@@ -533,6 +533,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .iv-insight { container-type: inline-size; }
 .iv-insight-title { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .iv-insight-head.is-clickable { cursor: pointer; }
+.iv-insight-head .iv-confidence { cursor: text; user-select: text; }  /* only text: selectable, no action */
 .iv-insight-head .iv-insight-toggle { padding: 0 var(--sp-1); color: var(--muted); align-self: center; line-height: 1; display: inline-flex; }
 .iv-insight-head h2 { display: flex; align-items: center; }
 .iv-insight-head h2 .iv-insight-toggle .icon { width: 18px; height: 18px; color: var(--muted); transition: transform .15s; }  /* beats the orange heading glyphs */  /* the chevron icon points right: folded = right */
@@ -560,7 +561,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .iv-signal .ui-pill { background: var(--surface); border: 1px solid var(--info-line); color: var(--info); font-weight: 600; }
 /* The confidence chip: a ring that fills with how sure the insight is, the words, and (on hover) what they mean. */
 .iv-confidence { --tone: var(--signal-ink); --soft: var(--signal-soft); --fill: 33%; display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3);
-  border-radius: var(--r-pill); background: var(--soft); color: var(--tone); font-size: var(--fs-sm); font-weight: 600; cursor: help; }
+  border-radius: var(--r-pill); background: var(--soft); color: var(--tone); font-size: var(--fs-sm); font-weight: 600; }
 .iv-confidence[data-level="medium"] { --tone: var(--info); --soft: var(--info-soft); --fill: 66%; }
 .iv-confidence[data-level="high"] { --tone: var(--good); --soft: var(--good-soft); --fill: 100%; }
 .iv-ring { position: relative; width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(var(--tone) var(--fill), var(--line) 0); flex: none; }

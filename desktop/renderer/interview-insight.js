@@ -104,6 +104,7 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
     chip.dataset.level = view.chip.level;
     chip.title = view.chip.tip;
     chip.append(el('span', 'iv-ring'), el('span', '', view.chip.text), icon('info'));
+    chip.addEventListener('click', event => event?.stopPropagation());  // only text: clicking it never folds the card
     side.append(chip);
   }
   const button = Object.assign(el('button', 'secondary with-icon small-btn iv-insight-refresh'), {type: 'button', disabled: busy,
@@ -112,7 +113,8 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
   button.addEventListener('click', event => { event?.stopPropagation(); refresh(); });  // on the bar, but it only refreshes
   side.append(button);
   head.append(title, side);
-  head.addEventListener('click', () => onToggle());  // anywhere on the bar folds and unfolds the card
+  // Anywhere on the bar folds and unfolds the card, except when the click ends a text selection.
+  head.addEventListener('click', () => { if (!String(globalThis.window?.getSelection?.() || '')) onToggle(); });
   head.classList.add('is-clickable');
   if (collapsed) return [head];
 

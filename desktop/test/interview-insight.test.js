@@ -243,3 +243,19 @@ test('a Refresh while one is already running joins it: one AI call, even across 
   await refreshInsights({}, async () => { calls += 1; return {code: 0, stdout: '{"ok": true}'}; });  // after it ends, a new one runs
   assert.equal(calls, 2);
 });
+
+test('the confidence chip is only text: clicking it never folds the card, and a text selection on the bar does not either', () => {
+  const flips = [];
+  const view = insightView(RICH, RICH_ROWS, NOW);
+  const head = insightCard(view, {onToggle: () => flips.push('toggle')})[0];
+  const chip = head.all(n => n.className.includes('iv-confidence'))[0];
+  let stopped = 0;
+  chip.listeners.click({stopPropagation: () => { stopped += 1; }});
+  assert.equal(stopped, 1);
+  globalThis.window.getSelection = () => ({toString: () => 'Low confidence'});
+  head.listeners.click({});
+  assert.deepEqual(flips, []);  // selecting text is not a click to fold
+  globalThis.window.getSelection = () => ({toString: () => ''});
+  head.listeners.click({});
+  assert.deepEqual(flips, ['toggle']);
+});
