@@ -88,7 +88,7 @@ export const olderFormat = insight => !!insight && (Number(insight.version) || 1
 // refresh(): the Refresh button; onTick(step, done): a "Practice next" tick box; onPractice(): Start practice session;
 // onMoments(): View supporting moments; busy: it's running.
 // collapsed: only the header (its arrow, onToggle(), folds and unfolds the rest). updating: this is this Mac's saved
-// copy while Notion is read (said under the title).
+// copy while Notion is read (a small spinner by the chip).
 export function insightCard(view, {open = () => {}, onMoments = () => {}, onPractice = () => {}, refresh = () => {}, onTick = () => {}, onToggle = () => {},
   collapsed = false, busy = false, note = '', updating = false} = {}) {
   const head = el('div', 'iv-insight-head');
@@ -100,9 +100,14 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
   toggle.append(icon('chevron'));  // its click (or Enter) bubbles to the bar, which does the folding
   h2.append(icon('bulb'), view.title || 'Interview insights', toggle);  // the arrow sits right after the title
   title.append(h2, el('div', 'muted small iv-insight-basis', view.subtitle || view.basis));
-  if (updating) title.append(el('div', 'muted small iv-insight-basis', 'Saved copy · checking Notion…'));
+
   const side = el('div', 'iv-insight-side');
   if (note) side.append(el('span', 'muted small', note));
+  if (updating) {  // this Mac's saved copy is on screen while Notion is read: a small spinner, explained on hover
+    const sync = el('span', 'spinner small iv-insight-sync');
+    sync.title = 'Checking Notion for a newer version';
+    side.append(sync);
+  }
   if (view.chip) {  // a ring that fills with the confidence, the words, and what the words mean on hover
     const chip = el('span', 'iv-confidence');
     chip.dataset.level = view.chip.level;

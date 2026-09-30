@@ -262,9 +262,13 @@ test('the confidence chip is only text: clicking it never folds the card, and a 
 test('the card says when it is out of date or still the saved copy', () => {
   const stale = insightView({...RICH, outdated: true}, RICH_ROWS, NOW);
   assert.match(stale.subtitle, /A review changed since · Refresh to update/);
-  const text = insightCard(insightView(RICH, RICH_ROWS, NOW), {updating: true}).map(node => node.text()).join(' ');
-  assert.match(text, /Saved copy · checking Notion…/);
-  assert.doesNotMatch(insightCard(insightView(RICH, RICH_ROWS, NOW)).map(node => node.text()).join(' '), /Saved copy/);
+  // the saved copy on screen while Notion is read: a small spinner by the chip, explained on hover; no extra line
+  const head = insightCard(insightView(RICH, RICH_ROWS, NOW), {updating: true})[0];
+  const spinner = head.all(n => n.className.includes('iv-insight-sync'));
+  assert.equal(spinner.length, 1);
+  assert.match(spinner[0].title, /Checking Notion for a newer version/);
+  assert.doesNotMatch(head.text(), /Saved copy|checking Notion/);
+  assert.equal(insightCard(insightView(RICH, RICH_ROWS, NOW))[0].all(n => n.className.includes('iv-insight-sync')).length, 0);
 });
 
 test('a Refresh result goes into this Mac\'s saved copy, so the next start shows it, not an older one', () => {
