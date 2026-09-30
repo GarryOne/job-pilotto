@@ -132,8 +132,10 @@ export function renderJobs() {
 
     const role = el('div', 'role');
     const titleLine = el('div', 'title-line');
-    const link = Object.assign(el('a', '', job.title), {href: '#', title: 'Open the posting'});
-    link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(job.url); });
+    // An opportunity that found you has no posting (its link is the email or chat): the title opens its Notion page.
+    const inNotion = isInbound(job) && !!job.notion_url;
+    const link = Object.assign(el('a', '', job.title), {href: '#', title: inNotion ? 'Open in Notion' : 'Open the posting'});
+    link.addEventListener('click', event => { event.preventDefault(); if (inNotion) window.pilot.openNotion(job.notion_url, event.metaKey); else window.pilot.openExternal(job.url); });
     titleLine.append(link, Object.assign(pill(statusLabel, statusTone), {className: `ui-pill tone-${statusTone} status-inline`}));
     role.append(titleLine);
     // Compact list: company · place · mode · age on one line, in place of those columns.
@@ -279,7 +281,7 @@ export function renderJobs() {
     };
     if (job.notion_url) menu.push({icon: job.kit ? 'file-text' : 'layers', label: job.kit ? 'Open kit in Notion' : 'Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
       title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});
-    menu.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(job.url), title: 'The job posting'});
+    menu.push({icon: 'external', label: isInbound(job) ? 'Open the message' : 'Open posting', run: () => window.pilot.openExternal(job.url), title: isInbound(job) ? 'The email or chat it came from' : 'The job posting'});
     if (job.kit && job.code) {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
       const earlier = String(job.kit_state || '').startsWith('earlier');
