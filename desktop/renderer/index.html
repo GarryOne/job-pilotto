@@ -972,7 +972,7 @@
         <div class="inline"><button class="secondary" id="google-connect">Connect Google</button></div>
         <p class="message" id="google-message"></p>
       </div>
-      <div class="setting conn-panel" id="setting-extension" hidden>
+      <div class="setting conn-panel conn-card" id="setting-extension" hidden>
         <div class="conn-head">
           <span class="ui-tile tone-info"><i data-icon="puzzle"></i></span>
           <div class="conn-head-text"><h3>Chrome extension</h3>
@@ -985,14 +985,17 @@
             <li><span class="conn-step-words"><b>Enable Developer mode</b>
               <span class="muted">Open <button class="code-link" id="ext-open-page">chrome://extensions</button> in Chrome and turn on Developer mode.</span></span></li>
             <li><span class="conn-step-words"><b>Load the extension</b>
-              <span class="muted">In Chrome click <b>Load unpacked</b>, then paste this folder: <b>Copy</b>, and in the folder window <code>⌘⇧G</code>, <code>⌘V</code>, <b>Return</b>.</span>
-              <span class="path-line"><code id="ext-path"></code><button class="link" data-copy="ext-path">Copy</button></span></span>
-              <button class="secondary is-signal" id="open-extension-folder" data-show-extension-folder>Show the folder</button></li>
+              <span class="muted">Choose <b>Load unpacked</b>, then paste the folder below with <code>⌘⇧G</code> and <code>⌘V</code>.</span></span></li>
             <li><span class="conn-step-words"><b>Connect to Job Pilotto</b>
               <span class="muted">Keep this app open and connect from the extension's settings page.</span>
               <span class="muted small">Autofill uses Settings → Your details and your CV.</span></span>
               <button class="secondary is-signal" id="ext-connect" hidden>Connect the extension</button></li>
           </ol>
+          <div class="path-line conn-file">
+            <code id="ext-path"></code>
+            <button class="link" data-copy="ext-path">Copy</button>
+            <button class="secondary is-signal" id="open-extension-folder" data-show-extension-folder>Show the folder</button>
+          </div>
         </details>
         <div class="conn-details">
           <details class="troubleshoot"><summary><i data-icon="link"></i>Connection troubleshooting</summary>

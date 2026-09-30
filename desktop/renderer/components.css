@@ -295,7 +295,17 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .conn-head .service-state.is-checking { background: var(--surface-2); color: var(--muted); }
 .conn-panel .message:empty { display: none; }
 .conn-setup > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-lg); }
-.conn-setup[open] > summary { margin-bottom: var(--sp-4); }
+.conn-setup[open] > summary { margin-bottom: var(--sp-5); }
+/* This card is a small page of its own — a head, the fold with the steps, the folder row — and it needs the air
+   of one: roomier padding, its own rhythm between sections, and steps that aren't wall-to-wall. */
+.conn-card { padding: var(--sp-5); gap: var(--sp-5); }
+.conn-card .conn-head { padding-bottom: var(--sp-5); }
+.conn-file { margin-top: var(--sp-5); }
+.conn-card .conn-steps li { align-items: flex-start; padding: var(--sp-4) var(--sp-5); }
+/* The chip sits on the step's first line (its title), however many lines the step runs to — the title's line box is
+   --fs-lg at the body's line-height, so half the difference between that and the chip is the nudge. */
+.conn-card .conn-steps li::before { margin-top: calc((var(--fs-lg) * 1.5 - 30px) / 2); }
+.conn-card .conn-details > .troubleshoot > summary { padding: var(--sp-4) 0; }
 /* Install steps: rows on one tinted band — a number chip, the step's name, its line, and any button it needs. */
 .conn-steps { list-style: none; margin: 0; padding: 0; counter-reset: conn-step; background: var(--surface-2); border-radius: var(--r-md); }
 .conn-steps li { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4); counter-increment: conn-step; }
