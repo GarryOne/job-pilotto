@@ -70,7 +70,7 @@ test('the landing page reads the pool size from this same route and says users c
   assert.match(page, /id="pool-employers"/);
   assert.match(page, /id="pool-jobs"/);
   assert.match(page, /Open jobs/);
-  assert.match(page, /IT & engineering roles/);   // the number is the relevant one once the scout records it
+  assert.doesNotMatch(page, /IT & engineering roles/);   // the tile stays wide: every open job, all roles
   assert.match(page, /Can I add my own employers\?/);
   assert.doesNotMatch(page, /tech jobs in Switzerland/);   // the pool is worldwide; the focus is the kind of job
   assert.match(page, /unless you switch it off/);   // honest, and not shouted
