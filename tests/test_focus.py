@@ -217,6 +217,63 @@ class AfterInterviewTests(unittest.TestCase):
                           and i['stage'] == 'Interviewing'], [])
 
 
+def interview(page_id, app_id, day, round_='Recruiter screen', overall='positive', created=None):
+    return {'id': page_id, 'created_time': created or f'{day}T12:00:00.000Z',
+            'properties': {'Date': {'type': 'date', 'date': {'start': day}}, 'Round': text(round_),
+                           'Overall': {'type': 'select', 'select': {'name': overall} if overall else None},
+                           'Application': {'type': 'relation', 'relation': [{'id': app_id}]}}}
+
+
+class PrepKitStaleTests(unittest.TestCase):
+    """30 Sep 2026: Huxley's 29 Sep kit (for the recruiter screen, held and reviewed 30 Sep) showed as "prep kit ready"
+    for the 1 Oct follow-up. A kit is current only if built after the application's latest reviewed interview."""
+    AT = datetime(2026, 9, 30, 18, 0, tzinfo=timezone.utc)
+
+    def prepare(self, interviews=(), events=(), prep='2026-09-29'):
+        huxley = row('h1', 'Huxley', 'Principal SRE', stage='Interviewing', interview='2026-10-01T08:30:00+02:00',
+                     Interview_prep={'type': 'date', 'date': {'start': prep}})
+        items = focus.build([huxley], list(events), list(interviews), target=0, now=self.AT)['items']
+        return next(i for i in items if i['kind'] == 'prepare')
+
+    def test_no_review_yet_the_kit_is_current(self):
+        item = self.prepare()
+        self.assertFalse(item['prep_stale'])
+        self.assertEqual(item['meta'][1], '✓ prep kit ready')
+
+    def test_a_review_after_the_kit_makes_it_stale(self):
+        item = self.prepare([interview('iv1', 'h1', '2026-09-30')])
+        self.assertTrue(item['prep_stale'])
+        self.assertEqual(item['prep_reason'], 'Kit from 29 Sep · your call on 30 Sep was reviewed since')
+        self.assertEqual(item['meta'][1], item['prep_reason'])  # the card says why, not "ready"
+        self.assertEqual(item['prep_since'], '2026-09-30')
+        self.assertIn('build a new kit for this round (about $0.04)', item['detail'])
+
+    def test_a_kit_built_after_the_review_is_current(self):
+        reviewed = interview('iv1', 'h1', '2026-09-30', created='2026-09-30T09:40:00.000Z')
+        self.assertFalse(self.prepare([reviewed], prep='2026-09-30T15:00:00+00:00')['prep_stale'])
+        self.assertFalse(self.prepare([reviewed], prep='2026-10-01')['prep_stale'])  # an older kit dated without a time
+        # Built the morning of the call, reviewed after it: that kit was for that call.
+        self.assertTrue(self.prepare([reviewed], prep='2026-09-30T05:00:00+00:00')['prep_stale'])
+        self.assertTrue(self.prepare([reviewed], prep='2026-09-30')['prep_stale'])
+
+    def test_an_unreviewed_or_unrelated_interview_is_ignored(self):
+        self.assertFalse(self.prepare([interview('iv1', 'h1', '2026-09-30', overall='')])['prep_stale'])  # saved, not reviewed
+        self.assertFalse(self.prepare([interview('iv2', 'other', '2026-09-30')])['prep_stale'])  # another application's
+
+    def test_the_interview_booked_or_moved_after_the_kit_makes_it_stale(self):
+        moved = event('h1', 'Interview scheduled', '2026-09-30T11:00:00Z', 'Moved to Thu 08:30')
+        item = self.prepare(events=[moved])
+        self.assertTrue(item['prep_stale'])
+        self.assertEqual(item['prep_reason'], 'Kit from 29 Sep · the interview was booked or moved on 30 Sep')
+        booked_before = event('h1', 'Interview scheduled', '2026-09-29T08:00:00Z')
+        self.assertFalse(self.prepare(events=[booked_before])['prep_stale'])
+
+    def test_no_kit_yet_is_not_stale(self):
+        item = self.prepare([interview('iv1', 'h1', '2026-09-30')], prep='')
+        self.assertFalse(item['prep_stale'])
+        self.assertEqual(item['meta'][1], 'posting, kit and weak topics')
+
+
 class AddDetailsTests(unittest.TestCase):
     def test_an_interview_known_only_from_the_invitation_asks_for_the_details(self):
         invite = row('h1', '', 'Connect Igor / Jaya - SRE', stage='Interview scheduled', applied=None,

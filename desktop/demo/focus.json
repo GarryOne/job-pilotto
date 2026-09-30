@@ -73,6 +73,35 @@
       "at": "2026-09-29T06:30:00+00:00"
     },
     {
+      "priority": 1,
+      "kind": "prepare",
+      "icon": "mic",
+      "badge": "Interview Thu 08:30",
+      "tone": "bad",
+      "headline": "Prepare for Lumen Data",
+      "meta": [
+        "Senior SRE",
+        "Kit from 29 Sep · your call on 30 Sep was reviewed since"
+      ],
+      "title": "Prepare: Lumen Data — Senior SRE",
+      "detail": "Interview Thu 01 Oct, 08:30. Read the posting and your kit, and practise the topics you answered weakly before. Kit from 29 Sep · your call on 30 Sep was reviewed since: build a new kit for this round (about $0.04); the earlier one stays on the job's page.",
+      "link": "",
+      "link_label": "",
+      "done": false,
+      "page_id": "demo-prepare",
+      "notion_url": "https://www.notion.so/demo-prepare",
+      "company": "Lumen Data",
+      "job": "Senior SRE",
+      "job_url": "",
+      "stage": "Interviewing",
+      "at": "2026-10-01T06:30:00+00:00",
+      "prep_at": "2026-09-29",
+      "prep_stale": true,
+      "prep_reason": "Kit from 29 Sep · your call on 30 Sep was reviewed since",
+      "prep_since": "2026-09-30",
+      "prep_why": "reviewed"
+    },
+    {
       "priority": 2,
       "kind": "feedback",
       "icon": "chat",

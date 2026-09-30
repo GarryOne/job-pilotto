@@ -70,7 +70,7 @@ replies:
 | Kit inputs | Text |  |
 | Feedback status | Select | Options: `Not asked`, `Asked for feedback`, `Received feedback`, `Skipped` |
 | Employer feedback | Text |  |
-| Interview prep | Date | When the interview prep kit was built (🎤 Interview prep on the page; Focus → Prepare) |
+| Interview prep | Date | When the interview prep kit was built, with the time (🎤 Interview prep on the page; Focus → Prepare; a review of this job's interview after it marks the kit stale) |
 | Contract | Select | Options: `Employee`, `B2B / contractor`, `Employee or B2B`. Filled from an interview review when the call said it (never overwritten) |
 | Call facts | Text | Facts an interview revealed, `Label: value · …` (Your ask, Relocation, Team size, Company size, Visa/permit, Start date); a review adds missing ones and never overwrites |
 

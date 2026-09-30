@@ -149,6 +149,10 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
   answered weakly and the ones asked most in past interviews, lessons from your rejection reviews, and employer feedback. It
   needs the role first: without a job description it asks you for one (paste it or the posting link). Written on the
   job's Notion page (🎤 Interview prep) with Claude Sonnet 5, about USD 0.05 (`src/ai/prep.py`).
+  - 🔁 **Follow-up rounds:** a kit built before a call that was reviewed since shows as "Kit from 29 Sept · your call
+    on 30 Sept was reviewed since" with **Build new prep kit** (~$0.04, only when you press it). The new kit reads
+    that application's reviews (summary, next step, weak answers, what they said) and the recruiter's latest message;
+    the earlier kit stays on the page, folded (⋯ → Open earlier kit).
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update your
   applications by themselves, including agencies' emails and calendar invites (the interview time comes from the
   invite itself); one recruiter by email and on LinkedIn stays one job. **It never guesses:** an email that doesn't

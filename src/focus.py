@@ -102,7 +102,8 @@ def present(item):
         at = _when(item.get('at', ''))
         icon, badge, tone = 'mic', f"Interview {at.astimezone(TZ):%a %H:%M}" if at else 'Interview', 'bad' if item['priority'] == 1 else 'warn'
         headline = f'Prepare for {who}'
-        meta = [_short(item['job'], 40), '✓ prep kit ready' if item.get('prep_at') else 'posting, kit and weak topics']
+        meta = [_short(item['job'], 40), item.get('prep_reason') if item.get('prep_stale') else
+                '✓ prep kit ready' if item.get('prep_at') else 'posting, kit and weak topics']
     elif kind == 'review':
         icon, badge, tone = 'file', 'Review', 'warn'
         headline, meta = f'Review your {who} interview', [_short(item['job'], 40), 'import the recording or transcript']
@@ -194,6 +195,52 @@ def _interviewed(interviews):
             if reviewed and day >= info['reviewed']:
                 info.update(reviewed=day, next_step=plain(props.get('Next step')) or '')
     return seen
+
+
+def reviewed_interviews(interviews, app_id):
+    """The reviewed 🎤 Interviews rows of one application (Overall set), newest first, as {'id', 'url', 'day', 'moment',
+    'round', 'next_step', 'overall', 'weak_topics'}. moment: when the call was over for Job Pilotto, the later of the
+    day it was held (Date) and when its row was saved (created_time, after the call)."""
+    key, found = app_id.replace('-', ''), []
+    for row in interviews:
+        props = row['properties']
+        if not plain(props.get('Overall')) or key not in {l['id'].replace('-', '') for l in (props.get('Application') or {}).get('relation', [])}:
+            continue
+        day = (plain(props.get('Date')) or row.get('created_time', ''))[:10]
+        held = datetime.combine(date.fromisoformat(day), datetime.min.time(), TZ) if day else None
+        moment = max([m for m in (held, _when(row.get('created_time', ''))) if m], default=None)
+        found.append({'id': row['id'], 'url': row.get('url', ''), 'day': day, 'moment': moment,
+                      'round': plain(props.get('Round')) or '', 'next_step': plain(props.get('Next step')) or '',
+                      'overall': plain(props.get('Overall')) or '', 'weak_topics': plain(props.get('Weak topics')) or ''})
+    found.sort(key=lambda r: (r['day'], r['moment'] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    return found
+
+
+def _day(day):
+    return f'{date.fromisoformat(day[:10]).day} {date.fromisoformat(day[:10]):%b}'
+
+
+def prep_state(prep_at, reviewed, history=()):
+    """Is the prep kit (Interview prep: when it was built) still the one for the coming interview? One rule, used by
+    Focus: a kit is current only if it was built after the application's latest reviewed interview (a kit built
+    before a call was for that call) and after the coming interview was booked or moved (an Interview scheduled
+    event). A kit dated without a time (older kits) counts as built at the start of its day.
+    {'stale': bool, 'reason': short text, 'since': the day that made it stale, 'why': 'reviewed' or 'booked'}."""
+    current = {'stale': False, 'reason': '', 'since': '', 'why': ''}
+    if not prep_at:
+        return current
+    built_day, built = prep_at[:10], _when(prep_at) if len(prep_at) > 10 else None
+    latest = reviewed[0] if reviewed else None
+    if latest and latest['day'] and (latest['moment'] >= built if built and latest['moment'] else latest['day'] >= built_day):
+        return {'stale': True, 'since': latest['day'], 'why': 'reviewed',
+                'reason': f"Kit from {_day(built_day)} · your call on {_day(latest['day'])} was reviewed since"}
+    booked = [e['at'] for e in history if e['kind'] == 'Interview scheduled' and e['at']]
+    booked = max(booked, default=None)
+    if booked and (booked > built if built else booked.astimezone(TZ).date().isoformat() > built_day):
+        day = booked.astimezone(TZ).date().isoformat()
+        return {'stale': True, 'since': day, 'why': 'booked',
+                'reason': f"Kit from {_day(built_day)} · the interview was booked or moved on {_day(day)}"}
+    return current
 
 
 def _applied_today(rows, by_app, today):
@@ -330,10 +377,15 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         if coming and coming > now:
             hours = (coming - now).total_seconds() / 3600
             if hours <= 14 * 24:
-                items.append(_item(1 if hours <= SOON_HOURS else 2, 'prepare', '🎤', f'Prepare: {label}',
-                                   f"Interview {coming.astimezone(TZ):%a %d %b, %H:%M}. Read the posting and your kit, "
-                                   'and practise the topics you answered weakly before.', row, at=coming.isoformat(),
-                                   prep_at=_field(row, 'Interview prep')))
+                prep_at = _field(row, 'Interview prep')
+                kit = prep_state(prep_at, reviewed_interviews(interviews, row['id']), history)
+                detail = (f"Interview {coming.astimezone(TZ):%a %d %b, %H:%M}. Read the posting and your kit, "
+                          'and practise the topics you answered weakly before.')
+                if kit['stale']:
+                    detail += f" {kit['reason']}: build a new kit for this round (about $0.04); the earlier one stays on the job's page."
+                items.append(_item(1 if hours <= SOON_HOURS else 2, 'prepare', '🎤', f'Prepare: {label}', detail, row,
+                                   at=coming.isoformat(), prep_at=prep_at, prep_stale=kit['stale'],
+                                   prep_reason=kit['reason'], prep_since=kit['since'], prep_why=kit['why']))
                 continue
         seen = interviewed.get(key, {})
         if coming and coming <= now:

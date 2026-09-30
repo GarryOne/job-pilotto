@@ -31,9 +31,15 @@ def job(page_text):
                                       'Stage': {'type': 'select', 'select': {'name': 'Interview scheduled'}},
                                       'Next interview': {'type': 'date', 'date': {'start': '2026-09-30T08:30:00+02:00'}},
                                       'Job URL': {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}}}
-    tracker = SimpleNamespace(written=[], updates=[], page_text=lambda page_id='profile': page_text if page_id == 'h1' else 'Igor: 10 years, SRE at Sonar',
-                              replace_after_heading=lambda *a: tracker.written.append(a), update_page=lambda *a: tracker.updates.append(a))
+    tracker = SimpleNamespace(written=[], updates=[], requests=[], page_text=lambda page_id='profile': page_text if page_id == 'h1' else 'Igor: 10 years, SRE at Sonar',
+                              replace_after_heading=lambda *a: tracker.written.append(a), update_page=lambda *a: tracker.updates.append(a),
+                              _children=lambda block_id: [], _request=lambda *a: tracker.requests.append(a))
     return tracker, row
+
+
+def kit_written(tracker):
+    """The blocks the last kit write added to the job's page."""
+    return [r for r in tracker.requests if r[0] == 'PATCH'][-1][2]['children']
 
 
 KIT = {'interview_type': 'recruiter screen', 'assess': ['motivation'], 'questions': [{'question': 'Why this role?', 'answer_with': 'Sonar SRE work'}],
@@ -75,10 +81,12 @@ class PrepTests(unittest.TestCase):
         self.assertIn('Grafana Labs: Lead with incident stories that show the outcome', prompt)  # what it learned from you
         self.assertIn('ArgoCD', prompt)
         self.assertIn('16 h from now', prompt)  # Wed 08:30 CEST = 06:30 UTC
-        heading, blocks = tracker.written[0][1], tracker.written[0][2]
-        self.assertEqual(heading, prep.HEADING)
+        blocks = kit_written(tracker)
+        self.assertEqual(blocks[0]['heading_2']['rich_text'][0]['text']['content'], prep.HEADING)  # a new section
         self.assertIn('Still unknown: ask the recruiter', [b[b['type']]['rich_text'][0]['text']['content'] for b in blocks if b['type'] == 'heading_3'])
-        self.assertEqual(tracker.updates[0][1], {'Interview prep': {'date': {'start': '2026-09-29'}}})
+        self.assertNotIn('What already happened on THIS application', prompt)  # no earlier interview: a first-round kit
+        # With the time: Focus compares it with the interviews reviewed since.
+        self.assertEqual(tracker.updates[0][1], {'Interview prep': {'date': {'start': '2026-09-29T14:00:00+00:00'}}})
 
     def test_screenshots_logged_on_the_job_are_read_instead_of_asking(self):
         # 29 Sep 2026: the Huxley chat was logged as 4 images before the Log box kept its text; the kit asked anyway.
@@ -129,6 +137,128 @@ class PrepTests(unittest.TestCase):
         self.assertTrue(prep.describe(tracker, row, text=ROLE.split('\n', 1)[1])['ok'])
         self.assertEqual(tracker.written[0][1], prep.DESCRIPTION_HEADING)
         self.assertFalse(prep.describe(tracker, row, text='SRE role')['ok'])
+
+
+def read_block(block_id, kind, value):
+    """A block as Notion returns it (plain_text), for a page's children."""
+    return {'id': block_id, 'type': kind, kind: {'rich_text': [{'plain_text': value, 'annotations': {'bold': False}}]}}
+
+
+def interview_row(page_id, app_id, day, round_, overall='positive', next_step='', weak='', created=None):
+    return {'id': page_id, 'url': f'https://notion.test/{page_id}', 'created_time': created or f'{day}T12:00:00.000Z',
+            'properties': {'Date': {'type': 'date', 'date': {'start': day}}, 'Round': text(round_),
+                           'Overall': {'type': 'select', 'select': {'name': overall} if overall else None},
+                           'Next step': text(next_step), 'Weak topics': text(weak),
+                           'Application': {'type': 'relation', 'relation': [{'id': app_id}]}}}
+
+
+# The Huxley recruiter screen on 30 Sep 2026, as its review sits on the 🎤 Interviews page (interviews.analysis_blocks).
+REVIEW = [read_block('b0', 'paragraph', '🔗 Job: Huxley · Principal SRE'),
+          read_block('b1', 'paragraph', 'Friendly recruiter screen; motivation and remote setup went well, salary was left open.'),
+          read_block('b2', 'heading_3', 'Signals from them'),
+          read_block('b3', 'bulleted_list_item', 'Next call covers salary band and the contract setup (B2B via Huxley)'),
+          read_block('b4', 'heading_3', 'Facts from the call'),
+          read_block('b5', 'bulleted_list_item', 'Relocation: not needed, fully remote'),
+          read_block('b6', 'heading_3', 'Questions'),
+          read_block('b7', 'bulleted_list_item', '⚠️ [Salary] What are your expectations? — vague range → Better: give a number'),
+          read_block('b8', 'bulleted_list_item', '✅ [Motivation] Why this role? — AI infra'),
+          read_block('b9', 'heading_3', 'Transcript')]
+
+
+class FollowUpTests(unittest.TestCase):
+    def setUp(self):
+        from src.ai import interviews
+        from src.notion import ledger
+        patches = [mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'ivdb'), mock.patch.object(ledger, 'EVENTS_DATABASE_ID', 'evdb'),
+                   mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}})]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def huxley(self, reviews, events=()):
+        tracker, row = job(INVITE + '\n' + ROLE)
+        tracker.database_id = 'apps'
+        tracker.query_database = lambda db, filter_=None: {'ivdb': list(reviews), 'evdb': list(events)}.get(db, [])
+        tracker._children = lambda block_id: REVIEW if block_id == 'iv1' else []
+        return tracker, row
+
+    def test_a_follow_up_kit_reads_what_happened_on_this_application(self):
+        mail = {'properties': {'Kind': {'type': 'select', 'select': {'name': 'Reply received'}},
+                               'At': {'type': 'date', 'date': {'start': '2026-09-30T16:10:00+02:00'}},
+                               'Note': text('Jaya asks to confirm Thu 08:30 for the follow-up on rates and contract'),
+                               'Application': {'type': 'relation', 'relation': [{'id': 'h1'}]}}}
+        tracker, row = self.huxley([interview_row('iv1', 'h1', '2026-09-30', 'Recruiter screen', next_step='Follow-up call Thu',
+                                                  weak='Salary'),
+                                    interview_row('iv2', 'h1', '2026-09-25', 'Intro chat', overall='')],  # not reviewed: left out
+                                   [mail])
+        client = Client()
+        result = prep.build(tracker, row, client=client, now=NOW)
+        self.assertTrue(result['ok'], result)
+        self.assertIn('after 1 earlier interview', result['text'])
+        prompt = client.calls[0]['messages'][0]['content']
+        self.assertIn('What already happened on THIS application', prompt)
+        self.assertIn('2026-09-30 · Recruiter screen · went positive', prompt)
+        self.assertIn('salary was left open', prompt)  # the review's summary
+        self.assertIn('Next step they said: Follow-up call Thu', prompt)
+        self.assertIn('Topics answered weakly: Salary', prompt)
+        self.assertIn('⚠️ [Salary] What are your expectations?', prompt)  # the weak answer, not the strong one
+        self.assertNotIn('✅ [Motivation]', prompt)
+        self.assertIn('contract setup (B2B via Huxley)', prompt)  # what they said comes next
+        self.assertIn('Relocation: not needed', prompt)
+        self.assertIn('confirm Thu 08:30 for the follow-up', prompt)  # the recruiter's latest message
+        self.assertNotIn('Intro chat', prompt)
+        self.assertIn('FOLLOW-UP', client.calls[0]['system'])
+        self.assertIn('since_last_call', client.calls[0]['output_config']['format']['schema']['required'])
+
+    def test_a_follow_up_kit_opens_with_what_the_last_call_established(self):
+        kit = dict(KIT, interview_type='recruiter follow-up', since_last_call=['Remote confirmed; salary left open'],
+                   do_differently=['Give a number for salary'])
+        titles = [b[b['type']]['rich_text'][0]['text']['content'] for b in prep.blocks(kit, NOW, 0.04) if b['type'] == 'heading_3']
+        self.assertEqual(titles[:3], ['Since your last call', 'Do differently this time', 'What they will likely assess'])
+        first = [b['type'] for b in prep.blocks(dict(KIT, since_last_call=[], do_differently=[]), NOW, 0.04)]
+        self.assertNotIn('Since your last call', str(prep.blocks(dict(KIT, since_last_call=[], do_differently=[]), NOW, 0.04)))
+        self.assertEqual(first[0], 'paragraph')
+
+
+class EarlierKitTests(unittest.TestCase):
+    def page(self, children):
+        tracker = SimpleNamespace(requests=[], _children=lambda block_id: children)
+        tracker._request = lambda *a: tracker.requests.append(a)
+        return tracker
+
+    def test_rebuilding_keeps_the_previous_kit_folded_below_the_new_one(self):
+        old_toggle = {'id': 'old', 'type': 'toggle', 'toggle': {'rich_text': [{'plain_text': 'Earlier kit · built 20 Sep 2026'}]}}
+        children = [read_block('d', 'heading_2', '🧾 Job description'), read_block('d1', 'paragraph', 'Principal SRE…'),
+                    read_block('h', 'heading_2', prep.HEADING),
+                    read_block('k0', 'paragraph', 'Recruiter screen · built 29 Sep 2026 · $0.04'),
+                    read_block('k1', 'heading_3', 'What they will likely assess'), read_block('k2', 'bulleted_list_item', 'Motivation'),
+                    old_toggle,
+                    read_block('s1', 'heading_3', 'What they will likely assess'),  # stacked by an old rebuild: dropped
+                    read_block('s2', 'bulleted_list_item', 'Stale point'),
+                    read_block('l', 'heading_2', '📥 Logged'), read_block('l1', 'paragraph', 'Chat with Jaya')]
+        tracker = self.page(children)
+        new = prep.blocks(dict(KIT, interview_type='recruiter follow-up'), NOW, 0.05)
+        prep.write_kit(tracker, 'h1', new, earlier_day='2026-09-29')
+        deleted = [path.split('/')[1] for method, path, *_ in tracker.requests if method == 'DELETE']
+        self.assertEqual(deleted, ['k0', 'k1', 'k2', 'old', 's1', 's2'])  # the description and the log stay
+        method, path, body = [r for r in tracker.requests if r[0] == 'PATCH'][0]
+        self.assertEqual((path, body['after']), ('blocks/h1/children', 'h'))
+        self.assertEqual(body['children'][:len(new)], new)
+        toggle = body['children'][-1]
+        self.assertEqual(toggle['type'], 'toggle')
+        self.assertEqual(toggle['toggle']['rich_text'][0]['text']['content'], 'Earlier kit · built 29 Sep 2026')
+        self.assertEqual([c[c['type']]['rich_text'][0]['text']['content'] for c in toggle['toggle']['children']],
+                         ['Recruiter screen · built 29 Sep 2026 · $0.04', 'What they will likely assess', 'Motivation'])
+        self.assertLessEqual(len(body['children']), 100)  # Notion's limit per request
+        self.assertLessEqual(len(toggle['toggle']['children']), 100)
+
+    def test_a_first_kit_adds_the_section_without_an_earlier_toggle(self):
+        tracker = self.page([read_block('l', 'heading_2', '📥 Logged')])
+        new = prep.blocks(KIT, NOW, 0.04)
+        prep.write_kit(tracker, 'h1', new)
+        (method, path, body), = tracker.requests
+        self.assertEqual(body['children'][1:], new)
+        self.assertNotIn('toggle', [b['type'] for b in body['children']])
 
 
 class LoggedRunTests(unittest.TestCase):

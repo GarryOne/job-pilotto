@@ -12,6 +12,7 @@ import {openFeedback, saveFeedbackAction} from './feedback.js';
 import {openHappened} from './happened.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openPrep} from './prep.js';
+import {prepCard} from '../prep-card.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -125,9 +126,9 @@ function focusCard(item) {
   round.append(icon(item.icon || 'check'));
   const body = el('div', 'focus-body');
   const meta = el('div', 'focus-meta muted small');
-  // A prep row says where its kit is: being built, ready (when), or what it will cover.
-  const parts = item.kind === 'prepare' && (item.building || item.prep_at)
-    ? [item.meta?.[0], item.building ? 'building the prep kit…' : `✓ prep kit ready · built ${prepDay(item.prep_at)}`].filter(Boolean) : item.meta || [];
+  // A prep row says where its kit is: being built, ready (when), from an earlier call (why), or what it will cover.
+  const prep = item.kind === 'prepare' ? prepCard(item) : null;
+  const parts = (prep ? prep.meta : item.meta || []).filter(Boolean);
   parts.forEach((part, i) => { if (i) meta.append(el('span', 'sep', '·')); meta.append(el('span', part.startsWith('✓') ? 'is-done' : '', part)); });
   const top = el('div', 'focus-top');  // the headline and its badge on one line: a compact row
   top.append(el('span', 'focus-headline', item.headline || item.title), pill(item.badge || '', item.tone || 'neutral', {dot: true}));
@@ -154,13 +155,14 @@ function focusCard(item) {
     no.title = 'It was cancelled or moved';  // a short label: the row keeps room for the company's name
     actions.append(focusButton('Yes, it happened', 'primary', () => openHappened(item, 'yes')), no);
   }
-  if (item.kind === 'prepare' && item.page_id) {  // the prep kit: built on the job's page, then opened there
-    if (item.building) {
-      const busy = focusButton('Building…', 'secondary', () => openPrep(item));  // reopens the dialog, joins the run
-      busy.prepend(el('span', 'spinner small'));
-      actions.append(busy);
-    } else if (item.prep_at) actions.append(focusButton('Open prep kit', 'primary', event => openLink(item.notion_url, event)));
-    else actions.append(focusButton('Build prep kit', 'primary', () => openPrep(item)));
+  // The prep kit: built on the job's page (a button press: it costs about $0.04), then opened there. A kit from an
+  // earlier call offers the new one first; the earlier kit stays on the page, in the ⋯ menu.
+  const prepRun = run => (run === 'open' ? event => openLink(item.notion_url, event) : () => openPrep(item));  // 'join' reopens the dialog
+  if (prep && item.page_id) {
+    const main = focusButton(prep.primary.label, prep.primary.tone, prepRun(prep.primary.run));
+    if (prep.primary.title) main.title = prep.primary.title;
+    if (prep.primary.run === 'join') main.prepend(el('span', 'spinner small'));
+    actions.append(main);
   }
   if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting'].includes(item.kind) && item.notion_url) {
     actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
@@ -180,7 +182,7 @@ function focusCard(item) {
   if (item.notion_url) more.push({icon: 'layers', label: 'Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.job_url)});
   if (item.kind === 'which_job') more.push({label: 'Not about a job', run: () => moveEmail(item.event_id, 'none')});
-  if (item.kind === 'prepare' && item.prep_at) more.push({icon: 'refresh', label: 'Build the prep kit again', run: () => openPrep(item)});
+  if (prep && item.page_id) prep.more.forEach(entry => more.push({icon: entry.icon, label: entry.label, run: prepRun(entry.run)}));
   if (item.kind === 'apply') more.push({icon: 'target', label: 'Change the daily target', run: () => editTarget()});
   if (item.detail) more.push({icon: 'info', label: 'Details', run: () => toastMessage(item.headline || item.title, item.detail)});
   if (more.length) actions.append(moreButton(more, 'More'));
@@ -235,17 +237,13 @@ async function loadHistory() {
   }
   list.replaceChildren(...rows);
 }
-const prepDay = at => {
-  const day = String(at || '').slice(0, 10), today = new Date().toLocaleDateString('en-CA');
-  return !day || day === today ? 'today' : new Date(`${day}T12:00:00`).toLocaleDateString([], {day: 'numeric', month: 'short'});
-};
 // The prep dialog tells the row at once (not after Focus is read again from Notion): building, ready, or back to idle.
 let lastFocus = null;
 export function markPrep(pageId, state) {
   const item = lastFocus?.items?.find(one => one.kind === 'prepare' && one.page_id === pageId);
   if (!item) return;
   item.building = state === 'building';
-  if (state === 'ready') item.prep_at = new Date().toLocaleDateString('en-CA');
+  if (state === 'ready') Object.assign(item, {prep_at: new Date().toLocaleDateString('en-CA'), prep_stale: false});
   renderFocus(lastFocus);
 }
 function renderFocus(data) {

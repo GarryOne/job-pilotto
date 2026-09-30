@@ -29,9 +29,15 @@ SECTIONS = ('🧾 Job description', '🤝 Recruiter message', '📥 Logged')
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
-    'required': ['interview_type', 'assess', 'questions', 'stories', 'gaps', 'ask_them', 'plan', 'unknowns'],
+    'required': ['interview_type', 'since_last_call', 'do_differently', 'assess', 'questions', 'stories', 'gaps', 'ask_them', 'plan', 'unknowns'],
     'properties': {
-        'interview_type': {'type': 'string', 'description': 'recruiter screen, hiring manager, technical, system design, or other'},
+        'interview_type': {'type': 'string', 'description': 'recruiter screen, recruiter follow-up, hiring manager, technical, '
+                                                            'system design, or other'},
+        'since_last_call': {'type': 'array', 'items': {'type': 'string'},
+                            'description': 'Follow-up only (else []): what the earlier calls established, and what they said '
+                                           'would be discussed next (e.g. salary, contract setup, relocation), 3-6 items'},
+        'do_differently': {'type': 'array', 'items': {'type': 'string'},
+                           'description': 'Follow-up only (else []): what to do differently this round, from how the last call went'},
         'assess': {'type': 'array', 'items': {'type': 'string'}, 'description': '3-5 things this interview will likely assess'},
         'questions': {'type': 'array', 'items': {'type': 'object', 'additionalProperties': False, 'required': ['question', 'answer_with'],
                       'properties': {'question': {'type': 'string'}, 'answer_with': {'type': 'string',
@@ -50,6 +56,12 @@ never invent facts about the owner or the employer. For a recruiter or agency sc
 owner's pitch, salary expectations, notice period and availability; for technical rounds, on depth in the role's stack,
 incidents and trade-offs. What Job Pilotto learned about the owner (weak topics, topics asked most, rejection lessons, employer feedback):
 work those into the questions, the gaps and the plan, and say where a past lesson applies.
+When "What already happened on THIS application" lists earlier interviews, this is a FOLLOW-UP round: don't repeat an
+intro kit (the pitch, generic motivation questions they already heard). Fill since_last_call with what the last call
+established and what they said would be discussed next; questions are the likely ones for THIS round (e.g. salary,
+contract setup, relocation, start date for a recruiter follow-up; deeper stack and incidents for a technical round);
+do_differently from the weak answers and how the last call went; ask_them only what is still open. The recruiter's
+latest message says what this call is for. Without earlier interviews, since_last_call and do_differently are [].
 Keep every item short and concrete."""
 
 
@@ -136,6 +148,100 @@ def what_you_learned(tracker, row):
     return lines
 
 
+MAX_EARLIER = 3  # earlier interviews of this application the kit reads (newest first)
+REVIEW_PARTS = {'Weak spots': 3, 'Signals from them': 5, 'Could count against you': 3, 'Facts from the call': 6,
+                'Practise before the next round': 3}
+
+
+def _text_of(block):
+    return plain({'type': 'rich_text', 'rich_text': block.get(block['type'], {}).get('rich_text', [])}) or ''
+
+
+def review_of(tracker, page_id):
+    """The review saved on a 🎤 Interviews page (src/ai/interviews.py analysis_blocks), read back as
+    {'summary', 'weak_answers': [question lines marked ⚠️/❌], <section title>: [lines]}; the transcript is not read."""
+    from . import interviews
+    review, section = {'summary': '', 'weak_answers': []}, None
+    for block in tracker._children(page_id):
+        kind, text = block['type'], _text_of(block)
+        if kind.startswith('heading_'):
+            if text == 'Transcript':
+                break
+            section = text
+            continue
+        if not text or text == interviews.PLACEHOLDER or text.startswith('🔗'):
+            continue
+        if section is None and kind == 'paragraph' and not review['summary']:
+            review['summary'] = text
+        elif section == 'Questions' and text[:1] in ('⚠', '❌'):
+            review['weak_answers'].append(text)
+        elif section in REVIEW_PARTS:
+            review.setdefault(section, []).append(text)
+    return review
+
+
+def earlier_interviews(tracker, row):
+    """What already happened on THIS application: its reviewed 🎤 Interviews rows (newest first, at most MAX_EARLIER)
+    with each review's summary, next step, weak answers, what they said, and facts from the call. [] when none."""
+    from . import interviews
+    from .. import focus
+    if not interviews.INTERVIEWS_DATABASE_ID:
+        return []
+    try:
+        rows = tracker.query_database(interviews.INTERVIEWS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})
+    except Exception as error:  # noqa: BLE001 — the kit is still useful without them
+        print(f'Warning: interviews of this job unreadable: {type(error).__name__}: {error}', file=sys.stderr)
+        return []
+    found = focus.reviewed_interviews(rows, row['id'])[:MAX_EARLIER]
+    for one in found:
+        try:
+            one['review'] = review_of(tracker, one['id'])
+        except Exception as error:  # noqa: BLE001 — the row's own columns are still worth giving
+            print(f'Warning: interview review unreadable: {type(error).__name__}: {error}', file=sys.stderr)
+            one['review'] = {}
+    return found
+
+
+def latest_events(tracker, row, limit=3):
+    """The application's latest 📈 Application Events with a note (newest first): e.g. the recruiter asking to confirm
+    a follow-up time. Lines for the prompt."""
+    if not ledger.EVENTS_DATABASE_ID:
+        return []
+    try:
+        events = tracker.query_database(ledger.EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: events of this job unreadable: {type(error).__name__}: {error}', file=sys.stderr)
+        return []
+    at = lambda e: plain(e['properties'].get('At')) or ''
+    events = [e for e in sorted(events, key=at, reverse=True) if plain(e['properties'].get('Note'))]
+    return [f"- {at(e)[:16].replace('T', ' ')} · {plain(e['properties'].get('Kind')) or 'Event'}: "
+            f"{plain(e['properties'].get('Note'))[:400]}" for e in events[:limit]]
+
+
+def follow_up_text(earlier, events):
+    """The prompt's "What already happened on THIS application" section, or '' with no earlier interview."""
+    if not earlier:
+        return ''
+    parts = ['# What already happened on THIS application (a follow-up round)']
+    for one in earlier:
+        review = one.get('review') or {}
+        lines = [f"## {one['day']} · {one['round'] or 'Interview'} · went {one['overall'] or '—'}"]
+        if review.get('summary'):
+            lines.append(f"Summary: {review['summary'][:600]}")
+        lines.append(f"Next step they said: {one['next_step'] or 'not stated'}")
+        if one['weak_topics']:
+            lines.append(f"Topics answered weakly: {one['weak_topics']}")
+        for answer in review.get('weak_answers', [])[:4]:
+            lines.append(f'- {answer[:300]}')
+        for title, most in REVIEW_PARTS.items():
+            if review.get(title):
+                lines.append(f'{title}:\n' + '\n'.join(f'- {x[:300]}' for x in review[title][:most]))
+        parts.append('\n'.join(lines)[:3000])
+    if events:
+        parts.append("## The recruiter's latest messages on this job (newest first)\n" + '\n'.join(events))
+    return '\n\n'.join(parts)
+
+
 READ_MODEL = os.getenv('JOB_PILOTTO_INBOX_MODEL', 'claude-haiku-4-5')
 MAX_SHOTS = 5
 
@@ -213,6 +319,8 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
         return _ask()
     profile = tracker.page_text()
     history = what_you_learned(tracker, row)
+    earlier = earlier_interviews(tracker, row)
+    follow_up = follow_up_text(earlier, latest_events(tracker, row) if earlier else [])
     coming = mail._when(mail._field(row, 'Next interview'))
     facts = [f"Role: {mail._field(row, 'Job')}", f"Employer: {mail._field(row, 'Company') or 'not named'}",
              f"Via: {mail._field(row, 'Via') or '—'} (contact: {mail._field(row, 'Contact') or '—'})",
@@ -223,25 +331,38 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
     response = client.messages.create(
         # Room for the model's thinking plus a full kit (3000 cut one off mid-answer); medium effort, as the kits.
         model=model, max_tokens=8000, system=SYSTEM,
-        messages=[{'role': 'user', 'content': '\n'.join(facts) + f'\n\n# The job\n{role[:12000]}\n\n# Owner\'s Profile\n{profile[:12000]}'}],
+        messages=[{'role': 'user', 'content': '\n'.join(facts) + (f'\n\n{follow_up}' if follow_up else '')
+                   + f'\n\n# The job\n{role[:12000]}\n\n# Owner\'s Profile\n{profile[:12000]}'}],
         output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
     cost.add(stats, model, response.usage)
     if getattr(response, 'stop_reason', None) == 'max_tokens':  # a cut-off answer is no kit: say so, not a JSON error
         raise RuntimeError('The prep kit came back cut off (too long for one answer). Try again; if it repeats, the job text is very long.')
     kit = json.loads(next(b.text for b in response.content if b.type == 'text'))
     usd = cost.usd(model, response.usage)
-    tracker.replace_after_heading(row['id'], HEADING, blocks(kit, now, usd))
-    try:
-        tracker.update_page(row['id'], {'Interview prep': {'date': {'start': now.date().isoformat()}}})
+    write_kit(tracker, row['id'], blocks(kit, now, usd), earlier_day=mail._field(row, 'Interview prep'))
+    try:  # with the time: Focus compares it with the interviews reviewed since (src/focus.py prep_state)
+        tracker.update_page(row['id'], {'Interview prep': {'date': {'start': now.isoformat(timespec='seconds')}}})
     except Exception as error:  # noqa: BLE001 — a workspace without the column yet (the app adds it)
         print(f'Warning: Interview prep date not set: {type(error).__name__}: {error}', file=sys.stderr)
-    return {'ok': True, 'text': f"Prep kit ready on the job's page ({kit['interview_type']}, ${usd:.2f}).", 'usd': usd}
+    after = f", after {len(earlier)} earlier interview{'s' if len(earlier) != 1 else ''}" if earlier else ''
+    return {'ok': True, 'text': f"Prep kit ready on the job's page ({kit['interview_type']}{after}, ${usd:.2f}).", 'usd': usd}
+
+
+KIT_TITLES = ('Since your last call', 'Do differently this time', 'What they will likely assess', 'Likely questions',
+              'Stories to have ready', 'Gaps and how to handle them', 'Ask them', 'Still unknown: ask the recruiter',
+              'Your prep plan')
+EARLIER = 'Earlier kit'
+MAX_BLOCKS = 95  # a kit, and the earlier kit inside its toggle: within Notion's 100 blocks per request
 
 
 def blocks(kit, now, usd):
     bullet = lambda text: _block('bulleted_list_item', text)
-    out = [_block('paragraph', f"{kit['interview_type'].capitalize()} · built {now:%d %b %Y} · ${usd:.2f}", bold=True),
-           _block('heading_3', 'What they will likely assess')] + [bullet(x) for x in kit['assess']]
+    out = [_block('paragraph', f"{kit['interview_type'].capitalize()} · built {now:%d %b %Y} · ${usd:.2f}", bold=True)]
+    if kit.get('since_last_call'):
+        out += [_block('heading_3', 'Since your last call')] + [bullet(x) for x in kit['since_last_call']]
+    if kit.get('do_differently'):
+        out += [_block('heading_3', 'Do differently this time')] + [bullet(x) for x in kit['do_differently']]
+    out += [_block('heading_3', 'What they will likely assess')] + [bullet(x) for x in kit['assess']]
     out += [_block('heading_3', 'Likely questions')] + [bullet(f"{q['question']} → {q['answer_with']}") for q in kit['questions']]
     out += [_block('heading_3', 'Stories to have ready')] + [bullet(x) for x in kit['stories']]
     if kit['gaps']:
@@ -250,7 +371,67 @@ def blocks(kit, now, usd):
     if kit['unknowns']:
         out += [_block('heading_3', 'Still unknown: ask the recruiter')] + [bullet(x) for x in kit['unknowns']]
     out += [_block('heading_3', 'Your prep plan')] + [_block('numbered_list_item', x) for x in kit['plan']]
-    return out[:95]
+    return out[:MAX_BLOCKS]
+
+
+COPYABLE = ('paragraph', 'heading_1', 'heading_2', 'heading_3', 'bulleted_list_item', 'numbered_list_item', 'quote', 'to_do')
+
+
+def _copy(block):
+    """A block read from Notion, as one to write again (its text and styles; nothing nested)."""
+    kind = block['type']
+    rich = [{'type': 'text', 'text': {'content': r.get('plain_text', '')[:2000]},
+             **({'annotations': r['annotations']} if r.get('annotations') else {})}
+            for r in block.get(kind, {}).get('rich_text', [])]
+    return {'object': 'block', 'type': kind, kind: {'rich_text': rich}}
+
+
+def _section(children):
+    """The prep section on a job page: (its heading, the blocks of the current kit, the blocks to drop: an older
+    Earlier kit toggle). The section runs to the next heading that isn't one of the kit's own (heading_3 titles
+    above) or to a database view. A page rebuilt before 30 Sep 2026 has old kit headings stacked below the newest kit:
+    only the newest kit (up to its second "What they will likely assess") counts, the rest is dropped."""
+    heading, kit, drop, older = None, [], [], False
+    for child in children:
+        kind = child['type']
+        text = _text_of(child) if kind in COPYABLE or kind == 'toggle' else ''
+        if heading is None:
+            if kind.startswith('heading_') and text.startswith(HEADING):
+                heading = child
+            continue
+        if kind in ('child_database', 'link_to_page') or (kind.startswith('heading_') and text not in KIT_TITLES):
+            break
+        if kind == 'toggle' and text.startswith(EARLIER):
+            drop.append(child)
+            continue
+        if text == KIT_TITLES[2] and any(_text_of(b) == KIT_TITLES[2] for b in kit):
+            older = True  # a second kit's headings: older than the newest one
+        (drop if older else kit).append(child)
+    return heading, kit, drop
+
+
+def write_kit(tracker, page_id, kit_blocks, earlier_day=''):
+    """The new kit under 🎤 Interview prep; the kit it replaces is kept below it in a folded toggle "Earlier kit · built
+    <date>" (only the latest earlier one: an older Earlier kit toggle is dropped). Appends the section when the page has
+    none."""
+    children = tracker._children(page_id)
+    heading, kit, drop = _section(children)
+    if heading is None:
+        tracker._request('PATCH', f'blocks/{page_id}/children', {'children': [_block('heading_2', HEADING)] + kit_blocks})
+        return
+    kept = [_copy(b) for b in kit if b['type'] in COPYABLE and _text_of(b)][:MAX_BLOCKS]
+    for block in kit + drop:
+        tracker._request('DELETE', f"blocks/{block['id']}")
+    add = list(kit_blocks)
+    if kept:
+        first = _text_of(kit[0]) if kit else ''
+        built = re.search(r'built (\d{1,2} \w{3} \d{4})', first)
+        when = built.group(1) if built else (f'{int(earlier_day[8:10])} {datetime.fromisoformat(earlier_day[:10]):%b %Y}'
+                                             if re.match(r'\d{4}-\d{2}-\d{2}', earlier_day or '') else 'earlier')
+        toggle = _block('toggle', f'{EARLIER} · built {when}')
+        toggle['toggle']['children'] = kept
+        add.append(toggle)
+    tracker._request('PATCH', f'blocks/{page_id}/children', {'children': add, 'after': heading['id']})
 
 
 def logged_build(tracker, row, client=None, now=None):
