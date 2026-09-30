@@ -175,6 +175,15 @@ def summary(items):
     return f'{text} first, then {order[1]}.' if len(order) > 1 else f'{text}.'
 
 
+# Events the app wrote to keep its own books (a stage set for an application tracked before the ledger, "already
+# talking when tracked"), not something that happened: they must never hide a message still waiting for your answer.
+BOOKKEEPING = re.compile(r'First event for an application tracked before the ledger|Already talking to the recruiter when tracked', re.I)
+
+
+def _bookkeeping(event):
+    return event.get('source') == 'Backfill' or bool(BOOKKEEPING.search(event.get('note') or ''))
+
+
 def _events_by_app(events):
     by_app = {}
     for event in events:
@@ -182,7 +191,7 @@ def _events_by_app(events):
         for link in (props.get('Application') or {}).get('relation', []):
             by_app.setdefault(link['id'].replace('-', ''), []).append(
                 {'kind': plain(props.get('Kind')), 'at': _when(plain(props.get('At')) or ''), 'note': plain(props.get('Note')) or '',
-                 'source_id': plain(props.get('Source ID')) or ''})
+                 'source_id': plain(props.get('Source ID')) or '', 'source': plain(props.get('Source')) or ''})
     for items in by_app.values():
         items.sort(key=lambda e: e['at'] or datetime.min.replace(tzinfo=timezone.utc))
     return by_app
@@ -358,7 +367,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
                                "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
                                row, missing=missing))
-        last = history[-1] if history else None
+        last = next((e for e in reversed(history) if not _bookkeeping(e)), None)
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
         label = f"{company} — {_role(row)[:70]}"
         if last and last['kind'] in NEEDS_ANSWER:

@@ -23,9 +23,9 @@ def row(page_id, company, job, stage='Applied', applied='2026-09-26', interview=
     return {'id': page_id, 'url': f'https://notion.test/{page_id}', 'last_edited_time': '2026-09-28T14:00:00Z', 'properties': props}
 
 
-def event(page_id, kind, at, note='', source_id=''):
+def event(page_id, kind, at, note='', source_id='', source=''):
     return {'properties': {'Kind': {'type': 'select', 'select': {'name': kind}}, 'At': {'type': 'date', 'date': {'start': at}},
-                           'Note': text(note), 'Source ID': text(source_id),
+                           'Note': text(note), 'Source ID': text(source_id), 'Source': {'type': 'select', 'select': {'name': source} if source else None},
                            'Application': {'type': 'relation', 'relation': [{'id': page_id}]}}}
 
 
@@ -316,6 +316,29 @@ class AddDetailsTests(unittest.TestCase):
     def test_only_talking_to_an_agency_with_a_hidden_employer_is_not_a_to_do(self):
         pitch = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent', Salary='€70k–90k')
         self.assertFalse([i for i in focus.build([pitch], [], target=0, now=NOW)['items'] if i['kind'] == 'details'])
+
+
+class WaitingForYouTests(unittest.TestCase):
+    def test_a_bookkeeping_stage_event_does_not_hide_the_recruiters_booking_request(self):
+        # AG Talent: pitch, you replied, the recruiter sent a booking calendar, then the app wrote a Backfill "Screening".
+        row_ = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent')
+        events = [event('a1', 'Recruiter lead', '2026-09-28T14:17:00Z', source_id='m1'),
+                  event('a1', 'Replied', '2026-09-29T00:23:00Z'),
+                  event('a1', 'Reply received', '2026-09-29T08:41:00Z', source_id='m2',
+                        note='Recruiter sent role details link and booking calendar; requested CV'),
+                  event('a1', 'Screening', '2026-09-29T12:56:00Z', note='First event for an application tracked before the ledger',
+                        source='Backfill')]
+        items = focus.build([row_], events, target=0, now=NOW)['items']
+        book = [i for i in items if i['kind'] == 'book']
+        self.assertEqual(len(book), 1)
+        self.assertIn('AG Talent', book[0]['title'])
+
+    def test_a_real_later_event_still_clears_it(self):
+        row_ = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent')
+        events = [event('a1', 'Reply received', '2026-09-29T08:41:00Z', note='Recruiter sent a booking calendar'),
+                  event('a1', 'Replied', '2026-09-29T09:00:00Z')]
+        items = focus.build([row_], events, target=0, now=NOW)['items']
+        self.assertFalse([i for i in items if i['kind'] in ('book', 'reply')])
 
 
 class ParallelReadsTests(unittest.TestCase):
