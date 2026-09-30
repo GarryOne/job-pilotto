@@ -29,24 +29,21 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Never auto-apply to jobs: the application kit drafts, the owner submits. Never scrape LinkedIn, Glassdoor, levels.fyi or Reddit; use public APIs and job-feed endpoints only.
 - Secrets live in the macOS Keychain (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets — never in code or Notion.
 
-## Superpowers plugin (obra/superpowers, adopted 29 Sep 2026)
-Use its skills for the change loop: brainstorming → writing-plans → test-driven-development → verification-before-completion,
-plus systematic-debugging for bugs. This repo's rules win where they differ:
-- Worktrees: `tools/worktree.sh <topic>` (`.claude/worktrees/`), not `.worktrees/`.
+## The change loop (Superpowers plugin dropped 30 Sep 2026: its process cost more tokens than it saved)
+- Worktrees: `tools/worktree.sh <topic>` (`.claude/worktrees/`).
 - Finish: rebase on `origin/main`, tests, push to `main` (no local merge, no PR unless asked), then Notion.
-- Small changes (a label, a style, a one-file fix): skip brainstorming and plans; edit → one suite → push.
+- Small changes (a label, a style, a one-file fix): edit → one suite → push.
 - No subagents (owner, 30 Sep 2026: they ate most of the token usage and were slow): do the work inline with your own
-  tools. Don't use the superpowers `subagent-driven-development` or `dispatching-parallel-agents` skills here; execute
-  plans inline (`executing-plans`). Only when the owner asks for one.
-- Specs/plans go in `docs/superpowers/`; link big ones from the Notion Decision Log, don't copy them there.
-- When to use which (from the 24–29 Sep Run Log, where the rework came from):
-  - UI from an owner mockup or request: brainstorming first; confirm layout + behaviour in one message before code
-    (Profile moved and back, Settings saving changed twice, Actions redesigned 3× on 28 Sep).
-  - A bug the owner saw: systematic-debugging, root cause + failing test before any fix (Notion 429s took 3 rounds).
-  - Big features (Always on, migrations, Apply with Claude): a spec in `docs/superpowers/specs/` with a
-    "Data ownership" section (Notion vs cache) before code.
-  - "Done" = tests pass + the suite as CI runs it
-    (`JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest discover -s tests`, desktop `npm ci` with dev deps).
+  tools. Only when the owner asks for one.
+- The four habits that prevented rework (24–29 Sep Run Log):
+  1. A bug the owner saw: find the root cause and write a failing test before any fix (Notion 429s took 3 rounds).
+  2. Tests first for new behaviour; watch the test fail for the right reason.
+  3. UI from an owner mockup or request: confirm layout + behaviour in one message before code (Profile moved and back,
+     Settings saving changed twice, Actions redesigned 3× on 28 Sep).
+  4. "Done" = tests pass as CI runs them (`JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs python3 -m unittest
+     discover -s tests`, desktop `npm ci` with dev deps); say what you verified and what you didn't.
+- Big features (Always on, migrations, Apply with Claude): a short spec in `docs/superpowers/specs/` with a
+  "Data ownership" section (Notion vs cache) before code; link it from the Notion Decision Log, don't copy it there.
 - Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and
   opens a `self-review/<date>` PR editing these rules or skills. Proposals only: the owner merges.
 
