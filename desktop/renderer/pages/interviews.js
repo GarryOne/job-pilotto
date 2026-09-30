@@ -3,7 +3,7 @@ import * as pendingReviews from '../review-pending.js';
 import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
-import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
+import {insightCard, insightSkeleton, insightView, needsUpgrade} from '../interview-insight.js';
 import * as practice from '../practice-session.js';
 import {afterLoad} from '../interview-library.js';
 import {showJobsIn} from './jobs.js';
@@ -301,10 +301,17 @@ function renderInsight() {
   const view = insightView(ivInsight, ivSavedRows);
   show($('iv-insight'), !!view);
   insightShown = view;
+  upgradeOldInsight(view);
   if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, onMoments: showMoments, onPractice: startPractice, refresh: refreshInsights,
     onTick: tickStep, onToggle: toggleInsight, collapsed: insightCollapsed, busy: insightBusy, note: insightNote}));
 }
-let insightShown = null;
+let insightShown = null, upgradeTried = false;
+// An insight saved in the old format: refreshed once per app run (about $0.02; the page says so while it works).
+function upgradeOldInsight(view) {
+  if (upgradeTried || !view || view.empty || !needsUpgrade(ivInsight, {hasKey: !!shared.state.secrets?.ANTHROPIC_API_KEY, busy: insightBusy})) return;
+  upgradeTried = true;
+  setTimeout(refreshInsights, 0);
+}
 
 // View supporting moments: the quotes behind each pattern; a name opens that interview in the library.
 function showMoments() {

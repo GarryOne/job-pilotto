@@ -303,6 +303,17 @@ class OlderRows(unittest.TestCase):
     """An insight saved before the card's new words (titles, kinds, keyword lines) is regenerated once on Refresh, even when no
     review changed, so it fills them in; after that an unchanged set never spends again."""
 
+    def test_saved_says_which_version_the_insight_is(self):
+        fake, client = FakeNotion(list(ONE), PAGES), FakeClient(RESULT)
+        a, b = env()
+        with a, b:
+            ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+            self.assertEqual(ii.saved(fake)['version'], ii.DATA_VERSION)
+            data = json.loads(''.join(t['plain_text'] for t in fake.insights[0]['properties']['Data']['rich_text']))
+            del data['v']
+            fake.insights[0]['properties']['Data'] = {'type': 'rich_text', 'rich_text': [{'plain_text': json.dumps(data)}]}
+            self.assertEqual(ii.saved(fake)['version'], 1)
+
     def test_a_row_without_the_new_words_is_regenerated_once(self):
         fake, client = FakeNotion(list(ONE), PAGES), FakeClient(RESULT)
         a, b = env()

@@ -353,7 +353,7 @@ def saved(tracker):
     return {'id': row['id'], 'url': row.get('url', ''), 'headline': plain(p.get('Insight')) or '',
             'confidence': plain(p.get('Confidence')) or 'low', 'sample': plain(p.get('Sample size')) or 0,
             'updated': data.get('updated') or row.get('last_edited_time', ''),
-            'headline_detail': data.get('headline_detail') or '', 'patterns': data.get('patterns') or [],
+            'version': data.get('v') or 1, 'headline_detail': data.get('headline_detail') or '', 'patterns': data.get('patterns') or [],
             'next_steps': [{**step, 'done': step_key(step.get('text')) in (data.get('done_steps') or [])}
                            for step in data.get('next_steps') or []], 'interviews': data.get('interviews') or [],
             'nothing_useful': bool(data.get('nothing_useful')), 'done_steps': data.get('done_steps') or [], 'evidence': plain(p.get('Evidence')) or '',

@@ -17,7 +17,7 @@ globalThis.Node = FakeNode;
 globalThis.document = {createElement: tag => new FakeNode(tag), createElementNS: (_, tag) => new FakeNode(tag),
   body: new FakeNode('body'), addEventListener() {}, querySelector: () => null};
 globalThis.window ??= {addEventListener() {}};
-const {insightView, insightCard, ago} = await import('../renderer/interview-insight.js');
+const {insightView, insightCard, ago, needsUpgrade} = await import('../renderer/interview-insight.js');
 const {refreshInsights, insightStep} = await import('../lib/interviews.js');
 
 const NOW = Date.parse('2026-09-30T12:00:00Z');
@@ -209,4 +209,13 @@ test('supporting moments: the quotes behind each pattern with the interview each
     ['Incident-response stories land well', [['c', 'iv-1', 'Laelaps AI']]]]);
   assert.equal(view.supporting.count, 3);
   assert.equal(insightView({...RICH, patterns: [{...RICH.patterns[0], evidence: []}]}, RICH_ROWS, NOW).moments.length, 0);
+});
+
+test('an insight saved in the old format is refreshed once by the app, only when Claude can be asked', () => {
+  assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true}), true);
+  assert.equal(needsUpgrade(RICH, {hasKey: true}), true);  // saved before versions existed
+  assert.equal(needsUpgrade({...RICH, version: 2}, {hasKey: true}), false);
+  assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: false}), false);
+  assert.equal(needsUpgrade(null, {hasKey: true}), false);
+  assert.equal(needsUpgrade({...RICH, version: 1}, {hasKey: true, busy: true}), false);
 });
