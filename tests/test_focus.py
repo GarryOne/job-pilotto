@@ -333,6 +333,14 @@ class WaitingForYouTests(unittest.TestCase):
         self.assertEqual(len(book), 1)
         self.assertIn('AG Talent', book[0]['title'])
 
+    def test_a_stage_noticed_in_notion_does_not_answer_the_recruiter_either(self):
+        row_ = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent')
+        events = [event('a1', 'Reply received', '2026-09-29T08:41:00Z', note='Recruiter sent a booking calendar'),
+                  event('a1', 'Screening', '2026-09-29T12:56:00Z', note='Stage changed in Notion; time is when the row was last edited',
+                        source='Notion edit')]
+        items = focus.build([row_], events, target=0, now=NOW)['items']
+        self.assertEqual(len([i for i in items if i['kind'] == 'book']), 1)
+
     def test_a_real_later_event_still_clears_it(self):
         row_ = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent')
         events = [event('a1', 'Reply received', '2026-09-29T08:41:00Z', note='Recruiter sent a booking calendar'),

@@ -175,13 +175,13 @@ def summary(items):
     return f'{text} first, then {order[1]}.' if len(order) > 1 else f'{text}.'
 
 
-# Events the app wrote to keep its own books (a stage set for an application tracked before the ledger, "already
-# talking when tracked"), not something that happened: they must never hide a message still waiting for your answer.
+# Events the app wrote to keep its own books (a stage it noticed changed in Notion, a stage set for an application
+# tracked before the ledger, "already talking when tracked"), not a message or an answer: they must never hide a message still waiting for your answer.
 BOOKKEEPING = re.compile(r'First event for an application tracked before the ledger|Already talking to the recruiter when tracked', re.I)
 
 
 def _bookkeeping(event):
-    return event.get('source') == 'Backfill' or bool(BOOKKEEPING.search(event.get('note') or ''))
+    return event.get('source') in ('Backfill', 'Notion edit') or bool(BOOKKEEPING.search(event.get('note') or ''))
 
 
 def _events_by_app(events):
