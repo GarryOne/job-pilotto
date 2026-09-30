@@ -299,6 +299,25 @@ class CardWords(unittest.TestCase):
         self.assertIn('focus', ii.SCHEMA['properties']['next_steps']['items']['required'])
 
 
+class OlderRows(unittest.TestCase):
+    """An insight saved before the card's new words (titles, kinds, keyword lines) is regenerated once on Refresh, even when no
+    review changed, so it fills them in; after that an unchanged set never spends again."""
+
+    def test_a_row_without_the_new_words_is_regenerated_once(self):
+        fake, client = FakeNotion(list(ONE), PAGES), FakeClient(RESULT)
+        a, b = env()
+        with a, b:
+            ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+            data = json.loads(''.join(t['plain_text'] for t in fake.insights[0]['properties']['Data']['rich_text']))
+            self.assertEqual(data['v'], ii.DATA_VERSION)
+            del data['v']  # as saved before the card was redesigned
+            fake.insights[0]['properties']['Data'] = {'type': 'rich_text', 'rich_text': [{'plain_text': json.dumps(data)}]}
+            again = ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})
+            self.assertEqual((again['status'], len(client.calls)), ('updated', 2))
+            self.assertEqual(ii.update(fake, client=client, now=NOW, budget_status=lambda t: {'level': 'ok'})['status'], 'unchanged')
+            self.assertEqual(len(client.calls), 2)  # no third call
+
+
 class Ticks(unittest.TestCase):
     """The "Practice next" tick boxes: saved in the insight row's Data (Notion is the one copy), kept across a Refresh only
     for a step whose words are still there."""

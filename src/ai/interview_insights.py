@@ -155,6 +155,9 @@ def prompt_input(items):
 # ---------- the one AI call ----------
 
 KINDS = ('weakness', 'strength', 'note')  # the icon of a pattern on the card
+# 2 = the redesigned card's words (titles, kinds, keyword lines, the banner sentence). A saved insight of an older version is
+# regenerated once on Refresh even when no review changed, so it fills them in.
+DATA_VERSION = 2
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -307,7 +310,7 @@ def _row_data(row):
 
 def properties(stored, items, digest, model_, usd, now, done=()):
     keys = {step_key(step['text']) for step in stored['next_steps']}
-    data = {'headline_detail': stored.get('headline_detail') or '', 'patterns': stored['patterns'], 'next_steps': stored['next_steps'], 'nothing_useful': stored['nothing_useful'],
+    data = {'v': DATA_VERSION, 'headline_detail': stored.get('headline_detail') or '', 'patterns': stored['patterns'], 'next_steps': stored['next_steps'], 'nothing_useful': stored['nothing_useful'],
             'done_steps': [key for key in done if key in keys],
             'interviews': [{'id': i['id'], 'title': i['title'], 'url': i['url'], 'round_type': i['round_type'], 'date': i['date']}
                            for i in items],
@@ -384,7 +387,7 @@ def update(tracker, *, client=None, model_=None, stats=None, now=None, force=Fal
     if not rows:
         return {'status': 'none', 'text': 'Interview insights: no reviewed interview yet'}
     digest, row = fingerprint(rows), existing(tracker)
-    if row and not force and plain(row['properties'].get('Input hash')) == digest:
+    if row and not force and plain(row['properties'].get('Input hash')) == digest and (_row_data(row).get('v') or 1) >= DATA_VERSION:
         return {'status': 'unchanged', 'text': f'Interview insights: up to date ({len(rows)} reviewed, nothing changed)', 'usd': 0.0}
     try:
         info = (budget_status or budget.status)(tracker)
