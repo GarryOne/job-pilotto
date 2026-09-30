@@ -82,6 +82,9 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
   after Notion confirmed it has it) and a test.
 - Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever
   started it, so users see what happened in Notion without the app having to show it.
+- When tracked data is wrong, fix and verify the code path first. Repair the data through the app's normal
+  action or repair flow so the same correction works for every user. If that flow only handles future events
+  and cannot recover the existing record, a targeted manual Notion repair is acceptable after the code fix.
 
 ## Working with git: one worktree per task
 

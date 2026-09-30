@@ -341,6 +341,37 @@ class MailTests(unittest.TestCase):
         dates = [u['Next interview']['date']['start'] for _, u in tracker.updates if 'Next interview' in u]
         self.assertEqual(dates, ['2026-09-30T10:30:00+04:00'])  # the invitation's time (08:30 in Zurich), kept
 
+    def test_known_recruiters_invite_is_recorded_when_ai_spend_is_unavailable(self):
+        huxley = app('huxley', '', 'Principal SRE', stage='Interviewing', via='Huxley',
+                      contact='Jayantie Nejati · j.nejati@huxley.com')
+        old = event_row('huxley', 'Interview scheduled', '2026-09-29T12:35:42Z', 'old-invite')
+        old['properties']['Changes'] = text(json.dumps({'fields': {}, 'interview_at': '2026-09-30T10:30:00+04:00'}))
+        tracker = FakeTracker([huxley], [old])
+        invite = {**email('new-invite', 'Follow up Igor / Jaya - SRE', '2026-09-30T09:16:53+02:00',
+                          sender='"Seosahai - Nejati, Jayantie" <j.nejati@huxley.com>',
+                          body='Let me know if this time works'),
+                  'invite_at': '2026-10-01T10:30:00+04:00'}
+        exhausted = FakeClient([])
+        mail.run(tracker, FakeGoogle([invite]), client=exhausted, calendar=False,
+                 now=datetime(2026, 9, 30, 7, 20, tzinfo=timezone.utc), state_path=self.state, stats={})
+        self.assertEqual(exhausted.calls, [])
+        self.assertIn(('huxley', {'Next interview': {'date': {'start': '2026-10-01T10:30:00+04:00'}}}), tracker.updates)
+        self.assertEqual([p['Kind']['select']['name'] for p in tracker.created], ['Interview scheduled'])
+
+    def test_a_spend_limit_does_not_block_a_known_invite_but_leaves_other_mail_unread(self):
+        huxley = app('huxley', '', 'Principal SRE', stage='Interviewing', via='Huxley',
+                      contact='Jayantie Nejati · j.nejati@huxley.com')
+        invite = {**email('new-invite', 'Follow up Igor / Jaya - SRE', '2026-09-30T09:16:53+02:00',
+                          sender='j.nejati@huxley.com'), 'invite_at': '2026-10-01T10:30:00+04:00'}
+        other = email('unknown', 'Application update', sender='someone@example.com')
+        tracker = FakeTracker([huxley])
+        client = FakeClient([])
+        with mock.patch.object(client, 'create', side_effect=RuntimeError('You have reached your specified API usage limits')):
+            mail.run(tracker, FakeGoogle([other, invite]), client=client, calendar=False,
+                     now=datetime(2026, 9, 30, 7, 20, tzinfo=timezone.utc), state_path=self.state, stats={})
+        self.assertIn(('huxley', {'Next interview': {'date': {'start': '2026-10-01T10:30:00+04:00'}}}), tracker.updates)
+        self.assertEqual(mail.load_state(self.state)['seen'], ['new-invite'])
+
     def test_a_platform_is_never_the_agency(self):
         self.assertEqual(mail._sender_org('LinkedIn <inmail-hit-reply@linkedin.com>'), '')
         self.assertEqual(mail._sender_org('Jaya <j.nejati@huxley.com>'), 'Huxley')

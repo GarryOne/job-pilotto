@@ -248,7 +248,7 @@ def _near(existing, kind, at, hours=24):
     moment = _when(at)
     for event_kind, event_at, event_id, source_id in existing:
         other = _when(event_at if 'T' in event_at else event_at + 'T12:00:00')
-        if event_kind == kind and moment and other and abs((moment - other).total_seconds()) < hours * 3600:
+        if event_kind == kind and not source_id and moment and other and abs((moment - other).total_seconds()) < hours * 3600:
             return event_id, source_id
     return None
 
@@ -434,9 +434,31 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     emails = sorted((google.message(i) for i in ids), key=lambda m: m['date'])
     if not emails:
         return [], 0
-    results = classify(client, model, apps, emails, stats)
+    results, uncertain = {}, []
+    for i, email in enumerate(emails):
+        # The calendar part supplies the time, and one already-tracked contact supplies the job. This common
+        # follow-up invitation needs no AI (which may be unavailable when the owner's spend limit is reached).
+        candidates = [n for n, row in enumerate(apps) if _names_it(row, email) and not _ambiguous(apps, row, email)]
+        if email.get('invite_at') and len(candidates) == 1 and not re.search(r'cancel|declin', email['subject'], re.I):
+            row = apps[candidates[0]]
+            results[i] = {'relevant': True, 'application': candidates[0], 'company': _field(row, 'Company') or _field(row, 'Via'),
+                          'role': _field(row, 'Job'), 'kind': 'Interview scheduled', 'interview_at': email['invite_at'],
+                          'summary': 'Recruiter sent a calendar invitation', 'feedback': ''}
+        else:
+            uncertain.append((i, email))
+    if uncertain:
+        try:
+            results.update({uncertain[i][0]: result for i, result in
+                            classify(client, model, apps, [email for _, email in uncertain], stats).items()})
+        except Exception as error:
+            if 'You have reached your specified API usage limits' not in str(error):
+                raise
+            print('Mail check: AI spend limit reached; processing known calendar invitations only. '
+                  'Other emails remain unread for the next check.', file=sys.stderr)
     lines = []
     for i, email in enumerate(emails):
+        if i not in results:
+            continue  # no classification: keep it for the next check
         result = results.get(i) or {'relevant': False}
         if email.get('invite_at') and result.get('relevant'):
             # The invitation's own start (its calendar part), never a time the AI read from the text.
@@ -503,7 +525,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             _short(stats, result['kind'], row, extra)
             if changed == 'Rejected' and rejected is not None:
                 rejected.append((row, email))
-    return lines, len(emails)
+    return lines, len(results)
 
 
 def review_rejections(tracker, client, rejected, stats, backfill=2):
