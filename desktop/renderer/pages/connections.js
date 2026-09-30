@@ -197,7 +197,9 @@ function alertLine(name, text) { const line = document.querySelector(`[data-secr
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  $('claude-prereqs-check').addEventListener('click', showClaudePrereqs);
+  // No "Check again": the checklist refreshes by itself when you come back to the window (e.g. after installing
+  // Claude Code or the Chrome extension), while the extras step is open.
+  window.addEventListener('focus', () => { if (!document.querySelector('.step[data-step="extras"]')?.hidden) showClaudePrereqs(); });
   showClaudePrereqs();
   setInterval(() => {
     if (document.querySelector('.view[data-view="settings"]').hidden) return;
