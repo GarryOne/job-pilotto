@@ -34,7 +34,7 @@ export function clean(feeds) {
     if (typeof company !== 'string' || !company.trim() || seen.has(`${ats}:${slug}`)) continue;
     seen.add(`${ats}:${slug}`);
     out.push({company: company.trim().slice(0, 120), ats, slug, kind: item.kind === 'board' ? 'board' : 'employer', tier: item.tier === 'Tier 1' ? 'Tier 1' : 'Standard',
-      quality: number(item.quality, 100), jobs: number(item.jobs, 100000),
+      quality: number(item.quality, 100), jobs: number(item.jobs, 100000), relevant: number(item.relevant, 100000),
       checked: /^\d{4}-\d{2}-\d{2}$/.test(item.checked || '') ? item.checked : null,
       fits: fitsOf(item.fits),
       places: Array.isArray(item.places) ? item.places.filter(p => typeof p === 'string').map(p => p.slice(0, 60)).slice(0, MAX_PLACES) : []});

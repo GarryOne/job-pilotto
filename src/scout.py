@@ -317,6 +317,12 @@ def export_sources(tracker, path=CONFIG / 'sources.json', fetch=ats.fetch, today
 
 # ---------- the central index (published by the scout in the private ops repo) ----------
 
+def relevant_roles(jobs):
+    """Open engineering / IT roles of a feed by the central definition, each title counted once (the same role listed for
+    several cities is one role): the honest number for the website, since `jobs` counts every posting of every kind."""
+    return len({(j.get('title') or '').strip().lower() for j in jobs if feeds.wanted_title(j.get('title'))})
+
+
 def job_places(jobs, limit=40):
     """Where a feed has SRE-type roles: its most common location strings, so a client can skip feeds with none in
     its own places without downloading them."""
@@ -371,7 +377,7 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
             score, _ = quality(jobs)
             kind = 'board' if (system, slug.lower()) in board_keys else 'employer'   # a job board of many companies is not an employer
             entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
-                     'jobs': len(jobs), 'checked': today, 'places': job_places(jobs)}
+                     'jobs': len(jobs), 'relevant': relevant_roles(jobs), 'checked': today, 'places': job_places(jobs)}
             tags = fits(by_feed.get((system, slug), {}))
             return {**entry, 'fits': tags} if tags else entry
         except Exception as error:  # noqa: BLE001 — a dead feed is reported, not fatal

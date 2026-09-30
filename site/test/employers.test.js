@@ -8,7 +8,7 @@ const env = () => ({INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response
   WAITLIST: {get: async key => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); }}});
 const call = (e, method, headers = {}, body) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index',
   {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, {});
-const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland', 7], ...extra});
+const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, relevant: 4.6, checked: '2026-09-30', places: ['Zurich, Switzerland', 7], ...extra});
 const auth = {Authorization: 'Bearer k3y'};
 
 
@@ -35,7 +35,7 @@ test('publish, then anyone can download it: public, cacheable, ETag revalidation
   assert.equal(get.status, 200);
   assert.match(get.headers.get('Cache-Control'), /public, max-age=/);
   const body = await get.json();
-  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer', fits: {roles: [], regions: []}});
+  assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer', fits: {roles: [], regions: []}, relevant: 5});
   const again = await call(env(), 'GET', {'If-None-Match': get.headers.get('ETag')});
   assert.equal(again.status, 304);
 });
@@ -70,6 +70,7 @@ test('the landing page reads the pool size from this same route and says users c
   assert.match(page, /id="pool-employers"/);
   assert.match(page, /id="pool-jobs"/);
   assert.match(page, /Open jobs/);
+  assert.match(page, /IT & engineering roles/);   // the number is the relevant one once the scout records it
   assert.match(page, /Can I add my own employers\?/);
   assert.doesNotMatch(page, /tech jobs in Switzerland/);   // the pool is worldwide; the focus is the kind of job
   assert.match(page, /unless you switch it off/);   // honest, and not shouted
