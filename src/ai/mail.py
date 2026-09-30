@@ -248,7 +248,7 @@ def _near(existing, kind, at, hours=24):
     moment = _when(at)
     for event_kind, event_at, event_id, source_id in existing:
         other = _when(event_at if 'T' in event_at else event_at + 'T12:00:00')
-        if event_kind == kind and moment and other and abs((moment - other).total_seconds()) < hours * 3600:
+        if event_kind == kind and not source_id and moment and other and abs((moment - other).total_seconds()) < hours * 3600:
             return event_id, source_id
     return None
 

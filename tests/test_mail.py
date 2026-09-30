@@ -422,6 +422,47 @@ class MailTests(unittest.TestCase):
         self.assertTrue(any('How did' in m and 'transcript' in m for m in sent))
 
 
+class HuxleyFollowUpTests(unittest.TestCase):
+    """30 Sep 2026: Huxley's second invitation (1 Oct 08:30 Zurich, message 1a0f12c88badf86c) arrived ~19 h after the
+    first (30 Sep 08:30, message 1a0ed2a0b8f85171). Classified "Interview scheduled", it was taken for the first one."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.state = Path(self.tmp.name) / 'state.json'
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_second_invite_within_a_day_of_the_first_is_a_new_interview(self):
+        job = app('huxley', '', 'Principal SRE - Remote opportunity for a global AI company', stage='Interview scheduled',
+                  via='Huxley', contact='Jayantie Nejati · j.nejati@huxley.com', applied='2026-09-29')
+        job['properties']['Next interview'] = {'type': 'date', 'date': {'start': '2026-09-30T08:30:00+02:00'}}
+        old = event_row('huxley', 'Interview scheduled', '2026-09-29T14:35:00+02:00', '1a0ed2a0b8f85171')
+        old['properties']['Changes'] = text(json.dumps({'fields': {}, 'interview_at': '2026-09-30T08:30:00+02:00'}))
+        tracker = FakeTracker([job], [old])
+        invite = {**email('1a0f12c88badf86c', 'Follow up Igor / Jaya - SRE', '2026-09-30T09:17:02+02:00',
+                          sender='"Seosahai - Nejati, Jayantie" <j.nejati@huxley.com>',
+                          body='Hi Igor, does this time work for you? Microsoft Teams meeting'),
+                  'invite_at': '2026-10-01T08:30:00+02:00'}
+        client = FakeClient([[result(0, 0, 'Interview scheduled', company='Huxley')]])
+        mail.run(tracker, FakeGoogle([invite]), client=client, calendar=False, state_path=self.state, stats={},
+                 now=datetime(2026, 9, 30, 8, 0, tzinfo=timezone.utc))  # a manual check at 10:00 in Zurich
+        [event] = [p for p in tracker.created if 'Kind' in p]
+        self.assertEqual(event['Kind']['select']['name'], 'Interview scheduled')
+        self.assertEqual(event['Source ID']['rich_text'][0]['text']['content'], '1a0f12c88badf86c')
+        self.assertEqual([u['Next interview']['date']['start'] for page, u in tracker.updates if 'Next interview' in u],
+                         ['2026-10-01T08:30:00+02:00'])
+        self.assertFalse([u for _, u in tracker.updates if 'Stage' in u])  # stays Interview scheduled
+        # The same invitation again (its event now in the ledger) is not a second event.
+        tracker.events.append({'id': 'new-1', 'properties': {
+            'Kind': {'select': {'name': 'Interview scheduled'}}, 'Source ID': text('1a0f12c88badf86c'),
+            'At': {'date': {'start': '2026-09-30T09:17:02+02:00'}}, 'Application': {'relation': [{'id': 'huxley'}]}}})
+        self.state.unlink()
+        mail.run(tracker, FakeGoogle([invite]), client=FakeClient([]), calendar=False, state_path=self.state, stats={},
+                 now=datetime(2026, 9, 30, 8, 0, tzinfo=timezone.utc))
+        self.assertEqual(len([p for p in tracker.created if 'Kind' in p]), 1)
+
+
 class LimitTests(unittest.TestCase):
     def test_limit_reached(self):
         from src.ai import cost
