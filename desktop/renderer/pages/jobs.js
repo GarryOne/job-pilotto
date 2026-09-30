@@ -8,7 +8,7 @@ import {shared} from './shared.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
 import {$, message, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
-import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList} from './sessions.js';
+import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
 import {toastMessage} from './startup.js';
 import {undoEmailUpdate} from './reassign.js';
 import {openFeedback} from './feedback.js';
@@ -25,7 +25,8 @@ const fullKey = url => String(url || '').trim().replace(/\/$/, '');
 // Applying, with no session open for it: one to settle (banner on Jobs).
 const stuck = job => isStuck(job, entry => sessionList.some(item => pageKey(item.url) === pageKey(entry.url)));
 function renderStuck() {
-  const count = shared.allJobs.filter(stuck).length;
+  // Not before the sessions are known: with none loaded yet every Applying job would look abandoned for a moment.
+  const count = sessionsLoaded ? shared.allJobs.filter(stuck).length : 0;
   show($('jobs-stuck'), count > 0);
   $('jobs-stuck-text').textContent = `${count} job${count === 1 ? ' is' : 's are'} still marked Applying but ${count === 1 ? 'has' : 'have'} no open session. Did you submit ${count === 1 ? 'it' : 'them'}?`;
 }
@@ -61,6 +62,7 @@ function fitDetail(job) {
     ...list('For you', strengths, 'good'), ...list('Against', gaps, 'warn'));
   return box;
 }
+document.addEventListener('sessions-loaded', () => renderStuck());
 const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 // In conversation: the opportunities that found you and are still open, one Focus-style row each; a click opens the
 // job in Notion (⌘-click: in a Job Pilotto window), or its link when it has no page.

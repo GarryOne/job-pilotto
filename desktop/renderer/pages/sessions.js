@@ -18,6 +18,8 @@ const sessionStatus = item => sessionState(item, formReady(item));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
+// Set once the app has answered with its sessions: until then "no open session" can't be told from "not loaded yet".
+export let sessionsLoaded = false;
 
 // ---------- Application sessions: Apply with Claude inside the app (lib/terminals.js) ----------
 // A dock of cards above the activity bar (one per session) and a session page with the live terminal (xterm.js),
@@ -32,6 +34,8 @@ export const sessionTitle = item => item.title || sessionJob(item).title || 'App
 export const sessionCompany = item => item.company || sessionJob(item).company || new URL(item.url || 'https://job').hostname.replace(/^www\./, '');
 export async function refreshSessions() {
   sessionList = await window.pilot.sessions().catch(() => []);
+  sessionsLoaded = true;
+  document.dispatchEvent(new Event('sessions-loaded'));
   renderDock();
   if (!document.querySelector('.view[data-view="sessions"]').hidden) renderSessionPage();
 }
