@@ -33,7 +33,7 @@ import urllib.error
 from zoneinfo import ZoneInfo
 
 from .. import telegram
-from ..notion import client as notion, cron_runs
+from ..notion import client as notion, cron_runs, ledger
 from ..notion import origin as origin_rule
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
@@ -231,17 +231,20 @@ def _when(value):
 
 
 def _events_index(tracker):
-    """Known Source IDs, and per application page id: [(kind, at, event page id, source id)]."""
-    known, by_app = set(), {}
+    """Known Source IDs, per application page id: [(kind, at, event page id, source id)], and the ids of the events
+    the stage watcher guessed (Source "Notion edit"/"Backfill"): a real item that adopts one gives it its own source."""
+    known, by_app, guessed = set(), {}, set()
     for event in tracker.query_database(EVENTS_DATABASE_ID):
         props = event['properties']
         source_id = plain(props.get('Source ID')) or ''
         if source_id:
             known.add(source_id)
+        if plain(props.get('Source')) in ledger.WATCHER_SOURCES:
+            guessed.add(event['id'])
         for link in (props.get('Application') or {}).get('relation', []):
             by_app.setdefault(link['id'].replace('-', ''), []).append(
                 (plain(props.get('Kind')), plain(props.get('At')) or '', event['id'], source_id))
-    return known, by_app
+    return known, by_app, guessed
 
 
 def _near(existing, kind, at, hours=24):
@@ -319,7 +322,8 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
     """Write one matched item: event (or link to a hand-logged twin), Stage forward, Next interview.
     Returns a short description of what changed, or None when it was already known."""
     key = row['id'].replace('-', '')
-    known, by_app = index
+    known, by_app = index[:2]
+    guessed = index[2] if len(index) > 2 else set()
     if source_id in known:
         return None
     if feedback_text and kind != 'Rejected':
@@ -338,7 +342,13 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         return None
     by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
     fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
-    tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}})
+    adopted = {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}}
+    if twin and twin[0] in guessed:  # the watcher's guess ("Stage changed in Notion") was this item: it says so now
+        adopted.update({'Source': {'select': {'name': source}}, 'Note': {'rich_text': [{'text': {'content': note[:1900]}}]}})
+        guessed.discard(twin[0])
+    if twin:
+        ledger.touched(tracker, row)
+    tracker.update_page(event['id'], adopted)
     _optional(tracker.update_page, event['id'], {'Changes': changes_text(fields, interview_at, email)})
     known.add(source_id)
     stage = (fields.get('Stage') or [None, None])[1]
@@ -903,6 +913,7 @@ def main(argv=None):
         from . import added  # jobs tracked from an email get facts and a fit score, like found ones
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
                   stats=stats, on_new=added.hook(tracker, JOBS_DB, log), always_report=args.always_report))
+        ledger.heal_touched(tracker)  # duplicate events on the jobs this check wrote to: tidied (listed in its run row)
         if logged:
             log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash

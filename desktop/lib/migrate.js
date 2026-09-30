@@ -9,6 +9,10 @@ import * as schema from './schema.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 
+// The rules of the automatic duplicate-event tidy (src/notion/ledger.py heal): raised when they change, so every
+// install tidies its whole workspace once more with the new rules.
+export const TIDY_RULES = 1;
+
 export const STEPS = [
   // The daily applications target, first kept in the app's settings -> ⚙️ Search settings in Notion.
   {name: 'daily target', run: async storage => {
@@ -106,6 +110,14 @@ export const STEPS = [
     await contact.save(storage, {...local, ...there}, fetcher);
     storage.saveSettings({contact: undefined});
     return true;
+  }},
+  // Duplicate 📈 Application Events already in the workspace: the automatic tidy over every application, once per
+  // version of its rules (jobs tidy the applications they touch as they go). Not a move: it never reports one.
+  {name: 'duplicate events', run: async storage => {
+    if ((storage.settings().eventsTidied || 0) >= TIDY_RULES) return false;
+    await pipeline.tidyEvents(storage);  // each removal is a line in logs/app.log; a failure retries next start
+    storage.saveSettings({eventsTidied: TIDY_RULES});
+    return false;
   }},
 ];
 

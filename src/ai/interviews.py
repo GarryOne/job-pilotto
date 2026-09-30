@@ -34,7 +34,7 @@ from pathlib import Path
 import urllib.request
 
 from ..notion import client as notion
-from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
+from ..notion.ledger import EVENTS_DATABASE_ID, add_event, heal_touched, plain
 from . import cost, transcribe
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-sonnet-5')
@@ -929,6 +929,7 @@ def main(argv=None):
             out = {'ok': True, 'application': link(tracker, args.page, args.job)}
     except ValueError as error:
         out = {'ok': False, 'error': str(error)}
+    heal_touched(tracker)  # held / moved / cancelled wrote events: their duplicates are tidied (lines on stderr)
     print(json.dumps(out))
     return 0 if out['ok'] else 1
 

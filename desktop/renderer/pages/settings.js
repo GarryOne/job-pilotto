@@ -7,22 +7,6 @@ import {$, show} from './core.js';
 import {openView, remembered} from './nav.js';
 import {profileTab, showContact} from './profile.js';
 
-// Data & backup → Tidy duplicate events: list what repeats (nothing written), then trash the extras on Apply.
-async function tidyEvents() {
-  $('tidy-lead').textContent = 'Looking for events logged twice…';
-  show($('tidy-list'), false);
-  show($('tidy-apply'), false);
-  $('tidy-dialog').showModal();
-  const result = await window.pilot.tidyEvents(false).catch(error => ({ok: false, text: error.message}));
-  const found = result.ok && !/^No duplicate/.test(result.text);
-  $('tidy-lead').textContent = !result.ok ? 'Notion could not be read. Try again.' : found
-    ? 'These events repeat one another. The KEEP one stays; the extras go to the Notion trash (restorable there for 30 days).' : 'Nothing to tidy: no event is logged twice.';
-  $('tidy-list').textContent = result.text;
-  show($('tidy-list'), Boolean(result.text) && (found || !result.ok));
-  $('tidy-apply').disabled = false;
-  show($('tidy-apply'), found);
-}
-
 // ---------- Settings: sub-pages (Overview, Application profile, Automation, Connections, Data & backup, Advanced) ----------
 export function settingsPage(name) {
   remembered('settingsPage', name);
@@ -285,15 +269,6 @@ export async function init() {
     if (go) { settingsPage(go.dataset.settingsGo); document.querySelector('main')?.scrollTo(0, 0); }
   });
   $('ov-backups').addEventListener('click', () => window.pilot.showBackups());
-  $('tidy-open').addEventListener('click', tidyEvents);
-  $('tidy-apply').addEventListener('click', async event => {
-    event.preventDefault();
-    $('tidy-apply').disabled = true;
-    const result = await window.pilot.tidyEvents(true).catch(error => ({ok: false, text: error.message}));
-    $('tidy-lead').textContent = result.ok ? 'Done. The extras are in the Notion trash (restorable there for 30 days).' : 'Not changed.';
-    $('tidy-list').textContent = result.text;
-    show($('tidy-apply'), false);
-  });
   $('ov-profile').addEventListener('click', () => settingsPage('profile'));
 
   // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.

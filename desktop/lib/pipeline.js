@@ -2,6 +2,7 @@
 import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
 import * as requestLog from './request-log.js';
+import {log as appLog} from './log.js';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -103,7 +104,11 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
   const told = onLine;
-  onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };
+  onLine = line => {
+    tail.push(line); if (tail.length > 30) tail.shift();
+    if (TIDIED.test(line)) appLog('tidy', line);  // a duplicate event the job moved to the Notion trash: never silent
+    told(line);
+  };
   return new Promise((resolve, reject) => {
     const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
     children.add(child);
@@ -426,12 +431,14 @@ export async function describeJob(storage, pageId, text = '', url = '') {
   const {stdout} = await run(storage, ['src.ai.prep', 'describe', pageId, ...(text ? ['--text', text] : []), ...(url ? ['--url', url] : [])]);
   return lastJson(stdout, {ok: false, text: 'The description could not be saved to Notion. Try again.'});
 }
-// Settings → Data & backup → "Tidy duplicate events" (src/notion/ledger.py --dedupe-events): the list, or (apply) the trashing.
-// The command line's "(run with --apply)" hint means nothing in the dialog (its button applies): left out there.
-export const tidyText = text => String(text || '').replace(/ \(run with --apply\)/g, '');
-export async function tidyEvents(storage, apply = false) {
-  const {code, stdout} = await run(storage, ['src.notion.ledger', '--dedupe-events', ...(apply ? ['--apply'] : [])]);
-  return {ok: code === 0, text: tidyText(stdout.trim()) || 'Notion could not be read. Try again.'};
+// Duplicate 📈 Application Events are tidied automatically (src/notion/ledger.py heal): at the end of every job that
+// writes events (Gmail/Calendar check, Telegram log, interview review, Focus answers), and at start-up (migrate.js).
+// Only certain duplicates go (to the Notion trash, restorable 30 days); each removal is a line in logs/app.log.
+export const TIDIED = /^Removed \d+ duplicate events? on /;
+export async function tidyEvents(storage) {
+  const {code, stdout} = await run(storage, ['src.notion.ledger', '--dedupe-events', '--auto']);
+  if (code !== 0) throw new Error('could not read the events');
+  return stdout.trim().split('\n').pop() || '';
 }
 // An email the Gmail check placed, or wasn't sure where to place: move it to a job ("new", "none" or a job URL).
 export async function reassignEmail(storage, eventId, target) {

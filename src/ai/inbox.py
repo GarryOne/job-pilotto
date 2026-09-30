@@ -710,6 +710,7 @@ def main(argv=None):
         raise SystemExit(f'Not a screenshot: {args.image} (use .png, .jpg, .webp or .gif)')
     try:
         print(log(tracker, text=text, image=image, talking=args.talking))
+        ledger.heal_touched(tracker)
     except ValueError as error:
         print(f'⚠️ {error}')
         return 1

@@ -55,8 +55,6 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
 .dialog-icon svg { width: 26px; height: 26px; }
 .icon-button { background: none; border: 0; padding: var(--sp-1); color: var(--muted); border-radius: var(--r-sm); cursor: pointer; display: inline-flex; }
 .icon-button:hover { background: var(--surface-2); color: var(--ink); }
-/* Tidy duplicate events: the list of repeated events, kept vs extra. */
-.tidy-list { margin: var(--sp-3) 0 0; padding: var(--sp-3); max-height: 40vh; overflow: auto; white-space: pre-wrap; font-family: var(--font-mono); font-size: var(--fs-sm); background: var(--surface-2); border-radius: var(--r-md); }
 .dialog-lead { margin: var(--sp-2) 0 0; color: var(--ink-2); font-size: var(--fs-md); }
 .dialog-lead .small { display: block; margin-top: var(--sp-1); }
 .dialog-foot { display: flex; justify-content: flex-end; gap: var(--sp-3); margin: var(--sp-5) calc(-1 * var(--sp-6)) 0;

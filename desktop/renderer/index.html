@@ -734,8 +734,6 @@
               <p class="muted">Your data, exports and automatic backups.</p>
               <div class="summary-line"><dl class="summary-rows"><dt>Last backup</dt><dd id="ov-backup"></dd></dl>
                 <button class="secondary" id="ov-backups">View backups</button></div>
-              <div class="summary-line"><p class="muted">The same event logged twice for one job (an interview from an email and from a pasted chat).</p>
-                <button class="secondary" id="tidy-open">Tidy duplicate events</button></div>
             </article>
           </div>
         </div>
@@ -1391,21 +1389,6 @@
     <div class="dialog-foot">
       <button class="ghost" value="cancel" formnovalidate>Cancel</button>
       <button id="happened-save" class="primary" value="default">Save</button>
-    </div>
-  </form>
-</dialog>
-<dialog id="tidy-dialog" class="panel-dialog">
-  <form method="dialog">
-    <div class="dialog-head"><span class="dialog-icon"><i data-icon="database"></i></span>
-      <h2>Tidy duplicate events</h2>
-      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
-    </div>
-    <p class="dialog-lead" id="tidy-lead">Looking for events logged twice…</p>
-    <pre class="tidy-list" id="tidy-list" hidden></pre>
-    <p id="tidy-message" class="message"></p>
-    <div class="dialog-foot">
-      <button class="ghost" value="cancel" formnovalidate>Close</button>
-      <button id="tidy-apply" class="primary" value="default" hidden>Move the extras to the trash</button>
     </div>
   </form>
 </dialog>

@@ -163,6 +163,15 @@ holds only the latest. Written by `ledger.mark_applied` (watcher / `--mark-appli
 ✅ Applied button, the `/applied` outcome buttons (Worker), and `ledger.sync` on scheduled runs (a
 Stage edited by hand in Notion, and the 30-day no-response rule).
 
+Duplicates are tidied automatically (`ledger.heal`), with no button: at the end of every job that writes events
+(Gmail/Calendar check, Telegram log, interview review, Focus answers) for the applications it touched, and once at
+app start. Only certain ones go, to the Notion trash (restorable 30 days): the same Source ID twice, a stage kind
+twice on one application, an `Interview scheduled` whose interview date is over 30 days before it was logged while
+a plausible one exists. Each removal is a line in the run's ⏱️ Search runs report and in the app's `logs/app.log`.
+Same-day guesses and events edited by hand are left alone. `python -m src.notion.ledger --dedupe-events` lists
+everything (debugging). An invitation from the Calendar check that adopts the watcher's guess ("Notion edit")
+gives it Source `Calendar` and its own note.
+
 | Property | Type | Notes |
 |---|---|---|
 | Event | Title | "Kind · Company" |

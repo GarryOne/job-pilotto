@@ -168,9 +168,11 @@ def log_ai_run(tracker, run, args, failed=False):
     up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
     if tracker and (args.send or args.log_run):
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        url = cron_runs.log_run(tracker, run, failed=failed)
+        url = cron_runs.log_run(tracker, run, failed=failed)  # also tidies the duplicate events the job left
         if url:
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
+    elif tracker:
+        ledger.heal_touched(tracker)  # not logged: its duplicate events are still tidied
 
 
 def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None):
