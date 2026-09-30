@@ -765,7 +765,10 @@ function handlers() {
   ipcMain.handle('ivRemindGet', () => ({on: reminders.on(storage)}));
   ipcMain.handle('ivRemindSet', (_, value) => { storage.saveSettings({interviewReminders: !!value}); return {on: !!value}; });
   ipcMain.handle('ivTranscript', (_, id) => (DEMO ? demoInterviews().transcript : interviews.transcript(storage, id)));
-  ipcMain.handle('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved} : viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
+  ipcMain.handle('ivSaved', async () => (DEMO ? {ok: true, interviews: demoInterviews().saved, insight: demoInterviews().insight}
+    : viewCache.remember(storage, 'interviews', await interviews.saved(storage))));
+  ipcMain.handle('ivInsights', async () => (DEMO ? {ok: true, status: 'unchanged', text: 'Demo mode', insight: demoInterviews().insight}
+    : interviews.refreshInsights(storage)));
   ipcMain.handle('ivAdd', async () => {
     const picked = await dialog.showOpenDialog(window, {title: 'Choose an interview recording or transcript',
       filters: [{name: 'Recording or transcript', extensions: [...interviews.AUDIO, ...interviews.TEXT]}], properties: ['openFile']});

@@ -12,7 +12,7 @@ import sys
 
 from . import contribute, digest, employer_index, features, scout, store, telegram
 from . import doctor
-from .ai import added, budget, cost, enrich, inbox, insights, interviews, kit, provenance, score
+from .ai import added, budget, cost, enrich, inbox, insights, interview_insights, interviews, kit, provenance, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
 
@@ -427,6 +427,10 @@ def main():
             run['headline'] = result.split(' https://')[0]
             print(result)
             run['interview'].update(pending=1, done=1)
+            # The Interviews page's insights follow each saved review (event-driven; skipped when nothing changed).
+            # Its cost is on this run's row ('insight'); a failure there never fails the review.
+            run['insight'] = {}
+            print(interview_insights.after_review(tracker, stats=run['insight']))
             log_ai_run(tracker, run, args)
         except ValueError as error:  # the owner sent something that can't be analysed: say why
             print(error)

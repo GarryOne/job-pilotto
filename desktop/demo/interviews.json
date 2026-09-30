@@ -38,5 +38,77 @@
     "seconds": 2710,
     "jobUrl": "https://example.com/jobs/1"
   },
-  "transcript": "[00:00:02] Speaker 1: Thanks for making the time. I lead the platform team here. Could you walk me through an incident you owned end to end?\n[00:00:11] You: Sure. Last spring our Kubernetes cluster ran out of pod IPs during a traffic spike. I saw pods stuck in Pending, traced it to the CNI subnet and added a secondary CIDR range within the hour.\n[00:00:29] Speaker 1: And how did you stop it from happening again?\n[00:00:32] You: An alert on free IPs per subnet, a runbook, and prefix delegation so every node gets a larger block.\n[00:00:41] Speaker 2: I'll jump in on observability. What does a good on-call dashboard look like to you?\n[00:00:47] You: The four golden signals per service first, then saturation of the shared dependencies: the database, the queue, DNS.\n[00:00:58] Speaker 1: Great. Next step would be a system design round with two engineers from the team."
+  "transcript": "[00:00:02] Speaker 1: Thanks for making the time. I lead the platform team here. Could you walk me through an incident you owned end to end?\n[00:00:11] You: Sure. Last spring our Kubernetes cluster ran out of pod IPs during a traffic spike. I saw pods stuck in Pending, traced it to the CNI subnet and added a secondary CIDR range within the hour.\n[00:00:29] Speaker 1: And how did you stop it from happening again?\n[00:00:32] You: An alert on free IPs per subnet, a runbook, and prefix delegation so every node gets a larger block.\n[00:00:41] Speaker 2: I'll jump in on observability. What does a good on-call dashboard look like to you?\n[00:00:47] You: The four golden signals per service first, then saturation of the shared dependencies: the database, the queue, DNS.\n[00:00:58] Speaker 1: Great. Next step would be a system design round with two engineers from the team.",
+  "insight": {
+    "id": "demo-insight",
+    "url": "https://www.notion.so/demo-insight",
+    "headline": "Incident ownership is your strongest story; capacity numbers are what's missing",
+    "confidence": "low",
+    "sample": 2,
+    "updated": "2099-01-06T18:00:00+00:00",
+    "nothing_useful": false,
+    "patterns": [
+      {
+        "text": "Both rounds asked how you owned an incident end to end, and your answer landed",
+        "round_type": "All",
+        "interviews": [
+          "demo-iv-1",
+          "demo-iv-2"
+        ],
+        "tentative": false,
+        "evidence": [
+          {
+            "interview": "demo-iv-1",
+            "quote": "Clear story about the pod IP incident"
+          },
+          {
+            "interview": "demo-iv-2",
+            "quote": "Strong incident walkthrough"
+          }
+        ]
+      },
+      {
+        "text": "Capacity estimates stayed vague in the system design round",
+        "round_type": "Technical",
+        "interviews": [
+          "demo-iv-2"
+        ],
+        "tentative": true,
+        "evidence": [
+          {
+            "interview": "demo-iv-2",
+            "quote": "No numbers for the storage estimate"
+          }
+        ]
+      }
+    ],
+    "next_steps": [
+      {
+        "text": "Practise one back-of-the-envelope capacity estimate out loud",
+        "interviews": [
+          "demo-iv-2"
+        ]
+      },
+      {
+        "text": "Prepare two questions for the CTO about the platform roadmap",
+        "interviews": [
+          "demo-iv-2"
+        ]
+      }
+    ],
+    "interviews": [
+      {
+        "id": "demo-iv-1",
+        "title": "Alpine Data · Recruiter screen",
+        "round_type": "Recruiter screen"
+      },
+      {
+        "id": "demo-iv-2",
+        "title": "Alpine Data · System design",
+        "round_type": "Technical"
+      }
+    ],
+    "evidence": "",
+    "action": ""
+  }
 }

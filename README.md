@@ -352,6 +352,13 @@ doesn't.
   Recruiters who record calls often offer the transcript by email ("Download transcript: …"); the Gmail
   check points those out. See the screenshots below.
   A review of a saved transcript is added to that same Notion page, above the transcript.
+- 💡 **Interview insights** (Interviews page, above the library; `src/ai/interview_insights.py`):
+  - Shows once 1 interview is reviewed; what all your reviews say together.
+  - Headline, 2–4 patterns (each citing its interviews), 1–3 things to do before the next one.
+  - 1 interview → "Based on 1 interview", tentative; a pattern needs 2+ interviews.
+  - Updates after every review (Mac or Always on) + **Refresh insights**; unchanged reviews → no AI call.
+  - ~USD 0.03–0.06 per update (Sonnet 5), logged in ⏱️ Search runs; paused at 90% of the AI budget.
+  - Stored as one 💡 Insights row, Category `Interview patterns`.
 - 📧 **Gmail and Calendar, read-only** (`src/ai/mail.py`, workflow `mail.yml`): 3 times a day (07:00,
   12:00, 18:00 Zurich; edit the cron to change it), 5 minutes after an application is marked Applied,
   and on `/mail`. Recent mail from applicant-tracking systems, recruiter platforms and schedulers (or

@@ -117,6 +117,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
 - `desktop/renderer/icons.js` — Line icons (paths from Lucide, ISC licence), drawn in the current text colour.
+- `desktop/renderer/interview-insight.js` — Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
@@ -166,6 +167,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.
+- `src/ai/interview_insights.py` — Interview insights: what your reviewed interviews say together, for the Interviews page and 💡 Insights.
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""

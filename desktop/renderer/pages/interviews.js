@@ -2,6 +2,7 @@
 import * as pendingReviews from '../review-pending.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
+import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
@@ -11,6 +12,8 @@ import {$, message, osText, show} from './core.js';
 const iv = window.pilot.interviews;
 let ivOpen = null;          // the draft in the editor
 let ivSavedRows = [];
+let ivInsight = null;       // the Insights card's row (💡 Insights, Interview patterns), read with the library
+let insightBusy = false, insightNote = '';
 const plainId = id => String(id || '').replace(/-/g, '');
 const linkable = () => shared.allJobs.filter(job => job.notion_url);   // jobs with a Notion Applications row
 const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
@@ -203,11 +206,15 @@ async function showSavedLoading() {
   const saved = await window.pilot.cached('interviews').catch(() => null);
   if (saved?.result?.interviews?.length && !ivSavedRows.length) {
     ivSavedRows = saved.result.interviews;
+    ivInsight = saved.result.insight || null;
     renderSaved();
+    renderInsight();
     $('iv-lib-stats').textContent = `${IV_SAVED_TO} · saved ${agoText(saved.at)}, updating…`;
     return;
   }
   $('iv-saved').replaceChildren(...skeletonRows());
+  $('iv-insight').replaceChildren(...insightSkeleton());
+  show($('iv-insight'));
   $('iv-lib-stats').textContent = 'Loading from Notion…';
 }
 function agoText(at) {
@@ -218,14 +225,48 @@ async function loadSaved() {
   await showSavedLoading();
   const result = await iv.saved().catch(error => ({ok: false, error: String(error?.message || error)}));
   $('iv-lib-stats').textContent = IV_SAVED_TO;
-  if (!result.ok) { ivSavedRows = []; $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
+  if (!result.ok) { ivSavedRows = []; ivInsight = null; renderInsight(); $('iv-saved').replaceChildren(); show($('iv-empty')); $('iv-empty').textContent = result.error; return; }
   ivSavedRows = result.interviews;
+  ivInsight = result.insight || null;
   // Reviews running on GitHub stay "Reviewing…" until their outcome is in Notion; look again every 30 s meanwhile.
   reviewing = new Set([...reviewing, ...pendingReviews.settle(ivSavedRows)]);
   for (const id of reviewing) if (ivSavedRows.find(row => row.id === id)?.overall) reviewing.delete(id);
   clearTimeout(reviewPoll);
   if (reviewing.size) reviewPoll = setTimeout(loadSaved, 30 * 1000);
   renderSaved();
+  renderInsight();
+}
+
+// Insights: what the reviewed interviews say together. Hidden until one interview is reviewed.
+function renderInsight() {
+  const view = insightView(ivInsight, ivSavedRows);
+  show($('iv-insight'), !!view);
+  if (view) $('iv-insight').replaceChildren(...insightCard(view, {open: showRow, refresh: refreshInsights, busy: insightBusy, note: insightNote}));
+}
+// An interview named in the insights: its row in the library, scrolled to and lit up briefly.
+function showRow(id) {
+  const find = () => [...$('iv-saved').querySelectorAll('tr')].find(tr => tr.dataset.id === id);
+  if (!find() && ($('iv-filter').value || $('iv-outcome').value)) { $('iv-filter').value = ''; $('iv-outcome').value = ''; renderSaved(); }
+  const tr = find();
+  if (!tr) { const row = ivInsight?.interviews?.find(item => item.id === id); if (row?.url) window.pilot.openNotion(row.url); return; }
+  tr.scrollIntoView({behavior: 'smooth', block: 'center'});
+  tr.classList.add('is-flash');
+  setTimeout(() => tr.classList.remove('is-flash'), 1600);
+}
+async function refreshInsights() {
+  if (!shared.state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get insights.', 'error'); return; }
+  insightBusy = true; insightNote = '';
+  renderInsight();
+  const result = await iv.insights().catch(error => ({ok: false, error: String(error?.message || error)}));
+  insightBusy = false;
+  if (result.ok) {
+    if (result.insight !== undefined) ivInsight = result.insight;
+    insightNote = result.status === 'unchanged' ? 'Up to date' : '';
+    message('iv-message', result.status === 'unchanged' ? 'Insights are up to date: no review changed since the last update (no AI cost).' : result.text, 'ok');
+  } else {
+    message('iv-message', result.error || 'Could not refresh the insights', 'error');
+  }
+  renderInsight();
 }
 function renderSaved() {
   closeMenu();
@@ -239,6 +280,7 @@ function renderSaved() {
   $('iv-empty').textContent = ivSavedRows.length ? 'No interview matches this filter.' : 'No interviews in Notion yet.';
   $('iv-saved').replaceChildren(...rows.map(row => {
     const tr = document.createElement('tr');
+    tr.dataset.id = row.id;
     const cell = (...children) => { const td = document.createElement('td'); td.append(...children); tr.append(td); return td; };
     const job = row.application[0] ? jobForPage(row.application[0]) : null;
     cell(row.date ? new Date(`${row.date}T12:00:00`).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) : '').className = 'iv-date';

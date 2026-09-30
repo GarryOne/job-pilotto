@@ -830,7 +830,7 @@ def main(argv=None):
         return 1
     try:
         if args.command == 'list':
-            out = {'ok': True, 'interviews': listing(tracker)}
+            out = {'ok': True, 'interviews': listing(tracker), 'insight': saved_insight(tracker)}
         elif args.command == 'save':
             page = save(tracker, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input,
                         page_id=args.page)
@@ -850,6 +850,16 @@ def main(argv=None):
         out = {'ok': False, 'error': str(error)}
     print(json.dumps(out))
     return 0 if out['ok'] else 1
+
+
+def saved_insight(tracker):
+    """The Interviews page's insight (💡 Insights, Interview patterns), or None; a failed read never fails the list."""
+    from . import interview_insights
+    try:
+        return interview_insights.saved(tracker)
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: interview insights unreadable: {type(error).__name__}: {error}', file=sys.stderr)
+        return None
 
 
 def stats_for_insights(tracker):

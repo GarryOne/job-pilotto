@@ -43,6 +43,7 @@ MIN_GROUP = 10
 CATEGORIES = ['Skills', 'CV', 'Location', 'Salary', 'Seniority', 'Role focus', 'Timing', 'Activity', 'Process']
 WEEKLY = 'Weekly report'
 WEEKLY_DAY = 0  # Monday
+INTERVIEW_PATTERNS = 'Interview patterns'  # interview_insights.CATEGORY: one upserted row, not a daily insight
 INTERVIEW_STAGES = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
 # Any of these means a human answered: the basis for reply rate and time to first reply.
 RESPONSE_KINDS = INTERVIEW_STAGES | {REPLY, 'Rejected'}
@@ -255,7 +256,8 @@ def recent_insights(tracker, days=45):
 
 def sent_today(tracker, today):
     rows = tracker.query_database(INSIGHTS_DATABASE_ID, {'property': 'Date', 'date': {'equals': today.isoformat()}})
-    return bool(rows)
+    # The Interviews page's row (interview_insights.py) is updated after every review: it is not today's insight.
+    return any(plain(r['properties'].get('Category')) != INTERVIEW_PATTERNS for r in rows)
 
 
 def generate(client, model, profile, stats):

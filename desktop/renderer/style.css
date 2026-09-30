@@ -513,6 +513,21 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .iv-main { min-width: 7.5em; padding: 7px 12px; font-size: var(--fs-sm); border-radius: var(--r-sm); }
 /* A status with a coloured dot: Ready, Transcribing, Positive, Neutral… */
 .iv-toolbar .search-box { flex: 0 1 340px; }
+/* Interviews → Insights: what the reviewed interviews say together (renderer/interview-insight.js). */
+.iv-insight { margin: var(--sp-4) 0 0; padding: var(--sp-3) var(--sp-4); display: grid; gap: var(--sp-2); }
+.iv-insight-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.iv-insight-head h2 { font-size: var(--fs-lg); margin: 0; }
+.iv-insight-side { display: flex; align-items: center; gap: var(--sp-2); }
+.iv-insight-refresh .spinner { margin: 0; }
+.iv-insight-top { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
+  background: var(--info-soft); border-left: 4px solid var(--info); }
+.iv-insight-top.is-loading { background: var(--surface-2); border-left-color: var(--line); }
+.iv-insight-words { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.iv-insight-label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.iv-insight-list { margin: var(--sp-1) 0 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-1); font-size: var(--fs-md); }
+.iv-insight-list .ui-pill { vertical-align: middle; }
+.iv-insight-links .link { padding: 0; }
+.iv-lib tr.is-flash td { background: var(--info-soft); transition: background .3s; }
 .iv-lib-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
 table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .iv-lib th { text-align: left; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);

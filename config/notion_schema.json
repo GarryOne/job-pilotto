@@ -1298,6 +1298,10 @@
             {
               "name": "Both",
               "color": "purple"
+            },
+            {
+              "name": "Interviews",
+              "color": "orange"
             }
           ]
         },
@@ -1343,6 +1347,10 @@
             {
               "name": "Weekly report",
               "color": "red"
+            },
+            {
+              "name": "Interview patterns",
+              "color": "orange"
             }
           ]
         },
@@ -1367,6 +1375,9 @@
           "type": "number",
           "format": "dollar"
         },
+        "Data": {
+          "type": "rich_text"
+        },
         "Date": {
           "type": "date"
         },
@@ -1390,8 +1401,14 @@
             }
           ]
         },
+        "Input hash": {
+          "type": "rich_text"
+        },
         "Insight": {
           "type": "title"
+        },
+        "Issue detected": {
+          "type": "checkbox"
         },
         "Model": {
           "type": "rich_text"
@@ -1399,9 +1416,6 @@
         "Sample size": {
           "type": "number",
           "format": "number"
-        },
-        "Issue detected": {
-          "type": "checkbox"
         }
       }
     },

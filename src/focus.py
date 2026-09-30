@@ -395,7 +395,8 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         insight = {'reason': _field(row, 'Rejection reason'), 'headline': _short(first, 110),
                    'detail': f"{_field(row, 'Company')} — {_field(row, 'Job')}", 'lesson': lesson,
                    'notion_url': row.get('url', ''), 'page_id': row['id']}
-    fresh = [r for r in insights if _field(r, 'Date')[:10] >= (now - timedelta(days=7)).date().isoformat()]
+    fresh = [r for r in insights if _field(r, 'Date')[:10] >= (now - timedelta(days=7)).date().isoformat()
+             and _field(r, 'Category') != 'Interview patterns']  # that one is shown on the Interviews page
     if fresh:
         row = max(fresh, key=lambda r: (bool(plain(r['properties'].get('Issue detected'))), _field(r, 'Date'), r.get('created_time', '')))
         issue = bool(plain(row['properties'].get('Issue detected')))

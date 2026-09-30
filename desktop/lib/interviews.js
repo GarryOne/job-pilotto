@@ -183,6 +183,16 @@ async function notionCall(storage, args, run) {
 
 export const saved = (storage, run = pipeline.run) => notionCall(storage, ['list'], run);
 
+// The Insights card's Refresh (src/ai/interview_insights.py): Claude reads the reviewed interviews together, only when
+// a review changed since the last update (else no AI call). Runs here, even with Always on: the page waits for it.
+export async function refreshInsights(storage, run = pipeline.run) {
+  const lines = [];
+  const {stdout} = await run(storage, ['src.ai.interview_insights', 'refresh'], line => lines.push(line));
+  try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch {
+    return {ok: false, error: lines.filter(Boolean).pop() || 'Could not refresh the insights'};
+  }
+}
+
 export function link(storage, pageId, jobUrl, run = pipeline.run) {
   return notionCall(storage, ['link', pageId, ...(jobUrl ? ['--job', jobUrl] : [])], run);
 }

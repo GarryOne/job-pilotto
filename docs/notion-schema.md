@@ -203,13 +203,15 @@ its Overall is empty until it's reviewed.
 
 Env var: `NOTION_INSIGHTS_DB`. One row per daily insight (`src/ai/insights.py`), created before the
 Telegram message so its buttons can point at the row.
+Plus one upserted row with Category `Interview patterns` (`src/ai/interview_insights.py`): what the reviewed
+interviews show together, rewritten after each review; the app's Interviews page shows it. It is not a daily insight.
 
 | Property | Type | Notes |
 |---|---|---|
 | Insight | Title | The headline |
 | Date | Date | One insight per day; the scheduled run checks this before making another |
-| Category | Select | `Skills`, `CV`, `Location`, `Salary`, `Seniority`, `Role focus`, `Timing`, `Activity`, `Process` |
-| Basis | Select | `Market`, `Applications`, `Both` |
+| Category | Select | `Skills`, `CV`, `Location`, `Salary`, `Seniority`, `Role focus`, `Timing`, `Activity`, `Process`, `Weekly report`, `Interview patterns` |
+| Basis | Select | `Market`, `Applications`, `Both`, `Interviews` |
 | Confidence | Select | `high`, `medium`, `low` |
 | Sample size | Number | Jobs or applications behind the finding |
 | Evidence | Text | One line per figure |
@@ -218,6 +220,8 @@ Telegram message so its buttons can point at the row.
 | Cost (USD) | Number (dollar) | |
 | Model | Text | |
 | Issue detected | Checkbox |  |
+| Input hash | Text | Interview patterns only: fingerprint of the reviewed interviews it was made from; unchanged = no new AI call |
+| Data | Text | Interview patterns only: the patterns, cited interviews and to-dos as JSON, for the app |
 
 ## ⏰ Cronjob Runs (database)
 
