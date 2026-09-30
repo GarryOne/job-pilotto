@@ -110,6 +110,18 @@ export function workMode(text) {
   return {kind, label};
 }
 
+// The Notion page of an Applications row (its id, as the Interviews list gives it).
+export const notionPageUrl = id => (id ? `https://www.notion.so/${String(id).replace(/-/g, '')}` : '');
+
+// What the Job cell of an Interviews row shows and can do: the job in the list (opens in Jobs), a job that is
+// only linked in Notion (opens in Notion), or none ("Link a job").
+export function interviewJob(row, job) {
+  const page = row.application?.[0] || '';
+  if (job) return {kind: 'job', name: job.company || job.title, role: job.company ? job.title : '', notion: job.notion_url || notionPageUrl(page)};
+  if (page) return {kind: 'notion', name: 'Linked in Notion', role: '', notion: notionPageUrl(page)};
+  return {kind: 'none', name: 'No job linked', role: '', notion: ''};
+}
+
 // Place and mode on one line, without saying the mode twice ("Remote (Europe)" + Remote reads "Remote (Europe)").
 export function placeAndMode(location, mode) {
   const {kind, label} = workMode(mode);

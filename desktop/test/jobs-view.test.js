@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
+import {interviewJob, notionPageUrl, ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -114,4 +114,12 @@ test('feedback is visible beside Rejected while the funnel still counts one clos
   assert.deepEqual(statusPill(asked), {label: 'Rejected · Asked for feedback', tone: 'warn'});
   assert.deepEqual(statusPill(received), {label: 'Rejected · Received feedback', tone: 'info'});
   assert.deepEqual(applicationStats([received]), {applied: 1, waiting: 0, interviews: 0, closed: 1});
+});
+
+test('the Interviews Job cell: a listed job opens in Jobs, a Notion-only link opens in Notion, none offers Link a job', () => {
+  const job = {company: 'Grafana Labs', title: 'SRE', url: 'https://x.test/g', notion_url: 'https://www.notion.so/g1'};
+  assert.deepEqual(interviewJob({application: ['g-1']}, job), {kind: 'job', name: 'Grafana Labs', role: 'SRE', notion: 'https://www.notion.so/g1'});
+  assert.equal(interviewJob({application: ['a-1-2']}, {title: 'SRE', url: 'u'}).notion, 'https://www.notion.so/a12');
+  assert.deepEqual(interviewJob({application: ['a-1-2']}, null), {kind: 'notion', name: 'Linked in Notion', role: '', notion: notionPageUrl('a-1-2')});
+  assert.deepEqual(interviewJob({application: []}, null), {kind: 'none', name: 'No job linked', role: '', notion: ''});
 });

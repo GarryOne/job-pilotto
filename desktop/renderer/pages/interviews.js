@@ -1,7 +1,9 @@
 // Interviews page.
 import * as pendingReviews from '../review-pending.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
-import {avatar, placeAndMode} from '../jobs-view.js';
+import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
+import {showJobsIn} from './jobs.js';
+import {openView} from './nav.js';
 import {shared} from './shared.js';
 import {$, message, osText, show} from './core.js';
 
@@ -247,11 +249,24 @@ function renderSaved() {
     const badge = el('span', 'logo', logo.initials);
     badge.style.setProperty('--hue', logo.hue);
     const jobLines = el('div', '');
-    if (job) {
-      jobLines.append(el('b', '', job.company || job.title));
-      if (job.company) jobLines.append(el('div', 'muted small', job.title));
+    const cellJob = interviewJob(row, job);
+    let openPicker = () => {};
+    if (cellJob.kind === 'job') {
+      // The job's name opens it in the Jobs view (only that job listed).
+      const open = Object.assign(el('button', 'link', cellJob.name), {type: 'button', title: 'Open this job in the Jobs list'});
+      open.addEventListener('click', () => { openView('jobs'); showJobsIn(cellJob.name, [job.url]); });
+      jobLines.append(el('b', '', ''));
+      jobLines.firstChild.append(open);
+      if (cellJob.role) jobLines.append(el('div', 'muted small', cellJob.role));
+    } else if (cellJob.kind === 'notion') {
+      const open = Object.assign(el('button', 'link', cellJob.name), {type: 'button', title: 'This job is not in the app list: open it in Notion'});
+      open.addEventListener('click', event => window.pilot.openNotion(cellJob.notion, event.metaKey));
+      jobLines.append(open);
     } else {
-      jobLines.append(el('span', 'muted', row.application[0] ? 'Linked in Notion' : 'No job linked'));
+      const link = Object.assign(el('button', 'link small', 'Link a job'), {type: 'button', title: 'Choose the job this interview belongs to (updates Notion)'});
+      jobLines.append(el('span', 'muted', cellJob.name), el('div', '', ''));
+      jobLines.lastChild.append(link);
+      link.addEventListener('click', () => openPicker());
     }
     jobCell.append(badge, jobLines);
     // Interview: the round (or the interview's own title), and the next step.
@@ -282,6 +297,7 @@ function renderSaved() {
     });
     pasted.addEventListener('change', () => { if (/^https?:\/\//.test(pasted.value.trim())) relink(pasted.value.trim()); });
     picker.append(select, pasted);
+    openPicker = () => { picker.hidden = false; select.focus(); };
     cell(jobCell, picker).className = 'iv-job';
     cell(who);
 
@@ -304,8 +320,9 @@ function renderSaved() {
       main.addEventListener('click', () => reviewRow(row.id));
     }
     const menu = [
-      {label: '↗ Open in Notion', run: event => window.pilot.openNotion(row.url, event.metaKey)},
-      {label: 'Change job…', run: () => { picker.hidden = false; select.focus(); }, title: 'Link this interview to another job (updates Notion)'},
+      {label: '↗ Open interview in Notion', run: event => window.pilot.openNotion(row.url, event.metaKey)},
+      ...(cellJob.notion ? [{label: '↗ Open job in Notion', run: event => window.pilot.openNotion(cellJob.notion, event.metaKey)}] : []),
+      {label: cellJob.kind === 'none' ? 'Link a job…' : 'Change job…', run: () => openPicker(), title: 'Link this interview to another job (updates Notion)'},
       '-',
       {label: 'Delete', danger: true, title: osText("Moves the row to Notion's trash (restorable for 30 days) and deletes its recording on this Mac"), run: async () => {
         if (!confirm(osText(`Delete "${row.title}"? It goes to Notion's trash (30 days) and its recording is removed from this Mac.`))) return;

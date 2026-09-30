@@ -33,6 +33,14 @@ export const STEPS = [
     storage.saveSettings({reachedViaFilled: true});
     return true;
   }},
+  // The job line at the top of every 🎤 Interviews page (and placeholder titles renamed), once.
+  {name: 'interview job links', run: async storage => {
+    if (storage.settings().interviewLinksFilled) return false;
+    const {code} = await pipeline.run(storage, ['src.ai.interviews', '--backfill-links']);
+    if (code !== 0) throw new Error('could not add the job line to the interviews');
+    storage.saveSettings({interviewLinksFilled: true});
+    return true;
+  }},
   // Profile and standard answers: Notion pages since setup; the local copies are leftovers.
   {name: 'profile copies', run: async storage => {
     if (!storage.readText('profile.md') && !storage.readText('answers.md')) return false;

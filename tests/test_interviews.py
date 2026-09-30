@@ -134,6 +134,13 @@ class NotionPages(FakeTracker):
             if at is None:
                 self.blocks[page_id] += new
             return {}
+        if method == 'PATCH' and path.startswith('blocks/') and not path.endswith('/children'):
+            block_id = path.split('/')[1]
+            for children in self.blocks.values():
+                for b in children:
+                    if b.get('id') == block_id:
+                        b[b['type']] = self._stored({'type': b['type'], b['type']: body[b['type']]})[b['type']]
+            return {}
         if method == 'DELETE' and path.startswith('blocks/'):
             block_id = path.split('/')[1]
             for children in self.blocks.values():
@@ -379,6 +386,76 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(tracker.updates[-1], (page['id'], {'Application': {'relation': []}}))
         interviews.delete(tracker, page['id'])
         self.assertTrue(tracker.pages[page['id']]['properties'] is not None and tracker.archived == [page['id']])
+
+    @staticmethod
+    def first_line(tracker, page_id):
+        rich = tracker.blocks[page_id][0]['paragraph']['rich_text']
+        return ''.join(t['plain_text'] for t in rich), [t['text'].get('link') for t in rich]
+
+    def test_a_job_line_tops_every_interview_page_and_follows_the_link(self):
+        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Sonar', 'Saved', '')])
+        page = interviews.save(tracker, SPOKEN, 'Call', now=NOW)
+        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 No job linked yet — link it in the Interviews page of the Job Pilotto app')
+        interviews.link(tracker, page['id'], 'https://x.test/g-1')
+        text, links = self.first_line(tracker, page['id'])
+        self.assertEqual(text, '🔗 Job: Grafana Labs · SRE')
+        self.assertEqual(links[1], {'url': 'https://www.notion.so/g1'})
+        interviews.link(tracker, page['id'], 'https://x.test/s-1')  # changed: replaced, never duplicated
+        interviews.link(tracker, page['id'], 'https://x.test/s-1')  # again: idempotent
+        lines = [b for b in tracker.blocks[page['id']] if b['type'] == 'paragraph' and b['paragraph']['rich_text'][0]['plain_text'].startswith('🔗')]
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 Job: Sonar · SRE')
+        interviews.link(tracker, page['id'])
+        self.assertIn('No job linked yet', self.first_line(tracker, page['id'])[0])
+
+    def test_save_review_and_held_write_the_line_first(self):
+        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20')])
+        page = interviews.save(tracker, SPOKEN, 'Call', job_url='https://x.test/g-1', now=NOW)
+        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 Job: Grafana Labs · SRE')
+        interviews.run(tracker, page_id=page['id'], client=FakeClient(), now=NOW)
+        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 Job: Grafana Labs · SRE')
+        self.assertEqual(sum(b['paragraph']['rich_text'][0]['plain_text'].startswith('🔗') for b in tracker.blocks[page['id']] if b['type'] == 'paragraph'), 1)
+        made = interviews.held(tracker, 'g-1', 'Notes about the call')
+        self.assertEqual(self.first_line(tracker, made['id'])[0], '🔗 Job: Grafana Labs · SRE')
+
+    def test_a_reviewed_new_page_starts_with_the_line(self):
+        tracker = FakeTracker([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20')])
+        interviews.run(tracker, file_id='F1', note='Grafana', token='t', client=FakeClient(), now=NOW, opener=opener_for('call.srt', SRT), job_url='https://x.test/g-1')
+        children = tracker.requests[0]['children']
+        self.assertEqual(children[0]['paragraph']['rich_text'][0]['text']['content'], '🔗 Job: ')
+        self.assertLessEqual(len(children), 100)
+
+    def test_backfill_adds_the_line_once_and_only_renames_placeholder_titles(self):
+        tracker = NotionPages([dict(app('h-1', 'Huxley', 'Applied', '2026-09-20'))])
+        tracker.apps[0]['properties']['Company'] = text('')
+        tracker.apps[0]['properties']['Via'] = text('Huxley')
+        old = interviews.save(tracker, SPOKEN, '(unnamed finance client via recruiter — Principal SRE posting) · Recruiter screen',
+                              job_url='https://x.test/h-1', now=NOW)
+        good = interviews.save(tracker, SPOKEN, 'Grafana · Technical 1', now=NOW)
+        for page in (old, good):  # pages written before this feature: no line
+            tracker.blocks[page['id']].pop(0)
+        first = interviews.backfill_links(tracker)
+        self.assertEqual(first, {'pages': 2, 'linked': 2, 'renamed': 1})
+        self.assertEqual(interviews.backfill_links(tracker), {'pages': 2, 'linked': 0, 'renamed': 0})
+        self.assertEqual(tracker.pages[old['id']]['properties']['Interview']['title'][0]['text']['content'], 'Huxley · Recruiter screen')
+        self.assertEqual(tracker.pages[good['id']]['properties']['Interview']['title'][0]['text']['content'], 'Grafana · Technical 1')
+        self.assertEqual(self.first_line(tracker, old['id'])[0], '🔗 Job: Huxley · SRE')
+        self.assertIn('No job linked yet', self.first_line(tracker, good['id'])[0])
+        self.assertEqual(tracker.blocks[old['id']][1]['type'], 'paragraph')  # the old first block was kept, right after
+
+    def test_the_title_uses_a_named_employer_else_via_else_the_job_else_the_round(self):
+        plain_app = lambda **cols: {'id': 'a', 'properties': {k: text(v) for k, v in cols.items()}}
+        self.assertEqual(interviews.interview_title('Grafana Labs', 'Technical 1'), 'Grafana Labs · Technical 1')
+        self.assertEqual(interviews.interview_title('', 'Recruiter screen', plain_app(Company='', Via='Huxley', Job='Principal SRE')), 'Huxley · Recruiter screen')
+        self.assertEqual(interviews.interview_title('', 'Recruiter screen', plain_app(Company='', Via='', Job='Principal SRE')), 'Principal SRE · Recruiter screen')
+        self.assertEqual(interviews.interview_title('', 'Recruiter screen'), 'Recruiter screen')
+        self.assertEqual(interviews.interview_title('Acme', 'HM', plain_app(Company='Other')), 'Acme · HM')
+        placeholder = '(unnamed finance client via recruiter — Principal SRE posting)'
+        self.assertEqual(interviews.named(placeholder), '')
+        self.assertEqual(interviews.named('Unknown company'), '')
+        self.assertEqual(interviews.named('x' * 61), '')
+        self.assertEqual(interviews.named('Grafana Labs'), 'Grafana Labs')
+        self.assertEqual(interviews.interview_title(placeholder, 'Recruiter screen', plain_app(Via='Huxley')), 'Huxley · Recruiter screen')
 
     def test_the_app_reviews_without_telegram(self):
         from src import daily

@@ -126,3 +126,12 @@ test('a review runs the interview mode on the saved Notion row and returns its s
   assert.deepEqual(args.slice(args.indexOf('--interview'), args.indexOf('--interview') + 2), ['--interview', 'page-1']);
   assert.deepEqual(result, {ok: true, summary: 'Interview analysed (Grafana Labs, Technical 1, 8 questions, $0.041)', url: 'https://notion.test/page-1'});
 });
+
+test('the library row links to its job: clickable Job cell, Open job/interview in Notion, Link a job when none', () => {
+  const source = fs.readFileSync(new URL('../renderer/pages/interviews.js', import.meta.url), 'utf8');
+  assert.match(source, /openView\('jobs'\); showJobsIn\(/);
+  assert.match(source, /Open interview in Notion/);
+  assert.match(source, /Open job in Notion/);
+  assert.match(source, /'Link a job'/);
+  assert.match(source, /Link a job…/);
+});

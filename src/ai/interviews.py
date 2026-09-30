@@ -27,6 +27,7 @@ from html import escape
 import json
 import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 import urllib.request
@@ -73,7 +74,8 @@ SCHEMA = {
                  'weaknesses', 'signals', 'red_flags', 'next_step', 'practice', 'overall', 'summary', 'facts'],
     'properties': {
         'application': {'type': 'integer', 'description': 'Index of the matching application in the list, or -1 if unclear'},
-        'company': {'type': 'string', 'description': 'Company as named in the caption or transcript'},
+        'company': {'type': 'string', 'description': 'The employer exactly as named in the caption or transcript; "" when it is not named '
+                                                     '(never a description, never "unnamed ...", never a guess)'},
         'round': {'type': 'string', 'description': 'e.g. "Recruiter screen", "Technical 1", "System design", "Hiring manager"'},
         'interviewers': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Roles only (e.g. "SRE manager"), no names'},
         'duration_min': {'type': 'integer', 'description': 'Estimated from timestamps, or 0 if unknown'},
@@ -112,6 +114,8 @@ profile, the list of their applications, the caption they wrote, and a transcrip
 - Identify the application from the caption first, then the transcript (company, role). If two \
 applications at the same company fit, prefer the one in an interview stage or applied most recently. \
 Use -1 when you can't tell.
+- company: the employer's name only when the call or caption names it; otherwise an empty string. Never a \
+description, never "unnamed ...", never a guess (a recruiter may not name the client).
 - The transcript may not label speakers. Infer who is the candidate from context (the profile helps).
 - Be honest and specific. "weak" means the answer missed what the question was probing, was vague, or \
 was wrong; say what a stronger answer would add, using the candidate's real experience from the profile.
@@ -184,6 +188,48 @@ def _block(kind, content, bold=False):
     chunks = [content[i:i + 1900] for i in range(0, len(content), 1900)] or ['']
     return {'object': 'block', 'type': kind, kind: {'rich_text': [
         {'type': 'text', 'text': {'content': c}, 'annotations': {'bold': bold}} for c in chunks[:100]]}}
+
+
+NO_JOB = 'No job linked yet — link it in the Interviews page of the Job Pilotto app'
+
+
+def job_line(app):
+    """The visible first line of an interview page: "🔗 Job: <link to the Application> · company · title", or a hint."""
+    if not app:
+        return _block('paragraph', f'🔗 {NO_JOB}')
+    props = app.get('properties', {})
+    who = plain(props.get('Company')) or plain(props.get('Via')) or 'Job'
+    title = plain(props.get('Job'))
+    url = app.get('url') or f"https://www.notion.so/{app['id'].replace('-', '')}"
+    text = lambda content, link=None: {'type': 'text', 'text': {'content': content, **({'link': dict(url=url)} if link else {})}}
+    return {'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': [
+        text('🔗 Job: '), text(f'{who} · {title}' if title else who, link=True)]}}
+
+
+def _line_key(rich_text):
+    return [(t.get('text', {}).get('content', t.get('plain_text', '')), (t.get('text', {}).get('link') or {}).get('url')) for t in rich_text]
+
+
+def ensure_job_line(tracker, page_id, app):
+    """Keep the job line at the top of an interview page, once: replaced when it is there (the first three blocks),
+    else put first. Returns True when the page changed."""
+    want = job_line(app)['paragraph']['rich_text']
+    blocks = tracker._children(page_id)
+    for block in blocks[:3]:
+        if block['type'] == 'paragraph' and plain({'type': 'rich_text', 'rich_text': block['paragraph'].get('rich_text', [])}).startswith('🔗 '):
+            if _line_key(block['paragraph']['rich_text']) == _line_key(want):
+                return False
+            tracker._request('PATCH', f"blocks/{block['id']}", {'paragraph': {'rich_text': want}})
+            return True
+    first = blocks[0] if blocks else None
+    if first and first['type'] == 'paragraph' and not first.get('children') and not first.get('has_children'):
+        # The API can't insert before a block: the first paragraph becomes the line and its old text goes right after.
+        old = first['paragraph'].get('rich_text', [])
+        tracker._request('PATCH', f"blocks/{first['id']}", {'paragraph': {'rich_text': want}})
+        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [{'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': old}}], 'after': first['id']})
+    else:
+        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [job_line(app)], **({'after': first['id']} if first else {})})
+    return True
 
 
 def transcript_toggle(transcript):
@@ -290,6 +336,24 @@ def page_blocks(result, transcript, merged=None):
     return analysis_blocks(result, merged) + [transcript_toggle(transcript)]
 
 
+def named(value):
+    """A company name the call really gave: short, no "unnamed"/"unknown" and no parentheses (a description such as
+    "(unnamed finance client via recruiter)" is not a name). '' when it is not named."""
+    value = (value or '').strip()
+    if not value or len(value) > 60 or '(' in value or ')' in value or re.search(r'unnamed|unknown|not stated|not named|\bn/?a\b', value, re.I):
+        return ''
+    return value
+
+
+def interview_title(company, round_, app=None):
+    """"Company · Round": the employer if named (in the call, else the application's Company), else the application's
+    Via (agency), else its job title, else just the round."""
+    props = (app or {}).get('properties', {})
+    name = (named(company) or named(plain(props.get('Company'))) or named(plain(props.get('Via')))
+            or named(plain(props.get('Job'))))
+    return ' · '.join(part for part in (name, (round_ or '').strip()) if part)[:200] or 'Interview'
+
+
 def properties(result, app, today, model, usd, source):
     """source: 'Recording', 'Transcript' or 'Notes' (older callers pass True/False for transcript/notes)."""
     source = {True: 'Transcript', False: 'Notes'}.get(source, source)
@@ -297,7 +361,7 @@ def properties(result, app, today, model, usd, source):
     topics = list(dict.fromkeys(q['topic'] for q in result['questions']))
     weak = list(dict.fromkeys(q['topic'] for q in result['questions'] if q['quality'] in ('weak', 'not_answered')))
     props = {
-        'Interview': {'title': [{'text': {'content': f"{result['company'] or 'Interview'} · {result['round']}"[:200]}}]},
+        'Interview': {'title': [{'text': {'content': interview_title(result['company'], result['round'], app)}}]},
         'Date': {'date': {'start': today.isoformat()}},
         'Round': text(result['round']),
         'Overall': {'select': {'name': result['overall']}},
@@ -317,7 +381,7 @@ def properties(result, app, today, model, usd, source):
 
 def message(result, app, page_url, usd, truncated=False, merged=None, stage=None):
     title = (f"{escape(plain(app['properties'].get('Company')) or '')} — {escape(plain(app['properties'].get('Job')) or '')}"
-             if app else f"{escape(result['company'] or 'Unknown company')} (not linked to an application)")
+             if app else f"{escape(named(result['company']) or 'Unknown company')} (not linked to an application)")
     weak = [q for q in result['questions'] if q['quality'] in ('weak', 'not_answered')]
     lines = [f"🎤 <b>Interview · {escape(result['round'])}</b>", title, '', escape(result['summary'])]
     if result['strengths']:
@@ -516,9 +580,11 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
         props.pop('Date')  # the day it was held, set when it was saved
         page = tracker._request('PATCH', f'pages/{page_id}', {'properties': props})
         add_review(tracker, page_id, analysis_blocks(result, merged))
+        ensure_job_line(tracker, page_id, app)
     else:
         page = tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID},
-                                                  'properties': props, 'children': page_blocks(result, transcript, merged)})
+                                                  'properties': props,
+                                                  'children': [job_line(app)] + page_blocks(result, transcript, merged)})
     stage = None
     if app:
         stage = advance(tracker, app, now=now, round_=result['round'], next_step=result['next_step'],
@@ -560,9 +626,10 @@ def save(tracker, transcript, title, *, job_url=None, source='Recording', now=No
             if block['type'] == 'heading_3' and plain({'type': 'rich_text', 'rich_text': body.get('rich_text', [])}) == 'Transcript':
                 tracker._request('DELETE', f"blocks/{block['id']}")
         tracker._request('PATCH', f'blocks/{page_id}/children', {'children': [transcript_toggle(transcript)]})
+        ensure_job_line(tracker, page_id, app)
     else:
         page = tracker._request('POST', 'pages', {'parent': {'database_id': INTERVIEWS_DATABASE_ID}, 'properties': props,
-                                                  'children': [_block('paragraph', PLACEHOLDER), transcript_toggle(transcript)]})
+                                                  'children': [job_line(app), _block('paragraph', PLACEHOLDER), transcript_toggle(transcript)]})
     if app:
         advance(tracker, app, now=now, round_=title, note=f'{source} saved', source=APP_SOURCE, clear_past=False)
     return page
@@ -591,6 +658,7 @@ def link(tracker, page_id, job_url=None):
     """Set (or with no job_url, clear) the application a 🎤 Interviews row belongs to."""
     app = application_for(tracker, job_url) if job_url else None
     tracker.update_page(page_id, {'Application': {'relation': [{'id': app['id']}] if app else []}})
+    ensure_job_line(tracker, page_id, app)
     if app:  # a recorded call belongs to this job: it was held
         advance(tracker, app, note='Interview linked', source=APP_SOURCE, clear_past=False)
     return app['id'] if app else None
@@ -631,6 +699,31 @@ def listing(tracker, limit=100):
     return rows
 
 
+def backfill_links(tracker):
+    """One-off, idempotent: every interview page gets its job line, and a title that is a placeholder ("(unnamed
+    client …) · Round") is renamed by the title rule. Returns {'pages': n, 'linked': lines changed, 'renamed': n}."""
+    done, apps = {'pages': 0, 'linked': 0, 'renamed': 0}, {}
+    for row in tracker.query_database(INTERVIEWS_DATABASE_ID):
+        props, relation = row['properties'], (row['properties'].get('Application') or {}).get('relation', [])
+        app = None
+        if relation:
+            app_id = relation[0]['id']
+            if app_id not in apps:
+                try:
+                    apps[app_id] = tracker._request('GET', f'pages/{app_id}')
+                except Exception:  # noqa: BLE001 - a trashed or unshared page: it counts as no job
+                    apps[app_id] = None
+            app = apps[app_id]
+        done['pages'] += 1
+        done['linked'] += ensure_job_line(tracker, row['id'], app)
+        title = plain(props.get('Interview')) or ''
+        head, sep, round_ = title.rpartition(' · ')
+        if sep and head != 'Interview' and not named(head):
+            tracker.update_page(row['id'], {'Interview': {'title': [{'text': {'content': interview_title('', round_, app)}}]}})
+            done['renamed'] += 1
+    return done
+
+
 NO_NOTES = 'No notes written. The interview was held (confirmed in Focus).'
 
 
@@ -649,7 +742,7 @@ def held(tracker, app_id, notes='', *, now=None):
         'Interview': {'title': [{'text': {'content': f"{who} · {plain(props.get('Job')) or 'interview'}"[:200]}}]},
         'Date': {'date': {'start': day}}, 'Input': {'select': {'name': 'Notes'}},
         'Application': {'relation': [{'id': app['id']}]}},
-        'children': [_block('paragraph', PLACEHOLDER), transcript_toggle(notes or NO_NOTES)]})
+        'children': [job_line(app), _block('paragraph', PLACEHOLDER), transcript_toggle(notes or NO_NOTES)]})
     stage = advance(tracker, app, now=now, note='Held (confirmed in Focus)', source=APP_SOURCE)
     return {'ok': True, 'id': page['id'], 'url': page.get('url', ''), 'stage': stage, 'review': len(notes) >= 40}
 
@@ -700,6 +793,8 @@ def main(argv=None):
     """JSON commands for the desktop app's Interviews page (Notion is the database; nothing here uses AI)."""
     import argparse
     parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument('--backfill-links', action='store_true',
+                        help='one-off: add the job line to every interview page (and fix placeholder titles)')
     sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('list')
     saving = sub.add_parser('save', help='a transcript file as a new row')
@@ -721,6 +816,13 @@ def main(argv=None):
     moving.add_argument('--at', required=True)
     cancelling = sub.add_parser('cancelled', help='Focus: the interview did not happen')
     cancelling.add_argument('app')
+    if '--backfill-links' in (argv if argv is not None else sys.argv[1:]):
+        tracker = notion.Tracker.from_env()
+        if not tracker or not INTERVIEWS_DATABASE_ID:  # nothing to do without Notion or the Interviews database
+            print(json.dumps({'ok': True, 'pages': 0, 'linked': 0, 'renamed': 0}))
+            return 0
+        print(json.dumps({'ok': True, **backfill_links(tracker)}))
+        return 0
     args = parser.parse_args(argv)
     tracker = notion.Tracker.from_env()
     if not tracker or not INTERVIEWS_DATABASE_ID:

@@ -62,7 +62,7 @@ test('data an older version kept on the Mac moves to Notion once, then only Noti
   });
   const page = fakeNotion(['## 📇 Contact details', 'Email: notion@x.com']);  // one fake page stands in for all three
   // (profile copies and search settings have their own tests; they'd need the Python side here)
-  const steps = migrate.STEPS.filter(s => !['workspace', 'profile copies', 'search settings', 'search settings format'].includes(s.name));
+  const steps = migrate.STEPS.filter(s => !['workspace', 'profile copies', 'search settings', 'search settings format', 'interview job links'].includes(s.name));
   const moved = await migrate.run(storage, () => {}, steps, page.fetcher);
   assert.deepEqual(moved, ['open questions', 'form knowledge', 'contact details']);
   const texts = page.texts();
