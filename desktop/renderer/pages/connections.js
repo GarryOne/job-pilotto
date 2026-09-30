@@ -4,7 +4,7 @@ import {$, message, osText, show} from './core.js';
 import {moreButton, pill} from '../components.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
-import {refreshServices, renderOverview, showRunMode} from './settings.js';
+import {noteCheck, refreshServices, renderOverview, showRunMode} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
 
@@ -40,6 +40,7 @@ export async function showExtensionStatus() {
     : 'Not connected: install it below, or open Chrome if it\'s installed (it checks in within 30 seconds).';
   $('ext-status').className = `status-line ${on ? 'on' : ''}`;
   $('ext-setup').open = !on;
+  noteCheck({extension: {on: !!on, version: seen?.version}});  // the cards above follow
 }
 
 // ---------- how often each job runs ----------
@@ -179,6 +180,7 @@ export async function showGoogle() {
   $('google-status').textContent = google.connected ? `✓ Connected as ${google.email}` : google.error ? 'Sign-in expired: connect again' : 'Not connected';
   $('google-status').classList.toggle('on', !!google.connected);
   $('google-connect').textContent = google.connected ? 'Reconnect' : 'Connect Google';
+  noteCheck({google: {connected: !!google.connected, email: google.email || ''}});  // the cards above follow
 }
 function alertLine(name, text) { const line = document.querySelector(`[data-secret="${name}"]`); line.textContent = text; line.classList.remove('on'); }
 

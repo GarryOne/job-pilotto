@@ -29,6 +29,7 @@ import * as appFeedback from './lib/app-feedback.js';
 import * as aiTrial from './lib/ai-trial.js';
 import * as setupFunnel from './lib/setup-funnel.js';
 import * as devMarker from './lib/dev-marker.js';
+import {sharedCheck} from './lib/shared-check.js';
 import * as pendingLicense from './lib/pending-license.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
@@ -1020,12 +1021,16 @@ function handlers() {
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
   // The token lives in the Keychain, where the Python side (src/sources/google.py) reads it.
+  // One Gmail check shared by every view (lib/shared-check.js): Settings' overview and the Gmail card ask at once.
+  const googleStatus = sharedCheck(async () => {
+    const {stdout} = await pipeline.run(storage, ['src.sources.google', 'status']);
+    return JSON.parse(stdout.trim().split('\n').pop());  // unreadable: throws, so it isn't kept and is retried
+  });
   ipcMain.handle('googleStatus', async () => {
     // Demo mode: the fictional user's account. The real check reads this Mac's Google sign-in (the Keychain, not the
     // demo folder), which put the owner's own address into the reference screenshots.
     if (DEMO) return {connected: true, email: 'alex.morgan@example.com'};
-    const {stdout} = await pipeline.run(storage, ['src.sources.google', 'status']);
-    try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return {connected: false}; }
+    try { return await googleStatus(); } catch { return {connected: false}; }
   });
   ipcMain.handle('googleConnect', async () => {
     const lines = [];

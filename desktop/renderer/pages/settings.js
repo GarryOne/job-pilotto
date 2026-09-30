@@ -142,6 +142,13 @@ function checkingLine(busy) {
   else line.replaceChildren(icon('check'), 'Checked just now');
   line.classList.toggle('is-done', !busy);
 }
+// A fresher answer from a detail card (Gmail and Calendar, Chrome extension): the Overview and Connections cards follow
+// it, so the same service never shows "Not connected" at the top and "Connected" below.
+export function noteCheck(part) {
+  const last = lastChecks() || {};
+  try { localStorage.setItem(SERVICE_CACHE, JSON.stringify({...last, ...part})); } catch {}
+  refreshServices();
+}
 // A connection changed in the app (Always on turned on or off): the cards follow at once, from what's known.
 export function refreshServices() {
   if (shared.state?.secrets) renderServices(quickStatus());
