@@ -429,3 +429,16 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .find-bar button { order: 3; }
 #find-prev .icon { transform: rotate(-90deg); }
 #find-next .icon { transform: rotate(90deg); }
+/* Choice cards (choiceCards): side-by-side radio cards, the chosen one outlined with a check badge (the AI engine). */
+.ui-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
+.ui-choice { position: relative; display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4); text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); font: inherit; color: inherit; cursor: pointer; }
+.ui-choice:hover:not(:disabled) { border-color: var(--line-strong); box-shadow: var(--shadow-sm); }
+.ui-choice.is-selected { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
+.ui-choice.is-disabled { cursor: not-allowed; opacity: .6; }
+.ui-choice-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; padding-right: var(--sp-5); }
+.ui-choice-text b { font-size: var(--fs-md); }
+.ui-choice-note { color: var(--warn); }
+.ui-choice-check { position: absolute; top: var(--sp-3); right: var(--sp-3); color: var(--signal); visibility: hidden; }
+.ui-choice-check svg { width: 18px; height: 18px; }
+.ui-choice.is-selected .ui-choice-check { visibility: visible; }

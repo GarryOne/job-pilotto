@@ -31,7 +31,8 @@ def left_out(stats, what):
     left = (stats.get('pending') or 0) - (stats.get('done') or 0)
     if left <= 0:
         return []
-    why = 'the Anthropic API spending limit was reached' if stats.get('limit') else 'the AI call failed'
+    why = ('your Claude Code plan limit was reached (or it is signed out)' if stats.get('limit') == 'cli' else
+           'the Anthropic API spending limit was reached' if stats.get('limit') else 'the AI call failed')
     return [f'{left} job(s) not {what}: {why}']
 
 def crawl_counts(report, statuses):
@@ -190,8 +191,8 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
         questions = []
     profile, answers = tracker.page_text(), kit.standard_answers(tracker)
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from .ai import engine
+        client = engine.client()
     drafted, usage = kit.draft(client, model, job, profile, answers, questions)
     cost.add(stats, model, usage)
     if stats is not None:
@@ -470,7 +471,7 @@ def main():
             if not cost.limit_reached(error):
                 raise
             run_url = f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID', '')}"
-            message = cost.LIMIT_MESSAGE.format(what='the interview review', retry=(
+            message = cost.limit_message(error, 'the interview review', retry=(
                 ' Your transcript is kept: after raising it, send it again, or re-run '
                 f'<a href="{escape(run_url, quote=True)}">this run</a>.' if os.getenv('GITHUB_RUN_ID') else ''))
             print(message)
@@ -495,7 +496,7 @@ def main():
             except Exception as error:
                 if not cost.limit_reached(error):
                     raise
-                message = cost.LIMIT_MESSAGE.format(what=f'the {args.mode} report', retry='')
+                message = cost.limit_message(error, f'the {args.mode} report')
                 print(message)
                 if args.send:
                     telegram.send(message, *telegram.credentials())

@@ -18,7 +18,16 @@ The Job Pilotto app on your Mac does the work. This Notion workspace is where yo
 | **Pipeline — Application Funnel** | How many of the jobs you went after (outbound) got replies, screenings and interviews, and the step to improve. Recruiters who found you (inbound) are counted apart | The app |
 | **Employers & Sources** | The company career pages being checked | The app; untick **Active** to stop checking one |
 | **Job Apply — Agent Runs** | Details of each form an AI agent filled | The app |
-| **Cronjob Runs** | Each search: how many new jobs, what the AI cost | The app |
+| **Cronjob Runs** | Each search: how many new jobs, what the AI cost, and **Billed to** (Claude subscription or API credits) | The app |
+
+# Your AI: Claude Code or an API key
+
+- **You choose** (setup, or Settings → Connections → AI). Switch any time.
+- **Claude Code:** your own signed-in `claude` on this Mac; bills your Claude plan, $0 API. Runs show "Claude Code · your plan".
+- **API key:** pay per use; runs show the dollar cost.
+- **Always on (GitHub) needs an API key**, whichever you pick for the Mac.
+- Plan limit reached: the step pauses and retries later (or uses your key, if you ticked that).
+- Job Pilotto never touches your Claude login: not signed in → run `claude` in Terminal and sign in yourself.
 
 # A normal week
 

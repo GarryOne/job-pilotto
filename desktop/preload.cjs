@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('pilot', {
   sendFeedback: call('sendFeedback'), leaveReason: call('leaveReason'),
   onAskWhyLeaving: callback => ipcRenderer.on('askWhyLeaving', () => callback()),
   startTrialCredit: call('startTrialCredit'), trialCredit: call('trialCredit'),
+  claudeCodeStatus: call('claudeCodeStatus'), verifyClaudeCode: call('verifyClaudeCode'), setAiEngine: call('setAiEngine'),
+  setAiFallback: call('setAiFallback'), dismissEngineOffer: call('dismissEngineOffer'),
   onOpenFeedback: callback => ipcRenderer.on('openFeedback', () => callback()),
   onFind: callback => ipcRenderer.on('find', (_, what) => callback(what)),
   onOpenInterviews: callback => ipcRenderer.on('openInterviews', () => callback()),

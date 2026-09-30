@@ -974,6 +974,23 @@
           "database": "NOTION_APPLICATIONS_DB",
           "synced_property": "Runs"
         },
+        "Billed to": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Claude subscription",
+              "color": "orange"
+            },
+            {
+              "name": "Anthropic API credits",
+              "color": "red"
+            },
+            {
+              "name": "Both",
+              "color": "purple"
+            }
+          ]
+        },
         "Changed jobs": {
           "type": "number",
           "format": "number"

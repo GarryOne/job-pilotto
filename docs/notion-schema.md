@@ -280,6 +280,7 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Scored | Number |  |
 | Application | Relation | To Job Tracker (two-way, shows there as "Runs"): the one job a run was about; empty for runs about many jobs (search, Gmail check, insights) |
 | Updates | Number |  |
+| Billed to | Select | How the run's AI was paid: `Claude subscription` (the user's own Claude Code on the Mac, $0 API), `Anthropic API credits` (API key), `Both` (plan limit hit, fell back to the key); empty when no AI ran |
 
 Views: **Latest runs** (newest first), **AI cost per day** (column chart).
 

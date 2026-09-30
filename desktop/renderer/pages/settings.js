@@ -3,7 +3,7 @@ import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {updateText} from '../update-text.js';
 import {shared} from './shared.js';
-import {$, show} from './core.js';
+import {$, aiReady, show} from './core.js';
 import {openView, remembered} from './nav.js';
 import {profileTab, showContact} from './profile.js';
 
@@ -51,8 +51,8 @@ async function openProfile() {
 // dot on Connections. required: counted for the alert and the dot (Google Jobs and Always on are optional extras;
 // Always on's card opens its setup on the Automation page).
 const SERVICES = [
-  {id: 'ai', name: 'Anthropic', icon: 'bot', what: 'AI for scoring and application kits', required: true,
-    why: 'Reading jobs, fit scores and application kits need your AI key.'},
+  {id: 'ai', name: 'AI (Claude)', icon: 'bot', what: 'Your Claude Code or an Anthropic API key', required: true,
+    why: 'Reading jobs, fit scores and application kits need AI: choose Claude Code or an API key.'},
   {id: 'notion', name: 'Notion', icon: 'layers', what: 'Job search workspace', required: true,
     why: 'Your jobs, applications and profile live in your Notion.'},
   {id: 'google', name: 'Gmail & Calendar', icon: 'mail', what: 'Read-only access', required: true,
@@ -71,9 +71,9 @@ const SERVICES = [
 const SERVICE_CACHE = 'serviceChecks';
 const lastChecks = () => { try { return JSON.parse(localStorage.getItem(SERVICE_CACHE) || 'null'); } catch { return null; } };
 function statusFrom(google, extension) {
-  const on = {ai: !!shared.state.secrets.ANTHROPIC_API_KEY, notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, cloud: !!shared.state.settings.cloud?.repo, 'tg-cloud': !!shared.state.settings.telegramCloud,
+  const on = {ai: aiReady(), notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, cloud: !!shared.state.settings.cloud?.repo, 'tg-cloud': !!shared.state.settings.telegramCloud,
     telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: !!extension?.on};
-  const detail = {google: google?.connected && google.email, extension: extension?.on && extension.version && `v${extension.version}`,
+  const detail = {ai: aiReady() && (shared.state.settings.aiEngine === 'cli' ? 'Claude Code · your plan' : 'API key'), google: google?.connected && google.email, extension: extension?.on && extension.version && `v${extension.version}`,
     telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`,
     cloud: shared.state.settings.cloud?.repo, 'tg-cloud': shared.state.settings.telegramCloud?.url?.replace('https://', '')};
   const checking = {google: !google, extension: !extension};

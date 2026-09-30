@@ -185,7 +185,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(result.profile_markdown, answers);
   storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
-  result.usd = Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+  result.usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
   return result;
 }
 

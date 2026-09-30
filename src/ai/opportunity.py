@@ -268,10 +268,10 @@ def add_from_text(tracker, text, *, client=None, model=DEFAULT_MODEL, source='Ma
     if len(text) < MIN_TEXT:
         raise ValueError('Paste the whole recruiter message (the role, company, salary…), not just a line.')
     if client is None:
-        if not os.getenv('ANTHROPIC_API_KEY'):
-            raise ValueError('Reading a recruiter message needs your Anthropic API key (Settings → AI).')
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        if not engine.ready():
+            raise ValueError('Reading a recruiter message needs AI: choose Claude Code or add an API key (Settings → AI).')
+        client = engine.client()
     lead = extract(client, model, text, stats=stats)
     if not lead.get('is_opportunity'):
         raise ValueError("That doesn't read like a recruiter pitching a role, so nothing was added.")

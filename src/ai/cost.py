@@ -11,7 +11,10 @@ PRICES = {
 
 
 def usd(model, usage):
-    """API cost of one call in USD, from its usage."""
+    """API cost of one call in USD, from its usage. A Claude Code call (src/ai/engine.py, billing 'subscription') is
+    on the user's Claude plan, not API credits: $0."""
+    if getattr(usage, 'billing', None) == 'subscription':
+        return 0.0
     price_in, price_out, price_cache = PRICES.get(model, (0, 0, 0))
     cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
     written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
@@ -28,12 +31,35 @@ def add(stats, model, usage):
     stats['tokens_out'] = stats.get('tokens_out', 0) + usage.output_tokens
     stats['cache_read'] = stats.get('cache_read', 0) + (getattr(usage, 'cache_read_input_tokens', 0) or 0)
     stats['usd'] = stats.get('usd', 0.0) + usd(model, usage)
+    # How the calls were paid for (⏱️ Search runs "Billed to"): Claude Code on the user's plan, or the API key.
+    kind = 'cli_calls' if getattr(usage, 'billing', None) == 'subscription' else 'api_calls'
+    stats[kind] = stats.get(kind, 0) + 1
 
 
 def limit_reached(error):
-    """True when an API error is the account's spend limit or an empty credit balance, not a bug."""
+    """True when an API error is the account's spend limit or an empty credit balance, not a bug; or when the user's
+    Claude Code can't go on (its plan's usage limit, not signed in, not installed: engine.CliLimitError)."""
+    if getattr(error, 'ai_limit', False):
+        return True
     text = str(error).lower()
     return 'usage limit' in text or 'credit balance' in text
+
+
+def cli_limit(error):
+    """The limit was the user's Claude Code (its plan, its sign-in), not the API account."""
+    return bool(getattr(error, 'ai_limit', False))
+
+
+def limit_reason(error):
+    """The limit in a few words, for the run's log ("AI limit reached: …")."""
+    return 'Claude Code (your Claude plan) cannot go on' if cli_limit(error) else 'Anthropic API spending limit'
+
+
+def limit_message(error, what, retry=''):
+    """The message a paused AI step sends (Telegram / the app), for the API's limit or Claude Code's."""
+    if cli_limit(error):
+        return f'⚠️ {what[0].upper()}{what[1:]} is paused. {error}'
+    return LIMIT_MESSAGE.format(what=what, retry=retry)
 
 
 LIMIT_MESSAGE = ('⚠️ The Anthropic API spend limit is reached, so {what} is paused. Raise the limit in the '

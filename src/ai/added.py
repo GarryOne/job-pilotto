@@ -59,8 +59,8 @@ def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=Non
     if status == 'seen' and job_id in score.load(db):
         return None  # found (and scored) by a search already
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     item = dict(item, id=job_id, first_seen_at=now.isoformat(timespec='seconds'))
     db.executescript(enrich.ENRICHMENT_TABLE)  # a fresh job cache has no AI tables yet
     db.executescript(score.SCORES_TABLE)

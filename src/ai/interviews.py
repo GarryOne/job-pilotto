@@ -581,8 +581,8 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     if chosen and chosen not in apps:
         apps = [chosen] + apps
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     result, usage, model = analyse(client, model, tracker.page_text(), apps, caption, transcript)
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)

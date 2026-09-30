@@ -14,7 +14,7 @@ import {render} from '../cv/template.js';
 
 export const MODEL = 'claude-sonnet-5';
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);  // Claude Code: the user's plan, $0
 
 const string = {type: 'string'};
 const list = {type: 'array', items: string};

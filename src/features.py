@@ -19,6 +19,10 @@ class Feature:
     setup: str        # how to turn it on, one line
 
 
+# AI: the user's API key, or their own Claude Code chosen in the app (src/ai/engine.py; runs on their Claude plan).
+AI = ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_AI_ENGINE=cli')
+
+
 FEATURES = (
     Feature('discover', 'jobs.ch + TechTree discovery', (), 'free', 'on by default'),
     Feature('telegram', 'Telegram digest', ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'), 'free',
@@ -27,14 +31,14 @@ FEATURES = (
             'create a Notion integration and the pages in docs/notion-schema.md'),
     Feature('scout', 'Source scout (finds new employer feeds)', (), 'free', 'on by default'),
     Feature('index', 'Central employer index (downloaded feeds from the shared scout)', (), 'free', 'on by default'),
-    Feature('enrich', 'AI stage 1: facts from each posting', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_ENRICH_MODEL'),
+    Feature('enrich', 'AI stage 1: facts from each posting', (AI, 'JOB_PILOTTO_ENRICH_MODEL'),
             'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_ENRICH_MODEL=claude-haiku-4-5'),
     Feature('score', 'AI stage 2: fit score against your Profile',
-            ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_SCORE_MODEL', ('NOTION_TOKEN', 'JOB_PILOTTO_PROFILE_FILE')),
+            (AI, 'JOB_PILOTTO_SCORE_MODEL', ('NOTION_TOKEN', 'JOB_PILOTTO_PROFILE_FILE')),
             'paid', 'ANTHROPIC_API_KEY + JOB_PILOTTO_SCORE_MODEL=claude-sonnet-5 (Profile from Notion or a local file)'),
-    Feature('auto_kits', 'Auto-drafted application kits', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_AUTO_KIT_MAX', 'NOTION_TOKEN'),
+    Feature('auto_kits', 'Auto-drafted application kits', (AI, 'JOB_PILOTTO_AUTO_KIT_MAX', 'NOTION_TOKEN'),
             'paid', 'JOB_PILOTTO_AUTO_KIT_MAX=5 (plus the AI key and Notion)'),
-    Feature('insights', 'Daily insight + weekly report', ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_INSIGHT_MODEL', 'NOTION_TOKEN'),
+    Feature('insights', 'Daily insight + weekly report', (AI, 'JOB_PILOTTO_INSIGHT_MODEL', 'NOTION_TOKEN'),
             'paid', 'JOB_PILOTTO_INSIGHT_MODEL=claude-sonnet-5 (plus the AI key and Notion)'),
     Feature('google_jobs', 'Google Jobs via SerpApi', ('SERPAPI_API_KEY',), 'free tier',
             'SERPAPI_API_KEY from serpapi.com (free plan: 250 searches/month)'),
@@ -45,8 +49,8 @@ FEATURES = (
     Feature('feedback', 'Employer feedback requests, collection and learning', ('NOTION_TOKEN',), 'free',
             'on with Notion (Focus and Jobs → Add employer feedback; Gmail collection uses the existing mail check)'),
     Feature('rejection_review', 'Why each rejection happened (after the Gmail check, or on demand)',
-            ('ANTHROPIC_API_KEY', 'NOTION_TOKEN'), 'paid', 'on with the AI key and Notion (Claude Sonnet 5, a few cents each)'),
-    Feature('mail', 'Gmail + Calendar reading (application news, recruiter leads)', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', 'ANTHROPIC_API_KEY'), 'paid',
+            (AI, 'NOTION_TOKEN'), 'paid', 'on with the AI key and Notion (Claude Sonnet 5, a few cents each)'),
+    Feature('mail', 'Gmail + Calendar reading (application news, recruiter leads)', ('GOOGLE_REFRESH_TOKEN', 'NOTION_TOKEN', AI), 'paid',
             'python3 -m src.sources.google auth --github (the shared Job Pilotto app: one browser consent); '
             'own Google app: python3 -m src.sources.google setup; README → Gmail and Calendar'),
     Feature('contribute', 'Help the pool grow: share employer career pages with coarse tags (opt-in)', ('JOB_PILOTTO_SHARE_EMPLOYERS',),
@@ -67,7 +71,12 @@ def disabled(name, env=None):
 
 
 def _has(env, need):
-    return any(env.get(var) for var in need) if isinstance(need, tuple) else bool(env.get(need))
+    if isinstance(need, tuple):
+        return any(_has(env, one) for one in need)
+    if '=' in need:  # NAME=value: set to exactly that value
+        name, value = need.split('=', 1)
+        return (env.get(name) or '').strip().lower() == value
+    return bool(env.get(need))
 
 
 def _name(need):

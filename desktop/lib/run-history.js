@@ -44,13 +44,15 @@ export function fromRow(page, now = Date.now()) {
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
   const job = ok ? rowJob(p, mode, summary) : null;
   return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
+    billing: p['Billed to']?.select?.name || null,
     result: result(summary, status, p['New jobs']?.number, mode), ...(job ? {job} : {})};
 }
 
 // One line on what it did: the row's Summary without the cost, or the count of new jobs for a search.
 export function result(summary, status, fresh, mode) {
   if (status === 'Running') return 'never finished (see the log)';
-  const line = summary.replace(/\s*\(AI cost \$[\d.]+\)\.?$/, '').replace(/;?\s*AI cost \$[\d.]+\.?$/, '').trim();
+  const cost = String.raw`(?:AI cost \$[\d.]+(?: \+ Claude Code)?|Claude Code, your plan)`;
+  const line = summary.replace(new RegExp(String.raw`\s*\(${cost}\)\.?$`), '').replace(new RegExp(String.raw`;?\s*${cost}\.?$`), '').trim();
   if (KIND[mode] === 'search' && fresh != null) return fresh ? `${fresh} new job${fresh === 1 ? '' : 's'}` : 'nothing new';
   return line || (status === 'Failed' ? 'failed' : 'done');
 }

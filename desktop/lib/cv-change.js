@@ -10,7 +10,7 @@ import * as notion from './notion.js';
 
 export const MODEL = 'claude-sonnet-5';
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);  // Claude Code: the user's plan, $0
 export const PREVIOUS = 'cv.previous.pdf';
 
 // Replace the CV: the one there now becomes cv.previous.pdf (only after setup, when there's a Profile to compare).

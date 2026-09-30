@@ -4,6 +4,21 @@ import {refreshCv} from './activity.js';
 import {$, STEPS, message, show} from './core.js';
 import {loadJobs} from './jobs.js';
 import {toDraft} from './strategy-review.js';
+import {mountEngine} from './ai-engine.js';
+import {canContinue} from '../ai-engine-view.js';
+
+// The AI step's engine chooser (pages/ai-engine.js): mounted the first time the step opens. Nothing is pre-selected;
+// Continue once the user picked one that can run (Claude Code verified, or an API key saved or typed).
+let chooser = null;
+const aiDone = () => !!shared.state.secrets.ANTHROPIC_API_KEY || shared.state.settings.aiEngine === 'cli';
+function aiStep() {
+  const picked = chooser?.picked();
+  show($('ai-key-part'), picked === 'api');
+  show($('ai-trial'), picked !== 'cli');  // the free credit stays for people with neither
+  const keyTyped = !!$('anthropic-key').value.trim();
+  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, keyTyped, status: chooser?.status()});
+  $('ai-save').textContent = picked === 'api' && keyTyped ? 'Check and save' : 'Continue';
+}
 
 // ---------- wizard ----------
 export function goStep(name) {
@@ -22,7 +37,10 @@ export function goStep(name) {
   const reviewing = !!shared.state.settings.setupDone && !!shared.state.notion;
   $('notion-oauth').disabled = reviewing;
   document.querySelector('.step[data-step="notion"] .oauth').classList.toggle('locked', reviewing);
-  if (name === 'ai') $('ai-save').textContent = shared.state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value ? 'Continue' : 'Check and save';
+  if (name === 'ai') {
+    if (!chooser) chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
+    aiStep();
+  }
   if (name === 'notion' && (notionReady() || reviewing) && !$('notion-key').value) {
     message('notion-message', reviewing ? '✓ Connected to your Job Pilotto workspace. To connect a different one: Settings → Notion.'
       : '✓ Connected to your Job Pilotto workspace. Continue, or connect again.', 'ok');
@@ -80,18 +98,26 @@ export async function init() {
   // Setup was done before (Run setup again, Rebuild from CV): leave the wizard any time, nothing changes.
   $('wizard-exit').addEventListener('click', () => { show($('wizard'), false); show($('app')); loadJobs(); });
   // A key already there (e.g. the free credit from the one-command install): no AI step to do.
-  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(shared.state.secrets.ANTHROPIC_API_KEY ? 'notion' : 'ai')));
+  document.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => goStep(aiDone() ? 'notion' : 'ai')));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
     const current = STEPS.find(step => !document.querySelector(`.step[data-step="${step}"]`).hidden);
     goStep(STEPS[Math.max(0, STEPS.indexOf(current) - 1)]);
   }));
 
-  $('anthropic-key').addEventListener('input', () => {
-    $('ai-save').textContent = shared.state.secrets.ANTHROPIC_API_KEY && !$('anthropic-key').value.trim() ? 'Continue' : 'Check and save';
-  });
+  $('anthropic-key').addEventListener('input', aiStep);
   $('ai-save').addEventListener('click', async () => {
+    if (chooser?.picked() === 'cli') {  // the user's own Claude Code, verified: no API key needed
+      shared.state.settings = await window.pilot.setAiEngine('cli');
+      message('ai-message', '', '');
+      goStep('notion');
+      return;
+    }
     const key = $('anthropic-key').value.trim();
-    if (!key && shared.state.secrets.ANTHROPIC_API_KEY) { goStep('notion'); return; }  // saved earlier: just continue
+    if (!key && shared.state.secrets.ANTHROPIC_API_KEY) {  // saved earlier: just continue
+      shared.state.settings = await window.pilot.setAiEngine('api');
+      goStep('notion');
+      return;
+    }
     if (!key.startsWith('sk-ant-')) { message('ai-message', 'Anthropic keys start with sk-ant-. Copy the whole key.', 'error'); return; }
     $('ai-save').disabled = true;
     message('ai-message', 'Checking the key…');
@@ -99,6 +125,7 @@ export async function init() {
     $('ai-save').disabled = false;
     if (!result.ok) { message('ai-message', result.error, 'error'); return; }
     shared.state.secrets = await window.pilot.saveSecret('ANTHROPIC_API_KEY', key);
+    shared.state.settings = await window.pilot.setAiEngine('api');
     $('anthropic-key').value = '';
     message('ai-message', 'Saved ✓', 'ok');
     goStep('notion');

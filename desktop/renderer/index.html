@@ -22,7 +22,7 @@
     <div class="brand"><img class="mark" src="logo.png" alt="">Job Pilotto</div>
     <ol id="step-list">
       <li data-step="welcome">Welcome</li>
-      <li data-step="ai">AI key</li>
+      <li data-step="ai">AI</li>
       <li data-step="notion">Notion</li>
       <li data-step="cv">Your CV</li>
       <li data-step="draft">Your strategy</li>
@@ -68,10 +68,11 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 1 of 5</span>
           <h1>Connect your AI</h1>
-          <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. It runs on this computer with your own key,
-            and you pay Anthropic directly: usually a few dollars a month during an active search, capped by the monthly budget you set.</p></div>
+          <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. Choose how it runs: your own
+            Claude Code (your Claude plan), or an Anthropic API key (you pay Anthropic per use, usually a few dollars a month).</p></div>
       </header>
-      <section class="card step-card">
+      <section class="card step-card engine" id="ai-engine"></section>
+      <section class="card step-card" id="ai-key-part" hidden>
         <ol class="howto">
           <li>Open <a href="#" data-link="https://console.anthropic.com/settings/keys">console.anthropic.com → API keys</a> and sign up or sign in
             (a separate account from a Claude.ai subscription).</li>
@@ -929,7 +930,9 @@
           <div class="service-grid is-rows" id="conn-off"></div>
 
       <div class="setting conn-panel" id="setting-ai" hidden>
-        <div><h3>Anthropic (AI)</h3><p class="muted status-line" data-secret="ANTHROPIC_API_KEY"></p></div>
+        <div class="engine" id="ai-engine-settings"></div>
+        <div><h3>Anthropic API key</h3><p class="muted status-line" data-secret="ANTHROPIC_API_KEY"></p>
+          <p class="muted small">Always on (GitHub) runs on GitHub and needs an API key, whichever engine runs on this Mac.</p></div>
         <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>

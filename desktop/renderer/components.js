@@ -34,6 +34,31 @@ export function tile(glyph, tone = 'signal') {
   return node;
 }
 
+// Choice cards: one of a few options side by side (radio cards), each an icon tile, a bold title, a short description
+// and a check badge on the chosen one. choices: [{id, icon, title, text, disabled?, note?}]; selected: an id or null
+// (nothing chosen yet); onPick(id) when one is clicked.
+export function choiceCards(choices, {selected = null, onPick = () => {}, label = ''} = {}) {
+  const group = el('div', 'ui-choices');
+  group.setAttribute('role', 'radiogroup');
+  if (label) group.setAttribute('aria-label', label);
+  for (const choice of choices) {
+    const card = el('button', `ui-choice${choice.id === selected ? ' is-selected' : ''}${choice.disabled ? ' is-disabled' : ''}`);
+    Object.assign(card, {type: 'button', disabled: !!choice.disabled});
+    card.dataset.choice = choice.id;
+    card.setAttribute('role', 'radio');
+    card.setAttribute('aria-checked', String(choice.id === selected));
+    const text = el('span', 'ui-choice-text');
+    text.append(el('b', '', choice.title), el('span', 'muted small', choice.text));
+    if (choice.note) text.append(el('span', 'ui-choice-note small', choice.note));
+    const check = el('span', 'ui-choice-check');
+    check.append(icon('check-circle'));
+    card.append(tile(choice.icon, choice.id === selected ? 'signal' : 'neutral'), text, check);
+    card.addEventListener('click', () => onPick(choice.id));
+    group.append(card);
+  }
+  return group;
+}
+
 // ⋯ menu: one floating list for the whole window, closed by Esc, a click outside, scrolling or picking an item.
 // Items: {label, run(event), title?, danger?, icon?} (icon: a name from icons.js) or '-' for a divider.
 const menu = el('div', 'ui-menu');

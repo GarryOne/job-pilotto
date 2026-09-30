@@ -373,8 +373,8 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
             'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now),
             'learning': learning.evidence(tracker, now)}
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     response = client.messages.create(
         model=model, max_tokens=3000,
         system=[{'type': 'text', 'text': WEEKLY_SYSTEM.format(min_group=MIN_GROUP) + profile}],
@@ -461,8 +461,8 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
             'interviews': interviews.stats_for_insights(tracker), 'recent_insights': recent_insights(tracker),
             'learning': learning.evidence(tracker, now)}
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     insight, usage = generate(client, model, profile, data)
     insight['issues'] = learning.validate(insight.get('issues') or [], data['learning'])
     cost.add(stats, model, usage)

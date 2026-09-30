@@ -445,10 +445,10 @@ CHANNELS = ('LinkedIn', 'Email', 'Phone', 'Other')  # the app's "Where is this c
 def _client(client):
     if client is not None:
         return client
-    if not os.getenv('ANTHROPIC_API_KEY'):
-        raise ValueError('Reading a message needs your Anthropic API key (Settings → AI).')
-    import anthropic
-    return anthropic.Anthropic()
+    from . import engine
+    if not engine.ready():
+        raise ValueError('Reading a message needs AI: choose Claude Code or add an API key (Settings → AI).')
+    return engine.client()
 
 
 def _as_written(text):

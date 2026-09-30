@@ -64,6 +64,20 @@ def total_tokens(run):
                for key in ('tokens_in', 'tokens_out', 'cache_read'))
 
 
+def billed_to(run):
+    """How the run's AI was paid for (the "Billed to" column): the user's Claude Code on their Claude plan
+    (src/ai/engine.py), their API key, both (a fallback), or None when no AI ran."""
+    cli = any((run.get(stage) or {}).get('cli_calls') for stage, _, _ in STAGES)
+    api = any((run.get(stage) or {}).get('api_calls') for stage, _, _ in STAGES)
+    return 'Both' if cli and api else 'Claude subscription' if cli else 'Anthropic API credits' if api else None
+
+
+def cost_text(run):
+    """The run's AI cost in words: dollars for the API, "Claude Code, your plan" for the subscription."""
+    billed, usd = billed_to(run), f'AI cost ${total_usd(run):.3f}'
+    return 'Claude Code, your plan' if billed == 'Claude subscription' else f'{usd} + Claude Code' if billed == 'Both' else usd
+
+
 def status(run):
     if run.get('warnings') or run.get('feed_errors'):
         return 'Warnings'
@@ -79,7 +93,7 @@ def mail_lines(run):
     info = run.get('mail') or {}
     updates = run.get('updates') or []
     lines = [f"Gmail check: {info.get('done', 0)} new email(s) read, {len(updates)} update(s) recorded; "
-             f"AI cost ${total_usd(run):.3f}."]
+             f"{cost_text(run)}."]
     lines += updates
     lines += [f'Warning: {w}' for w in run.get('warnings', [])]
     return lines
@@ -93,19 +107,19 @@ ONE_OFF = {'add': 'Logged activity', 'insight': 'Insight', 'weekly': 'Weekly rep
 def report_lines(run):
     """The mini-report: a headline, then what stood out, most useful first."""
     if run.get('headline'):  # a one-off job (insight, weekly report, find employers…) says what it did
-        return [f"{run['headline']} (AI cost ${total_usd(run):.3f})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
+        return [f"{run['headline']} ({cost_text(run)})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
     if run.get('mode') == 'mail':
         return mail_lines(run)
     if run.get('mode') in ONE_OFF:  # a one-off job without a result line: say which job, never a crawl's summary
-        return [f"{ONE_OFF[run['mode']]} done (AI cost ${total_usd(run):.3f})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
+        return [f"{ONE_OFF[run['mode']]} done ({cost_text(run)})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
     if run.get('mode') == 'rejection':  # its AI cost is kept under "insight" (a review of your own search)
-        return [f"Rejection review: {len(run.get('updates') or [])} application(s); AI cost ${total_usd(run):.3f}."] + \
+        return [f"Rejection review: {len(run.get('updates') or [])} application(s); {cost_text(run)}."] + \
             list(run.get('updates') or []) + [f'Warning: {w}' for w in run.get('warnings', [])]
     new, changed = run.get('new', 0), run.get('changed', 0)
     feeds, errors = run.get('feeds', 0), run.get('feed_errors', 0)
-    cost = total_usd(run)
-    lines = [f'{new} new and {changed} changed job(s) from {feeds} feed(s); AI cost ${cost:.3f}.'
-             if new or changed else f'Quiet run: nothing new from {feeds} feed(s); AI cost ${cost:.3f}.']
+    cost = cost_text(run)
+    lines = [f'{new} new and {changed} changed job(s) from {feeds} feed(s); {cost}.'
+             if new or changed else f'Quiet run: nothing new from {feeds} feed(s); {cost}.']
     for title, company, score in run.get('top_new', [])[:3]:
         lines.append(f'Top new match: {title} at {company} (score {score}).')
     kits = run.get('kits') or {}
@@ -118,7 +132,7 @@ def report_lines(run):
         if info.get('pending') and info.get('done', 0) < info['pending'] and not info.get('failed'):
             lines.append(f"{label}: stopped at {info.get('done', 0)} of {info['pending']} (API unavailable).")
     scored = (run.get('score') or {}).get('done', 0)
-    if scored:
+    if scored and (run.get('score') or {}).get('usd'):
         lines.append(f"Scoring cost ${(run['score'].get('usd', 0) / scored):.4f} per job.")
     if errors:
         failing = ', '.join(run.get('failing_feeds', [])[:6])
@@ -221,6 +235,7 @@ def run_page(run, final=True):
         'Status': {'select': {'name': status(run)}},
         'AI cost (USD)': {'number': round(total_usd(run), 4)},
         'Tokens (total)': {'number': total_tokens(run)},
+        'Billed to': {'select': {'name': billed_to(run)} if billed_to(run) else None},
         'Telegram': _text(run.get('telegram', '')),
         'Summary': _text(lines[0]),
         # A jobs check
@@ -249,7 +264,9 @@ def run_page(run, final=True):
             children.append(_para(
                 f"{ONE_OFF.get(run['mode'], label) if not info.get('pending') else label} with {info.get('model', '?')}{done}; "
                 f"tokens in {info.get('tokens_in', 0)} (+{info.get('cache_read', 0)} cached), "
-                f"out {info.get('tokens_out', 0)}; ${info.get('usd', 0.0):.4f}", 'bulleted_list_item'))
+                f"out {info.get('tokens_out', 0)}; "
+                + ('Claude Code, your plan' if info.get('cli_calls') and not info.get('api_calls') else f"${info.get('usd', 0.0):.4f}"),
+                'bulleted_list_item'))
     if run.get('matches'):
         children.append(_para(f"Job Matches: {run['matches']}", 'bulleted_list_item'))
     return properties, children[:95]

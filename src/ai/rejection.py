@@ -189,8 +189,8 @@ def line(row, result):
 def review(tracker, row, *, email_text='', client=None, model=DEFAULT_MODEL, stats=None, profile=None):
     """Review one rejected application and write the result on it. Returns (result, one-line summary)."""
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     profile = tracker.page_text() if profile is None else profile
     result, _ = analyse(client, model, profile, material(tracker, row, email_text), stats)
     if result['verdict'] not in VERDICTS:

@@ -248,8 +248,8 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
     if not pending:
         return '0 kit(s) auto-drafted', []
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     profile, answers = tracker.page_text(), standard_answers(tracker)
     drafted_jobs, failures = [], 0
     for job in pending:

@@ -1,4 +1,5 @@
 // Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
+import * as claudeCode from './claude-code.js';
 import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
 import * as requestLog from './request-log.js';
@@ -60,7 +61,9 @@ export function pipelineEnv(storage, parent = process.env) {
   }
   // The free AI credit (lib/ai-trial.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
   if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;
-  if (env.ANTHROPIC_API_KEY) {
+  // The AI engine the user chose (lib/claude-code.js): their own Claude Code on this Mac, or the API key.
+  Object.assign(env, claudeCode.pipelineVariables(settings, !!env.ANTHROPIC_API_KEY));
+  if (claudeCode.aiReady(settings, !!env.ANTHROPIC_API_KEY)) {
     env.JOB_PILOTTO_ENRICH_MODEL = MODELS.enrich;
     env.JOB_PILOTTO_SCORE_MODEL = MODELS.score;
     env.JOB_PILOTTO_KIT_MODEL = MODELS.kit;
@@ -192,7 +195,7 @@ export async function posting(storage, code) {
 // file, note), so Telegram buttons and commands work the same from the app as from the cloud.
 export function dailyArgs(storage, inputs = {}) {
   const mode = inputs.mode || 'scheduled';
-  const ai = !!storage.secret('ANTHROPIC_API_KEY');
+  const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
   const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId);
   // --log-run: every run from the app gets a row in Notion ⏰ Search runs (Notion is where the details live).
   const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : []), '--log-run'];
@@ -283,6 +286,8 @@ export function mailArgs(storage, now = Date.now()) {
 // A check that ended normally (exit 0, so a GitHub run isn't marked crashed) without reading the mail: why, or null.
 export function mailProblem(stdout) {
   if (/^Mail check skipped: the Anthropic API spend limit/m.test(stdout)) return 'not checked: the Anthropic API spend limit was reached';
+  if (/^Mail check skipped: Claude Code: your Claude usage window/m.test(stdout)) return 'not checked: your Claude usage window is exhausted; it runs again later';
+  if (/^Mail check skipped: Claude Code (?:is not signed in|was not found)/m.test(stdout)) return 'not checked: Claude Code is not ready (Settings → AI)';
   if (/The Google sign-in for Gmail and Calendar has expired/.test(stdout)) return 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)';
   return null;
 }
@@ -390,7 +395,7 @@ export const triggerEnv = trigger => ({JOB_PILOTTO_TRIGGER: trigger === 'schedul
 
 function searchOnce(storage, onLine, mode, trigger = 'you') {
   return (async () => {
-    const ai = !!storage.secret('ANTHROPIC_API_KEY');
+    const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
     onLine('Searching job boards (jobs.ch, TechTree)…');
     await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
     onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));

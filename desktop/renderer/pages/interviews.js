@@ -9,7 +9,7 @@ import {afterLoad} from '../interview-library.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
-import {$, message, osText, show} from './core.js';
+import {$, aiReady, message, osText, show} from './core.js';
 
 // ---------- interviews: drafts on this Mac, saved ones in Notion 🎤 Interviews ----------
 const iv = window.pilot.interviews;
@@ -404,7 +404,7 @@ function showRow(id) {
   setTimeout(() => tr.classList.remove('is-flash'), 1600);
 }
 async function refreshInsights() {
-  if (!shared.state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get insights.', 'error'); return; }
+  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get insights.', 'error'); return; }
   insightBusy = true; insightNote = '';
   renderInsight();
   const result = await iv.insights().catch(error => ({ok: false, error: String(error?.message || error)}));
@@ -535,7 +535,7 @@ function renderSaved() {
 }
 
 async function reviewRow(pageId) {
-  if (!shared.state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get reviews.', 'error'); return; }
+  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
   reviewing.add(pageId);
   message('iv-message', 'Claude is reviewing the interview (about a minute)…');
   readAgain();
@@ -550,7 +550,7 @@ async function reviewRow(pageId) {
 const reviewingAgain = new Set();
 async function reviewAgainRow(pageId) {
   if (reviewingAgain.has(pageId)) return;
-  if (!shared.state.secrets?.ANTHROPIC_API_KEY) { message('iv-message', 'Add your Anthropic key in Settings to get reviews.', 'error'); return; }
+  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
   reviewingAgain.add(pageId);
   message('iv-message', reviewAgain.START);
   const result = await iv.review(pageId).catch(error => ({ok: false, error: String(error?.message || error)}));

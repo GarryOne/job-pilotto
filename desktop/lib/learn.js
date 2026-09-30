@@ -79,6 +79,6 @@ export async function learn({run, profile = '', answers = '', contact = {}, know
   });
   const text = response.content.find(block => block.type === 'text')?.text || '{"notes":[]}';
   const usage = response.usage || {};
-  const usd = Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+  const usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
   return {notes: JSON.parse(text).notes || [], usd};
 }

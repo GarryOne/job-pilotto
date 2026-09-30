@@ -909,8 +909,8 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     apps = applications(tracker)
     index = _events_index(tracker)
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     rejected = []
     lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected,
                              None if dry_run else on_new)
@@ -996,6 +996,9 @@ def main(argv=None):
             print(message)
             if sender:
                 sender(escape(message))
+            return 0
+        if cost.cli_limit(error):  # the user's Claude Code: its plan's usage window, or it is signed out
+            print(f'Mail check skipped: {error}')
             return 0
         if cost.limit_reached(error):
             print(f'Mail check skipped: the Anthropic API spend limit is reached ({error}). '

@@ -462,8 +462,8 @@ def _update(tracker, *, client, model_, stats, now, force, budget_status):
     items = gather(tracker, rows)
     model_ = model_ or model()
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic()
+        from . import engine
+        client = engine.client()
     result, usage, model_ = generate(client, model_, items)
     cost.add(stats, model_, usage)
     usd = cost.usd(model_, usage)
@@ -483,7 +483,8 @@ def after_review(tracker, stats=None, client=None):
         return update(tracker, stats=stats, client=client)['text']
     except Exception as error:  # noqa: BLE001 - the review is saved; insights catch up on the next review or Refresh
         if cost.limit_reached(error):
-            return 'Interview insights: paused, the Anthropic spend limit is reached'
+            return ('Interview insights: paused, your Claude Code plan limit is reached' if cost.cli_limit(error)
+                    else 'Interview insights: paused, the Anthropic spend limit is reached')
         return f'Interview insights skipped: {type(error).__name__}: {error}'
 
 
@@ -517,7 +518,7 @@ def main(argv=None):
     try:
         out = update(tracker, stats=run['insight'])
     except Exception as error:  # noqa: BLE001 - the page says what failed
-        text = cost.LIMIT_MESSAGE.format(what='the interview insights', retry='') if cost.limit_reached(error) else \
+        text = cost.limit_message(error, 'the interview insights') if cost.limit_reached(error) else \
             f'Could not update the interview insights: {type(error).__name__}: {error}'
         print(json.dumps({'ok': False, 'error': text}))
         return 1

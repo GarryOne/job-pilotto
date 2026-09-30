@@ -190,7 +190,8 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
         if client is None:
             raise
         transient = permanent = ()  # A test client raises none of the SDK's errors.
-    client = client or anthropic.Anthropic()
+    from . import engine
+    client = client or engine.client()
     tokens_in = tokens_out = failures = enriched = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(extract, client, model, job): job for job in jobs}
@@ -208,8 +209,8 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
                 if cost.limit_reached(error):
                     # The account's spend limit: every other call would fail the same way. Stop; the next run continues.
                     if stats is not None:
-                        stats['limit'] = True
-                    print(f'AI limit reached: Anthropic API spending limit, {len(jobs) - enriched - failures} job(s) left for the next check')
+                        stats['limit'] = 'cli' if cost.cli_limit(error) else True
+                    print(f'AI limit reached: {cost.limit_reason(error)}, {len(jobs) - enriched - failures} job(s) left for the next check')
                     for pending in futures:
                         pending.cancel()
                     break

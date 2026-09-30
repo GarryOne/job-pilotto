@@ -29,6 +29,7 @@ import {offerMove} from './lib/applications.js';
 import * as appMenu from './lib/app-menu.js';
 import * as appFeedback from './lib/app-feedback.js';
 import * as aiTrial from './lib/ai-trial.js';
+import * as claudeCode from './lib/claude-code.js';
 import * as setupFunnel from './lib/setup-funnel.js';
 import * as devMarker from './lib/dev-marker.js';
 import {sharedCheck} from './lib/shared-check.js';
@@ -80,7 +81,7 @@ function healthOnce() {
   if (!telemetry?.enabled() || settings.telemetryHealthAt === today) return;
   storage.saveSettings({telemetryHealthAt: today});
   const has = name => !!storage.secret(name);
-  telemetry.record('health', {ai: has('ANTHROPIC_API_KEY'), notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
+  telemetry.record('health', {ai: has('ANTHROPIC_API_KEY'), aiEngine: claudeCode.engine(settings, has('ANTHROPIC_API_KEY')) || 'none', notion: has('NOTION_TOKEN'), telegram: has('TELEGRAM_BOT_TOKEN'),
     serpapi: has('SERPAPI_API_KEY'), alwaysOn: !!settings.cloud?.repo, theme: settings.theme || 'light',
     sessions: terminals.list().length, runsKept: pipeline.runs(storage).length, ...outcomes(settings), ...allowanceHealth(), ...telemetry.takeRuns()});
 }
@@ -213,6 +214,8 @@ const about = {version: app.getVersion(), build: buildInfo?.build || null, commi
   label: DEMO ? app.getVersion() : buildInfo ? `${app.getVersion()} (build ${buildInfo.build}, ${buildInfo.commit})` : `${app.getVersion()} (development)`};
 let storage;
 let window;
+// AI steps can run: the user chose their own Claude Code, or saved an API key (lib/claude-code.js).
+const aiReady = () => claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
 let polling = null;
 
 function restartTelegram() {
@@ -478,6 +481,19 @@ function handlers() {
     if (name === 'ANTHROPIC_API_KEY' && !aiTrial.isTrialKey(value)) aiTrial.stop(storage);  // own key: leave the free credit
     return storage.secretsPresent();
   });
+  // The AI engine (Settings → Connections → AI, the wizard's AI step; lib/claude-code.js): the user's own choice.
+  const DEMO_CLAUDE = {installed: true, version: '2.1.0', path: '/usr/local/bin/claude', authenticated: true, error: '', checkedAt: '2026-09-30T09:00:00Z'};
+  ipcMain.handle('claudeCodeStatus', async () => (DEMO ? DEMO_CLAUDE : {...(storage.settings().claudeCode || {}), ...await claudeCode.detect(),
+    checkedAt: storage.settings().claudeCode?.checkedAt || null}));
+  ipcMain.handle('verifyClaudeCode', () => (DEMO ? DEMO_CLAUDE : claudeCode.verify(storage)));
+  ipcMain.handle('setAiEngine', (_, choice, options = {}) => {
+    if (!claudeCode.ENGINES.includes(choice)) throw new Error(`Unknown AI engine: ${choice}`);
+    storage.saveSettings({aiEngine: choice, ...(choice === 'cli' ? {claudeCodeNotice: true} : {}),
+      ...('fallback' in options ? {aiFallback: !!options.fallback} : {})});
+    return storage.settings();
+  });
+  ipcMain.handle('setAiFallback', (_, on) => { storage.saveSettings({aiFallback: !!on}); return storage.settings(); });
+  ipcMain.handle('dismissEngineOffer', () => { storage.saveSettings({aiEngineOffered: true}); return storage.settings(); });
   // The free AI credit for invited testers (lib/ai-trial.js).
   ipcMain.handle('startTrialCredit', () => aiTrial.start(storage, licenseState));
   ipcMain.handle('trialCredit', () => aiTrial.credit(storage));
@@ -502,7 +518,7 @@ function handlers() {
   ipcMain.handle('cvChange', () => ({...(storage.settings().cvChange || {}), name: storage.settings().cvName,
     comparable: fs.existsSync(storage.path(cvChange.PREVIOUS)), base: !!cvlib.baseCv(storage)}));
   ipcMain.handle('cvReview', async () => {
-    try { return {ok: true, ...await cvChange.review(storage, storage.secret('ANTHROPIC_API_KEY'))}; }
+    try { return {ok: true, ...await cvChange.review(storage, storage.secret('ANTHROPIC_API_KEY'), {client: claudeCode.client(storage)})}; }
     catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('cvApply', async (_, accepted) => {
@@ -530,7 +546,7 @@ function handlers() {
     send({part: 'Sending your CV to Claude', percent: 0, notes: [sent]});
     let draft;
     try {
-      draft = await strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), null,
+      draft = await strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), claudeCode.client(storage),
         progress => { writing = true; send({...progress, notes: [sent, 'Claude read your CV', ...progress.notes]}); });
     } finally { clearInterval(reading); }
     send({part: 'Checking the draft', percent: 99, notes: ['Checking the draft (valid settings, nothing missing)…']});
@@ -720,7 +736,7 @@ function handlers() {
   // Two steps: proposeLead reads it (Claude, once; nothing written), the window asks you to confirm the channel and the
   // start date, then addLead(…, {proposal, confirmed}) writes it to Notion with those instead of Claude's guesses.
   const leadCheck = () => (!storage.secret('NOTION_TOKEN') ? {ok: false, text: 'Connect Notion first: recruiter leads are tracked there.'}
-    : !storage.secret('ANTHROPIC_API_KEY') ? {ok: false, text: 'Reading a message or screenshot needs your Anthropic API key (Settings).'} : null);
+    : !aiReady() ? {ok: false, text: 'Reading a message or screenshot needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'} : null);
   // Screenshots (up to 5) go to temporary files for the run (then to Notion, on the job's page), deleted after.
   const withShots = async (image, task) => {
     const exts = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'};
@@ -941,7 +957,7 @@ function handlers() {
   // Interview prep kit (Focus → Prepare): runs here (you wait for it), steps shown in its dialog.
   ipcMain.handle('interviewPrep', (_, pageId) => {
     if (DEMO) return {ok: true, text: 'Prep kit ready (demo): nothing was written.'};
-    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'The prep kit needs your Anthropic API key (Settings).'};
+    if (!aiReady()) return {ok: false, text: 'The prep kit needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'};
     // Its lines and result also go to logs/app.log (a failed kit left no trace before).
     return pipeline.interviewPrep(storage, String(pageId), line => {
       log(line);
@@ -965,7 +981,7 @@ function handlers() {
   // A rejected job's menu → Why was I rejected? (also runs by itself after the Gmail check logs a rejection).
   ipcMain.handle('reviewRejection', async (_, url) => {
     if (DEMO) return {ok: true, text: 'Reviewed (demo): nothing was written.'};
-    if (!storage.secret('ANTHROPIC_API_KEY')) return {ok: false, text: 'The review needs your Anthropic API key (Settings).'};
+    if (!aiReady()) return {ok: false, text: 'The review needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'};
     try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
   ipcMain.handle('apply', async (_, options) => allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
@@ -1186,13 +1202,13 @@ function handlers() {
   // Tailored CV for one job: base CV (imported from the CV PDF the first time) + the posting -> Claude ->
   // checked -> PDF. A fixed-page design that overflows gets one second try with that feedback.
   ipcMain.handle('tailorCv', async (_, code, name = 'this job') => {
-    const key = storage.secret('ANTHROPIC_API_KEY');
-    if (!key) return {ok: false, error: 'Add your Anthropic API key in Settings first.'};
+    const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
+    if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     try {
       let cost = 0;
       if (!cvlib.baseCv(storage)) {
         if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
-        cost += (await cvlib.importPdf(storage, key)).usd;
+        cost += (await cvlib.importPdf(storage, key, ai)).usd;
       }
       const job = await pipeline.posting(storage, code);
       if (!job.ok) return {ok: false, error: job.error};
@@ -1200,7 +1216,7 @@ function handlers() {
       const {profile} = await strategy.profileTexts(storage);
       let feedback = '', result, applied, printed;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const answer = await cvlib.tailor(storage, job, key, {feedback, profile});
+        const answer = await cvlib.tailor(storage, job, key, {client: ai, feedback, profile});
         cost += answer.usd;
         result = answer.result;
         applied = cvlib.applyTailoring(base, result, profile);
@@ -1231,10 +1247,10 @@ function handlers() {
   // The base CV the tailoring starts from: import it from the CV PDF (again), see it, or edit its files.
   ipcMain.handle('cvStatus', () => ({base: !!cvlib.baseCv(storage), custom: fs.existsSync(path.join(cvlib.dir(storage), 'style.css'))}));
   ipcMain.handle('importCv', async () => {
-    const key = storage.secret('ANTHROPIC_API_KEY');
-    if (!key) return {ok: false, error: 'Add your Anthropic API key first.'};
+    const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
+    if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
-    try { return {ok: true, usd: (await cvlib.importPdf(storage, key)).usd}; } catch (error) { return {ok: false, error: error.message}; }
+    try { return {ok: true, usd: (await cvlib.importPdf(storage, key, ai)).usd}; } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('viewBaseCv', async () => {
     const base = cvlib.baseCv(storage);

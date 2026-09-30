@@ -21,6 +21,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
 - `desktop/lib/canary.js` — Test builds (menu → Get Test Builds): the app stays on one canary build for its 48 h trial, not the newest build.
+- `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
 - `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
 - `desktop/lib/cv-change.js` — A replaced CV after setup (Strategy → Replace CV…): what follows it and what doesn't.
@@ -78,6 +79,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 - `desktop/renderer/pages/actions.js` — Actions: every Telegram command.
 - `desktop/renderer/pages/activity.js` — Recent activity: the bar at the bottom of every screen and its panel.
+- `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/connections.js` — Settings → connections: Apply with Claude, the extension, how often, Always on.
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
@@ -114,6 +116,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Desktop window: shared modules
 
+- `desktop/renderer/ai-engine-view.js` — The AI engine chooser's words and states (the setup wizard's AI step and Settings → Connections → AI), kept free of
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
@@ -174,6 +177,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/apply_run.py` — Run one observable Codex browser fill and record its review handoff.
 - `src/ai/budget.py` — Monthly AI budget: how much of this month's Anthropic spend limit is used, and what to do about it.
 - `src/ai/cost.py` — API prices and per-call cost, shared by the AI stages and the cronjob run report.
+- `src/ai/engine.py` — The AI engine every AI step calls through: the Anthropic API (the user's key) or the user's own Claude Code.
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.

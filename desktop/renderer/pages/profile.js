@@ -7,6 +7,7 @@ import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {renderOverview} from './settings.js';
 import {goStep} from './wizard.js';
+import {showEngineSettings} from './ai-engine.js';
 
 // ---------- Settings → Application profile: tabs (CV & details, Standard answers) ----------
 export function profileTab(name) {
@@ -86,6 +87,7 @@ export async function loadSettings() {
     if ($(id)) $(id).placeholder = hints[name] ? `${hints[name]} · saved (paste a new one to replace it)` : empty;
   }
   renderNotionLinks();
+  showEngineSettings();
   showCloud();
   showSchedule();
   showContact();

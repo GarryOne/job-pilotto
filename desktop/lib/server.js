@@ -11,6 +11,7 @@ import * as knowledge from './knowledge.js';
 import * as viewCache from './view-cache.js';
 import * as contactDetails from './contact.js';
 import {handleExtension, jobKey} from '../shared/worker/extension.js';
+import * as claudeCode from './claude-code.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';
@@ -91,15 +92,15 @@ export function localEnv(storage) {
 // After a fill that left fields: learn reusable notes from its record (one small Claude call), keep them for
 // the extension and mirror them to the user's 🧠 Form knowledge page in Notion (kits read that page).
 async function learnFromRun(storage, run, job) {
-  const apiKey = storage.secret('ANTHROPIC_API_KEY');
-  if (!apiKey) return;
+  const apiKey = storage.secret('ANTHROPIC_API_KEY'), client = claudeCode.client(storage);  // Claude Code when the user chose it
+  if (!apiKey && !client) return;
   const settings = storage.settings(), token = storage.secret('NOTION_TOKEN'), ids = settings.notionIds || {};
   const studied = settings.formKnowledgeStudied || {};
   const known = await knowledge.notes(storage);
   const fresh = learn.newFields(run, studied, known);
   if (!fresh.length) return;  // this site's fields were already studied: no AI call
   const {profile, answers} = await strategy.profileTexts(storage).catch(() => ({profile: '', answers: ''}));
-  const {notes, usd} = await learn.learn({run, profile, answers, contact: await contactOf(storage), known, studied, apiKey});
+  const {notes, usd} = await learn.learn({run, profile, answers, contact: await contactOf(storage), known, studied, apiKey, client});
   const site = learn.siteOf(run.url);
   // Remember what was studied, learned or not (a cache on the Mac: a missing personal fact isn't retried; it's in Answer once).
   storage.saveSettings({formKnowledgeStudied: {...studied, [site]: [...new Set([...(studied[site] || []), ...fresh.map(f => learn.labelKey(f.label))])]}});

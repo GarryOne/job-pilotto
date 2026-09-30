@@ -1,4 +1,5 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
+import {billingLabel} from '../ai-engine-view.js';
 import {groupWarnings, limitedJobs, runWarnings} from '../run-warnings.js';
 import {el, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -7,7 +8,7 @@ import {parseRunMessage} from '../run-cards.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
-import {$, show} from './core.js';
+import {$, aiReady, show} from './core.js';
 import {loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {loadFocus} from './focus.js';
 import {openView} from './nav.js';
@@ -33,7 +34,7 @@ export async function showSearchStatus() {
   if (!lastSearchAt) { title.textContent = 'No check yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
   title.textContent = last && !last.ok ? 'Last check had problems →' : `Check complete${last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : ''}`;
-  detail.textContent = `${clockTime(lastSearchAt)}${last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
+  detail.textContent = `${clockTime(lastSearchAt)}${billingLabel(last || {}) ? ` · ${billingLabel(last)}` : last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
 }
 
 // ---------- activity bar (bottom of every screen) ----------
@@ -75,6 +76,10 @@ function runStatus(run, warned) {
 function warningSummary(warnings) {
   // The Anthropic account's spending limit: jobs were left unscored. Said plainly, with what to do.
   const limited = limitedJobs(warnings);
+  if (limited && warnings.some(text => /Claude Code/.test(text))) {  // the user's own Claude Code: its plan's usage window
+    return `Your Claude usage window is exhausted (or Claude Code is signed out), so ${plural(limited, 'job')} ${limited === 1 ? 'wasn\'t' : 'weren\'t'} scored. `
+      + 'The next check scores them once your plan\'s limit resets; Settings → Connections → AI shows Claude Code\'s status.';
+  }
   if (limited) {
     return `Your Anthropic API spending limit was reached, so ${plural(limited, 'job')} ${limited === 1 ? 'wasn\'t' : 'weren\'t'} scored. `
       + 'Raise the limit at console.anthropic.com → Settings → Limits; the next check scores them.';
@@ -176,7 +181,8 @@ function withKept(data) {
 const byYou = run => run.trigger === 'you' && !run.live && !run.waiting;
 // Every run records its AI cost (⏰ Cronjob Runs "AI cost (USD)"): $0 means it used no AI (a Gmail check with no new
 // email, a search with nothing new to score), not a missing number.
-const costOf = run => (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '$0');
+// A run on the user's own Claude Code says so ("Claude Code · your plan"): no API dollars (⏱️ Search runs "Billed to").
+const costOf = run => billingLabel(run) || (run.usd > 0 ? `$${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}` : '$0');
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -242,8 +248,9 @@ export function renderActivity(fresh) {
       ? `Waiting · starts after ${run.after}`
       : [clockTime(run.endedAt || run.startedAt), capital(outcome(run)), WHO[run.trigger] || run.trigger, WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
-    const cost = el('span', `run-cost${run.usd > 0 ? '' : ' is-zero'}`, run.live || run.waiting ? '' : costOf(run));
-    cost.title = run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI used in this run';
+    const cost = el('span', `run-cost${run.usd > 0 || billingLabel(run) ? '' : ' is-zero'}`, run.live || run.waiting ? '' : costOf(run));
+    cost.title = billingLabel(run) ? 'Ran on your own Claude Code: your Claude plan\'s usage, no API credits'
+      : run.usd > 0 ? `AI cost of this run: $${run.usd.toFixed(3)}` : 'No AI used in this run';
     button.append(el('span', 'run-icon', icon(kind.line)), words, cost, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     item.append(button);
@@ -324,7 +331,7 @@ export function renderActivity(fresh) {
   const facts = !run ? [] : [
     run.live ? `Started ${hhmm(Date.parse(run.startedAt))}` : `Finished ${hhmm(Date.parse(run.endedAt || run.startedAt))}`,
     !run.live && seconds > 0 && (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`),
-    !run.live && run.usd > 0 && `AI $${run.usd.toFixed(3)}`,
+    !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd.toFixed(3)}`)),
     run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : ''].filter(Boolean);
   $('activity-facts').replaceChildren(...facts.map(text => el('span', 'ap-fact', text)));
   show($('activity-facts'), facts.length > 0);
@@ -517,9 +524,9 @@ export async function buildDraft() {
   show($('draft-loading')); show($('draft-view'), false); show($('draft-error'), false); show($('draft-stale'), false);
   $('draft-title').textContent = 'Your strategy'; show($('draft-subtitle'), false); show($('draft-cost'), false);
   $('draft-save').disabled = true;
-  if (!shared.state.secrets.ANTHROPIC_API_KEY) {
+  if (!aiReady()) {
     showDraftIntro();
-    $('draft-error').textContent = 'Building your strategy needs the AI key (step 1). Go back and add it, or skip to use the default SRE settings.';
+    $('draft-error').textContent = 'Building your strategy needs AI (step 1: Claude Code or an API key). Go back and add it, or skip to use the default SRE settings.';
     show($('draft-error'));
     return;
   }

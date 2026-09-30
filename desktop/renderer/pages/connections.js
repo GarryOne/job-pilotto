@@ -229,7 +229,8 @@ export async function init() {
   });
   $('cloud-connect').addEventListener('click', async () => {
     if (!shared.state.secrets.ANTHROPIC_API_KEY || !shared.state.secrets.NOTION_TOKEN) {
-      message('cloud-message', 'Add your AI key and connect Notion first: the searches in GitHub use them.', 'error'); return;
+      message('cloud-message', shared.state.secrets.NOTION_TOKEN ? 'Always on runs on GitHub and needs an API key (Settings → Connections → AI), even when this Mac uses Claude Code.'
+        : 'Add an API key and connect Notion first: the searches in GitHub use them.', 'error'); return;
     }
     $('cloud-connect').disabled = true;
     if (!cloudWaiting) message('cloud-message', 'Opening GitHub sign-in…');

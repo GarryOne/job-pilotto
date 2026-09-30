@@ -2,7 +2,7 @@
 // Yes: your notes become a 🎤 Interviews row, the job moves on, and a few lines get Claude's review (on this Mac, or on
 // GitHub when Always on). No: moved to a new date (Next interview) or cancelled (an event; the stage stays).
 import {shared} from './shared.js';
-import {$, message, show} from './core.js';
+import {$, aiReady, message, show} from './core.js';
 import {loadFocus} from './focus.js';
 import {loadJobs} from './jobs.js';
 import {toastMessage} from './startup.js';
@@ -27,8 +27,8 @@ export function openHappened(item, answer) {
 
 // A few lines of notes: Claude reviews them like a transcript (the same review as a recording), in the background.
 async function review(pageId, item) {
-  if (!shared.state.secrets?.ANTHROPIC_API_KEY) {
-    toastMessage('Saved ✓', 'Add your Anthropic key in Settings to get a review of your notes (Interviews → Review).');
+  if (!aiReady()) {
+    toastMessage('Saved ✓', 'Choose your AI in Settings (Claude Code or an API key) to get a review of your notes (Interviews → Review).');
     return;
   }
   toastMessage('Saved ✓', `Claude is reviewing your notes on ${who(item)} (about a minute).`);

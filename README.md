@@ -595,9 +595,16 @@ Everything below is for the [optional features](#optional-features); set up only
    an Applications database, a Job Matches database, a Profile page, an Application Answers page,
    and (optional) Employers & Sources and 🤖 Agent Runs databases. For the two pages,
    **[docs/notion-profile-template.md](docs/notion-profile-template.md)** has paste-ready copies.
-5. An **Anthropic account and API key** (`ANTHROPIC_API_KEY`) — pay-as-you-go; powers fact
-   extraction, fit scoring and kit drafting. Skip it and you still get a plain crawler + digest,
-   with no scoring or drafting.
+5. **AI: pick one** (setup wizard → AI, or Settings → Connections → AI → Execution engine). Skip both and you still
+   get a plain crawler + digest, with no scoring or drafting.
+   - **Anthropic API key** (`ANTHROPIC_API_KEY`): pay-as-you-go. Needed for **Always on** (GitHub runs).
+   - **Claude Code** (your Claude subscription): the app runs *your own*, signed-in `claude` on your Mac
+     (`JOB_PILOTTO_AI_ENGINE=cli`). No API key, no per-token cost; uses your plan's usage limits.
+   - Policy: Job Pilotto never reads, stores or forwards your Claude login, never signs in for you, never
+     modifies Claude Code, and never uses it from GitHub, Telegram's cloud worker or the website.
+     Not signed in? Run `claude` in Terminal and sign in yourself.
+   - Plan limit reached: the step pauses and runs again later. Optional tick: "If Claude Code hits my plan limit,
+     use my API key" (off by default).
 6. **Your own CV and profile facts.** There's no way around this being manual — it's what makes
    the scoring and drafting personal to you.
 
@@ -658,6 +665,9 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | GitHub secrets for Gmail + Calendar (read-only), set by `python3 -m src.sources.google auth --github`; locally in the Keychain (`job-pilotto.google.*`) |
 | `JOB_PILOTTO_MAIL_MODEL` | model that classifies job emails (repository variable; default `claude-haiku-4-5`) |
 | `JOB_PILOTTO_TZ` | your time zone for reminders (default `Europe/Zurich`) |
+| `JOB_PILOTTO_AI_ENGINE` | `api` (default; GitHub) or `cli` (your own Claude Code; set by the app on your Mac from your choice) |
+| `JOB_PILOTTO_AI_FALLBACK` | `api`: when Claude Code hits your plan's limit, that run goes on with your API key (the app's opt-in tick) |
+| `JOB_PILOTTO_CLAUDE_BIN` | path to `claude` (the app sets the one Verify found); else PATH, `~/.local/bin`, Homebrew |
 | `JOB_PILOTTO_MONTHLY_BUDGET_USD` | your Anthropic monthly spend limit, for the budget guard (repository variable; default 15) |
 | `ANTHROPIC_ADMIN_KEY` | optional Admin API key (`sk-ant-admin…`, GitHub secret or Keychain `job-pilotto.anthropic.admin-key`): exact monthly spend from Anthropic's cost report |
 | `JOB_PILOTTO_GOOGLE_AUTH_AT` | when you last signed in to Google (set by `google auth --github`); the health check warns before the 7-day Testing limit |
