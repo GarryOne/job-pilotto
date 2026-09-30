@@ -203,7 +203,7 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(props['Weak topics']['rich_text'][0]['text']['content'], 'Postgres replication')
         self.assertEqual((props['Questions']['number'], props['Weak answers']['number']), (2, 1))
         self.assertEqual(props['Input'], {'select': {'name': 'Transcript'}})
-        self.assertAlmostEqual(props['Cost (USD)']['number'], 0.05)  # 15k in x $2 + 2k out x $10
+        self.assertAlmostEqual(props['Cost (USD)']['number'], 0.10)  # Opus: 15k in x $4 + 2k out x $20
         self.assertLessEqual(len(body['children']), 100)
         self.assertEqual(tracker.created[0][0], ledger.EVENTS_DATABASE_ID)
         self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})

@@ -9,7 +9,7 @@ test('a reviewed row gets "Review again" with its cost; a row not reviewed yet d
   const run = () => 'ran';
   assert.equal(againItem({id: 'p', overall: ''}, false, run), null);
   const item = againItem({id: 'p', overall: 'neutral'}, false, run);
-  assert.equal(item.label, 'Review again · updates the job (about $0.08)');
+  assert.equal(item.label, 'Review again · updates the job (about $0.25)');
   assert.equal(item.label, LABEL);
   assert.equal(item.run(), 'ran');
   assert.match(item.title, /empty fields/);

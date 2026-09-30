@@ -39,7 +39,12 @@ from ..notion.titles import named  # noqa: F401 — the one placeholder rule (jo
 from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
 from . import cost, transcribe
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-sonnet-5')
+# Opus for reviews and the insights built on them (owner, 30 Sep 2026): rare, judgment-heavy calls on noisy transcripts.
+# Opus thinks by default (it can't be switched off), so its answers get room: MAX_TOKENS. A request it declines is answered
+# once by FALLBACK_MODEL (ask()).
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-opus-5-5')
+FALLBACK_MODEL = 'claude-sonnet-5'
+MAX_TOKENS = 16000
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 TEXT_TYPES = ('.txt', '.md', '.srt', '.vtt', '.text')
 MAX_CHARS = 180_000  # about 3 hours of speech, within Notion's request size; longer files are cut, with a note
@@ -171,21 +176,29 @@ def candidates(tracker):
     return sorted(rows, key=lambda r: plain(r['properties'].get('Applied on')) or '', reverse=True)
 
 
+def ask(client, model, **request):
+    """One structured call; when `model` declines it (stop_reason "refusal"), the same request once on FALLBACK_MODEL.
+    Returns (parsed JSON, usage, the model that answered): cost is counted at that model's price."""
+    response = client.messages.create(model=model, **request)
+    if response.stop_reason == 'refusal' and model != FALLBACK_MODEL:
+        print(f'Warning: {model} declined; asking {FALLBACK_MODEL}', file=sys.stderr)
+        model = FALLBACK_MODEL
+        response = client.messages.create(model=model, **request)
+    if response.stop_reason != 'end_turn':
+        raise RuntimeError(f'stopped with {response.stop_reason}')
+    return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage, model
+
+
 def analyse(client, model, profile, apps, caption, transcript):
     listing = '\n'.join(
         f"{i}. {plain(r['properties'].get('Company'))} — {titles.row_role(r)} "
         f"(stage {plain(r['properties'].get('Stage'))}, applied {plain(r['properties'].get('Applied on')) or '?'})"
         for i, r in enumerate(apps))
-    response = client.messages.create(
-        model=model, max_tokens=8000,
-        system=[{'type': 'text', 'text': SYSTEM + profile}],
-        messages=[{'role': 'user', 'content': f'Applications:\n{listing or "(none)"}\n\nCaption: {caption or "(none)"}\n\n'
-                                              f'Transcript or notes:\n{transcript}'}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
-    )
-    if response.stop_reason != 'end_turn':
-        raise RuntimeError(f'stopped with {response.stop_reason}')
-    return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage
+    return ask(client, model, max_tokens=MAX_TOKENS,
+               system=[{'type': 'text', 'text': SYSTEM + profile}],
+               messages=[{'role': 'user', 'content': f'Applications:\n{listing or "(none)"}\n\nCaption: {caption or "(none)"}\n\n'
+                                                     f'Transcript or notes:\n{transcript}'}],
+               output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
 
 
 def _block(kind, content, bold=False):
@@ -570,7 +583,7 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    result, usage = analyse(client, model, tracker.page_text(), apps, caption, transcript)
+    result, usage, model = analyse(client, model, tracker.page_text(), apps, caption, transcript)
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
     app = chosen or (apps[result['application']] if 0 <= result['application'] < len(apps) else None)

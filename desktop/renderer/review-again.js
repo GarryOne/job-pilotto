@@ -2,9 +2,9 @@
 // The same review as the first one (window.pilot.interviews.review), re-run on the transcript saved in Notion: it
 // replaces the review and fills only the job's empty fields (src/ai/interviews.py review_again). One AI call, so the
 // menu press is the ask; it never runs by itself.
-export const LABEL = 'Review again · updates the job (about $0.08)';
+export const LABEL = 'Review again · updates the job (about $0.25)';
 export const BUSY = 'Reviewing again…';
-export const TITLE = 'Claude reviews the saved transcript again (one call, about $0.03-0.08): the review is replaced and the '
+export const TITLE = 'Claude reviews the saved transcript again (one Claude Opus call, about $0.20-0.30): the review is replaced and the '
   + "call's facts (salary, contract, visa…) fill the job's empty fields. Stage and filled fields are left as they are.";
 
 // The menu entry for a row, or null (not reviewed yet: the row's own Review button does it).

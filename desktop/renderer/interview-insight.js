@@ -107,7 +107,7 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
     side.append(chip);
   }
   const button = Object.assign(el('button', 'secondary with-icon small-btn iv-insight-refresh'), {type: 'button', disabled: busy,
-    title: 'Reads your reviewed interviews together. Claude is only asked when a review changed (about $0.05)'});
+    title: 'Reads your reviewed interviews together. Claude Opus is only asked when a review changed (about $0.10-0.15)'});
   button.append(busy ? el('span', 'spinner small') : icon('refresh'), el('span', '', busy ? 'Refreshing…' : 'Refresh insights'));
   button.addEventListener('click', event => { event?.stopPropagation(); refresh(); });  // on the bar, but it only refreshes
   side.append(button);

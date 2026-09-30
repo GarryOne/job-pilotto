@@ -4,6 +4,7 @@ USD per million tokens: (input, output, cache read); a cache write costs 1.25x i
 Anthropic first-party rates, checked 2026-09-26. An unpriced model counts as 0.
 """
 PRICES = {
+    'claude-opus-5-5': (4.00, 20.00, 0.20),  # interview reviews and insights (checked 2026-09-30)
     'claude-sonnet-5': (2.00, 10.00, 0.20),
     'claude-haiku-4-5': (1.00, 5.00, 0.10),
 }

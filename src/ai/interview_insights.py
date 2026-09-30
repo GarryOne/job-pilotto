@@ -250,16 +250,12 @@ line of the topics to cover; the headline gets one line under it (headline_detai
 
 
 def generate(client, model_, items):
-    """(result dict, usage) from one schema-constrained call."""
-    response = client.messages.create(
-        model=model_, max_tokens=8000,
-        system=[{'type': 'text', 'text': SYSTEM}],
-        messages=[{'role': 'user', 'content': 'Reviewed interviews (JSON):\n' + json.dumps(prompt_input(items), ensure_ascii=False)}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
-    )
-    if response.stop_reason != 'end_turn':
-        raise RuntimeError(f'stopped with {response.stop_reason}')
-    return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage
+    """(result dict, usage, the model that answered) from one schema-constrained call (interviews.ask: a declined request is
+    answered by the fallback model)."""
+    return interviews.ask(client, model_, max_tokens=interviews.MAX_TOKENS,
+                          system=[{'type': 'text', 'text': SYSTEM}],
+                          messages=[{'role': 'user', 'content': 'Reviewed interviews (JSON):\n' + json.dumps(prompt_input(items), ensure_ascii=False)}],
+                          output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
 
 
 def validate(result, items):
@@ -441,7 +437,7 @@ def update(tracker, *, client=None, model_=None, stats=None, now=None, force=Fal
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    result, usage = generate(client, model_, items)
+    result, usage, model_ = generate(client, model_, items)
     cost.add(stats, model_, usage)
     usd = cost.usd(model_, usage)
     if stats is not None:
