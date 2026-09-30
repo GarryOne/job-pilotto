@@ -179,6 +179,8 @@ def invite_start(ics, default_zone='Europe/Zurich'):
     from zoneinfo import ZoneInfo
     unfolded = re.sub(r'\r?\n[ \t]', '', ics)
     event = unfolded.split('BEGIN:VEVENT', 1)[-1]
+    if re.search(r'^METHOD:CANCEL', unfolded, re.M | re.I) or re.search(r'^STATUS:CANCELLED', event, re.M | re.I):
+        return None  # a cancellation carries the old start too: no interview at that time
     match = re.search(r'^DTSTART(?:;([^:\r\n]*))?:(\d{8}T\d{6})(Z?)', event, re.M)
     if not match:
         return None

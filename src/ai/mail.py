@@ -244,11 +244,13 @@ def _events_index(tracker):
 
 
 def _near(existing, kind, at, hours=24):
-    """An event of this kind within `hours` of `at` (and without a source id yet), or None."""
+    """A hand-logged event of this kind within `hours` of `at` (no source id yet), or None. An event that already
+    has a source id is another message: whether this one repeats it is ledger.add_event's call (same interview
+    time or not), never the 24 hours (30 Sep 2026: Huxley's second invitation, 19 h after the first, was dropped)."""
     moment = _when(at)
     for event_kind, event_at, event_id, source_id in existing:
         other = _when(event_at if 'T' in event_at else event_at + 'T12:00:00')
-        if event_kind == kind and moment and other and abs((moment - other).total_seconds()) < hours * 3600:
+        if event_kind == kind and not source_id and moment and other and abs((moment - other).total_seconds()) < hours * 3600:
             return event_id, source_id
     return None
 
@@ -326,8 +328,6 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
     if kind == employer_feedback.RECEIVED and not feedback_text.strip():
         return None  # no model guesses stored as employer evidence
     twin = _near(by_app.get(key, []), kind, at) if kind != employer_feedback.RECEIVED else None
-    if twin and twin[1]:
-        return None
     if feedback_text:
         employer_feedback.receive(tracker, row, feedback_text)
     event = {'id': twin[0]} if twin else add_event(tracker, row, kind, source, at=at, note=note,
@@ -434,13 +434,26 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
     emails = sorted((google.message(i) for i in ids), key=lambda m: m['date'])
     if not emails:
         return [], 0
-    results = classify(client, model, apps, emails, stats)
+    limited = False
+    try:
+        results = classify(client, model, apps, emails, stats)
+    except Exception as error:  # noqa: BLE001 — only the spend limit is handled here
+        if not cost.limit_reached(error):
+            raise
+        limited, results = True, without_ai(apps, emails)
+        print('Mail check: the Anthropic API spend limit is reached. Only calendar invitations from a tracked job\'s '
+              'contact were read; the other emails stay unread for the next check.', file=sys.stderr)
     lines = []
     for i, email in enumerate(emails):
+        if limited and i not in results:
+            continue  # not read: not marked seen, so the next check (with AI) reads it
         result = results.get(i) or {'relevant': False}
         if email.get('invite_at') and result.get('relevant'):
-            # The invitation's own start (its calendar part), never a time the AI read from the text.
+            # The invitation's own start (its calendar part), never a time the AI read from the text. A calendar
+            # invitation books a time, even when it asks "does this work?": an interview, not a reply.
             result['interview_at'] = email['invite_at']
+            if result.get('kind') == REPLY:
+                result['kind'] = 'Interview scheduled'
         row = apps[result['application']] if result.get('relevant') and 0 <= result.get('application', -1) < len(apps) else None
         guess = None  # the job the AI picked but can't be trusted with: suggested when the owner is asked
         if row is not None and not _names_it(row, email):
@@ -503,7 +516,27 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             _short(stats, result['kind'], row, extra)
             if changed == 'Rejected' and rejected is not None:
                 rejected.append((row, email))
-    return lines, len(emails)
+    return lines, len(results) if limited else len(emails)
+
+
+def without_ai(apps, emails):
+    """Results for the emails that need no AI, when it is unavailable (spend limit): a calendar invitation (its .ics
+    gives the time) sent by a contact of an open job, by their exact email address. Never a guess: the usual checks
+    in mail_pass still apply (a second open role at that agency, or the contact on several jobs: Focus asks)."""
+    results = {}
+    for i, email in enumerate(emails):
+        sender = (re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', email.get('from', '')) or [''])[0].lower()
+        if not email.get('invite_at') or not sender or re.search(r'cancel|declin', email.get('subject', ''), re.I):
+            continue
+        jobs = [n for n, row in enumerate(apps) if _field(row, 'Stage') not in ENDED
+                and sender in re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())]
+        if jobs:
+            one = len(jobs) == 1
+            results[i] = {'relevant': True, 'application': jobs[0] if one else -1,
+                          'company': _who(apps[jobs[0]]) if one else _sender_org(email['from']), 'role': '',
+                          'kind': 'Interview scheduled', 'interview_at': email['invite_at'],
+                          'summary': 'Calendar invitation (read without AI: spend limit reached)', 'feedback': ''}
+    return results
 
 
 def review_rejections(tracker, client, rejected, stats, backfill=2):
@@ -763,7 +796,13 @@ def calendar_pass(tracker, google, client, model, apps, index, state, stats, now
     if unmatched:
         items = [{'from': (e.get('organizer') or {}).get('email', ''), 'subject': e.get('summary', ''),
                   'date': e['start']['dateTime'], 'body': _event_text(e)} for e in unmatched]
-        for i, result in classify(client, model, apps, items, stats).items():
+        try:
+            unmatched_results = classify(client, model, apps, items, stats)
+        except Exception as error:  # noqa: BLE001 — the spend limit: those events are read again next check
+            if not cost.limit_reached(error):
+                raise
+            unmatched_results = {}
+        for i, result in unmatched_results.items():
             if result['relevant'] and 0 <= result['application'] < len(apps):
                 matched.append((unmatched[i], apps[result['application']]))
     lines, notes = [], []
