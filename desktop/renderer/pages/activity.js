@@ -280,6 +280,7 @@ export function renderActivity(fresh) {
   const hiddenCount = items.filter(([, , at]) => !(at && at === soonest)).length;
   $('ap-strip-more').textContent = `+${hiddenCount}`;
   show($('ap-strip-more'), hiddenCount > 0);
+  fitStrip();
   $('ap-where').replaceChildren(...(cloud ? [icon('cloud'), 'Runs on GitHub · Always on'] : ['Runs on this Mac while the app is open']));
   $('ap-where').title = cloud ? 'Your GitHub repository runs these, even with your Mac off. GitHub may start a scheduled run a few minutes late.' : '';
   // Check Gmail now: with a selected Gmail check, not in the schedule strip.
@@ -543,6 +544,16 @@ export async function buildDraft() {
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
+// Every upcoming check shows, unless they don't fit the strip: then only the soonest and "+N" (style.css .is-tight).
+function fitStrip() {
+  const strip = $('ap-strip'), items = $('activity-schedule');
+  if (!strip || !items) return;
+  strip.classList.remove('is-tight');  // measure with everything shown: the checks' own widths against the room they have
+  const gap = parseFloat(getComputedStyle(items).columnGap) || 0;
+  const needed = [...items.children].reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) + gap * Math.max(items.children.length - 1, 0);
+  strip.classList.toggle('is-tight', needed > items.clientWidth + 1);
+}
+
 export async function init() {
   showKeptStatusBar();
   $('log').addEventListener('click', event => {
@@ -557,6 +568,7 @@ export async function init() {
     if (event.currentTarget.dataset.url) window.pilot.openExternal(event.currentTarget.dataset.url);
   });
   $('ap-strip-more').addEventListener('click', () => $('ap-strip').classList.toggle('is-expanded'));
+  new ResizeObserver(fitStrip).observe($('ap-strip'));  // a wider window or panel shows them all again
   $('check-mail').addEventListener('click', async () => {
     $('check-mail').disabled = true;
     shared.selectedRun = null;

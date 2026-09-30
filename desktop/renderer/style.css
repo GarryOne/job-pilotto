@@ -1396,14 +1396,15 @@ details.ss-form-more { margin: var(--sp-2) 0 0; padding: 0; border: 0; border-ra
 .ap-strip-manage { margin-left: auto; color: var(--muted); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; text-decoration: none; }
 .ap-strip-manage:hover { color: var(--ink); }
 .ap-upcoming .ap-where { margin: 0 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--muted); }
-/* Narrow panel: the soonest check and "+2"; a click shows the rest. */
-@container (max-width: 820px) {
-  .ap-strip-head span { display: none; }
-  .ap-strip:not(.is-expanded) .ap-item:not(.is-next) { display: none; }
-  .ap-strip:not(.is-expanded) .ap-strip-more:not([hidden]) { display: inline-flex; }
-  .ap-strip-more { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill); font-size: var(--fs-xs); padding: 2px 8px; }
-  .ap-strip.is-expanded .ap-strip-items { flex-wrap: wrap; }
-}
+/* A narrow panel drops the "Upcoming checks" label (the clock says it). */
+@container (max-width: 820px) { .ap-strip-head span { display: none; } }
+/* All checks show by default. Only when they really don't fit (fitStrip() in pages/activity.js sets .is-tight): the soonest
+   one and "+2"; a click shows the rest. */
+.ap-strip.is-tight .ap-strip-head span { display: none; }
+.ap-strip.is-tight:not(.is-expanded) .ap-item:not(.is-next) { display: none; }
+.ap-strip.is-tight:not(.is-expanded) .ap-strip-more:not([hidden]) { display: inline-flex; }
+.ap-strip.is-tight .ap-strip-more { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill); font-size: var(--fs-xs); padding: 2px 8px; }
+.ap-strip.is-tight.is-expanded .ap-strip-items { flex-wrap: wrap; }
 /* Recent activity: Today's list / Find new employers as a compact card (renderer/run-cards.js): one line of counts,
    one line per item. */
 .run-card { padding: var(--sp-2) var(--sp-3); display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
