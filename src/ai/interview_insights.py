@@ -32,8 +32,12 @@ BASIS = 'Interviews'
 MIN_SUPPORT = 2  # interviews a pattern needs before it is stated as a pattern
 ROUND_TYPES = ('Recruiter screen', 'Technical', 'Hiring manager', 'Other')
 REVIEW_SECTIONS = {'Strengths': 'strengths', 'Weak spots': 'weak_spots', 'Practise before the next round': 'practice',
-                   'Signals from them': 'signals'}
-MAX_REVIEW_CHARS = 3000
+                   'Signals from them': 'signals', 'Could count against you': 'against'}
+MAX_REVIEW_CHARS = 8000
+# The transcripts of the newest interviews, so a pattern can be checked against what was said (owner, 30 Sep 2026). A 30-minute
+# call is ~25k characters; the budget keeps a refresh around $0.05-0.08 with Sonnet. Older ones: their review only.
+TRANSCRIPT_CHARS = 30000
+TRANSCRIPT_BUDGET = 75000
 
 
 def insights_db():
@@ -79,8 +83,10 @@ def fingerprint(rows):
 
 def review_text(tracker, page_id):
     """The review on an interview page, by section: {'summary', 'strengths', 'weak_spots', 'practice', 'signals',
-    'weak_answers'}. The transcript (in its toggle) is never read."""
-    out = {'summary': '', 'strengths': [], 'weak_spots': [], 'practice': [], 'signals': [], 'weak_answers': []}
+    'weak_answers', 'mixed_answers', 'against'}: ⚠️/❌ questions are weak answers, ➖ ones mixed (their "Better:" lines matter
+    too). The transcript is read separately (transcript_of)."""
+    out = {'summary': '', 'strengths': [], 'weak_spots': [], 'practice': [], 'signals': [], 'weak_answers': [], 'mixed_answers': [],
+           'against': []}
     section = None
     for block in tracker._children(page_id):
         kind = block.get('type')
@@ -96,7 +102,19 @@ def review_text(tracker, page_id):
             out[section].append(text)
         elif kind == 'bulleted_list_item' and section == 'questions' and text.startswith(('⚠️', '❌')):
             out['weak_answers'].append(text)
+        elif kind == 'bulleted_list_item' and section == 'questions' and text.startswith('➖'):
+            out['mixed_answers'].append(text)
     return out
+
+
+def transcript_of(tracker, page_id, limit):
+    """The interview's saved transcript, at most `limit` characters; '' when it has none or it can't be read."""
+    if limit <= 0:
+        return ''
+    try:
+        return interviews.saved_transcript(tracker, page_id)[:limit]
+    except Exception:  # noqa: BLE001 - notes without a transcript, an older page: the review alone
+        return ''
 
 
 def _app(tracker, app_id, seen):
@@ -124,13 +142,18 @@ def gather(tracker, rows):
             'company': app.get('company', ''), 'job': app.get('job', ''), 'outcome': plain(p.get('Overall')) or '',
             'topics': split(plain(p.get('Topics'))), 'weak_topics': split(plain(p.get('Weak topics'))),
             'next_step': plain(p.get('Next step')) or '', **review})
+    left = TRANSCRIPT_BUDGET  # newest first: the latest interviews matter most
+    for item in reversed(items):
+        item['transcript'] = transcript_of(tracker, item['id'], min(TRANSCRIPT_CHARS, left))
+        left -= len(item['transcript'])
     return items
 
 
 def _source(item):
     """Everything a quote from this interview may come from (the review, not the transcript)."""
     parts = [item['summary'], item['next_step'], item['round'], *item['topics'], *item['weak_topics'],
-             *item['strengths'], *item['weak_spots'], *item['practice'], *item['signals'], *item['weak_answers']]
+             *item['strengths'], *item['weak_spots'], *item['practice'], *item['signals'], *item['weak_answers'],
+             *item.get('mixed_answers', []), *item.get('against', []), item.get('transcript', '')]
     return _norm(' \n '.join(p for p in parts if p))
 
 
@@ -144,10 +167,11 @@ def prompt_input(items):
     for item in items:
         view = {k: item[k] for k in ('label', 'date', 'round', 'company', 'job', 'outcome', 'topics', 'weak_topics', 'next_step',
                                      'summary', 'strengths', 'weak_spots', 'practice', 'signals', 'weak_answers')}
-        text = json.dumps(view, ensure_ascii=False)
-        if len(text) > MAX_REVIEW_CHARS:
-            view['weak_answers'] = view['weak_answers'][:4]
-            view['signals'] = view['signals'][:2]
+        view.update(mixed_answers=item.get('mixed_answers', []), could_count_against=item.get('against', []))
+        if len(json.dumps(view, ensure_ascii=False)) > MAX_REVIEW_CHARS:  # a very long review: fewer answers, every signal kept
+            view['weak_answers'], view['mixed_answers'] = view['weak_answers'][:6], view['mixed_answers'][:4]
+        if item.get('transcript'):
+            view['transcript'] = item['transcript']
         groups.setdefault(item['round_type'], []).append(view)
     return {'interviews_reviewed': len(items), 'by_round_type': {t: groups[t] for t in ROUND_TYPES if t in groups}}
 
@@ -157,7 +181,7 @@ def prompt_input(items):
 KINDS = ('weakness', 'strength', 'note')  # the icon of a pattern on the card
 # 2 = the redesigned card's words (titles, kinds, keyword lines, the banner sentence). A saved insight of an older version is
 # regenerated once on Refresh even when no review changed, so it fills them in.
-DATA_VERSION = 4  # 4 = a pattern is a recurring behaviour, its concrete topics are the evidence (30 Sep 2026)
+DATA_VERSION = 5  # 5 = reads the whole review and the transcripts; merges only the same behaviour (30 Sep 2026)
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -208,7 +232,15 @@ pattern) and not a vague label ("gaps in specifics", "technical credentials").
 different interviews with what was asked and what was missing (IoT protocols in one, an AWS certification in another). \
 Use the reviews' own nouns. A behaviour you can't back with named instances from two interviews is dropped: fewer, \
 sharper patterns beat generic ones; one interview's single topic is at most an observation ("In I1, …").
-- Evidence for a pattern includes a quote from each interview it claims, the sentence that shows the instance.
+- Evidence for a pattern includes a quote from each interview it claims, the sentence that shows the instance. Every \
+instance you name belongs to the interview it happened in: check it there before you attribute it.
+- Merge only the same behaviour, never the same category: not knowing a protocol, not holding a certification and a \
+long-winded answer are three different things, even if all are "about specifics".
+- Look first at how the answers met what the interviewer said they need (a client's stated pain points, the role's focus): \
+missing that in several interviews is often the most useful pattern.
+- When a strength and a weakness touch (honest about a gap vs underselling it), say how to keep the strength.
+- You also get the transcript of the newest interviews (speech-to-text, so words can be garbled). Use it to check what was \
+actually asked and answered; quote it only for a clear, readable sentence. The review stays the main source.
 - Each pattern also gets a short title and a kind (weakness / strength / note); each step a short heading and a keyword \
 line of the topics to cover; the headline gets one line under it (headline_detail). Same rules: only what the reviews say.
 - confidence: low with 1-2 interviews or thin reviews; medium with 3-5 consistent ones; high only with more and consistent evidence.

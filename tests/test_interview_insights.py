@@ -346,8 +346,67 @@ class SharpInsights(unittest.TestCase):
         self.assertIn('never a vague label', properties['title']['description'])
         self.assertIn('two concrete instances', properties['pattern']['description'])
 
-    def test_the_stored_format_is_version_4_so_an_older_insight_is_regenerated_once(self):
-        self.assertEqual(ii.DATA_VERSION, 4)
+    def test_the_stored_format_is_at_least_version_4(self):
+        self.assertGreaterEqual(ii.DATA_VERSION, 4)
+
+
+class FullInput(unittest.TestCase):
+    """What the insight reads (30 Sep 2026 review of the owner's two screens): the whole review, "Could count against you" and
+    the ➖ questions with their "Better:" lines included, every signal kept, and the transcript of the newest interviews within
+    a budget, so a pattern can be checked against what was actually said."""
+
+    def page(self, transcript=''):
+        blocks = [block('paragraph', 'Summary of the screen.'), block('heading_3', 'Signals from them')]
+        blocks += [block('bulleted_list_item', f'Signal {n}') for n in range(1, 7)]
+        blocks += [block('heading_3', 'Could count against you'), block('bulleted_list_item', 'Criticised the current employer to a recruiter'),
+                   block('heading_3', 'Questions'), block('bulleted_list_item', '➖ [Customer bridge calls] What would you tell them? — Process → Better: a real example'),
+                   block('bulleted_list_item', '⚠️ [IoT protocols] Name one — Could not → Better: name MQTT'),
+                   block('bulleted_list_item', '✅ [Incident] OpenSearch — Clear'),
+                   {'type': 'heading_3', 'id': 'tr-1', 'heading_3': {'rich_text': [{'plain_text': 'Transcript'}]}}]
+        return blocks, {'tr-1': [block('paragraph', transcript)]} if transcript else {}
+
+    def test_every_part_of_the_review_reaches_the_prompt(self):
+        blocks, extra = self.page()
+        fake = FakeNotion(list(ONE), {'iv-1': blocks, **extra})
+        review = ii.review_text(fake, 'iv-1')
+        self.assertEqual(review['against'], ['Criticised the current employer to a recruiter'])
+        self.assertEqual([q.startswith('➖ [Customer bridge calls]') for q in review['mixed_answers']], [True])
+        self.assertEqual(len(review['signals']), 6)
+        view = ii.prompt_input(ii.gather(fake, list(ONE)))['by_round_type']['Technical'][0]
+        self.assertEqual(len(view['signals']), 6)  # never cut to two: the client's pain points came fourth
+        self.assertIn('could_count_against', view)
+        self.assertIn('mixed_answers', view)
+
+    def test_the_transcript_is_read_and_a_quote_from_it_counts_as_evidence(self):
+        blocks, extra = self.page('Recruiter: can you name one or two? Candidate: For the protocol, I think TCP.')
+        fake = FakeNotion(list(ONE), {'iv-1': blocks, **extra})
+        items = ii.gather(fake, list(ONE))
+        self.assertIn('For the protocol, I think TCP', items[0]['transcript'])
+        self.assertIn('transcript', ii.prompt_input(items)['by_round_type']['Technical'][0])
+        self.assertIn(ii._norm('For the protocol, I think TCP'), ii._source(items[0]))
+
+    def test_transcripts_fit_a_budget_newest_first_and_a_missing_one_is_fine(self):
+        long = 'x' * (ii.TRANSCRIPT_CHARS + 500)
+        rows = [interview(f'iv-{n}', 'Technical', 'neutral', f'2026-09-{10 + n}') for n in range(1, 6)]
+        pages = {}
+        for row in rows:
+            blocks, extra = self.page(long)
+            extra = {f"{row['id']}-tr": extra['tr-1']}
+            blocks[-1] = dict(blocks[-1], id=f"{row['id']}-tr")
+            pages.update({row['id']: blocks, **extra})
+        items = ii.gather(FakeNotion(rows, pages), rows)
+        sizes = [len(item['transcript']) for item in items]
+        self.assertLessEqual(max(sizes), ii.TRANSCRIPT_CHARS)
+        self.assertLessEqual(sum(sizes), ii.TRANSCRIPT_BUDGET)
+        self.assertGreater(sizes[-1], 0)  # the newest interview is always read
+        self.assertEqual(sizes[0], 0)  # the oldest one waits when the budget is spent
+        self.assertEqual(ii.gather(FakeNotion(list(ONE), PAGES), list(ONE))[0]['transcript'], '')  # no transcript toggle
+
+    def test_the_prompt_merges_only_the_same_behaviour_and_checks_the_client_s_needs(self):
+        self.assertIn('same behaviour', ii.SYSTEM)
+        self.assertIn('what the interviewer said they need', ii.SYSTEM)
+        self.assertIn('transcript', ii.SYSTEM)
+        self.assertEqual(ii.DATA_VERSION, 5)
 
 
 class Ticks(unittest.TestCase):

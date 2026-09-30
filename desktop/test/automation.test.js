@@ -33,7 +33,8 @@ test('the next search time shows in the activity bar, and a scheduled search is 
     search: async () => { events.push('search'); settings.lastSearchAt = new Date().toISOString(); },
     mail: async () => { events.push('mail'); settings.lastMailAt = new Date().toISOString(); },
   }, null, {soon: () => events.push('soon'), headsUp: 0, firstCheck: 0});
-  await new Promise(resolve => setTimeout(resolve, 50));
+  // Wait for the three steps, not a fixed 50 ms: under a busy machine (the pre-push hook runs every suite at once) 50 ms was too short.
+  for (const until = Date.now() + 2000; events.length < 3 && Date.now() < until;) await new Promise(resolve => setTimeout(resolve, 10));
   schedule.stop();
   assert.deepEqual(events, ['soon', 'search', 'mail']);  // no Gmail check yet: the first one runs right away
 });
