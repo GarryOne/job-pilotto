@@ -110,3 +110,13 @@ test('"Check before you submit" items are for you (a labelled fact too), with th
   assert.equal(sorted[1].text, '**Pay:** €117k–141k, below your minimum.');
   assert.deepEqual(filled.map(item => item.problem), [true]);
 });
+
+test('a test or a file named in backticks is developer chatter: no card for it', async () => {
+  const {sortChecks, DEV_TALK} = await import('../renderer/session-message.js');
+  const {needs, filled} = sortChecks([
+    "`test_watch` (`wanted_title('Infrastructure Tax Lead')`) it most likely fails because the tests read your edited `config/search.json`.",
+    '`test_paths` (`JOB_PILOTTO_TEST_VAR` not loaded): I haven\'t traced it.',
+    '⚠️ Any relatives working at N26? (required) Also no source.'], {forYou: true});
+  assert.deepEqual([needs.length, filled.length], [1, 0]);
+  assert.equal(DEV_TALK.test('Do you know `Terraform` or Git?'), false);
+});

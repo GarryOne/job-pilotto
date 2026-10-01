@@ -86,11 +86,14 @@ export function readConfirm(check) {
   return {text: text.trim(), label: splitLabel(text).label, recommended: rest.join(' ').replace(/\*\*/g, '').trim()};
 }
 export const PROBLEM = /\b(?:failed|error|couldn't|could not|didn't work|blocked|by hand|timed out)\b/i;
+// Developer chatter, not something on the form: a test or a file named in `backticks` (`test_watch`, `config/search.json`).
+// Such an item stays in Claude's report but gets no card, and no "Review in form" button it could never satisfy.
+export const DEV_TALK = /`[^`\n]*(?:\btest_\w+|\.(?:json|py|jsx?|tsx?|md|env|sh|ya?ml)\b)[^`\n]*`/i;
 export function sortChecks(checks, {forYou = false} = {}) {
   const needs = [], filled = [];
   for (const check of checks) {
     const text = String(check).trim();
-    if (!text || /^[^:]{1,40}:$/.test(text.replace(/\*/g, ''))) continue;
+    if (!text || /^[^:]{1,40}:$/.test(text.replace(/\*/g, '')) || DEV_TALK.test(text)) continue;
     const ask = readAsk(text), plain = text.replace(MARKS, '');
     if (ask) needs.push({kind: 'ask', text, ...ask});
     else if (AGREE.test(text)) needs.push({kind: 'agree', text: plain});
