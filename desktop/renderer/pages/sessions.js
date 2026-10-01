@@ -222,6 +222,15 @@ function foldRow(short, more) {
   return li;
 }
 let fullFor = null, reportFor = null;  // the session whose Claude's message the banner shows (folded again for another one)
+// "I submitted it": you sent the application and the app missed it (the Jobs row and Notion move to Applied). On every
+// unsubmitted state of a session, so a missed submit can always be put right by hand.
+const submittedButton = item => sessionButton('I submitted it', 'secondary', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  const result = await window.pilot.setStatus(item.url, 'applied').catch(error => ({ok: false, error: error.message}));
+  if (!result.ok) { button.disabled = false; toastMessage('Not marked Applied', result.error || 'Try again.'); return; }
+  button.textContent = '✓ Marked Applied';
+}, 'check');
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
   const review = !submitted && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
@@ -311,14 +320,7 @@ export function renderNextStep(item) {
         manual: 'Reloading a Chrome tab can only be asked of a Mac: press Ctrl+R in the form\'s tab.'}[result?.result];
       toastMessage('Couldn\'t reload the form tab', why || osText('Press ⌘R in the form\'s tab instead.'));
     }, 'refresh'));
-    // You pressed Submit in Chrome: say so here too (the Jobs row and Notion move to Applied).
-    actions.push(sessionButton('I submitted it', 'secondary', async event => {
-      const button = event.currentTarget;
-      button.disabled = true;
-      const result = await window.pilot.setStatus(item.url, 'applied').catch(error => ({ok: false, error: error.message}));
-      if (!result.ok) { button.disabled = false; toastMessage('Not marked Applied', result.error || 'Try again.'); return; }
-      button.textContent = '✓ Marked Applied';
-    }, 'check'));
+    actions.push(submittedButton(item));  // you pressed Submit in Chrome: say so here too
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     else if (item.resumable) actions.push(resume('secondary'));
     const never = el('span', 'ss-never muted small');
@@ -326,9 +328,11 @@ export function renderNextStep(item) {
     actions.push(never);
   } else if (asking && !live) {
     if (item.resumable) actions.push(resume('primary'));
+    actions.push(submittedButton(item));
     actions.push(sessionButton('Remove from the list', 'secondary', () => removeSession(item)));
   } else if (asking) {
     actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
+    actions.push(submittedButton(item));
     actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     actions.push(sessionButton('Answer in your own words', 'link', () => openLog(true), 'chat'));
   } else if (running) {
@@ -336,9 +340,11 @@ export function renderNextStep(item) {
       await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
     }, 'link'));
     actions.push(sessionButton('Pause', 'secondary', pauseSession));
+    actions.push(submittedButton(item));
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
   } else if (item.resumable && !submitted) {
     actions.push(resume('primary'));
+    actions.push(submittedButton(item));
   }
   $('ss-actions').replaceChildren(...actions);
   // Two sections under the step: what Claude needs from you (answer, agree, confirm), then what happened
