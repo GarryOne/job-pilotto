@@ -1,5 +1,6 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
+import {kitStance} from './tab-pages.js';
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -122,14 +123,17 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 
 // jobUrl: the posting the kit belongs to, when the form lives elsewhere (a job board's Apply led to the employer's site).
 // me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
-export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
+export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];
   chrome.storage.session.set({[`job:${tab.id}`]: job, [`from:${tab.id}`]: job});
   const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
     body: JSON.stringify({type, url: job, ...extra})}).catch(() => {});
   event('fill-started');
-  const withKit = kitAnswers.length > 0;
+  // A kit exists for this job (drafted when it was prepared, its eligibility already judged) even when none of its answers
+  // matches this form's fields: the form's own questions are only visible now, so Claude answers those after the fill, but the
+  // eligibility stop is not asked again (2 Oct 2026: a ready kit still waited 10-30 s and re-checked eligibility).
+  const {withKit} = kitStance({kitAnswers, hasKit});
   // Everything about this fill, for debugging and improving the extension (saved with the run in Notion).
   const debug = {version: chrome.runtime.getManifest().version, browser: navigator.userAgent, steps: [], errors: []};
   let stepAt = Date.now();
@@ -170,7 +174,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     debug.sentToClaude = open.map(f => f.field);
     // With a kit, applying was the user's decision (they prepared it): no eligibility stop, and no waiting: everything
     // known fills at once, and Claude answers what's left afterwards (below), while you already see the form filled.
-    if (fromKit.size) force = true;
+    if (kitStance({kitAnswers, hasKit, matched: fromKit.size}).skipEligibility) force = true;
     if (withKit) later = open;
     const cached = reuse && !withKit ? await cachedAI(tab) : null;
     if (withKit) { /* Claude after the fill */ } else if (cached) {

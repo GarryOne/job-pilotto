@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {kitStance, pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -162,4 +162,11 @@ test('the Apply button in front of a form is picked by rule: an apply phrase on 
   assert.equal(pick([b('Apply to jobs at Acme and 40 other companies today, sign up now!')]), undefined);   // a sentence, not a button
   assert.equal(pick([b('Apply', {tag: 'a', area: 900, href: '/x'}), b('Apply now', {area: 90000})]), 'Apply now');   // the larger, button-like one
   assert.equal(pick([]), undefined);
+});
+
+test('a kit that exists is a kit even when none of its answers fits the form: fill at once, no eligibility stop', () => {
+  assert.deepEqual(kitStance({kitAnswers: [], hasKit: true}), {withKit: true, skipEligibility: true});           // Ashby: fields only seen on the page
+  assert.deepEqual(kitStance({kitAnswers: [{field: 'x'}], hasKit: true, matched: 1}), {withKit: true, skipEligibility: true});
+  assert.deepEqual(kitStance({kitAnswers: [{field: 'x'}], matched: 0}), {withKit: true, skipEligibility: false});  // answers, none on this form: the old rule
+  assert.deepEqual(kitStance({}), {withKit: false, skipEligibility: false});                                       // no kit: Claude answers and checks first
 });

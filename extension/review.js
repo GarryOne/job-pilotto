@@ -245,7 +245,8 @@
     $('.job-title').textContent = title || '';
     $('.job-meta').replaceChildren(...[company && Object.assign(document.createElement('span'), {textContent: company}),
       job?.stage && Object.assign(document.createElement('span'), {className: `tag ${/applied/i.test(job.stage) ? 'good' : ''}`, textContent: job.stage})].filter(Boolean));
-    const claude = session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
+    const claude = session?.kind === 'form' ? ''   // the Apply button's session: the extension fills it, there is no Claude to name
+      : session?.live && session.status === 'running' ? `Claude is filling this form · ${session.note || 'working'}`
       : session?.live && session.status === 'input' ? 'Claude is waiting for you in Job Pilotto.'
       : session?.status === 'done' ? 'Claude filled this form. Review it, then submit it yourself.' : '';
     $('.claude').hidden = !claude;
@@ -332,6 +333,9 @@
     reply({shown: true});
     return false;
   });
+
+  // A fill already on a step when this panel appeared: show it here (the background removes its floating copy).
+  send({type: 'panelStepNow'}).then(answer => { if (answer?.text && host.isConnected) { showStep(answer.text); if (!open) setOpen(true); } }).catch(() => {});
 
   // ---- in step with the app ----
   let watch = [], timer = null, busy = false, jobAsked = '';

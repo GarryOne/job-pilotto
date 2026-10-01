@@ -44,6 +44,12 @@ export function pickApplyButton(candidates = []) {
   return best;
 }
 
+// How a fill treats the job's kit. A kit that exists (hasKit: drafted when the job was prepared, eligibility judged then) means
+// applying was the user's decision: fill what is known at once, ask Claude about the form's own questions afterwards, and never
+// stop on an eligibility check. A kit with no answer for any of this form's fields is still a kit.
+export const kitStance = ({kitAnswers = [], hasKit = false, matched = 0} = {}) =>
+  ({withKit: kitAnswers.length > 0 || hasKit, skipEligibility: matched > 0 || hasKit});
+
 // What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
 // creates the account, and the extension never types it. Several fields, a textarea or a file input is the
 // application form. Anything smaller is a page Claude still has to click through (Apply, Next).

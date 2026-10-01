@@ -275,9 +275,13 @@ async function progress(tabId, text, url = '') {
   // The page's panel (review.js) shows it when it is there; the floating box is for pages without one. Whichever
   // takes it, the other is cleared: a box drawn before the panel opened used to stay on the page for good, above a
   // form that was already "Ready to submit" (1 Oct 2026).
+  if (text) stepNow.set(tabId, text); else stepNow.delete(tabId);
   const shown = await chrome.tabs.sendMessage(tabId, {type: 'panelStep', text}).catch(() => null);
   await stepBox(tabId, shown?.shown ? '' : text);
 }
+// The step a fill is on, per tab: a panel that appears after the step was announced (the fill started before the page
+// had one) asks for it, shows it itself, and the floating box goes (2 Oct 2026: both were on screen for the whole wait).
+const stepNow = new Map();
 
 // The floating step box: drawn, updated, or (with no text) removed. Only for pages whose panel can't show the step.
 function stepBox(tabId, message) {
@@ -359,7 +363,7 @@ async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = fal
       return {};
     });
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
-    const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, me,
+    const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
@@ -438,6 +442,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         url: sender.tab.url, title: sender.tab.title || '', found: !!message.found, job: await jobOf(sender.tab)})});
     })().then(reply, () => reply({ok: false}));
     return true;
+  }
+  if (message?.type === 'panelStepNow' && sender.tab) {
+    const text = stepNow.get(sender.tab.id) || '';
+    if (text) stepBox(sender.tab.id, '');
+    reply({text});
+    return false;
   }
   if (message?.type === 'panelAllowed' && sender.tab) {
     const key = `armed:${sender.tab.id}`;
