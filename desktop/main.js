@@ -647,7 +647,7 @@ function handlers() {
     // while the app is closing, so this cannot wait for the window to notice. Cheap and idempotent.
     const ended = server.reconcileAppliedSessions(result.jobs || []);
     if (ended.length) {
-      log('sessions', `Ended ${ended.length} session(s) whose job is already Applied`, {urls: ended});
+      appLog('sessions', `Ended ${ended.length} session(s) whose job is already Applied`, {urls: ended});
       toWindow('session', 'update', {ended});
     }
     return viewCache.remember(storage, 'jobs', result);
