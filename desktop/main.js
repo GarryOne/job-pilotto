@@ -982,7 +982,17 @@ function handlers() {
     if ('openAtLogin' in patch) { allowed.openAtLogin = !!patch.openAtLogin; app.setLoginItemSettings({openAtLogin: allowed.openAtLogin}); }
     return storage.saveSettings(allowed);
   });
-  ipcMain.handle('setStatus', (_, url, status) => pipeline.setStatus(storage, url, status));
+  // Every Applied decision lands in the log, whoever made it: the two buttons here, the extension's own report
+  // (server.js), and a mistaken one's undo (notSubmitted below). "Who decided this, and why?" is answerable from
+  // logs/app.log alone (1 Oct 2026).
+  ipcMain.handle('setStatus', async (_, url, status) => {
+    if (status !== 'applied') return pipeline.setStatus(storage, url, status);
+    const job = String(url);
+    appLog('applied', `asked from the app (you): ${job}`);
+    const result = await pipeline.setStatus(storage, job, status).catch(error => ({ok: false, error: error.message}));
+    appLog('applied', `asked from the app (you): ${job} -> ${result?.ok ? 'marked applied' : result?.error || 'failed'}`);
+    return result;
+  });
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
   // Demo mode: the fictional list in demo/focus.json (JOB_PILOTTO_DEMO_FOCUS_DELAY ms first, to see the loading state).
   ipcMain.handle('focus', async () => {
