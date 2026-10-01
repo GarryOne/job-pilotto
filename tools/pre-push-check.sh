@@ -36,6 +36,18 @@ case "$command" in *CI_RED_OK=1*) ;; *)
   fi ;;
 esac
 
+# Commit subjects: one line, at most 72 characters (AGENTS.md → Commit messages). Checks the commits this push adds on top of
+# origin/main, merges aside; `COMMIT_LONG_OK=1 git push ...` skips it (a pushed commit is never rewritten to satisfy this).
+case "$command" in *COMMIT_LONG_OK=1*) ;; *)
+  long="$(git -C "$repo" log origin/main..HEAD --no-merges --format='%h %s' 2>/dev/null | awk '{ s=$0; sub(/^[^ ]+ /, "", s); if (length(s) > 72) print $0 }')"
+  if [ -n "$long" ]; then
+    echo "Push blocked: commit subject over 72 characters (details go in the body, no versions or reasons in the subject):" >&2
+    echo "$long" | cut -c1-110 >&2
+    echo "Shorten your own unpushed commits: git commit --amend (last one) or git rebase -i origin/main." >&2
+    exit 2
+  fi ;;
+esac
+
 failed=()
 log="$(mktemp)"
 run() {  # name, then the command

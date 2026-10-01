@@ -110,6 +110,13 @@ them from colliding in one checkout:
 - Never use a bare `git stash`/`stash pop`: the stash stack is shared across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
 
+### Commit messages
+- **Commit subject: one line, at most 72 characters** (GitHub cuts the list at about that, 2 Oct 2026: subjects of 150+ characters
+  with version numbers and reasons made the history unreadable). Imperative, what changed: `Extension: drop "Use on this tab"`.
+  No version number, no reasons, no "because…" in the subject; those go in the body (blank line, then wrapped text).
+  The pre-push hook blocks a push with a longer subject: `git commit --amend` / `git rebase -i` your own unpushed commits
+  (never a pushed one). Attribution lines stay at the end of the body.
+
 ## If you're not Claude Code (Codex, Grok, the DeepSeek Harness, anything else)
 
 Everything above applies. Only the *automatic* checks are Claude Code's: `.claude/settings.json` hooks
