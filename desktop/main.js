@@ -1057,7 +1057,7 @@ function handlers() {
   });
   ipcMain.handle('apply', async (_, options) => allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options)));
-  ipcMain.handle('applyOne', (_, url) => allowanceBlock() || apply.openOne(url));
+  ipcMain.handle('applyOne', (_, url, details) => allowanceBlock() || (DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {})));
   // Checked session workflows share the production registration with the offline app scenario tests.
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, apply, pipeline, review, server, notion, claudeConsent});

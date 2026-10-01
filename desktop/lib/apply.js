@@ -4,6 +4,7 @@
 //     Claude in Chrome; it follows a job board's Apply to the employer's site, signs up there if asked,
 //     and fills every page. Recommended when Claude Code is installed; needs Notion kits.
 import {spawn} from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,6 +28,19 @@ export function openOne(url, open = spawn) {
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true};
+}
+
+// The Apply button: the form tab, and a form session for it in the Applying page (the job goes to Applying in Notion, like an
+// Apply with Claude session). The session shows what is left in the form from the extension's reports and moves to Applied
+// when the extension sees the submit. Pressing Apply on a job that already has an open form session reopens only the tab.
+export async function applyOne(storage, url, details = {}, {open = spawn, term = terminals, run = pipeline.run, id = () => crypto.randomUUID().slice(0, 8)} = {}) {
+  const opened = openOne(url, open);
+  if (!opened.ok) return opened;
+  const fresh = !term.list().some(s => s.url === url.split('#')[0] && s.kind === 'form' && !s.outcome);
+  const session = term.startForm({id: id(), url: url.split('#')[0], title: details?.title || '', company: details?.company || '',
+    location: details?.location || '', workMode: details?.workMode || ''});
+  if (fresh) run(storage, ['src.ai.apply_batch', '--mark-applying', url.split('#')[0]]).catch(() => {});
+  return {ok: true, session};
 }
 
 const NO_CHROME = 'Google Chrome was not found. Install it (with the Job Pilotto extension) to fill applications.';

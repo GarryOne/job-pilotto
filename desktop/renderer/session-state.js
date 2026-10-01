@@ -19,6 +19,7 @@ export const sessionReview = item => item.status === 'done'
 // formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
 // A session whose application was submitted is finished, whatever its process did: "Submitted", never "Applying".
 export const sessionState = (item, formReady = false) => (item?.outcome === 'submitted' && !isLive(item) ? SESSION_STATE.submitted
+  : item.kind === 'form' && !formReady && sessionReview(item) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
   : sessionReview(item) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
     : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the

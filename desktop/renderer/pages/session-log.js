@@ -63,13 +63,15 @@ export function renderSessionPage() {
   const [label, tone] = sessionState(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
-  $('ss-status').replaceChildren(pill(sessionReview(item) && tone !== 'good' ? 'Ready for review' : label, tone, {dot: true}));
+  $('ss-status').replaceChildren(pill(sessionReview(item) && tone !== 'good' && item.kind !== 'form' ? 'Ready for review' : label, tone, {dot: true}));
   // Start again and Cancel beside ⋯: the two ways out of a session that isn't going well.
   const again = Object.assign(el('button', 'secondary', '↺ Start again'), {title: 'Close this session and start a new one on the same job'});
   again.addEventListener('click', () => restartSession(item));
   const cancel = Object.assign(el('button', 'secondary', 'Cancel application'), {title: 'Claude stops, the form tab closes, the job goes back to Kit ready'});
   cancel.addEventListener('click', () => cancelSession(item));
-  $('ss-more').replaceChildren(...(isSubmitted(item) ? [] : [again, cancel]), moreButton(sessionMenu(item), 'More'));
+  if (item.kind === 'form') cancel.title = 'The form tab closes and the job goes back to Kit ready';
+  $('ss-more').replaceChildren(...(isSubmitted(item) ? [] : item.kind === 'form' ? [cancel] : [again, cancel]), moreButton(sessionMenu(item), 'More'));
+  show($('ss-log'), item.kind !== 'form');   // no terminal behind a form session: the form in Chrome is the whole story
   const job = sessionJob(item);
   const head = el('div', 'ss-job-card');
   const words = el('div', 'ss-job-words');

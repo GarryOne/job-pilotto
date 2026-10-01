@@ -247,7 +247,7 @@ export function renderJobs() {
     };
     // Chrome opens the job's form and the extension fills it at once from the kit.
     const fillInChrome = async button => {
-      const result = await window.pilot.applyOne(job.url);
+      const result = await window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: job.location, workMode: job.work_mode});
       if (result.ok) { shared.openedInChrome.add(pageKey(job.url)); renderJobs(); } else if (button) button.textContent = 'No link';
       else toastMessage('Could not open the job', 'It has no link.');
     };

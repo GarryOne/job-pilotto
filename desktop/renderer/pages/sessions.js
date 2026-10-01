@@ -263,14 +263,14 @@ export function renderNextStep(item) {
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
   state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
-    : review ? `· Claude finished at ${hhmmOf(since)}` : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
+    : review ? (item.kind === 'form' ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask && !isDevTalk(line));
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
     : gone ? [el('p', 'rich-p', 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
-    : review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
+    : review ? [el('p', 'rich-p', item.kind === 'form' ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
       // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
       ? [...(said.length ? [el('p', 'rich-p', said[0].replace(/\*\*/g, ''))] : []), el('p', 'rich-p', el('b', '', 'What Claude needs from you:')),
@@ -338,7 +338,7 @@ export function renderNextStep(item) {
         manual: 'Reloading a Chrome tab can only be asked of a Mac: press Ctrl+R in the form\'s tab.'}[result?.result];
       toastMessage('Couldn\'t reload the form tab', why || osText('Press ⌘R in the form\'s tab instead.'));
     }, 'refresh'));
-    actions.push(submittedButton(item));  // you pressed Submit in Chrome: say so here too
+    if (item.kind !== 'form') actions.push(submittedButton(item));  // you pressed Submit in Chrome: say so here too (a form session's submit is seen by the extension)
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
     else if (item.resumable) actions.push(resume('secondary'));
     const never = el('span', 'ss-never muted small');

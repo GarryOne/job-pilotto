@@ -67,3 +67,11 @@ test('a submitted session reads "Submitted", not "Ready for review"', () => {
   assert.equal(sessionState(stopped, true)[0], 'Submitted');
   assert.equal(isSubmitted({status: 'failed', outcome: '', live: false}), false);
 });
+
+test('a form session (the Apply button) says the form is open until the extension reports it complete', () => {
+  const form = {kind: 'form', status: 'done', outcome: '', live: false, endedAt: null};
+  assert.deepEqual(sessionState(form), ['Form open', 'info']);
+  assert.deepEqual(sessionState(form, true), SESSION_STATE.submit);
+  assert.deepEqual(sessionState({...form, outcome: 'submitted'}), SESSION_STATE.submitted);
+  assert.deepEqual(sessionState({status: 'done', outcome: '', endedAt: null}), SESSION_STATE.done);   // a Claude session is unchanged
+});

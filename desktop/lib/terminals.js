@@ -62,7 +62,7 @@ function mark(session, status = session.status, now = new Date().toISOString()) 
   session.events ||= [];
   if (session.events.at(-1)?.status === status) return;
   session.events.push({at: now, status});
-  statusListener(publicView(session), session);
+  if (session.kind !== 'form') statusListener(publicView(session), session);  // a form session has no Claude run to report on
 }
 // What you decided at the end: 'submitted' or 'not submitted' (the "Did you submit?" question, or Jobs → ⋯).
 export function setOutcome(id, outcome) {
@@ -87,7 +87,7 @@ export async function available() {
 
 // A session is live while its process runs; a restored or ended one is not (but can be resumed with its claudeId).
 const isLive = s => !!s.term && !s.endedAt;
-const publicView = s => assertSession({id: s.id, url: s.url, title: s.title || '', company: s.company || '', status: s.status, note: s.note || '',
+const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: s.url, title: s.title || '', company: s.company || '', status: s.status, note: s.note || '',
   outcome: s.outcome || '',
   live: isLive(s), resumable: !!s.claudeId && !isLive(s) && s.outcome !== 'submitted',
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
@@ -158,6 +158,23 @@ export async function start({id, url, title = '', company = '', location = '', w
   return publicView(session);
 }
 
+// A form session: the plain Apply button. No process: the extension fills the form in the user's Chrome tab, and its live
+// report (what is left, whether the tab is open, the submit) reaches this record through the same id as any session. It sits
+// at 'done' ("review the filled application") because from the first minute the form is the user's to check. One per job:
+// pressing Apply again returns the one that is open.
+export function startForm({id, url, title = '', company = '', location = '', workMode = ''}) {
+  const open = [...sessions.values()].find(s => s.url === url && s.kind === 'form' && !s.outcome);
+  if (open) return publicView(open);
+  const now = new Date().toISOString();
+  const session = {id, kind: 'form', url, title, company, location, workMode, claudeId: '', term: null, output: '', status: 'done',
+    note: 'Form open in Chrome', startedAt: now, needsYouSince: now, events: []};
+  sessions.set(id, session);
+  mark(session, 'done', now);
+  listener('update', publicView(session));
+  save();
+  return publicView(session);
+}
+
 // Starts Claude again in the conversation of a session that isn't running (restored, ended or stopped). Its record
 // stays: job, output (a line marks the restart), question. A stopped one goes back to working; one that waited
 // for you stays as it was (it waits in the resumed conversation).
@@ -180,7 +197,7 @@ export async function resume(id, launch) {
 // ---- Saving and restoring (sessions.json in the data folder; a cache of runtime state, never the only copy of
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
-const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
+const saved = s => ({id: s.id, kind: s.kind || 'claude', url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
   claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
   decidedAt: s.decidedAt || null, runPage: s.runPage || '', conversationSaved: s.conversationSaved || 0, status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
