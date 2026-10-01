@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, tabArmed} from './tab-pages.js';
+import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -165,6 +165,14 @@ async function arm(tabId, why = 'app tab') {
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== 'complete' || !/^https:/.test(tab.url || '') || tab.url.includes(`#${FILL_MARK}`)) return;
   const key = `armed:${tabId}`;
+  // Notion is where the kit lives, never a form: an armed tab sent there is let go (no panel, no fill) until the app arms it again.
+  if (neverForm(tab.url)) {
+    if ((await chrome.storage.session.get(key))[key]) {
+      await chrome.storage.session.remove([key, `from:${tabId}`, `job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
+      decide('panel', 'tab left for Notion: no longer armed', {host: new URL(tab.url).hostname});
+    }
+    return;
+  }
   let armed = (await chrome.storage.session.get(key))[key];
   if (!armed) armed = await followOpener(tab);
   if (!armed) return;

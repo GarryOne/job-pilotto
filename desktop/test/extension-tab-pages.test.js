@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, missedConfirmation, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {confirmationOf, forJob, missedConfirmation, neverForm, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -116,4 +116,13 @@ test('an embedded Greenhouse confirmation carries the job id in ?token=, and cou
   assert.equal(forJob('https://job-boards.greenhouse.io/embed/job_app/confirmation?for=n26&token=7768035', job), true);
   assert.equal(forJob('https://job-boards.greenhouse.io/embed/job_app/confirmation?for=n26&token=1111111', job), false);
   assert.equal(forJob('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035', job), false);  // the form, not a confirmation
+});
+
+test('the user\'s Notion is never a job form: an armed tab sent there is let go', () => {
+  assert.equal(neverForm('https://app.notion.com/p/Staff-Software-Engineer-6b262be8'), true);
+  assert.equal(neverForm('https://www.notion.so/Job-Tracker'), true);
+  assert.equal(neverForm('https://acme.notion.site/careers'), true);
+  assert.equal(neverForm('https://job-boards.greenhouse.io/scaleai/jobs/4719479005'), false);
+  assert.equal(neverForm('https://notion.example.org/apply'), false);
+  assert.equal(neverForm('not a url'), false);
 });

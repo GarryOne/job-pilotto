@@ -11,6 +11,17 @@ export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, ''
 // A page the user is just browsing, Calendly included, is not one of those.
 export const tabArmed = ({url, armed} = {}) => !!armed || String(url || '').includes('#jobpilotto-fill');
 
+// Pages that are never a job form, wherever the tab came from: the user's own Notion (the kit and the tracker live there).
+// An armed tab the user then points at one of them (1 Oct 2026: a kit page in Notion got the fill panel) is let go.
+export const neverForm = url => {
+  try {
+    const host = new URL(String(url)).hostname;
+    return /(^|\.)(notion\.so|notion\.site|notion\.com)$/i.test(host);
+  } catch {
+    return false;
+  }
+};
+
 // What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
 // creates the account, and the extension never types it. Several fields, a textarea or a file input is the
 // application form. Anything smaller is a page Claude still has to click through (Apply, Next).
