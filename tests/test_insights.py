@@ -260,5 +260,23 @@ class WeeklyTests(unittest.TestCase):
         self.assertEqual(stats['done'], 1)
 
 
+class MessageTests(unittest.TestCase):
+    """The Telegram text of one insight (insights.message)."""
+
+    INSIGHT = {'category': 'Market', 'headline': 'H', 'evidence': ['e'], 'action': 'a',
+               'confidence': 'Medium', 'basis': 'Applications', 'sample_size': 1}
+
+    def test_a_sample_size_of_one_is_not_plural(self):
+        text = insights.message(self.INSIGHT)
+        self.assertIn('1 application', text)
+        self.assertNotIn('1 applications', text)  # what it used to send, on the most common sample size
+        self.assertIn('applications data, 1 application', text)
+
+    def test_larger_samples_and_a_jobs_basis_read_normally(self):
+        self.assertIn('4 applications', insights.message({**self.INSIGHT, 'sample_size': 4}))
+        self.assertIn('1 job', insights.message({**self.INSIGHT, 'basis': 'Jobs'}))
+        self.assertIn('2 jobs', insights.message({**self.INSIGHT, 'basis': 'Jobs', 'sample_size': 2}))
+
+
 if __name__ == '__main__':
     unittest.main()

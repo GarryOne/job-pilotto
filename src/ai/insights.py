@@ -412,12 +412,17 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     return f"Weekly report sent: {report['headline']} ({usd:.3f} USD)"
 
 
+def plural(count, singular):
+    """'1 application', '4 applications' — a sample size of one is common, and "1 applications" read as a bug."""
+    return f"{count} {singular if count == 1 else singular + 's'}"
+
+
 def message(insight):
     lines = [f"💡 <b>Insight · {escape(insight['category'])}</b>", '', f"<b>{escape(insight['headline'])}</b>"]
     lines += [f'• {escape(line)}' for line in insight['evidence']]
     lines += ['', f"👉 {escape(insight['action'])}", '',
               f"<i>Confidence {escape(insight['confidence'])} · {escape(insight['basis'].lower())} data, "
-              f"{insight['sample_size']} {'applications' if insight['basis'] == 'Applications' else 'jobs'}</i>"]
+              f"{plural(insight['sample_size'], 'application' if insight['basis'] == 'Applications' else 'job')}</i>"]
     return '\n'.join(lines)
 
 
