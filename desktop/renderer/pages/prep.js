@@ -64,6 +64,7 @@ async function build() {
 }
 
 export function openPrep(item) {
+  markPrep(item.page_id, 'building');  // the row changes before the dialog opens
   reset(item);
   $('prep-dialog').showModal();
   build();

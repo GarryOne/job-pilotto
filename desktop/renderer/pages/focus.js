@@ -59,6 +59,35 @@ function focusStatus(text, busy = false) {
   $('focus-status').replaceChildren(...(busy ? [el('span', 'spinner small')] : []), document.createTextNode(text));
 }
 let focusUpdatedAt = 0;
+// A row you just finished (Skip, Done) leaves the list at once. Notion is slow, so the next read can still
+// contain it: keep it hidden for a minute, and drop the hold as soon as a read no longer has it.
+const settled = new Map();
+const itemKey = item => `${item.kind}:${item.page_id || ''}`;
+function hideSettled(items, now = Date.now()) {
+  for (const [key, until] of [...settled]) {
+    if (now > until || !items.some(item => itemKey(item) === key)) settled.delete(key);
+  }
+  return items.filter(item => !settled.has(itemKey(item)));
+}
+function dismiss(item) {
+  settled.set(itemKey(item), Date.now() + 60000);
+  if (lastFocus) renderFocus(lastFocus);
+  focusStatus('Saving…', true);
+}
+async function finishItem(item, save) {
+  dismiss(item);
+  let done;
+  try { done = await save(); }
+  catch (error) { done = {ok: false, error: error.message}; }
+  if (!done?.ok) {
+    settled.delete(itemKey(item));
+    if (lastFocus) renderFocus(lastFocus);
+    toastMessage('Not saved', done?.error || 'Notion refused it. Try again.');
+    return;
+  }
+  if (focusLoading) await focusLoading.catch(() => {});
+  loadFocus();
+}
 export function loadFocus() {
   focusLoading ||= loadFocusOnce().catch(error => {
     // Never a blank page: say what went wrong where the list goes.
@@ -142,12 +171,7 @@ function focusCard(item) {
   if (item.kind === 'details') {
     actions.append(focusButton('Add details', 'primary',
       () => openLogFor(item.job_url, `${item.company || item.via || '—'} · ${item.job}`)));
-    const skip = focusButton('Skip', 'secondary', async event => {
-      event.currentTarget.disabled = true;
-      const done = await window.pilot.focusDone(item.page_id, 'details_skipped');
-      if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
-      loadFocus();
-    });
+    const skip = focusButton('Skip', 'secondary', () => finishItem(item, () => window.pilot.focusDone(item.page_id, 'details_skipped')));
     skip.title = "I don't know the employer yet";
     actions.append(skip);
   }
@@ -167,7 +191,10 @@ function focusCard(item) {
   }
   // The prep kit: built on the job's page (a button press: it costs about $0.04), then opened there. A kit from an
   // earlier call offers the new one first; the earlier kit stays on the page, in the ⋯ menu.
-  const prepRun = run => (run === 'open' ? event => openLink(item.notion_url, event) : () => openPrep(item));  // 'join' reopens the dialog
+  const prepRun = run => (run === 'open' ? event => openLink(item.notion_url, event) : () => {
+    markPrep(item.page_id, 'building');  // the row says "Building…" before the dialog, not after Notion
+    openPrep(item);
+  });
   if (prep && item.page_id) {
     const main = focusButton(prep.primary.label, prep.primary.tone, prepRun(prep.primary.run));
     if (prep.primary.title) main.title = prep.primary.title;
@@ -177,12 +204,8 @@ function focusCard(item) {
   if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting', 'follow_up'].includes(item.kind) && item.notion_url) {
     actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
   }
-  if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', async event => {
-    event.currentTarget.disabled = true;
-    const done = await window.pilot.focusDone(item.page_id, item.kind === 'follow_up' ? 'followed_up' : 'replied');
-    if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
-    loadFocus();
-  }));
+  if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', () => finishItem(item,
+    () => window.pilot.focusDone(item.page_id, item.kind === 'follow_up' ? 'followed_up' : 'replied'))));
   const more = [];
   if (item.kind.startsWith('feedback') && item.kind !== 'feedback_wait') more.push({label: 'Add employer feedback', run: () => openFeedback(item, 'receive')});
   if (item.kind === 'feedback') more.push({label: 'Skip this request', run: async () => {
@@ -259,13 +282,14 @@ export function markPrep(pageId, state) {
   renderFocus(lastFocus);
 }
 function renderFocus(data) {
-  const {items, today, funnel, insight, summary} = data;
+  const {today, funnel, insight, summary} = data;
   // A kit still building keeps its state when Focus is read again meanwhile.
-  for (const item of items) {
+  for (const item of data.items) {
     const before = lastFocus?.items?.find(one => one.kind === 'prepare' && one.page_id === item.page_id && one.building);
     if (item.kind === 'prepare' && before) item.building = true;
   }
   lastFocus = data;
+  const items = hideSettled(data.items);
   window.dispatchEvent(new Event('focus-updated'));
   focusShown = true;
   $('focus-count-note').replaceChildren(pill(`${items.length} action${items.length === 1 ? '' : 's'}`, 'neutral'));
