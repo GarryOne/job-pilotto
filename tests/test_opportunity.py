@@ -186,24 +186,18 @@ class MailOutreachTests(unittest.TestCase):
             self.assertIn(part, q)
 
     def test_recruiter_leads_are_among_the_applications_emails_can_belong_to(self):
-        tracker = Tracker()
-        filters = []
-        tracker.query_database = lambda db, f=None: filters.append(f) or []
-        mail.applications(tracker)
-        self.assertIn({'property': 'Stage', 'select': {'equals': 'Recruiter lead'}}, filters[0]['or'])
+        lead = app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='Example Talent')
+        tracker, filters = Tracker([lead, app('p2', 'Acme', 'SRE', stage='Dismissed')]), []
+        tracker.query_database = lambda db, f=None: filters.append(f) or tracker.apps
+        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])  # the lead, not the dismissed job
+        self.assertEqual(filters, [None])  # no Stage filter: Notion refuses one for a choice the workspace lacks
 
     def test_a_workspace_without_the_recruiter_lead_choice_still_gets_its_mail_checked(self):
-        import urllib.error
-        tracker, filters = Tracker(), []
-
-        def query(db, f=None):
-            filters.append(f)
-            if any(c['select']['equals'] == 'Recruiter lead' for c in f['or']):
-                raise urllib.error.HTTPError('https://api.notion.com', 400, 'validation_error', {}, None)
-            return [app('p1', 'Scale AI', 'SRE')]
-        tracker.query_database = query
+        # The choice a workspace lacks is only ever a row this check filters out itself, never a 400.
+        tracker, filters = Tracker([app('p1', 'Scale AI', 'SRE')]), []
+        tracker.query_database = lambda db, f=None: filters.append(f) or [app('p1', 'Scale AI', 'SRE')]
         self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])
-        self.assertEqual(len(filters), 2)
+        self.assertEqual(filters, [None])
 
 
 if __name__ == '__main__':

@@ -204,11 +204,15 @@ class MailTests(unittest.TestCase):
         self.assertEqual(kinds, ['Confirmation received'])  # its own event, not swallowed as a repeat
 
     def test_the_reader_sees_roles_still_at_kit_ready_or_applying(self):
-        tracker, filters = FakeTracker([]), []
-        tracker.query_database = lambda db, f=None: filters.append(f) or []
-        mail.applications(tracker)
-        self.assertIn({'property': 'Stage', 'select': {'equals': 'Kit ready'}}, filters[0]['or'])
-        self.assertIn({'property': 'Stage', 'select': {'equals': 'Applying'}}, filters[0]['or'])
+        # Read unfiltered and filtered here: a Notion filter on a Stage choice the workspace lacks is a 400 that
+        # fails the whole check (1 Oct 2026, the "Saved" choice), and the reader may not look for "Recruiter lead".
+        tracker, filters = FakeTracker([
+            app('p1', 'Canonical', 'Site Reliability Engineer', stage='Kit ready'),
+            app('p2', 'Acme', 'SRE', stage='Applying'),
+            app('p3', 'Beta', 'Data Engineer', stage='Dismissed')]), []
+        tracker.query_database = lambda db, f=None: filters.append(f) or tracker.apps + [app('x', 'Gamma', 'Saved role', stage='Saved')]
+        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1', 'p2', 'x'])
+        self.assertEqual(filters, [None])  # never a filter Notion could refuse
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
         apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),

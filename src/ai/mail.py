@@ -144,20 +144,16 @@ def save_state(state, path=STATE_FILE):
 
 
 def applications(tracker):
-    """The owner's jobs that emails and events can belong to, oldest first (stable indexes). Every job on the
-    tracker, not only the ones already applied to: the role a confirmation is about is often still at Saved,
-    Kit ready or Applying (1 Oct 2026: Canonical's SRE confirmation got no event because that row, at Kit ready,
-    wasn't in the list the reader matched against, and the role looked untracked)."""
-    stages = lambda names: {'or': [{'property': 'Stage', 'select': {'equals': stage}} for stage in names]}
-    listed = OUTCOME_STAGES + (opportunity.LEAD_STAGE,) + PREPARED_STAGES + ('Saved',)
-    try:
-        rows = tracker.query_database(tracker.database_id, stages(listed))
-    except urllib.error.HTTPError as error:
-        # A workspace without the "Recruiter lead" choice yet (it's added by the app's repair, or by the first lead):
-        # Notion refuses a filter on an unknown choice, and then there are no leads to match anyway.
-        if error.code != 400:
-            raise
-        rows = tracker.query_database(tracker.database_id, stages(OUTCOME_STAGES + PREPARED_STAGES + ('Saved',)))
+    """The owner's outstanding jobs that emails and events can belong to, oldest first (stable indexes). Every job
+    still in play, not only the ones already applied to: the role a confirmation is about is often still at Kit
+    ready or Applying (1 Oct 2026: Canonical's SRE confirmation got no event because that row, at Kit ready, wasn't
+    in the list the reader matched against, and the role looked untracked).
+    All rows are read and the stages are filtered here, in Python: Notion rejects a filter on a Stage choice the
+    workspace doesn't have with a 400 that fails the whole check (a workspace whose "Saved" choice was removed did
+    exactly that on 1 Oct 2026, and the check read nothing at all)."""
+    keep = set(OUTCOME_STAGES) | {opportunity.LEAD_STAGE} | set(PREPARED_STAGES) | {'Saved'}
+    rows = [row for row in tracker.query_database(tracker.database_id)
+            if (plain(row['properties'].get('Stage')) or '') in keep]
     return sorted(rows, key=lambda r: (plain(r['properties'].get('Applied on')) or '', r['id']))
 
 
