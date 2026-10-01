@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {useTabVerdict, confirmationOf, forJob, missedConfirmation, neverForm, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {useTabVerdict, confirmationOf, forJob, missedConfirmation, neverForm, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -144,4 +144,9 @@ test('"Use on this tab" is off on a search page, a non-https page and a page wit
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'form').ok, true);
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'account').ok, true);
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', null).ok, true);   // couldn't be read: not blocked on a guess
+});
+
+test('an armed form on any site counts as an open tab, a closed one does not', () => {
+  assert.deepEqual(reportedIds({jobSiteIds: [3, 4], armedIds: [4, 7, 9], existingIds: [3, 4, 7, 12]}), [3, 4, 7]);
+  assert.deepEqual(reportedIds({}), []);
 });

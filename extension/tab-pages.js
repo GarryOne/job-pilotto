@@ -139,3 +139,10 @@ export function forJob(current, job) {
     return false;
   }
 }
+
+// The tab ids the app is told are open: the job-board tabs, plus every tab the app armed (a form on any other site, such as
+// an agency's own) that still exists. Without the armed ones the app took such a form for closed and hid its card.
+export function reportedIds({jobSiteIds = [], armedIds = [], existingIds = []} = {}) {
+  const exist = new Set(existingIds);
+  return [...new Set([...jobSiteIds, ...armedIds.filter(id => exist.has(id))])];
+}

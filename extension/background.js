@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {useTabVerdict, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, tabArmed} from './tab-pages.js';
+import {useTabVerdict, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, reportedIds, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -508,12 +508,15 @@ async function reportTabs() {
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;  // your own Worker: no app here
   const open = await chrome.tabs.query({url: JOB_SITES});
   const urls = open.map(tab => tab.url);
+  const stored = await chrome.storage.session.get(null).catch(() => ({}));
+  const armedIds = Object.keys(stored).filter(key => key.startsWith('armed:') && stored[key]).map(key => Number(key.slice(6))).filter(Number.isInteger);
+  const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds, existingIds: (await chrome.tabs.query({})).map(tab => tab.id)});
   // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
   let {boot} = await chrome.storage.session.get('boot');
   if (!boot) { boot = String(Date.now()); await chrome.storage.session.set({boot}); }
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
-    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids: open.map(tab => tab.id), boot, version: chrome.runtime.getManifest().version})});
+    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, version: chrome.runtime.getManifest().version})});
     connected(true);
     // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
     // that can't update (a store install) doesn't reload over and over.
