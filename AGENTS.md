@@ -180,3 +180,6 @@ down — is the signal to add logging, not to move on. Add it in the same turn, 
   wasn't there, adding that line is part of fixing the bug.
 - **Areas are stable and searchable** (`dispatch`, `sessions`, `run`, `extension`, `prep`, `review`, `update`,
   `window`): a new one is fine, a renamed one is a small tax on every future grep.
+
+## JavaScript lint checks
+Desktop `npm test` runs ESLint first across `desktop/` and `extension/` (including tests and scripts). `no-undef` blocks failures; `no-unused-vars` is advisory. Use `cd desktop && npm run lint` for fast feedback. Fix the cause of lint errors; do not silence them by inventing globals. Browser, Node, preload and Chrome-extension globals are configured in `eslint.config.mjs`; generated build and shared files are excluded.

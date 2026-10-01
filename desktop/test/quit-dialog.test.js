@@ -64,3 +64,33 @@ test('cancel: asked once, says the form tab closes (what was filled is lost) and
   assert.match(dialog.detail, /the form tab closes in Chrome \(what was filled there is lost\), and the job goes back to Kit ready/);
   assert.deepEqual(dialog.buttons, ['Cancel application', 'Keep it']);
 });
+
+// Exercise the main-process quit callback, including the notification before whenIdle.
+test('quit when done notifies with the dialog detail and quits after the queue drains', async () => {
+  const {readFileSync} = await import('node:fs');
+  const {runInNewContext} = await import('node:vm');
+  const source = readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const start = source.lastIndexOf('let quitting = false;');
+  assert.ok(start >= 0);
+  let handler, quit = 0, prevented = 0;
+  const notifications = [];
+  let drained;
+  const idle = new Promise(resolve => { drained = resolve; });
+  runInNewContext(source.slice(start), {
+    app: {on: (_event, callback) => { handler = callback; }, quit: () => { quit++; }},
+    DEMO: false, process: {env: {}}, storage: null, window: null,
+    pipeline: {running: () => 'search', queued: () => [], taskName: () => 'Search', whenIdle: () => idle},
+    terminals: {running: () => [], label: () => ''},
+    nativeImage: {createFromPath: () => ({})}, path: {join: () => ''}, here: '',
+    quitDialog: {working: () => ({message: 'Working', detail: 'Search is running', buttons: []})},
+    dialog: {showMessageBoxSync: () => 0}, BrowserWindow: {getAllWindows: () => []},
+    notify: (...args) => notifications.push(args),
+  });
+  handler({preventDefault: () => { prevented++; }});
+  assert.equal(prevented, 1);
+  assert.deepEqual(notifications, [['Job Pilotto will quit when done', 'Search is running']]);
+  assert.equal(quit, 0);
+  drained();
+  await idle;
+  assert.equal(quit, 1);
+});

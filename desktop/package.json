@@ -10,7 +10,7 @@
     "prestart": "npm install --no-audit --no-fund --silent && scripts/audiotee.sh && node scripts/stage.mjs",
     "start": "electron .",
     "pretest": "node scripts/stage.mjs",
-    "test": "node --test test/*.test.js",
+    "test": "npm run lint && node --test test/*.test.js",
     "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never",
     "screenshots": "node scripts/stage.mjs && node scripts/screenshots.mjs",
     "gallery": "JOB_PILOTTO_DEMO=1 JOB_PILOTTO_PAGE=gallery.html JOB_PILOTTO_USER_DATA=${TMPDIR:-/tmp}/job-pilotto-gallery electron .",
@@ -18,13 +18,16 @@
     "ui-shots": "node scripts/stage.mjs && node scripts/ui-shots.mjs",
     "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",
-    "apply-demo": "node scripts/apply-demo.mjs"
+    "apply-demo": "node scripts/apply-demo.mjs",
+    "lint": "cd .. && eslint --config eslint.config.mjs desktop extension"
   },
   "devDependencies": {
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "electron-builder-squirrel-windows": "^26.15.3",
-    "esbuild": "^0.25.12"
+    "esbuild": "^0.25.12",
+    "eslint": "^10.0.0",
+    "globals": "^17.0.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

@@ -1770,6 +1770,6 @@ app.on('before-quit', event => {
     app.quit();
     return;
   }
-  notify('Job Pilotto will quit when done', what);
+  notify('Job Pilotto will quit when done', detail);
   pipeline.whenIdle().then(() => app.quit());
 });
