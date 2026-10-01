@@ -2,6 +2,9 @@
 // the Claude session that filled that form is over too. It may not read as if Claude were still working, but it
 // stays in the list as Submitted: it used to be deleted, so the session (and a day's work) vanished with it.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {test} from 'node:test';
 import * as server from '../lib/server.js';
 import * as terminals from '../lib/terminals.js';
@@ -20,6 +23,22 @@ function fakePty() {
 }
 
 const fakeStorage = () => ({settings: () => ({}), secret: () => 'token', setSecret: () => {}});
+
+// The extension reports a submission with what decided it, and the app writes that down before it acts: an
+// irreversible mark that nothing explained is what made 1 Oct 2026's wrong "Applied" unattributable.
+test('a reported submit is logged with its evidence, before the job is marked', async () => {
+  const log = await import('../lib/log.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-applog-'));
+  log.logTo(dir);
+  const storage = {settings: () => ({}), secret: () => 't', setSecret: () => {}, path: (...p) => path.join(dir, ...p)};
+  const env = server.localEnv(storage, undefined, {find: async () => null});  // the job isn't in the list
+  const result = await env.markApplied('https://jobs.test/acme/1', 'applied submit press seen 3s before (submit on jobs.test, extension 0.8.24)');
+  assert.equal(result.ok, false);
+  const written = fs.readFileSync(path.join(dir, 'app.log'), 'utf8').trim().split('\n');
+  assert.match(written.at(-1), /\[extension\] mark Applied: https:\/\/jobs\.test\/acme\/1 — applied submit press seen 3s before/);
+  assert.match(written.at(-1), /extension 0\.8\.24/);
+  log.logTo(null);  // the app log goes quiet again for the rest of the suite
+});
 
 test('the session behind a reported submit ends: marked Submitted, kept, and never re-marked', async () => {
   terminals._reset();

@@ -12,6 +12,7 @@ import * as canary from './lib/canary.js';
 import * as telemetryLib from './lib/telemetry.js';
 import * as poolShare from './lib/pool-share.js';
 import * as reminders from './lib/interview-reminders.js';
+import * as engineLog from './lib/engine-log.js';
 import * as requestLog from './lib/request-log.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
@@ -1492,6 +1493,7 @@ if (firstCopy) app.whenReady().then(() => {
   if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge('DEV'); }  // from source: never mistaken for the installed app
   logTo(path.join(app.getPath('userData'), 'logs'));
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
+  engineLog.setFile(path.join(app.getPath('userData'), 'logs', 'engine.log'));  // everything a run printed, in full
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   aiTrial.apply(storage.settings());  // the free AI credit, if on: this process's Anthropic SDK goes to our website
   // When this version started running here: a test build's trial day (lib/canary.js) counts from it.

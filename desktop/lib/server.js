@@ -11,6 +11,7 @@ import * as knowledge from './knowledge.js';
 import * as viewCache from './view-cache.js';
 import * as contactDetails from './contact.js';
 import {handleExtension, jobKey} from '../shared/worker/extension.js';
+import {log as appLog} from './log.js';
 import * as claudeCode from './claude-code.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
@@ -65,14 +66,14 @@ export function reconcileAppliedSessions(jobs = []) {
   return ended;
 }
 
-export function localEnv(storage, submitted = sessionSubmitted) {
+export function localEnv(storage, submitted = sessionSubmitted, {find: injected} = {}) {
   const settings = storage.settings();
   const summary = job => ({title: job.title, company: job.company, stage: job.status, url: job.url, notion_url: ''});
-  const find = async url => {
+  const find = injected || (async url => {
     const {jobs} = await pipeline.jobs(storage);
     const key = jobKey(url);
     return jobs.find(job => job.url === url || (key && job.url.includes(key)));
-  };
+  });
   const notionToken = storage.secret('NOTION_TOKEN');
   const ids = settings.notionIds || {};
   // extension.js calls Notion through the app's paced, retrying call(), and reads the Profile, standard answers and
@@ -94,8 +95,11 @@ export function localEnv(storage, submitted = sessionSubmitted) {
     NOTION_ANSWERS_PAGE_ID: ids.NOTION_ANSWERS_PAGE_ID || '',
     // extension.js reads the Profile, standard answers and 🧠 Form knowledge pages from Notion.
     JOB_PILOTTO_KIT_MODEL: pipeline.MODELS.kit,
-    markApplied: async url => {
+    markApplied: async (url, decision = '') => {
       const job = await find(url);
+      // Irreversible, so what decided it and on what evidence goes to the app's log (grep 'extension' logs/app.log):
+      // for a month the app could not answer "why is this Applied?" after the fact (1 Oct 2026).
+      appLog('extension', `mark Applied: ${job ? job.url : url} — ${decision || 'no reason given (older extension)'}`);
       if (!job) return {ok: false, error: 'This job isn\'t in your list'};
       const result = await pipeline.setStatus(storage, job.url, 'applied');
       if (!result.ok) return {ok: false, error: result.error || 'Could not mark it Applied'};

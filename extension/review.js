@@ -397,6 +397,19 @@
   const soon = () => { clearTimeout(timer); timer = setTimeout(sync, 400); };
   document.addEventListener('input', soon, true);
   document.addEventListener('change', soon, true);
+  // Was this form actually submitted? A submission is an event, and the page's own panel is the only thing that can
+  // see it (the worker cannot read a page's events). The press is recorded, never sent by us: this listens, it does
+  // not click. It is what lets the app mark a job Applied on evidence instead of on wording that looks like a
+  // confirmation (1 Oct 2026: an unsubmitted job was marked Applied because a page said "thank you for applying").
+  const submitWords = /\b(submit|send application|apply)\b/i;
+  const noteSubmit = () => send({type: 'submitted', url: location.href}).catch(() => {});
+  document.addEventListener('submit', () => noteSubmit(), true);
+  document.addEventListener('click', event => {
+    const button = event.target?.closest?.('button, input[type=submit], [role=button], a.button');
+    if (!button) return;
+    const words = `${button.textContent || ''} ${button.getAttribute?.('aria-label') || ''} ${button.name || ''} ${button.value || ''}`;
+    if (button.type === 'submit' || /submit/i.test(String(button.className || '')) || submitWords.test(words)) noteSubmit();
+  }, true);
   new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
   const tick = setInterval(sync, 2000);
   sync();

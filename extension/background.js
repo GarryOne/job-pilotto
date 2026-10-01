@@ -208,6 +208,12 @@ chrome.runtime.onStartup.addListener(registerHookEverywhere);
 registerHookEverywhere();
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
+  // The page's panel saw a submit press (review.js): the evidence that a submission happened in that tab.
+  if (message?.type === 'submitted' && sender.tab?.id != null) {
+    chrome.storage.session.set({[`submit:${sender.tab.id}`]: {at: Date.now(), url: sender.tab.url || ''}}).catch(() => {});
+    reply({ok: true});
+    return false;
+  }
   if (message?.type === 'fillAnyway' && sender.tab) {
     fillOpenedTab(sender.tab, sender.tab.url.replace(`#${FILL_MARK}`, ''), true);
     reply({ok: true});
@@ -338,10 +344,11 @@ reportTabs();
 // Submitted? After you unlock and submit, the site shows its confirmation: Greenhouse …/<job id>/confirmation,
 // Lever …/<job id>/thanks, or a "thank you for applying" page. Then the job is marked Applied in the app and
 // Notion (like the agent launchers' watcher), and a note confirms it on the page.
-const THANKS = /thank(s| you) for (applying|your application)|application (has been )?(submitted|received)|we('ve| have) received your application/i;
+// How long a recorded submit press counts as this tab's submission (a site can take a moment to answer).
+const SUBMIT_WINDOW_MS = 5 * 60 * 1000;
 async function checkSubmitted(tabId, tab) {
-  const key = `job:${tabId}`, from = `from:${tabId}`;
-  const {[key]: job, [from]: filled} = await chrome.storage.session.get([key, from]);
+  const key = `job:${tabId}`, from = `from:${tabId}`, sent = `submit:${tabId}`;
+  const {[key]: job, [from]: filled, [sent]: submit} = await chrome.storage.session.get([key, from, sent]);
   if (!job || !tab.url) return;
   const id = job.replace(/\/+$/, '').split('/').pop();
   const confirmationUrl = new RegExp(`${id}/(confirmation|thanks)`).test(tab.url);
@@ -349,19 +356,27 @@ async function checkSubmitted(tabId, tab) {
   // stale (a tab id that came back as something else): reading its text — let alone marking Applied from it — would
   // be about a page this job has nothing to do with (1 Oct 2026: `elsewhere` matched any other host).
   if (!forJob(tab.url, job) && filled !== job) {
-    await chrome.storage.session.remove([key, from]);
+    await chrome.storage.session.remove([key, from, sent]);
     return;
   }
-  const text = confirmationUrl ? '' : await chrome.scripting.executeScript({target: {tabId}, func: () => document.querySelectorAll('input:not([type=hidden]), textarea').length < 3 ? document.body?.innerText?.slice(0, 5000) || '' : ''})
-    .then(([r]) => r?.result || '').catch(() => '');
-  // On the employer's own application site the confirmation page doesn't carry the job board's id.
-  const elsewhere = new URL(tab.url).hostname !== new URL(job).hostname;
-  if (!confirmationUrl && !((tab.url.includes(id) || elsewhere) && THANKS.test(text))) return;
-  await chrome.storage.session.remove(key);  // once per job
+  // A submission is an event, not a phrase: the page's own content script records the press (a form's submit, or a
+  // click on a submit button) — see review.js. Without that, a page that merely reads "thank you for applying" used
+  // to mark a job Applied on its own (1 Oct 2026: a job was marked Applied while its form sat open, unsubmitted).
+  const pressed = !!submit && Date.now() - (submit.at || 0) < SUBMIT_WINDOW_MS;
+  // Two things count, both evidence rather than wording: the site's own confirmation URL for this job, or a submit
+  // press this page reported. The old third path — a page whose text merely read "thank you for applying" — is what
+  // marked an unsubmitted job Applied; it is gone (1 Oct 2026). A site we cannot see (no permission) leaves the
+  // marking to you: "I submitted it" on the job's row.
+  if (!confirmationUrl && !pressed) return;
+  const why = confirmationUrl ? 'confirmation URL' : `submit press seen ${Math.round((Date.now() - submit.at) / 1000)}s before`;
+  await chrome.storage.session.remove([key, sent]);  // once per job
   const config = await settings();
   try {
     const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/applied`, {method: 'POST',
-      headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'}, body: JSON.stringify({url: job})});
+      headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify({url: job, why, evidence: {path: confirmationUrl ? 'confirmation' : 'submit',
+        pressAt: submit?.at || null, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(),
+        version: chrome.runtime.getManifest().version}})});
     const result = await response.json().catch(() => ({}));
     await note(tabId, result.ok === false ? `✈️ Submitted, but Job Pilotto couldn't mark it Applied: ${result.error}` : '✈️ Submitted: marked Applied in Job Pilotto and Notion.');
   } catch (error) {

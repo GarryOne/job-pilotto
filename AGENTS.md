@@ -164,3 +164,19 @@ you launch Chrome yourself in a script, kill it on exit (`trap 'kill $!' EXIT`),
 ## Desktop UI
 Before building or changing a screen in `desktop/renderer`, read `.claude/skills/ui-look-and-feel/SKILL.md` (patterns, reference
 screenshots in `desktop/docs/ui/`, and how to render the change in demo mode to check it).
+
+## Logging: when a debug session makes you wish for a line, add it then and there (1 Oct 2026)
+Debugging that had to lean on file mtimes, Notion timestamps and GitHub runs — because nothing was written
+down — is the signal to add logging, not to move on. Add it in the same turn, permanently.
+
+- **Log decisions, not just errors.** Every irreversible or money-spending action (a Notion stage write, a cloud
+  dispatch, an "Applied", a form fill, a run's start and end) gets one line: what happened, what asked for it, and
+  the evidence it rested on. "Who decided this, and why?" must be answerable from the logs alone.
+- **Log the evidence's identity, never its content.** Field names, counts, source, a short digest of the inputs,
+  ids. Never the user's words, form answers, message bodies or tokens (`lib/log.js` says exactly this at the top).
+- **The right file.** `logs/app.log` — the app's own doings, `log(area, message, fields)` from `lib/log.js`;
+  `logs/engine.log` — what the Python engine printed for a run; `logs/notion-requests.log` — API traffic.
+- **Read the logs first.** When something is wrong, `grep <area> logs/app.log` before archaeology. If the answer
+  wasn't there, adding that line is part of fixing the bug.
+- **Areas are stable and searchable** (`dispatch`, `sessions`, `run`, `extension`, `prep`, `review`, `update`,
+  `window`): a new one is fine, a renamed one is a small tax on every future grep.

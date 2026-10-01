@@ -107,6 +107,10 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
   const told = onLine;
+  // The run's output is written down as it comes (logs/engine.log) and its two markers go to the app log, so a run
+  // that went wrong can be read back afterwards instead of being lost with the window (1 Oct 2026).
+  engineLog.start(args);
+  appLog('run', `start: python -m ${args.join(' ')}`);
   onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };
   return new Promise((resolve, reject) => {
     const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
@@ -117,13 +121,16 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       buffer += chunk;
       const parts = buffer.split(/\r?\n/);  // Windows ends lines with \r\n
       buffer = parts.pop();
-      parts.filter(Boolean).map(readable).forEach(onLine);
+      parts.filter(Boolean).forEach(raw => { engineLog.line(raw); onLine(readable(raw)); });
     };
     child.stdout.on('data', data => { stdout += data; lines(String(data)); });
     child.stderr.on('data', data => lines(String(data)));
     child.on('error', reject);
     child.on('close', code => {
-      if (buffer) onLine(readable(buffer));
+      if (buffer) { engineLog.line(buffer); onLine(readable(buffer)); }
+      const seconds = Math.round((Date.now() - started) / 1000);
+      engineLog.end({code, seconds});
+      appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {tail: tail.slice(-3)});
       for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail]}); } catch {} }
       resolve({code, stdout});
     });

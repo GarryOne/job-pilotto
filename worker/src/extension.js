@@ -335,9 +335,14 @@ export async function handleExtension(request, env) {
       return json(await logRun(env, run).catch((error) => ({ ok: false, error: error.message })));
     }
     if (request.method === 'POST' && url.pathname === '/extension/applied') {
-      const { url: job } = await request.json().catch(() => ({}));
+      const { url: job, why, evidence } = await request.json().catch(() => ({}));
       if (!job || !/^https?:\/\//.test(job)) return json({ error: 'url is required' }, 400);
-      if (env.markApplied) return json(await env.markApplied(job)); // desktop app: recorded locally
+      // What decided this, and on what evidence. The extension sends it (background.js checkSubmitted); it goes to
+      // the app's log with markApplied, or to this Worker's log when it dispatches the run instead (1 Oct 2026: a
+      // job was marked Applied while its form sat open, unsubmitted, and nothing recorded why).
+      const decision = `applied ${why || 'no reason given'} (${evidence?.path || 'unknown'}${evidence?.host ? ` on ${evidence.host}` : ''}, extension ${evidence?.version || '?'})`;
+      if (env.markApplied) return json(await env.markApplied(job, decision)); // desktop app: recorded locally
+      console.log(`extension ${decision} -> ${job}`);
       const response = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${env.WORKFLOW_FILE}/dispatches`, {
         method: 'POST',
         headers: {
