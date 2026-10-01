@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, missedConfirmation, neverForm, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {useTabVerdict, confirmationOf, forJob, missedConfirmation, neverForm, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -132,4 +132,16 @@ test('the user\'s Notion is never a job form: an armed tab sent there is let go'
   assert.equal(neverForm('https://docs.google.com/forms/d/e/abc/viewform'), false);
   assert.equal(neverForm('https://careers.google.com/jobs/results/123/apply'), false);
   assert.equal(neverForm('not a url'), false);
+});
+
+test('"Use on this tab" is off on a search page, a non-https page and a page with no form; on for a form or an unreadable page', () => {
+  assert.equal(useTabVerdict('https://www.google.com/search?q=acme', 'no-form').ok, false);
+  assert.match(useTabVerdict('https://www.google.com/search?q=acme').why, /search or Notion/);
+  assert.equal(useTabVerdict('http://example.com/apply', 'form').ok, false);
+  assert.equal(useTabVerdict('chrome://extensions').ok, false);
+  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').ok, false);
+  assert.match(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').why, /No application form/);
+  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'form').ok, true);
+  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'account').ok, true);
+  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', null).ok, true);   // couldn't be read: not blocked on a guess
 });

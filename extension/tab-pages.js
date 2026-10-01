@@ -26,6 +26,15 @@ export const neverForm = url => {
   }
 };
 
+// "Use on this tab" (the toolbar popup): may the panel start here? Not on a page that is never a form (search results, Notion) or
+// that shows no application form (role from pageRole; null = the page couldn't be read: don't block on a guess).
+export function useTabVerdict(url, role = null) {
+  if (!/^https:/.test(String(url || ''))) return {ok: false, why: 'Open the job application page first.'};
+  if (neverForm(url)) return {ok: false, why: 'This is a search or Notion page, not an application form.'};
+  if (role === 'no-form') return {ok: false, why: 'No application form on this page. Open the form first, then press this.'};
+  return {ok: true, why: ''};
+}
+
 // What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
 // creates the account, and the extension never types it. Several fields, a textarea or a file input is the
 // application form. Anything smaller is a page Claude still has to click through (Apply, Next).

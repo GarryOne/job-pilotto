@@ -19,6 +19,16 @@ $('use').addEventListener('click', async () => {
   } catch { note('Could not start on this tab.'); } finally { $('use').disabled = false; }
 });
 
+// No form on this page: the button is off, and says why (the page is read when the popup opens: the click that opened it
+// lets the extension look at this tab, nothing is sent anywhere).
+(async () => {
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    const verdict = tab?.id ? await chrome.runtime.sendMessage({type: 'tabCheck', tabId: tab.id}) : {ok: true};
+    if (verdict && verdict.ok === false) { $('use').disabled = true; $('note').textContent = verdict.why; }
+  } catch { /* leave the button on: the click checks again */ }
+})();
+
 (async () => {
   const config = await settings();
   const app = !config.workerUrl || config.workerUrl.startsWith('http://127.0.0.1');

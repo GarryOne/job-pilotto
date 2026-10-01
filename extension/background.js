@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, tabArmed} from './tab-pages.js';
+import {useTabVerdict, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -329,10 +329,19 @@ retireEverywhere();
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
   // "Use on this tab" in the popup: the user's own click stands in for the fill mark (panel, then the same page decision).
+  if (message?.type === 'tabCheck') {  // the popup asks when it opens, to switch the button off where there is no form
+    (async () => {
+      const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
+      const counts = tab?.id && !neverForm(tab.url) && /^https:/.test(tab.url || '') ? await pageShape(tab.id).catch(() => null) : null;
+      return useTabVerdict(tab?.url, counts ? pageRole(counts) : null);
+    })().then(reply, () => reply({ok: true, why: ''}));
+    return true;
+  }
   if (message?.type === 'useTab') {
     (async () => {
       const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
       if (!tab?.id || !/^https:/.test(tab.url || '')) return {ok: false, why: 'Open the job application page first.'};
+      if (neverForm(tab.url)) return {ok: false, why: useTabVerdict(tab.url).why};
       const url = tab.url.replace(`#${FILL_MARK}`, '');
       decide('panel', 'used on this tab by hand', {host: new URL(url).hostname});
       await chrome.storage.session.set({[`from:${tab.id}`]: url});
