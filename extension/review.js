@@ -48,6 +48,20 @@
       if (box.querySelector('[class*=single-value], [class*=multi-value]')) return true;
     return false;
   };
+  // Some sites empty the file input once a file is attached and show its name instead, in a chip next to or around the input.
+  // Looked for in the field's own area: up through its containers, stopping before one that also holds another field.
+  const FILE_NAME = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i;
+  function showsFileName(input) {
+    let box = input;
+    for (let i = 0; i < 10 && box.parentElement; i++) {
+      const up = box.parentElement;
+      const another = [...up.querySelectorAll('input, textarea, select')].some(other => other !== input && other.type !== 'file' && other.type !== 'hidden' && visible(other));
+      if (another) break;
+      box = up;
+      if (FILE_NAME.test(box.textContent || '')) return true;
+    }
+    return false;
+  }
   function fields() {
     const groups = new Map();
     for (const el of document.querySelectorAll('input, textarea, select')) {
@@ -63,11 +77,7 @@
       groups.set(key, entry);
     }
     for (const entry of groups.values()) {  // a CV some sites show only as a file name once attached
-      if (!entry.filled && entry.el.type === 'file') {
-        let box = entry.el;
-        for (let i = 0; i < 4 && box.parentElement; i++) box = box.parentElement;
-        entry.filled = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i.test(box.textContent || '');
-      }
+      if (!entry.filled && entry.el.type === 'file') entry.filled = showsFileName(entry.el);
     }
     return [...groups.values()];
   }
