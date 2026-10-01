@@ -238,7 +238,7 @@ export function renderNextStep(item) {
   if (review) {
     actions.push(sessionButton('Open filled form', 'primary', async event => {
       const went = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
-      if (went === 'chrome') toastMessage('Form tab not found', 'No open form answered. Look for the tab Claude used in Chrome.');
+      if (went === 'chrome') toastMessage('Form tab not found', 'The form\'s page didn\'t answer. Reload that tab in Chrome (⌘R) so the extension re-attaches to it, then try again.');
     }, 'link'));
     // You pressed Submit in Chrome: say so here too (the Jobs row and Notion move to Applied).
     actions.push(sessionButton('I submitted it', 'secondary', async event => {
