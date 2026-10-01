@@ -193,7 +193,8 @@ async function progress(tabId, text, url = '') {
 function stepBox(tabId, message) {
   return chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [message], func: message => {
     let box = document.getElementById('jobpilotto-progress');
-    if (!message) { box?.remove(); return; }
+    // The panel (review.js) shows the step itself: never a second copy of it in the corner.
+    if (!message || document.getElementById('jobpilotto-review-host')) { box?.remove(); return; }
     if (!box) {
       box = Object.assign(document.createElement('div'), {id: 'jobpilotto-progress'});
       box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;' +
