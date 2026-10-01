@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {closeFormTab, listTabs, pickTab, reloadFormTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
+import {closeFormTab, listTabs, mergeTabs, pickTab, reloadFormTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
 
 const tabs = [
   {win: 1, index: 1, url: 'https://news.ycombinator.com/', title: 'Hacker News'},
@@ -57,4 +57,18 @@ test('off a Mac, Chrome cannot be scripted: no tabs, nothing closed, and the rel
   assert.deepEqual(await listTabs('win32'), []);
   assert.equal(await closeFormTab(job, 'win32'), false);
   assert.equal(await reloadFormTab(job, 'win32'), 'manual');
+});
+
+test('the open-form tabs come from the extension first, with Chrome\'s own scripting added where it knows more', () => {
+  // The extension reports every browser it runs in, but only URLs; Chrome's scripting has titles but reaches one
+  // instance — so a tab only the extension saw is still known to be open (the failure of 1 Oct 2026).
+  const reported = ['https://job-boards.greenhouse.io/canonical/jobs/3014391#apply', 'https://jobs.lever.co/n26/abc'];
+  const scripted = [{win: 1, index: 3, url: 'https://jobs.lever.co/n26/abc', title: 'N26 — Site Reliability Engineer'}];
+  assert.deepEqual(mergeTabs(reported, scripted), [
+    {url: 'https://job-boards.greenhouse.io/canonical/jobs/3014391#apply'},
+    {win: 1, index: 3, url: 'https://jobs.lever.co/n26/abc', title: 'N26 — Site Reliability Engineer'},  // the titled one wins
+  ]);
+  assert.deepEqual(mergeTabs([], scripted), scripted);
+  assert.deepEqual(mergeTabs(reported, []), [{url: reported[0]}, {url: reported[1]}]);
+  assert.deepEqual(mergeTabs([], []), []);
 });

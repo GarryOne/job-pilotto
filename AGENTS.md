@@ -136,6 +136,23 @@ cd desktop && npm test
 env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron .
 ```
 
+### When "no open Chrome tab matches this job" is a lie (macOS, 1 Oct 2026)
+
+macOS keeps **one** Apple Event connection per application, and it goes to whichever "Google Chrome" registered
+first. An automation that leaves a windowless Chrome behind (`--no-startup-window`/`--headless`, launched from
+`~/.claude/jobs/<id>/tmp/` or a temp dir) therefore **owns** Chrome's scripting: `windows()` answers `[]`, so the
+app's focus/reload/close see no tabs at all and the session page says the form's tab is missing while the user is
+looking straight at it. It cost hours to find once.
+
+```sh
+lsappinfo list | grep -A1 '"Google Chrome" ASN'      # two entries: BackgroundOnly (the stray) and Foreground (yours)
+ps -Ao pid,ppid,lstart,command | grep 'MacOS/Google Chrome '   # the stray has ppid 1 (its launcher is gone)
+```
+
+The app now detects this (`desktop/lib/background-chrome.js`) and offers to quit the orphan from the extension card,
+and the extension's own tab report is used for "which forms are open" so scripting is no longer the only source. When
+you launch Chrome yourself in a script, kill it on exit (`trap 'kill $!' EXIT`), or it will hijack the next run.
+
 ## Desktop UI
 Before building or changing a screen in `desktop/renderer`, read `.claude/skills/ui-look-and-feel/SKILL.md` (patterns, reference
 screenshots in `desktop/docs/ui/`, and how to render the change in demo mode to check it).

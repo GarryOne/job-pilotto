@@ -36,6 +36,17 @@ export function reloadTarget(tabs, target, min = 70) {
   return tab && scoreTab(tab, target) >= min ? tab : null;
 }
 
+// One list of open form tabs from both sources: the extension's report (any browser, URLs only) and Chrome's own
+// scripting (one instance, with titles). A URL seen in both keeps the scripting entry, which carries the title the
+// matcher likes; the extension is the source that is always right about *what is open*.
+export function mergeTabs(reported = [], scripted = []) {
+  const key = url => String(url || '').split('#')[0].replace(/\/+$/, '');
+  const byUrl = new Map();
+  for (const url of reported) if (url) byUrl.set(key(url), {url: String(url)});
+  for (const tab of scripted) if (tab?.url) byUrl.set(key(tab.url), tab);
+  return [...byUrl.values()];
+}
+
 // The tab most likely to be this job's form, or null.
 export function pickTab(tabs, target) {
   let best = null, bestScore = 0;

@@ -37,6 +37,16 @@ async function showClaudePrereqs() {
   }));
 }
 
+// A windowless Chrome from an earlier automation holds macOS's one Apple Event connection to Chrome, so the app
+// cannot reach the user's window with its scripting (focus, reload). Nothing owns it any more, so it can be quit.
+function showStray(entry) {
+  const box = $('ext-stray');
+  show(box, !!entry);
+  if (!entry) return;
+  $('ext-stray-text').textContent = `A windowless Chrome from an earlier automation (started ${entry.since}) holds Chrome's scripting connection, so this app can't reach your own Chrome window.`;
+  $('ext-stray-quit').dataset.pid = String(entry.pid);
+}
+
 // ---------- Chrome extension: is it installed (the browser says so at once), and is it awake (its report)? ----------
 // What the card says in each state: the pill is the state, this is the sentence that explains it.
 const EXT_LINE = {
@@ -55,6 +65,7 @@ export async function showExtensionStatus() {
   $('ext-status').replaceWith(pill);
   if (state.checking) { setTimeout(showExtensionStatus, 1500); return; }  // only until the first profile read lands
   $('ext-line').textContent = EXT_LINE[state.state] || EXT_LINE.absent;
+  showStray((await window.pilot.strayChrome().catch(() => []))[0] || null);
   $('ext-path').textContent = found?.folder || '';  // what Chrome's Load unpacked dialog wants pasted
   show($('ext-connect'), state.state === 'idle');
   $('ext-setup').open = state.state !== 'connected';
@@ -351,6 +362,15 @@ export async function init() {
       loadSettings();
     });
   }
+  $('ext-stray-quit').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    const result = await window.pilot.quitStrayChrome(Number(button.dataset.pid)).catch(() => null);
+    button.disabled = false;
+    toastMessage(result?.ok ? 'Background Chrome quit' : 'Couldn\'t quit it',
+      result?.ok ? 'Chrome\'s scripting now reaches your window — press the button again.' : (result?.error || 'Try again.'));
+    showExtensionStatus();
+  });
   // The step-1 chip: best effort at Chrome's page, and the URL on the clipboard so the paste always gets there.
   $('ext-open-page').addEventListener('click', async () => {
     const result = await window.pilot.extensionPage().catch(() => null);

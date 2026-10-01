@@ -980,6 +980,11 @@
           <span class="service-state" id="ext-status"></span>
         </div>
         <p class="message" id="ext-message"></p>
+        <div class="alert tone-warn" id="ext-stray" hidden>
+          <i data-icon="info"></i>
+          <div><strong id="ext-stray-title">A background Chrome is in the way</strong><p id="ext-stray-text"></p></div>
+          <button class="secondary" id="ext-stray-quit">Quit it</button>
+        </div>
         <details class="conn-setup plain" id="ext-setup" open><summary>Install the extension</summary>
           <ol class="conn-steps">
             <li><span class="conn-step-words"><b>Enable Developer mode</b>

@@ -37,7 +37,8 @@ import {sharedCheck} from './lib/shared-check.js';
 import * as pendingLicense from './lib/pending-license.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
-import {closeFormTab, listTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
+import {closeFormTab, listTabs, mergeTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
+import * as backgroundChrome from './lib/background-chrome.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import {log as appLog, logTo} from './lib/log.js';
@@ -1065,7 +1066,10 @@ function handlers() {
   ipcMain.handle('sessionsLeftOpen', async (_, ids) => {
     const all = (Array.isArray(ids) ? ids : []).map(id => terminals.get(String(id))).filter(Boolean);
     // A form still open in Chrome can be resumed as it is: kept without asking. Only the others are asked about.
-    const open = DEMO ? new Set() : withOpenForm(all, await listTabs());
+    // What is open comes from the extension's report first (every browser it runs in), with Chrome's own scripting
+    // added when it can see anything: a stray background Chrome made that scripting list empty, and sessions whose
+    // forms were open looked closed (1 Oct 2026).
+    const open = DEMO ? new Set() : withOpenForm(all, mergeTabs(server.openTabs(), await listTabs()));
     terminals.markAsked([...open]);
     const found = all.filter(session => !open.has(session.id));
     if (!found.length) return {choice: 'keep', kept: open.size};
@@ -1280,7 +1284,10 @@ function handlers() {
     // 2. No page answered (a panel from an older extension instance can't): Chrome's own scripting can reload the
     //    tab without the extension. It needs the user's Automation permission, and it reaches one instance only.
     const result = await reloadFormTab({url: String(url), company: String(company || '')});
-    if (result !== 'reloaded') return {result, extension: seen?.version || '', latest, outdated: !current};
+    if (result !== 'reloaded') {
+      return {result, extension: seen?.version || '', latest, outdated: !current,
+        stray: result === 'no-window' ? (await backgroundChrome.stray())[0] || null : null};
+    }
     await new Promise(resolve => setTimeout(resolve, 2500));  // the panel boots and reports within a second or two
     return {result: 'reloaded-chrome', extension: seen?.version || '', latest, ...(await showForm(String(id), '', String(url), String(company || '')))};
   });
@@ -1293,6 +1300,11 @@ function handlers() {
   });
   ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? path.join(pipeline.REPO, 'extension') : storage.dir));
   ipcMain.handle('extensionInfo', () => ({url: `http://127.0.0.1:${server.PORT}`, token: server.extensionToken(storage)}));
+  // A windowless Chrome left behind by an automation holds macOS's one Apple Event connection to Chrome, so this app
+  // cannot reach the user's own window. Reported so the card can offer to quit it; only ever an orphaned one
+  // (lib/background-chrome.js), never a running automation's.
+  ipcMain.handle('strayChrome', () => backgroundChrome.stray());
+  ipcMain.handle('quitStrayChrome', (_, pid) => backgroundChrome.quit(Number(pid)));
   const extensionFolder = () => path.join(pipeline.REPO, 'extension');
   // The Chrome extension from the browsers' own records: is it installed, is it on, is that browser up, and which
   // copy is loaded. A file read answers in milliseconds — Settings no longer shows "Checking…" for a minute and then

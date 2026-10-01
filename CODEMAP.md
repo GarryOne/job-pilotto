@@ -17,6 +17,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
 - `desktop/lib/apply.js` — "Apply to N jobs": pick the N best open jobs and start applying.
+- `desktop/lib/background-chrome.js` — A Chrome an automation left behind is not just clutter: macOS keeps ONE Apple Event connection per application, and
 - `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
