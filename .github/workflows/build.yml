@@ -46,8 +46,19 @@ jobs:
         working-directory: site
 
   desktop:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Both platforms, on every push: Windows is where the app's platform branches really run (Credential
+    # Manager instead of the Keychain, python.exe, node-pty, Git Bash for Claude Code). The release
+    # workflow tests Windows too, but only on pushes that touch the app — this catches a Windows break
+    # in any change, before a build is made. fail-fast off, so both platforms report.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
