@@ -556,6 +556,8 @@ def main():
             # Keep the source-specific history separate, then import the report.
             # sources.json plus every active feed the scout found (local table + Notion Source Registry).
             feed_list = scout.active_sources(db, tracker, sources, downloaded_index())
+            if employer_index.problem:  # said on the run, not only in its log: the check then crawled a small list
+                run['warnings'].append(f'Employer index not downloaded ({employer_index.problem}): this check crawled {len(feed_list)} feeds, not the full list')
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
                 report = feeds.scan(feed_list, feed_db)
                 # Paid per search, so only full crawls use it; off without SERPAPI_API_KEY.

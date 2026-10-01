@@ -6,6 +6,7 @@ disk and fetched at most once a day; if the service is down the cache is used (h
 """
 from datetime import datetime, timedelta, timezone
 import json
+import time
 import os
 import re
 import urllib.request
@@ -55,8 +56,15 @@ def _read(cache):
         return None
 
 
-def load(cache=None, url=None, get=_get, now=None, install_id=None):
+problem = ''   # why the last load() could not download the index ('' when it could, or did not need to): the run reports it
+RETRY_WAIT = 3   # seconds before the one retry of a failed download (a blip must not cost the whole crawl its 247 feeds)
+
+
+def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=None):
     """The downloaded index (list of feeds), from the cache when it is under a day old. Never raises."""
+    global problem
+    problem = ''
+    retry_wait = RETRY_WAIT if retry_wait is None else retry_wait
     cache = cache or CACHE
     url = url or os.getenv('JOB_PILOTTO_INDEX_URL') or URL
     now = now or datetime.now(timezone.utc)
@@ -74,17 +82,25 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None):
     if stored and stored['etag']:
         headers['If-None-Match'] = stored['etag']
     try:
-        status, body, etag = get(url, headers)
-        if status == 304 and stored:
-            feeds, etag = stored['feeds'], stored['etag']
-        else:
-            feeds = clean(json.loads(body).get('feeds'))
+        for attempt in (1, 2):
+            try:
+                status, body, etag = get(url, headers)
+                if status == 304 and stored:
+                    feeds, etag = stored['feeds'], stored['etag']
+                else:
+                    feeds = clean(json.loads(body).get('feeds'))
+                break
+            except Exception:  # noqa: BLE001 — once more after a short wait, then the outer handler decides
+                if attempt == 2:
+                    raise
+                time.sleep(retry_wait)
         entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'feeds': feeds}
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
         return feeds
     except Exception as error:  # noqa: BLE001 — the index is a bonus: any trouble means "use what we have"
-        print(f'Warning: employer index not downloaded ({type(error).__name__}: {error}); '
+        problem = f'{type(error).__name__}: {error}'
+        print(f'Warning: employer index not downloaded ({problem}); '
               f'using {"the cache" if stored else "the starter list only"}')
         return stored['feeds'] if stored else []
 

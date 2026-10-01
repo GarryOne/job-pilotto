@@ -62,13 +62,27 @@ class LoadTest(unittest.TestCase):
 
         def down(url, headers):
             raise urllib.error.URLError('offline')
-        feeds = employer_index.load(self.cache, 'u', down, NOW + timedelta(days=9))
+        feeds = employer_index.load(self.cache, 'u', down, NOW + timedelta(days=9), retry_wait=0)
         self.assertEqual([f['slug'] for f in feeds], ['bigco'])
+
+    def test_a_blip_is_retried_once_before_giving_up(self):
+        calls = []
+        base = server(calls)
+
+        def blip(url, headers):
+            if not calls:
+                calls.append('failed')
+                raise urllib.error.URLError('blip')
+            return base(url, headers)
+        feeds = employer_index.load(self.cache, 'u', blip, NOW, retry_wait=0)
+        self.assertEqual([f['slug'] for f in feeds], ['bigco'])
+        self.assertEqual(employer_index.problem, '')
 
     def test_service_down_and_no_cache_is_empty_not_an_error(self):
         def down(url, headers):
             raise urllib.error.URLError('offline')
-        self.assertEqual(employer_index.load(self.cache, 'u', down, NOW), [])
+        self.assertEqual(employer_index.load(self.cache, 'u', down, NOW, retry_wait=0), [])
+        self.assertIn('offline', employer_index.problem)
         self.assertFalse(self.cache.exists())
 
     def test_garbage_answers_and_a_corrupt_cache_are_survived(self):
