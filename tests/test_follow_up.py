@@ -205,8 +205,8 @@ class FollowUpFocusTest(unittest.TestCase):
                       focus_event('d1', 'Replied', '2026-09-28T10:05:00+02:00', 'You wrote: Hi Márton', 'chat:1', 'Job Pilotto app'),
                       *events]
 
-    def items(self, rows, events, now):
-        return [i for i in focus.build(rows, events, now=now)['items'] if i['page_id'] == 'd1']
+    def items(self, rows, events, now, interviews=()):
+        return [i for i in focus.build(rows, events, interviews, now=now)['items'] if i['page_id'] == 'd1']
 
     def test_the_real_case_follow_up_after_a_day(self):
         rows, events = self.duvo()
@@ -219,6 +219,23 @@ class FollowUpFocusTest(unittest.TestCase):
         # Not before 24 hours: the same message, 20 hours later, is too early.
         early = datetime(2026, 9, 29, 6, 5, tzinfo=timezone.utc)
         self.assertEqual(self.items(rows, events, early), [])
+
+    def test_a_call_reviewed_since_you_wrote_is_not_still_waiting(self):
+        # You wrote Wednesday. Thursday the call happened and you saved the review. "No reply yet" would
+        # chase a message the meeting already answered.
+        rows, events = self.duvo(stage='Interviewing')
+        review = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-10-01'}},
+                                 'Overall': {'type': 'select', 'select': {'name': 'positive'}},
+                                 'Next step': {'type': 'rich_text', 'rich_text': [{'plain_text': 'Recruiter will pass the details on'}]},
+                                 'Application': {'type': 'relation', 'relation': [{'id': 'd1'}]}}}
+        kinds = [i['kind'] for i in self.items(rows, events, datetime(2026, 10, 1, 14, 0, tzinfo=timezone.utc), [review])]
+        self.assertNotIn('follow_up', kinds)
+        self.assertIn('waiting', kinds)
+        # A review from before that message does not settle it: you wrote again and they still haven't answered.
+        older = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-27'}},
+                                'Overall': {'type': 'select', 'select': {'name': 'positive'}},
+                                'Application': {'type': 'relation', 'relation': [{'id': 'd1'}]}}}
+        self.assertEqual(self.items(rows, events, NOW, [older])[0]['kind'], 'follow_up')
 
     def test_their_later_message_means_no_follow_up(self):
         rows, events = self.duvo(focus_event('d1', 'Reply received', '2026-09-29T09:00:00Z', 'Thursday?', 'gm9', 'Gmail'))

@@ -452,7 +452,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    f"It was {coming.astimezone(TZ):%a %d %b}. It's recorded: review it (Interviews) "
                                    'while you remember it: you get a review of every answer.', row))
                 continue
-        follow = follow_up(row, history, now) if not (coming and coming > now) else None
+        follow = follow_up(row, history, now, seen) if not (coming and coming > now) else None
         if follow:  # you wrote last and they haven't answered: before "move it forward", which it replaces
             items.append(follow)
             continue
@@ -535,13 +535,17 @@ def _days_ago(days, short=False):
     return 'yesterday' if days <= 1 else f'{days} days ago'
 
 
-def follow_up(row, history, now):
+def follow_up(row, history, now, interviewed=None):
     """The follow-up item for one application, or None: its latest message (bookkeeping aside) is yours ("Replied":
     sent by email, logged from a chat, or Done in Focus), at least FOLLOW_UP_HOURS old and at most STALE_DAYS, and
-    nothing of theirs came after it. Done logs another "Replied" (now): it comes back after another interval."""
+    nothing of theirs came after it. A call reviewed on or after that message settles it: the meeting was the next
+    step, so "no reply yet" is stale. Done logs another "Replied" (now): it comes back after another interval."""
     messages = [e for e in history if e['kind'] in YOURS | THEIRS and e['at'] and not _bookkeeping(e)]
     last = messages[-1] if messages else None
     if not last or last['kind'] not in YOURS:
+        return None
+    reviewed = (interviewed or {}).get('reviewed') or ''
+    if reviewed and reviewed >= last['at'].astimezone(TZ).date().isoformat():
         return None
     hours = (now - last['at']).total_seconds() / 3600
     if not FOLLOW_UP_HOURS <= hours <= STALE_DAYS * 24:
