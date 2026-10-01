@@ -357,6 +357,10 @@ export function renderNextStep(item) {
     } else {
       actions.push(sessionButton('Answer', 'primary', () => openLog(true), 'chat'));
     }
+    // The form is waiting in Chrome while Claude asks: one click to look at it, as when it works.
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
+      await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+    }, 'link'));
     actions.push(submittedButton(item));
     actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
   } else if (running) {
