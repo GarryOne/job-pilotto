@@ -15,6 +15,7 @@ import path from 'node:path';
 const claudeBinary = async () => (await import('./apply.js')).claudeBinary();
 
 export const NOTICE = 'Job Pilotto will run your own Claude Code on this Mac. It uses your Claude plan\'s usage limits, not API credits. '
+  + 'Scheduled runs in your GitHub repository (Always on) still use your API key. '
   + 'You stay in control: switch back to an API key any time.';
 export const ENGINES = ['api', 'cli'];
 const ALIASES = [['claude-haiku', 'haiku'], ['claude-sonnet', 'sonnet'], ['claude-opus', 'opus']];
