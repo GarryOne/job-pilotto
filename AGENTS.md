@@ -95,8 +95,16 @@ them from colliding in one checkout:
   (`python3 -m unittest discover -s tests`, `cd worker && npm test`), then
   `git push origin <topic>:main` (fast-forward only; if it's rejected, fetch, rebase and test again).
 - Remove the worktree afterwards: `tools/worktree.sh --done <topic>`.
-- Never force-push `main`, and never use a bare `git stash`/`stash pop`: the stash stack is shared
-  across worktrees and sessions.
+- Never force-push `main` — not `--force`, not `--force-with-lease`. Several agents push here in
+  parallel, and a force-push deletes every commit that landed since your last fetch, silently. This
+  happened on 1 Oct 2026: a `--force-with-lease` during a rebase dropped `8dce9ba` ("Windows update:
+  install after the app has quit…"), which another session had pushed minutes earlier.
+  `--force-with-lease` does not protect you: it only checks the remote is where *you* last saw it. If
+  a push is rejected as non-fast-forward, the remote moved — fetch, rebase again, keep **both** sides'
+  work in any conflict, run the tests, and push normally. Fixing an already-pushed commit means a
+  second commit, not an amend. If you do clobber one, recover it from the reflog in the same turn
+  (`git reflog` → the old `origin/main` tip → `git rebase <sha>` → normal push) and say what happened.
+- Never use a bare `git stash`/`stash pop`: the stash stack is shared across worktrees and sessions.
 - Read-only work and Notion-only updates don't need a worktree.
 
 ## If you're not Claude Code (Codex, Grok, the DeepSeek Harness, anything else)
