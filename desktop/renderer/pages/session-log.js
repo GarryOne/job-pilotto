@@ -8,6 +8,7 @@ import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {isSubmitted} from '../session-state.js';
+import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
 import {toastMessage} from './startup.js';
@@ -15,9 +16,12 @@ import {toastMessage} from './startup.js';
 export async function openSession(id) {
   if (!id) return;
   if (id !== shared.openSessionId) shared.termShownFor = null;  // the log shows this session's output once it's open
-  if (!sessionTail[id]) sessionTail[id] = String(await window.pilot.sessionOutput(id) || '').slice(-6000);
   shared.openSessionId = id;
-  openView('sessions');
+  openView('sessions');  // the list we already have, before the log is read (that read is what made the page feel stuck)
+  if (!sessionTail[id]) {
+    const output = await window.pilot.sessionOutput(id).catch(() => '');
+    if (shared.openSessionId === id) sessionTail[id] = String(output || '').slice(-6000);
+  }
   await refreshSessions();
 }
 // The header has nothing to say about a session that isn't there (or isn't known yet).
@@ -34,16 +38,14 @@ export function renderSessionPage() {
   const item = sessionList.find(entry => entry.id === shared.openSessionId) || sessionList[0];
   if (item && item.id !== shared.openSessionId) { shared.openSessionId = item.id; shared.termShownFor = null; }
   if (item) remembered('session', item.id);
-  // Three states, never a guess: nothing known yet → the spinner; a remembered list → the page, with "Updating…";
-  // the app's own list and it is empty → the page's own empty state. The two-pane shell never paints before the
-  // state is known (1 Oct 2026: it sat there for seconds with an empty message box and a dead log).
-  const none = !sessionList.length;
-  const unknown = !sessionsLoaded && none;
-  show($('ss-loading'), unknown);
-  show($('ss-empty'), !unknown && none);
-  show($('ss-grid'), !unknown && !none);
-  show($('ss-refreshing'), sessionsFromCache && !none && !unknown);
-  if (unknown) { clearHeader(); return; }  // nothing to describe yet
+  // Nothing read yet → the spinner. A remembered list, even an empty one, is the page (Updating… until the app
+  // answers). The app's own empty list → the empty state. The shell never paints before one of those is known.
+  const panels = sessionPanels({loaded: sessionsLoaded, count: sessionList.length, fromCache: sessionsFromCache});
+  show($('ss-loading'), panels.loading);
+  show($('ss-empty'), panels.empty);
+  show($('ss-grid'), panels.grid);
+  show($('ss-refreshing'), panels.refreshing);
+  if (panels.loading) { clearHeader(); return; }  // nothing to describe yet
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
     const [label, tone] = sessionState(entry);
     const li = el('li', `ss-row tone-${tone}${entry.id === item?.id ? ' is-current' : ''}`);

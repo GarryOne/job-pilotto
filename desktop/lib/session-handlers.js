@@ -42,7 +42,13 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   // Apply with Claude sessions inside the app (lib/terminals.js): the dock, the session page and its terminal.
   // Demo mode: fictional sessions (demo/sessions.json) for screenshots; nothing runs.
   const demoSessions = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'sessions.json'), 'utf8'));
-  checkedSessions.handle('sessions', () => (DEMO ? demoSessions() : terminals.list()));
+  checkedSessions.handle('sessions', () => {
+    const started = Date.now();
+    const list = DEMO ? demoSessions() : terminals.list();
+    const ms = Date.now() - started;
+    if (ms >= 50) appLog('sessions', 'list was slow', {count: list.length, ms});
+    return list;
+  });
   const demoOutput = () => (process.env.JOB_PILOTTO_DEMO_OUTPUT ? fs.readFileSync(process.env.JOB_PILOTTO_DEMO_OUTPUT, 'utf8')  // a recorded session
     : '\x1b[2m19:10:02\x1b[0m \x1b[32m✓\x1b[0m Loaded the kit, Profile and answers from Notion\r\n\x1b[2m19:10:06\x1b[0m \x1b[32m✓\x1b[0m Opened the posting in Chrome\r\n' +
       '\x1b[2m19:10:09\x1b[0m \x1b[33m!\x1b[0m Location: San Francisco, CA · On-site\r\n\x1b[2m19:10:11\x1b[0m \x1b[35m⏸\x1b[0m Paused before opening the form. Waiting for your reply…\r\n\r\n\x1b[1m>\x1b[0m ');

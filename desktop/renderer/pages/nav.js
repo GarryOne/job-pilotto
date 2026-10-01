@@ -5,7 +5,7 @@ import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
 import {loadInterviews} from './interviews.js';
 import {loadSettings} from './profile.js';
-import {openSession} from './session-log.js';
+import {openSession, renderSessionPage} from './session-log.js';
 import {bestSession, renderDock, sessionList} from './sessions.js';
 import {settingsPage, showServicesNow} from './settings.js';
 import {loadStrategy} from './strategy.js';
@@ -26,6 +26,7 @@ export function openView(name, {fromHistory = false} = {}) {
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
+  if (name === 'sessions') renderSessionPage();  // the view's HTML starts on the spinner; opening it must paint the list we already have
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
   if (name === 'settings') {
     settingsPage('overview');

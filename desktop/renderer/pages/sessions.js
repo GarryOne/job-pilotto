@@ -5,7 +5,7 @@ import {avatar} from '../jobs-view.js';
 import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
 import {asksYou, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
-import {rememberSessions, rememberedSessions} from '../sessions-cache.js';
+import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
@@ -45,15 +45,18 @@ export async function refreshSessions() {
   if (fresh) { sessionList = stillOpen(fresh); rememberSessions(sessionList); }  // a failed read keeps what we have, it doesn't blank it
   sessionsLoaded = true;
   sessionsFromCache = false;
+  // Paint before listeners run: one of them throwing used to skip the paint and leave the spinner up.
+  const page = document.querySelector('.view[data-view="sessions"]');
+  if (page && !page.hidden) renderSessionPage();
   document.dispatchEvent(new Event('sessions-loaded'));
   renderDock();
-  if (!document.querySelector('.view[data-view="sessions"]').hidden) renderSessionPage();
 }
 // The last known sessions paint at once on the next load (the app's own list replaces them in refreshSessions).
 // Here rather than in a page module: an imported binding is read-only, so only this module can set it.
 if (!sessionList.length) {
   const kept = rememberedSessions();
-  if (kept.length) { sessionList = stillOpen(kept); sessionsFromCache = true; }
+  // An empty remembered list is an answer too (the last sessions were submitted): the page shows that, not the spinner.
+  if (kept.length || hasSessionCache()) { sessionList = stillOpen(kept); sessionsFromCache = true; }
 }
 
 export function sessionLogo(item) {
