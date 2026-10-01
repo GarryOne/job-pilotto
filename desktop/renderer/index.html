@@ -349,6 +349,7 @@
         <div class="list-left"><span id="jobs-count"></span>
           <span class="filter-chip" id="jobs-filter" hidden><span id="jobs-filter-text"></span><button class="filter-chip-x" id="jobs-filter-clear" title="Show all jobs" aria-label="Clear the filter"><i data-icon="close"></i></button></span>
           <button class="link" id="jobs-filter-back" hidden>← Back to Focus</button>
+          <button class="link" id="import-open" title="A job that is not in Job Pilotto yet. Paste its link and it is scored like one the search found">+ Add a job…</button>
           <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
           <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log job activity…</button></div>
         <div class="density" role="group" aria-label="List density">
@@ -1314,6 +1315,19 @@
   <div class="dialog-foot"><button class="secondary" id="save-close" hidden>Close</button><button class="primary" id="save-retry" hidden>Try again</button></div>
 </dialog>
 
+<dialog id="import-dialog">
+  <form method="dialog">
+    <h2>➕ Add a job</h2>
+    <p class="muted small">Paste a job link. Job Pilotto reads the posting, scores it against your profile, and adds it to Jobs as a new match. It is not marked Applied.</p>
+    <label for="import-url">Job link</label>
+    <input id="import-url" type="url" placeholder="https://…" required>
+    <p class="message" id="import-message"></p>
+    <div class="actions">
+      <button class="ghost" value="cancel" formnovalidate>Close</button>
+      <button class="primary" id="import-go" value="default">Add it</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="applied-dialog">
   <form method="dialog">
     <h2>📥 Applied elsewhere</h2>

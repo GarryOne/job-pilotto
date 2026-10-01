@@ -157,6 +157,16 @@ export async function jobs(storage) {
 // A job applied to elsewhere: Applications row (Applied, with the date), the event, the frozen record, a Gmail
 // check, and the job in the Jobs list as Applied. Waits for it, so the list can refresh; returns its one line.
 // details: {title, company, text, origin} (origin: 'inbound' when a recruiter or company wrote first) for pages that aren't read (LinkedIn…); the AI stages then score it like a found job.
+// A job the search has not found: one link, then the same read, facts, fit score and Job Matches row a found
+// job gets. It stays New. It is not marked Applied.
+export async function importJob(storage, url, onLine = () => {}) {
+  const {code, stdout, result} = await run(storage, dailyArgs(storage, {mode: 'import', job: url}), onLine);
+  const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
+  const text = readable(line);
+  const ok = code === 0 && !text.startsWith('⚠️');
+  return {ok, text: text || 'Could not add it (see the activity log)', job: ok ? (jobFromResult(result) || jobFrom(stdout.split('\n'))) : null};
+}
+
 export async function addApplied(storage, url, when = '', onLine = () => {}, details = {}) {
   const inputs = {mode: 'add', job: url, note: when, jobTitle: details.title, jobCompany: details.company, jobText: details.text, origin: details.origin};
   const {code, stdout, result} = await run(storage, dailyArgs(storage, inputs), onLine);

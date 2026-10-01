@@ -51,7 +51,9 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     candidates, blocked = digest.eligible_jobs(db)
     fits = score.load(db)
     local = {(job.get('url') or '').strip(): job for job in candidates}
-    hidden = {(job.get('url') or '').strip() for job in blocked}
+    # A link you added stays in the list even when a crawl would have filtered that company or that wording out.
+    asked = {(job.get('url') or '').strip() for job in candidates + blocked if (job.get('notes') or '') == 'imported'}
+    hidden = {(job.get('url') or '').strip() for job in blocked} - asked
     rows = []
 
     def row(job, fit, reason, status, stage, step, page, **extra):
@@ -71,7 +73,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
         for item in notion_jobs:
             url, stage = item['url'], item.get('stage')
             seen.add(url)
-            if url in hidden or digest.company_excluded(item) or (item.get('match_status') in GONE and not stage):
+            if url in hidden or (digest.company_excluded(item) and url not in asked) or (item.get('match_status') in GONE and not stage):
                 continue
             status = stage_status(stage) if stage else {'Applied': 'applied', 'Dismissed': 'dismissed'}.get(item.get('match_status'), 'unreviewed')
             cached = local.get(url)

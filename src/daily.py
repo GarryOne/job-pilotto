@@ -10,7 +10,7 @@ import random
 import re
 import sys
 
-from . import contribute, digest, employer_index, features, scout, store, telegram
+from . import contribute, digest, employer_index, features, import_url, scout, store, telegram
 from . import doctor
 from .ai import added, budget, cost, enrich, inbox, insights, interview_insights, interviews, kit, provenance, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
@@ -51,7 +51,7 @@ def top_new(report, scored, limit=3):
 
 
 STALE_DAYS = 7  # A job not seen by a full crawl for this long is closed (reopened if seen again).
-MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview', 'add')
+MODES = ('scheduled', 'run', 'today', 'apply', 'more', 'prepare', 'insight', 'weekly', 'interview', 'add', 'import')
 
 
 def find_job(db, code):
@@ -313,6 +313,27 @@ def main():
     # confirmed step's run (--reading carries it).
     if tracker and (args.send or args.log_run) and not args.propose:
         cron_runs.auto_begin(tracker)  # the run's ⏱️ Search runs row opens when it starts
+    if args.mode == 'import':
+        # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
+        if not args.job or not tracker:
+            raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
+        run = new_cron_run('import')
+        try:
+            with store.connect(args.db) as db:
+                outcome = import_url.run(db, tracker, _job_arg(args.job), stats=run)
+            reply = outcome['line']
+            if outcome.get('row') and outcome.get('created'):
+                cron_runs.log_job(run, outcome['row'], True)
+            run['subject'] = outcome.get('subject') or ''
+        except ValueError as error:
+            reply = f'⚠️ {error}'
+            outcome = {}
+        failed = reply.startswith('⚠️')
+        run['headline'] = log_text(reply).split('\n')[0][:300]
+        if not (failed and not cron_runs.total_usd(run)):
+            log_ai_run(tracker, run, args, failed=failed)
+        print(log_text(reply))
+        return 1 if failed else 0
     if args.mode == 'apply':
         if not args.job or not tracker:
             raise SystemExit('--mode apply requires --job and NOTION_TOKEN')

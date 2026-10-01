@@ -40,7 +40,7 @@ def new_run(mode):
 
 
 # The jobs that always end with a row (log_run), so opening one at the start is safe (see begin()).
-LOGGED_MODES = {'scheduled', 'run', 'today', 'prepare', 'add', 'interview', 'insight', 'weekly', 'mail', 'rejection', 'scout', 'prep'}
+LOGGED_MODES = {'scheduled', 'run', 'today', 'prepare', 'add', 'interview', 'insight', 'weekly', 'mail', 'rejection', 'scout', 'prep', 'import'}
 _auto = {}
 
 
@@ -201,7 +201,7 @@ CRAWL_MODES = {'scheduled', 'run', 'today'}
 # The row's kind, the second part of its title (its Mode column keeps the raw mode; nothing matches rows by title).
 KINDS = {'scheduled': 'Jobs check', 'run': 'Jobs check', 'today': 'Jobs check', 'mail': 'Gmail check', 'scout': 'Find employers',
          'add': 'Log activity', 'interview': 'Interview review', 'prepare': 'Application kit', 'prep': 'Interview prep',
-         'rejection': 'Rejection review', 'insight': 'Insight', 'weekly': 'Weekly report'}
+         'rejection': 'Rejection review', 'insight': 'Insight', 'weekly': 'Weekly report', 'import': 'Add a job'}
 TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
 SUBJECT_MAX = 60
 

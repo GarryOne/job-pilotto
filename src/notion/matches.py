@@ -135,6 +135,33 @@ def adopt_existing(db, tracker, known):
     return adopted
 
 
+def write_one(db, tracker, job):
+    """Write this one scored job as Open. Other Job Matches rows are left as they are.
+
+    A row Notion already has for this URL is updated, so a reset cache does not create a second page.
+    Returns (page id, created)."""
+    db.executescript(SYNC_TABLE)
+    url = job['url'].strip()
+    props = properties(job, 'Open')
+    digest = _hash(props)
+    row = db.execute('SELECT page_id, data_hash FROM notion_matches WHERE url=?', (url,)).fetchone()
+    if row is None and hasattr(tracker, 'query_database'):
+        pages = tracker.query_database(notion.MATCHES_DATABASE_ID,
+                                        {'property': 'Job URL', 'url': {'equals': url}}) or []
+        if pages:
+            db.execute('INSERT OR IGNORE INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?)',
+                       (url, pages[0]['id'], ''))
+            row = db.execute('SELECT page_id, data_hash FROM notion_matches WHERE url=?', (url,)).fetchone()
+    if row and row['data_hash'] == digest:
+        return row['page_id'], False
+    page_id = tracker.upsert_match(props, row['page_id'] if row else None)
+    db.execute('INSERT INTO notion_matches (url, page_id, data_hash) VALUES (?, ?, ?) '
+               'ON CONFLICT(url) DO UPDATE SET page_id=excluded.page_id, data_hash=excluded.data_hash',
+               (url, page_id, digest))
+    db.commit()
+    return page_id, row is None
+
+
 def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset()):
     """Write changed rows; returns a one-line summary. Stops quietly on the first API error."""
     db.executescript(SYNC_TABLE)

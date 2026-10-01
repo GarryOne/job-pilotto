@@ -66,7 +66,7 @@ export const KIND = {search: {icon: '🔎', line: 'search', name: 'Jobs check'},
   interviewInsight: {icon: '💡', line: 'bulb', name: 'Interview insights'},
   weekly: {icon: '📊', line: 'file', name: 'Weekly report'}, today: {icon: '📋', line: 'send', name: "Today's list"}, scout: {icon: '🔭', line: 'building', name: 'Find new employers'},
   action: {icon: '⚡', line: 'zap', name: 'Telegram action'}, prepare: {icon: '📝', line: 'file-text', name: 'Application kit'}, interview: {icon: '🎤', line: 'mic', name: 'Interview review'},
-  add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
+  add: {icon: '📥', line: 'inbox', name: 'Logged activity'}, import: {icon: '➕', line: 'search', name: 'Add a job'}, rejection: {icon: '🔍', line: 'search', name: 'Rejection review'},
   prep: {icon: '🎤', line: 'mic', name: 'Interview prep kit'}};
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};

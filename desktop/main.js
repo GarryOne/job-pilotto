@@ -740,6 +740,11 @@ function handlers() {
     try { return await telegram.runCommand(storage, name, arg, log, undefined, dispatchNote); } catch (error) { return {text: `⚠️ ${error.message}`}; }
   });
   // Jobs → Applied elsewhere: tracked like /add, but waited for, so the list shows it as Applied right away.
+  ipcMain.handle('importJob', async (_, url) => {
+    if (DEMO) return {ok: true, text: 'Added (demo): nothing was written.'};
+    if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first. Jobs are kept there.'};
+    try { return await pipeline.importJob(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
+  });
   ipcMain.handle('addApplied', async (_, url, when = '', details = {}) => {
     if (DEMO) return {ok: true, text: 'Tracked (demo): nothing was written.'};
     if (!storage.secret('NOTION_TOKEN')) return {ok: false, text: 'Connect Notion first: applications are tracked there.'};

@@ -843,6 +843,27 @@ export async function init() {
     if (kind === 'companies' && statFilter) $('sort-by').value = 'company';
     renderJobs();
   }));
+  // Add a job: one link, then the find path (read, score, Job Matches). It shows under New matches.
+  $('import-open').addEventListener('click', () => {
+    message('import-message', '');
+    $('import-go').disabled = false;
+    $('import-dialog').showModal();
+    $('import-url').focus();
+  });
+  $('import-go').addEventListener('click', async event => {
+    event.preventDefault();
+    const url = $('import-url').value.trim();
+    if (!/^https?:\/\//.test(url)) { message('import-message', 'Paste the job link (it starts with https://).', 'error'); return; }
+    $('import-go').disabled = true;
+    message('import-message', 'Reading the posting and scoring it…', 'waiting');
+    const result = await window.pilot.importJob(url);
+    $('import-go').disabled = false;
+    message('import-message', result.text, result.ok ? 'ok' : 'error');
+    if (!result.ok) return;
+    $('import-url').value = '';
+    $('filter-status').value = 'open';
+    loadJobs();
+  });
   // Applied elsewhere: tracked in Notion like /add, then shown in the list as Applied.
   const setAppliedOrigin = value => $('applied-origin').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.origin === value));
   const appliedOrigin = () => $('applied-origin').querySelector('.is-active')?.dataset.origin || 'outbound';

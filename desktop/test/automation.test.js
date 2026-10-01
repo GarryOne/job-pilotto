@@ -91,6 +91,9 @@ test('Telegram actions run the same pipeline command as the GitHub workflow', ()
   // Applied elsewhere: who reached out first (a recruiter wrote first = inbound) goes along.
   assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'add', job: 'https://x.test/1', note: '2026-09-23', origin: 'inbound'}),
     ['src', 'daily', '--mode', 'add', '--send', '--log-run', '--job', 'https://x.test/1', '--action', 'applied', '--note', '2026-09-23', '--origin', 'inbound']);
+  // Add a job: the find path. --action is the shared default; import mode does not mark the job Applied.
+  assert.deepEqual(pipeline.dailyArgs(storage, {mode: 'import', job: 'https://boards.greenhouse.io/acme/jobs/1'}),
+    ['src', 'daily', '--mode', 'import', '--send', '--log-run', '--job', 'https://boards.greenhouse.io/acme/jobs/1', '--action', 'applied']);
 });
 
 test('pairing waits for Start in a private chat, then greets the user', async () => {

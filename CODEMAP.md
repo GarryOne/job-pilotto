@@ -222,6 +222,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/features.py` — Optional features: what each one needs, what it costs, and one switch to turn any of them off.
 - `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
+- `src/import_url.py` — One job link, put through the same path as a job a search found.
 - `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
 - `src/notion/cron_runs.py` — Notion "⏰ Cronjob Runs": one row per scheduled pipeline run, with its cost and a mini-report.
 - `src/notion/dedupe.py` — One Job Matches row per job: find rows that are the same job (same URL, ignoring tracking parameters, a
