@@ -203,19 +203,24 @@
     return box.checked === want;
   };
 
-  const attachResume = resume => {
+  // Put a PDF into the file input whose surroundings match `pattern` (a lone file input takes it when `alone`).
+  const attachFile = (file, pattern, alone, skip = null) => {
     const inputs = Array.from(document.querySelectorAll('input[type=file]'));
     const context = el => `${el.id} ${el.name} ${el.getAttribute('aria-label') || ''} ${el.closest('div, fieldset, section')?.textContent || ''}`;
-    const input = inputs.find(el => /resume|\bcv\b|lebenslauf/i.test(context(el))) || (inputs.length === 1 ? inputs[0] : null);
+    const input = inputs.find(el => pattern.test(context(el)) && !(skip && skip.test(`${el.id} ${el.name} ${el.getAttribute('aria-label') || ''}`)))
+      || (alone && inputs.length === 1 ? inputs[0] : null);
     if (!input || input.files?.length) return false;
-    const bytes = Uint8Array.from(atob(resume.data), c => c.charCodeAt(0));
+    const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
     const transfer = new DataTransfer();
-    transfer.items.add(new File([bytes], resume.name, {type: resume.type || 'application/pdf'}));
+    transfer.items.add(new File([bytes], file.name, {type: file.type || 'application/pdf'}));
     input.files = transfer.files;
     input.dispatchEvent(new Event('input', {bubbles: true}));
     input.dispatchEvent(new Event('change', {bubbles: true}));
     return true;
   };
+  const attachResume = resume => attachFile(resume, /resume|\bcv\b|lebenslauf/i, true, /cover/i);
+  // The approved general cover letter as a file, only into an input that says Cover letter (never a lone input).
+  const attachCoverLetter = file => attachFile(file, /cover\s*letter|anschreiben/i, false);
 
   // Tick every visible terms/privacy/consent box and hand Submit to the user (the extension never submits).
   const tickConsents = () => {
@@ -390,6 +395,8 @@
     }
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);
     const resumeAttached = resume?.data ? attachResume(resume) : false;
+    const letterFileAttached = resume?.coverLetterFile ? attachCoverLetter(resume.coverLetterFile) : false;
+    if (letterFileAttached) filled += 1;
     if (coverLetter && await fillCoverLetter(coverLetter)) filled += 1;
     await sleep(300);
     // One row per checkbox group (not per option); legal boxes named by their question, not their id.

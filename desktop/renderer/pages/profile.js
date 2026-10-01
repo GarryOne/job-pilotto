@@ -17,7 +17,58 @@ export function profileTab(name) {
     show(panel, panel.dataset.profilePanel === name);
   });
   if (name === 'answers') loadAnswers();
+  else if (name === 'letter') loadLetter();
   else { loadCvSetting(); showCvChanged(); }
+}
+// ---------- Settings → Profile → Cover letter: AI draft -> the user reviews, edits, approves -> PDF ----------
+let letterSaved = '';  // the text as stored: the buttons follow what differs from it
+function showLetter(status) {
+  letterSaved = status.text || '';
+  $('letter-text').value = letterSaved;
+  const approved = status.state === 'approved';
+  const label = {none: 'Not written yet', draft: 'Draft: read it, then approve', approved: `Approved ✓ ${status.approvedAt ? runWhen(status.approvedAt) : ''}`}[status.state] || '';
+  const state = $('letter-state');
+  state.textContent = label;
+  state.classList.toggle('is-on', approved);
+  $('letter-draft').querySelector('span').textContent = status.text ? 'Write a new one' : 'Write it with AI';
+  show($('letter-pdf'), status.pdf);
+  letterButtons();
+}
+function letterButtons() {
+  const text = $('letter-text').value.trim();
+  $('letter-save').disabled = !text || text === letterSaved.trim();
+  $('letter-approve').disabled = !text || ($('letter-state').classList.contains('is-on') && text === letterSaved.trim());
+}
+async function loadLetter() { showLetter(await window.pilot.coverLetter()); }
+async function letterAction(button, working, run) {
+  const buttons = ['letter-draft', 'letter-save', 'letter-approve'].map($);
+  buttons.forEach(b => { b.disabled = true; });
+  button.classList.add('busy');
+  message('letter-message', working);
+  const result = await run();
+  button.classList.remove('busy');
+  if (result.ok) showLetter(result); else { letterButtons(); }
+  $('letter-draft').disabled = false;
+  return result;
+}
+function initLetter() {
+  $('letter-text').addEventListener('input', letterButtons);
+  $('letter-draft').addEventListener('click', async () => {
+    if ($('letter-text').value.trim() && $('letter-text').value.trim() !== letterSaved.trim() && !confirm('Replace the text you changed with a new draft?')) return;
+    const feedback = $('letter-feedback').value.trim();
+    const result = await letterAction($('letter-draft'), 'Writing your letter… (about 20 s)', () => window.pilot.coverLetterDraft(feedback));
+    if (result.ok) $('letter-feedback').value = '';
+    message('letter-message', result.ok ? 'Here is a draft. Read it, change what you like, then approve.' : result.error, result.ok ? 'ok' : 'error');
+  });
+  $('letter-save').addEventListener('click', async () => {
+    const result = await letterAction($('letter-save'), 'Saving…', () => window.pilot.coverLetterSave($('letter-text').value));
+    message('letter-message', result.ok ? 'Saved as a draft. Approve it to make the PDF.' : result.error, result.ok ? 'ok' : 'error');
+  });
+  $('letter-approve').addEventListener('click', async () => {
+    const result = await letterAction($('letter-approve'), 'Making the PDF…', () => window.pilot.coverLetterApprove($('letter-text').value));
+    message('letter-message', result.ok ? 'Approved ✓ Forms that ask for a cover letter file get this PDF.' : result.error, result.ok ? 'ok' : 'error');
+  });
+  $('letter-pdf').addEventListener('click', () => window.pilot.coverLetterOpen());
 }
 // Professional links: shown as tiles; Edit shows the fields (saved with the details' Save changes).
 function showLinks() {
@@ -125,6 +176,7 @@ export function showContact() {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  initLetter();
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
   $('open-profile-details').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_PROFILE_PAGE_ID, event.metaKey));
   $('answers-review').addEventListener('click', event => window.pilot.openNotion(shared.state.notion.NOTION_ANSWERS_PAGE_ID, event.metaKey));

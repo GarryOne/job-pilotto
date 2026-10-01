@@ -776,6 +776,7 @@
           <div class="tabs" role="tablist">
             <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
             <button role="tab" data-profile-tab="answers">Standard answers</button>
+            <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
           <div class="setting cv-card" id="setting-cv" data-profile-panel="details">
             <span class="file-tile"><i data-icon="file"></i></span>
@@ -828,6 +829,20 @@
             </div>
             <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
               They never click Submit; any other command runs without asking, so watch the window while it works.</p>
+          </div>
+          <div class="setting panel" id="setting-letter" data-profile-panel="letter" hidden>
+            <div class="panel-top"><div class="summary-head"><i data-icon="file"></i><h3>Cover letter</h3></div>
+              <div class="panel-actions"><span class="synced" id="letter-state">Not written yet</span></div></div>
+            <p class="muted panel-lead">One general letter, written by AI from your CV, Profile and standard answers. Read it, change what you like, then approve: you get a PDF that Job Pilotto uploads when a form asks for a cover letter file.</p>
+            <textarea id="letter-text" rows="14" placeholder="Press “Write it with AI” to draft your letter, or type your own." spellcheck="true"></textarea>
+            <label class="small muted">Ask for a change (optional)<input id="letter-feedback" type="text" placeholder="e.g. shorter, more about incident response"></label>
+            <p class="message" id="letter-message"></p>
+            <div class="inline">
+              <button class="secondary with-icon" id="letter-draft"><i data-icon="refresh"></i><span>Write it with AI</span></button>
+              <button class="secondary" id="letter-save" disabled>Save changes</button>
+              <button class="primary" id="letter-approve" disabled>Approve &amp; make PDF</button>
+              <button class="link with-icon" id="letter-pdf" hidden><i data-icon="eye"></i><span>Open PDF</span></button>
+            </div>
           </div>
           <div class="setting info-bar" id="setting-answers-note" data-profile-panel="answers" hidden><i data-icon="info"></i>
             <span><b>Saved in Notion</b> · Updated answers are used for future application kits.</span>

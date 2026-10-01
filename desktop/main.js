@@ -8,6 +8,7 @@ import * as apply from './lib/apply.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import {registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
+import * as letters from './lib/cover-letter.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
 import * as canary from './lib/canary.js';
@@ -1269,6 +1270,43 @@ function handlers() {
     shell.openPath(target);
     return {ok: true, overflow};
   });
+  // The general cover letter (Settings → Profile → Cover letter): drafted from the CV + Profile + standard answers,
+  // reviewed by the user, approved -> PDF. See lib/cover-letter.js.
+  ipcMain.handle('coverLetter', () => letters.status(storage));
+  ipcMain.handle('coverLetterDraft', async (_, feedback = '') => {
+    const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
+    if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
+    try {
+      if (!cvlib.baseCv(storage)) {
+        if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
+        await cvlib.importPdf(storage, key, ai);
+      }
+      const {profile, answers} = await strategy.profileTexts(storage);
+      const contact = await contactDetails.read(storage).catch(() => ({}));
+      const result = await letters.generate(storage, {apiKey: key, client: ai, profile, answers, feedback: String(feedback).slice(0, 1000),
+        preferences: storage.readText('config/search.json') || '', name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ')});
+      appLog('cover-letter', `drafted${feedback ? ' with feedback' : ''}`, {words: result.text.split(/\s+/).length, usd: result.usd});
+      return {ok: true, ...letters.status(storage)};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
+  ipcMain.handle('coverLetterSave', (_, text) => {
+    try { letters.edit(storage, text); appLog('cover-letter', 'edited by the user; back to draft'); return {ok: true, ...letters.status(storage)}; } catch (error) { return {ok: false, error: error.message}; }
+  });
+  ipcMain.handle('coverLetterApprove', async (_, text) => {
+    try {
+      if (typeof text === 'string') letters.edit(storage, text);
+      const record = letters.load(storage);
+      if (!record?.text) return {ok: false, error: 'Write or generate a letter first.'};
+      const contact = await contactDetails.read(storage).catch(() => ({}));
+      fs.mkdirSync(letters.dir(storage), {recursive: true});
+      const page = path.join(letters.dir(storage), 'letter.html');
+      fs.writeFileSync(page, letters.html(record.text, contact, cvlib.baseCv(storage)), {mode: 0o600});
+      letters.approve(storage, (await printPdf(page)).pdf);
+      appLog('cover-letter', 'approved; PDF written for form uploads', {words: record.text.split(/\s+/).length});
+      return {ok: true, ...letters.status(storage)};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
+  ipcMain.handle('coverLetterOpen', () => (fs.existsSync(letters.pdfPath(storage)) ? shell.openPath(letters.pdfPath(storage)) : ''));
   ipcMain.handle('showCvFolder', () => { fs.mkdirSync(cvlib.dir(storage), {recursive: true}); return shell.openPath(cvlib.dir(storage)); });
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).

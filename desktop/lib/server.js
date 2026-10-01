@@ -3,6 +3,7 @@
 // keys from the Keychain-backed store, and the local job list. Only this computer can connect, and
 // every call still needs the extension token.
 import * as cv from './cv.js';
+import * as letters from './cover-letter.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -204,6 +205,11 @@ export async function me(storage, url = '') {
     const data = fs.readFileSync(tailored ? cv.pdfPath(storage, tailored.job.code) : storage.path('cv.pdf'));
     resume = {name: settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
   } catch {}
+  // The approved general cover letter as a file, for forms that ask to upload one (Profile → Cover letter).
+  let coverLetterFile = null;
+  try {
+    if (letters.status(storage).pdf) coverLetterFile = {name: 'Cover letter.pdf', type: 'application/pdf', data: fs.readFileSync(letters.pdfPath(storage)).toString('base64')};
+  } catch {}
   // Learned notes that answer a field directly (kind answer/option), for the extension to use at fill time.
   const notes = await kept(storage, 'knowledge', async () => {
     const list = (await knowledge.notes(storage)).map(({block, ...note}) => note);
@@ -214,8 +220,8 @@ export async function me(storage, url = '') {
   const details = await contactOf(storage);
   // Logged only when Notion was actually read or failed: an answer from the kept copy is the normal case (no noise).
   if (!details.contactSource?.startsWith('kept')) log('extension', `details for ${(() => { try { return new URL(url).hostname; } catch { return 'a form'; } })()}: ${Object.keys(details.contact).length} contact fields from ${details.contactSource}`,
-    {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, ...(details.contactError ? {error: details.contactError} : {})});
-  return {...details, resume, knowledge: direct};
+    {fields: Object.keys(details.contact), cv: resume?.name || null, tailored: !!resume?.tailored, coverLetter: !!coverLetterFile, ...(details.contactError ? {error: details.contactError} : {})});
+  return {...details, resume, coverLetterFile, knowledge: direct};
 }
 
 // Desktop notifications for what happens in Chrome (set by main.js): the fill starting and finishing,

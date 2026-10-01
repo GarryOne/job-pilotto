@@ -14,7 +14,7 @@ const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
 export const NOTION_FILE = 'notion.json';  // an export's copy of the Notion workspace (only when asked for)
 // What an export holds: the user's files and state, not Chromium's caches.
-export const ITEMS = ['settings.json', 'runs.json', 'cv.pdf', 'cv', 'interviews', 'recordings', 'config', 'data'];
+export const ITEMS = ['settings.json', 'runs.json', 'cv.pdf', 'cv', 'cover-letter', 'interviews', 'recordings', 'config', 'data'];
 const stamp = now => now.toISOString().slice(0, 16).replace('T', ' ').replace(':', '.');
 export const backupName = (dir, now = new Date()) => `${dir} (backup ${stamp(now)})`;
 

@@ -63,6 +63,9 @@ export async function clickCombos(tabId) {
   return results;
 }
 
+// The approved cover letter PDF travels inside the resume argument: the page helper attaches it to a file input labelled Cover letter.
+const withLetterFile = (resume, file) => (file ? {...(resume || {}), coverLetterFile: file} : resume);
+
 export async function settings() {
   return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents']);
 }
@@ -212,11 +215,11 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     if (note) { answers.push({field: field.field, value: note.value, source: 'form knowledge', question: field.label}); answered.add(field.field); }
   }
   debug.answers = answers.map(({field, question, value, source, confidence, note}) => ({field, question, value, source, confidence, note}));
-  debug.details = {fields: Object.keys(me?.contact || {}), source: me?.contactSource || null, cv: me?.resume?.name || null, tailoredCv: !!me?.resume?.tailored};
+  debug.details = {coverLetterFile: !!me?.coverLetterFile, fields: Object.keys(me?.contact || {}), source: me?.contactSource || null, cv: me?.resume?.name || null, tailoredCv: !!me?.resume?.tailored};
   if (me?.contactError) debug.errors.push(`your details: ${me.contactError}`);
   const letter = coverLetter || ai?.cover_letter || '';
   const summary = await inPage(tab.id, (list, profile, resume, letter, consents) => window.__jobPilottoExtensionFill(list, profile, resume, letter, consents),
-    [answers, me?.contact || config.profile || {}, me?.resume || config.resume || null, letter, config.acceptConsents === true]);
+    [answers, me?.contact || config.profile || {}, withLetterFile(me?.resume || config.resume || null, me?.coverLetterFile), letter, config.acceptConsents === true]);
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
   step('filled the page');
   // Your details couldn't be read (Notion failed and there was no earlier copy): say so on the fields it left,
