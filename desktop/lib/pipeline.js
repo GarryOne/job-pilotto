@@ -9,6 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {cadence} from './cadence.js';
+import * as engineLog from './engine-log.js';
+import {log as appLog} from './log.js';
 import {ROOT} from './root.js';
 
 export const REPO = ROOT;
