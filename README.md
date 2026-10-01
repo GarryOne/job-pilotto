@@ -158,8 +158,8 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 - 📧 **Gmail and Calendar** (read-only): confirmations, replies, interview invites and rejections update your
   applications by themselves, including agencies' emails and calendar invites (the interview time comes from the
   invite itself); one recruiter by email and on LinkedIn stays one job. **It never guesses:** an email that doesn't
-  name its job isn't attached to one; Focus asks "Is this about …?", and a job's ⋯ → **Undo an email update** puts a
-  wrong update back. The evening before an interview you get a prep message.
+  name its job isn't attached to one, and Focus asks "Is this about …?" with the likeliest job. The evening before an
+  interview you get a prep message.
 - 💸 **Every cent, shown.** Job Pilotto uses your own Anthropic key and records what each run cost (⏰ Cronjob Runs in
   your Notion: every jobs check, Gmail check, Log box entry, kit, prep kit, review, report). The app's Recent
   activity shows the cost next to each run, runs you started are tagged "By you", and a monthly budget

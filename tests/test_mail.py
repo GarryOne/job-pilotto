@@ -168,7 +168,7 @@ class MailTests(unittest.TestCase):
         self.assertEqual((update['Source ID'], update['At']), ({'rich_text': [{'text': {'content': 'm2'}}]},
                                                                {'date': {'start': '2026-09-26T01:26:30+02:00'}}))
         changes = json.loads(update['Changes']['rich_text'][0]['text']['content'])
-        self.assertEqual(changes['fields']['Stage'], ['Applied', 'Confirmation received'])  # what "Not this job" undoes
+        self.assertEqual(changes['fields']['Stage'], ['Applied', 'Confirmation received'])  # what the email changed
         self.assertEqual(apps[0]['properties']['Stage']['select']['name'], 'Confirmation received')  # repair a partially saved event
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):

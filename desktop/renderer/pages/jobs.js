@@ -12,7 +12,6 @@ import {$, message, osPick, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
 import {toastMessage} from './startup.js';
-import {undoEmailUpdate} from './reassign.js';
 import {openFeedback} from './feedback.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
@@ -338,9 +337,6 @@ export function renderJobs() {
         })});
     }
     if (job.page_id) menu.push({icon: 'chat', label: 'Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
-    // The Gmail check put an email on the wrong job: this job goes back as it was, the email goes where you say.
-    if (job.page_id && job.stage) menu.push({icon: 'undo', label: 'Undo an email update…', title: 'An email landed on the wrong job: put this job back and move the email',
-      run: () => undoEmailUpdate(job)});
     if (job.employer_feedback && job.page_id) menu.push({icon: 'chat', label: 'Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,

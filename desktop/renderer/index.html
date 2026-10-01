@@ -1451,7 +1451,7 @@
     </div>
   </form>
 </dialog>
-<!-- "Is this about …?" and "Not this job": where an email belongs (pages/reassign.js → src/ai/reassign.py). -->
+<!-- "Is this about …?": where an email belongs (pages/reassign.js → src/ai/reassign.py). -->
 <!-- Focus → "Did the interview happen?" (pages/happened.js): yes with notes, or moved / cancelled. -->
 <dialog id="happened-dialog" class="panel-dialog">
   <form method="dialog">
@@ -1488,13 +1488,9 @@
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
     <p id="reassign-context" class="dialog-lead"></p>
-    <div id="reassign-update-row" hidden>
-      <label for="reassign-update">Email update</label>
-      <select id="reassign-update"></select>
-    </div>
     <label for="reassign-target">It's about</label>
     <select id="reassign-target"></select>
-    <p id="reassign-help" class="muted small">The job it was on goes back to how it was before this email (stage, interview date); the job you pick moves on instead.</p>
+    <p id="reassign-help" class="muted small">The job you pick moves on with this email (stage, interview date); "Not in my list yet" tracks it from the email.</p>
     <p id="reassign-message" class="message"></p>
     <div class="dialog-foot">
       <button class="ghost" value="cancel" formnovalidate>Cancel</button>

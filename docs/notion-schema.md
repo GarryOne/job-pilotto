@@ -182,7 +182,7 @@ guess ("Notion edit") gives it Source `Calendar` and its own note.
 | Source ID | Text | Gmail message id, `cal:<event id>`, `paste:<hash>` (a logged message) or `chat:<hash>` (a chat's last message: who + when + first words); never logged twice |
 | Note | Text | |
 | Job URL | URL | |
-| Changes | Text | JSON: what the email changed (before/after per field), its interview time and sender; "Undo an email update" puts it back |
+| Changes | Text | JSON: what the email changed (before/after per field), its interview time and sender |
 | Needs you | Checkbox | The Gmail check wasn't sure which job: Focus asks "Is this about …?" |
 | Suggested job | URL | The likeliest job for a Needs-you email (its Job URL) |
 

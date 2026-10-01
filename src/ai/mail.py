@@ -273,10 +273,6 @@ def _stage_for(kind, current):
     return target if RANK.get(target, 0) > RANK.get(current, 0) else None
 
 
-# The fields an email can move on a job, as (before, after) in the event's Changes: "Not this job" puts them back.
-UNDOABLE = ('Stage', 'Next interview', 'Feedback status', 'Confirmation email')
-
-
 def _value(row, name):
     prop = row['properties'].get(name) or {}
     if 'checkbox' in prop:

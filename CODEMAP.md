@@ -99,7 +99,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.
-- `desktop/renderer/pages/reassign.js` — Where an email belongs, in your words: Focus → "Is this about …?" (an email the Gmail check wasn't sure about) and
+- `desktop/renderer/pages/reassign.js` — Where an email belongs, in your words: Focus → "Is this about …?" (an email the Gmail check wasn't sure about).
 - `desktop/renderer/pages/rich-text.js` — Claude's messages as readable text.
 - `desktop/renderer/pages/runs-page.js` — Status card and the Actions page.
 - `desktop/renderer/pages/session-log.js` — Session page: opening a session and its log.
@@ -198,7 +198,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/passwords.py` — Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.
 - `src/ai/prep.py` — Interview prep kit: how to prepare for one interview, from the job's description, your Profile and how your past
 - `src/ai/provenance.py` — Which inputs produced a kit, so the app can say whether it's still current.
-- `src/ai/reassign.py` — Your answer about an email the Gmail check placed, or wasn't sure where to place.
+- `src/ai/reassign.py` — Your answer about an email the Gmail check wasn't sure where to place.
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).

@@ -982,10 +982,9 @@ function handlers() {
   });
   ipcMain.handle('describeJob', (_, pageId, text = '', url = '') => (DEMO ? {ok: true, text: 'Saved (demo).'}
     : pipeline.describeJob(storage, String(pageId), String(text || ''), String(url || ''))));
-  // Where an email belongs: Focus → "Is this about …?", a job's ⋯ → Undo an email update (src/ai/reassign.py).
+  // Where an email belongs: Focus → "Is this about …?" (src/ai/reassign.py).
   ipcMain.handle('reassignEmail', (_, eventId, target) => (DEMO ? {ok: true, text: 'Moved (demo): nothing was written.'}
     : pipeline.reassignEmail(storage, String(eventId), String(target))));
-  ipcMain.handle('emailUpdates', (_, pageId) => (DEMO ? {ok: true, items: []} : pipeline.emailUpdates(storage, String(pageId))));
   ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : pipeline.focusHistory(storage)));
   ipcMain.handle('focusDone', (_, pageId, what = 'replied') => (DEMO ? {ok: true} : pipeline.focusDone(storage, String(pageId), String(what))));
   // Focus → "Did the interview happen?": held (notes), moved (a new time) or cancelled; Notion first.

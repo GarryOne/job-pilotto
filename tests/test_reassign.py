@@ -1,4 +1,4 @@
-"""Your answer about an email: "Is this about …?" and "Not this job" (src/ai/reassign.py)."""
+"""Your answer about an email: "Is this about …?" (src/ai/reassign.py)."""
 import json
 import unittest
 from datetime import datetime, timezone
@@ -54,32 +54,6 @@ class FakeTracker:
 
 
 class MoveTests(unittest.TestCase):
-    def test_not_this_job_puts_the_wrong_job_back_and_moves_the_email(self):
-        # 29 Sep 2026: Huxley's invite had moved AG Talent's pitch to Interview scheduled.
-        ag = job('ag', '', 'Senior DevOps Engineer', stage='Interview scheduled', via='AG Talent',
-                 interview='2026-09-30T06:30:00.000+00:00')
-        hux = job('hux', '', 'Principal SRE', stage='Screening', via='Huxley')
-        wrong = event('ev', 'Interview scheduled', 'ag', {
-            'fields': {'Stage': ['Screening', 'Interview scheduled'], 'Next interview': [None, '2026-09-30T08:30:00+02:00']},
-            'interview_at': '2026-09-30T08:30:00+02:00', 'from': 'j.nejati@huxley.com', 'subject': 'Connect Igor / Jaya - SRE'})
-        tracker = FakeTracker([ag, hux, wrong])
-        result = reassign.move(tracker, 'ev', 'https://x.test/hux', now=NOW)
-        self.assertTrue(result['ok'], result)
-        ag_back = {k: v for p, u in tracker.updates if p == 'ag' for k, v in u.items()}
-        self.assertEqual(ag_back, {'Stage': {'select': {'name': 'Screening'}}, 'Next interview': {'date': None}})
-        self.assertEqual(hux['properties']['Stage']['select']['name'], 'Interview scheduled')
-        moved = [u for p, u in tracker.updates if p == 'ev'][-1]
-        self.assertEqual(moved['Application'], {'relation': [{'id': 'hux'}]})
-        self.assertEqual(moved['Needs you'], {'checkbox': False})
-
-    def test_a_field_changed_later_is_left_alone(self):
-        ag = job('ag', '', 'Senior DevOps Engineer', stage='Offer', via='AG Talent')
-        wrong = event('ev', 'Interview scheduled', 'ag', {'fields': {'Stage': ['Screening', 'Interview scheduled']}})
-        tracker = FakeTracker([ag, wrong])
-        reassign.move(tracker, 'ev', 'none', now=NOW)
-        self.assertNotIn('ag', [p for p, _ in tracker.updates])  # you moved it on since: not undone
-        self.assertEqual([u for p, u in tracker.updates if p == 'ev'][-1]['Application'], {'relation': []})
-
     def test_answering_is_this_about(self):
         hux = job('hux', '', 'Principal SRE', via='Huxley')
         question = event('q', 'Interview scheduled', changes={'interview_at': '2026-09-30T08:30:00+02:00'},

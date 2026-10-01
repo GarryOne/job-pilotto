@@ -441,15 +441,10 @@ export async function describeJob(storage, pageId, text = '', url = '') {
   const {stdout} = await run(storage, ['src.ai.prep', 'describe', pageId, ...(text ? ['--text', text] : []), ...(url ? ['--url', url] : [])]);
   return lastJson(stdout, {ok: false, text: 'The description could not be saved to Notion. Try again.'});
 }
-// An email the Gmail check placed, or wasn't sure where to place: move it to a job ("new", "none" or a job URL).
+// An email the Gmail check wasn't sure where to place: move it to a job ("new", "none" or a job URL).
 export async function reassignEmail(storage, eventId, target) {
   const {stdout} = await run(storage, ['src.ai.reassign', 'move', eventId, target]);
   return lastJson(stdout, {ok: false, text: 'Notion could not be updated. Try again.'});
-}
-// A job's updates from the Gmail check, newest first (what "Undo an email update" lists).
-export async function emailUpdates(storage, pageId) {
-  const {stdout} = await run(storage, ['src.ai.reassign', 'list', pageId]);
-  return lastJson(stdout, {ok: false, text: 'Notion could not be read. Try again.', items: []});
 }
 // Focus → "Did the interview happen?" (src/ai/interviews.py held | moved | cancelled, no AI).
 export async function interviewHappened(storage, pageId, answer, {notes = '', at = ''} = {}) {
