@@ -84,7 +84,11 @@ export function prompt(url, {auditFile}) {
     `If you stop on any other blocker before filling, just run tools/notify.sh ${url} "Needs your input — see Terminal". ` +
     "Job Pilotto marks the job applied when I submit, so you don't need to watch the tab. Everything you write is read by an applicant, not a " +
     "developer: never mention this repo, git status, tests, config files or code, and don't comment on anything that isn't the form. When you " +
-    'stop or wait, end with one plain line about the form (for example "Review the form and click Submit"). Start now.';
+    'stop or wait, end with one plain line about the form (for example "Review the form and click Submit"). ' +
+    'When you stop because you need something from me before you can go on (a missing detail, a choice, a role I may not want), write it ' +
+    'in this shape and nothing longer: one plain sentence on where things stand, then a line "**Needs you:**" with one short bullet per thing ' +
+    'I must do, each starting with the action ("Send me your street, postcode and birth date", "Finish the form in Chrome and press Submit", ' +
+    '"Say skip to leave this role"). If I reply with nothing new (just "Continue"), do not repeat your message: say in one line what you are waiting for. Start now.';
 }
 
 const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;

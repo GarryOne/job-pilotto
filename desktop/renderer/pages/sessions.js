@@ -243,6 +243,8 @@ const submittedButton = item => sessionButton('I submitted it', 'secondary', asy
   if (!result.ok) { button.disabled = false; toastMessage('Not marked Applied', result.error || 'Try again.'); return; }
   button.textContent = '✓ Marked Applied';
 }, 'check');
+// Where to answer: the button opens the reply box in the log below (a quick reply there sends one tap of text).
+const answerHint = () => el('p', 'rich-p muted small', 'Press Answer, then type your reply in the log below, or use a quick reply there.');
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
   const review = !submitted && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
@@ -269,7 +271,11 @@ export function renderNextStep(item) {
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
     : gone ? [el('p', 'rich-p', 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
-    : asking ? (said.length ? richText(said.join('\n')) : [el('p', 'rich-p', 'Claude is waiting for you.')])
+    : asking ? (forYou.length
+      // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
+      ? [...(said.length ? [el('p', 'rich-p', said[0].replace(/\*\*/g, ''))] : []), el('p', 'rich-p', el('b', '', 'What Claude needs from you:')),
+        ...forYou.map(line => el('p', 'rich-p', `→ ${line.replace(/\*\*/g, '')}`)), ...(isLive(item) ? [answerHint()] : [])]
+      : [...(said.length ? richText(said.join('\n')) : [el('p', 'rich-p', 'Claude is waiting for you.')]), ...(isLive(item) ? [answerHint()] : [])])
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
   const full = $('ss-full');
   full.replaceChildren(...(review && item.question ? richText(item.question) : []));
