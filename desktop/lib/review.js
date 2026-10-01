@@ -31,10 +31,13 @@ function save() {
 export const setReporter = fn => { reporter = fn; };
 
 // The session a form page belongs to: the best match by the job's URL, ID, company and site; the later start wins a tie.
+// A page that says which job its tab was opened for (the extension remembers it, even when the form sits on another site
+// than the posting: an agency's own form behind "Apply", a company that isn't named) belongs to that job's session, first.
+const jobKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
 export function matchSession(sessions, page) {
   let best = null, bestScore = 0;
   for (const session of sessions) {
-    const score = scoreTab(page, {url: session.url, company: session.company});
+    const score = page.job && jobKey(page.job) === jobKey(session.url) ? 100 : scoreTab(page, {url: session.url, company: session.company});
     if (score >= MIN_SCORE && (score > bestScore || (score === bestScore && best && session.startedAt > best.startedAt))) { best = session; bestScore = score; }
   }
   return best;
@@ -69,7 +72,7 @@ export function tabsToArm(sessions, tabs, now = Date.now()) {
 }
 // The page scrolled, or looked and found no such field. Resolves whoever is waiting; kept if they ask just after.
 export function noteFocus(sessions, payload) {
-  const session = matchSession(sessions, {url: String(payload?.url || ''), title: String(payload?.title || '')});
+  const session = matchSession(sessions, {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || '')});
   if (!session) return {ok: false};
   const found = !!payload?.found;
   focusAnswers.set(session.id, found);
@@ -108,7 +111,7 @@ export function noteTabs({ids, boot} = {}) {
 export const tabOpen = id => (!bound.has(id) || !openIds ? null : openIds.has(bound.get(id)));
 // The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
 export function report(sessions, payload, now = Date.now()) {
-  const page = {url: String(payload?.url || ''), title: String(payload?.title || '')};
+  const page = {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || '')};
   const session = matchSession(sessions, page);
   if (!session) return {matched: null, session: null, watch: [], commands: []};
   const tab = Number(payload?.tab);

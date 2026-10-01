@@ -170,3 +170,13 @@ test('a session\'s form is its newest tab: an older tab for the same job answers
   assert.equal(review.report(sessions, form({tab: 3})).matched, 's1');
   assert.equal(review.tabOpen('s1'), true);
 });
+
+test('a form on another host than the posting still matches its session by the job the tab was opened for', () => {
+  const sessions = [{id: 's1', url: 'https://www.jobs.ch/en/vacancies/detail/abc-def/', company: 'Undisclosed employer', startedAt: 1}];
+  const form = {url: 'https://api.easytemp.ch/live/bew/15777849101268111120-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)'};
+  assert.equal(review.matchSession(sessions, form), null);                                             // by itself: nothing links them
+  assert.equal(review.matchSession(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/abc-def'})?.id, 's1');
+  assert.equal(review.matchSession(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/other'}), null);  // another job's tab
+  review._reset();
+  assert.notEqual(review.report(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/abc-def/', left: 2, total: 5, watch: []}).matched, null);
+});

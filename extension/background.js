@@ -353,7 +353,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const config = await settings();
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
       return api(config, '/extension/focus', {method: 'POST', body: JSON.stringify({
-        url: sender.tab.url, title: sender.tab.title || '', found: !!message.found})});
+        url: sender.tab.url, title: sender.tab.title || '', found: !!message.found, job: await jobOf(sender.tab)})});
     })().then(reply, () => reply({ok: false}));
     return true;
   }
@@ -446,7 +446,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     (async () => {
       const config = await settings();
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
-      return api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id})});
+      return api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, job: await jobOf(sender.tab)})});
     })().then(reply, () => reply({matched: null}));
     return true;  // the reply comes later
   }
