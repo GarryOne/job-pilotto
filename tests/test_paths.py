@@ -39,3 +39,31 @@ class DotenvTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WorkspaceRepoTests(unittest.TestCase):
+    """Which repository holds the workspace: the schedules and Gmail checks run there, never in the engine
+    checkout that happens to be on disk (1 Oct 2026: the watcher dispatched mail.yml in the engine repo, which
+    has no NOTION_* variables, so every submitted application queued a run that could only fail)."""
+
+    def setUp(self):
+        self.saved = os.environ.pop('JOB_PILOTTO_CLOUD_REPO', None)
+        self.addCleanup(lambda: os.environ.pop('JOB_PILOTTO_CLOUD_REPO', None))
+        if self.saved:
+            self.addCleanup(os.environ.__setitem__, 'JOB_PILOTTO_CLOUD_REPO', self.saved)
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def test_from_the_environment_first(self):
+        os.environ['JOB_PILOTTO_CLOUD_REPO'] = 'someone/workspace'
+        self.assertEqual(paths.workspace_repo(self.tmp), 'someone/workspace')  # even with no settings file
+
+    def test_from_the_desktop_apps_settings(self):
+        (self.tmp / 'settings.json').write_text('{"setupDone": true, "cloud": {"repo": "GarryOne/job-pilotto-private"}}')
+        self.assertEqual(paths.workspace_repo(self.tmp), 'GarryOne/job-pilotto-private')
+
+    def test_empty_without_a_workspace_or_settings(self):
+        self.assertEqual(paths.workspace_repo(self.tmp), '')
+        (self.tmp / 'settings.json').write_text('{"setupDone": true}')
+        self.assertEqual(paths.workspace_repo(self.tmp), '')
+        (self.tmp / 'settings.json').write_text('not json')
+        self.assertEqual(paths.workspace_repo(self.tmp), '')

@@ -127,17 +127,32 @@ def check_cv():
 
 # ---------- Scheduled pipeline (GitHub Actions) ----------
 
+def repo_args():
+    """['-R', 'owner/repo'] for the repository the schedules and the Gmail check run in — the user's private
+    workspace repo — else [] (this checkout). The engine repo has no NOTION_* variables, so asking GitHub about
+    it reports runs that never happen there, and hides the real ones (1 Oct 2026)."""
+    from .paths import workspace_repo
+    repo = workspace_repo()
+    return ['-R', repo] if repo else []
+
+
+def where():
+    """The repo the GitHub checks looked at, in words for a detail line."""
+    args = repo_args()
+    return f' in {args[1]}' if args else ''
+
+
 def check_workflow():
-    flows = gh('workflow', 'list', '--json', 'path,state')
+    flows = gh('workflow', 'list', *repo_args(), '--json', 'path,state')
     if flows is None:
         return Check('Pipeline', 'GitHub', INFO, 'gh CLI missing or not logged in; cloud checks skipped '
                      '(the scheduled GitHub pipeline is optional; everything also runs locally)',
                      'brew install gh && gh auth login')
     daily = next((f for f in flows if f['path'].endswith('daily.yml')), None)
     if not daily or daily['state'] != 'active':
-        return Check('Pipeline', 'Scheduled crawl', FAIL, 'daily.yml is disabled or missing',
-                     'gh workflow enable daily.yml')
-    return Check('Pipeline', 'Scheduled crawl', OK, 'daily.yml enabled (every 4 h)')
+        return Check('Pipeline', 'Scheduled crawl', FAIL, f'daily.yml is disabled or missing{where()}',
+                     'gh workflow enable daily.yml' + (' -R ' + repo_args()[1] if repo_args() else ''))
+    return Check('Pipeline', 'Scheduled crawl', OK, f'daily.yml enabled (every 4 h){where()}')
 
 
 def pipeline_env():
@@ -172,13 +187,13 @@ def check_features(env=None):
 
 def check_last_crawl(tracker, now):
     # Filter by event on GitHub's side: manual prepare/apply runs would crowd a plain "last 10".
-    runs = gh('run', 'list', '--workflow', 'daily.yml', '--event', 'schedule', '--limit', '5',
+    runs = gh('run', 'list', *repo_args(), '--workflow', 'daily.yml', '--event', 'schedule', '--limit', '5',
               '--json', 'conclusion,createdAt,status')
     crawls = [r for r in runs or [] if r['status'] == 'completed']
     if runs is None:
         return Check('Data', 'Last crawl', INFO, 'not checked (gh unavailable)')
     if not crawls:
-        return Check('Data', 'Last crawl', FAIL, 'no scheduled crawl has finished yet',
+        return Check('Data', 'Last crawl', FAIL, f'no scheduled crawl has finished yet{where()}',
                      'Run one now: gh workflow run daily.yml -f mode=run  (a few cents of AI)')
     last, hours = crawls[0], _hours_ago(crawls[0]['createdAt'], now)
     if last['conclusion'] != 'success':
@@ -273,21 +288,21 @@ def check_mail_workflow(now=None):
     now = now or datetime.now(timezone.utc)
     if not google.Google.from_env():
         return Check('Health', 'Mail checks', INFO, 'off (Gmail + Calendar not connected or switched off)')
-    runs = gh('run', 'list', '-w', 'mail.yml', '-L', '5', '--json', 'conclusion,status,createdAt,event')
+    runs = gh('run', 'list', *repo_args(), '-w', 'mail.yml', '-L', '5', '--json', 'conclusion,status,createdAt,event')
     if runs is None:
         return Check('Health', 'Mail checks', INFO, 'not checked (gh unavailable)')
     done = [r for r in runs if r.get('status') == 'completed']
     if not done:
-        return Check('Health', 'Mail checks', WARN, 'no mail check has run yet', 'gh workflow run mail.yml')
+        return Check('Health', 'Mail checks', WARN, f'no mail check has run yet{where()}', 'gh workflow run mail.yml')
     last = done[0]
     hours = _hours_ago(last['createdAt'], now)
     if last.get('conclusion') != 'success':
-        return Check('Health', 'Mail checks', FAIL, f"last mail check {last.get('conclusion')} ({hours:.0f} h ago)",
-                     'Open the failed run: gh run list -w mail.yml')
+        return Check('Health', 'Mail checks', FAIL, f"last mail check {last.get('conclusion')} ({hours:.0f} h ago){where()}",
+                     'Open the failed run: gh run list -w mail.yml' + (' -R ' + repo_args()[1] if repo_args() else ''))
     if hours > STALE_MAIL_HOURS:
-        return Check('Health', 'Mail checks', WARN, f'last one {hours:.0f} h ago; the schedule may be paused',
+        return Check('Health', 'Mail checks', WARN, f'last one {hours:.0f} h ago; the schedule may be paused{where()}',
                      'gh workflow enable mail.yml')
-    return Check('Health', 'Mail checks', OK, f'last one {hours:.1f} h ago')
+    return Check('Health', 'Mail checks', OK, f'last one {hours:.1f} h ago{where()}')
 
 
 def check_feeds(tracker):

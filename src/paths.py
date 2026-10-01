@@ -48,6 +48,26 @@ def app_folder():
     return Path(os.getenv('XDG_CONFIG_HOME') or Path.home() / '.config') / 'Job Pilotto'
 
 
+def workspace_repo(folder=None):
+    """The repository that holds the workspace: 'owner/job-pilotto-private', or how far the Desktop App got.
+
+    The scheduled runs and a Gmail check need this repo's NOTION_* variables and secrets (the app writes them
+    when Always on is set up); this engine repo has none. Anything that dispatches a workflow or asks GitHub
+    about a run must use this, never the engine checkout it happens to be running from (1 Oct 2026: the
+    post-application watcher dispatched mail.yml here, and every submitted application queued a run that could
+    only fail — no NOTION_APPLICATIONS_DB, so Notion answered 400).
+    JOB_PILOTTO_CLOUD_REPO overrides (tests, CI). '' when nothing is set up."""
+    given = (os.getenv('JOB_PILOTTO_CLOUD_REPO') or '').strip()
+    if given:
+        return given
+    folder = Path(folder) if folder else app_folder()
+    try:
+        settings = json.loads((folder / 'settings.json').read_text())
+    except (OSError, ValueError):
+        return ''
+    return str((settings.get('cloud') or {}).get('repo') or '').strip()
+
+
 def follow_app(env=os.environ, folder=None):
     """The terminal follows the Desktop App: same Notion workspace, same job cache and search settings.
 

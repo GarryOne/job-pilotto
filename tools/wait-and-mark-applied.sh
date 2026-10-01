@@ -46,6 +46,14 @@ snapshot() {
   fi
 }
 
+# The repo the schedules and Gmail checks run in: the app's private workspace repo. This engine checkout has no
+# NOTION_* variables, so dispatching mail.yml here starts a run that can only fail (1 Oct 2026: every submitted
+# application queued one, and the app's doctor showed "last mail check failure").
+workspace_repo() {
+  if [ -n "${JOB_PILOTTO_CLOUD_REPO:-}" ]; then printf '%s' "$JOB_PILOTTO_CLOUD_REPO"; return; fi
+  (cd "$repo" && python3 -c 'from src.paths import workspace_repo; print(workspace_repo())' 2>/dev/null) || true
+}
+
 for _ in $(seq 540); do
   if [ "$(osascript -e 'application "Google Chrome" is running' 2>/dev/null)" = "true" ] &&
      osascript -e 'tell application "Google Chrome" to get URL of tabs of windows' 2>/dev/null |
@@ -56,7 +64,13 @@ for _ in $(seq 540); do
       notify "Submitted — marked Applied in Notion"
       say "marked applied"
       # Look for the confirmation email in 5 minutes (Gmail + Calendar workflow; no-op if Google isn't connected).
-      (cd "$repo" && gh workflow run mail.yml -f delay=5 >/dev/null 2>&1) && say "mail check queued" || true
+      target="$(workspace_repo)"
+      if [ -n "$target" ]; then
+        (cd "$repo" && gh workflow run mail.yml -R "$target" -f delay=5 >/dev/null 2>&1) \
+          && say "mail check queued in $target" || say "could not queue a mail check in $target"
+      else
+        say "no workspace repo is set up: not queueing a mail check (the app's own check covers it)"
+      fi
       exit 0
     fi
     say "FAILED to mark applied — run: python3 -m src.ai.apply_batch --mark-applied $url"

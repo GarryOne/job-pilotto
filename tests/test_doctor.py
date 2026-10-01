@@ -126,3 +126,34 @@ class ChecksTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WorkspaceRepoCheckTests(unittest.TestCase):
+    """The GitHub checks ask about the repository that runs the pipeline — the user's private workspace repo — not
+    the engine checkout. Otherwise a healthy cloud setup reads as "no scheduled crawl has finished yet" and "last
+    mail check failure", while the real failures elsewhere stay invisible (1 Oct 2026)."""
+
+    def calls(self, fn, *args):
+        seen = []
+        with mock.patch.object(doctor, 'gh', side_effect=lambda *a: seen.append(a) or []), \
+                mock.patch.object(doctor, 'repo_args', lambda: ['-R', 'GarryOne/job-pilotto-private']):
+            fn(*args)
+        return seen
+
+    def test_every_github_check_names_the_workspace_repo(self):
+        from src.sources import google
+        for fn, args in ((doctor.check_workflow, ()), (doctor.check_last_crawl, (FakeTracker(), NOW)),
+                         (doctor.check_mail_workflow, (NOW,))):
+            with mock.patch.object(google.Google, 'from_env', return_value=object()):  # Gmail connected
+                seen = self.calls(fn, *args)
+            self.assertTrue(seen, fn.__name__)
+            self.assertIn('-R', seen[0], fn.__name__)
+            self.assertIn('GarryOne/job-pilotto-private', seen[0], fn.__name__)
+
+    def test_no_repo_configured_asks_about_this_checkout(self):
+        seen = []
+        with mock.patch.object(doctor, 'gh', side_effect=lambda *a: seen.append(a) or []), \
+                mock.patch.object(doctor, 'repo_args', lambda: []):
+            doctor.check_workflow()
+            doctor.check_last_crawl(FakeTracker(), NOW)
+        self.assertTrue(all('-R' not in call for call in seen), seen)
