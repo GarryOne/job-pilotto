@@ -2,6 +2,7 @@
 // and still true with Chrome closed. The unpacked extension's ID is Chrome's own hash of its path, which is what
 // lets the app open its options page without asking the browser anything.
 import assert from 'node:assert/strict';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
@@ -59,10 +60,19 @@ test('every browser that has it is listed, and the copy loaded from our folder i
   assert.deepEqual(found.map(entry => [entry.browser, entry.current]), [['Google Chrome', true], ['Brave', false]]);
 });
 
-test('a browser is up only when pgrep finds it', async () => {
-  assert.equal(await ext.running('Google Chrome', {exec: (file, args, done) => done(null, '')}), true);
-  assert.equal(await ext.running('Google Chrome', {exec: (file, args, done) => done(new Error('no'))}), false);
-  assert.equal(await ext.running('Brave Browser', {exec: (file, args, done) => { assert.equal(args[0], '-x'); assert.equal(args[1], 'Brave Browser'); done(null, ''); }}), true);
+test('a browser is up only when the computer says its process is', async () => {
+  // The Mac: pgrep, by app name.
+  assert.equal(await ext.running('Google Chrome', {exec: (file, args, done) => { assert.equal(file, '/usr/bin/pgrep'); done(null, ''); }, platform: 'darwin'}), true);
+  assert.equal(await ext.running('Google Chrome', {exec: (file, args, done) => done(new Error('no')), platform: 'darwin'}), false);
+  assert.equal(await ext.running('Brave Browser', {exec: (file, args, done) => { assert.equal(args[0], '-x'); assert.equal(args[1], 'Brave Browser'); done(null, ''); }, platform: 'darwin'}), true);
+  // Windows: tasklist, filtered by the browser's own process name; its output is what decides.
+  const edge = 'Microsoft Edge';
+  assert.equal(await ext.running(edge, {platform: 'win32', exec: (file, args, done) => {
+    assert.equal(file, 'tasklist'); assert.deepEqual(args, ['/FI', 'IMAGENAME eq msedge.exe', '/NH']);
+    done(null, 'msedge.exe   1234 Console   1   100,000 K');
+  }}), true);
+  assert.equal(await ext.running('Brave', {platform: 'win32', exec: (file, args, done) => done(null, 'INFO: No tasks are running which match the specified criteria.')}), false);
+  assert.equal(await ext.running(edge, {platform: 'win32', exec: (file, args, done) => done(new Error('no'))}), false);
 });
 
 test('an unpacked copy is recorded by its path alone — no manifest block — and is still found', () => {
@@ -84,15 +94,43 @@ test('the extension ID comes from the manifest\'s own key (stable), and from the
   assert.notEqual(ext.extensionId('/tmp/a/extension'), ext.extensionId('/tmp/b/extension'));
 });
 
-test('the two pages open in Chrome itself', {skip: process.platform === 'win32' && 'opening a chrome:// page is macOS-only today (openInChrome runs /usr/bin/open); on Windows the button does nothing'}, async () => {
-  const opened = [];
-  const exec = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
-  assert.equal(await ext.openExtensionsPage({exec}), true);
+test('the two pages open in Chrome itself, on the Mac and on the PC', async () => {
   const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec}), true);
-  assert.deepEqual(opened, [
-    ['/usr/bin/open', '-a Google Chrome chrome://extensions'],
-    // The ID the manifest's key gives (the same on any machine, whatever folder it is loaded from).
-    ['/usr/bin/open', '-a Google Chrome chrome-extension://gpffoneapcfceflfmfgedkcfbommgcfk/options.html'],
-  ]);
+  const options = 'chrome-extension://gpffoneapcfceflfmfgedkcfbommgcfk/options.html';  // the manifest key's ID
+  const opened = [];
+  const record = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
+  // The Mac: `open -a`, which is what knows Chrome's name whatever folder it was installed into.
+  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'darwin'}), true);
+  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec: record, platform: 'darwin'}), true);
+  assert.deepEqual(opened, [['open', '-a Google Chrome chrome://extensions'], ['open', '-a Google Chrome ' + options]]);
+  // Windows: chrome.exe itself, from where its installer puts it — no shell, so a URL's & stays in the URL.
+  const chrome = path.win32.join('C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');
+  const env = {ProgramFiles: 'C:\\Program Files'};
+  opened.length = 0;
+  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'win32', env, exists: file => file === chrome}), true);
+  assert.deepEqual(opened, [[chrome, 'chrome://extensions']]);
+  // No Chrome installed: nothing to open it with, and the press says so rather than failing quietly.
+  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'win32', env: {}, exists: () => false}), false);
+  assert.equal(opened.length, 1);
+});
+
+test('the PC\'s profiles are read too: %LOCALAPPDATA%, one folder deeper than the Mac\'s', () => {
+  const local = 'C:\\Users\\x\\AppData\\Local';
+  const chrome = ext.BROWSERS[0];
+  const dir = path.win32.join(local, 'Google', 'Chrome', 'User Data');
+  const io = {
+    exists: at => at === dir || at.endsWith(path.win32.join('Default', 'Secure Preferences')),
+    read: () => prefs({aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: record('Job Pilotto')}),
+  };
+  const found = ext.installed({folder: '/app/extension', platform: 'win32', env: {LOCALAPPDATA: local}, browsers: [chrome], ...io});
+  assert.deepEqual(found.map(entry => [entry.browser, entry.profile, entry.current]), [['Google Chrome', 'Default', true]]);
+  // Where the default root resolves, and the folder each platform keeps the browser's profiles in. The Mac's layout
+  // has no "User Data" level, and Chrome Canary is "Chrome SxS" on the PC.
+  assert.equal(ext.support('win32', {LOCALAPPDATA: local}), local);
+  assert.equal(ext.support('darwin'), path.join(os.homedir(), 'Library', 'Application Support'));
+  assert.equal(ext.browserDir(chrome, 'win32'), 'Google/Chrome/User Data');
+  assert.equal(ext.browserDir(chrome, 'darwin'), 'Google/Chrome');
+  assert.equal(ext.browserDir(ext.BROWSERS[1], 'win32'), 'Google/Chrome SxS/User Data');
+  // A browser with no Windows layout of its own (a test fixture, or a new entry) still gets read by its Mac folder.
+  assert.equal(ext.browserDir({dir: 'Acme/Browser'}, 'win32'), 'Acme/Browser');
 });

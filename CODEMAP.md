@@ -29,7 +29,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),
 - `desktop/lib/demo.js` — "Look around first": the app restarts on a fresh copy of the fictional demo data (demo/) and back to the user's
 - `desktop/lib/dev-marker.js` — Running from source (npm start / electron .) must never look like the installed app: a "DEV" badge on the Dock
-- `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this Mac — and is it awake?
+- `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
