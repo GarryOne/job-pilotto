@@ -11,7 +11,7 @@ let month = null;        // {year, month} shown
 let recordings = [];     // saved interview rows
 // What is on screen: 'loading' (nothing to show yet), 'updating' (a saved copy shown while Notion is read), 'ready', 'failed'.
 let phase = 'loading', savedAt = '', failure = '';
-let visit = 0;           // a newer visit makes an older read's answer stale
+let visit = 0, moved = false;   // moved: the user picked a month, so a reload never jumps           // a newer visit makes an older read's answer stale
 const jobsLoaded = () => Array.isArray(shared.allJobs) && shared.allJobs.length > 0;
 
 const monthName = ({year, month: m}) => new Date(Date.UTC(year, m, 1)).toLocaleDateString(undefined, {month: 'long', year: 'numeric', timeZone: 'UTC'});
@@ -73,6 +73,15 @@ export function render() {
   $('cal-past').replaceChildren(...(past.length ? past.slice(0, 20).map(row) : [el('p', 'muted small', 'No past meetings yet.')]));
 }
 
+// A month with nothing in it, and a meeting coming later: open on that one (until the user picks a month themselves).
+function openOnNext() {
+  if (moved) return;
+  const list = cal.meetings(Array.isArray(shared.allJobs) ? shared.allJobs : [], recordings, {zone: ZONE});
+  const inMonth = list.some(m => m.day.startsWith(`${month.year}-${String(month.month + 1).padStart(2, '0')}`));
+  const next = cal.agenda(list, Date.now(), ZONE).upcoming[0];
+  if (!inMonth && next) month = {year: Number(next.day.slice(0, 4)), month: Number(next.day.slice(5, 7)) - 1};
+}
+
 // Cache first: the last jobs and recordings read (kept on this Mac by main.js) paint at once, then Notion is read and the
 // page swaps in the fresh copy. A failed read keeps what is shown and says so; it never turns into an empty calendar.
 export async function loadCalendar() {
@@ -85,6 +94,7 @@ export async function loadCalendar() {
   if (cachedRecordings?.result?.interviews) recordings = cachedRecordings.result.interviews;
   savedAt = cachedRecordings?.at || cachedJobs?.at ? savedAgo(cachedRecordings?.at || cachedJobs?.at) : '';
   phase = jobsLoaded() || cachedRecordings ? 'updating' : 'loading';
+  openOnNext();
   render();
   const [fresh, saved] = await Promise.all([
     window.pilot.jobs().catch(() => null), window.pilot.interviews.saved().catch(() => null)]);
@@ -95,13 +105,14 @@ export async function loadCalendar() {
   failure = ok ? '' : String(saved?.error || fresh?.error || 'Try again in a moment; the reason is in the app log.');
   phase = ok ? 'ready' : 'failed';
   if (ok) savedAt = '';
+  openOnNext();
   render();
 }
 
-const step = by => { const d = new Date(Date.UTC(month.year, month.month + by, 1)); month = {year: d.getUTCFullYear(), month: d.getUTCMonth()}; render(); };
+const step = by => { moved = true; const d = new Date(Date.UTC(month.year, month.month + by, 1)); month = {year: d.getUTCFullYear(), month: d.getUTCMonth()}; render(); };
 
 export async function init() {
   $('cal-prev').onclick = () => step(-1);
   $('cal-next').onclick = () => step(1);
-  $('cal-today').onclick = () => { month = null; loadCalendar(); };
+  $('cal-today').onclick = () => { month = null; moved = true; loadCalendar(); };
 }

@@ -1,6 +1,6 @@
 // The website's demo: the app's screens (fictional demo data, never a real profile) as one silent looping video,
 // shown in a Mac window drawn by the page (site/public: .mac-window). Plays like a GIF, but sharp and small.
-// Run after the UI changes: npm run site-demo  →  site/public/images/app/demo.mp4, demo-poster.jpg and snips/*.png
+// Run after the UI changes: npm run site-demo  (npm run site-demo -- calendar: only that close-up)  →  site/public/images/app/demo.mp4, demo-poster.jpg and snips/*.png
 import {execFileSync, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -22,6 +22,7 @@ const FRAMES = [
   ['activity', `${open('focus')} ${wait(900)}; document.getElementById('activity-toggle').click(); ${wait(900)}`],
   ['actions', `${open('actions')} ${wait(1500)}`],
   ['strategy', `${open('strategy')} ${wait(2500)}`],
+  ['calendar', `${open('calendar')} ${wait(2500)}`],
   ['interviews', `${open('interviews')} ${wait(1500)}`],
 ];
 const HOLD = 2.6, FADE = 0.4;
@@ -37,11 +38,13 @@ const SNIPS = [
   ['sessions', '#sessions-dock', steps(go('focus'), 'await sleep(1200)'), 0],
   ['activity', '#activity-panel', steps(go('focus'), 'await sleep(900)', `document.getElementById('activity-toggle').click()`, 'await sleep(900)'), 0],
   ['funnel', '#focus-funnel', steps(go('focus'), 'await sleep(1200)', noDock), 12],
+  ['calendar', '.cal-layout', steps(go('calendar'), 'await sleep(2500)', noDock), 12],
   ['interview', '#iv-editor', steps(go('interviews'), 'await sleep(1200)', `document.querySelector('.iv-draft button')?.click()`, 'await sleep(1200)', noDock), 12],
 ];
 
+const only = process.argv[2] || '';  // a close-up's name: redo just that one, leave the video and the other pictures alone
 const frames = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-demo-frames-'));
-for (const [name, js] of FRAMES) {
+for (const [name, js] of only ? [] : FRAMES) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-demo-'));
   for (const file of fs.readdirSync(path.join(desktop, 'demo'))) {
     if (file !== 'jobs.json') fs.copyFileSync(path.join(desktop, 'demo', file), path.join(data, file));
@@ -55,7 +58,7 @@ for (const [name, js] of FRAMES) {
   console.log(`frame ${name}`);
 }
 fs.mkdirSync(path.join(out, 'snips'), {recursive: true});
-for (const [name, selector, js, margin] of SNIPS) {
+for (const [name, selector, js, margin] of SNIPS.filter(([name]) => !only || name === only)) {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-snip-'));
   for (const file of fs.readdirSync(path.join(desktop, 'demo'))) {
     if (file !== 'jobs.json') fs.copyFileSync(path.join(desktop, 'demo', file), path.join(data, file));
@@ -68,6 +71,7 @@ for (const [name, selector, js, margin] of SNIPS) {
   execFileSync('sips', ['-Z', '1400', png], {stdio: 'ignore'});  // Retina, capped: sharp and not huge
   console.log(`close-up ${name}`);
 }
+if (only) { fs.rmSync(frames, {recursive: true, force: true}); process.exit(0); }
 const names = FRAMES.map(([name]) => name);
 const inputs = names.flatMap(name => ['-loop', '1', '-t', String(HOLD + FADE), '-i', path.join(frames, `${name}.png`)]);
 let chain = '', last = '[0:v]';
