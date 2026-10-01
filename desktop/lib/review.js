@@ -96,11 +96,27 @@ export function delivered(id, ms = 7000) {
   });
 }
 
+// Which Chrome tab is each session's form: the newest tab that reports for it (tab ids only grow within a browser run),
+// so an older tab left from an earlier session of the same job neither answers for it nor hides that its form was closed.
+const bound = new Map();  // session id → tab id
+let openIds = null, bootId = '';
+export function noteTabs({ids, boot} = {}) {
+  if (boot && boot !== bootId) { bootId = String(boot); bound.clear(); }  // Chrome restarted: its tabs were numbered again
+  openIds = Array.isArray(ids) ? new Set(ids.map(Number).filter(Number.isInteger)) : null;
+}
+// true / false: the session's tab is open / was closed. null: not known (no tab id seen yet, or no report).
+export const tabOpen = id => (!bound.has(id) || !openIds ? null : openIds.has(bound.get(id)));
 // The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
 export function report(sessions, payload, now = Date.now()) {
   const page = {url: String(payload?.url || ''), title: String(payload?.title || '')};
   const session = matchSession(sessions, page);
   if (!session) return {matched: null, session: null, watch: [], commands: []};
+  const tab = Number(payload?.tab);
+  if (Number.isInteger(tab)) {
+    const current = bound.get(session.id);
+    if (current !== undefined && tab < current) return {matched: null, session: null, watch: [], commands: []};  // an older tab: not this session's form
+    bound.set(session.id, tab);
+  }
   const states = {};
   for (const item of Array.isArray(payload.watch) ? payload.watch : []) if (typeof item?.filled === 'boolean') states[String(item.id)] = item.filled;
   const state = {id: session.id, url: page.url.split(/[?#]/)[0].slice(0, 300), left: Math.max(0, Number(payload.left) || 0), total: Math.max(0, Number(payload.total) || 0), states,
@@ -127,4 +143,4 @@ export function report(sessions, payload, now = Date.now()) {
 }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
-export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; };  // tests
+export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); openIds = null; bootId = ''; last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; };  // tests

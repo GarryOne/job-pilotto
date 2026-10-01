@@ -120,3 +120,11 @@ test('a test or a file named in backticks is developer chatter: no card for it',
   assert.deepEqual([needs.length, filled.length], [1, 0]);
   assert.equal(DEV_TALK.test('Do you know `Terraform` or Git?'), false);
 });
+
+test('repo vocabulary is developer talk in anything Claude says to the applicant', async () => {
+  const {isDevTalk} = await import('../renderer/session-message.js');
+  for (const line of ['Both failures also occur on a clean checkout of `HEAD`, so they are not caused by anything I did.',
+    'I ran the same two tests in a temporary worktree with your uncommitted config changes left out.',
+    'My earlier guess was that `test_watch` read your edited `config/search.json`.']) assert.equal(isDevTalk(line), true, line);
+  for (const line of ['Any relatives working at N26? (required)', 'The N26 form is filled. Review it and click Submit.']) assert.equal(isDevTalk(line), false, line);
+});

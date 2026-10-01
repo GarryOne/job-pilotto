@@ -1129,7 +1129,10 @@ function handlers() {
   // extension has not checked in lately: then nothing can be said about a closed tab, so the page says nothing.
   ipcMain.handle('formsOpen', () => {
     const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
-    return {known, ids: known ? [...withOpenForm(terminals.list(), mergeTabs(server.openTabs(), []))] : []};
+    if (!known) return {known, ids: []};
+    // A session whose own tab we know is open while that tab exists; for the others, any tab that looks like its form.
+    const sessions = terminals.list(), byLook = withOpenForm(sessions, mergeTabs(server.openTabs(), []));
+    return {known, ids: sessions.map(session => session.id).filter(id => { const own = review.tabOpen(id); return own === null ? byLook.has(id) : own; })};
   });
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
@@ -1558,6 +1561,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  server.setTabsHandler(report => review.noteTabs(report));
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {

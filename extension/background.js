@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, tabArmed} from './tab-pages.js';
+import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -438,7 +438,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     (async () => {
       const config = await settings();
       if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {matched: null};  // your own Worker: no app
-      return api(config, '/extension/review', {method: 'POST', body: JSON.stringify(message.payload || {})});
+      return api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id})});
     })().then(reply, () => reply({matched: null}));
     return true;  // the reply comes later
   }
@@ -479,10 +479,14 @@ chrome.runtime.onStartup.addListener(settleOpenTabs);
 async function reportTabs() {
   const config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;  // your own Worker: no app here
-  const urls = (await chrome.tabs.query({url: JOB_SITES})).map(tab => tab.url);
+  const open = await chrome.tabs.query({url: JOB_SITES});
+  const urls = open.map(tab => tab.url);
+  // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
+  let {boot} = await chrome.storage.session.get('boot');
+  if (!boot) { boot = String(Date.now()); await chrome.storage.session.set({boot}); }
   // Doubles as the connection check (reconnecting by itself, see api()): a red ! on the icon while it fails.
   try {
-    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, version: chrome.runtime.getManifest().version})});
+    const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids: open.map(tab => tab.id), boot, version: chrome.runtime.getManifest().version})});
     connected(true);
     // The app has a newer copy of this extension (its folder was updated): load it. Once per version, so a copy
     // that can't update (a store install) doesn't reload over and over.
@@ -644,6 +648,14 @@ async function onTabSettled(tabId, tab) {
     return;
   }
   const job = stored[`job:${tabId}`];
+  // The watch gave up on a page that did not change in time, then the site's confirmation page arrived: read it now.
+  const page = confirmationOf(tab.url);
+  if (page && submit?.at && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < LATE_CONFIRMATION_MS && forJob(tab.url, job)) {
+    const gate = {host: page.host, path: page.path, why: 'late confirmation'};
+    const result = await askAboutOutcome(tabId, tab, await readLandedPage(tabId), gate, submit.at);
+    if (result.done) await chrome.storage.session.set({[`submit:${tabId}`]: {...submit, closed: true}});
+    return;
+  }
   const miss = missedConfirmation({url: tab.url, job});
   if (miss) logOnce(tabId, miss.text, miss.fields);
   else if (!submit?.at && job && confirmationOf(tab.url)) logOnce(tabId, 'no submit press before this page: not marked', {host: confirmationOf(tab.url).host, path: confirmationOf(tab.url).path});

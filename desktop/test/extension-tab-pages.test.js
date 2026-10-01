@@ -109,3 +109,11 @@ test('a session\'s form counts as open only while a tab for it is reported (an e
   assert.deepEqual([...withOpenForm([session], mergeTabs([], []))], []);
   assert.deepEqual([...withOpenForm([session], mergeTabs(['https://jobs.lever.co/other/1'], []))], []);
 });
+
+test('an embedded Greenhouse confirmation carries the job id in ?token=, and counts for that job', async () => {
+  const {forJob} = await import('../../extension/tab-pages.js');
+  const job = 'https://job-boards.greenhouse.io/n26/jobs/7768035';
+  assert.equal(forJob('https://job-boards.greenhouse.io/embed/job_app/confirmation?for=n26&token=7768035', job), true);
+  assert.equal(forJob('https://job-boards.greenhouse.io/embed/job_app/confirmation?for=n26&token=1111111', job), false);
+  assert.equal(forJob('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035', job), false);  // the form, not a confirmation
+});

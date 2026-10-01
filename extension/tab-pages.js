@@ -39,6 +39,8 @@ export const sameSite = (a, b) => !!originOf(a) && originOf(a) === originOf(b);
 // How long to watch after a submit press. A redirect can be the confirmation, and so can the same page
 // once its content changes. After this, an unchanged form is not a submission.
 export const SUBMIT_WAIT_MS = 20 * 1000;
+// A confirmation page that comes later than that (a slow submit, a CAPTCHA) after a press is still read, up to this long after it.
+export const LATE_CONFIRMATION_MS = 3 * 60 * 1000;
 // A loading line ("Submitting…") is not the outcome. The page must sit still for this long, or the wait must end.
 export const SUBMIT_SETTLE_MS = 2 * 1000;
 
@@ -105,6 +107,8 @@ export function forJob(current, job) {
   if (samePage(current, job)) return true;
   const id = String(job).replace(/\/+$/, '').split('/').pop();
   if (!id) return false;
+  // An embedded Greenhouse form: …/embed/job_app/confirmation?for=<board>&token=<job id>.
+  try { if (confirmationOf(current) && [...new URL(String(current)).searchParams.values()].includes(id)) return true; } catch { /* not a url */ }
   try {
     return new RegExp(`${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(confirmation|thanks)`).test(String(current));
   } catch {

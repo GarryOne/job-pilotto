@@ -153,3 +153,20 @@ test('what is left comes as the ring counts it, and an older extension sends no 
   assert.equal(heard.at(-1).filled, undefined);  // unknown, not "0 filled"
   assert.equal(heard.at(-1).pending, undefined);
 });
+
+test('a session\'s form is its newest tab: an older tab for the same job answers nothing and does not hide a closed form', () => {
+  review._reset();
+  review.noteTabs({ids: [10, 40], boot: 'run1'});
+  review.queueFocus('s1', 'Resume');
+  assert.equal(review.tabOpen('s1'), null);                              // no tab seen yet
+  assert.equal(review.report(sessions, form({tab: 40})).matched, 's1');  // the new tab
+  const old = review.report(sessions, form({tab: 10}));                  // a leftover tab, polling too
+  assert.deepEqual([old.matched, old.commands.length], [null, 0]);       // it gets nothing, and the focus command stays queued
+  assert.equal(review.tabOpen('s1'), true);
+  review.noteTabs({ids: [10], boot: 'run1'});                            // the new tab was closed, the old one is still there
+  assert.equal(review.tabOpen('s1'), false);
+  review.noteTabs({ids: [3], boot: 'run2'});                             // Chrome restarted: tabs were numbered again
+  assert.equal(review.tabOpen('s1'), null);
+  assert.equal(review.report(sessions, form({tab: 3})).matched, 's1');
+  assert.equal(review.tabOpen('s1'), true);
+});

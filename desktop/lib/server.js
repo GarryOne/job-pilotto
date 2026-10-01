@@ -232,6 +232,8 @@ const jobName = job => job ? `${job.title} · ${job.company}` : 'this job';
 
 // Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.
 let tabs = new Set();
+let tabsHandler = () => {};
+export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot}): which Chrome tabs exist (lib/review.js binds sessions to them)
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;
 export const extensionSeen = () => seen;
@@ -380,6 +382,7 @@ export function start(storage, onError = () => {}) {
             const report = JSON.parse(body?.toString() || '{}');
             tabs = new Set((report.urls || []).map(pageKey));
             seen = {at: Date.now(), version: report.version || ''};
+            tabsHandler({ids: report.ids, boot: report.boot});
             void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}
         }

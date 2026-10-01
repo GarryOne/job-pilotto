@@ -2,7 +2,7 @@
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
-import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
+import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
 import {asksYou, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
@@ -244,11 +244,11 @@ export function renderNextStep(item) {
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
-  const said = intro.filter(line => line.replace(/\*/g, '') !== ask);
+  const said = intro.filter(line => line.replace(/\*/g, '') !== ask && !isDevTalk(line));
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
     : gone ? [el('p', 'rich-p', 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
-    : asking ? richText(said.join('\n'))
+    : asking ? (said.length ? richText(said.join('\n')) : [el('p', 'rich-p', 'Claude is waiting for you.')])
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
   const full = $('ss-full');
   full.replaceChildren(...(review && item.question ? richText(item.question) : []));

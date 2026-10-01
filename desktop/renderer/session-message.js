@@ -89,11 +89,15 @@ export const PROBLEM = /\b(?:failed|error|couldn't|could not|didn't work|blocked
 // Developer chatter, not something on the form: a test or a file named in `backticks` (`test_watch`, `config/search.json`).
 // Such an item stays in Claude's report but gets no card, and no "Review in form" button it could never satisfy.
 export const DEV_TALK = /`[^`\n]*(?:\btest_\w+|\.(?:json|py|jsx?|tsx?|md|env|sh|ya?ml)\b)[^`\n]*`/i;
+// Developer talk in a line of Claude's words: a test or file in `backticks`, or the repo's own vocabulary (git, a worktree,
+// HEAD, a checkout, uncommitted changes, test failures). A job form never says these, so such a line is not shown to the applicant.
+export const isDevTalk = line => DEV_TALK.test(line)
+  || /\b(?:git|worktrees?|HEAD|checkouts?|uncommitted|commits?|repo|repository|test failures?|unit tests?|test suite)\b/i.test(line);
 export function sortChecks(checks, {forYou = false} = {}) {
   const needs = [], filled = [];
   for (const check of checks) {
     const text = String(check).trim();
-    if (!text || /^[^:]{1,40}:$/.test(text.replace(/\*/g, '')) || DEV_TALK.test(text)) continue;
+    if (!text || /^[^:]{1,40}:$/.test(text.replace(/\*/g, '')) || isDevTalk(text)) continue;
     const ask = readAsk(text), plain = text.replace(MARKS, '');
     if (ask) needs.push({kind: 'ask', text, ...ask});
     else if (AGREE.test(text)) needs.push({kind: 'agree', text: plain});
