@@ -55,6 +55,7 @@ import * as cvChange from './lib/cv-change.js';
 import * as notionOAuth from './lib/notion-oauth.js';
 import * as notionWorkspace from './lib/notion-workspace.js';
 import * as contactDetails from './lib/contact.js';
+import * as learnedAnswers from './lib/learned.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -1573,6 +1574,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
   server.setTabsHandler(report => review.noteTabs(report));
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));

@@ -5,7 +5,7 @@ import * as notion from './notion.js';
 
 export const HEADING = '📇 Contact details';
 export const LABELS = {first_name: 'First name', last_name: 'Last name', full_name: 'Full name', email: 'Email', phone: 'Phone',
-  location: 'Location', linkedin: 'LinkedIn', github: 'GitHub', website: 'Website'};
+  location: 'Location', street: 'Street', postal_code: 'Postal code', place_of_origin: 'Place of origin', birth_date: 'Date of birth', linkedin: 'LinkedIn', github: 'GitHub', website: 'Website'};
 const KEY_BY_LABEL = Object.fromEntries(Object.entries(LABELS).map(([key, label]) => [label.toLowerCase(), key]));
 export const markdown = contact => `## ${HEADING}\n` + Object.entries(LABELS)
   .filter(([key]) => contact[key]).map(([key, label]) => `- ${label}: ${contact[key]}`).join('\n');

@@ -16,6 +16,10 @@
     ['github', /github/i],
     ['website', /website|portfolio|personal\s*(site|page)/i],
     ['location', /^\s*(current\s*)?(location|city)\b/i],
+    ['street', /^\s*(street(\s*address)?|strasse|stra\u00dfe|rue|address(\s*line\s*1)?)\s*\*?\s*$/i],
+    ['postal_code', /\b(npa|postal\s*code|post\s*code|zip(\s*code)?|plz|code postal)\b/i],
+    ['place_of_origin', /place\s*of\s*origin|heimatort|lieu d.origine/i],
+    ['birth_date', /date\s*of\s*birth|birth\s*date|birthday|geburtsdatum|date de naissance/i],
   ];
   const TEXT_TYPES = ['text', 'email', 'tel', 'url', 'number', 'textarea'];
   // Phone widgets with a separate country menu: the country comes from the number's prefix.

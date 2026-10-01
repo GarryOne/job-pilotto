@@ -404,7 +404,38 @@
     const inputs = [...document.querySelectorAll('input, textarea, select')].filter(el => el.type !== 'hidden' && el.getClientRects().length).length;
     return {title: clip(document.title).slice(0, 180), headings, text: clip(document.body?.innerText).slice(0, 800), inputs};
   };
-  const noteSubmit = () => send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {});
+  // What you answered yourself, kept for next time. Only fields YOU changed count: a person's typing and picking are trusted
+  // events, the extension's own writes are not. Read at the Submit press (before the page moves on) and sent to the app,
+  // which saves them (desktop/lib/learned.js). Never a password, card, code or a long free text.
+  const typed = new Set();
+  for (const kind of ['input', 'change']) {
+    document.addEventListener(kind, event => { if (event.isTrusted && event.target?.matches?.('input, textarea, select')) typed.add(event.target); }, true);
+  }
+  const SECRET = /password|passwort|mot de passe|card\s*number|cvv|cvc|iban|\bssn\b|social security|captcha|one-?time|verification code|security code/i;
+  const learned = () => {
+    const out = new Map();
+    for (const el of typed) {
+      const type = String(el.type || '').toLowerCase();
+      if (!el.isConnected || el.disabled || ['password', 'file', 'checkbox', 'hidden', 'submit', 'button'].includes(type)) continue;
+      let value, kind = 'text';
+      if (type === 'radio') {
+        if (!el.checked) continue;
+        value = clean(el.labels?.[0]?.textContent || el.value);
+        kind = 'option';
+      } else if (el.tagName === 'SELECT') {
+        const chosen = el.selectedOptions?.[0];
+        if (!chosen || !chosen.value) continue;
+        value = clean(chosen.textContent);
+        kind = 'option';
+      } else value = clean(el.value);
+      const label = question(el).slice(0, 120);
+      if (!label || !value || value.length > 300 || SECRET.test(label)) continue;
+      out.set(label.toLowerCase(), {label, value, kind});
+    }
+    return [...out.values()].slice(0, 40);
+  };
+  const noteLearned = () => { const items = learned(); if (items.length) send({type: 'learned', url: location.href, items}).catch(() => {}); };
+  const noteSubmit = () => { noteLearned(); send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {}); };
   document.addEventListener('submit', () => noteSubmit(), true);
   document.addEventListener('click', event => {
     const button = event.target?.closest?.('button, input[type=submit], [role=button]');

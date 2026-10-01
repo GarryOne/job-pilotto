@@ -42,6 +42,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
+- `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 30 applications
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.

@@ -348,6 +348,19 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     arm(tabId, 'review').then(() => reply({ok: true}), () => reply({ok: false}));
     return true;
   }
+  // What you answered yourself in the form, sent at the Submit press: the app keeps it so no form asks again.
+  if (message?.type === 'learned' && sender.tab && Array.isArray(message.items)) {
+    (async () => {
+      const config = await settings();
+      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
+      let host = '';
+      try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
+      const items = message.items.slice(0, 40).map(item => ({label: String(item?.label || '').slice(0, 120), value: String(item?.value || '').slice(0, 300),
+        kind: item?.kind === 'option' ? 'option' : 'text'})).filter(item => item.label && item.value);
+      return api(config, '/extension/learned', {method: 'POST', body: JSON.stringify({host, job: await jobOf(sender.tab), items})});
+    })().then(reply, () => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'focusResult' && sender.tab) {
     (async () => {
       const config = await settings();
