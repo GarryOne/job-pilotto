@@ -40,7 +40,8 @@ test('the page wires it into the row menu through the same review IPC; demo mode
   assert.match(page, /row\.overall \? \[\{again: true, run: \(\) => reviewAgainRow\(row\.id\)\}\]/);
   assert.match(page, /await iv\.review\(pageId\)\.catch/);
   const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
-  assert.match(main, /ipcMain\.handle\('ivReview', \(_, pageId\) => \(DEMO \? \{ok: true/);
+  assert.match(main, /ipcMain\.handle\('ivReview'/);                       // one handler, whatever asks for the review
+  assert.match(main, /if \(DEMO\) return \{ok: true, summary: 'Reviewed \(demo\): nothing was written'\}/);  // demo writes nothing
   const demo = JSON.parse(fs.readFileSync(new URL('../demo/interviews.json', import.meta.url), 'utf8'));
   assert.ok(demo.saved.some(row => row.overall), 'demo data has a reviewed row, so the entry shows');
 });

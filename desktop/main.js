@@ -872,10 +872,27 @@ function handlers() {
   ipcMain.handle('ivSave', (_, id) => interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => interviews.link(storage, pageId, jobUrl));
   // A row already reviewed is reviewed again by the same run (⋯ Review again: src/ai/interviews.py review_again).
-  ipcMain.handle('ivReview', (_, pageId) => (DEMO ? {ok: true, summary: 'Reviewed (demo): nothing was written'} : cloud()
-    ? github.cloudDispatch(storage, log)({mode: 'interview', interview: pageId}).then(() => ({ok: true, cloud: true,
-      summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}))
-    : interviews.review(storage, pageId)));
+  // One review costs ~$0.25 and takes about a minute, so a second ask for the same interview inside that window is a
+  // duplicate, whoever made it: 1 Oct 2026 produced two GitHub runs 38 s apart, two Notion rows and two different
+  // reviews of one transcript. The window is short enough that a deliberate "Review again" later still runs.
+  const REVIEW_WINDOW_MS = 2 * 60 * 1000;
+  const reviewingStarted = new Map();  // interview page id -> when its review was last started
+  ipcMain.handle('ivReview', (_, pageId) => {
+    if (DEMO) return {ok: true, summary: 'Reviewed (demo): nothing was written'};
+    const id = String(pageId);
+    if (Date.now() - (reviewingStarted.get(id) || 0) < REVIEW_WINDOW_MS) {
+      return {ok: true, already: true, summary: 'Already reviewing this interview — it shows in Recent activity'};
+    }
+    reviewingStarted.set(id, Date.now());
+    if (cloud()) {
+      return github.cloudDispatch(storage, log)({mode: 'interview', interview: id}).then(() => ({ok: true, cloud: true,
+        summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}));
+    }
+    return Promise.resolve(interviews.review(storage, id)).then(result => {
+      if (!result?.ok) reviewingStarted.delete(id);  // it failed: a retry must be able to start at once
+      return result;
+    });
+  });
   ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
   // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
   // In development (npm start) macOS may list the terminal that started the app instead of Electron.

@@ -131,6 +131,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/insight-card.js` — A daily insight's message as its card reads it, kept free of the DOM, like run-cards.js and mail-report.js, so the
 - `desktop/renderer/interview-insight.js` — Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 - `desktop/renderer/interview-library.js` — Interviews → the library's read from Notion (src/ai/interviews.py list, through lib/interviews.js): what the page
+- `desktop/renderer/interview-review.js` — An interview review's message as the parts the owner reads. src/ai/interviews.py writes it as:
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content

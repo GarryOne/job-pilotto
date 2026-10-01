@@ -536,6 +536,7 @@ function renderSaved() {
 
 async function reviewRow(pageId) {
   if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
+  if (reviewing.has(pageId)) return;  // already asked for: a second press must not spend a second review (1 Oct 2026)
   reviewing.add(pageId);
   message('iv-message', 'Claude is reviewing the interview (about a minute)…');
   readAgain();

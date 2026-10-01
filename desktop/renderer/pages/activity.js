@@ -8,6 +8,7 @@ import {parseRunMessage} from '../run-cards.js';
 import {mailChanges, parseMailReport} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
+import {parseInterviewReview} from '../interview-review.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
 import {shared} from './shared.js';
 import {showScheduleState} from './connections.js';
@@ -407,15 +408,20 @@ export function renderActivity(fresh) {
   const insight = !run?.live && !card && !mail && run?.message ? parseInsight(run.message) : null;
   // The week's report: the same card, with what worked and what to change in place of the finding's evidence.
   const weekly = !run?.live && !card && !mail && !insight && run?.message ? parseWeekly(run.message) : null;
+  // An interview review: the same card shape as the others, from the message src/ai/interviews.py wrote.
+  const review = !run?.live && !card && !mail && !insight && !weekly && kindOf(run) === 'interview' && run?.message
+    ? parseInterviewReview(run.message) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
   else if (mail) renderMailCard(mail);
   else if (insight) renderInsightCard(insight);
   else if (weekly) renderWeeklyCard(weekly);
+  else if (review) renderInterviewCard(review);
   else if (reading) renderCardSkeleton();
-  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || reading);
-  $('activity-message').textContent = !run?.live && !card && !mail && !insight && !weekly && run?.message || '';
-  show($('activity-message'), !run?.live && !card && !mail && !insight && !weekly && !reading && !!run?.message);
+  show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || reading);
+  const plain = !run?.live && !card && !mail && !insight && !weekly && !review && run?.message;
+  $('activity-message').textContent = plain || '';
+  show($('activity-message'), !!plain && !reading);
   // Warnings (Notion busy, a step skipped…) shown plainly above the log, not buried in it. A run whose row says
   // Warnings — its own verdict — still says so when neither its log nor its report has a line about it: the list's
   // pill and this card never contradict each other.
@@ -766,6 +772,37 @@ export function renderInsightCard(insight) {
   }
   const source = sourceLine(insight);
   if (source) box.append(el('p', 'insight-source', source));
+  $('activity-card').replaceChildren(box);
+}
+
+// An interview review as a card, wearing the insight card's shape (as the weekly report does): the round it was,
+// the job, what happened, what was strong and weak, what to practise, and the next step. Every word is the review's.
+export function renderInterviewCard(review) {
+  const box = el('div', 'insight-card');
+  const head = el('header', 'insight-head');
+  const kicker = el('div', 'insight-kicker');
+  kicker.append(el('span', 'insight-category', `Interview · ${review.round}`));
+  head.append(kicker, el('h3', 'insight-title', review.title || 'Interview review'));
+  if (review.summary) head.append(el('p', 'insight-subtitle', review.summary));
+  box.append(head);
+  for (const section of review.sections) {
+    const node = el('section', 'insight-section');
+    node.append(el('h4', '', `${section.icon} ${section.label}`.trim()));
+    if (section.items.length) {
+      const list = el('ul', 'insight-evidence');
+      section.items.forEach(item => list.append(el('li', '', item)));
+      node.append(list);
+    }
+    box.append(node);
+  }
+  if (review.next || review.stage) {
+    const words = el('div', 'insight-next-words');
+    words.append(el('b', '', review.next ? 'Next' : 'Stage'), el('p', '', review.next || review.stage));
+    if (review.next && review.stage) words.append(el('p', 'insight-subtitle', review.stage));
+    const next = el('section', 'insight-next');
+    next.append(el('span', 'insight-next-icon', icon('target')), words);
+    box.append(next);
+  }
   $('activity-card').replaceChildren(box);
 }
 
