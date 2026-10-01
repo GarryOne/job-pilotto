@@ -92,6 +92,9 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
   const started = Date.now();
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {stdio: 'inherit', timeout: 60000});
   const took = Date.now() - started;
+  // The script opens the app without waiting for it — right for the real one, which must not outlive its job — so a
+  // stub may write its file a moment after PowerShell has exited.
+  for (let i = 0; i < 40 && !fs.existsSync(reopened); i++) await new Promise(resolve => setTimeout(resolve, 250));
   const passed = fs.existsSync(flag) ? fs.readFileSync(flag, 'utf8').trim() : '';
   if (passed !== '/S') throw new Error(`the update ran the installer without /S (argument was "${passed}")`);
   if (!fs.existsSync(reopened)) throw new Error('the update did not reopen the app after installing');
