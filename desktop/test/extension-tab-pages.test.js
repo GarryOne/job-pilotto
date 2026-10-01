@@ -124,5 +124,12 @@ test('the user\'s Notion is never a job form: an armed tab sent there is let go'
   assert.equal(neverForm('https://acme.notion.site/careers'), true);
   assert.equal(neverForm('https://job-boards.greenhouse.io/scaleai/jobs/4719479005'), false);
   assert.equal(neverForm('https://notion.example.org/apply'), false);
+  // A search results page (Claude researching a company in the armed tab) is never a form; a real form on a Google host still is.
+  assert.equal(neverForm('https://www.google.com/search?q=cursor+who+sits+behind'), true);
+  assert.equal(neverForm('https://www.google.ch/search?q=acme'), true);
+  assert.equal(neverForm('https://www.bing.com/search?q=acme'), true);
+  assert.equal(neverForm('https://duckduckgo.com/?q=acme'), true);
+  assert.equal(neverForm('https://docs.google.com/forms/d/e/abc/viewform'), false);
+  assert.equal(neverForm('https://careers.google.com/jobs/results/123/apply'), false);
   assert.equal(neverForm('not a url'), false);
 });

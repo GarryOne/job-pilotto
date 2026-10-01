@@ -11,12 +11,16 @@ export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, ''
 // A page the user is just browsing, Calendly included, is not one of those.
 export const tabArmed = ({url, armed} = {}) => !!armed || String(url || '').includes('#jobpilotto-fill');
 
-// Pages that are never a job form, wherever the tab came from: the user's own Notion (the kit and the tracker live there).
-// An armed tab the user then points at one of them (1 Oct 2026: a kit page in Notion got the fill panel) is let go.
+// Pages that are never a job form, wherever the tab came from: the user's own Notion (the kit and the tracker live there) and
+// search results (Claude researching a company in the armed tab, 2 Oct 2026: a Google results page got "answering 1 question").
+// An armed tab pointed at one of them is let go: no panel, no fill, until the app arms it again. Only results pages: a real form
+// on a Google host (docs.google.com/forms, careers.google.com) is still a form.
 export const neverForm = url => {
   try {
-    const host = new URL(String(url)).hostname;
-    return /(^|\.)(notion\.so|notion\.site|notion\.com)$/i.test(host);
+    const {hostname: host, pathname: path} = new URL(String(url));
+    if (/(^|\.)(notion\.so|notion\.site|notion\.com)$/i.test(host)) return true;
+    if (/^(www\.)?google\.[a-z.]+$/i.test(host)) return /^\/(search|webhp|imghp)?\/?$/.test(path) || path.startsWith('/search');
+    return /^(www\.)?(bing\.com|duckduckgo\.com|search\.brave\.com|ecosia\.org|search\.yahoo\.com)$/i.test(host);
   } catch {
     return false;
   }
