@@ -1,6 +1,6 @@
 // The Job Pilotto panel, on every application form (bottom right). Collapsed: a pill with a progress ring and what's
 // left ("3 left", green "Ready to submit"). Open: the job, what Claude is doing on it, the progress, one Fill button,
-// what's left for you (click one: the page scrolls to it), and I submitted it / Copy cover letter / Open in Job Pilotto.
+// what's left for you (click one: the page scrolls to it), and I submitted it / Open in Job Pilotto.
 // App first: the job, its Apply with Claude session and the form's state are shared with the Job Pilotto app both
 // ways (the agreements you tick here are ticked off there; "Show it in the form" there scrolls here). Without the
 // app it still shows the form's progress, and fills through the extension's own connection.
@@ -202,7 +202,6 @@
         <div class="left" hidden><h4>Left for you</h4><div class="list"></div></div>
         <div class="actions">
           <button class="secondary applied">I submitted it</button>
-          <button class="secondary letter" hidden>Copy cover letter</button>
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
         </div>
       </div>
@@ -267,7 +266,6 @@
       return row;
     }));
     // actions + connection
-    $('.letter').hidden = !job?.coverLetter;
     $('.open-app').hidden = !session;
     const foot = $('.foot');
     foot.classList.toggle('on', !!connection?.connected);
@@ -311,7 +309,6 @@
     endStep();
     if (result?.ineligible) note(`Not filled: ${result.note}`, true);
     else if (!result?.ok) note(`Couldn't fill: ${result?.error || 'try again'}`);
-    if (result?.coverLetter && job) job.coverLetter ||= result.coverLetter;
     render();
   }
   function note(text, anyway = false) {
@@ -327,10 +324,6 @@
     $('.applied').textContent = result?.ok ? '✓ Marked Applied' : 'I submitted it';
     $('.applied').disabled = !!result?.ok;
     if (!result?.ok) note(`Not marked: ${result?.error || 'try again'}`);
-  };
-  $('.letter').onclick = async () => {
-    try { await navigator.clipboard.writeText(job.coverLetter); $('.letter').textContent = 'Copied ✓'; } catch { $('.letter').textContent = 'Copy failed'; }
-    setTimeout(() => { $('.letter').textContent = 'Copy cover letter'; }, 2000);
   };
   $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
   // The extension's fill reports its steps here (instead of a floating box).
@@ -374,7 +367,7 @@
         const field = command.focus && find(command.focus, state.list);
         if (field) flash(field.el);
       }
-      // The job once per page (and again when a session matched): title, stage, kit, cover letter.
+      // The job once per page (and again when a session matched): title, stage, kit.
       const wanted = session?.url || location.href;
       // The job's details load on the side (Notion can be slow or busy): the check-in, and the app's "show this
       // form", never wait for them.
@@ -384,7 +377,7 @@
           connection = answer;
           // The app answered with an error (Notion busy): ask again in 30 s instead of never on this page.
           if (connection?.retry) setTimeout(() => { if (jobAsked === wanted) jobAsked = ''; }, 30000);
-          job = connection?.job ? {...connection.job, coverLetter: connection.coverLetter} : null;
+          job = connection?.job || null;
           // Open by itself the first time on a job it knows (you can close it; it stays closed).
           if ((job || session) && !userMoved && !open) setOpen(true);
           render();
