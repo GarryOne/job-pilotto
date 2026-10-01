@@ -134,11 +134,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
     fs.writeFileSync(promptFile, prompt(url, {ticket: ticket(url), auditFile}), {mode: 0o600});
     const options = {claude, repo, env, shim, promptFile, dir, index};
     if (platform === 'win32') openWindows(options, run);
-    else {
-      openMac(options, run);
-      // Marks the job Applied in Notion when its confirmation page shows up in Chrome (3 h cap).
-      run(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [url], {env, detached: true, stdio: 'ignore'}).unref();
-    }
+    else openMac(options, run);
   }
   return index;
 }
@@ -147,7 +143,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
 // (terminals.js), shown as a card in the window's session dock and as a full terminal on a click. Hooks and
 // tools/notify.sh report its state (JOB_PILOTTO_SESSION names it). Resolves with the sessions started.
 export async function launchInApp(storage, urls, {claude, platform = process.platform, pipelineRun = pipeline.run,
-  ticket = issueTicket, gap = GAP_MS, term = terminals, port = PORT, details = {}, watch = run} = {}) {
+  ticket = issueTicket, gap = GAP_MS, term = terminals, port = PORT, details = {}} = {}) {
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);
@@ -171,20 +167,16 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
       ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]}
       : {file: claude, args: [...flags, ask]};
     started.push(await term.start({id, url, claudeId, file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}, ...(details[url] || {})}));
-    if (platform !== 'win32') {
-      watch(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [url], {env, detached: true, stdio: 'ignore'});
-    }
   }
   // The prompt, settings and audit files: kept for the sessions' first minutes, then removed.
   setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
   return started;
 }
-const run = (command, args, options) => spawn(command, args, options).unref();
 
 // Starts Claude again in the conversation of a session that isn't running (the app was closed, or it stopped).
 // A session that was working gets a line to carry on; one that waited for you (a question, a filled form) is
 // reopened as it was, waiting. The hooks are written again (the old settings file may be gone).
-export async function resumeInApp(storage, id, {claude, platform = process.platform, term = terminals, port = PORT, watch = run} = {}) {
+export async function resumeInApp(storage, id, {claude, platform = process.platform, term = terminals, port = PORT} = {}) {
   const old = term.list().find(entry => entry.id === id);
   if (!old) return {ok: false, error: 'This session is no longer in the list.'};
   if (!old.resumable) return {ok: false, error: old.live ? 'Claude is already running in this session.' : 'This session can\'t be resumed (it was started before sessions were kept).'};
@@ -202,7 +194,6 @@ export async function resumeInApp(storage, id, {claude, platform = process.platf
     : {file: claude, args: [...flags, ...ask]};
   try {
     const resumed = await term.resume(id, {file, args, cwd: repo, env: {...env, JOB_PILOTTO_SESSION: id}});
-    if (platform !== 'win32') watch(path.join(repo, 'tools', 'wait-and-mark-applied.sh'), [old.url], {env, detached: true, stdio: 'ignore'});
     return {ok: true, session: resumed};
   } catch (error) { return {ok: false, error: error.message}; }
 }

@@ -2,7 +2,7 @@
 // messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {forJob, missedConfirmation, samePage, sameSite, tabArmed} from './tab-pages.js';
+import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, sameSite, submissionOutcome, SUBMIT_WAIT_MS, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -265,7 +265,13 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     return true;
   }
   if (message?.type === 'submitted' && sender.tab?.id != null) {
-    chrome.storage.session.set({[`submit:${sender.tab.id}`]: {at: Date.now(), url: sender.tab.url || ''}}).catch(() => {});
+    const tabId = sender.tab.id;
+    const url = pageKey(message.url || sender.tab.url || '');
+    const at = Date.now();
+    const fingerprint = pageFingerprint(message.snapshot || {});
+    const where = submissionOutcome({at, from: url, to: url, before: fingerprint, after: fingerprint});
+    chrome.storage.session.set({[`submit:${tabId}`]: {at, url, fingerprint, calls: 0}}).then(() => watchSubmission(tabId)).catch(() => {});
+    decide('submitted', 'submit pressed', {host: where.host, path: where.path});
     reply({ok: true});
     return false;
   }
@@ -399,7 +405,7 @@ function connected(ok, why = '') {
 // A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
 // ever carried over to whatever opens next (tab-pages.js).
 chrome.tabs.onRemoved.addListener(async tabId => {
-  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`]).catch(() => {});
+  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
   for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
   // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
   // matched it and the new tab was treated as already filled.
@@ -416,66 +422,128 @@ ensureAlarm({get: name => chrome.alarms.get(name), create: (name, info) => chrom
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') reportTabs(); });
 reportTabs();
 
-// Submitted? After you unlock and submit, the site shows its confirmation: Greenhouse …/<job id>/confirmation,
-// Lever …/<job id>/thanks, or a "thank you for applying" page. Then the job is marked Applied in the app and
-// Notion (like the agent launchers' watcher), and a note confirms it on the page.
-// How long a recorded submit press counts as this tab's submission (a site can take a moment to answer).
-const SUBMIT_WINDOW_MS = 5 * 60 * 1000;
-// One line per tab and reason: checkSubmitted runs on every navigation update.
+// Submitted? The submit press starts a short watch. A redirect or a change on the same page (a confirmation
+// message where the form was) is then read by the app. The address alone is not a submission, and a press
+// that leaves the page unchanged is not one either.
 const loggedMiss = new Set();
-function logMiss(tabId, miss) {
-  const key = `${tabId}:${miss.text}:${miss.fields.host}/${miss.fields.id}`;
+const watching = new Map(); // tab id -> the submit press (its timestamp) this watch belongs to
+const ASK_LIMIT = 2;
+function logOnce(tabId, text, fields) {
+  const key = `${tabId}:${text}:${fields.host || ''}/${fields.path || ''}/${fields.id || ''}`;
   if (loggedMiss.has(key)) return;
   loggedMiss.add(key);
-  decide('submitted?', miss.text, miss.fields);
+  decide('submitted?', text, fields);
 }
-async function checkSubmitted(tabId, tab) {
-  const key = `job:${tabId}`, from = `from:${tabId}`, sent = `submit:${tabId}`;
-  const {[key]: job, [from]: filled, [sent]: submit} = await chrome.storage.session.get([key, from, sent]);
-  const miss = missedConfirmation({url: tab?.url, job});
-  if (!job || !tab.url) { if (miss) logMiss(tabId, miss); return; }
-  const id = job.replace(/\/+$/, '').split('/').pop();
-  const confirmationUrl = new RegExp(`${id}/(confirmation|thanks)`).test(tab.url);
-  // The tab must be this job's own page, its confirmation, or the page a fill opened from it. Otherwise the state is
-  // stale (a tab id that came back as something else): reading its text — let alone marking Applied from it — would
-  // be about a page this job has nothing to do with (1 Oct 2026: `elsewhere` matched any other host).
-  if (!forJob(tab.url, job) && filled !== job) {
-    if (miss) logMiss(tabId, miss);
-    await chrome.storage.session.remove([key, from, sent]);
-    return;
+async function readLandedPage(tabId) {
+  const [frame] = await chrome.scripting.executeScript({target: {tabId}, func: () => {
+    const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
+    const headings = [...document.querySelectorAll('h1, h2')].map(el => clean(el.innerText)).filter(Boolean).slice(0, 6);
+    const inputs = [...document.querySelectorAll('input, textarea, select')].filter(el => el.type !== 'hidden' && el.getClientRects().length).length;
+    return {title: clean(document.title).slice(0, 180), headings, text: clean(document.body?.innerText).slice(0, 1500), inputs};
+  }}).catch(() => []);
+  return frame?.result || null;
+}
+async function askAboutOutcome(tabId, tab, reading, gate, pressAt) {
+  const jobKey = `job:${tabId}`;
+  const {[jobKey]: job} = await chrome.storage.session.get(jobKey);
+  if (!job) {
+    logOnce(tabId, 'submit, then the page changed, no job stored on this tab: not marked', {host: gate.host, path: gate.path});
+    return {done: true};
   }
-  // A submission is an event, not a phrase: the page's own content script records the press (a form's submit, or a
-  // click on a submit button) — see review.js. Without that, a page that merely reads "thank you for applying" used
-  // to mark a job Applied on its own (1 Oct 2026: a job was marked Applied while its form sat open, unsubmitted).
-  const pressed = !!submit && Date.now() - (submit.at || 0) < SUBMIT_WINDOW_MS;
-  // Two things count, both evidence rather than wording: the site's own confirmation URL for this job, or a submit
-  // press this page reported. The old third path — a page whose text merely read "thank you for applying" — is what
-  // marked an unsubmitted job Applied; it is gone (1 Oct 2026). A site we cannot see (no permission) leaves the
-  // marking to you: "I submitted it" on the job's row.
-  if (!confirmationUrl && !pressed) {
-    // The near-miss that used to be the bug: a page whose address reads like a confirmation, with no submit press
-    // seen in that tab. It is exactly what a next investigation will want to find in the record.
-    if (/thank|confirm|success|applied/i.test(tab.url)) {
-      decide('submitted?', 'looks like a confirmation URL, but no submit press was seen: not marked', {job, url: tab.url});
-    }
-    return;
-  }
-  const why = confirmationUrl ? 'confirmation URL' : `submit press seen ${Math.round((Date.now() - submit.at) / 1000)}s before`;
-  decide('submitted', `marking Applied: ${why}`, {job, url: tab.url});
-  await chrome.storage.session.remove([key, sent]);  // once per job
-  const config = await settings();
+  decide('submitted?', `submit, then the page changed (${gate.why}): asking whether it confirms`, {host: gate.host, path: gate.path});
   try {
-    const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/applied`, {method: 'POST',
-      headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'},
-      body: JSON.stringify({url: job, why, evidence: {path: confirmationUrl ? 'confirmation' : 'submit',
-        pressAt: submit?.at || null, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(),
-        version: chrome.runtime.getManifest().version}})});
-    const result = await response.json().catch(() => ({}));
-    decide('submitted', result.ok === false ? `the app refused it: ${result.error}` : 'marked Applied', {job});
-    await note(tabId, result.ok === false ? `✈️ Submitted, but Job Pilotto couldn't mark it Applied: ${result.error}` : '✈️ Submitted: marked Applied in Job Pilotto and Notion.');
+    const config = await settings();
+    const verdict = await api(config, '/extension/confirmation', {method: 'POST', body: JSON.stringify({
+      job, page: pageKey(tab.url), title: reading?.title || '', headings: reading?.headings || [], text: reading?.text || '', inputs: reading?.inputs || 0,
+    })});
+    if (!verdict.confirmation) {
+      decide('submitted?', verdict.error ? `page not read (${verdict.error}): not marked` : 'page is not a confirmation: not marked', {host: gate.host, path: gate.path});
+      return {done: false};
+    }
+    if (!verdict.ok) {
+      decide('submitted', `the app refused it: ${verdict.error || 'not marked'}`, {host: gate.host, path: gate.path});
+      return {done: true};
+    }
+    await chrome.storage.session.set({[`judged:${tabId}`]: pressAt});
+    await chrome.storage.session.remove(`submit:${tabId}`);
+    decide('submitted', 'marked Applied', {host: gate.host, path: gate.path});
+    await note(tabId, '✈️ Submitted: marked Applied in Job Pilotto and Notion.', pageKey(tab.url));
+    return {done: true};
   } catch (error) {
-    decide('submitted', `could not reach the app: ${error.message}`, {job});
-    await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Use the extension's "I submitted it" button.`);
+    decide('submitted', `could not reach the app: ${error.message}`, {host: gate.host, path: gate.path});
+    await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Use the extension's "I submitted it" button.`, pageKey(tab.url));
+    return {done: true};
   }
 }
-chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'complete' || info.url) checkSubmitted(tabId, tab); });
+// One watch per tab. Samples the page until it changes and settles, or the wait runs out. A second sample
+// is allowed when the first read was a loading state rather than the outcome.
+async function watchSubmission(tabId) {
+  const key = `submit:${tabId}`;
+  let {[key]: submit, [`judged:${tabId}`]: judged} = await chrome.storage.session.get([key, `judged:${tabId}`]);
+  if (!submit?.at || judged === submit.at || submit.closed) return;
+  if (watching.get(tabId) === submit.at) return;
+  const pressAt = submit.at;
+  watching.set(tabId, pressAt);
+  try {
+    const armedKey = `armed:${tabId}`;
+    let last = submit.fingerprint;
+    let stableSince = Date.now();
+    let calls = submit.calls || 0;
+    const deadline = pressAt + SUBMIT_WAIT_MS;
+    // Sleep only until the deadline, then take that sample. A sample a few milliseconds later would be
+    // "too old" and would skip both the read and the "page unchanged" line.
+    while (calls < ASK_LIMIT && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000, deadline - Date.now())));
+      const fresh = await chrome.storage.session.get([key, `judged:${tabId}`]);
+      submit = fresh[key];
+      if (submit?.at !== pressAt || fresh[`judged:${tabId}`] === pressAt) return; // a newer press, or already marked
+      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      if (!tab?.url || !/^https:/.test(tab.url)) return;
+      const {[armedKey]: armed} = await chrome.storage.session.get(armedKey);
+      if (!tabArmed({url: tab.url, armed})) return;
+      const reading = await readLandedPage(tabId);
+      const after = pageFingerprint(reading || {});
+      if (after !== last) { last = after; stableSince = Date.now(); }
+      const now = Math.min(Date.now(), deadline);
+      const gate = submissionOutcome({
+        at: pressAt, now, from: submit.url, to: tab.url, before: submit.fingerprint, after, stableFor: now - stableSince,
+      });
+      if (gate.why === 'unchanged') {
+        await chrome.storage.session.set({[key]: {...submit, closed: true}});
+        logOnce(tabId, 'submit, page unchanged: not marked', {host: gate.host, path: gate.path});
+        return;
+      }
+      // A blank document mid-navigation is not the outcome. Wait for content, unless this is the last sample.
+      const blank = !reading || (!reading.title && !reading.text && !(reading.headings || []).length);
+      if (!gate.ask || (blank && now < deadline)) continue;
+      calls += 1;
+      submit = {...submit, fingerprint: after, calls, ...(calls >= ASK_LIMIT ? {closed: true} : {})};
+      await chrome.storage.session.set({[key]: submit});
+      const result = await askAboutOutcome(tabId, tab, reading, gate, pressAt);
+      if (result.done) {
+        const latest = await chrome.storage.session.get(key);
+        if (latest[key]?.at === pressAt) await chrome.storage.session.set({[key]: {...latest[key], closed: true}});
+        return;
+      }
+      stableSince = Date.now();
+    }
+  } finally {
+    if (watching.get(tabId) === pressAt) watching.delete(tabId);
+  }
+}
+async function onTabSettled(tabId, tab) {
+  if (!tab?.url || !/^https:/.test(tab.url)) return;
+  const armedKey = `armed:${tabId}`;
+  const stored = await chrome.storage.session.get([`job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, armedKey]);
+  if (!tabArmed({url: tab.url, armed: stored[armedKey]})) return;
+  const submit = stored[`submit:${tabId}`];
+  if (submit?.at && !submit.closed && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < SUBMIT_WAIT_MS) {
+    watchSubmission(tabId);
+    return;
+  }
+  const job = stored[`job:${tabId}`];
+  const miss = missedConfirmation({url: tab.url, job});
+  if (miss) logOnce(tabId, miss.text, miss.fields);
+  else if (!submit?.at && job && confirmationOf(tab.url)) logOnce(tabId, 'no submit press before this page: not marked', {host: confirmationOf(tab.url).host, path: confirmationOf(tab.url).path});
+}
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'complete') onTabSettled(tabId, tab); });

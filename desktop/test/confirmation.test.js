@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationsToMark, confirmsJob, jobId, reportedConfirmations} from '../lib/confirmation.js';
-import {markReportedConfirmations} from '../lib/server.js';
+import {confirmsJob, jobId, judgePage, pageBrief, reportedConfirmations} from '../lib/confirmation.js';
+import {judgeConfirmation, markReportedConfirmations} from '../lib/server.js';
 
 const JOB = 'https://job-boards.greenhouse.io/anthropic/jobs/5114768008';
 const CONFIRM = `${JOB}/confirmation`;
@@ -23,27 +23,17 @@ test('the open form, another role, and a thank-you page are not a submission', (
   assert.equal(confirmsJob('', JOB), false);
 });
 
-test('an open session is marked from a reported confirmation tab, once', () => {
-  const sessions = [
-    {url: JOB, outcome: ''},
-    {url: 'https://jobs.lever.co/acme/abc', outcome: 'submitted'},
-  ];
-  assert.deepEqual(confirmationsToMark([CONFIRM, 'https://jobs.lever.co/acme/abc/thanks'], sessions), [JOB]);
-  assert.deepEqual(confirmationsToMark([JOB], sessions), []);
-});
-
-test('a confirmation tab marks that session Applied once', async () => {
+test('a confirmation-shaped address is only logged: it does not mark the job', async () => {
   const calls = [];
   const session = {url: JOB, company: 'Anthropic', outcome: ''};
-  const deps = {
+  await markReportedConfirmations({}, [CONFIRM], {
     setStatus: async (_storage, job, status) => { calls.push([job, status]); return {ok: true}; },
     submitted: job => { session.outcome = 'submitted'; calls.push(['submitted', job]); },
     sessions: () => [session],
     log: () => {},
-  };
-  await markReportedConfirmations({}, [CONFIRM], deps);
-  await markReportedConfirmations({}, [CONFIRM], deps);
-  assert.deepEqual(calls, [[JOB, 'applied'], ['submitted', JOB]]);
+  });
+  assert.deepEqual(calls, []);
+  assert.equal(session.outcome, '');
 });
 
 test('a reported confirmation page is logged once, matched or not', async () => {
@@ -58,7 +48,50 @@ test('a reported confirmation page is logged once, matched or not', async () => 
   await markReportedConfirmations({}, [orphan], {
     setStatus: async () => ({ok: true}), submitted: () => {}, sessions: () => [], log: (area, message, fields) => lines.push([area, message, fields]),
   });
-  assert.deepEqual(lines, [['extension', 'confirmation page reported, no open session: not marked',
+  assert.deepEqual(lines, [['extension', 'confirmation-shaped page reported, no open session: not marked',
     {host: 'job-boards.greenhouse.io', id: '42', path: 'thanks'}]]);
   assert.equal(JSON.stringify(lines).includes('secret'), false);
+});
+
+test('the page sent to the model drops the query string', () => {
+  const brief = pageBrief({url: 'https://jobs.example/apply/done?token=secret', title: 'Thanks', headings: ['Received'], text: 'We received your application', inputs: 0});
+  assert.equal(brief.host, 'jobs.example');
+  assert.equal(brief.path, '/apply/done');
+  assert.equal(JSON.stringify(brief).includes('secret'), false);
+});
+
+test('the read is a confirmation only when the model says so, and an empty or failed read is not', async () => {
+  assert.equal((await judgePage(null, {url: 'https://jobs.example/a', title: 'Thanks', text: 'Received'})).error, 'no AI');
+  let called = false;
+  const quiet = {messages: {create: async () => { called = true; return {}; }}};
+  assert.equal((await judgePage(quiet, {url: 'https://jobs.example/a'})).error, 'empty page');
+  assert.equal(called, false);
+  const no = {messages: {create: async () => ({content: [{type: 'text', text: '{"confirmation":false}'}], usage: {}})}};
+  assert.equal((await judgePage(no, {title: 'Apply', text: 'First name', inputs: 6})).confirmation, false);
+  let prompt = '';
+  const yes = {messages: {create: async ({messages}) => { prompt = messages[0].content; return {content: [{type: 'text', text: '{"confirmation":true}'}], usage: {input_tokens: 10, output_tokens: 4}}; }}};
+  const verdict = await judgePage(yes, {url: 'https://jobs.example/apply/done?token=secret', title: 'Thanks', headings: ['Received'], text: 'We received your application', inputs: 0});
+  assert.equal(verdict.confirmation, true);
+  assert.equal(prompt.includes('secret'), false);
+  const broken = {messages: {create: async () => { throw new Error('offline'); }}};
+  assert.equal((await judgePage(broken, {title: 'Thanks', text: 'Received'})).confirmation, false);
+});
+
+test('a yes marks the job and a no does not', async () => {
+  const marks = [];
+  const yes = await judgeConfirmation({}, {job: JOB, page: CONFIRM, title: 'Thanks', text: 'Received'}, {
+    client: null,
+    judge: async () => ({confirmation: true, host: 'job-boards.greenhouse.io', path: '/jobs/5114768008/confirmation', inputs: 0}),
+    mark: async url => { marks.push(url); return {ok: true, message: 'ok'}; },
+  });
+  assert.equal(yes.ok, true);
+  assert.equal(yes.confirmation, true);
+  assert.deepEqual(marks, [JOB]);
+  const no = await judgeConfirmation({}, {job: JOB, page: JOB, title: 'Apply', text: 'First name'}, {
+    client: null,
+    judge: async () => ({confirmation: false, host: 'job-boards.greenhouse.io', path: '/jobs/5114768008', inputs: 8}),
+    mark: async url => { marks.push(url); return {ok: true}; },
+  });
+  assert.equal(no.confirmation, false);
+  assert.deepEqual(marks, [JOB]);
 });

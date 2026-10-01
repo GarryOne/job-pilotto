@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, missedConfirmation, originOf, pageKey, samePage, sameSite, tabArmed} from '../../extension/tab-pages.js';
+import {confirmationOf, forJob, missedConfirmation, originOf, pageFingerprint, pageKey, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -14,6 +14,29 @@ test('the panel runs only on a tab the desktop app opened', () => {
   assert.equal(tabArmed({url: 'https://calendly.com/acme/30min'}), false);
   assert.equal(tabArmed({url: JOB}), false);
   assert.equal(tabArmed({}), false);
+});
+
+test('a submit is asked about once the page changes, with or without a redirect', () => {
+  const form = 'https://jobs.example/acme/apply';
+  const at = 1_000;
+  const before = pageFingerprint({title: 'Apply', headings: ['Apply'], text: 'First name', inputs: 8});
+  const same = pageFingerprint({title: 'Apply', headings: ['Apply'], text: 'First name', inputs: 8});
+  const thanks = pageFingerprint({title: 'Thank you', headings: ['Application received'], text: 'We have received your application', inputs: 0});
+  assert.equal(before, same);
+  assert.notEqual(before, thanks);
+  assert.equal(submissionOutcome({at, now: at + 3000, from: form, to: form, before, after: same, stableFor: 3000}).why, 'waiting');
+  assert.equal(submissionOutcome({at, now: at + SUBMIT_WAIT_MS, from: form, to: form, before, after: same, stableFor: 3000}).why, 'unchanged');
+  const stayed = submissionOutcome({at, now: at + 5000, from: form, to: form, before, after: thanks, stableFor: SUBMIT_SETTLE_MS});
+  assert.equal(stayed.ask, true);
+  assert.equal(stayed.why, 'content');
+  assert.equal(submissionOutcome({at, now: at + 3000, from: form, to: form, before, after: thanks, stableFor: 500}).why, 'waiting');
+  const moved = submissionOutcome({at, now: at + 5000, from: form, to: `${form}/done?token=secret`, before, after: thanks, stableFor: SUBMIT_SETTLE_MS});
+  assert.equal(moved.ask, true);
+  assert.equal(moved.why, 'redirect');
+  assert.equal(moved.path.endsWith('/done'), true);
+  assert.equal(JSON.stringify(moved).includes('secret'), false);
+  assert.equal(submissionOutcome({at, now: at + SUBMIT_WAIT_MS + 1, from: form, to: `${form}/done`, before, after: thanks, stableFor: 5000}).why, 'submit too old');
+  assert.equal(submissionOutcome({now: at, from: form, to: `${form}/done`}).why, 'no submit');
 });
 
 test('the same page ignores the fill marker and a trailing slash', () => {

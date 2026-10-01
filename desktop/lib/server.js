@@ -20,7 +20,7 @@ import * as questions from './questions.js';
 import * as terminals from './terminals.js';
 import {log} from './log.js';
 import * as reports from './reports.js';
-import {confirmationsToMark, reportedConfirmations} from './confirmation.js';
+import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 
 export const PORT = 47111;
 // The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
@@ -244,15 +244,11 @@ export function staleExtension(version, latest) {
 export const openTabs = () => [...tabs];
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
-// Confirmation URLs already handed to Notion this run. A tab report arrives every 30 s; one mark is enough.
-const confirming = new Set();
-// One line per confirmation page per run of the app. A tab report arrives every 30 s.
+// One line per confirmation-shaped address per run of the app. A tab report arrives every 30 s.
+// The address is not a submission. Marking happens only after a submit press and an AI read of the new page.
 const reportedPages = new Set();
-// A reported Chrome tab is this session's Greenhouse /confirmation or Lever /thanks page: mark Applied.
-// The bash watcher gives up after 3 hours, and the extension's check needs a job it stored on that tab.
-// Tests pass their own marker.
-export async function markReportedConfirmations(storage, tabUrls, {
-  setStatus = pipeline.setStatus, submitted = sessionSubmitted, sessions = () => terminals.list(), log = appLog,
+export async function markReportedConfirmations(_storage, tabUrls, {
+  sessions = () => terminals.list(), log = appLog,
 } = {}) {
   const open = sessions();
   for (const page of reportedConfirmations(tabUrls, open)) {
@@ -260,30 +256,25 @@ export async function markReportedConfirmations(storage, tabUrls, {
     if (reportedPages.has(key)) continue;
     reportedPages.add(key);
     log('extension', page.matched
-      ? 'confirmation page reported for an open session'
-      : 'confirmation page reported, no open session: not marked',
+      ? 'confirmation-shaped page reported for an open session: waiting for a submit press'
+      : 'confirmation-shaped page reported, no open session: not marked',
       {host: page.host, id: page.id, path: page.path});
   }
-  for (const url of confirmationsToMark(tabUrls, open)) {
-    const key = pageKey(url);
-    if (confirming.has(key)) continue;
-    confirming.add(key);
-    log('extension', `mark Applied: ${url} — confirmation page open in Chrome`, {path: 'confirmation'});
-    try {
-      const result = await setStatus(storage, url, 'applied');
-      if (!result?.ok) {
-        confirming.delete(key);
-        log('extension', `confirmation not marked: ${result?.error || 'no result'}`);
-        continue;
-      }
-      submitted(url);
-      const session = sessions().find(item => item.url === url);
-      notify('Marked Applied ✓', session?.company ? `${session.company}. Saved in your Notion.` : 'Saved in your Notion.');
-    } catch (error) {
-      confirming.delete(key);
-      log('extension', `confirmation not marked: ${error.message}`);
-    }
-  }
+}
+
+// The extension saw a submit press and then the page changed (a redirect, or new content where the form was).
+// Read that page; mark Applied only when the read says it is the site's confirmation. `judge` is injectable
+// so a test never calls a model.
+export async function judgeConfirmation(storage, body, {judge = judgePage, client, mark} = {}) {
+  const job = String(body?.job || '');
+  if (!/^https?:\/\//.test(job)) return {ok: false, confirmation: false, error: 'job url is required'};
+  const verdict = await judge(client === undefined ? aiClient(storage) : client, {url: body?.page || '', title: body?.title, headings: body?.headings, text: body?.text, inputs: body?.inputs});
+  appLog('extension', verdict.confirmation ? 'page after submit read as a confirmation' : `page after submit is not a confirmation${verdict.error ? `: ${verdict.error}` : ''}`,
+    {host: verdict.host, path: verdict.path, inputs: verdict.inputs, ...(verdict.usd != null ? {usd: verdict.usd} : {})});
+  if (!verdict.confirmation) return {ok: true, confirmation: false, error: verdict.error || ''};
+  const marker = mark || (url => localEnv(storage).markApplied(url, `submit, then a page change read as a confirmation (${verdict.host}${verdict.path})`));
+  const result = await marker(job);
+  return {ok: !!result?.ok, confirmation: true, error: result?.ok ? '' : (result?.error || 'not marked'), message: result?.message || ''};
 }
 
 // Apply with Claude → extension hand-off (extension/hook.js). The launcher (tools/apply-batch-claude.sh) asks
@@ -422,6 +413,18 @@ export function start(storage, onError = () => {}) {
               `${jobName(job)}: ${event.filled} field(s) filled${event.left ? `, ${event.left} left (listed on the page)` : ''}. Review, then submit.`);
           }
         }
+        return;
+      }
+      if (req.url === '/extension/confirmation') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        if (!ok) { res.writeHead(401, {'Content-Type': 'application/json', ...cors}); res.end(JSON.stringify({ok: false, confirmation: false, error: 'Wrong token'})); return; }
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        const verdict = await judgeConfirmation(storage, payload);
+        res.writeHead(200, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(verdict));
         return;
       }
       if (req.url === '/extension/me' || req.url.startsWith('/extension/me?')) {

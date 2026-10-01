@@ -27,6 +27,39 @@ export const samePage = (a, b) => !!a && !!b && pageKey(a) === pageKey(b);
 // /apply to /apply/step2), but never another site.
 export const sameSite = (a, b) => !!originOf(a) && originOf(a) === originOf(b);
 
+// How long to watch after a submit press. A redirect can be the confirmation, and so can the same page
+// once its content changes. After this, an unchanged form is not a submission.
+export const SUBMIT_WAIT_MS = 20 * 1000;
+// A loading line ("Submitting…") is not the outcome. The page must sit still for this long, or the wait must end.
+export const SUBMIT_SETTLE_MS = 2 * 1000;
+
+// A short hash of what the page is showing. The text itself is not kept.
+export function pageFingerprint({title, headings, text, inputs} = {}) {
+  const body = [title || '', ...(headings || []), String(inputs ?? ''), String(text || '').slice(0, 800)].join('\n');
+  let hash = 2166136261;
+  for (let i = 0; i < body.length; i++) hash = Math.imul(hash ^ body.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(16);
+}
+
+// Whether to ask the AI. A submit press, then either a new address or different content. The path is not evidence,
+// and a redirect is not required: a confirmation message on the same page counts once the content has changed.
+export function submissionOutcome({at, now = Date.now(), from, to, before, after, stableFor = 0} = {}) {
+  let host = '';
+  let path = '';
+  try {
+    const url = new URL(String(to || from || ''));
+    host = url.hostname;
+    path = url.pathname.replace(/\/+$/, '').slice(-80);
+  } catch { /* not a url */ }
+  if (!at) return {ask: false, why: 'no submit', host, path};
+  if (now - at > SUBMIT_WAIT_MS || now < at) return {ask: false, why: 'submit too old', host, path};
+  const redirected = !!(from && to && !samePage(from, to));
+  const edited = !!(before && after && before !== after);
+  if (!redirected && !edited) return {ask: false, why: now - at >= SUBMIT_WAIT_MS ? 'unchanged' : 'waiting', host, path};
+  if (stableFor < SUBMIT_SETTLE_MS && now - at < SUBMIT_WAIT_MS) return {ask: false, why: 'waiting', host, path};
+  return {ask: true, why: redirected ? 'redirect' : 'content', host, path};
+}
+
 // A Greenhouse /confirmation or Lever /thanks page, as host + job id + path. Null for anything else,
 // including a form page and a page whose text merely says "thank you". Query strings are dropped.
 export function confirmationOf(url) {

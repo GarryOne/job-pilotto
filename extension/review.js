@@ -399,14 +399,23 @@
   // see it (the worker cannot read a page's events). The press is recorded, never sent by us: this listens, it does
   // not click. It is what lets the app mark a job Applied on evidence instead of on wording that looks like a
   // confirmation (1 Oct 2026: an unsubmitted job was marked Applied because a page said "thank you for applying").
-  const submitWords = /\b(submit|send application|apply)\b/i;
-  const noteSubmit = () => send({type: 'submitted', url: location.href}).catch(() => {});
+  // A submit control, not an "Apply" link that only opens the form. The press is recorded. Marking waits
+  // for the tab to land on another page, which the app then reads.
+  const submitWords = /\b(submit|send application)\b/i;
+  // Taken at the press, before the site navigates or replaces the form, so the later read can see what changed.
+  const snapshot = () => {
+    const clip = value => String(value || '').replace(/\s+/g, ' ').trim();
+    const headings = [...document.querySelectorAll('h1, h2')].map(el => clip(el.innerText)).filter(Boolean).slice(0, 6);
+    const inputs = [...document.querySelectorAll('input, textarea, select')].filter(el => el.type !== 'hidden' && el.getClientRects().length).length;
+    return {title: clip(document.title).slice(0, 180), headings, text: clip(document.body?.innerText).slice(0, 800), inputs};
+  };
+  const noteSubmit = () => send({type: 'submitted', url: location.href, snapshot: snapshot()}).catch(() => {});
   document.addEventListener('submit', () => noteSubmit(), true);
   document.addEventListener('click', event => {
-    const button = event.target?.closest?.('button, input[type=submit], [role=button], a.button');
+    const button = event.target?.closest?.('button, input[type=submit], [role=button]');
     if (!button) return;
     const words = `${button.textContent || ''} ${button.getAttribute?.('aria-label') || ''} ${button.name || ''} ${button.value || ''}`;
-    if (button.type === 'submit' || /submit/i.test(String(button.className || '')) || submitWords.test(words)) noteSubmit();
+    if (button.type === 'submit' || submitWords.test(words)) noteSubmit();
   }, true);
   if (document.documentElement) new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
   const tick = setInterval(sync, 2000);

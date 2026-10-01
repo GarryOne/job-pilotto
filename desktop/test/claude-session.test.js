@@ -57,7 +57,7 @@ test('Windows: one console window per job through start, reading its instruction
   assert.match(fs.readFileSync(file, 'utf8'), /apply to this job: https:\/\/a\/1/);
 });
 
-test('Mac: a Terminal window per job whose shell loads the session variables from a private file, plus the submit watcher', async () => {
+test('Mac: a Terminal window per job whose shell loads the session variables from a private file', async () => {
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_x');
   const spawned = [];
@@ -70,7 +70,7 @@ test('Mac: a Terminal window per job whose shell loads the session variables fro
   if (process.platform !== 'win32') assert.equal(fs.statSync(envFile).mode & 0o777, 0o600);  // Windows has no Unix modes
   assert.match(fs.readFileSync(envFile, 'utf8'), /export NOTION_TOKEN='ntn_x'/);
   assert.doesNotMatch(fs.readFileSync(envFile, 'utf8'), /ANTHROPIC_API_KEY/);
-  assert.match(spawned[1].command, /tools[\\/]wait-and-mark-applied\.sh$/);
+  assert.equal(spawned.length, 1); // the extension watches the submit; this launcher does not
 });
 
 // A fake terminal module: what the session code asks of terminals.js.
@@ -93,13 +93,12 @@ test('each session runs its own Claude conversation, named up front so it can be
 
 test('resume: the same conversation with fresh hooks; a stopped session is told to carry on, a waiting one is not', async () => {
   const storage = tempStorage();
-  const watched = [];
   const existing = [{id: 'w1', url: 'https://a/1', claudeId: 'conv-1', status: 'input', resumable: true, live: false},
     {id: 'e2', url: 'https://b/2', claudeId: 'conv-2', status: 'ended', resumable: true, live: false},
     {id: 'l3', url: 'https://c/3', claudeId: 'conv-3', status: 'running', resumable: false, live: true},
     {id: 'o4', url: 'https://d/4', claudeId: '', status: 'ended', resumable: false, live: false}];
   const term = fakeTerms(existing);
-  const options = {claude: '/bin/claude', platform: 'darwin', term, port: 47111, watch: (...call) => watched.push(call)};
+  const options = {claude: '/bin/claude', platform: 'darwin', term, port: 47111};
   assert.equal((await session.resumeInApp(storage, 'w1', options)).ok, true);
   assert.equal((await session.resumeInApp(storage, 'e2', options)).ok, true);
   const [waiting, stopped] = term.resumed;
@@ -112,5 +111,4 @@ test('resume: the same conversation with fresh hooks; a stopped session is told 
   assert.match((await session.resumeInApp(storage, 'l3', options)).error, /already running/);
   assert.match((await session.resumeInApp(storage, 'o4', options)).error, /can't be resumed/);
   assert.match((await session.resumeInApp(storage, 'zz', options)).error, /no longer in the list/);
-  assert.equal(watched.length, 2);  // the submit watcher runs again for the two resumed
 });
