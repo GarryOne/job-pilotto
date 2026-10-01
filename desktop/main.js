@@ -1491,7 +1491,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const taken = pendingLicense.consume(app.getPath('userData'), {license, storage, licenseState});
     if (taken) console.log(`Founder key from the installer: ${taken.ok ? `accepted${taken.trial ? ', free AI credit on' : ''}` : taken.error}`);
   }
-  telemetry = DEMO || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
+  // CI smoke runs (windows-smoke.mjs) launch the packaged app with a fresh profile each time: they must not count as installs.
+  const smokeRun = !!(process.env.JOB_PILOTTO_SMOKE || process.env.JOB_PILOTTO_PTY_SMOKE);
+  telemetry = DEMO || smokeRun || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
     pipeline.onRunEnd(({args, code, seconds, tail}) => {
