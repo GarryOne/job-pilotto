@@ -49,7 +49,8 @@ test('the prep message becomes the interview, its topics, the next step and the 
 test('the other three shapes are notes, and none of them is read as an interview', () => {
   const nudge = parseMailReport('🎤 How did Huxley — Principal SRE go? Send the transcript (or /interview with your notes) with the caption ", Connect Igor / Jaya - SRE" for a review.', 'Gmail check: 5 new email(s) read, 1 update(s) recorded');
   assert.equal(nudge.interview, null);
-  assert.deepEqual(nudge.notes, [{icon: '🎤', text: 'How did Huxley — Principal SRE go? Send the transcript (or /interview with your notes) with the caption ", Connect Igor / Jaya - SRE" for a review.'}]);
+  // fromRow marks where the line came from: a report line is drawn as the card's own structured section, never as a note.
+  assert.deepEqual(nudge.notes, [{icon: '🎤', text: 'How did Huxley — Principal SRE go? Send the transcript (or /interview with your notes) with the caption ", Connect Igor / Jaya - SRE" for a review.', fromRow: false}]);
 
   const calendar = parseMailReport([
     '📧 Job emails and calendar',
@@ -63,7 +64,7 @@ test('the other three shapes are notes, and none of them is read as an interview
 
   const quiet = parseMailReport('📧 Gmail checked: no new job emails.', 'Gmail check: 0 new email(s) read, 0 update(s) recorded');
   assert.equal(quiet.status.sentence, 'No new job emails, and no application records changed.');
-  assert.deepEqual(quiet.notes, [{icon: '📧', text: 'Gmail checked: no new job emails.'}]);
+  assert.deepEqual(quiet.notes, [{icon: '📧', text: 'Gmail checked: no new job emails.', fromRow: false}]);
   assert.equal(parseMailReport('', ''), null);
   assert.equal(parseMailReport(null, null), null);
 });
@@ -90,6 +91,27 @@ test('without a message the report lines say what the check recorded and changed
                'Emails with claude-haiku-4-5: 2 of 2; tokens in 3252 (+0 cached), out 142; $0.0040'];  // not about the emails
   const report = parseMailReport(null, 'Gmail check: 2 new email(s) read, 1 update(s) recorded', row);
   assert.deepEqual(report.status, {title: 'Check complete', sentence: '2 emails reviewed. 1 application record changed.'});
-  assert.deepEqual(report.notes, [{icon: '📬', text: 'Application received · Canonical — Software Engineer - Data Infrastructure · Stage Applied → Confirmation received'}]);
+  // The update is its own line — the job, and what moved on it — not a note.
+  assert.deepEqual(report.updates, [{job: 'Canonical — Software Engineer - Data Infrastructure',
+                                     changes: 'Stage Applied → Confirmation received'}]);
+  // The run's own lines are marked, so the card can draw them as sections instead of as loose text.
+  assert.ok(report.notes.every(note => note.fromRow));
   assert.equal(parseMailReport(null, '', []), null);  // no message and no report: nothing to draw
+});
+
+// The two lines src/notion/cron_runs.py writes about the emails, as the card reads them.
+test('each email read becomes a row: subject, who sent it, when, what was done with it', () => {
+  const row = ['Gmail check: 2 new email(s) read, 1 update(s) recorded; AI cost $0.004.',
+               '📬 Application received · Canonical — Software Engineer - Data Infrastructure · Stage Applied → Confirmation received; Confirmation email set',
+               'Security code for your application to Canonical · Greenhouse · 01 Oct 03:44 — [read] · Canonical · nothing to record',
+               'Thank you for applying to Canonical · us.greenhouse-mail.io · 01 Oct 03:45 — [recorded] · Canonical — Software Engineer - Data Infrastructure · changed Stage Applied → Confirmation received; Confirmation email set'];
+  const report = parseMailReport(null, '', row);
+  assert.deepEqual(report.updates, [{job: 'Canonical — Software Engineer - Data Infrastructure',
+                                     changes: 'Stage Applied → Confirmation received; Confirmation email set'}]);
+  assert.deepEqual(report.emails, [
+    {subject: 'Security code for your application to Canonical', sender: 'Greenhouse', time: '01 Oct 03:44',
+     action: 'read', by: 'Canonical', changes: 'nothing to record'},
+    {subject: 'Thank you for applying to Canonical', sender: 'us.greenhouse-mail.io', time: '01 Oct 03:45',
+     action: 'recorded', by: 'Canonical — Software Engineer - Data Infrastructure',
+     changes: 'Stage Applied → Confirmation received; Confirmation email set'}]);
 });

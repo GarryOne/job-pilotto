@@ -585,6 +585,51 @@ function renderCardSkeleton() {
   $('activity-card').replaceChildren(stats, body);
 }
 
+// A Gmail check's own lines about the emails: the update it recorded — with what moved on the job — and every email
+// it read, each opening in Gmail. Its own rows, so a check that sent nothing to Telegram still accounted for itself.
+function mailDiff(changes) {
+  const row = el('div', 'mail-diff');
+  for (const part of String(changes || '').split(';')) {
+    const field = /^\s*([^→]+?)\s*→\s*(.+)$/.exec(part);
+    // "Stage Applied → Confirmation received" reads as a label and its movement; "Confirmation email set" is one word.
+    row.append(field ? el('span', 'mail-diff-move', [el('b', '', field[1]), ` → ${field[2]}`]) : el('span', 'mail-diff-flag', part.trim()));
+  }
+  return row;
+}
+function mailSections(box, report) {
+  if (report.updates.length) {
+    const section = el('section', 'mail-block mail-changed');
+    section.append(el('h4', '', 'What changed'));
+    for (const update of report.updates) {
+      const row = el('div', 'mail-changed-row');
+      row.append(el('b', 'mail-changed-job', update.job));
+      if (update.changes) row.append(mailDiff(update.changes));
+      section.append(row);
+    }
+    box.append(section);
+  }
+  if (report.emails.length) {
+    const section = el('section', 'mail-block mail-read');
+    const head = el('div', 'mail-block-head');
+    head.append(el('h4', '', 'Emails read'), pill(String(report.emails.length), 'neutral'));
+    section.append(head);
+    const rows = el('ol', 'mail-read-rows');
+    for (const email of report.emails) {
+      const row = el('li', 'mail-read-row');
+      const words = el('span', 'mail-read-words');
+      words.append(el('b', '', email.subject));
+      words.append(el('span', 'mail-read-meta', [email.sender, email.time].filter(Boolean).join(' · ')));
+      row.append(words);
+      const acted = email.by && email.by !== email.action;
+      row.append(pill(email.action, email.action === 'recorded' ? 'good' : 'neutral'));
+      if (acted) row.append(el('span', 'mail-read-by', email.by));
+      rows.append(row);
+    }
+    section.append(rows);
+    box.append(section);
+  }
+}
+
 // A Gmail check's card: what the check did, the interview it is about, what to prepare, the recruiter's next step and
 // the consent line — the message's own content, in the shape the owner reads it (the mockup, 30 Sep).
 function renderMailCard(report) {
@@ -595,6 +640,13 @@ function renderMailCard(report) {
   status.append(tick, el('strong', '', report.status.title));
   if (report.status.sentence) status.append(el('span', 'mail-status-text', report.status.sentence));
   box.append(status);
+  // The row of counts first, as the other run cards do: what it read, and what that changed.
+  const stats = el('div', 'run-card-stats mail-stats');
+  const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value)), ` ${label}`); return cell; };
+  stats.append(stat(report.emails.length, report.emails.length === 1 ? 'email read' : 'emails read'),
+               stat(report.updates.length, report.updates.length === 1 ? 'update' : 'updates'));
+  if (report.emails.length || report.updates.length) box.append(stats);
+  mailSections(box, report);
   const {interview} = report;
   if (interview) {
     const panel = el('section', 'mail-interview');
@@ -639,15 +691,18 @@ function renderMailCard(report) {
     }
     box.append(columns);
   }
-  if (report.notes.length) {
-    const notes = el('ul', 'mail-notes');
-    report.notes.forEach(note => {
+  // The message's own lines (instructions to you). The run's report lines are the sections above, with the job and
+  // the change pulled out of them, so a raw "… · [recorded] · … · changed …" line is never drawn twice.
+  const notes = report.notes.filter(note => !note.fromRow);
+  if (notes.length) {
+    const list = el('ul', 'mail-notes');
+    notes.forEach(note => {
       const item = el('li', '');
       if (note.icon) item.append(el('span', 'mail-note-icon', note.icon));
       item.append(el('span', '', note.text));
-      notes.append(item);
+      list.append(item);
     });
-    box.append(notes);
+    box.append(list);
   }
   if (report.consent) {
     const consent = el('p', 'mail-consent');

@@ -37,19 +37,67 @@ const paragraphs = text => String(text).split(/,\s+(?=with\b)/i)
   })
   .filter(Boolean);
 
+// The two lines a Gmail check's run page adds about the emails themselves: the update it recorded on a job
+// ("📬 Application received · Canonical — SRE · Stage Applied → Confirmation received"), and one line per email read
+// ("Thank you for applying … · us.greenhouse-mail.io · 01 Oct 03:45 — [recorded] · Canonical — SRE · changed …").
+// src/notion/cron_runs.py writes both; the card draws them as rows, not as loose text.
+const EMAIL_ACTION = /—\s*\[([^\]]+)\]\s*/;
+// "· changed Stage Applied → Confirmation received" or "· nothing to record": where the email's tail stops being the
+// job it is about. Matched from the tail's end (greedy), so "Canonical · nothing to record" keeps its job.
+const EMAIL_TAIL = /\s*·\s*(?:changed\s+(.*)|((?:nothing|already known)\b.*))$/;
+const EMAIL_HEAD = /^(.*?)\s+—\s+/;
+// "📬 Application received · Canonical — Site Reliability Engineer · Stage Applied → Confirmation received":
+// the summary ("Application received"), the job, then what moved. The job's own name has a "—" in it, so the change
+// is found by what a change looks like (an arrow, or one of the fields an email can move), not by counting "·"s.
+const UPDATED = /^([^·]+?)\s*·\s*(.*)$/;
+const CHANGE = /→|^(?:Stage|Next interview|Confirmation email|Feedback status)\b/;
+function parseUpdated(line) {
+  const [, summary, rest] = UPDATED.exec(line.replace(DID, '').trim()) || [];
+  if (!summary || rest === undefined) return {job: (summary || '').trim(), changes: ''};
+  const parts = rest.split(/\s*·\s*/);
+  const at = parts.findIndex(part => CHANGE.test(part));
+  return at < 0 ? {job: parts.join(' · ').trim(), changes: ''}
+                : {job: parts.slice(0, at).join(' · ').trim(), changes: parts.slice(at).join(' · ').trim()};
+}
+const DID = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)|\[\w[\w ]*\]/u;
+
+export function parseMailLines(fromRow = []) {
+  const record = {updates: [], emails: []};
+  for (const raw of fromRow.slice(1)) {
+    const line = String(raw || '').trim();
+    const action = EMAIL_ACTION.exec(line);
+    if (action) {  // one email read: head — [action] · by · changed what
+      const [, head] = EMAIL_HEAD.exec(line) || [];
+      const tail = line.slice(action.index + action[0].length);
+      const changed = EMAIL_TAIL.exec(tail);
+      const by = (changed ? tail.slice(0, changed.index) : tail).split(/\s*·\s*/).filter(Boolean);
+      const [subject = '', sender = '', time = ''] = (head || '').split(/\s+·\s+/);
+      record.emails.push({subject, sender, time, action: action[1].trim(), by: by[0] || '', changes: (changed?.[1] || changed?.[2] || '')});
+      continue;
+    }
+    if (DID.test(line)) record.updates.push(parseUpdated(line));
+  }
+  return record;
+}
+
 // fromRow: the run's own report lines, read from its Notion row (lib/run-history.js). A check that sent nothing to
 // Telegram has no message, and then these are the only account of what it did: the update it recorded, with what it
 // changed ("📬 … · Stage Applied → Confirmation received"). Its first line is the summary the status already shows,
 // and the run's other report lines (the "Stages" cost line, warnings) are not about the emails.
-const DID = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)|\[\w[\w ]*\]/u;
 export function parseMailReport(message, result = '', fromRow = []) {
   const said = String(message || '').split('\n');
-  const lines = [...(message ? said : []), ...fromRow.slice(1).filter(line => DID.test(String(line)))]
-    .map(line => line.trim()).filter(Boolean);
-  if (!lines.length) return null;
-  const report = {status: mailStatus(result), interview: null, topics: [], nextSteps: [], consent: '', notes: [], url: ''};
+  const parsed = parseMailLines(fromRow);
+  // A message is what the check told Telegram; the report lines are what it did. Both are drawn, so a check (or a
+  // later reader of its page) shows the emails it found even when it sent nothing. Each line is remembered with where
+  // it came from: the card draws the report lines as its own structured sections, never as loose text.
+  const lines = [...(message ? said.map(text => [text, false]) : []),
+                 ...fromRow.slice(1).map(text => [text, true]).filter(([line]) => DID.test(String(line)))]
+    .map(([line, fromRow_]) => [line.trim(), fromRow_]).filter(([line]) => line);
+  if (!lines.length && !parsed.emails.length) return null;
+  const report = {status: mailStatus(result), interview: null, topics: [], nextSteps: [], consent: '', notes: [],
+                  url: '', updates: parsed.updates, emails: parsed.emails};
   let reading = '';  // what the last line put us inside: the meeting's own lines, its topics, or the next step
-  for (const line of lines) {
+  for (const [line, fromRow_] of lines) {
     const link = NOTION_LINK.exec(line);
     if (link) { report.url = link[1]; reading = ''; continue; }
     if (CONSENT.test(line)) { report.consent = line; reading = ''; continue; }
@@ -70,7 +118,7 @@ export function parseMailReport(message, result = '', fromRow = []) {
       if (!report.interview.where) { report.interview.where = line; continue; }
     }
     const head = HEAD.exec(line);
-    report.notes.push({icon: head ? head[1] : '', text: head ? line.slice(head[0].length) : line});
+    report.notes.push({icon: head ? head[1] : '', text: head ? line.slice(head[0].length) : line, fromRow: fromRow_});
     reading = '';
   }
   const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length;

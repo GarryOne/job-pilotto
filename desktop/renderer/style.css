@@ -1443,6 +1443,26 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-notes { list-style: none; margin: 0; padding: 0 var(--sp-4) var(--sp-4); display: grid; gap: var(--sp-2); }
 .mail-notes li { display: flex; gap: var(--sp-2); color: var(--ink-2); }
 .mail-note-icon { flex: none; }
+/* A Gmail check's own record: its counts, what it changed on a job, and every email it read (1 Oct 2026). The card
+   is one column of children, so these sections carry their own inset — and, stacked rather than side by side, none of
+   the border-left that .mail-block + .mail-block draws for the two columns. */
+.mail-stats { padding: var(--sp-3) var(--sp-4) 0; }
+.mail-changed, .mail-read { padding: var(--sp-4); }
+.mail-changed + .mail-read { border-left: 0; padding-left: var(--sp-4); border-top: 1px solid var(--line); }
+.mail-changed-row { display: grid; gap: var(--sp-2); padding-top: var(--sp-3); margin-top: var(--sp-3); border-top: 1px solid var(--line); }
+.mail-changed-row:first-of-type { padding-top: 0; margin-top: 0; border-top: 0; }
+.mail-changed-job { color: var(--ink); }
+.mail-diff { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mail-diff-move, .mail-diff-flag { background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 2px var(--sp-2); color: var(--ink-2); }
+.mail-diff-move b { color: var(--muted); font-weight: 600; }
+.mail-read-rows { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; }
+.mail-read-row { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
+.mail-read-row:first-child { border-top: 0; }
+.mail-read-words { display: grid; gap: 2px; min-width: 0; }
+.mail-read-words b { font-weight: 600; }
+.mail-read-meta { color: var(--muted); }
+.mail-read-by { grid-column: 1 / -1; color: var(--muted); }
 .mail-consent { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--line); color: var(--muted); }
 .mail-consent .icon { width: 18px; height: 18px; flex: none; }
