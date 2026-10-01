@@ -1,6 +1,7 @@
 // The background worker: tabs the app opens to fill (#jobpilotto-fill), Apply with Claude's hand-off, the ring's
 // messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
+import {ensureAlarm} from './report-alarm.js';
 
 async function note(tabId, text) {
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
@@ -310,8 +311,9 @@ function connected(ok, why = '') {
 chrome.tabs.onRemoved.addListener(() => reportTabs());
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });
 chrome.runtime.onStartup.addListener(reportTabs);
-// Also every 30 s, so an app started after the tabs were opened still learns about them.
-chrome.alarms.create('report-tabs', {periodInMinutes: 0.5});
+// Also every 30 s, so an app started after the tabs were opened still learns about them. Only if it isn't there
+// already: creating an alarm that exists resets it, and this worker wakes far more often than every 30 s.
+ensureAlarm({get: name => chrome.alarms.get(name), create: (name, info) => chrome.alarms.create(name, info)});
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') reportTabs(); });
 reportTabs();
 

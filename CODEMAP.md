@@ -122,6 +122,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/answer-options.js` — What a "needs you" row can offer as an answer, kept free of the window so a test can check it (session-needs.js
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
+- `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
@@ -175,6 +176,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/popup.js` — The toolbar popup: a pointer to the page's panel (review.js), which does the work. "Show the panel on this page"
+- `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, on every application form (bottom right). Collapsed: a pill with a progress ring and what's
 
 ## Python pipeline
