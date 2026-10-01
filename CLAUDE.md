@@ -3,8 +3,9 @@
 Personal job-search automation: crawls job boards and employer feeds, filters and scores jobs with Claude, sends a Telegram digest, tracks applications in Notion.
 
 ## Start here
-1. **[docs/HOW-IT-RUNS.md](docs/HOW-IT-RUNS.md)**: strategy in 5 bullets and every automatic loop (self-healing,
-   self-improving, releases, the product brain): trigger, what it may change, where the owner approves.
+1. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**, once, at the start of a session: how a job moves and
+   where the code sits. **[docs/HOW-IT-RUNS.md](docs/HOW-IT-RUNS.md)** only when the task touches an
+   automatic loop: trigger, what it may change, where the owner approves.
 2. Read the Notion page **Session Handoff — Start Here (for Claude)** (`3e562be8fd8681af9a4dd8732964fd94`) via the Notion MCP. It has the owner's preferences, current state, open threads and known gotchas.
 3. Then **Technical Reference — Implementation** (`3e562be8fd868124a28ee7c044dc83dc`), the latest **Run Log** entries and the **Decision Log**.
 4. For any other Notion page/database ID, or to find where something lives, use the skill **notion-map** (private: `GarryOne/job-pilotto-ops`, linked on the owner's Mac as `~/.claude/skills/notion-map`) instead of searching from scratch.
