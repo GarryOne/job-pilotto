@@ -1375,6 +1375,10 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .run-words { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .activity-panel .run-kind { font-weight: 600; }
 .activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-panel .run-github { color: var(--signal); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; }
+.activity-panel .run-github:hover { text-decoration: underline; }
+.activity-panel .run-live { margin: 2px 0 0; max-height: 5.6em; overflow: auto; white-space: pre-wrap;
+  font: var(--fs-xs)/1.4 var(--font-mono); color: var(--muted); }
 /* The time is its own column ("18:06"; "Tue 12:59" for anything before today), before the status pill. */
 .activity-panel .run-time { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .activity-panel .ap-all { align-self: center; margin-top: var(--sp-3); }
@@ -1463,6 +1467,14 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .mail-diff-move, .mail-diff-flag { background: var(--surface-2); border: 1px solid var(--line);
   border-radius: var(--r-sm); padding: 2px var(--sp-2); color: var(--ink-2); }
 .mail-diff-move b { color: var(--muted); font-weight: 600; }
+.mail-confirm { display: grid; gap: var(--sp-3); margin: 0 0 var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.mail-confirm h4 { margin: 0; font-size: var(--fs-md); }
+.mail-confirm .mail-sub { margin: 0; color: var(--ink-2); font-size: var(--fs-sm); }
+.mail-confirm-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.mail-confirm-words { min-width: 0; display: grid; gap: 2px; }
+.mail-confirm-words p { margin: 0; color: var(--muted); font-size: var(--fs-sm); }
+.mail-confirm-actions { display: flex; gap: var(--sp-2); flex: none; }
 .mail-read-rows { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; }
 .mail-read-row { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--line); }
 .mail-read-row:first-child { border-top: 0; }

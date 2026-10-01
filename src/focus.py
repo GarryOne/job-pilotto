@@ -398,14 +398,18 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             reached = _field(row, 'Reached via') or ('LinkedIn' if 'linkedin' in link else 'Email' if 'mail.google' in link else '')
             where = {'Email': 'by email', 'LinkedIn': 'on LinkedIn', 'Phone': 'by phone'}.get(reached, '')
             when = _ago(last['at'], now) if last['at'] else ''
+            upcoming = _when(_field(row, 'Next interview'))
             if last['kind'] == 'Offer':
                 items.append(_item(1, 'offer', '🎉', f'Answer the offer: {label}', f'Offer {when}. {last["note"][:140]}', row,
                                    link, 'Open email' if link else '', done=True))
             elif BOOKING.search(last['note']):
-                booking = _booking_link(last['note'])  # a chat's Calendly link: the button opens it, wherever they wrote
-                items.append(_item(1, 'book', '📅', f'Book the call: {label}', f'They asked you to pick a time ({when}). {last["note"][:140]}',
-                                   row, booking or link, 'Open booking link' if booking else 'Open email' if 'mail.google' in link else 'Open',
-                                   done=True))
+                # The call is already on the calendar (Next interview): "Book the call" is done. Prepare stays.
+                # A later "please confirm this time" is not a booking note, so that reply still shows beside Prepare.
+                if not (upcoming and upcoming > now):
+                    booking = _booking_link(last['note'])  # a chat's Calendly link: the button opens it, wherever they wrote
+                    items.append(_item(1, 'book', '📅', f'Book the call: {label}', f'They asked you to pick a time ({when}). {last["note"][:140]}',
+                                       row, booking or link, 'Open booking link' if booking else 'Open email' if 'mail.google' in link else 'Open',
+                                       done=True))
             else:
                 if last['kind'] == 'Recruiter lead':  # the facts that decide the answer, not the event's note
                     facts = ' · '.join(p for p in (_field(row, 'Salary'), _field(row, 'Location'), _field(row, 'Contact').split(' · ')[0]) if p)
@@ -418,7 +422,6 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
                                    lead=last['kind'] == 'Recruiter lead'))
             # An interview still ahead keeps its own "Prepare" item next to the answer that is waiting (the recruiter
             # asking you to confirm the time must not hide the preparation for it).
-            upcoming = _when(_field(row, 'Next interview'))
             if not (upcoming and upcoming > now and last['kind'] != 'Offer'):
                 continue
         coming = _when(_field(row, 'Next interview'))

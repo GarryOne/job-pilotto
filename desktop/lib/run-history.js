@@ -103,7 +103,14 @@ export function merge(notionRuns, localRuns, pending = []) {
   });
   const oldest = notionRuns.length ? Math.min(...notionRuns.map(row => row.id)) : 0;
   const missing = localRuns.filter(run => !used.has(run) && run.id >= oldest);
-  const waiting = pending.filter(job => !notionRuns.some(row => row.mode === job.mode && row.id >= job.id - 60000));
+  // A job sent to GitHub is waiting until its row exists. The run URL is the sure match (the row's start can
+  // sit outside the one-minute window). The time window covers the moment before the link is known.
+  const sameRun = (job, row) => {
+    const want = String(job.runUrl || job.url || '').replace(/\/job\/\d+$/, '');
+    const got = String(row.url || '').replace(/\/job\/\d+$/, '');
+    return (want && got && want === got) || (row.mode === job.mode && row.id >= job.id - 60000);
+  };
+  const waiting = pending.filter(job => !notionRuns.some(row => sameRun(job, row)));
   return {runs: [...merged, ...missing].filter(run => !run.live).sort((a, b) => b.id - a.id),
     live: merged.find(run => run.live) || waiting[0] || null, waiting};
 }

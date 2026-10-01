@@ -49,6 +49,11 @@ test('merge: Notion is the history; this Mac\'s record of the same run keeps its
   assert.equal(mail.result, 'Gmail check: 2 new email(s) read, 1 update(s) recorded');
   assert.equal(live.step, 'Starting on GitHub…');
   assert.equal(waiting.length, 1);
+  // The run's own URL clears the placeholder even when the row's start is outside the one-minute window.
+  const late = [{...pending[0], runUrl: 'https://github.com/me/p/actions/runs/20'}];
+  const found = history.fromRow(row('r7', {started: '2026-09-28T11:00:00Z', mode: 'weekly', status: 'OK', trigger: 'Manual', seconds: 40,
+    runUrl: 'https://github.com/me/p/actions/runs/20'}), NOW);
+  assert.equal(history.merge([found], [], late).waiting.length, 0);
   // Once the weekly report's row exists, it's no longer waiting.
   const started = history.fromRow(row('r6', {started: new Date(NOW + 30000).toISOString(), mode: 'weekly', status: 'Running', trigger: 'Manual'}), NOW + 40000);
   assert.equal(history.merge([started, ...notion], local, pending).waiting.length, 0);

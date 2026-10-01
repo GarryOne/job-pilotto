@@ -341,6 +341,18 @@ class WaitingForYouTests(unittest.TestCase):
         items = focus.build([row_], events, target=0, now=NOW)['items']
         self.assertEqual(len([i for i in items if i['kind'] == 'book']), 1)
 
+    def test_a_booked_interview_clears_book_the_call(self):
+        # The recruiter asked them to pick a time. The Gmail check then put the call on the calendar
+        # (Prepare appears). Book the call is that earlier step, done — not a second to-do.
+        row_ = row('a1', '', 'Senior DevOps Engineer', stage='Interview scheduled', Via='AG Talent',
+                   interview='2026-10-02T08:30:00+02:00', Salary='€70k–90k')
+        events = [event('a1', 'Reply received', '2026-09-28T13:40:00Z', source_id='m',
+                        note='Recruiter sent a booking calendar')]
+        kinds = [i['kind'] for i in focus.build([row_], events, target=0, now=NOW)['items']]
+        self.assertNotIn('book', kinds)
+        self.assertNotIn('reply', kinds)
+        self.assertIn('prepare', kinds)
+
     def test_a_waiting_confirmation_does_not_hide_the_preparation_for_the_interview(self):
         row_ = row('h1', '', 'Principal SRE', stage='Interview scheduled', Via='Huxley', interview='2026-10-01T08:30:00+02:00',
                    Salary='EUR 100-150k')

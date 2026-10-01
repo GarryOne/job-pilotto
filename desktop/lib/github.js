@@ -213,6 +213,50 @@ export async function connect(storage, token, {fetcher, onStep = () => {}, repo:
 const dispatched = new Set();
 export const onDispatch = listener => dispatched.add(listener);
 
+// workflow_dispatch answers 204 with no run id. The run is the newest workflow_dispatch created after `since`.
+function actionsApi(storage, fetcher) {
+  const {repo} = storage.settings().cloud || {};
+  const token = storage.secret('GITHUB_TOKEN');
+  if (!repo || !token) return null;
+  return {repo, api: client(token, fetcher)};
+}
+
+const asRun = run => ({id: run.id, html_url: run.html_url, status: run.status || '', conclusion: run.conclusion || '',
+  createdAt: run.created_at});
+
+export async function dispatchedRuns(storage, {workflow, since = 0, fetcher} = {}) {
+  const gh = actionsApi(storage, fetcher);
+  if (!gh || !workflow) return [];
+  const data = await gh.api('GET', `/repos/${gh.repo}/actions/workflows/${encodeURIComponent(workflow)}/runs?event=workflow_dispatch&per_page=10`);
+  return (data?.workflow_runs || [])
+    .filter(run => Number.isFinite(Date.parse(run.created_at)) && Date.parse(run.created_at) >= since)
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
+    .map(asRun);
+}
+
+export async function runJobs(storage, runId, {fetcher} = {}) {
+  const gh = actionsApi(storage, fetcher);
+  if (!gh || !runId) return [];
+  const data = await gh.api('GET', `/repos/${gh.repo}/actions/runs/${runId}/jobs?per_page=20`);
+  return data?.jobs || [];
+}
+
+export async function workflowRun(storage, runId, {fetcher} = {}) {
+  const gh = actionsApi(storage, fetcher);
+  if (!gh || !runId) return null;
+  return asRun(await gh.api('GET', `/repos/${gh.repo}/actions/runs/${runId}`));
+}
+
+// The link to open: the job that is actually running, else the workflow run.
+export function runLink(run, jobs = []) {
+  const job = (jobs || []).find(item => item.status === 'in_progress')
+    || (jobs || []).find(item => item.status === 'queued')
+    || (jobs || [])[0];
+  return {id: run?.id, url: job?.html_url || run?.html_url || run?.url || '',
+    runUrl: run?.html_url || run?.url || '', jobId: job?.id || null,
+    status: job?.status || run?.status || '', conclusion: run?.conclusion || ''};
+}
+
 // The repo's workflow files and search settings, brought up to date (at start: new inputs reach existing repos).
 export async function updateRepo(storage, {fetcher} = {}) {
   const {repo} = storage.settings().cloud || {};

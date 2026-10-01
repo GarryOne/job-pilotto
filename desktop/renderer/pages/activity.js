@@ -15,7 +15,8 @@ import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
-import {loadFocus} from './focus.js';
+import {loadFocus, pendingMailQuestions} from './focus.js';
+import {moveEmail, whichJob} from './reassign.js';
 import {openView} from './nav.js';
 import {renderActionsPage} from './runs-page.js';
 import {openSetting} from './settings.js';
@@ -281,7 +282,18 @@ export function renderActivity(fresh) {
       : [capital(outcome(run)), WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
     // No cost here: the list is for finding a run and seeing its state; the run's own AI cost is in the detail pane.
+    if (run.live && run.where !== 'github') {
+      const tail = shared.logLines.slice(-6);
+      if (tail.length) words.append(el('pre', 'run-live', tail.join('\n')));
+    }
     const when = el('span', 'run-time', run.live || run.waiting ? '' : runTime(run));
+    if (run.live && run.where === 'github' && run.url) {
+      const link = el('span', 'run-github', 'GitHub ↗');
+      link.title = 'Open this run on GitHub';
+      link.setAttribute('role', 'link');
+      link.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); window.pilot.openExternal(run.url); });
+      when.replaceChildren(link);
+    }
     button.append(el('span', 'run-icon', icon(kind.line)), words, when, pill(...runStatus(run, warned)));
     button.addEventListener('click', () => { if (run.waiting) return; shared.selectedRun = run.live ? null : run.id; renderActivity(lastActivity); });
     return button;
@@ -346,7 +358,9 @@ export function renderActivity(fresh) {
     read();
   }
   // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).
-  const lines = shown ? run?.log || [] : liveLines || run?.log || [];
+  // A GitHub run has no local lines: the sidebar link opens the job. A local run streams shared.logLines.
+  const githubLive = !!run?.live && run?.where === 'github';
+  const lines = githubLive ? (run?.log || []) : (shown ? run?.log || [] : liveLines || run?.log || []);
   const kind = run ? KIND[kindOf(run)] : null;
   const detailWarnings = runWarningLines(run);
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it
@@ -378,9 +392,9 @@ export function renderActivity(fresh) {
   // behind it. A GitHub-only run shows that link itself; with nothing else to offer there is no ⋯ at all.
   show($('activity-notion'), !!run?.notionUrl);
   $('activity-notion').dataset.url = run?.notionUrl || '';
-  show($('activity-github'), !!run?.url && !run?.notionUrl);
+  show($('activity-github'), !!run?.url && (!run?.notionUrl || !!run?.live));
   $('activity-github').dataset.url = run?.url || '';
-  $('activity-more').replaceChildren(...(run?.url && run?.notionUrl
+  $('activity-more').replaceChildren(...(run?.url && run?.notionUrl && !run?.live
     ? [moreButton([{label: 'View GitHub run ↗', run: () => window.pilot.openExternal(run.url)}], 'More links')] : []));
   const result = run && !run.live ? runResults.get(run.id) || '' : '';
   $('activity-result').textContent = result;
@@ -413,7 +427,11 @@ export function renderActivity(fresh) {
     ? parseInterviewReview(run.message) : null;
   const reading = !!run?.pageId && readingPages.has(run.pageId);
   if (card) renderRunCard(card, run);
-  else if (mail) renderMailCard(mail);
+  else if (mail) {
+    const latestMail = runs.find(item => kindOf(item) === 'mail');
+    const questions = latestMail && run?.id === latestMail.id ? pendingMailQuestions() : [];
+    renderMailCard(mail, questions);
+  }
   else if (insight) renderInsightCard(insight);
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
@@ -453,13 +471,16 @@ export function renderActivity(fresh) {
   }
   // The full log stays folded (the stages come first); open by itself only when the task went wrong.
   const failed = run && !run.live && (!run.ok || run.off);
+  const streamLocal = !!run?.live && run?.where !== 'github';
   if (run && $('activity-log').dataset.for !== String(run.id)) {
     $('activity-log').dataset.for = String(run.id);
-    $('activity-log').open = !!failed;
+    $('activity-log').open = !!failed || streamLocal;
   }
   $('log-count').textContent = lines.length ? `· ${plural(lines.length, 'line')}` : '';
   const log = $('log');
-  const text = lines.join('\n') || (run?.live ? 'Nothing to show yet.' : 'No log for this run.');
+  const text = lines.join('\n') || (githubLive
+    ? (run.url ? 'This run is on GitHub. Its log is copied here when it finishes.' : 'Starting on GitHub…')
+    : (run?.live ? 'Nothing to show yet.' : 'No log for this run.'));
   if (log.textContent !== text) {
     const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
     log.replaceChildren(...linked(text));
@@ -630,7 +651,7 @@ function mailSections(box, report) {
       words.append(el('span', 'mail-read-meta', [email.sender, email.time].filter(Boolean).join(' · ')));
       row.append(words);
       const acted = email.by && email.by !== email.action;
-      row.append(pill(email.action, email.action === 'recorded' ? 'good' : 'neutral'));
+      row.append(pill(email.action, email.action === 'recorded' ? 'good' : email.action === 'asked' ? 'warn' : 'neutral'));
       if (acted) row.append(el('span', 'mail-read-by', email.by));
       rows.append(row);
     }
@@ -641,8 +662,37 @@ function mailSections(box, report) {
 
 // A Gmail check's card: what the check did, the interview it is about, what to prepare, the recruiter's next step and
 // the consent line — the message's own content, in the shape the owner reads it (the mockup, 30 Sep).
-function renderMailCard(report) {
+// A Gmail check that was not sure which job an email belongs to. The question already lives on Focus
+// (Needs you). The same answer sits on this check, so you don't have to leave the run to confirm it.
+function mailConfirm(questions) {
+  const section = el('section', 'mail-confirm');
+  section.append(el('h4', '', 'Which job is this email about?'));
+  section.append(el('p', 'mail-sub', 'This check was not sure, so nothing was moved. Your answer places the email.'));
+  for (const item of questions) {
+    const row = el('div', 'mail-confirm-row');
+    const words = el('div', 'mail-confirm-words');
+    words.append(el('b', '', item.headline || item.title));
+    if (item.detail) words.append(el('p', '', item.detail));
+    const actions = el('div', 'mail-confirm-actions');
+    const press = (label, tone, run) => {
+      const button = el('button', tone, label);
+      button.type = 'button';
+      button.addEventListener('click', run);
+      return button;
+    };
+    if (item.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
+      event.currentTarget.disabled = true;
+      await moveEmail(item.event_id, item.suggested_url);
+    }));
+    actions.append(press(item.suggested_url ? 'Other job…' : 'Pick the job', item.suggested_url ? 'secondary' : 'primary', () => whichJob(item)));
+    row.append(words, actions);
+    section.append(row);
+  }
+  return section;
+}
+function renderMailCard(report, questions = []) {
   const box = el('div', 'mail-card');
+  if (questions.length) box.append(mailConfirm(questions));
   const status = el('div', 'mail-status');
   const tick = el('span', 'mail-tick');
   tick.append(icon('check-circle'));
@@ -1013,6 +1063,7 @@ export async function init() {
   });
   // Close it with Escape, its ✕, or the bar ("Hide activity").
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('activity-panel').hidden) openActivity(false); });
+  window.addEventListener('focus-updated', () => { if (!$('activity-panel').hidden && lastActivity) renderActivity(lastActivity); });
   window.pilot.runs().then(renderActivity).catch(() => {});  // at once, not after the first 2 s tick
   setInterval(async () => {
     if ($('app').hidden) return;

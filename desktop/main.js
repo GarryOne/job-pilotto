@@ -1522,15 +1522,67 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const readRuns = async () => {
       clearTimeout(notionTimer);
       let busy = false;
-      try { notionRuns = await runHistory.list(storage); } catch (error) { busy = error.status === 429; log(`Run history not read from Notion: ${error.message}`); }
-      notionTimer = setTimeout(readRuns, busy ? 60000 : 15000);  // Notion busy: this poll steps back for a minute
+      try { notionRuns = await runHistory.list(storage); } catch (error) { busy = error.status === 429; appLog('run', `history not read: ${error.message}`, {status: error.status || 0}); log(`Run history not read from Notion: ${error.message}`); }
+      // While a GitHub run is only a placeholder, read Notion again in 5 s so its row replaces "Running"
+      // as soon as it exists. Otherwise every 15 s. Notion busy: step back for a minute.
+      notionTimer = setTimeout(readRuns, busy ? 60000 : pendingCloud.length ? 5000 : 15000);
     };
     readRuns();
     // A job sent to GitHub: "Starting on GitHub…" until its row appears (it's read again sooner than usual).
+    // The dispatch itself returns no run id, so the link is filled in once Actions lists the run, and the
+    // placeholder is dropped when that run finishes — a finished check must not stay "Running".
+    const claimedGithubRuns = new Set();
+    const watchGithubRun = (job, workflow) => {
+      const since = job.id - 15000;
+      const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+      (async () => {
+        let run = null;
+        for (let attempt = 0; attempt < 24 && pendingCloud.includes(job) && !run; attempt++) {
+          await pause(attempt ? 5000 : 2000);
+          if (!pendingCloud.includes(job)) return;
+          let runs = [];
+          try { runs = await github.dispatchedRuns(storage, {workflow, since}); }
+          catch (error) { appLog('dispatch', `github run not listed: ${error.message}`, {workflow}); continue; }
+          run = runs.find(item => !claimedGithubRuns.has(item.id)) || null;
+        }
+        if (!run || !pendingCloud.includes(job)) return;
+        claimedGithubRuns.add(run.id);
+        const describe = async current => {
+          let jobs = [];
+          try { jobs = await github.runJobs(storage, current.id); } catch (error) { appLog('dispatch', `github jobs not listed: ${error.message}`, {run: current.id}); }
+          const link = github.runLink(current, jobs);
+          if (link.url) job.url = link.url;
+          if (link.runUrl) job.runUrl = link.runUrl;
+          return link;
+        };
+        const link = await describe(run);
+        appLog('dispatch', `github run ${run.id} for ${workflow}`, {status: link.status, job: link.jobId});
+        setTimeout(readRuns, 1000);  // the row may already be there: drop "Starting on GitHub…" without a reload
+        if (run.status === 'completed') {
+          appLog('dispatch', `github run ${run.id} finished`, {conclusion: run.conclusion || ''});
+          pendingCloud = pendingCloud.filter(item => item !== job);
+          return;
+        }
+        while (pendingCloud.includes(job)) {
+          await pause(5000);
+          if (!pendingCloud.includes(job)) return;
+          let again;
+          try { again = await github.workflowRun(storage, run.id); }
+          catch (error) { appLog('dispatch', `github run ${run.id} not read: ${error.message}`); continue; }
+          if (!again || again.status !== 'completed') { await describe(again || run); continue; }
+          appLog('dispatch', `github run ${run.id} finished`, {conclusion: again.conclusion || ''});
+          pendingCloud = pendingCloud.filter(item => item !== job);
+          setTimeout(readRuns, 1000);
+          return;
+        }
+      })();
+    };
     github.onDispatch(({workflow, inputs}) => {
       const mode = workflow === 'mail.yml' ? 'mail' : workflow === 'scout.yml' ? 'scout' : inputs.mode || 'scheduled';
       const kind = {scheduled: 'search', run: 'search'}[mode] || mode;
-      pendingCloud.push({id: Date.now(), mode, kind, live: true, where: 'github', trigger: 'you', startedAt: new Date().toISOString(), step: 'Starting on GitHub…'});
+      const job = {id: Date.now(), mode, kind, live: true, where: 'github', trigger: 'you', startedAt: new Date().toISOString(), step: 'Starting on GitHub…'};
+      pendingCloud.push(job);
+      watchGithubRun(job, workflow);
       setTimeout(readRuns, 20000);
     });
     // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched;

@@ -140,6 +140,32 @@ test('installed on several repositories: the user chooses one; the choice is use
 // A dispatch is the one action that spends money and time on GitHub. Until 1 Oct 2026 it left no trace on this Mac, so
 // two runs 38 s apart for one interview could not be told apart. Every attempt now goes to the app's log with what
 // asked for it — and the inputs' values never do (a Telegram action can carry the user's own words).
+test('a dispatched run is the one created after the dispatch, and the link is its job', async () => {
+  const storage = userStorage();
+  storage.setSecret('GITHUB_TOKEN', 'gho_token');
+  storage.saveSettings({cloud: {repo: 'ada/job-pilotto-private'}});
+  const fetcher = async url => {
+    const route = url.replace('https://api.github.com', '');
+    const json = value => ({ok: true, status: 200, json: async () => value});
+    if (route.startsWith('/repos/ada/job-pilotto-private/actions/workflows/mail.yml/runs')) {
+      return json({workflow_runs: [
+        {id: 1, html_url: 'https://github.com/ada/job-pilotto-private/actions/runs/1', status: 'completed', conclusion: 'success', created_at: '2026-10-01T13:40:00Z'},
+        {id: 20, html_url: 'https://github.com/ada/job-pilotto-private/actions/runs/20', status: 'in_progress', conclusion: null, created_at: '2026-10-01T13:47:20Z'},
+      ]});
+    }
+    if (route.startsWith('/repos/ada/job-pilotto-private/actions/runs/20/jobs')) {
+      return json({jobs: [{id: 99, status: 'in_progress', html_url: 'https://github.com/ada/job-pilotto-private/actions/runs/20/job/99'}]});
+    }
+    throw new Error(route);
+  };
+  const since = Date.parse('2026-10-01T13:47:00Z');
+  const runs = await github.dispatchedRuns(storage, {workflow: 'mail.yml', since, fetcher});
+  assert.deepEqual(runs.map(run => run.id), [20]);
+  assert.equal(github.runLink(runs[0], await github.runJobs(storage, 20, {fetcher})).url,
+    'https://github.com/ada/job-pilotto-private/actions/runs/20/job/99');
+  assert.equal(github.runLink(runs[0], []).url, 'https://github.com/ada/job-pilotto-private/actions/runs/20');
+});
+
 test('a dispatch is logged with its caller, and its failure is reported, not swallowed', async () => {
   const storage = userStorage();
   storage.setSecret('GITHUB_TOKEN', 'gho_token');

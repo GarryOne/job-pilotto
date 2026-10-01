@@ -239,6 +239,8 @@ async function loadHistory() {
 }
 // The prep dialog tells the row at once (not after Focus is read again from Notion): building, ready, or back to idle.
 let lastFocus = null;
+// Emails the last Gmail check could not place (Needs you). Recent activity asks about them on that check.
+export const pendingMailQuestions = () => (lastFocus?.items || []).filter(item => item.kind === 'which_job');
 export function markPrep(pageId, state) {
   const item = lastFocus?.items?.find(one => one.kind === 'prepare' && one.page_id === pageId);
   if (!item) return;
@@ -254,6 +256,7 @@ function renderFocus(data) {
     if (item.kind === 'prepare' && before) item.building = true;
   }
   lastFocus = data;
+  window.dispatchEvent(new Event('focus-updated'));
   focusShown = true;
   $('focus-count-note').replaceChildren(pill(`${items.length} action${items.length === 1 ? '' : 's'}`, 'neutral'));
   $('focus-list').replaceChildren(...items.map(focusCard));
