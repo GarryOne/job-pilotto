@@ -1,21 +1,9 @@
-// The toolbar popup: a pointer to the page's panel (review.js), which does the work. "Show the panel on this page"
-// puts it on a page where it didn't appear by itself (a site outside the job sites: this click allows it, once).
+// The toolbar popup: whether the extension can reach the Job Pilotto app. The panel is not started from here.
+// It appears only on a tab the desktop app opened.
 import {api, settings} from './flow.js';
 
 const $ = id => document.getElementById(id);
 $('settings').addEventListener('click', event => { event.preventDefault(); chrome.runtime.openOptionsPage(); });
-
-$('show').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  $('show').disabled = true;
-  try {
-    await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, files: ['hook.js', 'review.js']});
-    window.close();
-  } catch {
-    $('show').disabled = false;
-    $('show').textContent = 'Chrome doesn\'t allow extensions on this page';
-  }
-});
 
 (async () => {
   const config = await settings();

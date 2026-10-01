@@ -1,4 +1,4 @@
-// The Job Pilotto panel, on every application form (bottom right). Collapsed: a pill with a progress ring and what's
+// The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 // left ("3 left", green "Ready to submit"). Open: the job, what Claude is doing on it, the progress, one Fill button,
 // what's left for you (click one: the page scrolls to it), and I submitted it / Open in Job Pilotto.
 // App first: the job, its Apply with Claude session and the form's state are shared with the Job Pilotto app both
@@ -9,6 +9,12 @@
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
   if (window.__jobPilottoReviewAlive?.()) return;
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
+  const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
+  // The desktop app is the only way onto a page. Anywhere else this script was injected (an old "every site"
+  // registration, a reload) it draws nothing and listens for nothing.
+  send({type: 'panelAllowed'}).then(answer => { if (answer?.ok) mount(); }).catch(() => {});
+
+  function mount() {
   document.getElementById('jobpilotto-review-host')?.remove();
 
   const MIN_FIELDS = 3;
@@ -17,7 +23,6 @@
   const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\s*\*\s*$/, '').trim();
   const norm = text => clean(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
-  const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
 
   // ---- reading the form (read only) ----
   function question(el) {
@@ -403,7 +408,8 @@
     const words = `${button.textContent || ''} ${button.getAttribute?.('aria-label') || ''} ${button.name || ''} ${button.value || ''}`;
     if (button.type === 'submit' || /submit/i.test(String(button.className || '')) || submitWords.test(words)) noteSubmit();
   }, true);
-  new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
+  if (document.documentElement) new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
   const tick = setInterval(sync, 2000);
   sync();
+  }
 })();

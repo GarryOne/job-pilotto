@@ -9,7 +9,11 @@
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) lets the new one run.
   if (window.__jobPilottoHookAlive?.()) return;
   window.__jobPilottoHookAlive = () => !!chrome.runtime?.id;
-  document.documentElement.dataset.jobpilottoHook = chrome.runtime.getManifest().version;
+  // Injected as the app's tab starts loading: <html> may not exist for a moment. The listener is on document,
+  // which does; the attribute Claude looks for is set as soon as <html> is there.
+  const markHook = () => { if (document.documentElement) document.documentElement.dataset.jobpilottoHook = chrome.runtime.getManifest().version; };
+  markHook();
+  if (!document.documentElement) document.addEventListener('DOMContentLoaded', markHook, {once: true});
   document.addEventListener('jobpilotto:fill', event => {
     let request;
     try { request = JSON.parse(event.detail); } catch { return; }

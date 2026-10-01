@@ -4,9 +4,17 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, missedConfirmation, originOf, pageKey, samePage, sameSite} from '../../extension/tab-pages.js';
+import {confirmationOf, forJob, missedConfirmation, originOf, pageKey, samePage, sameSite, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
+
+test('the panel runs only on a tab the desktop app opened', () => {
+  assert.equal(tabArmed({url: `${JOB}#jobpilotto-fill`}), true);
+  assert.equal(tabArmed({url: 'https://calendly.com/acme/30min', armed: true}), true);
+  assert.equal(tabArmed({url: 'https://calendly.com/acme/30min'}), false);
+  assert.equal(tabArmed({url: JOB}), false);
+  assert.equal(tabArmed({}), false);
+});
 
 test('the same page ignores the fill marker and a trailing slash', () => {
   assert.equal(samePage(`${JOB}#jobpilotto-fill`, JOB), true);

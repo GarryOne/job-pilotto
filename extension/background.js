@@ -2,7 +2,7 @@
 // messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {forJob, missedConfirmation, samePage, sameSite} from './tab-pages.js';
+import {forJob, missedConfirmation, samePage, sameSite, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -59,48 +59,52 @@ async function note(tabId, text, url = '') {
   }}).catch(() => {});
 }
 
-// "Apply to N jobs" in the desktop app opens each job with #jobpilotto-fill: every such tab fills
-// itself as soon as it has loaded, in parallel, as long as the extension may run on that job site.
+// "Apply to N jobs" in the desktop app opens each job with #jobpilotto-fill. That mark is the only way a tab
+// becomes one the extension may touch: the panel, the fill and the submit listener never start on a page
+// the user opened themselves.
 export const FILL_MARK = 'jobpilotto-fill';
 const started = new Set();
+const armedLogged = new Set();
+const panelRefused = new Set();
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
-  if (info.status !== 'complete' || !tab.url?.includes(`#${FILL_MARK}`) || started.has(tabId)) return;
-  const origin = new URL(tab.url).origin + '/*';
-  chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+  if (!tab.url?.includes(`#${FILL_MARK}`)) return;
+  if (info.status !== 'loading' && info.status !== 'complete') return;
+  let origin = '';
+  try { origin = new URL(tab.url).origin + '/*'; } catch { return; }
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
-    // Not one of the supported job sites (flow.js JOB_SITES):
-    // the extension may not touch this page by itself; the user can still click its button here.
+    if (info.status !== 'complete') return;
+    // Not one of the supported job sites, and "Work on every job site" is off. The app opened this tab;
+    // the extension still does not run here until that permission is granted.
     chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
-    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill this form (this site needs your click)'}).catch(() => {});  // the tab may already be closed
+    chrome.action.setTitle({tabId, title: 'Job Pilotto: this site needs Settings → Work on every job site'}).catch(() => {});  // the tab may already be closed
     return;
   }
+  chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+  await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
+  if (info.status !== 'complete' || started.has(tabId)) return;
   started.add(tabId);
   await fillOpenedTab(tab, tab.url.replace(`#${FILL_MARK}`, ''));
 });
 
-// Job boards (jobs.ch, LinkedIn, company pages…) often only link to the real form on the employer's
-// application site. A tab opened from a Job Pilotto tab, or the same tab moving to another site, keeps its
-// job: the form there fills with that job's kit, once per site.
-chrome.tabs.onCreated.addListener(async tab => {
-  if (!tab.openerTabId) return;
-  const key = `from:${tab.openerTabId}`;
-  const job = (await chrome.storage.session.get(key))[key];
-  if (job) chrome.storage.session.set({[`from:${tab.id}`]: job});
-});
+// The panel is injected only into a tab the desktop app opened. A new document in that same tab (the form's
+// next step) gets the scripts again. Nothing is injected into a tab the user opened themselves.
+async function arm(tabId, why = 'app tab') {
+  await chrome.storage.session.set({[`armed:${tabId}`]: true});
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  let host = '';
+  try { host = new URL(tab?.url || '').hostname; } catch { /* not a url */ }
+  const mark = `${tabId}:${host}`;
+  if (host && !armedLogged.has(mark)) {
+    armedLogged.add(mark);
+    decide('panel', 'panel on a tab the app opened', {host, why});
+  }
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
+}
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== 'complete' || !/^https:/.test(tab.url || '') || tab.url.includes(`#${FILL_MARK}`)) return;
-  const key = `from:${tabId}`;
-  const job = (await chrome.storage.session.get(key))[key];
-  if (!job) return;
-  const site = new URL(tab.url).origin;
-  if (site === new URL(job).origin || started.has(`${tabId} ${site}`)) return;
-  if (!(await chrome.permissions.contains({origins: [site + '/*']}))) {
-    chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
-    chrome.action.setTitle({tabId, title: 'Job Pilotto: click here, then Fill (or allow every site in Settings)'}).catch(() => {});
-    return;
-  }
-  started.add(`${tabId} ${site}`);
-  await fillOpenedTab(tab, job);
+  const key = `armed:${tabId}`;
+  if (!(await chrome.storage.session.get(key))[key]) return;
+  await arm(tabId, 'next page');
 });
 
 // A progress panel on the page while a tab fills itself (the popup is closed then). `url`: the page being filled —
@@ -179,6 +183,7 @@ function prefetch(config, url) {
 
 // fast: the page is already there (the panel's Fill): no wait for it to render.
 async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
+  await arm(tab.id);
   if (!fast) await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   const page = tab.url || url;  // the page this fill belongs to: progress is only ever drawn while the tab shows it
   chrome.action.setBadgeText({tabId: tab.id, text: '…'}).catch(() => {});  // the tab may already be closed
@@ -205,7 +210,7 @@ async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
   } catch (error) {
     await progress(tab.id, '', page);
     decide('fill', `failed: ${error.message}`, {url: page});
-    await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`, page);
+    await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open that form from the Job Pilotto app.`, page);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
     return {error: error.message};
   }
@@ -214,6 +219,7 @@ async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
 // Apply with Claude asked for a fill on this tab (hook.js): check its ticket with the app, fill, and write the
 // result on the page for the session to read. It then fills what's left, checks, and stops before Submit.
 async function handOff(tab, job, ticket) {
+  await arm(tab.id);
   const state = value => chrome.scripting.executeScript({target: {tabId: tab.id}, args: [JSON.stringify(value)],
     func: text => { document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
   try {
@@ -231,23 +237,33 @@ async function handOff(tab, job, ticket) {
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
 }
 
-// hook.js on every site too, once "Work on every job site" is allowed (the job sites have it from the manifest).
-const EVERY_SITE = {origins: ['https://*/*']};
-async function registerHookEverywhere() {
-  if (!(await chrome.permissions.contains(EVERY_SITE))) return;
-  // With the ring (review.js) since 0.7.0: an older registration (hook.js only) is replaced.
-  const known = await chrome.scripting.getRegisteredContentScripts({ids: ['hook-everywhere']}).catch(() => []);
-  if (known.length && known[0].js?.includes('review.js')) return;
-  if (known.length) await chrome.scripting.unregisterContentScripts({ids: ['hook-everywhere']}).catch(() => {});
-  await chrome.scripting.registerContentScripts([{id: 'hook-everywhere', matches: EVERY_SITE.origins, js: ['hook.js', 'review.js'],
-    allFrames: true, runAt: 'document_idle'}]).catch(() => {});
+// Older builds registered the panel on every https page ("Work on every job site"). Take that registration
+// down: a page is touched only when the desktop app opened its tab.
+async function retireEverywhere() {
+  await chrome.scripting.unregisterContentScripts({ids: ['hook-everywhere']}).catch(() => {});
 }
-chrome.permissions.onAdded.addListener(registerHookEverywhere);
-chrome.runtime.onStartup.addListener(registerHookEverywhere);
-registerHookEverywhere();
+chrome.runtime.onInstalled.addListener(retireEverywhere);
+chrome.runtime.onStartup.addListener(retireEverywhere);
+retireEverywhere();
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // The page's panel saw a submit press (review.js): the evidence that a submission happened in that tab.
+  if (message?.type === 'panelAllowed' && sender.tab) {
+    const key = `armed:${sender.tab.id}`;
+    chrome.storage.session.get(key).then(stored => {
+      const ok = tabArmed({url: sender.tab.url, armed: stored[key]});
+      if (!ok) {
+        let host = '';
+        try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
+        if (!panelRefused.has(host)) {
+          panelRefused.add(host);
+          decide('panel', 'page was not opened by the app: panel not shown', {host});
+        }
+      }
+      reply({ok});
+    }, () => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'submitted' && sender.tab?.id != null) {
     chrome.storage.session.set({[`submit:${sender.tab.id}`]: {at: Date.now(), url: sender.tab.url || ''}}).catch(() => {});
     reply({ok: true});
@@ -325,17 +341,32 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 // Just loaded: open the settings page, which connects to the Job Pilotto Mac app by itself.
 chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install') chrome.runtime.openOptionsPage(); });
 
-// Chrome gives an installed, updated or reloaded extension's page scripts only to pages loaded afterwards: the
-// application forms already open (often half filled) get them now, without reloading the page (it could lose answers).
-async function joinOpenTabs() {
-  const everySite = await chrome.permissions.contains(EVERY_SITE).catch(() => false);
-  const tabs = await chrome.tabs.query({url: everySite ? EVERY_SITE.origins : JOB_SITES}).catch(() => []);
+// After a reload: put the panel back on tabs the app opened, and take it off every other page (Calendly, a job
+// site you were reading). The old script's listeners die with the reload; the pill they drew does not.
+async function settleOpenTabs() {
+  const tabs = await chrome.tabs.query({}).catch(() => []);
   for (const tab of tabs) {
-    await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, files: ['hook.js', 'review.js']}).catch(() => {});
+    if (tab.id == null || !/^https:/.test(tab.url || '')) continue;
+    const key = `armed:${tab.id}`;
+    const armed = tabArmed({url: tab.url, armed: (await chrome.storage.session.get(key).catch(() => ({})))[key]});
+    if (armed) { await arm(tab.id, 'still open'); continue; }
+    const frames = await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, func: () => {
+      let removed = 0;
+      for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note']) {
+        const node = document.getElementById(id);
+        if (node) { node.remove(); removed++; }
+      }
+      return removed;
+    }}).catch(() => []);
+    const removed = frames.reduce((n, frame) => n + (frame.result || 0), 0);
+    if (!removed) continue;
+    let host = '';
+    try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+    decide('panel', 'removed a panel from a page the app did not open', {host, removed});
   }
 }
-chrome.runtime.onInstalled.addListener(joinOpenTabs);
-chrome.runtime.onStartup.addListener(joinOpenTabs);
+chrome.runtime.onInstalled.addListener(settleOpenTabs);
+chrome.runtime.onStartup.addListener(settleOpenTabs);
 
 // Tell the Job Pilotto app which job pages are open, so its Jobs list shows "Opened in Chrome" only while they are.
 async function reportTabs() {
@@ -368,8 +399,13 @@ function connected(ok, why = '') {
 // A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
 // ever carried over to whatever opens next (tab-pages.js).
 chrome.tabs.onRemoved.addListener(async tabId => {
-  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`]).catch(() => {});
-  for (const key of started) if (key.startsWith(`${tabId} `)) started.delete(key);
+  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`]).catch(() => {});
+  for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
+  // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
+  // matched it and the new tab was treated as already filled.
+  for (const key of [...started]) {
+    if (key === tabId || (typeof key === 'string' && key.startsWith(`${tabId} `))) started.delete(key);
+  }
   reportTabs();
 });
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });

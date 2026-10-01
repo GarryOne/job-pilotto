@@ -7,6 +7,10 @@
 
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
 
+// The panel and the fill run only on a tab the desktop app opened (#jobpilotto-fill) or has already armed.
+// A page the user is just browsing, Calendly included, is not one of those.
+export const tabArmed = ({url, armed} = {}) => !!armed || String(url || '').includes('#jobpilotto-fill');
+
 // The URL's origin, or '' when it isn't a URL.
 export function originOf(url) {
   try {

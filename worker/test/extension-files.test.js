@@ -60,20 +60,22 @@ test('consent boxes are recognised by whole words (Acknowledge, consents, certif
   for (const text of ['How did you hear about us?', 'Current company', 'Terminal skills', 'Are you legally authorized to work in the country?']) assert.ok(!LEGAL.test(text), text);
 });
 
-test('Apply with Claude hand-off: hook only on the job sites (every site once allowed), ticket checked by the app before filling', () => {
+test('Apply with Claude hand-off: hook only on a tab the app opened, ticket checked by the app before filling', () => {
   const manifest = JSON.parse(read('extension/manifest.json'));
-  // hook.js: the hand-off; review.js: the ring (what's left before you submit), in embedded forms (iframes) too.
-  assert.deepEqual(manifest.content_scripts, [{matches: manifest.host_permissions, js: ['hook.js', 'review.js'], all_frames: true, run_at: 'document_idle'}]);
+  // No content script. hook.js and review.js are injected into a tab the desktop app opened, nowhere else.
+  assert.equal(manifest.content_scripts, undefined);
   const hook = read('extension/hook.js');
   assert.match(hook, /addEventListener\('jobpilotto:fill'/);
   assert.match(hook, /typeof request\?\.ticket !== 'string'/);
   const background = read('extension/background.js');
-  const handOff = background.slice(background.indexOf('async function handOff'));
+  const handOff = background.slice(background.indexOf('async function handOff'), background.indexOf('// Older builds registered'));
   assert.ok(handOff.indexOf("'/extension/ticket'") > 0 && handOff.indexOf("'/extension/ticket'") < handOff.indexOf('fillOpenedTab('),
     'the ticket is checked before any fill');
-  assert.match(background, /registerContentScripts\(\[\{id: 'hook-everywhere'.*js: \['hook\.js', 'review\.js'\]/);
+  assert.match(background, /unregisterContentScripts\(\{ids: \['hook-everywhere'\]\}\)/);
+  assert.doesNotMatch(background, /\.registerContentScripts\(/);
+  assert.match(background, /message\?\.type === 'panelAllowed'/);
   // The events a page can send carry no personal data, and the result written back holds only counts and field labels.
-  assert.doesNotMatch(handOff.slice(0, handOff.indexOf('const EVERY_SITE')), /contact|resume|profile/);
+  assert.doesNotMatch(handOff, /contact|resume|profile/);
 });
 
 test('the Submit guard can be loaded twice on a page (a second fill) without throwing', () => {
@@ -98,14 +100,16 @@ test('the panel (review.js) is read only: it never types, ticks, clicks or submi
   assert.match(ring, /send\(\{type: 'review', payload\}\)/);
 });
 
-test('an out-of-date extension in Chrome loads the new copy by itself, and joins the forms already open', () => {
+test('an out-of-date extension in Chrome loads the new copy by itself, and only rejoins tabs the app opened', () => {
   const background = read('extension/background.js');
   const newer = new Function(`${background.match(/export function newer[\s\S]*?\n}\n/)[0].replace('export ', '')}; return newer;`)();
   assert.equal(newer('0.7.1', '0.6.8'), true);
   assert.equal(newer('0.7.1', '0.7.1'), false);
   assert.equal(newer('0.10.0', '0.9.9'), true);
   assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
-  assert.match(background, /executeScript\(\{target: \{tabId: tab\.id, allFrames: true\}, files: \['hook\.js', 'review\.js'\]\}\)/);
+  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['hook\.js', 'review\.js'\], injectImmediately: true\}\)/);
+  assert.match(background, /jobpilotto-review-host/);
+  assert.match(read('extension/review.js'), /send\(\{type: 'panelAllowed'\}\)/);
   // A copy left behind by a reload gives way to the fresh one instead of blocking it.
   assert.match(read('extension/review.js'), /__jobPilottoReviewAlive\?\.\(\)/);
   assert.match(read('extension/hook.js'), /__jobPilottoHookAlive\?\.\(\)/);
