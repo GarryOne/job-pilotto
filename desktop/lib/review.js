@@ -45,6 +45,11 @@ export function setWatch(id, items) {
 export function queueClose(id, now = Date.now()) {
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {close: true, at: now}]);
 }
+// "Reload the page you are on": the panel does it itself (the repair for a panel that died with an older
+// extension instance), so it works in whatever browser that panel is running in.
+export function queueReload(id, now = Date.now()) {
+  commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {reload: true, at: now}]);
+}
 export function queueFocus(id, label, now = Date.now()) {
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {focus: String(label), at: now}]);
 }
@@ -84,7 +89,8 @@ export function report(sessions, payload, now = Date.now()) {
   // The panel's header: which job this is and what Claude is doing on it (no answers, no personal data).
   const about = {id: session.id, url: session.url, title: session.title || '', company: session.company || '', status: session.status,
     note: session.note || '', live: session.live ?? !session.endedAt};
-  return {matched: session.id, session: about, watch: watches.get(session.id) || [], commands: due.map(({focus, close}) => (close ? {close: true} : {focus}))};
+  return {matched: session.id, session: about, watch: watches.get(session.id) || [],
+    commands: due.map(({focus, close, reload}) => (close ? {close: true} : reload ? {reload: true} : {focus}))};
 }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];

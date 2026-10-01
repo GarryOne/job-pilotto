@@ -29,9 +29,17 @@ const support = () => path.join(os.homedir(), 'Library', 'Application Support');
 const profiles = () => ['Default', ...Array.from({length: 12}, (_, i) => `Profile ${i + 1}`)];
 const parse = (file, read) => { try { return JSON.parse(read(file, 'utf8')); } catch { return null; } };
 
-// The Job Pilotto records in one browser profile set: {profile, version, folder, enabled, unpacked} each.
+const real = at => { try { return fs.realpathSync(at); } catch { return path.resolve(at); } };
+
+// The Job Pilotto records in one browser profile set: {id, profile, version, folder, enabled, unpacked} each.
 // Secure Preferences first (that is where Chrome keeps extension settings now); Preferences for older browsers.
-export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync, list = profiles} = {}) {
+//
+// Two shapes, and both matter: an extension from the Web Store (or one with a manifest "key") is recorded with its
+// manifest — name and version — while an *unpacked* one is recorded as `location: 4` with only its PATH, no manifest
+// at all. Matching on the name alone therefore missed the ordinary "Load unpacked" install that was sitting right
+// there, and the app kept telling its owner to install what was already installed (1 Oct 2026).
+export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync, list = profiles, folder = ''} = {}) {
+  const ours = folder ? real(folder) : '';
   const found = [];
   for (const profile of list()) {
     for (const file of ['Secure Preferences', 'Preferences']) {
@@ -40,8 +48,10 @@ export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync,
       const settings = parse(at, read)?.extensions?.settings;
       if (!settings) continue;
       for (const [id, entry] of Object.entries(settings)) {
-        if (entry?.manifest?.name !== NAME) continue;  // an unpacked copy, under whatever folder it was loaded from
-        found.push({id, profile, version: entry.manifest.version || '', folder: entry.path || '',
+        const named = entry?.manifest?.name === NAME;
+        const byPath = entry?.location === 4 && !!ours && !!entry.path && real(entry.path) === ours;
+        if (!named && !byPath) continue;
+        found.push({id, profile, version: entry.manifest?.version || '', folder: entry.path || '',
           enabled: !(entry.disable_reasons || []).length, unpacked: entry.location === 4});
       }
     }
@@ -53,13 +63,12 @@ export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync,
 // <repo>/extension, packaged the app's resources): another copy is one the user made, and it stays behind when the
 // app updates its own.
 export function installed({folder = '', support: root = support(), browsers = BROWSERS, read = fs.readFileSync, exists = fs.existsSync} = {}) {
-  const real = at => { try { return fs.realpathSync(at); } catch { return path.resolve(at); } };
   const ours = folder ? real(folder) : '';
   const out = [];
   for (const browser of browsers) {
     const dir = path.join(root, browser.dir);
     if (!exists(dir)) continue;
-    for (const entry of inProfile(dir, {read, exists})) {
+    for (const entry of inProfile(dir, {read, exists, folder})) {
       out.push({browser: browser.name, app: browser.app, ...entry, current: !!ours && !!entry.folder && real(entry.folder) === ours});
     }
   }
@@ -72,10 +81,17 @@ export function running(app, {exec = execFile} = {}) {
   return new Promise(resolve => exec('/usr/bin/pgrep', ['-x', app], error => resolve(!error)));
 }
 
-// Chrome names an unpacked extension after the absolute path it was loaded from: sha256 of the path, its first 128
-// bits, each nibble as a-p. So the app can open its own extension's pages (options, popup) with no browser help.
-export function extensionId(folder) {
-  const hex = crypto.createHash('sha256').update(path.resolve(String(folder))).digest('hex').slice(0, 32);
+// Chrome names an extension after its public key when its manifest pins one ("key", as this repo's does: the ID
+// must not change with the folder), and after the absolute path it was loaded from otherwise. Either way the name is
+// sha256 of those bytes, its first 128 bits, each nibble as a-p — so the app can open its own extension's pages
+// (options, popup) with no browser help.
+export function extensionId(folder, {read = fs.readFileSync} = {}) {
+  let seed = path.resolve(String(folder));
+  try {
+    const key = JSON.parse(read(path.join(seed, 'manifest.json'), 'utf8'))?.key;
+    if (key) seed = Buffer.from(key, 'base64');
+  } catch { /* no manifest to read: the folder path is the seed, as Chrome would use */ }
+  const hex = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32);
   return [...hex].map(nibble => String.fromCharCode(97 + parseInt(nibble, 16))).join('');
 }
 

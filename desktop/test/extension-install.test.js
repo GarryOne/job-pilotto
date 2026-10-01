@@ -2,7 +2,9 @@
 // and still true with Chrome closed. The unpacked extension's ID is Chrome's own hash of its path, which is what
 // lets the app open its options page without asking the browser anything.
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
+import {fileURLToPath} from 'node:url';
 import * as ext from '../lib/extension-install.js';
 
 const record = (name, extra = {}) => ({manifest: {name, version: '0.8.16'}, path: '/app/extension', location: 4,
@@ -60,10 +62,22 @@ test('a browser is up only when pgrep finds it', async () => {
   assert.equal(await ext.running('Brave Browser', {exec: (file, args, done) => { assert.equal(args[0], '-x'); assert.equal(args[1], 'Brave Browser'); done(null, ''); }}), true);
 });
 
-test('the unpacked extension ID is Chrome\'s own hash of the folder path', () => {
-  // dflclglillobjogfddcpofopedpcmmgo is sha256('/Users/mac/job-pilotto/extension')'s first 128 bits, as a-p.
-  assert.equal(ext.extensionId('/Users/mac/job-pilotto/extension'), 'dflclglillobjogfddcpofopedpcmmgo');
-  assert.match(ext.extensionId('/tmp/somewhere/extension'), /^[a-p]{32}$/);
+test('an unpacked copy is recorded by its path alone — no manifest block — and is still found', () => {
+  // Chrome's record for a "Load unpacked" install: `location: 4`, the path, and no manifest at all. Matching on the
+  // name alone missed exactly this, and the app told its owner to install what was already installed (1 Oct 2026).
+  const unpacked = {path: '/app/extension', location: 4, disable_reasons: []};
+  const io = fake({'Default/Secure Preferences': prefs({aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: unpacked})}, () => ['Default']);
+  assert.deepEqual(ext.inProfile('/support/Google/Chrome', {...io, folder: '/app/extension'}), [
+    {id: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', profile: 'Default', version: '', folder: '/app/extension', enabled: true, unpacked: true}]);
+  assert.deepEqual(ext.inProfile('/support/Google/Chrome', {...io, folder: '/somewhere/else/extension'}), []);  // not our folder
+  assert.deepEqual(ext.inProfile('/support/Google/Chrome', io), []);  // nothing named it, so nothing to match on
+});
+
+test('the extension ID comes from the manifest\'s own key (stable), and from the folder path without one', () => {
+  const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  // The key in extension/manifest.json: the ID Chrome itself recorded for this install, whatever folder it is in.
+  assert.equal(ext.extensionId(path.join(repo, 'extension')), 'gpffoneapcfceflfmfgedkcfbommgcfk');
+  assert.match(ext.extensionId('/tmp/somewhere/extension'), /^[a-p]{32}$/);  // no manifest there: Chrome's path hash
   assert.notEqual(ext.extensionId('/tmp/a/extension'), ext.extensionId('/tmp/b/extension'));
 });
 
@@ -71,9 +85,11 @@ test('the two pages open in Chrome itself', async () => {
   const opened = [];
   const exec = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
   assert.equal(await ext.openExtensionsPage({exec}), true);
-  assert.equal(await ext.openOptionsPage('/Users/mac/job-pilotto/extension', {exec}), true);
+  const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec}), true);
   assert.deepEqual(opened, [
     ['/usr/bin/open', '-a Google Chrome chrome://extensions'],
-    ['/usr/bin/open', '-a Google Chrome chrome-extension://dflclglillobjogfddcpofopedpcmmgo/options.html'],
+    // The ID the manifest's key gives (the same on any machine, whatever folder it is loaded from).
+    ['/usr/bin/open', '-a Google Chrome chrome-extension://gpffoneapcfceflfmfgedkcfbommgcfk/options.html'],
   ]);
 });

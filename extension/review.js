@@ -364,6 +364,9 @@
       watch = Array.isArray(reply?.watch) ? reply.watch : [];
       // The app asked to see this form (and maybe one field): this tab comes forward, then the field.
       for (const command of reply?.commands || []) {
+        // The app asked this page to reload itself: the repair for a page whose panel died with an older extension
+        // instance (an uninstall/reinstall leaves it unable to answer). This panel is alive, so it can do it.
+        if (command.reload) { location.reload(); return; }
         if (command.close) { send({type: 'panelCloseTab'}).catch(() => {}); return; }  // the application was cancelled in the app
         send({type: 'panelShowTab'}).catch(() => {});
         if (!open) setOpen(true);

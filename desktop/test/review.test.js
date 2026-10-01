@@ -46,6 +46,16 @@ test('"show me this field" reaches the matching page once, and expires', () => {
   assert.deepEqual(review.report(sessions, form(), 10 * 60 * 1000).commands, []);  // too old
 });
 
+test('"reload that page" reaches the panel of the matching page once, and expires', () => {
+  review._reset();
+  review.queueReload('s1', 1000);
+  assert.deepEqual(review.report(sessions, {url: 'https://news.ycombinator.com/', title: 'Hacker News'}, 2000).commands, []);  // another page
+  assert.deepEqual(review.report(sessions, form(), 2000).commands, [{reload: true}]);
+  assert.deepEqual(review.report(sessions, form(), 3000).commands, []);  // taken
+  review.queueReload('s1', 0);
+  assert.deepEqual(review.report(sessions, form(), 10 * 60 * 1000).commands, []);  // too old
+});
+
 test('"show me this field": the app learns whether a form page took it, or that none did', async () => {
   review._reset();
   review.queueFocus('s1', 'Agreement to Arbitrate');
