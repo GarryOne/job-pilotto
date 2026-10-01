@@ -419,11 +419,6 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       filled: result?.filled || 0, todo: (result?.todo || []).slice(0, 20), coverLetter: result?.coverLetter || ''}));
     return true;
   }
-  if (message?.type === 'panelApplied' && sender.tab) {
-    settings().then(config => api(config, '/extension/applied', {method: 'POST', body: JSON.stringify({url: message.url || sender.tab.url})}))
-      .then(data => reply({ok: true, message: data.message || 'Marked Applied'}), error => reply({ok: false, error: error.message}));
-    return true;
-  }
   // The app asked to see this form: its tab and window come forward (the extension knows the tab; no Mac scripting).
   if (message?.type === 'panelShowTab' && sender.tab) {
     chrome.tabs.update(sender.tab.id, {active: true})
@@ -585,7 +580,7 @@ async function askAboutOutcome(tabId, tab, reading, gate, pressAt) {
     return {done: true};
   } catch (error) {
     decide('submitted', `could not reach the app: ${error.message}`, {host: gate.host, path: gate.path});
-    await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Use the extension's "I submitted it" button.`, pageKey(tab.url));
+    await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Open Job Pilotto to mark it Applied.`, pageKey(tab.url));
     return {done: true};
   }
 }

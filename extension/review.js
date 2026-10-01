@@ -1,6 +1,6 @@
 // The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 // left ("3 left", green "Ready to submit"). Open: the job, what Claude is doing on it, the progress, one Fill button,
-// what's left for you (click one: the page scrolls to it), and I submitted it / Open in Job Pilotto.
+// what's left for you (click one: the page scrolls to it), and Open in Job Pilotto.
 // App first: the job, its Apply with Claude session and the form's state are shared with the Job Pilotto app both
 // ways (the agreements you tick here are ticked off there; "Show it in the form" there scrolls here). Without the
 // app it still shows the form's progress, and fills through the extension's own connection.
@@ -206,7 +206,6 @@
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="left" hidden><h4>Left for you</h4><div class="list"></div></div>
         <div class="actions">
-          <button class="secondary applied">I submitted it</button>
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
         </div>
       </div>
@@ -323,13 +322,6 @@
   }
   $('.fill').onclick = () => fill();
   $('.anyway').onclick = () => fill(true);
-  $('.applied').onclick = async () => {
-    $('.applied').disabled = true;
-    const result = await send({type: 'panelApplied', url: session?.url || job?.url || location.href}).catch(error => ({ok: false, error: error.message}));
-    $('.applied').textContent = result?.ok ? '✓ Marked Applied' : 'I submitted it';
-    $('.applied').disabled = !!result?.ok;
-    if (!result?.ok) note(`Not marked: ${result?.error || 'try again'}`);
-  };
   $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
   // The extension's fill reports its steps here (instead of a floating box).
   chrome.runtime.onMessage.addListener((message, _, reply) => {
