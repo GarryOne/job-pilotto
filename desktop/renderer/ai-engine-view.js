@@ -7,7 +7,7 @@ export const TEXT = {
   details: 'Installation details',                 // the Claude Code path, folded under its status line
   api: {title: 'Anthropic API key', text: 'Uses your Anthropic API key. You control the model and costs.',
     short: 'Control the model and API costs.'},  // Settings shows the short line; the wizard explains in full
-  cli: {title: 'Claude Code', text: 'Uses your Claude Code and its Claude subscription for the AI tasks on this Mac, with no API key or '
+  cli: {title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI (the claude command on this Mac) and its Claude subscription for the AI tasks here, with no API key or '
     + 'per-token costs for them. Scheduled runs in your GitHub repository (Always on) still use your API key.',
     short: 'Use your Claude subscription, for tasks on this Mac.'},
   note: 'AI tasks run through your Claude Code and bill to your Claude subscription, not to API credits. Always on (GitHub) '

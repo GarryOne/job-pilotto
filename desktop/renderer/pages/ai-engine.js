@@ -41,7 +41,7 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     verify.addEventListener('click', () => check());
     const lines = el('div', 'engine-status-lines');
     for (const line of cli.lines) lines.append(pill(line.text, line.tone, {dot: true}));
-    row.append(el('b', '', 'Claude Code status'), lines, verify);
+    row.append(el('b', '', 'Claude Code CLI status'), lines, verify);
     block.append(row);
     if (cli.path) {  // the path is a detail, not the answer: folded away under the line
       const details = el('details', 'engine-details plain');
@@ -71,8 +71,8 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
   const askNotice = () => new Promise(resolve => {
     notice = el('div', 'alert tone-warn engine-notice');
     const text = el('div');
-    text.append(el('strong', '', 'Use your own Claude Code?'), el('p', '', TEXT.notice));
-    const yes = el('button', 'primary', 'Use Claude Code'), no = el('button', 'ghost', 'Cancel');
+    text.append(el('strong', '', 'Use your own Claude Code CLI?'), el('p', '', TEXT.notice));
+    const yes = el('button', 'primary', 'Use Claude Code CLI'), no = el('button', 'ghost', 'Cancel');
     yes.addEventListener('click', () => { notice = null; resolve(true); });
     no.addEventListener('click', () => { notice = null; render(); resolve(false); });
     notice.append(icon('info'), text, no, yes);

@@ -66,7 +66,7 @@ section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile
 
 section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few options (Settings → AI engine, the setup wizard)',
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
-    {id: 'cli', icon: 'terminal', title: 'Claude Code', text: 'Uses your Claude Code and its Claude subscription.'}], {selected: 'cli'}));
+    {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
 
 section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialog-foot; .composer + .tool; .attachment + .soft-button; .select-search; .check-row; .segmented.is-fill', (() => {
   const box = el('div');
