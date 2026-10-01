@@ -1157,6 +1157,15 @@ function handlers() {
     return {went, taken, extension: seen?.version || '', latest, outdated: !!(seen?.version && latest && seen.version !== latest)};
   });
   ipcMain.handle('unapplyJob', (_, url) => pipeline.unapply(storage, String(url)));
+  // "This wasn't submitted": only ever asked for by the user, and only from a bare Applied.
+  ipcMain.handle('notSubmitted', (_, url) => {
+    const job = String(url);
+    appLog('applied', `not submitted: undo asked for ${job}`);
+    return pipeline.notSubmitted(storage, job).then(result => {
+      appLog('applied', `not submitted: ${job} -> ${result.notion || result.error} (${result.events || 0} event(s) removed)`);
+      return result;
+    });
+  });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.

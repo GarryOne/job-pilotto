@@ -232,6 +232,28 @@ class Tracker:
         self._request('PATCH', f"pages/{existing['id']}", {'properties': {'Stage': {'select': {'name': 'Kit ready'}}}})
         return 'updated'
 
+    # Stages that have the employer's own evidence behind them (a confirmation email, an interview, an answer):
+    # never something the app undoes on the owner's word alone, unlike a bare "Applied".
+    EMPLOYER_STAGES = ('Confirmation received', 'Screening', 'Interview scheduling', 'Interview scheduled',
+                       'Interviewing', 'Offer', 'Rejected', 'Withdrawn', 'No response')
+
+    def revert_unsubmitted(self, url):
+        """The owner says an Applied was wrong — the extension inferred a submission, nothing was submitted. Only
+        from a bare "Applied": the stage goes back to Applying and the Applied-on date is cleared, so the session
+        that filled the form is Applying again. A stage the employer's own side produced is left alone ('past').
+        Returns (outcome, page): 'updated' | 'unchanged' | 'past'."""
+        existing = self.find(url)
+        if not existing:
+            return 'unchanged', None
+        stage = (existing['properties']['Stage'].get('select') or {}).get('name')
+        if stage in self.EMPLOYER_STAGES:
+            return 'past', existing
+        if stage != 'Applied':
+            return 'unchanged', existing
+        self._request('PATCH', f"pages/{existing['id']}",
+                      {'properties': {'Stage': {'select': {'name': 'Applying'}}, 'Applied on': {'date': None}}})
+        return 'updated', existing
+
     def mark(self, job, stage, today=None):
         """Record a Telegram button action. Returns (page, 'created' | 'updated' | 'unchanged').
 

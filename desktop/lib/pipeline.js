@@ -478,6 +478,12 @@ export async function unapply(storage, url) {
   const {stdout} = await run(storage, ['src.desktop', 'unapply', url]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{"ok":false}');
 }
+// The owner says an Applied was wrong (the extension inferred a submission that never happened): the engine puts the
+// stage back to Applying and trashes the false 📈 Applied event. Only a bare Applied is undone (src/desktop.py).
+export async function notSubmitted(storage, url) {
+  const {stdout} = await run(storage, ['src.desktop', 'not-submitted', url]);
+  return JSON.parse(stdout.trim().split('\n').pop() || '{"ok":false}');
+}
 export async function setStatus(storage, url, status) {
   const {stdout} = await run(storage, ['src.desktop', 'status', url, status]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{}');

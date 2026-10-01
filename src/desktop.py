@@ -278,6 +278,7 @@ def main(argv=None):
     marking.add_argument('url')
     marking.add_argument('status', choices=STATUSES)
     sub.add_parser('unapply').add_argument('url')  # a session ended without a submission: Applying -> Kit ready
+    sub.add_parser('not-submitted').add_argument('url')  # an Applied was wrong: back to Applying (never a stage with evidence)
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
@@ -298,6 +299,23 @@ def main(argv=None):
                 print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
                 return 0
             print(json.dumps({'ok': True, 'notion': outcome}))
+        if args.command == 'not-submitted':
+            # The owner says an Applied was wrong. Only a bare Applied is undone, and its false 📈 event goes with
+            # it, so the application's timeline does not keep a submission that never happened (1 Oct 2026).
+            if not tracker:
+                print(json.dumps({'ok': False, 'error': 'Notion is not connected.'}))
+                return 0
+            from .notion.ledger import archive_events
+            try:
+                outcome, page = tracker.revert_unsubmitted(args.url)
+                dropped = archive_events(tracker, page, 'Applied') if outcome == 'updated' and page else 0
+            except Exception as error:  # noqa: BLE001 — shown to the user; nothing changed
+                print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
+                return 0
+            errors = {'unchanged': 'That job is not at Applied, so there is nothing to undo.',
+                      'past': 'That job is past Applied (a confirmation or an interview is recorded), so its stage is not changed here.'}
+            print(json.dumps({'ok': outcome == 'updated', 'notion': outcome, 'events': dropped,
+                              **({} if outcome == 'updated' else {'error': errors[outcome]})}))
             return 0
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))

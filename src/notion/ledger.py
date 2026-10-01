@@ -558,6 +558,19 @@ def moment(value):
     return parsed.astimezone(timezone.utc)
 
 
+def archive_events(tracker, page, kind):
+    """Trash this application's 📈 Application Events rows of one kind, and say how many. For a record the owner says
+    did not happen — an "Applied" the extension inferred on its own (1 Oct 2026) — so the application's timeline does
+    not keep a submission that never was. Notion's trash holds them for 30 days."""
+    dropped = 0
+    for event in events_of(tracker, page):
+        if ((event['properties'].get('Kind') or {}).get('select') or {}).get('name') != kind:
+            continue
+        tracker._request('PATCH', f"pages/{event['id']}", {'archived': True})
+        dropped += 1
+    return dropped
+
+
 def latest_events(tracker):
     """Applications page id -> {'kind', 'at'} of its latest Stage-type event, plus 'last' (time of its
     latest event of any kind) and 'replied' (whether a Reply received event exists)."""

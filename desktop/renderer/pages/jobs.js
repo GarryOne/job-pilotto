@@ -370,6 +370,18 @@ export function renderJobs() {
         renderJobs();
       }});
     } else if (job.status !== 'applied') menu.push({icon: 'tick', label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
+    if (job.stage === 'Applied') menu.push({icon: 'undo', label: "This wasn't submitted…", title: 'Back to Applying, and the Applied record removed',
+      run: async () => {
+        // Only a bare Applied: a stage past it (a confirmation, an interview) is the employer's own evidence.
+        if (!confirm('Mark this as not submitted? It goes back to Applying and the Applied date and event are removed from Notion.\n\n'
+          + 'Use this when Job Pilotto marked it Applied by itself and no application was sent.')) return;
+        const result = await window.pilot.notSubmitted(job.url).catch(error => ({ok: false, error: error.message}));
+        if (!result.ok) { toastMessage('Not changed', result.error || 'Something went wrong.'); return; }
+        job.stage = 'Applying';
+        job.status = 'applied';
+        toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} Notion event${result.events === 1 ? '' : 's'})` : ''}.`);
+        renderJobs();
+      }});
     if (job.status !== 'dismissed') menu.push({icon: 'close', label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
