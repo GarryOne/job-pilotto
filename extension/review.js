@@ -79,6 +79,26 @@
     for (const entry of groups.values()) {  // a CV some sites show only as a file name once attached
       if (!entry.filled && entry.el.type === 'file') entry.filled = showsFileName(entry.el);
     }
+    // Yes/No questions drawn as two toggle buttons (Ashby: aria-pressed, with a visually hidden checkbox no one sees): one field,
+    // filled when one of the two is pressed, required as its title says.
+    const pairs = new Map();
+    for (const button of document.querySelectorAll('button[aria-pressed]')) {
+      if (!/^(yes|no)$/i.test((button.textContent || '').trim()) || !visible(button)) continue;
+      if (!pairs.has(button.parentElement)) pairs.set(button.parentElement, []);
+      pairs.get(button.parentElement).push(button);
+    }
+    for (const [box, buttons] of pairs) {
+      if (buttons.length < 2) continue;
+      let title = null;
+      for (let up = box.parentElement, i = 0; up && i < 5 && !title; up = up.parentElement, i++) {
+        const found = up.querySelector('label, legend, [class*=title], [class*=heading]');
+        if (found && clean(found.textContent)) title = found;
+      }
+      if (!title) continue;
+      groups.set(box, {el: box, label: clean(title.textContent), ai: false,
+        required: /required/i.test(title.className) || /\*\s*$/.test(title.textContent || ''),
+        filled: buttons.some(button => button.getAttribute('aria-pressed') === 'true')});
+    }
     return [...groups.values()];
   }
   function find(label, list = fields()) {
