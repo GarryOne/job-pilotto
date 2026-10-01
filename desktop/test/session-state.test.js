@@ -1,7 +1,7 @@
 // A session's state on the session page: ready for review, asking you, working, and how long it took.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {firstLine, isLive, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
+import {firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
 
 test('a filled form waiting for you is "ready for review"; a message ending on your question is not', () => {
   const report = 'The N26 form is filled and open in Chrome. Nothing was submitted.\n\n**Left for you:**\n' +
@@ -39,4 +39,15 @@ test('ready for review becomes "Ready to submit" (green) once the form page says
   assert.deepEqual(sessionState({status: 'done'}, true), ['Ready to submit', 'good']);
   assert.deepEqual(sessionState({status: 'done'}, false), ['Ready for review', 'warn']);
   assert.deepEqual(sessionState({status: 'running'}, true), ['Applying', 'info']);  // still working: not yet
+});
+
+// "Reload the tab" is a repair, not an action: it reloads a form page (losing what was typed in it since the last
+// save), so it is offered only after the page's panel has failed to answer the app (1 Oct 2026).
+test('only a form page that did not answer asks for the reload repair', () => {
+  assert.equal(panelAnswered({went: 'tab', taken: true}), true);      // the panel answered: nothing to repair
+  assert.equal(panelAnswered({went: 'chrome', taken: false}), false); // no panel: the repair applies
+  assert.equal(panelAnswered({went: 'tab', taken: false}), false);    // a tab came forward, but its panel is dead
+  assert.equal(panelAnswered({went: 'posting', taken: false}), false);
+  assert.equal(panelAnswered(undefined), false);
+  assert.equal(panelAnswered('tab'), false);  // the old string shape cannot answer "did it?" — never "answered"
 });

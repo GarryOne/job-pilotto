@@ -1299,7 +1299,11 @@ function handlers() {
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
   // "Open filled form": the session's form tab through the extension (an empty label: bring it forward, no scroll).
-  ipcMain.handle('showBrowser', async (_, url, company, id) => (id ? (await showForm(id, '', url, company)).went : openFormTab({url, company}, shell.openExternal)));
+  // `taken` says whether the page's panel answered — the one thing the window needs to know whether the "Reload the
+  // tab" repair applies (1 Oct 2026: it was offered always, next to Open filled form, though it reloads a form page).
+  ipcMain.handle('showBrowser', async (_, url, company, id) => (id
+    ? (await showForm(id, '', url, company))
+    : {went: await openFormTab({url, company}, shell.openExternal), taken: true}));
   // "Reload the tab": the repair for a form page whose panel died with an older extension. Chrome reloads that tab,
   // then the page's fresh panel answers the focus handshake, so one press both heals and brings Chrome to the field.
   ipcMain.handle('reviewReload', async (_, id, url, company) => {

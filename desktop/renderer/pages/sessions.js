@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {asksYou, firstLine, isLive, sessionDuration, sessionReview, sessionState} from '../session-state.js';
+import {asksYou, firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
@@ -18,6 +18,9 @@ const sessionStatus = item => sessionState(item, formReady(item));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
+// Sessions whose form page has just failed to answer the app: only those are offered the "Reload the tab" repair
+// (it reloads a form page, so it must not sit in the row by default). Cleared when the page answers again.
+const panelDead = new Set();
 // Set once the app has answered with its sessions: until then "no open session" can't be told from "not loaded yet".
 export let sessionsLoaded = false;
 
@@ -237,14 +240,27 @@ export function renderNextStep(item) {
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (review) {
     actions.push(sessionButton('Open filled form', 'primary', async event => {
-      const went = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
-      if (went === 'chrome') toastMessage('Form tab not found', osText('The form\'s page didn\'t answer. Reload that tab in Chrome (⌘R) so the extension re-attaches to it, then try again.'));
+      const result = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+      // The page's panel answered: nothing to repair. When it didn't, the repair appears right here, and the row is
+      // redrawn so it is there before the next click.
+      if (panelAnswered(result)) {
+        if (panelDead.delete(item.id)) renderSessionPage();
+        return;
+      }
+      panelDead.add(item.id);
+      renderSessionPage();
+      toastMessage('Form tab not found', osText('The form\'s page didn\'t answer, so the extension isn\'t attached to it. '
+        + 'Press Reload the tab — or ⌘R in that tab — then try again.'));
     }, 'link'));
     // A form page whose panel died (the extension was uninstalled and installed again) can't answer the app: reload
-    // that tab, which is what puts the extension back onto it — then the focus handshake works again.
-    actions.push(sessionButton('Reload the tab', 'secondary', async event => {
+    // that tab, which is what puts the extension back onto it — then the focus handshake works again. Offered only
+    // after a page has just failed to answer (panelDead), never as an everyday action: a reload loses whatever was
+    // typed in the form since the last save (1 Oct 2026).
+    if (panelDead.has(item.id)) actions.push(sessionButton('Reload the tab', 'secondary', async event => {
       const result = await opening(event.currentTarget, () => window.pilot.reviewReload(item.id, item.url, sessionCompany(item)));
-      if (result?.result === 'reloaded') {
+      if (result?.result === 'reloaded' || result?.result === 'reloaded-chrome') {
+        panelDead.delete(item.id);
+        renderSessionPage();
         if (result.went !== 'tab') toastMessage('Reloaded, but no answer yet', 'The tab is fresh; give the extension a few seconds, then press Open filled form again.');
         return;
       }

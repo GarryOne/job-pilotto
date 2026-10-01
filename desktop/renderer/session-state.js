@@ -17,6 +17,10 @@ export const sessionReview = item => item.status === 'done'
 // formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
 export const sessionState = (item, formReady = false) => (sessionReview(item) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
   : SESSION_STATE[item.status] || SESSION_STATE.ended);
+// Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the
+// tab" repair offered: reloading a form page loses what was typed in it since the last save, so it must not be a
+// button to press by habit next to Open filled form (1 Oct 2026).
+export const panelAnswered = result => !!result?.taken;
 // How long it worked (until it ended or waited for you), "42s", "3m 05s", "1h 02m".
 export function sessionDuration(item, now = Date.now()) {
   const end = item.endedAt || item.needsYouSince;
