@@ -197,3 +197,13 @@ test('an armed form on another site that names no company belongs to the one ope
   assert.equal(review.report(two, agency({tab: 7})).matched, 'u1');
   review._reset();
 });
+
+test('a session closed with the app (restored, waiting, not live) still owns its open form', () => {
+  review._reset();
+  const restored = [{id: 'r1', url: 'https://www.jobs.ch/en/vacancies/detail/abc/', company: 'Undisclosed employer', status: 'input', live: false, startedAt: '2026-10-01T17:33:00Z'}];
+  const page = {url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)', left: 3, total: 15, tab: 7, watch: []};
+  assert.equal(review.report(restored, page).matched, 'r1');
+  review._reset();
+  assert.equal(review.report([{...restored[0], status: 'ended'}], page).matched, null);  // a finished session owns nothing
+  review._reset();
+});

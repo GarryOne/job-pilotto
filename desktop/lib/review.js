@@ -54,7 +54,7 @@ export function sessionFor(sessions, page, tab) {
   let host = '';
   try { host = new URL(page.url).hostname; } catch { return scored; }
   if (ATS.test(host)) return scored;
-  const free = sessions.filter(session => session.live !== false && ['running', 'input'].includes(session.status)
+  const free = sessions.filter(session => ['running', 'input'].includes(session.status)
     && (!bound.has(session.id) || (Number.isInteger(tab) && bound.get(session.id) === tab)));
   return free.length === 1 ? free[0] : null;
 }
