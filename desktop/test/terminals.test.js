@@ -287,3 +287,17 @@ test('Esc on a running turn is told apart from a phrase that was already on scre
   assert.equal(terminals.interruptedIn('Interrupted · What should', ' Claude do instead?'), true);
   assert.equal(terminals.interruptedIn(`${screen}\n> `, 'next reply'), false);
 });
+
+test('a resumed Claude repainting an old "Interrupted" line does not pause the session; a real Esc after a prompt does', async () => {
+  const pty = fakePty();
+  terminals._reset();
+  terminals.usePty(pty.loader);
+  await terminals.start({id: 'p1', url: 'https://jobs.test/p', file: 'claude', env: {}});
+  const screen = 'Interrupted · What should Claude do instead?';
+  pty.spawned[0].emit(`history… ${screen}\r\n`);  // the conversation repainted at start: no prompt taken yet
+  assert.equal(terminals.get('p1').status, 'running');
+  terminals.report('p1', {event: 'prompt'});
+  pty.spawned[0].emit(`working… ${screen}`);  // Esc on the running turn
+  assert.equal(terminals.get('p1').status, 'input');
+  terminals._reset();
+});

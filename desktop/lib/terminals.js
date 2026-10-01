@@ -113,10 +113,13 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
   return loadPty().then(pty => {
     const term = pty.spawn(file, args, {name: 'xterm-256color', cols, rows, cwd, env: {...env, TERM: 'xterm-256color', COLORTERM: 'truecolor'}});
     session.term = term;
+    session.promptSeen = false;  // set by the first prompt hook of this process (report): before it, "Interrupted" on screen is history
     Object.assign(session, {cols, rows});
     if (session.mirror) session.mirror.term.resize(cols, rows); else session.mirror = newMirror(cols, rows);
     term.onData(data => {
-      const paused = session.status === 'running' && interruptedIn(session.output, data);
+      // A resumed Claude repaints the old conversation, "Interrupted · What should Claude do instead?" included: that is
+      // history, not an Esc. Only after this process has taken a prompt (it is working on a turn) does the phrase mean a pause.
+      const paused = session.status === 'running' && session.promptSeen && interruptedIn(session.output, data);
       session.output = (session.output + data).slice(-OUTPUT_LIMIT);
       // Esc on a running turn fires no Stop hook, so the card would say "Working…" for a session that is waiting.
       if (paused) report(session.id, {event: 'input', message: 'Paused: tell Claude what to do, or press Continue'});
@@ -356,7 +359,7 @@ export function report(id, {event = '', message = '', transcript = ''} = {}) {
     session.question = lastAssistantText(session.transcript) || session.question || '';
     settle(session);
   }
-  if (event === 'prompt') { session.question = ''; session.turn = (session.turn || 0) + 1; }
+  if (event === 'prompt') { session.question = ''; session.turn = (session.turn || 0) + 1; session.promptSeen = true; }
   const before = session.status;
   const text = String(message || '').trim();
   if (event === 'note' && /^Form filled/i.test(text)) Object.assign(session, {status: 'done', note: 'Form filled — review it in Chrome and Submit'});
