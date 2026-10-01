@@ -10,6 +10,8 @@
   input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #b8c4d3; border-radius: 6px; font: inherit; }
   .hint { color: #5b6b80; font-size: 12px; }
   button { margin-top: 20px; padding: 9px 18px; border: 0; border-radius: 8px; background: #165bba; color: white; font: 600 14px system-ui; cursor: pointer; }
+  button.secondary { background: #e8eef7; color: #165bba; }
+  button.small { margin-top: 0; padding: 6px 12px; font-size: 13px; }
   #saved { margin-left: 10px; color: #1f7a4d; }
   label.check { display: flex; gap: 8px; align-items: center; font-weight: 600; } label.check input { width: auto; }
 </style>
@@ -20,10 +22,10 @@
 
 <h2>Connection</h2>
 <p><button id="pair" type="button">Connect to the Job Pilotto app</button> <span id="pair-status"></span></p>
-<label for="workerUrl">Connection URL <small>(filled in by Connect; or your own Worker's URL)</small></label>
+<label for="workerUrl">Connection URL <small>(filled in for you; or your own Worker's URL)</small></label>
 <input id="workerUrl" placeholder="https://your-bot.your-subdomain.workers.dev">
 <label for="token">Token</label>
-<input id="token" type="password" placeholder="filled in by Connect">
+<input id="token" type="password" placeholder="filled in for you">
 <div class="hint">Filled in for you when this page opens, and saved with it — press Save only if you type or change them yourself. Keep the Job Pilotto app open while you apply.</div>
 
 <h2>Filling</h2>

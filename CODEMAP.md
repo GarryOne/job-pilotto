@@ -172,7 +172,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), Apply with Claude's hand-off, the ring's
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
-- `extension/options.js` — Settings: only the connection to the Job Pilotto app (filled in by Connect). The user's contact details
+- `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/popup.js` — The toolbar popup: a pointer to the page's panel (review.js), which does the work. "Show the panel on this page"
 - `extension/review.js` — The Job Pilotto panel, on every application form (bottom right). Collapsed: a pill with a progress ring and what's
 
