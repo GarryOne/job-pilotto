@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationsToMark, confirmsJob, jobId} from '../lib/confirmation.js';
+import {confirmationsToMark, confirmsJob, jobId, reportedConfirmations} from '../lib/confirmation.js';
 import {markReportedConfirmations} from '../lib/server.js';
 
 const JOB = 'https://job-boards.greenhouse.io/anthropic/jobs/5114768008';
@@ -44,4 +44,21 @@ test('a confirmation tab marks that session Applied once', async () => {
   await markReportedConfirmations({}, [CONFIRM], deps);
   await markReportedConfirmations({}, [CONFIRM], deps);
   assert.deepEqual(calls, [[JOB, 'applied'], ['submitted', JOB]]);
+});
+
+test('a reported confirmation page is logged once, matched or not', async () => {
+  const lines = [];
+  const orphan = 'https://job-boards.greenhouse.io/acme/jobs/42/thanks?token=secret';
+  assert.deepEqual(reportedConfirmations([orphan, JOB], []), [
+    {host: 'job-boards.greenhouse.io', id: '42', path: 'thanks', matched: false},
+  ]);
+  await markReportedConfirmations({}, [orphan, orphan], {
+    setStatus: async () => ({ok: true}), submitted: () => {}, sessions: () => [], log: (area, message, fields) => lines.push([area, message, fields]),
+  });
+  await markReportedConfirmations({}, [orphan], {
+    setStatus: async () => ({ok: true}), submitted: () => {}, sessions: () => [], log: (area, message, fields) => lines.push([area, message, fields]),
+  });
+  assert.deepEqual(lines, [['extension', 'confirmation page reported, no open session: not marked',
+    {host: 'job-boards.greenhouse.io', id: '42', path: 'thanks'}]]);
+  assert.equal(JSON.stringify(lines).includes('secret'), false);
 });

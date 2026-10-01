@@ -23,6 +23,35 @@ export const samePage = (a, b) => !!a && !!b && pageKey(a) === pageKey(b);
 // /apply to /apply/step2), but never another site.
 export const sameSite = (a, b) => !!originOf(a) && originOf(a) === originOf(b);
 
+// A Greenhouse /confirmation or Lever /thanks page, as host + job id + path. Null for anything else,
+// including a form page and a page whose text merely says "thank you". Query strings are dropped.
+export function confirmationOf(url) {
+  try {
+    const parsed = new URL(String(url));
+    const parts = parsed.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
+    const path = parts.at(-1) || '';
+    if (path !== 'confirmation' && path !== 'thanks') return null;
+    return {host: parsed.hostname, id: parts.at(-2) || '', path};
+  } catch {
+    return null;
+  }
+}
+
+// Why a confirmation page was not marked, or null when this tab's stored job owns it (the mark path
+// logs that itself). The silent return here is what left the 1 Oct 2026 Anthropic confirmation with
+// no [extension] line: the tab's saved job was gone, so nothing was written.
+export function missedConfirmation({url, job} = {}) {
+  const page = confirmationOf(url);
+  if (!page) return null;
+  if (!job) return {text: 'confirmation page, no job stored on this tab: not marked', fields: page};
+  if (!forJob(url, job)) {
+    let stored = '';
+    try { stored = new URL(String(job)).pathname.replace(/\/+$/, '').split('/').filter(Boolean).at(-1) || ''; } catch { stored = ''; }
+    return {text: 'confirmation page is not the job stored on this tab: not marked', fields: {...page, stored}};
+  }
+  return null;
+}
+
 // This job's own page, or the confirmation page a site shows after submitting it (Greenhouse …/<job id>/confirmation,
 // Lever …/<job id>/thanks): the two places an email-side "you submitted" signal is expected from.
 export function forJob(current, job) {

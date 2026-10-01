@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {forJob, originOf, pageKey, samePage, sameSite} from '../../extension/tab-pages.js';
+import {confirmationOf, forJob, missedConfirmation, originOf, pageKey, samePage, sameSite} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -37,4 +37,18 @@ test('only the job\'s own page or its confirmation counts as "this job"', () => 
   assert.equal(forJob('https://job-boards.greenhouse.io/canonical/jobs/5002072', JOB), false);  // another role
   assert.equal(forJob('', JOB), false);
   assert.equal(forJob(JOB, ''), false);
+});
+
+test('a confirmation page with no stored job is logged, and only that page', () => {
+  const page = 'https://job-boards.greenhouse.io/anthropic/jobs/5114768008/confirmation?token=secret';
+  assert.deepEqual(confirmationOf(page), {host: 'job-boards.greenhouse.io', id: '5114768008', path: 'confirmation'});
+  assert.equal(confirmationOf(JOB), null);
+  assert.equal(confirmationOf('https://www.google.com/search?q=thank+you+for+applying'), null);
+  assert.deepEqual(missedConfirmation({url: page}), {
+    text: 'confirmation page, no job stored on this tab: not marked',
+    fields: {host: 'job-boards.greenhouse.io', id: '5114768008', path: 'confirmation'},
+  });
+  assert.equal(missedConfirmation({url: page, job: 'https://job-boards.greenhouse.io/anthropic/jobs/5114768008'}), null);
+  assert.equal(missedConfirmation({url: page, job: 'https://job-boards.greenhouse.io/anthropic/jobs/5002072'}).text,
+    'confirmation page is not the job stored on this tab: not marked');
 });

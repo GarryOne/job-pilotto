@@ -2,7 +2,7 @@
 // messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {forJob, samePage, sameSite} from './tab-pages.js';
+import {forJob, missedConfirmation, samePage, sameSite} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -385,16 +385,26 @@ reportTabs();
 // Notion (like the agent launchers' watcher), and a note confirms it on the page.
 // How long a recorded submit press counts as this tab's submission (a site can take a moment to answer).
 const SUBMIT_WINDOW_MS = 5 * 60 * 1000;
+// One line per tab and reason: checkSubmitted runs on every navigation update.
+const loggedMiss = new Set();
+function logMiss(tabId, miss) {
+  const key = `${tabId}:${miss.text}:${miss.fields.host}/${miss.fields.id}`;
+  if (loggedMiss.has(key)) return;
+  loggedMiss.add(key);
+  decide('submitted?', miss.text, miss.fields);
+}
 async function checkSubmitted(tabId, tab) {
   const key = `job:${tabId}`, from = `from:${tabId}`, sent = `submit:${tabId}`;
   const {[key]: job, [from]: filled, [sent]: submit} = await chrome.storage.session.get([key, from, sent]);
-  if (!job || !tab.url) return;
+  const miss = missedConfirmation({url: tab?.url, job});
+  if (!job || !tab.url) { if (miss) logMiss(tabId, miss); return; }
   const id = job.replace(/\/+$/, '').split('/').pop();
   const confirmationUrl = new RegExp(`${id}/(confirmation|thanks)`).test(tab.url);
   // The tab must be this job's own page, its confirmation, or the page a fill opened from it. Otherwise the state is
   // stale (a tab id that came back as something else): reading its text — let alone marking Applied from it — would
   // be about a page this job has nothing to do with (1 Oct 2026: `elsewhere` matched any other host).
   if (!forJob(tab.url, job) && filled !== job) {
+    if (miss) logMiss(tabId, miss);
     await chrome.storage.session.remove([key, from, sent]);
     return;
   }

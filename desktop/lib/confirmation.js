@@ -26,6 +26,31 @@ export function confirmsJob(tabUrl, jobUrl) {
   return last === 'confirmation' || last === 'thanks';
 }
 
+// Confirmation pages in a tab report, each once: whether an open session owns it. host, id and path
+// only — a query string can carry a token, and the page's text is not evidence.
+export function reportedConfirmations(tabUrls, sessions) {
+  const seen = new Set();
+  const pages = [];
+  for (const tab of tabUrls || []) {
+    let host = '';
+    let path = '';
+    try {
+      const url = new URL(String(tab));
+      const parts = url.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
+      path = parts.at(-1) || '';
+      if (path !== 'confirmation' && path !== 'thanks') continue;
+      host = url.hostname;
+    } catch { continue; }
+    const id = jobId(tab);
+    const key = `${host}/${id}/${path}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const matched = (sessions || []).some(session => session?.url && confirmsJob(tab, session.url));
+    pages.push({host, id, path, matched});
+  }
+  return pages;
+}
+
 // Session URLs a reported tab list has confirmed. Already-submitted sessions are skipped.
 export function confirmationsToMark(tabUrls, sessions) {
   const marked = new Set();

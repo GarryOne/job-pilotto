@@ -20,7 +20,7 @@ import * as questions from './questions.js';
 import * as terminals from './terminals.js';
 import {log} from './log.js';
 import * as reports from './reports.js';
-import {confirmationsToMark} from './confirmation.js';
+import {confirmationsToMark, reportedConfirmations} from './confirmation.js';
 
 export const PORT = 47111;
 // The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
@@ -246,13 +246,25 @@ export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '')
 
 // Confirmation URLs already handed to Notion this run. A tab report arrives every 30 s; one mark is enough.
 const confirming = new Set();
+// One line per confirmation page per run of the app. A tab report arrives every 30 s.
+const reportedPages = new Set();
 // A reported Chrome tab is this session's Greenhouse /confirmation or Lever /thanks page: mark Applied.
 // The bash watcher gives up after 3 hours, and the extension's check needs a job it stored on that tab.
 // Tests pass their own marker.
 export async function markReportedConfirmations(storage, tabUrls, {
   setStatus = pipeline.setStatus, submitted = sessionSubmitted, sessions = () => terminals.list(), log = appLog,
 } = {}) {
-  for (const url of confirmationsToMark(tabUrls, sessions())) {
+  const open = sessions();
+  for (const page of reportedConfirmations(tabUrls, open)) {
+    const key = `${page.host}/${page.id}/${page.path}`;
+    if (reportedPages.has(key)) continue;
+    reportedPages.add(key);
+    log('extension', page.matched
+      ? 'confirmation page reported for an open session'
+      : 'confirmation page reported, no open session: not marked',
+      {host: page.host, id: page.id, path: page.path});
+  }
+  for (const url of confirmationsToMark(tabUrls, open)) {
     const key = pageKey(url);
     if (confirming.has(key)) continue;
     confirming.add(key);
