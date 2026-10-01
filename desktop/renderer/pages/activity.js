@@ -141,6 +141,15 @@ export function outcome(run) {
 }
 // An Actions page command waits for its run (by kind) to end, then its answer shows the result.
 export const COMMAND_KIND = {insight: 'insight', weekly: 'weekly', today: 'today', scout: 'scout', mail: 'mail', run: 'search'};
+// The Actions page's result card: a finished task's header (what, how it ended, when) over the Recent activity card.
+function showActionsResult(run, kind, card) {
+  show($('command-answer'), false);
+  const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
+  $('actions-result-head').replaceChildren(el('b', '', `${kind.icon} ${kind.name}`), pill(label, tone), el('span', 'muted', `Finished ${clockTime(run.endedAt || run.startedAt)}`));
+  renderRunCard(card, run, $('actions-card'));
+  show($('actions-result'));
+  $('actions-result').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
 function showAwaitedResult(runs) {
   const run = shared.awaitedRun && runs.find(r => kindOf(r) === shared.awaitedRun.kind && r.id >= shared.awaitedRun.since && r.endedAt);
   if (!run) return;
@@ -148,7 +157,13 @@ function showAwaitedResult(runs) {
   const kind = KIND[kindOf(run)];
   const show = message => {
     const text = `${kind.icon} ${kind.name}: ${message ? `\n\n${message}` : capital(outcome(run))}`;
-    if ($('activity-panel').hidden) { answer(text); return; }
+    if ($('activity-panel').hidden) {
+      // On the Actions page: the same card as in Recent activity (counts, top matches), not the raw text of the run.
+      const card = message ? parseRunMessage(message) : null;
+      if (card) { showActionsResult(run, kind, card); return; }
+      answer(text);
+      return;
+    }
     runResults.set(run.id, message || capital(outcome(run)));  // shown under the run in Recent activity
     shared.selectedRun = run.id;
     renderActivity(lastActivity);
@@ -518,7 +533,7 @@ export function refreshActivity() {
 }
 let expandedCard = '';  // the employers card showing all its rows (by its companies)
 // A run's message as a card: a row of counts, then one line per item (the full text: Open in Notion).
-function renderRunCard(card, run = null) {
+function renderRunCard(card, run = null, target = $('activity-card')) {
   // One light line of counts ("37 open · 2 in Switzerland · 18 applied"), then one line per item.
   const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value ?? '–')), ` ${label}`); return cell; };
   const stats = el('div', 'run-card-stats');
@@ -574,7 +589,7 @@ function renderRunCard(card, run = null) {
     const rest = card.items.length - 5;
     if (rest > 0) {
       const toggle = el('button', 'link', all ? 'Show less' : `+${rest} more`);
-      toggle.addEventListener('click', () => { expandedCard = all ? '' : card.items.map(item => item.company).join('|'); renderRunCard(card); });
+      toggle.addEventListener('click', () => { expandedCard = all ? '' : card.items.map(item => item.company).join('|'); renderRunCard(card, run, target); });
       more.append(toggle);
     }
     const employers = shared.state?.notion?.NOTION_EMPLOYERS_DB;
@@ -591,7 +606,7 @@ function renderRunCard(card, run = null) {
   // box inside a box (the owner, 30 Sep: "a table in table").
   const body = el('div', 'run-card-body');
   body.append(el('h4', 'run-card-title', heading), rows, ...(more && more.childNodes.length ? [more] : []));
-  $('activity-card').replaceChildren(stats, body);
+  target.replaceChildren(stats, body);
 }
 
 // A run's card while its Notion page is being read: the card's own shape, in the app's skeleton bars, so the pane

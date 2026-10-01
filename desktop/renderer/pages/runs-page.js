@@ -65,6 +65,7 @@ export function renderActionsPage(data) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   $('run-banner-view').addEventListener('click', () => openActivity(true));
+  $('actions-result-close').addEventListener('click', () => show($('actions-result'), false));
   $('runs-all').addEventListener('click', event => { event.preventDefault(); openActivity(true); });
   $('actions-automation').addEventListener('click', event => {
     event.preventDefault();

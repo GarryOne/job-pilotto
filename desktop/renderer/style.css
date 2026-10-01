@@ -1670,6 +1670,10 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .ap-strip-manage:hover { color: var(--signal-ink); }
 /* Recent activity: Today's list / Find new employers as a compact card (renderer/run-cards.js). The counts sit on
    their own tinted band; the heading, the rows and the link share the card's plain body (one surface, no box in a box). */
+.actions-result { padding: 0; overflow: hidden; margin-bottom: var(--sp-4); }
+.actions-result-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.actions-result-head > span { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.actions-result-head .link { margin-left: auto; }
 .run-card { padding: 0; display: grid; gap: 0; font-size: var(--fs-sm); }
 .run-card[hidden] { display: none; }
 .run-card-stats { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-3); row-gap: var(--sp-1);
