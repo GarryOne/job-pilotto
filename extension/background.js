@@ -59,10 +59,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 // A progress panel on the page while a tab fills itself (the popup is closed then).
 async function progress(tabId, text) {
-  // The page's panel (review.js) shows it when it's there; the floating box is for pages without one.
+  // The page's panel (review.js) shows it when it is there; the floating box is for pages without one. Whichever
+  // takes it, the other is cleared: a box drawn before the panel opened used to stay on the page for good, above a
+  // form that was already "Ready to submit" (1 Oct 2026).
   const shown = await chrome.tabs.sendMessage(tabId, {type: 'panelStep', text}).catch(() => null);
-  if (shown?.shown) return;
-  await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
+  await stepBox(tabId, shown?.shown ? '' : text);
+}
+
+// The floating step box: drawn, updated, or (with no text) removed. Only for pages whose panel can't show the step.
+function stepBox(tabId, message) {
+  return chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [message], func: message => {
     let box = document.getElementById('jobpilotto-progress');
     if (!message) { box?.remove(); return; }
     if (!box) {

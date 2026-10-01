@@ -338,6 +338,7 @@
     if (message?.type !== 'panelStep') return false;
     if (!host.isConnected) { reply({shown: false}); return false; }
     if (message.text) { showStep(message.text); if (!open) setOpen(true); }
+    else endStep();  // the fill is over: no step line left over a form that is ready
     reply({shown: true});
     return false;
   });
