@@ -43,6 +43,17 @@ export function matchSession(sessions, page) {
   return best;
 }
 
+// A form the fill mark names but nothing else does (an agency's own form behind the posting, the company not named, the
+// extension unsure which job opened the tab): it belongs to the one open session no other tab is bound to. Two such
+// sessions, or none, and it stays unmatched: a guess would put one job's form on another's card.
+export function sessionFor(sessions, page, tab) {
+  const scored = matchSession(sessions, page);
+  if (scored || !String(page.url || '').includes('jobpilotto-fill')) return scored;
+  const free = sessions.filter(session => session.live !== false && ['running', 'input'].includes(session.status)
+    && (!bound.has(session.id) || (Number.isInteger(tab) && bound.get(session.id) === tab)));
+  return free.length === 1 ? free[0] : null;
+}
+
 export function setWatch(id, items) {
   watches.set(id, (Array.isArray(items) ? items : []).filter(item => item?.id && item?.label).map(({id: key, label}) => ({id: String(key), label: String(label)})));
 }
@@ -72,7 +83,7 @@ export function tabsToArm(sessions, tabs, now = Date.now()) {
 }
 // The page scrolled, or looked and found no such field. Resolves whoever is waiting; kept if they ask just after.
 export function noteFocus(sessions, payload) {
-  const session = matchSession(sessions, {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || '')});
+  const session = sessionFor(sessions, {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || '')}, Number(payload?.tab));
   if (!session) return {ok: false};
   const found = !!payload?.found;
   focusAnswers.set(session.id, found);
@@ -112,9 +123,9 @@ export const tabOpen = id => (!bound.has(id) || !openIds ? null : openIds.has(bo
 // The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
 export function report(sessions, payload, now = Date.now()) {
   const page = {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || '')};
-  const session = matchSession(sessions, page);
-  if (!session) return {matched: null, session: null, watch: [], commands: []};
   const tab = Number(payload?.tab);
+  const session = sessionFor(sessions, page, tab);
+  if (!session) return {matched: null, session: null, watch: [], commands: []};
   if (Number.isInteger(tab)) {
     const current = bound.get(session.id);
     if (current !== undefined && tab < current) return {matched: null, session: null, watch: [], commands: []};  // an older tab: not this session's form

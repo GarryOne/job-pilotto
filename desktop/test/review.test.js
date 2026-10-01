@@ -180,3 +180,18 @@ test('a form on another host than the posting still matches its session by the j
   review._reset();
   assert.notEqual(review.report(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/abc-def/', left: 2, total: 5, watch: []}).matched, null);
 });
+
+test('an armed form on another site that names no company belongs to the one open session without a tab', () => {
+  review._reset();
+  const open = [{id: 'u1', url: 'https://www.jobs.ch/en/vacancies/detail/abc/', company: 'Undisclosed employer', status: 'input', live: true, startedAt: '2026-10-01T17:33:00Z'}];
+  const agency = (extra = {}) => ({url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)', left: 3, total: 15, tab: 7, watch: [], ...extra});
+  assert.equal(review.report(open, agency()).matched, 'u1');
+  assert.equal(review.report(open, agency({url: 'https://api.easytemp.ch/other.php'})).matched, null);  // no fill mark: some stranger's tab
+  // Two sessions without a tab: ambiguous, no guess. One already on its own tab: the other is the one.
+  review._reset();
+  const two = [...open, {id: 'u2', url: 'https://boards.example/jobs/1', company: 'Example', status: 'running', live: true, startedAt: '2026-10-01T17:34:00Z'}];
+  assert.equal(review.report(two, agency()).matched, null);
+  review.report(two, {url: 'https://boards.example/jobs/1', title: 'Example', left: 1, total: 4, tab: 5, watch: []});
+  assert.equal(review.report(two, agency({tab: 7})).matched, 'u1');
+  review._reset();
+});
