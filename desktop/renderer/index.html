@@ -428,11 +428,22 @@
         </div>
         <div class="head-actions"><span id="ss-more"></span></div>
       </header>
-      <div class="ss-grid">
+      <!-- No session yet: the page's own state, not an empty two-pane workspace with a dead message box and log. -->
+      <section class="card ss-empty" id="ss-empty" hidden>
+        <span class="ss-empty-glyph"><i data-icon="send"></i></span>
+        <h2>No application sessions yet</h2>
+        <p class="muted">Apply with Claude fills an employer's form in Chrome while you watch. It stops before
+          <b>Submit</b>, hands you the legal boxes and the questions it couldn't answer, and keeps the answers it
+          used in Notion.</p>
+        <div class="ss-empty-actions">
+          <button class="primary with-icon" id="ss-empty-jobs"><i data-icon="briefcase"></i><span>Find a job to apply to</span></button>
+        </div>
+        <p class="muted small">On a job's row, press <b>Apply with Claude</b> to start one.</p>
+      </section>
+      <div class="ss-grid" id="ss-grid">
         <section class="card ss-list-card">
           <div class="focus-card-head"><h2>Sessions</h2><button class="secondary small-button" id="ss-new" title="Start Apply with Claude from the Jobs list">+ New session</button></div>
           <ol class="ss-list" id="ss-list"></ol>
-          <p class="muted small" id="ss-list-empty" hidden>No sessions yet. On a job, press Apply with Claude.</p>
         </section>
         <section class="card ss-main" id="ss-main">
           <div class="ss-job" id="ss-job"></div>

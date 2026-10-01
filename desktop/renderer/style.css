@@ -1068,6 +1068,12 @@ main { min-width: 0; }
 /* The session page: sessions on the left; the job, Claude's question, the live terminal and the message box */
 .ss-title h1 { margin: 0; }
 .ss-subtitle { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); font-size: var(--fs-base); }
+.ss-empty { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-6) var(--sp-4); }
+.ss-empty-glyph { display: grid; place-items: center; width: 44px; height: 44px;
+  background: var(--signal-soft); color: var(--signal-ink); font-size: var(--fs-lg); border-radius: var(--r-pill); }
+.ss-empty h2 { margin: 0; font-size: var(--fs-lg); }
+.ss-empty p { margin: 0; max-width: 54ch; }
+.ss-empty-actions { margin-top: var(--sp-1); }
 .ss-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
 /* The session page reads like Jobs: 13 px text, less padding in the cards nested in the main card (it felt oversized
    at 100%, 29 Sep 2026) */

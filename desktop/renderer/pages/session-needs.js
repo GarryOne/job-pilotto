@@ -396,4 +396,5 @@ export async function init() {
   });
   $('sd-all').addEventListener('click', event => { event.preventDefault(); openSession(shared.openSessionId || sessionList[0]?.id); });
   $('ss-new').addEventListener('click', () => openView('jobs'));
+  $('ss-empty-jobs').addEventListener('click', () => openView('jobs'));  // the empty state's one action
 }

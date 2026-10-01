@@ -26,7 +26,11 @@ export function renderSessionPage() {
   const item = sessionList.find(entry => entry.id === shared.openSessionId) || sessionList[0];
   if (item && item.id !== shared.openSessionId) { shared.openSessionId = item.id; shared.termShownFor = null; }
   if (item) remembered('session', item.id);
-  show($('ss-list-empty'), !sessionList.length);
+  // No session at all: the page says what a session is and how to start one, instead of leaving the detail pane's
+  // empty message box and dead log on screen (1 Oct 2026).
+  const none = !sessionList.length;
+  show($('ss-empty'), none);
+  show($('ss-grid'), !none);
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
     const [label, tone] = sessionState(entry);
     const li = el('li', `ss-row tone-${tone}${entry.id === item?.id ? ' is-current' : ''}`);
@@ -40,7 +44,13 @@ export function renderSessionPage() {
     li.addEventListener('click', () => openSession(entry.id));
     return li;
   }));
-  if (!item) return;
+  if (!item) {
+    $('ss-title').textContent = 'Application sessions';  // the header has nothing to say about a session that isn't there
+    $('ss-role').textContent = '';
+    $('ss-status').replaceChildren();
+    $('ss-more').replaceChildren();
+    return;
+  }
   const [label, tone] = sessionState(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
