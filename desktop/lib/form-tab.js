@@ -29,6 +29,13 @@ export function scoreTab(tab, {url, company}) {
   return score;
 }
 
+// The tab to act on for this job, only when the match is confident (never someone else's tab, never a close or a
+// reload on a guess): the job ID in its URL, or the posting itself.
+export function reloadTarget(tabs, target, min = 70) {
+  const tab = pickTab(tabs, target);
+  return tab && scoreTab(tab, target) >= min ? tab : null;
+}
+
 // The tab most likely to be this job's form, or null.
 export function pickTab(tabs, target) {
   let best = null, bestScore = 0;
@@ -72,11 +79,28 @@ export async function closeFormTab({url, company}) {
   if (process.platform !== 'darwin') return false;
   try {
     const tabs = JSON.parse(await jxa(LIST)) || [];
-    const tab = pickTab(tabs, {url, company});
-    if (!tab || scoreTab(tab, {url, company}) < 70) return false;  // only a confident match: never someone else's tab
+    const tab = reloadTarget(tabs, {url, company});
+    if (!tab) return false;
     await jxa(`Application('Google Chrome').windows.byId(${Number(tab.win)}).tabs[${Number(tab.index) - 1}].close()`);
     return true;
   } catch { return false; }
+}
+
+// Reloads this job's form tab: the repair for a tab whose page still holds a panel from an older extension — after an
+// uninstall/reinstall the page's script is orphaned and can't answer the app, and only a fresh page load brings the
+// extension back onto it. Chrome's own reload (its scripting dictionary: "reload tab"). Says why when it can't:
+// 'reloaded', 'permission' (macOS won't let Job Pilotto control Chrome), 'no-tab', 'no-chrome', 'other'.
+export async function reloadFormTab({url, company}) {
+  if (process.platform !== 'darwin') return 'no-chrome';
+  let tabs, tab;
+  try {
+    tabs = JSON.parse(await jxa(LIST));
+    if (!tabs) return 'no-chrome';
+    tab = reloadTarget(tabs, {url, company});
+    if (!tab) return 'no-tab';
+    await jxa(`Application('Google Chrome').windows.byId(${Number(tab.win)}).tabs[${Number(tab.index) - 1}].reload()`);
+    return 'reloaded';
+  } catch { return tabs === undefined ? 'permission' : 'other'; }
 }
 
 // Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'. The posting

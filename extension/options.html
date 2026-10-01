@@ -24,9 +24,10 @@
 <input id="workerUrl" placeholder="https://your-bot.your-subdomain.workers.dev">
 <label for="token">Token</label>
 <input id="token" type="password" placeholder="filled in by Connect">
-<div class="hint">Both are filled in by Connect. Keep the Job Pilotto app open while you apply.</div>
+<div class="hint">Filled in for you when this page opens, and saved with it — press Save only if you type or change them yourself. Keep the Job Pilotto app open while you apply.</div>
 
 <h2>Filling</h2>
+<p class="hint">Each switch saves the moment you toggle it.</p>
 <label class="check"><input type="checkbox" id="checkEligibility"> Check eligibility before filling</label>
 <div class="hint">On: Job Pilotto doesn't fill a form when the job clearly excludes you (location, work permit, language),
 and tells you why; you can still choose Fill anyway. Turn it off to always fill, e.g. while testing.</div>
@@ -52,7 +53,7 @@ read them), and Submit is left ready for you. Job Pilotto never presses Submit.<
 <p class="hint">They live in the Job Pilotto app (Settings → Your details for application forms), and the extension
 asks the app for them each time it fills a form. Change them there.</p>
 
-<button id="save">Save</button><span id="saved"></span>
+<button id="save">Save connection details</button><span id="saved"></span>
 <script src="options.js" type="module"></script>
 </body>
 </html>

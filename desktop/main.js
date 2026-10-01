@@ -37,7 +37,7 @@ import {sharedCheck} from './lib/shared-check.js';
 import * as pendingLicense from './lib/pending-license.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
-import {closeFormTab, listTabs, openFormTab, withOpenForm} from './lib/form-tab.js';
+import {closeFormTab, listTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
 import {log as appLog, logTo} from './lib/log.js';
@@ -1267,6 +1267,14 @@ function handlers() {
   // "Open filled form": Chrome, switched to the form's tab (lib/form-tab.js).
   // "Open filled form": the session's form tab through the extension (an empty label: bring it forward, no scroll).
   ipcMain.handle('showBrowser', async (_, url, company, id) => (id ? (await showForm(id, '', url, company)).went : openFormTab({url, company}, shell.openExternal)));
+  // "Reload the tab": the repair for a form page whose panel died with an older extension. Chrome reloads that tab,
+  // then the page's fresh panel answers the focus handshake, so one press both heals and brings Chrome to the field.
+  ipcMain.handle('reviewReload', async (_, id, url, company) => {
+    const result = await reloadFormTab({url: String(url), company: String(company || '')});
+    if (result !== 'reloaded') return {result};
+    await new Promise(resolve => setTimeout(resolve, 2500));  // the panel boots and reports within a second or two
+    return {result, ...(await showForm(String(id), '', String(url), String(company || '')))};
+  });
   // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
   // browser. ⌘-click opens the app's own Notion window instead (its own sign-in, kept between restarts).
   ipcMain.handle('openNotion', (_, url, inWindow) => {

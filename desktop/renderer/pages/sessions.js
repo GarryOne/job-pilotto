@@ -240,6 +240,19 @@ export function renderNextStep(item) {
       const went = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
       if (went === 'chrome') toastMessage('Form tab not found', 'The form\'s page didn\'t answer. Reload that tab in Chrome (⌘R) so the extension re-attaches to it, then try again.');
     }, 'link'));
+    // A form page whose panel died (the extension was uninstalled and installed again) can't answer the app: reload
+    // that tab, which is what puts the extension back onto it — then the focus handshake works again.
+    actions.push(sessionButton('Reload the tab', 'secondary', async event => {
+      const result = await opening(event.currentTarget, () => window.pilot.reviewReload(item.id, item.url, sessionCompany(item)));
+      if (result?.result === 'reloaded') {
+        if (result.went !== 'tab') toastMessage('Reloaded, but no answer yet', 'The tab is fresh; give the extension a few seconds, then press Open filled form again.');
+        return;
+      }
+      const why = {permission: 'macOS won\'t let Job Pilotto control Chrome: System Settings → Privacy & Security → Automation → Job Pilotto → Google Chrome. Or press ⌘R in that tab.',
+        'no-tab': 'No open Chrome tab matches this job. Open the posting, then press again.',
+        'no-chrome': 'Google Chrome isn\'t running.'}[result?.result];
+      toastMessage('Couldn\'t reload the form tab', why || 'Press ⌘R in the form\'s tab instead.');
+    }, 'refresh'));
     // You pressed Submit in Chrome: say so here too (the Jobs row and Notion move to Applied).
     actions.push(sessionButton('I submitted it', 'secondary', async event => {
       const button = event.currentTarget;

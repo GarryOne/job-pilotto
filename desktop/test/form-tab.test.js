@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {pickTab, withOpenForm} from '../lib/form-tab.js';
+import {pickTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
 
 const tabs = [
   {win: 1, index: 1, url: 'https://news.ycombinator.com/', title: 'Hacker News'},
@@ -34,4 +34,17 @@ test('at start: which sessions still have their form open, one tab per session, 
   ];
   assert.deepEqual([...withOpenForm(sessions, open)].sort(), ['a1', 'c2']);  // the one Canonical tab goes to the matching job only
   assert.deepEqual([...withOpenForm(sessions, [])], []);
+});
+
+test('reloading a tab takes the same confident match — never a guess at someone else\'s tab', () => {
+  const job = {url: 'https://www.example-labs.com/careers/jobs?gh_jid=7012345', company: 'Example Labs'};
+  assert.equal(reloadTarget(tabs, job).index, 1);   // the Greenhouse tab carrying the posting's job ID
+  assert.equal(reloadTarget(tabs, job).win, 2);
+  // A better match elsewhere still wins, and a 50 (the company in a title, nothing else) is below the bar.
+  assert.equal(reloadTarget(tabs, {url: 'https://jobs.example/examplelabs/sre', company: 'Example Labs'}).win, 2);
+  assert.equal(reloadTarget([{win: 1, index: 1, url: 'https://www.example-labs.com/careers', title: 'Careers | Example Labs'}],
+    {url: 'https://jobs.example/examplelabs/sre', company: 'Example Labs'}), null);
+  assert.equal(reloadTarget(tabs, job, 85), null);  // below the bar: no confident match, so no reload on a guess
+  assert.equal(reloadTarget(tabs, {url: 'https://www.example-labs.com/careers/', company: 'Example Labs'}).win, 1);  // the posting itself
+  assert.equal(reloadTarget([], job), null);
 });
