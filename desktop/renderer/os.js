@@ -6,6 +6,7 @@ const WINDOWS = [
   [/in Finder\b/g, 'in File Explorer'],
   [/⌘-click/g, 'Ctrl-click'],
   [/⌘K/g, 'Ctrl+K'],
+  [/⌘R/g, 'Ctrl+R'],
 ];
 
 export function osText(text, platform) {

@@ -5,7 +5,7 @@ import {avatar} from '../jobs-view.js';
 import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
 import {asksYou, firstLine, isLive, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
-import {$, show} from './core.js';
+import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
@@ -250,8 +250,11 @@ export function renderNextStep(item) {
       }
       const why = {permission: 'macOS won\'t let Job Pilotto control Chrome: System Settings → Privacy & Security → Automation → Job Pilotto → Google Chrome. Or press ⌘R in that tab.',
         'no-tab': 'No open Chrome tab matches this job. Open the posting, then press again.',
-        'no-chrome': 'Google Chrome isn\'t running.'}[result?.result];
-      toastMessage('Couldn\'t reload the form tab', why || 'Press ⌘R in the form\'s tab instead.');
+        'no-chrome': 'Google Chrome isn\'t running.',
+        // Chrome's scripting is macOS-only. Saying "Chrome isn't running" on Windows would be untrue, and the
+        // generic advice names ⌘R, which isn't a key there.
+        manual: 'Reloading a Chrome tab can only be asked of a Mac: press Ctrl+R in the form\'s tab.'}[result?.result];
+      toastMessage('Couldn\'t reload the form tab', why || osText('Press ⌘R in the form\'s tab instead.'));
     }, 'refresh'));
     // You pressed Submit in Chrome: say so here too (the Jobs row and Notion move to Applied).
     actions.push(sessionButton('I submitted it', 'secondary', async event => {

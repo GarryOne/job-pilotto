@@ -68,15 +68,15 @@ export function withOpenForm(sessions, tabs, minScore = 50) {
   return found;
 }
 // Chrome's open tabs ([{url, title}]), [] without Chrome, permission or a Mac.
-export async function listTabs() {
-  if (process.platform !== 'darwin') return [];
+export async function listTabs(platform = process.platform) {
+  if (platform !== 'darwin') return [];
   try { return JSON.parse(await jxa(LIST)) || []; } catch { return []; }
 }
 
 // Closes this job's form tab (the application was cancelled) with the Mac's scripting, when the extension didn't.
 // Returns true when a tab was closed.
-export async function closeFormTab({url, company}) {
-  if (process.platform !== 'darwin') return false;
+export async function closeFormTab({url, company}, platform = process.platform) {
+  if (platform !== 'darwin') return false;
   try {
     const tabs = JSON.parse(await jxa(LIST)) || [];
     const tab = reloadTarget(tabs, {url, company});
@@ -89,9 +89,10 @@ export async function closeFormTab({url, company}) {
 // Reloads this job's form tab: the repair for a tab whose page still holds a panel from an older extension — after an
 // uninstall/reinstall the page's script is orphaned and can't answer the app, and only a fresh page load brings the
 // extension back onto it. Chrome's own reload (its scripting dictionary: "reload tab"). Says why when it can't:
-// 'reloaded', 'permission' (macOS won't let Job Pilotto control Chrome), 'no-tab', 'no-chrome', 'other'.
-export async function reloadFormTab({url, company}) {
-  if (process.platform !== 'darwin') return 'no-chrome';
+// 'reloaded', 'permission' (macOS won't let Job Pilotto control Chrome), 'no-tab', 'no-chrome', 'manual' (this isn't
+// a Mac: Chrome's scripting is macOS-only, so reloading the tab is the user's to do), 'other'.
+export async function reloadFormTab({url, company}, platform = process.platform) {
+  if (platform !== 'darwin') return 'manual';
   let tabs, tab;
   try {
     tabs = JSON.parse(await jxa(LIST));

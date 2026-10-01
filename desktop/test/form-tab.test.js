@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {pickTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
+import {closeFormTab, listTabs, pickTab, reloadFormTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
 
 const tabs = [
   {win: 1, index: 1, url: 'https://news.ycombinator.com/', title: 'Hacker News'},
@@ -47,4 +47,14 @@ test('reloading a tab takes the same confident match — never a guess at someon
   assert.equal(reloadTarget(tabs, job, 85), null);  // below the bar: no confident match, so no reload on a guess
   assert.equal(reloadTarget(tabs, {url: 'https://www.example-labs.com/careers/', company: 'Example Labs'}).win, 1);  // the posting itself
   assert.equal(reloadTarget([], job), null);
+});
+
+// Chrome's scripting dictionary is macOS-only, so off a Mac there are no tabs to see, close or reload, and asking is
+// the user's job. It must not answer 'no-chrome' there: the window turns that into "Google Chrome isn't running",
+// which is untrue when Chrome is open in front of them.
+test('off a Mac, Chrome cannot be scripted: no tabs, nothing closed, and the reload is the user\'s to do', async () => {
+  const job = {url: 'https://job-boards.greenhouse.io/examplelabs/jobs/7012345', company: 'Example Labs'};
+  assert.deepEqual(await listTabs('win32'), []);
+  assert.equal(await closeFormTab(job, 'win32'), false);
+  assert.equal(await reloadFormTab(job, 'win32'), 'manual');
 });
