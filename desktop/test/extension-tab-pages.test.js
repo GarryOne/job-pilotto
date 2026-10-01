@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, missedConfirmation, neverForm, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {confirmationOf, forJob, evidenceIn, missedConfirmation, neverForm, onSite, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -132,4 +132,15 @@ test('the user\'s Notion is never a job form: an armed tab sent there is let go'
   assert.equal(neverForm('https://docs.google.com/forms/d/e/abc/viewform'), false);
   assert.equal(neverForm('https://careers.google.com/jobs/results/123/apply'), false);
   assert.equal(neverForm('not a url'), false);
+});
+
+test('a page reads as a job application from two word groups; known job boards match by address pattern', () => {
+  assert.equal(evidenceIn('Software Developer (M/F) Ref: 2085 Nationality Marital status Date of birth'), 2);  // an agency form
+  assert.equal(evidenceIn('Find your perfect domain. Sign up, transfer, hosting. Sign in'), 0);
+  assert.equal(evidenceIn('Careers at Acme: apply now with your CV'), 3);
+  const sites = ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*'];
+  assert.equal(onSite(sites, 'https://job-boards.greenhouse.io/scaleai/jobs/1'), true);
+  assert.equal(onSite(sites, 'https://jobs.lever.co/acme/1'), true);
+  assert.equal(onSite(sites, 'https://www.namecheap.com/'), false);
+  assert.equal(onSite(sites, 'https://evil-greenhouse.io/x'), false);
 });

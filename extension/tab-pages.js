@@ -137,3 +137,27 @@ export function reportedIds({jobSiteIds = [], armedIds = [], existingIds = []} =
   const exist = new Set(existingIds);
   return [...new Set([...jobSiteIds, ...armedIds.filter(id => exist.has(id))])];
 }
+
+// Is this page plausibly a job application, when nothing else ties it to one (not a known job board, not the site the
+// tab was opened for)? An armed tab stays armed when you browse on in it; without this, the next site (a domain shop,
+// 1 Oct 2026) got fill attempts and an error popup. The page counts how many of these groups its text touches
+// (counts only leave the page, never its words); two or more is an application form. An agency's own form says
+// "Software Developer", "Nationality", "Date of birth": two groups.
+export const EVIDENCE = [
+  '\\bapply\\b|application|applicant|candidate|candidature|bewerb|postuler',
+  'r[e\u00e9]sum[e\u00e9]|\\bcv\\b|lebenslauf|cover letter|anschreiben',
+  'nationalit|marital|civil status|date of birth|geburtsdatum|date de naissance|work permit|notice period|salary|native language|driving licen|permis de conduire',
+  'vacanc|position|\\bjob\\b|career|developer|engineer|manager|analyst|designer|stelle|emploi|poste|\\bref\\b',
+];
+export const evidenceIn = text => EVIDENCE.filter(source => new RegExp(source, 'i').test(String(text || ''))).length;
+// "https://*.greenhouse.io/*" style patterns (manifest host permissions) against a page address.
+export function onSite(patterns, url) {
+  let parsed;
+  try { parsed = new URL(String(url)); } catch { return false; }
+  return (patterns || []).some(pattern => {
+    const match = /^(\*|https?):\/\/([^/]+)\/.*$/.exec(pattern);
+    if (!match || (match[1] !== '*' && match[1] + ':' !== parsed.protocol)) return false;
+    const host = match[2];
+    return host.startsWith('*.') ? parsed.hostname === host.slice(2) || parsed.hostname.endsWith(host.slice(1)) : parsed.hostname === host;
+  });
+}

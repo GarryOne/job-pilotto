@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, reportedIds, tabArmed} from './tab-pages.js';
+import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, EVIDENCE, forJob, neverForm, onSite, reportedIds, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -89,7 +89,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 // Counts only, in the page: no labels and no values. Passwords and file inputs are counted apart from the rest.
 function pageShape(tabId) {
-  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+  return chrome.scripting.executeScript({target: {tabId}, args: [EVIDENCE], func: groups => {
     const shown = el => el.getClientRects().length > 0 && el.type !== 'hidden';
     const controls = [...document.querySelectorAll('input, textarea, select')].filter(shown);
     const skip = new Set(['submit', 'button', 'reset', 'search', 'image', 'password', 'file', 'hidden']);
@@ -98,6 +98,8 @@ function pageShape(tabId) {
       passwords: controls.filter(el => el.type === 'password').length,
       files: controls.filter(el => el.type === 'file').length,
       textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
+      // How many job-application word groups the page touches; the words themselves stay in the page.
+      evidence: groups.filter(source => new RegExp(source, 'i').test(`${document.title} ${(document.body?.innerText || '').slice(0, 8000)}`)).length,
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
@@ -118,16 +120,23 @@ async function consider(tab, jobUrl) {
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
   const counts = await pageShape(tab.id);
   if (!counts) { started.delete(key); return; }
-  const role = pageRole(counts);
+  let role = pageRole(counts);
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+  // An armed tab stays armed when you browse on in it. Unless it is a known job board, or the site this tab was opened
+  // for, a "form" must read like a job application: otherwise it is left alone (no fill, no popup).
+  if (role === 'form' && !onSite(JOB_SITES, tab.url) && !sameSite(tab.url, await jobOf(tab)) && (counts.evidence || 0) < 2) {
+    await writeState(tab.id, {state: 'no-form'});
+    decide('fill', 'not an application page: left alone', {host, evidence: counts.evidence || 0});
+    return;
+  }
   if (role !== 'form') {
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
     return;
   }
   await writeState(tab.id, {state: 'running'});
-  const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true});
+  const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
 }
@@ -176,6 +185,17 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   let armed = (await chrome.storage.session.get(key))[key];
   if (!armed) armed = await followOpener(tab);
   if (!armed) return;
+  // The panel goes only where it can help: a job board, the site this tab was opened for, or a page that reads like an
+  // application. A form-like page of some other site (you browsed on in an armed tab) gets nothing injected.
+  if (!onSite(JOB_SITES, tab.url) && !sameSite(tab.url, await jobOf(tab))) {
+    const shape = await pageShape(tabId);
+    if (shape && pageRole(shape) === 'form' && (shape.evidence || 0) < 2) {
+      let host = '';
+      try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+      decide('panel', 'not an application page: no panel', {host, evidence: shape.evidence || 0});
+      return;
+    }
+  }
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
 });
@@ -262,7 +282,7 @@ function prefetch(config, url) {
 }
 
 // fast: the page is already there (the panel's Fill): no wait for it to render.
-async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
+async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = false} = {}) {
   await arm(tab.id);
   if (!fast) await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
   const page = tab.url || url;  // the page this fill belongs to: progress is only ever drawn while the tab shows it
@@ -290,7 +310,8 @@ async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
   } catch (error) {
     await progress(tab.id, '', page);
     decide('fill', `failed: ${error.message}`, {url: page});
-    await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open that form from the Job Pilotto app.`, page);
+    // An automatic fill (the page was not asked for by you, just reached in an armed tab) fails quietly: logged, never a popup.
+    if (!quiet) await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open that form from the Job Pilotto app.`, page);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
     return {error: error.message};
   }
