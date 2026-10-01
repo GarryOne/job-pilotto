@@ -166,8 +166,11 @@ test('the Show menu: matches by status, every match under All matches, inbound u
   // All matches = every job match, whatever its status: exactly the set the Total matches card counts, so clicking that
   // card lists the number it shows. The opportunities that found you are Inbound's alone.
   assert.deepEqual(urls('all'), ['m-new', 'm-saved', 'm-gone']);
+  // Everything = All matches + Inbound, every status: the one list that holds both kinds (no card counts it).
+  assert.deepEqual(urls('everything'), jobs.map(job => job.url));
   assert.deepEqual(order(byFilter(jobs, 'inbound'), 'activity').map(job => job.url), ['i-talk', 'i-over', 'i-new', 'i-lead']);
   assert.equal(inboundCount(jobs), 4);
+  assert.equal(byFilter(jobs, 'everything').length, byFilter(jobs, 'all').length + byFilter(jobs, 'inbound').length);
   // The Jobs menu item's count: the list as it opens — each match waiting for a first look, inbound left out.
   assert.equal(toReview(jobs), 1);
 });
@@ -184,14 +187,17 @@ test('the Inbound counter opens the Inbound list; again shows every match; the o
   assert.equal(statPressed('inbound', 'high', 'inbound'), false);
   assert.equal(statPressed('total', null, 'all'), true);
   assert.equal(statPressed('high', 'high', 'all'), true);
+  // Everything is wider than any card: none is pressed while it is the list (the Total matches card counts 132, not 138).
+  assert.equal(statPressed('total', null, 'everything'), false);
+  assert.equal(statPressed('inbound', null, 'everything'), false);
 });
 
-test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and All matches = every match', async () => {
+test('Jobs page: "New matches" (not "To review"), Inbound and Everything as their own menu entries', async () => {
   const fs = await import('node:fs');
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   const menu = html.slice(html.indexOf('<select id="filter-status"'), html.indexOf('</select>', html.indexOf('<select id="filter-status"')));
   assert.deepEqual([...menu.matchAll(/<option value="(\w+)">([^<]+)</g)].map(m => `${m[1]}:${m[2]}`),
-    ['open:New matches', 'saved:Saved', 'applied:Applied', 'dismissed:Dismissed', 'inbound:Inbound', 'all:All matches']);
+    ['open:New matches', 'saved:Saved', 'applied:Applied', 'dismissed:Dismissed', 'inbound:Inbound', 'all:All matches', 'everything:Everything']);
   assert.ok(!html.includes('To review'));
   const cards = [...html.matchAll(/data-stat="(\w+)"/g)].map(m => m[1]);
   assert.deepEqual(cards, ['applied', 'waiting', 'interviews', 'closed', 'total', 'high', 'inbound', 'companies']);

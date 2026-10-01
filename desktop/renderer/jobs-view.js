@@ -56,9 +56,10 @@ const OVER = new Set([...ENDED, 'Dismissed', 'Closed']);
 export const matchesOnly = jobs => jobs.filter(job => !isInbound(job));
 // The list's "Show" menu: New matches (value open), Saved, Applied, Dismissed = job matches with that status; All
 // matches (value all) = every job match, whatever its status; Inbound = every opportunity that found you, whatever
-// its stage (they are not matches, so no match list shows them).
+// its stage (they are not matches, so no match list shows them); Everything (value everything) = the two sets together,
+// the only list that holds both kinds.
 export function inStatus(job, filter) {
-  if (filter === 'all') return true;
+  if (filter === 'all' || filter === 'everything') return true;
   if (filter === 'inbound') return isInbound(job);
   return job.status === (filter === 'open' ? 'unreviewed' : filter);
 }
@@ -70,7 +71,7 @@ export function statClick(kind, active, filter) {
   return {stat: kind === 'total' || kind === active ? null : kind, filter: 'all'};
 }
 export const statPressed = (kind, active, filter) => kind === active || (!active && kind === {all: 'total', inbound: 'inbound'}[filter]);
-export const byFilter = (jobs, filter) => (filter === 'inbound' ? jobs : matchesOnly(jobs))
+export const byFilter = (jobs, filter) => (filter === 'inbound' || filter === 'everything' ? jobs : matchesOnly(jobs))
   .filter(job => inStatus(job, filter));
 // The list as it opens (the menu's "New matches"): the jobs waiting for a first look. The Jobs menu item carries this
 // count — the same number the list bar shows under the page title, whatever the list is later filtered to.

@@ -105,8 +105,8 @@ document.addEventListener('sessions-loaded', () => renderStuck());
 const COUNTS_ALL = new Set(['applied', 'waiting', 'interviews', 'closed']);
 // In conversation: the opportunities that found you and are still open, one Focus-style row each; a click opens the
 // job in Notion (⌘-click: in a Job Pilotto window), or its link when it has no page.
-// It gives way to the list whenever the list is narrowed to something (a counter or Focus step clicked, the Inbound
-// menu choice, words typed): the same jobs would show twice.
+// It gives way to the list whenever the list is narrowed to something (a counter or Focus step clicked, the Inbound or
+// Everything menu choice, words typed): the same jobs would show twice.
 // Folded or open as you last left it (a click on the bar).
 const TALKING_OPEN = 'jobsTalkingOpen';
 function renderTalking(narrowed = false) {
@@ -144,8 +144,8 @@ export function renderJobs() {
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
   // The counters count every application (real workload); without one, the menu decides (byFilter): job matches by
-  // status, all of them under All matches, the opportunities that found you under Inbound only (the open ones are also
-  // "In conversation" above); a pasted link finds any job.
+  // status, all of them under All matches, the opportunities that found you under Inbound only, both kinds together
+  // under Everything (the open ones are also "In conversation" above); a pasted link finds any job.
   const counted = statFilter === 'stuck' ? shared.allJobs.filter(stuck)
     : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(fullKey(job.url)))
     : statFilter ? byStat(COUNTS_ALL.has(statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), statFilter) : null;
@@ -153,7 +153,7 @@ export function renderJobs() {
   const rows = sorted((counted || (anyStatus ? shared.allJobs : byFilter(shared.allJobs, filter)))
     .filter(job => (!counted || anyStatus || inStatus(job, filter)) && matches(job, text)),
   filter === 'inbound' && !counted && by === 'best' ? 'activity' : by);
-  renderTalking(!!counted || filter === 'inbound' || !!text);
+  renderTalking(!!counted || filter === 'inbound' || filter === 'everything' || !!text);
   const body = $('jobs-body');
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
