@@ -37,6 +37,7 @@ function pairWords(state, detail = '') {
   button.disabled = state === 'checking';
   button.textContent = state === 'connected' ? 'Reconnect' : state === 'checking' ? 'Connecting…' : 'Connect to the Job Pilotto app';
   $('pair-status').textContent = detail;
+  $('pair-status').className = state === 'connected' ? 'on' : '';
 }
 async function connectToApp() {
   pairWords('checking', 'Looking for the Job Pilotto app on this Mac…');
