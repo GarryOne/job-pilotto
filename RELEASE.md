@@ -132,3 +132,26 @@ buttons `site/src/brain.js`, decisions in Notion **🧭 Product Brain · Decisio
   `setWebhook` to `https://www.jobpilotto.workers.dev/api/brain/telegram` with that secret.
 - Repository variable `BRAIN_DATABASE_ID` (set). Cost: about $0.10–0.30 a brief (Sonnet, capped turns).
 </details>
+
+## 8 · Windows: what is Mac-only today
+
+Every release builds, installs and smoke-tests the Windows app (`desktop.yml`'s `windows` job: silent per-user install,
+the bundled Python, the Credential Manager, the in-app terminal, the wizard's screens, and PyAV decoding a generated
+WAV). `build.yml` runs the desktop suite on Windows on every push, so a Windows-only break fails the push that caused
+it — the fast gate is what `tools/pre-push-check.sh` reads before letting another commit stack on top.
+
+These parts are still the Mac's alone. Read this before promising a PC user feature parity:
+
+| Part | On Windows | Why |
+|---|---|---|
+| Chrome tab control (`desktop/lib/form-tab.js`) | the app cannot list, focus, close or reload Chrome's tabs by itself | it drives Chrome through AppleScript. A form panel that died is now reloaded by the page's own panel first (the extension), so only the *fallback* is missing: the app says to reload it yourself rather than guessing |
+| The extension folder's keystrokes | the install card gives the PC its own sentence | a PC's folder dialog has no "Go to Folder" (⌘⇧G) |
+| Apply with Claude | the session runs in the app's own terminal (node-pty, smoke-tested); only the "Open filled form" tab hand-off falls back to opening the posting | AppleScript again |
+| Google sign-in → Always on | not handed over: connect Google in the repo itself | `desktop/lib/google-keys.js` reads the Mac's Keychain only |
+| Interview transcription | decoding is tested on Windows; the recogniser is not | its models are a ~520 MB download, so CI never runs them |
+| Both installers | unsigned: SmartScreen "More info → Run anyway" (PC), "Open Anyway" (Mac) | no certificate yet — the owner's call |
+
+**Nobody has used the app by hand on a PC.** The first Windows user should install it, finish the wizard, run a
+search, open a posting, fill it from the extension and open Settings → Connections; `Settings → Diagnostics` has what
+to send back. Until then, what is proven is what the smoke test asserts, and nothing more.
+</details>

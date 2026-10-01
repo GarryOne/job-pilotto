@@ -65,6 +65,14 @@ say(`pipeline jobs list ok: ${jobs.slice(0, 80)}`);
 // made here), so the app asks for Notion again: the wizard's Notion step, with the rest of the app loaded.
 const extras = `(() => { document.querySelectorAll('.step').forEach(s => { s.hidden = s.dataset.step !== 'extras'; }); })()`;
 const waitForJobs = `new Promise(resolve => setTimeout(resolve, 8000))`;
+// Settings → Connections, where the extension's state and its install steps live: the pane a PC user is sent to
+// when the extension isn't reporting, and the one whose state was previously read twice and disagreed with itself.
+const openConnections = `(async () => {
+  document.querySelector('.nav[data-view="settings"]').click();
+  await new Promise(r => setTimeout(r, 800));
+  [...document.querySelectorAll('[data-settings-go]')].find(b => b.dataset.settingsGo === 'connections').click();
+  await new Promise(r => setTimeout(r, 3000));
+})()`;
 const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
   notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
 // The in-app terminal (Apply with Claude sessions): node-pty loads in the installed app and runs a command.
@@ -88,6 +96,10 @@ const SCREENS = [
   ['wizard-notion', waitForJobs, DONE,
     `({step: ${ACTIVE_STEP}, controls: document.querySelectorAll('.step[data-step="notion"] button, .step[data-step="notion"] input').length})`,
     ({step, controls}) => [step === 'notion' && controls >= 1, `the Notion step is up with its controls rendered (${controls})`]],
+  ['settings-connections', openConnections, DONE,
+    `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', status: (document.getElementById('ext-status') || {}).textContent || '', steps: document.querySelectorAll('#ext-setup li').length})`,
+    ({view, status, steps}) => [view === 'settings' && steps >= 3 && status.length > 0,
+      `Settings → Connections drew its extension steps (${steps}) and read the state as "${status}"`]],
 ];
 for (const [name, js, settings, evalJs, ok] of SCREENS) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
