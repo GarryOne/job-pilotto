@@ -6,6 +6,7 @@ import {icon} from '../icons.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {extensionState} from '../service-status.js';
+import {lookedText} from '../extension-looked.js';
 import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
@@ -67,6 +68,9 @@ export async function showExtensionStatus() {
   $('ext-line').textContent = EXT_LINE[state.state] || EXT_LINE.absent;
   showStray((await window.pilot.strayChrome().catch(() => []))[0] || null);
   $('ext-path').textContent = found?.folder || '';  // what Chrome's Load unpacked dialog wants pasted
+  const looked = lookedText(found?.looked);  // where we looked: the answer when the profile is somewhere we can't know
+  $('ext-looked').textContent = looked;
+  $('ext-looked').hidden = !looked;
   show($('ext-connect'), state.state === 'idle');
   $('ext-setup').open = state.state !== 'connected';
   const SUMMARY = {connected: 'Reinstall or troubleshoot', absent: 'Install the extension'};

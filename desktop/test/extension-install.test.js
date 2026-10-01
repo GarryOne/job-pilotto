@@ -141,3 +141,20 @@ test('every browser carries both platforms\' folders and a PC process name, so a
     assert.match(ext.PROCESS[browser.app] || '', /\.exe$/, `${browser.name}: no Windows process name`);
   }
 });
+
+test('the folders it looked in are listed, each with whether it is there', () => {
+  const looked = ext.lookedFor({platform: 'win32', env: {LOCALAPPDATA: 'C:\\Users\\x\\AppData\\Local'},
+    exists: at => at === 'C:\\Users\\x\\AppData\\Local\\Google\\Chrome\\User Data'});
+  assert.equal(looked.length, ext.BROWSERS.length, 'one line per browser it knows');
+  assert.deepEqual(looked[0], {browser: 'Google Chrome', dir: 'Google/Chrome/User Data',
+    at: 'C:\\Users\\x\\AppData\\Local\\Google\\Chrome\\User Data', there: true});
+  assert.deepEqual(looked.at(-1), {browser: 'Vivaldi', dir: 'Vivaldi/User Data',
+    at: 'C:\\Users\\x\\AppData\\Local\\Vivaldi\\User Data', there: false});
+});
+
+test('on the Mac the same list sits under Application Support, with no User Data level', () => {
+  const looked = ext.lookedFor({platform: 'darwin', exists: () => false});
+  const base = path.join(os.homedir(), 'Library', 'Application Support');
+  for (const entry of looked) assert.equal(entry.at, path.join(base, entry.dir));
+  assert.equal(looked[0].at, path.join(base, 'Google/Chrome'));
+});

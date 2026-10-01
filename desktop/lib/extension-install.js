@@ -87,6 +87,21 @@ export function inProfile(root, {read = fs.readFileSync, exists = fs.existsSync,
   return found;
 }
 
+// Where this computer is looked in, in the order it is looked in: the browser, the folder that would hold its
+// profiles, and whether that folder is there at all. Settings → Connections shows it, so a machine whose extension
+// isn't found can compare this list with the browser's own Profile Path (chrome://version, edge://version,
+// brave://version) — which is the only way to find out where a browser this list doesn't know, or one started with
+// --user-data-dir, has put it.
+export function lookedFor({support: root = '', browsers = BROWSERS, exists = fs.existsSync,
+  platform = process.platform, env = process.env} = {}) {
+  const p = platform === 'win32' ? path.win32 : path;
+  const base = root || support(platform, env);
+  return browsers.map(browser => {
+    const dir = browserDir(browser, platform);
+    return {browser: browser.name, dir, at: p.join(base, dir), there: !!exists(p.join(base, dir))};
+  });
+}
+
 // Every browser on this computer that has it. `current` marks the copy loaded from the app's own folder (in
 // development <repo>/extension, packaged the app's resources): another copy is one the user made, and it stays
 // behind when the app updates its own.
