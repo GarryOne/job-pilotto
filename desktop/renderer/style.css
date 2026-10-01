@@ -1142,6 +1142,12 @@ main { min-width: 0; }
 .ss-need-desc { color: var(--muted); }
 .ss-need-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; flex-wrap: wrap; }
 .ss-need-button { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); }
+/* "Tell Claude…": the answer box, its button and Cancel on one line under the text, lined up with it. */
+.ss-need.is-asking { flex-wrap: wrap; }
+.ss-need.is-asking .ss-need-actions { flex: 1 1 100%; flex-wrap: nowrap; padding-left: calc(24px + var(--sp-3)); }
+.ss-need.is-asking .ss-ask-input { flex: 1 1 auto; max-width: none; min-width: 0; }
+.ss-need.is-asking .ss-need-title { white-space: normal; }
+.ss-need.is-asking .ss-need-button { flex: none; white-space: nowrap; }
 .ss-need-outcome { color: var(--good); }
 /* A handled row: quiet, its outcome on the right, its answer box gone (saving it to your answers stays). */
 .ss-need.is-done { background: var(--surface-2); border-color: var(--line); }

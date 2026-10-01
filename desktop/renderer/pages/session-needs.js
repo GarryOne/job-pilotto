@@ -287,8 +287,11 @@ export function needRow(need, item) {
         say(`Change ${name} in the form: ${input.value.trim()}`);
         doneRow(li, key, `Asked Claude: ${input.value.trim()}`);
       };
-      input.addEventListener('keydown', event => { if (event.key === 'Enter') send(); });
-      actions.replaceChildren(input, smallButton('Send to Claude', 'primary', send, offline(item)));
+      const before = [...actions.childNodes];
+      const back = () => { li.classList.remove('is-asking'); actions.replaceChildren(...before); };
+      input.addEventListener('keydown', event => { if (event.key === 'Enter') send(); if (event.key === 'Escape') back(); });
+      li.classList.add('is-asking');   // the answer box takes its own line under the text, not a corner of the row
+      actions.replaceChildren(input, smallButton('Send to Claude', 'primary', send, offline(item)), smallButton('Cancel', 'secondary', back));
       input.focus();
     };
     select.addEventListener('change', () => {
