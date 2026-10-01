@@ -367,12 +367,34 @@
   // A fill already on a step when this panel appeared: show it here (the background removes its floating copy).
   send({type: 'panelStepNow'}).then(answer => { if (answer?.text && host.isConnected) { showStep(answer.text); if (!open) setOpen(true); } }).catch(() => {});
 
+  // ---- controls the form model did not read (learning input; see page/skeleton.js) ----
+  // A widget that is not a native input and is part of no field the panel counted: its fingerprint, structure (no text) and
+  // question go to the app, once per page, so the same widget elsewhere can be learned. Nothing about the fill changes.
+  const missSent = new Set();
+  let missChecked = 0;
+  function reportMisses(list) {
+    const kit = window.__jobPilottoSkeleton;
+    if (!kit || Date.now() - missChecked < 8000 || missSent.size >= 10) return;
+    missChecked = Date.now();
+    const items = [];
+    for (const {el, kind} of kit.widgets(document, visible)) {
+      if (list.some(field => field.el === el || field.el?.contains?.(el) || el.contains(field.el))) continue;
+      const shape = kit.skeleton(el), fingerprint = kit.fingerprint(shape);
+      if (missSent.has(fingerprint)) continue;
+      missSent.add(fingerprint);
+      items.push({fingerprint, kind, skeleton: shape, question: question(el).slice(0, 120)});
+      if (missSent.size >= 10) break;
+    }
+    if (items.length) send({type: 'misses', items}).catch(() => {});
+  }
+
   // ---- in step with the app ----
   let watch = [], timer = null, busy = false, jobAsked = '';
   async function sync() {
     if (!chrome.runtime?.id) { host.remove(); clearInterval(tick); return; }  // this copy was replaced by a reload
     const state = render();
     if (!state || busy) return;
+    reportMisses(state.list);
     busy = true;
     try {
       const payload = {url: location.href, title: document.title, left: state.left, total: state.total,

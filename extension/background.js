@@ -216,7 +216,7 @@ async function arm(tabId, why = 'app tab') {
     armedLogged.add(mark);
     decide('panel', 'panel on a tab the app opened', {host, why});
   }
-  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
 }
 // The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
@@ -419,6 +419,17 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     const tabId = Number(message.tabId);
     if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
     arm(tabId, 'review').then(() => reply({ok: true}), () => reply({ok: false}));
+    return true;
+  }
+  // Controls the panel could not read (their structure, never their text): kept on this Mac for learning how to operate them.
+  if (message?.type === 'misses' && sender.tab && Array.isArray(message.items)) {
+    (async () => {
+      const config = await settings();
+      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
+      let host = '';
+      try { host = new URL(sender.tab.url).hostname; } catch { /* not a url */ }
+      return api(config, '/extension/misses', {method: 'POST', body: JSON.stringify({host, items: message.items.slice(0, 10)})});
+    })().then(reply, () => reply({ok: false}));
     return true;
   }
   // What you answered yourself in the form, sent at the Submit press: the app keeps it so no form asks again.

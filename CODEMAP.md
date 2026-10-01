@@ -47,6 +47,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
+- `desktop/lib/misses.js` — Controls the form reader could not read, kept on this Mac (extension/review.js -> /extension/misses): the first step of
 - `desktop/lib/needs-you.js` — Telegram, notification and toast for "Claude needs your input" (main.js sessionNeedsYou): once per question. A session
 - `desktop/lib/notion-oauth.js` — "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
 - `desktop/lib/notion-pace.js` — One Notion pace for every process on this computer that uses the same Notion connection: the app, the Python

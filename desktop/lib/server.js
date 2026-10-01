@@ -310,7 +310,9 @@ export function setSessionReporter(fn) { sessionReporter = fn; }
 let reviewHandler = () => ({matched: null, watch: [], commands: []});
 export function setReviewHandler(fn) { reviewHandler = fn; }
 let learnedHandler = () => {};
-export function setLearnedHandler(fn) { learnedHandler = fn; }  // what you answered yourself in a form (lib/learned.js)
+export function setLearnedHandler(fn) { learnedHandler = fn; }
+let missesHandler = () => {};
+export function setMissesHandler(fn) { missesHandler = fn; }  // controls the form model could not read (lib/misses.js)  // what you answered yourself in a form (lib/learned.js)
 // Review in form, when the panel is not on the tab yet: which open tabs to inject into, and whether the field was there.
 let joinHandler = () => [];
 export function setJoinHandler(fn) { joinHandler = fn; }
@@ -424,6 +426,17 @@ export function start(storage, onError = () => {}) {
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify({ok}));
         if (ok) learnedHandler(payload);
+        return;
+      }
+      if (req.url === '/extension/misses') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify({ok}));
+        if (ok) missesHandler(payload);
         return;
       }
       if (req.url === '/extension/review') {
