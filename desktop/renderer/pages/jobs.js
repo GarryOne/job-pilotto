@@ -8,7 +8,7 @@ import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, i
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
-import {$, message, savedAgo, show} from './core.js';
+import {$, message, osPick, savedAgo, show} from './core.js';
 import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
 import {toastMessage} from './startup.js';
@@ -882,7 +882,9 @@ export async function init() {
   $('lead-shot-file').addEventListener('change', () => { [...$('lead-shot-file').files].forEach(readShot); $('lead-shot-file').value = ''; });
   $('lead-shot-paste').addEventListener('click', async () => {
     const shot = await window.pilot.clipboardImage();
-    if (shot) setLeadShot(shot); else leadResult('info', 'No image on the clipboard', 'Copy a screenshot first (⇧⌘4, then Ctrl-click to copy it), or use Add screenshot.');
+    if (shot) setLeadShot(shot); else leadResult('info', 'No image on the clipboard',
+      osPick('Copy a screenshot first (⇧⌘4, then Ctrl-click to copy it), or use Add screenshot.',
+        'Copy a screenshot first (Win+Shift+S saves one to the clipboard), or use Add screenshot.'));
   });
   $('lead-dialog').addEventListener('paste', event => {
     const files = [...(event.clipboardData?.files || [])].filter(f => /^image\//.test(f.type));

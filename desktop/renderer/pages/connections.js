@@ -1,6 +1,6 @@
 // Settings → connections: Apply with Claude, the extension, how often, Always on.
 import {shared} from './shared.js';
-import {$, message, osText, show} from './core.js';
+import {$, message, osPick, osText, show} from './core.js';
 import {moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {saveDailyTarget} from './focus.js';
@@ -391,18 +391,20 @@ export async function init() {
   $('ext-open-page').addEventListener('click', async () => {
     const result = await window.pilot.extensionPage().catch(() => null);
     message('ext-message', result?.opened
-      ? 'Chrome should be opening its extensions page. If it doesn\'t: chrome://extensions is on your clipboard (⌘L, ⌘V, ⏎).'
-      : 'chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.', result?.opened ? 'ok' : 'error');
+      ? osText('Chrome should be opening its extensions page. If it doesn\'t: chrome://extensions is on your clipboard (⌘L, ⌘V, ⏎).')
+      : osText('chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.'), result?.opened ? 'ok' : 'error');
   });
-  // The folder in front of the user and its path on the clipboard: in Chrome's Load unpacked dialog that is
-  // ⌘⇧G, ⌘V, Return. Bound by attribute, so the setup wizard's own button behaves the same.
+  // The folder in front of the user and its path on the clipboard. The Mac's dialog takes ⌘⇧G (Go to Folder), ⌘V,
+  // Return; the PC's has no such shortcut, so it gets its own sentence. Bound by attribute, so the setup wizard's
+  // own button behaves the same.
   for (const button of document.querySelectorAll('[data-show-extension-folder]')) {
     button.addEventListener('click', async () => {
       button.disabled = true;
       const result = await window.pilot.extensionShow().catch(() => null);
       button.disabled = false;
       toastMessage(result?.opened ? 'Extension folder opened' : 'Couldn\'t open the folder',
-        result?.opened ? 'Its path is on your clipboard: in Chrome press Load unpacked, then ⌘⇧G, ⌘V, Return.'
+        result?.opened ? osPick('Its path is on your clipboard: in Chrome press Load unpacked, then ⌘⇧G, ⌘V, Return.',
+          'Its path is on your clipboard: in Chrome press Load unpacked, paste it into the folder box (Ctrl+V), and press Enter.')
           : 'Open the extension folder by hand, then press Load unpacked in Chrome.');
     });
   }

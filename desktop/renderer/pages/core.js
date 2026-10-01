@@ -1,11 +1,12 @@
 // Shared helpers and start-up state of the window.
 import {fillIcons} from '../icons.js';
 import {ago} from '../jobs-view.js';
-import {localize, osText as swap} from '../os.js';
+import {localize, osText as swap, pick} from '../os.js';
 import {shared} from './shared.js';
 
 export const $ = id => document.getElementById(id);
 export const osText = text => swap(text, window.pilot.platform);
+export const osPick = (mac, windows) => pick(mac, windows, window.pilot.platform);
 export const STEPS = ['welcome', 'ai', 'notion', 'cv', 'draft', 'extras'];
 // How old a saved screen is, in minutes (ago() rounds to hours): "just now", "4 min ago", "2 h ago".
 export const savedAgo = iso => {

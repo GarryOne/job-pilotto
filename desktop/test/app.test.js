@@ -481,7 +481,7 @@ test('Windows: Chrome is chrome.exe itself (no shell), the bundled Python is pyt
 });
 
 test('Windows wording: the PC, File Explorer, Ctrl, its own encryption; the Mac keeps its words', async () => {
-  const {osText} = await import('../renderer/os.js');
+  const {osText, pick} = await import('../renderer/os.js');
   assert.equal(osText("Keys are encrypted with your Mac's Keychain and never leave this Mac.", 'win32'),
     "Keys are encrypted with Windows' built-in encryption and never leave this PC.");
   assert.equal(osText('Runs on GitHub, even when your Mac is off.', 'win32'), 'Runs on GitHub, even when your PC is off.');
@@ -489,6 +489,17 @@ test('Windows wording: the PC, File Explorer, Ctrl, its own encryption; the Mac 
   assert.equal(osText('Recordings in Finder', 'win32'), 'Recordings in File Explorer');
   assert.equal(osText('(⌘-click: in a window)', 'win32'), '(Ctrl-click: in a window)');
   assert.equal(osText('Show in Finder, this Mac', 'darwin'), 'Show in Finder, this Mac');
+  // Every key the app names, including the ones the extension-install instructions show: a PC must never be told to
+  // press ⌘, and two-key combinations are swapped before their second key alone.
+  assert.equal(osText('chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.', 'win32'),
+    'chrome://extensions is on your clipboard: in Chrome press Ctrl+L, then Ctrl+V and Enter.');
+  assert.equal(osText('⌘K, ⌘R, ⌘⇧G, ⇧⌘G, ⌘G, ⇧Enter', 'win32'), 'Ctrl+K, Ctrl+R, Ctrl+Shift+G, Ctrl+Shift+G, Ctrl+G, Shift+Enter');
+  assert.equal(osText('⌘K, ⌘R, ⌘⇧G, ⌘G', 'darwin'), '⌘K, ⌘R, ⌘⇧G, ⌘G');  // the Mac is left alone
+  // The one instruction a swap can't fix: the PC's folder dialog has no "Go to Folder".
+  assert.equal(pick('Load unpacked, then ⌘⇧G, ⌘V, Return.', 'Load unpacked, paste it (Ctrl+V), Enter.', 'win32'),
+    'Load unpacked, paste it (Ctrl+V), Enter.');
+  assert.equal(pick('Load unpacked, then ⌘⇧G, ⌘V, Return.', 'Load unpacked, paste it (Ctrl+V), Enter.', 'darwin'),
+    'Load unpacked, then ⌘⇧G, ⌘V, Return.');
 });
 
 test('Apply with Claude checklist: Claude Code found and signed in, Git for Windows only on Windows', () => {

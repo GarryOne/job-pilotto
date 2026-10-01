@@ -238,7 +238,7 @@ export function renderNextStep(item) {
   if (review) {
     actions.push(sessionButton('Open filled form', 'primary', async event => {
       const went = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
-      if (went === 'chrome') toastMessage('Form tab not found', 'The form\'s page didn\'t answer. Reload that tab in Chrome (⌘R) so the extension re-attaches to it, then try again.');
+      if (went === 'chrome') toastMessage('Form tab not found', osText('The form\'s page didn\'t answer. Reload that tab in Chrome (⌘R) so the extension re-attaches to it, then try again.'));
     }, 'link'));
     // A form page whose panel died (the extension was uninstalled and installed again) can't answer the app: reload
     // that tab, which is what puts the extension back onto it — then the focus handshake works again.
@@ -256,8 +256,8 @@ export function renderNextStep(item) {
       const why = {permission: 'macOS won\'t let Job Pilotto control Chrome: System Settings → Privacy & Security → Automation → Job Pilotto → Google Chrome. Or press ⌘R in that tab.',
         // Chrome running with no windows means an automation's headless Chrome holds the scripting connection, not
         // the window the user is working in: say so, rather than "no tab matches" about a tab that is right there.
-        'no-window': 'Chrome answered with no windows: a background Chrome (an automation\'s) holds the scripting connection, not the window you use. Press ⌘R in the tab you are reviewing.',
-        'no-tab': 'No Chrome tab matches this job. If you apply in another browser or Chrome window, press ⌘R in its tab.',
+        'no-window': osText('Chrome answered with no windows: a background Chrome (an automation\'s) holds the scripting connection, not the window you use. Press ⌘R in the tab you are reviewing.'),
+        'no-tab': osText('No Chrome tab matches this job. If you apply in another browser or Chrome window, press ⌘R in its tab.'),
         'no-chrome': 'Google Chrome isn\'t running.',
         // Chrome's scripting is macOS-only. Saying "Chrome isn't running" on Windows would be untrue, and the
         // generic advice names ⌘R, which isn't a key there.
