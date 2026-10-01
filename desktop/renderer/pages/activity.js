@@ -18,6 +18,7 @@ import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {loadFocus, pendingMailQuestions} from './focus.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openView} from './nav.js';
+import {renderSessionPage} from './session-log.js';
 import {renderActionsPage} from './runs-page.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
@@ -1072,6 +1073,8 @@ export async function init() {
     renderActivity(runsNow);
     const tabs = new Set(await window.pilot.openTabs());
     if (tabs.size !== shared.openedInChrome.size || [...tabs].some(url => !shared.openedInChrome.has(url))) { shared.openedInChrome = tabs; renderJobs(); }
+    const forms = await window.pilot.formsOpen().catch(() => null);
+    if (forms && JSON.stringify(forms) !== JSON.stringify(shared.formsOpen)) { shared.formsOpen = forms; renderSessionPage(); }
     if (wasRunning && !running) { loadJobs(); loadFocus(); }  // a check just finished: its jobs, and what it asks of you
     wasRunning = !!running;
     announceRuns(runsNow);

@@ -506,6 +506,7 @@ function connected(ok, why = '') {
 // A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
 // ever carried over to whatever opens next (tab-pages.js).
 chrome.tabs.onRemoved.addListener(async tabId => {
+  reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
   await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
   for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
   // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never

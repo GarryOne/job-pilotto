@@ -16,4 +16,5 @@ export const shared = {
   awaitedRun: null,  // {kind, since}
   // Job pages open in Chrome now (reported by the extension; refreshed every 2 s), plus ones just opened here.
   openedInChrome: new Set(),
+  formsOpen: null,  // {known, ids}: which sessions' forms are still open in Chrome (the extension's report)
 };

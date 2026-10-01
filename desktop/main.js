@@ -40,7 +40,7 @@ import {sharedCheck} from './lib/shared-check.js';
 import * as pendingLicense from './lib/pending-license.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
-import {openFormTab, reloadFormTab} from './lib/form-tab.js';
+import {mergeTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
 import * as backgroundChrome from './lib/background-chrome.js';
 import * as strategy from './lib/strategy.js';
 import * as questions from './lib/questions.js';
@@ -1125,6 +1125,12 @@ function handlers() {
     return code === 0 ? {ok: true} : {ok: false, error: lines.filter(line => !/^Opening|^https?:/.test(line)).slice(-1)[0] || 'Sign-in did not complete'};
   });
   ipcMain.handle('openTabs', () => server.openTabs());
+  // Which sessions' forms are still open in Chrome, by the extension's own tab report. `known` is false while the
+  // extension has not checked in lately: then nothing can be said about a closed tab, so the page says nothing.
+  ipcMain.handle('formsOpen', () => {
+    const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
+    return {known, ids: known ? [...withOpenForm(terminals.list(), mergeTabs(server.openTabs(), []))] : []};
+  });
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
   // Settings → License: where the user stands, pasting a key (checked offline), removing it.

@@ -67,7 +67,10 @@ function doneRow(li, key, outcome) {
   updateNeedsCount();
 }
 // The form page says every required field is filled (the extension's ring is green).
-export const formReady = item => !!reviewStates.get(item.id)?.ready;
+export const formReady = item => !formGone(item) && !!reviewStates.get(item.id)?.ready;
+// The form's Chrome tab was closed: the extension is reporting in and no open tab is this session's form (it was
+// seen before, so a form never opened is not "closed"). Its cached count and "Ready to submit" are then stale.
+export const formGone = item => !!shared.formsOpen?.known && !shared.formsOpen.ids.includes(item.id) && !!reviewStates.get(item.id)?.total && !isSubmitted(item);
 // What's left, said the way you act on it: "2 actions remaining". The split it counts (in the form, to check) is the
 // pill's tooltip — the rows themselves say which is which.
 export function updateNeedsCount() {
@@ -125,7 +128,7 @@ export function showFormState(item) {
 const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 function showFormCard(item, state) {
   const card = $('ss-form-card');
-  card.hidden = !state?.total;
+  card.hidden = !state?.total || formGone(item);
   if (card.hidden) return;
   const done = state.total - state.left;
   let host = '';

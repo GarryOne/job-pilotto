@@ -10,7 +10,7 @@ import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -225,12 +225,14 @@ let fullFor = null, reportFor = null;  // the session whose Claude's message the
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
   const review = !submitted && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
+  const gone = review && formGone(item);  // the form's Chrome tab was closed
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
+    : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
     : asking ? ask || 'Claude needs your answer'
     : running ? 'Claude is filling the application' : item.status === 'failed' ? 'The session stopped' : 'The session ended';
@@ -244,6 +246,7 @@ export function renderNextStep(item) {
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask);
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
+    : gone ? [el('p', 'rich-p', 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? richText(said.join('\n'))
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
@@ -259,8 +262,15 @@ export function renderNextStep(item) {
   toggle.onclick = () => { full.hidden = !full.hidden; label(); };
   const actions = [], live = isLive(item);
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
+  if (gone) {
+    // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.
+    actions.push(sessionButton('Reopen form', 'primary', async event => {
+      const result = await opening(event.currentTarget, () => window.pilot.applyOne(item.url));
+      if (result?.ok === false) toastMessage('Could not open the form', result.error || 'Try again.');
+    }, 'link'));
+  }
   if (review) {
-    actions.push(sessionButton('Open filled form', 'primary', async event => {
+    if (!gone) actions.push(sessionButton('Open filled form', 'primary', async event => {
       const result = await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
       // The page's panel answered: nothing to repair. When it didn't, the repair appears right here, and the row is
       // redrawn so it is there before the next click.
@@ -277,7 +287,7 @@ export function renderNextStep(item) {
     // that tab, which is what puts the extension back onto it — then the focus handshake works again. Offered only
     // after a page has just failed to answer (panelDead), never as an everyday action: a reload loses whatever was
     // typed in the form since the last save (1 Oct 2026).
-    if (panelDead.has(item.id)) actions.push(sessionButton('Reload the tab', 'secondary', async event => {
+    if (panelDead.has(item.id) && !gone) actions.push(sessionButton('Reload the tab', 'secondary', async event => {
       const result = await opening(event.currentTarget, () => window.pilot.reviewReload(item.id, item.url, sessionCompany(item)));
       if (result?.result === 'reloaded' || result?.result === 'reloaded-chrome') {
         panelDead.delete(item.id);
