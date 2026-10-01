@@ -10,6 +10,10 @@
 set -uo pipefail
 
 input="$(cat)"
+# An "Apply with Claude" session of the desktop app runs in this checkout on the owner's Mac and has JOB_PILOTTO_SESSION set:
+# it fills a job form and changes no code, so its end must not start the test suites (1 Oct 2026: the app showed "Claude
+# needs your answer" while the hook ran them for minutes, and Claude wrote a report about unrelated failing tests).
+[ -n "${JOB_PILOTTO_SESSION:-}" ] && exit 0
 jqr() { jq -r "$1" <<<"$input" 2>/dev/null; }
 cwd="$(jqr '.cwd // ""')"; transcript="$(jqr '.transcript_path // ""')"; again="$(jqr '.stop_hook_active // false')"
 limit="${JOB_PILOTTO_STOP_TIMEBOX:-240}"   # seconds per suite
