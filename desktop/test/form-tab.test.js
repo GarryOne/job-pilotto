@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {closeFormTab, listTabs, mergeTabs, pickTab, reloadFormTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
+import {chooseTab, closeFormTab, listTabs, markedTab, mergeTabs, pickTab, reloadFormTab, reloadTarget, withOpenForm} from '../lib/form-tab.js';
 
 const tabs = [
   {win: 1, index: 1, url: 'https://news.ycombinator.com/', title: 'Hacker News'},
@@ -71,4 +71,16 @@ test('the open-form tabs come from the extension first, with Chrome\'s own scrip
   assert.deepEqual(mergeTabs([], scripted), scripted);
   assert.deepEqual(mergeTabs(reported, []), [{url: reported[0]}, {url: reported[1]}]);
   assert.deepEqual(mergeTabs([], []), []);
+});
+
+test('an agency form armed by the app is the tab to show, not the plain posting tab; job boards and two candidates are not guessed', () => {
+  const target = {url: 'https://www.jobs.ch/en/vacancies/detail/c59e9c97/', company: 'Undisclosed employer'};
+  const posting = {win: 1, index: 1, url: 'https://www.jobs.ch/en/vacancies/detail/c59e9c97/', title: 'Développeur logiciel'};
+  const agency = {win: 1, index: 4, url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer'};
+  assert.equal(chooseTab([posting, agency], target), agency);
+  assert.equal(chooseTab([posting], target), posting);  // no armed tab: the best match, as before
+  const scale = {win: 1, index: 6, url: 'https://job-boards.greenhouse.io/scaleai/jobs/4719479005#jobpilotto-fill', title: 'Scale AI'};
+  assert.equal(markedTab([scale]), null);  // a job board's armed tab is matched by job ID or company, never lone-guessed
+  assert.equal(markedTab([agency, {...agency, index: 5, url: 'https://other.example/form#jobpilotto-fill'}]), null);  // two: ambiguous
+  assert.equal(chooseTab([scale, agency], target), agency);
 });

@@ -36,6 +36,21 @@ export function reloadTarget(tabs, target, min = 70) {
   return tab && scoreTab(tab, target) >= min ? tab : null;
 }
 
+// A tab the app armed (the fill mark) that no address or name matches to a job, on a host that isn't a job board: an agency's
+// own form behind the posting. Only when it is the only one: with two, nothing says which is whose.
+const hostOf = url => { try { return new URL(String(url)).hostname; } catch { return ''; } };
+export function markedTab(tabs) {
+  const marked = (tabs || []).filter(tab => String(tab.url || '').includes('jobpilotto-fill') && !ATS.test(hostOf(tab.url)));
+  return marked.length === 1 ? marked[0] : null;
+}
+// The tab to bring forward for a job: its best match when that tab is one the app armed (the form itself), else the lone
+// armed agency form (the plain posting tab matches a job best, but it is not the form), else the best match.
+export function chooseTab(tabs, target) {
+  const best = pickTab(tabs, target);
+  if (best && String(best.url || '').includes('jobpilotto-fill')) return best;
+  return markedTab(tabs) || best;
+}
+
 // One list of open form tabs from both sources: the extension's report (any browser, URLs only) and Chrome's own
 // scripting (one instance, with titles). A URL seen in both keeps the scripting entry, which carries the title the
 // matcher likes; the extension is the source that is always right about *what is open*.
@@ -124,12 +139,14 @@ export const markedUrl = url => (/^https?:/.test(url || '') && !String(url).incl
 // Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'. The posting
 // opens only when Chrome isn't running: on most job sites the posting's link IS the form, so opening it while Chrome
 // runs would add a second, empty copy of the form next to the filled one.
-export async function openFormTab({url, company}, openExternal) {
+// `confident`: act only on a sure match (an armed tab, or the job's ID or address in it); otherwise do nothing and say 'none'.
+export async function openFormTab({url, company}, openExternal, {confident = false} = {}) {
   if (process.platform !== 'darwin') { await openExternal(url); return 'posting'; }
   try {
     const tabs = JSON.parse(await jxa(LIST));
     if (!tabs) { await openExternal(url); return 'posting'; }
-    const tab = pickTab(tabs, {url, company});
+    const tab = chooseTab(tabs, {url, company});
+    if (confident && !(tab && (String(tab.url || '').includes('jobpilotto-fill') || scoreTab(tab, {url, company}) >= 70))) return 'none';
     if (tab) {
       // A tab without the fill mark is one the extension never joined (Claude opened it): add the mark so it does.
       const marked = markedUrl(tab.url);

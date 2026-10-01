@@ -81,7 +81,7 @@ export function tabsToArm(sessions, tabs, now = Date.now()) {
   const pending = (sessions || []).filter(session => (commands.get(session.id) || []).some(command => now - command.at < COMMAND_SECONDS * 1000));
   const urls = [];
   for (const tab of tabs || []) {
-    if (!tab?.url || !matchSession(pending, {url: tab.url, title: tab.title || ''})) continue;
+    if (!tab?.url || !sessionFor(pending, {url: tab.url, title: tab.title || ''}, NaN)) continue;
     urls.push(String(tab.url).split('#')[0]);
   }
   return [...new Set(urls)];
