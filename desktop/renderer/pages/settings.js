@@ -275,8 +275,6 @@ export async function init() {
   // Application profile: CV preview, one Save for contact + links (enabled once something changed), the assistant's explainer.
   document.querySelectorAll('[data-contact]').forEach(input => input.addEventListener('input', () => { $('contact-save').disabled = false; }));
   $('claude-how').addEventListener('click', () => { $('claude-how-text').hidden = !$('claude-how-text').hidden; });
-  document.querySelectorAll('[data-run-mode]').forEach(button => button.addEventListener('click', () => openSetting('cloud')));
-  $('run-mode-more').addEventListener('click', () => openSetting('cloud'));
   // Data & backup and Advanced: explainers and the reset options open on demand; Diagnostics shows live status.
   $('reset-review').addEventListener('click', () => { $('reset-options').hidden = !$('reset-options').hidden; });
   $('diag-troubleshoot').addEventListener('click', () => {

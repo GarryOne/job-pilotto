@@ -676,9 +676,22 @@ function handlers() {
         ...(error.needsChoice ? {needsChoice: true, repos: error.repos} : {})};
     }
   });
-  ipcMain.handle('cloudOff', async () => {
+  const turnCloudOff = async () => {
     if (storage.settings().telegramCloud) await telegramCloud.turnOff(storage);  // its buttons start runs there
-    storage.saveSettings({cloud: null}); restartTelegram(); return true;
+    storage.saveSettings({cloud: null}); restartTelegram();
+  };
+  ipcMain.handle('cloudOff', async () => { await turnCloudOff(); return true; });
+  // Choosing "While app is open" in the run-mode control *is* turning Always on off, so say what changes first: the
+  // schedule moves back to this Mac, and the GitHub repository stays where it is.
+  ipcMain.handle('cloudTurnOffConfirmed', async () => {
+    const repo = storage.settings().cloud?.repo;
+    if (!repo) return {ok: true, already: true};
+    const {response} = await dialog.showMessageBox(window && !window.isDestroyed() ? window : undefined,
+      {type: 'question', buttons: ['Turn Always on off', 'Cancel'], defaultId: 1, cancelId: 1, message: 'Turn Always on off?',
+        detail: `Scheduled searches, kits, insights and mail checks run on this Mac while Job Pilotto is open. Your repository ${repo} stays on GitHub.`});
+    if (response !== 0) return {ok: false, cancelled: true};
+    await turnCloudOff();
+    return {ok: true};
   });
   // Telegram buttons, always on: the user's own Cloudflare Worker (lib/telegram-cloud.js).
   ipcMain.handle('telegramCloudOn', async (_, token) => { const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });

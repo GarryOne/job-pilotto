@@ -6,7 +6,7 @@ import {icon} from '../icons.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {extensionState} from '../service-status.js';
-import {noteCheck, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
+import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, stateLine} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
 
@@ -226,6 +226,22 @@ export async function init() {
     showExtensionStatus();
     if (!document.querySelector('[data-settings-page="overview"]').hidden) renderOverview().catch(() => {});
   }, 10000);
+  // The run mode is a choice, not a signpost. "Always on" (when it is off) opens the card that sets it up;
+  // "While app is open" (when Always on is on) turns it off, after saying what that changes — before this, either
+  // click only scrolled to the Always on card, so the mode could not be switched from here at all (1 Oct 2026).
+  document.querySelectorAll('[data-run-mode]').forEach(button => button.addEventListener('click', async () => {
+    const on = !!shared.state.settings.cloud?.repo;
+    const wantCloud = button.dataset.runMode === 'cloud';
+    if (wantCloud === on) return;                      // already that mode: nothing to do
+    if (wantCloud) { openSetting('cloud'); return; }   // setting it up is the Always on card's job
+    const result = await window.pilot.cloudTurnOffConfirmed().catch(() => null);
+    if (!result?.ok) return;
+    shared.state = await window.pilot.state();
+    showRunMode();
+    showCloud();
+    savedToast('Runs while the app is open', 'Always on is off. Your GitHub repository stays there.');
+  }));
+  $('run-mode-more').addEventListener('click', () => openSetting('cloud'));
   document.querySelectorAll('[data-schedule]').forEach(select => select.addEventListener('change', () => { saveSchedule(select); showScheduleState(); }));
   $('set-remind').addEventListener('change', saveReminders);
   $('set-target').addEventListener('change', saveTarget);
