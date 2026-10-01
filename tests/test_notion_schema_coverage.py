@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TYPES = 'title|rich_text|select|multi_select|number|date|url|checkbox|relation|people|email|phone_number|status|files'
 USES = re.compile(r"""(?:props|properties|page\['properties'\])(?:\.get\(|\[)'([^']+)'|'([^'\n]{2,40})':\s*\{'(?:%s)'""" % TYPES)
-NOT_COLUMNS = {'heading_2', 'paragraph', 'job'}  # block types and a plain dict key the pattern also matches
+NOT_COLUMNS = {'heading_2', 'paragraph', 'job', 'text', 'link'}  # block types and Notion payload keys the pattern also matches
 
 
 class SchemaCoverageTests(unittest.TestCase):

@@ -149,13 +149,40 @@ class MailTests(unittest.TestCase):
         self.assertEqual(sent, ['📧 Gmail checked: 1 new email(s), nothing that changes your applications.'])
 
     def test_the_desktop_app_gets_one_short_line_per_update(self):
+        # The line names what the email changed, not only what was recorded: a check's "1 update(s) recorded" is
+        # otherwise a number with no way to see what moved in the ledger (1 Oct 2026).
         apps = [app('p1', 'Grafana Labs', 'Staff Software Engineer - Databases SRE | Sweden | Remote')]
         tracker, google = FakeTracker(apps), FakeGoogle([email('m1', 'Your application for Grafana Labs')])
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.run_mail(tracker, google, [[result(0, 0, 'Rejected', 'Rejected for Staff Software Engineer position')]])
         self.assertEqual(out.getvalue().splitlines(),
-                         ['Updates:', '❌ Rejected · Grafana Labs — Staff Software Engineer - Databases SRE | Sweden'])
+                         ['Updates:', '❌ Rejected · Grafana Labs — Staff Software Engineer - Databases SRE | Sweden'
+                                      ' · Stage Applied → Rejected'])
+
+    def test_the_run_keeps_one_record_per_email_with_its_link_and_what_it_did(self):
+        # For the run's Notion page: the subject, a link that opens the email again, and the side effect in words.
+        apps = [app('p1', 'Canonical', 'Site Reliability Engineer')]
+        tracker = FakeTracker(apps)
+        google = FakeGoogle([email('m1', 'Thank you for applying to Canonical', body='Thank you for applying to the '
+                                        'Site Reliability Engineer position at Canonical.'),
+                             email('m2', 'A newsletter', sender='news@example.test')])
+        stats = {}
+        client = FakeClient([[result(0, 0, 'Confirmation received', company='Canonical'),
+                              result(1, -1, 'Other', relevant=False)]])
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+            mail.run(tracker, google, client=client, days=2, send=None, calendar=False, now=NOW, state_path=self.state,
+                     stats=stats)
+        read, newsletter = stats['emails']
+        self.assertEqual(read['action'], 'recorded')
+        self.assertEqual(read['link'], 'https://mail.google.com/mail/u/0/#all/m1')
+        self.assertEqual(read['subject'], 'Thank you for applying to Canonical')
+        self.assertEqual(read['changes'], 'Stage Applied → Confirmation received; Confirmation email set')
+        self.assertEqual((newsletter['action'], newsletter['label'], newsletter['changes']),
+                         ('skipped', 'not about your applications', ''))
+        self.assertEqual(stats['updates'],
+                         ['📬 Application received · Canonical — Site Reliability Engineer'
+                          ' · Stage Applied → Confirmation received; Confirmation email set'])
 
     def test_hand_logged_twin_is_linked_not_duplicated(self):
         apps = [app('p1', 'Canonical', 'Site Reliability / Gitops Engineer')]

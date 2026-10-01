@@ -255,3 +255,43 @@ class PlainResultTest(unittest.TestCase):
             from src import digest
             self.assertEqual(importlib.reload(digest).BRAND_NAME, 'Job Pilotto')
         importlib.reload(digest)
+
+
+class EmailSectionTest(unittest.TestCase):
+    """A Gmail check's run page names every email it read, its subject linking to it, and what it did about it —
+    the evidence behind "N update(s) recorded", which used to be a bare number (1 Oct 2026)."""
+
+    def sample(self):
+        return {'mode': 'mail', 'started_at': '2026-10-01T01:18:00+00:00', 'trigger': 'Mac (you)', 'warnings': [],
+                'mail': {'done': 2, 'usd': 0.0}, 'updates': ['📬 Application received · Canonical — Site Reliability Engineer'],
+                'emails': [
+                    {'subject': 'Thank you for applying to Canonical', 'from': 'no-reply@us.greenhouse-mail.io',
+                     'at': '2026-10-01T02:56:00+02:00', 'action': 'recorded', 'label': 'Canonical — Site Reliability Engineer',
+                     'changes': 'Stage Applied → Confirmation received; Confirmation email set',
+                     'link': 'https://mail.google.com/mail/u/0/#all/1a0f4f6224933d5c'},
+                    {'subject': 'A newsletter', 'from': 'news@example.test', 'at': '2026-10-01T02:40:00+02:00',
+                     'action': 'skipped', 'label': 'not about your applications', 'changes': '', 'link': 'https://mail.google.com/mail/u/0/#all/m2'}]}
+
+    def test_each_email_is_a_line_linking_to_it(self):
+        props, children = cron_runs.run_page(self.sample())
+        self.assertEqual(props['Updates']['number'], 1)
+        self.assertEqual(props['Emails']['number'], 2)
+        self.assertIn('Emails read', [block['heading_3']['rich_text'][0]['text']['content']
+                                      for block in children if block['type'] == 'heading_3'])
+        line = next(block for block in children if block['type'] == 'bulleted_list_item'
+                    and block['bulleted_list_item']['rich_text'][0]['text'].get('link'))
+        rich = line['bulleted_list_item']['rich_text'][0]
+        self.assertEqual(rich['text']['content'], 'Thank you for applying to Canonical · us.greenhouse-mail.io · '
+                                                  '01 Oct 02:56 — [recorded] · Canonical — Site Reliability Engineer · '
+                                                  'changed Stage Applied → Confirmation received; Confirmation email set')
+        self.assertEqual(rich['text']['link']['url'], 'https://mail.google.com/mail/u/0/#all/1a0f4f6224933d5c')
+        self.assertTrue(any('A newsletter · example.test · 01 Oct 02:40 — [not about your applications]' ==
+                            block['bulleted_list_item']['rich_text'][0]['text']['content']
+                            for block in children if block['type'] == 'bulleted_list_item'),
+                        'the skipped email is listed too, and its words are not repeated')
+
+    def test_a_check_without_details_still_logs_its_summary(self):
+        run = {'mode': 'mail', 'started_at': '2026-10-01T01:18:00+00:00', 'warnings': [], 'mail': {'done': 1}, 'updates': []}
+        props, children = cron_runs.run_page(run)
+        self.assertNotIn('Emails read', [block.get('heading_3', {}).get('rich_text', [{}])[0].get('text', {}).get('content')
+                                         for block in children])

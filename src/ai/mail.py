@@ -281,8 +281,9 @@ def _value(row, name):
     return _field(row, name) or None
 
 
-def advance(tracker, row, kind, interview_at=None, now=None, *, by_app=None, feedback_text=''):
-    """Move a job forward for one email (Stage forward only, Next interview, flags). Returns {field: [before, after]}."""
+def advance(tracker, row, kind, interview_at=None, now=None, *, by_app=None, feedback_text='', out=None):
+    """Move a job forward for one email (Stage forward only, Next interview, flags). Returns {field: [before, after]}.
+    `out`, when given, is filled with that mapping too: a caller that reports what ran keeps it without a second read."""
     key, by_app = row['id'].replace('-', ''), by_app or {}
     changes = {}
     stage = _stage_for(kind, _field(row, 'Stage'))
@@ -306,7 +307,48 @@ def advance(tracker, row, kind, interview_at=None, now=None, *, by_app=None, fee
     if changes:
         tracker.update_page(row['id'], changes)
         row['properties'].update(changes)
-    return {name: [before[name], _value(row, name)] for name in changes}
+    fields = {name: [before[name], _value(row, name)] for name in changes}
+    if out is not None:
+        out.update(fields)
+    return fields
+
+
+# The fields one email can move on a job (advance() writes exactly these): named in a run's log as before -> after.
+MOVED_FIELDS = ('Stage', 'Next interview', 'Feedback status', 'Confirmation email')
+
+
+def changes_readable(fields):
+    """The fields one email moved, in words for a run's page: "Stage Applied → Confirmation received; Confirmation
+    email set". Only the fields an email can move, so nothing internal leaks into the log."""
+    parts = []
+    for name, (was, now) in (fields or {}).items():
+        if name not in MOVED_FIELDS or was == now:
+            continue
+        if name == 'Confirmation email':
+            parts.append('Confirmation email set' if now else 'Confirmation email cleared')
+        elif name == 'Next interview':
+            parts.append(f"Next interview {_moment(was)} → {_moment(now)}")
+        else:
+            parts.append(f"{name} {_plain(was) if was else 'empty'} → {_plain(now)}")
+    return '; '.join(parts)
+
+
+def _plain(value):
+    """A run's page shows a select value's own name ({"select": {"name": "Applied"}} -> "Applied"), not its JSON."""
+    if isinstance(value, dict):
+        return str((value.get('select') or {}).get('name') or value.get('url') or 'empty')
+    return str(value)
+
+
+def _moment(value):
+    """A date field's value in words ("Thu 01 Oct 12:30"), or the raw value when it isn't a date."""
+    when = _when(str(value or ''))
+    return f"{when.astimezone(TZ):%a %d %b %H:%M}" if when else str(value or 'empty')
+
+
+def gmail_link(message_id):
+    """Where one email can be opened again (the same link the app uses for a message it tracked)."""
+    return f'https://mail.google.com/mail/u/0/#all/{message_id}' if message_id else ''
 
 
 def changes_text(fields, interview_at=None, email=None, feedback=''):
@@ -321,9 +363,11 @@ def changes_text(fields, interview_at=None, email=None, feedback=''):
     return {'rich_text': [{'text': {'content': json.dumps(data, ensure_ascii=False)[:1990]}}]}
 
 
-def record(tracker, row, kind, at, source, source_id, note, index, interview_at=None, now=None, feedback_text='', email=None):
+def record(tracker, row, kind, at, source, source_id, note, index, interview_at=None, now=None, feedback_text='', email=None,
+           fields=None):
     """Write one matched item: event (or link to a hand-logged twin), Stage forward, Next interview.
-    Returns a short description of what changed, or None when it was already known."""
+    Returns a short description of what changed, or None when it was already known. `fields`, when given, collects what
+    the run changed on the job ({field: [before, after]}), for the run's page — callers that report keep it."""
     key = row['id'].replace('-', '')
     known, by_app = index[:2]
     guessed = index[2] if len(index) > 2 else set()
@@ -345,20 +389,20 @@ def record(tracker, row, kind, at, source, source_id, note, index, interview_at=
         known.add(source_id)  # this job already has that event (same kind, same interview): nothing new to write
         return None
     if event.get('_existing'):  # an interview logged without its time: this item gives it (Changes, Next interview)
-        fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
-        _optional(tracker.update_page, event['id'], {'Changes': changes_text(fields, interview_at, email)})
+        moved = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text, out=fields)
+        _optional(tracker.update_page, event['id'], {'Changes': changes_text(moved, interview_at, email)})
         known.add(source_id)
-        return kind if fields else None
+        return kind if moved else None
     by_app.setdefault(key, []).append((kind, at, event['id'], source_id))
-    fields = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text)
+    moved = advance(tracker, row, kind, interview_at, now, by_app=by_app, feedback_text=feedback_text, out=fields)
     adopted = {'Source ID': {'rich_text': [{'text': {'content': source_id}}]}, 'At': {'date': {'start': at}}}
     if twin and twin[0] in guessed:  # the watcher's guess ("Stage changed in Notion") was this item: it says so now
         adopted.update({'Source': {'select': {'name': source}}, 'Note': {'rich_text': [{'text': {'content': note[:1900]}}]}})
         guessed.discard(twin[0])
     tracker.update_page(event['id'], adopted)
-    _optional(tracker.update_page, event['id'], {'Changes': changes_text(fields, interview_at, email)})
+    _optional(tracker.update_page, event['id'], {'Changes': changes_text(moved, interview_at, email)})
     known.add(source_id)
-    stage = (fields.get('Stage') or [None, None])[1]
+    stage = (moved.get('Stage') or [None, None])[1]
     return None if twin else stage or kind
 
 
@@ -426,12 +470,15 @@ EMOJI = {YOU_REPLIED: '↩️', 'Confirmation received': '📬', REPLY: '💬', 
 SHORT_KIND = {'Confirmation received': 'Application received', YOU_REPLIED: 'You replied'}
 
 
-def _short(stats, kind, row, extra=''):
-    """One short plain line per recorded update, for the desktop app ("❌ Rejected · Grafana Labs — SRE")."""
+def _short(stats, kind, row, extra='', changes=''):
+    """One short plain line per recorded update, for the desktop app and the run's page: what was recorded on which job
+    and — the part that was missing — what it changed there ("📬 Application received · Canonical — SRE · Stage Applied →
+    Confirmation received; Confirmation email set")."""
     if stats is not None:
         job = re.sub(r'\s*\|\s*Remote\s*$', '', _role(row))[:70]
+        detail = f" · {changes}" if changes else ''
         stats.setdefault('updates', []).append(
-            f"{EMOJI.get(kind, '•')} {SHORT_KIND.get(kind, kind)} · {_who(row)} — {job}{extra}")
+            f"{EMOJI.get(kind, '•')} {SHORT_KIND.get(kind, kind)} · {_who(row)} — {job}{extra}{detail}")
 
 
 def _who(row):
@@ -454,6 +501,18 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
         return [], 0
     results = classify(client, model, apps, emails, stats)
     lines = []
+    trail = []  # one record per email read: what it was, what the check concluded, and what it did — for the run's page
+    def note(email, action, label='', changes='', link=''):
+        record = {'subject': email.get('subject', ''), 'from': email.get('from', ''), 'at': email.get('date', ''),
+                  'action': action, 'label': label, 'changes': changes, 'link': link or gmail_link(email.get('id', ''))}
+        # 'reviewed' is the placeholder a matched email starts with; the real outcome replaces it, so each email is
+        # one record (an email read twice would otherwise appear twice, once with nothing done).
+        if action == 'reviewed' and trail and trail[-1].get('action') == 'reviewed' and trail[-1].get('subject') == record['subject']:
+            return
+        if trail and trail[-1].get('subject') == record['subject'] and trail[-1].get('action') == 'reviewed':
+            trail[-1] = record
+            return
+        trail.append(record)
     for i, email in enumerate(emails):
         result = results.get(i) or {'relevant': False}
         if email.get('invite_at') and result.get('relevant'):
@@ -480,14 +539,22 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             print(f"{email['date'][:16]} {email['subject'][:60]!r}: {result}")
             continue
         state['seen'].append(email['id'])
+        if not result.get('relevant'):
+            note(email, 'skipped', 'not about your applications')
+            continue
+        if row:
+            note(email, 'reviewed', _label(row), link='')  # an outcome below replaces this: it says what was done
         if row and result.get('relevant') and re.search(r'transcript|recording', email['subject'], re.I):
             lines.append(f"📝 {_label(row)}: {escape(email['subject'][:90])} — download it and send it to me "
                          "for an interview review.")
-        if not result.get('relevant') or result.get('kind') == 'Other':
+        if result.get('kind') == 'Other':
+            note(email, 'reviewed', _label(row) if row else (result.get('company') or ''), 'nothing to record')
             continue
         if result.get('kind') == OUTREACH:
             if not row:
-                lines += new_lead(tracker, client, model, email, apps, stats, on_new)
+                made = new_lead(tracker, client, model, email, apps, stats, on_new)
+                lines += made
+                note(email, 'tracked', result.get('company') or 'recruiter lead', 'new lead; nothing else changed')
                 continue
             result['kind'] = REPLY  # the same recruiter again, about a role already tracked
         if not row and result.get('kind') == 'Interview scheduled':
@@ -511,18 +578,32 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             # with the likeliest job; the answer is applied by src/ai/reassign.py.
             text = f"{result.get('company') or ''} {email['from']} {email['subject']} {email['body'][:1500]}"
             candidates = [r for r in apps if _about_tracked([r], text)]
-            ask(tracker, email, result, guess or (candidates[0] if candidates else None), index, lines, stats)
+            suggested = guess or (candidates[0] if candidates else None)
+            ask(tracker, email, result, suggested, index, lines, stats)
+            note(email, 'asked', _label(suggested) if suggested is not None else (result.get('company') or ''),
+                 f"needs you in Focus (nothing moved; {result.get('kind')})")
             continue
+        fields = {}
+        known = index[0]
+        already = email['id'] in known
         changed = record(tracker, row, result['kind'], email['date'], 'Gmail', email['id'],
                          f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now,
-                         feedback_text=verified_feedback(result.get('feedback'), email['body']), email=email)
-        if changed:
-            when = _when(result['interview_at'] or '')
-            extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''
-            lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
-            _short(stats, result['kind'], row, extra)
-            if changed == 'Rejected' and rejected is not None:
-                rejected.append((row, email))
+                         feedback_text=verified_feedback(result.get('feedback'), email['body']), email=email,
+                         fields=fields)
+        if not changed:
+            note(email, 'duplicate', _label(row),
+                 f"nothing new: this job already has a {result.get('kind')} event" if already
+                 else f"nothing to record ({result.get('kind')})")
+            continue
+        when = _when(result['interview_at'] or '')
+        extra = f" · {when.astimezone(TZ):%a %d %b %H:%M}" if when else ''
+        lines.append(f"{EMOJI.get(result['kind'], '•')} {_label(row)}: {escape(result['summary'])}{extra}")
+        _short(stats, result['kind'], row, extra, changes=changes_readable(fields))
+        note(email, 'recorded', _label(row), changes_readable(fields))
+        if changed == 'Rejected' and rejected is not None:
+            rejected.append((row, email))
+    if stats is not None:
+        stats['emails'] = trail
     return lines, len(emails)
 
 
@@ -967,8 +1048,9 @@ def main(argv=None):
     log = cron_runs.new_run('mail')
 
     def log_check(warning=None):  # one ⏰ Search runs row per check: what it read, what it recorded, the cost
-        log['mail'] = {key: value for key, value in stats.items() if key != 'updates'}
+        log['mail'] = {key: value for key, value in stats.items() if key not in ('updates', 'emails')}
         log['updates'] = stats.get('updates', [])
+        log['emails'] = stats.get('emails', [])  # every email read: its subject, its link, and what the check did with it
         log['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(log['started_at'])).total_seconds())
         if warning:
             log['warnings'].append(warning)

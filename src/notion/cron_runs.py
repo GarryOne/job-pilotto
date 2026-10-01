@@ -55,6 +55,54 @@ def _para(content, kind='paragraph'):
     return {'object': 'block', 'type': kind, kind: {'rich_text': [{'text': {'content': content[:2000]}}]}}
 
 
+def _linked(link, content, kind='bulleted_list_item'):
+    """A line whose first words open `link` (on a run's page: an email's subject opens that email in Gmail)."""
+    rich = ([{'text': {'content': content[:2000], 'link': {'url': link}}}] if link
+            else [{'text': {'content': content[:2000]}}])
+    return {'object': 'block', 'type': kind, kind: {'rich_text': rich}}
+
+
+def _sender(value):
+    """The sender as a run's page shows it, never a full address: the name when there is one, else the domain
+    ("no-reply@us.greenhouse-mail.io" -> "us.greenhouse-mail.io")."""
+    name = re.sub(r'\s*<[^>]*>\s*', '', value or '').strip().strip('"')
+    address = re.search(r'[\w.+-]+@([\w.-]+)', value or '')
+    if name and '@' not in name:
+        return name[:60]
+    return address.group(1) if address else (value or '')[:60]
+
+
+def _clock(value):
+    """An email's time as this workspace shows every other time (its own time zone)."""
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00')).astimezone(TZ).strftime('%d %b %H:%M')
+    except (TypeError, ValueError):
+        return str(value or '')[:16]
+
+
+# What each action means in words on the run's page: "recorded" is the one that changes an application.
+EMAIL_ACTION = {'recorded': 'recorded', 'asked': 'needs you', 'tracked': 'tracked a new job',
+                'skipped': 'not about your applications', 'duplicate': 'already known', 'reviewed': 'read'}
+
+
+def email_lines(run):
+    """Every email a Gmail check read: its subject (a link that opens it in Gmail), the sender, the time, what the check
+    concluded, and what it did — recorded, asked about, tracked, skipped, already known. This is the evidence behind a
+    check's "N update(s) recorded": before, a run's page said how many, never which, and never what changed."""
+    lines = []
+    for email in run.get('emails') or []:
+        head = f"{email.get('subject') or '(no subject)'} · {_sender(email.get('from'))} · {_clock(email.get('at'))}"
+        what = EMAIL_ACTION.get(email.get('action'), email.get('action') or '')
+        parts = [f"[{what}]"]
+        label = str(email.get('label') or '')
+        if label and label.lower() != what.lower():  # "not about your applications" is not said twice
+            parts.append(label)
+        if email.get('changes'):
+            parts.append(f"changed {email['changes']}")
+        lines.append((email.get('link') or '', f"{head} — {' · '.join(parts)}"))
+    return lines
+
+
 def total_usd(run):
     return sum((run.get(stage) or {}).get('usd', 0.0) for stage, _, _ in STAGES)
 
@@ -256,6 +304,10 @@ def run_page(run, final=True):
     if run.get('run_url'):
         properties['Run URL'] = {'url': run['run_url']}
     children = [_para('Report', 'heading_3')] + [_para(line, 'bulleted_list_item') for line in lines]
+    read = email_lines(run)
+    if read:  # every email this check read, its subject linking to it, and what the check did about it
+        children.append(_para('Emails read', 'heading_3'))
+        children += [_linked(link, line) for link, line in read[:40]]
     children.append(_para('Stages', 'heading_3'))
     for stage, _, label in STAGES:
         info = run.get(stage)
