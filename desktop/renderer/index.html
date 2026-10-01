@@ -424,10 +424,16 @@
       <header class="view-head">
         <div class="ss-title">
           <h1 id="ss-title">Application sessions</h1>
-          <div class="ss-subtitle"><span class="muted" id="ss-role"></span><span id="ss-status"></span></div>
+          <div class="ss-subtitle"><span class="muted" id="ss-role"></span><span id="ss-status"></span><span class="muted small" id="ss-refreshing" hidden>Updating…</span></div>
         </div>
         <div class="head-actions"><span id="ss-more"></span></div>
       </header>
+      <!-- Until the app answers, a spinner: the two-pane shell (message box, session log) used to paint first and
+           sat there for seconds before the state was known (1 Oct 2026). -->
+      <section class="card list-loading" id="ss-loading">
+        <span class="spinner"></span>
+        <div>Loading your sessions…</div>
+      </section>
       <!-- No session yet: the page's own state, not an empty two-pane workspace with a dead message box and log. -->
       <section class="card ss-empty" id="ss-empty" hidden>
         <span class="ss-empty-glyph"><i data-icon="send"></i></span>
@@ -440,7 +446,7 @@
         </div>
         <p class="muted small">On a job's row, press <b>Apply with Claude</b> to start one.</p>
       </section>
-      <div class="ss-grid" id="ss-grid">
+      <div class="ss-grid" id="ss-grid" hidden>
         <section class="card ss-list-card">
           <div class="focus-card-head"><h2>Sessions</h2><button class="secondary small-button" id="ss-new" title="Start Apply with Claude from the Jobs list">+ New session</button></div>
           <ol class="ss-list" id="ss-list"></ol>

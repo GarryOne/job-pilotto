@@ -5,6 +5,7 @@ import {avatar} from '../jobs-view.js';
 import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
 import {asksYou, firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
+import {rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
@@ -23,6 +24,8 @@ export let sessionList = [], logChoice = {};
 const panelDead = new Set();
 // Set once the app has answered with its sessions: until then "no open session" can't be told from "not loaded yet".
 export let sessionsLoaded = false;
+// True while the page shows the remembered list: the heading says "Updating…" until the app's own list is in.
+export let sessionsFromCache = false;
 
 // ---------- Application sessions: Apply with Claude inside the app (lib/terminals.js) ----------
 // A dock of cards above the activity bar (one per session) and a session page with the live terminal (xterm.js),
@@ -36,12 +39,21 @@ export const sessionJob = item => shared.allJobs.find(job => pageKey(job.url) ==
 export const sessionTitle = item => item.title || sessionJob(item).title || 'Application';
 export const sessionCompany = item => item.company || sessionJob(item).company || new URL(item.url || 'https://job').hostname.replace(/^www\./, '');
 export async function refreshSessions() {
-  sessionList = await window.pilot.sessions().catch(() => []);
+  const fresh = await window.pilot.sessions().catch(() => null);
+  if (fresh) { sessionList = fresh; rememberSessions(fresh); }  // a failed read keeps what we have, it doesn't blank it
   sessionsLoaded = true;
+  sessionsFromCache = false;
   document.dispatchEvent(new Event('sessions-loaded'));
   renderDock();
   if (!document.querySelector('.view[data-view="sessions"]').hidden) renderSessionPage();
 }
+// The last known sessions paint at once on the next load (the app's own list replaces them in refreshSessions).
+// Here rather than in a page module: an imported binding is read-only, so only this module can set it.
+if (!sessionList.length) {
+  const kept = rememberedSessions();
+  if (kept.length) { sessionList = kept; sessionsFromCache = true; }
+}
+
 export function sessionLogo(item) {
   const {initials, hue} = avatar(sessionCompany(item));
   const badge = el('span', 'logo', initials);

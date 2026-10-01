@@ -19,6 +19,13 @@ export async function openSession(id) {
   openView('sessions');
   await refreshSessions();
 }
+// The header has nothing to say about a session that isn't there (or isn't known yet).
+function clearHeader() {
+  $('ss-title').textContent = 'Application sessions';
+  $('ss-role').textContent = '';
+  $('ss-status').replaceChildren();
+  $('ss-more').replaceChildren();
+}
 export function renderSessionPage() {
   // The session shown is the open one; after a reload (⌘R) the one open before it, else the first. It becomes the
   // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).
@@ -26,11 +33,16 @@ export function renderSessionPage() {
   const item = sessionList.find(entry => entry.id === shared.openSessionId) || sessionList[0];
   if (item && item.id !== shared.openSessionId) { shared.openSessionId = item.id; shared.termShownFor = null; }
   if (item) remembered('session', item.id);
-  // No session at all: the page says what a session is and how to start one, instead of leaving the detail pane's
-  // empty message box and dead log on screen (1 Oct 2026).
+  // Three states, never a guess: nothing known yet → the spinner; a remembered list → the page, with "Updating…";
+  // the app's own list and it is empty → the page's own empty state. The two-pane shell never paints before the
+  // state is known (1 Oct 2026: it sat there for seconds with an empty message box and a dead log).
   const none = !sessionList.length;
-  show($('ss-empty'), none);
-  show($('ss-grid'), !none);
+  const unknown = !sessionsLoaded && none;
+  show($('ss-loading'), unknown);
+  show($('ss-empty'), !unknown && none);
+  show($('ss-grid'), !unknown && !none);
+  show($('ss-refreshing'), sessionsFromCache && !none && !unknown);
+  if (unknown) { clearHeader(); return; }  // nothing to describe yet
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
     const [label, tone] = sessionState(entry);
     const li = el('li', `ss-row tone-${tone}${entry.id === item?.id ? ' is-current' : ''}`);
@@ -44,13 +56,7 @@ export function renderSessionPage() {
     li.addEventListener('click', () => openSession(entry.id));
     return li;
   }));
-  if (!item) {
-    $('ss-title').textContent = 'Application sessions';  // the header has nothing to say about a session that isn't there
-    $('ss-role').textContent = '';
-    $('ss-status').replaceChildren();
-    $('ss-more').replaceChildren();
-    return;
-  }
+  if (!item) { clearHeader(); return; }
   const [label, tone] = sessionState(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
@@ -201,5 +207,6 @@ export async function init() {
     if (event === 'open') { openSession(payload.id); return; }
     refreshSessions().then(() => { if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs(); });
   });
+  if (!sessionList.length) renderSessionPage();  // nothing remembered: the spinner, not an empty workspace
   refreshSessions();
 }
