@@ -1077,7 +1077,10 @@ function handlers() {
     // On a Mac the form tab is found and brought forward first, through Chrome's own tab list: at once, whatever the page is
     // doing (a background tab's timers are slow). One attempt: it worked, or it says no tab is this job's form.
     if (process.platform === 'darwin') {
-      const direct = await openFormTab({url, company}, shell.openExternal, {confident: true}).catch(() => 'none');
+      // The page this session's own reports came from, and the pages other sessions' came from (never taken for this one).
+      const states = review.allStates();
+      const hints = {own: states.find(state => state.id === key)?.url || '', claimed: states.filter(state => state.id !== key).map(state => state.url).filter(Boolean)};
+      const direct = await openFormTab({url, company}, shell.openExternal, {confident: true, ...hints}).catch(() => 'none');
       if (direct !== 'tab') {
         appLog('review', `show ${key}: no tab is this job's form; nothing queued`, {went: direct});
         return {taken: false, went: 'none', found: null};
@@ -1147,12 +1150,16 @@ function handlers() {
   ipcMain.handle('openTabs', () => server.openTabs());
   // Which sessions' forms are still open in Chrome, by the extension's own tab report. `known` is false while the
   // extension has not checked in lately: then nothing can be said about a closed tab, so the page says nothing.
+  let lastFormsOpen = '';
   ipcMain.handle('formsOpen', () => {
     const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
     if (!known) return {known, ids: []};
     // A session whose own tab we know is open while that tab exists; for the others, any tab that looks like its form.
     const sessions = terminals.list(), byLook = withOpenForm(sessions, mergeTabs(server.openTabs(), []));
-    return {known, ids: sessions.map(session => session.id).filter(id => { const own = review.tabOpen(id); return own === null ? byLook.has(id) : own; })};
+    const ids = sessions.map(session => session.id).filter(id => { const own = review.tabOpen(id); return own === null ? byLook.has(id) : own; });
+    const line = ids.join(',') || 'none';
+    if (line !== lastFormsOpen) { lastFormsOpen = line; appLog('review', `forms open in Chrome: ${line}`, {sessions: sessions.length}); }   // who is open, when it changed
+    return {known, ids};
   });
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.

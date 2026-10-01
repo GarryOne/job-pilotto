@@ -84,3 +84,17 @@ test('an agency form armed by the app is the tab to show, not the plain posting 
   assert.equal(markedTab([agency, {...agency, index: 5, url: 'https://other.example/form#jobpilotto-fill'}]), null);  // two: ambiguous
   assert.equal(chooseTab([scale, agency], target), agency);
 });
+
+test('a session\'s own form tab wins; another session\'s armed tab is never taken, and a closed own tab means no tab', () => {
+  const target = {url: 'https://jobs.ashbyhq.com/openai/621bb104-9daa-4c9e-949a-03d5730334e8', company: 'OpenAI'};
+  const own = {win: 1, index: 2, url: 'https://jobs.ashbyhq.com/openai/621bb104-9daa-4c9e-949a-03d5730334e8/application', title: 'OpenAI'};   // no fill mark: opened before
+  const agency = {win: 1, index: 4, url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer'};
+  const hints = {own: own.url, claimed: ['https://api.easytemp.ch/live/bew/1577784910-FR.php']};
+  // Before: the lone armed agency tab (another job's) was chosen over the right tab (1 Oct 2026, the OpenAI card opened the other card's form).
+  assert.equal(chooseTab([own, agency], target, hints), own);
+  assert.equal(chooseTab([agency, own], target, hints), own);
+  // The OpenAI tab was closed: nothing is chosen, and the other session's tab is left alone.
+  assert.equal(chooseTab([agency], target, hints), null);
+  // Without hints (a session that never reported) the old rule still holds.
+  assert.equal(chooseTab([agency], {url: 'https://www.jobs.ch/en/vacancies/detail/c59e9c97/', company: 'Undisclosed employer'}), agency);
+});
