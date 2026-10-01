@@ -2,8 +2,17 @@
 // messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
+import {forJob, samePage, sameSite} from './tab-pages.js';
 
-async function note(tabId, text) {
+// The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
+// while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
+async function onPage(tabId, url) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  return sameSite(tab?.url, url) ? tab : null;
+}
+
+async function note(tabId, text, url = '') {
+  if (url && !(await onPage(tabId, url))) return;  // the tab is showing something else now: leave it alone
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
     const box = document.createElement('div');
     box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;' +
@@ -58,8 +67,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await fillOpenedTab(tab, job);
 });
 
-// A progress panel on the page while a tab fills itself (the popup is closed then).
-async function progress(tabId, text) {
+// A progress panel on the page while a tab fills itself (the popup is closed then). `url`: the page being filled —
+// nothing is drawn when that tab has moved on to another site (or its id came back as a different tab).
+async function progress(tabId, text, url = '') {
+  if (url && !(await onPage(tabId, url))) return;
   // The page's panel (review.js) shows it when it is there; the floating box is for pages without one. Whichever
   // takes it, the other is cleared: a box drawn before the panel opened used to stay on the page for good, above a
   // form that was already "Ready to submit" (1 Oct 2026).
@@ -133,6 +144,7 @@ function prefetch(config, url) {
 // fast: the page is already there (the panel's Fill): no wait for it to render.
 async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
   if (!fast) await new Promise(resolve => setTimeout(resolve, 1500)); // forms render after the load event
+  const page = tab.url || url;  // the page this fill belongs to: progress is only ever drawn while the tab shows it
   chrome.action.setBadgeText({tabId: tab.id, text: '…'}).catch(() => {});  // the tab may already be closed
   try {
     const config = await settings();
@@ -145,16 +157,16 @@ async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
     });
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], coverLetter: kit.kit?.cover_letter || '', force, me,
-      onStep: text => progress(tab.id, text)});
+      onStep: text => progress(tab.id, text, page)});
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
-    if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`);
-    await progress(tab.id, '');
-    if (result.ineligible) await ineligibleNote(tab.id, result.note);
+    if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
+    await progress(tab.id, '', page);
+    if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note);
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
     return result;
   } catch (error) {
-    await progress(tab.id, '');
-    await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`);
+    await progress(tab.id, '', page);
+    await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`, page);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
     return {error: error.message};
   }
@@ -308,7 +320,13 @@ function connected(ok, why = '') {
   chrome.action.setBadgeText({text: ok ? '' : '!'}).catch(() => {});
   chrome.action.setTitle({title: ok ? 'Job Pilotto' : `Job Pilotto: ${why}`}).catch(() => {});
 }
-chrome.tabs.onRemoved.addListener(() => reportTabs());
+// A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
+// ever carried over to whatever opens next (tab-pages.js).
+chrome.tabs.onRemoved.addListener(async tabId => {
+  await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`]).catch(() => {});
+  for (const key of started) if (key.startsWith(`${tabId} `)) started.delete(key);
+  reportTabs();
+});
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.url || info.status === 'complete') reportTabs(); });
 chrome.runtime.onStartup.addListener(reportTabs);
 // Also every 30 s, so an app started after the tabs were opened still learns about them. Only if it isn't there
@@ -322,11 +340,18 @@ reportTabs();
 // Notion (like the agent launchers' watcher), and a note confirms it on the page.
 const THANKS = /thank(s| you) for (applying|your application)|application (has been )?(submitted|received)|we('ve| have) received your application/i;
 async function checkSubmitted(tabId, tab) {
-  const key = `job:${tabId}`;
-  const job = (await chrome.storage.session.get(key))[key];
+  const key = `job:${tabId}`, from = `from:${tabId}`;
+  const {[key]: job, [from]: filled} = await chrome.storage.session.get([key, from]);
   if (!job || !tab.url) return;
   const id = job.replace(/\/+$/, '').split('/').pop();
   const confirmationUrl = new RegExp(`${id}/(confirmation|thanks)`).test(tab.url);
+  // The tab must be this job's own page, its confirmation, or the page a fill opened from it. Otherwise the state is
+  // stale (a tab id that came back as something else): reading its text — let alone marking Applied from it — would
+  // be about a page this job has nothing to do with (1 Oct 2026: `elsewhere` matched any other host).
+  if (!forJob(tab.url, job) && filled !== job) {
+    await chrome.storage.session.remove([key, from]);
+    return;
+  }
   const text = confirmationUrl ? '' : await chrome.scripting.executeScript({target: {tabId}, func: () => document.querySelectorAll('input:not([type=hidden]), textarea').length < 3 ? document.body?.innerText?.slice(0, 5000) || '' : ''})
     .then(([r]) => r?.result || '').catch(() => '');
   // On the employer's own application site the confirmation page doesn't carry the job board's id.

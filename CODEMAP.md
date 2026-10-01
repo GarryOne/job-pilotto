@@ -178,6 +178,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/popup.js` — The toolbar popup: a pointer to the page's panel (review.js), which does the work. "Show the panel on this page"
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, on every application form (bottom right). Collapsed: a pill with a progress ring and what's
+- `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
 
 ## Python pipeline
 
