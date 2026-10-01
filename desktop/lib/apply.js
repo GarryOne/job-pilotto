@@ -117,8 +117,10 @@ export async function inApp(storage, available = terminals.available) {
   return storage.settings().sessionsInApp !== false && await available();
 }
 
-// The posting in Chrome with the fill mark, as a Claude session starts: the extension fills while Claude gets going.
-const openForm = url => { openOne(url); };
+// The app opens no tab for an Apply with Claude session. claude-in-chrome acts only on tabs in its own group and
+// cannot see one the app opened (tabs_context_mcp: "No tab group exists for this session"), so Claude made a second
+// tab, without the mark, beside the app's (1 Oct 2026). The session opens the one tab itself, with #jobpilotto-fill.
+const openForm = () => {};
 
 export async function claudeOne(storage, url, launch = session.launch, binary = claudeBinary, kit = hasKit, details = null) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};

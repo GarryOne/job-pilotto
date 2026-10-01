@@ -194,11 +194,12 @@ in that file next time — keep evolving it.
    Sponsorship is not a blocker: the owner applies anyway (answer from Application Answers, e.g.
    "will require sponsorship"). Only a required language the owner doesn't speak, or a hard
    location restriction the owner can't meet, is worth showing before opening the form.
-2. **Use the tab the app already opened** (claude-in-chrome attaches to it; do not open another).
+2. **Open the one form tab yourself, with the mark**: `tabs_context_mcp` with `createIfEmpty: true`, then navigate
+   that tab to `<job url>#jobpilotto-fill`. The app opens no tab (claude-in-chrome sees only its own tab group); never open another.
    Greenhouse: the form is on the job page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the
    description. A job board's page (jobs.ch, TechTree) or a careers page with only an Apply button: see
    "Reaching the form". If Apply opens a new tab, that tab is the same session: use it.
-3. **Extension first (Apply with Claude)**: the app opened the tab with `#jobpilotto-fill`, and the
+3. **Extension first (Apply with Claude)**: your tab carries `#jobpilotto-fill`, and the
    extension follows later pages in that tab and a tab that tab opens. When the page has
    `<html data-jobpilotto-hook>`, read `data-jobpilotto-fill` and act on its `state`: `running` wait;
    `done` audit and fill only its `todo`, then press Next if the form has another page; `error` fill

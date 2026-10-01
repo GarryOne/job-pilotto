@@ -6,12 +6,12 @@ Shipped in `6cdb387` (extension 0.8.35). A new session picks this up after the d
 
 ## Start
 
-1. **Apply with Claude** opens the job link in the normal Chrome, with `#jobpilotto-fill`, before Claude starts.
+1. **Apply with Claude** starts a Claude session. The app opens no tab: claude-in-chrome acts only on tabs in its own group and cannot see one the app opened (a second tab appeared beside it on 1 Oct 2026). Claude opens the one tab itself, `tabs_context_mcp` with `createIfEmpty`, then navigates to the job link with `#jobpilotto-fill`.
 2. The extension joins that tab. 1.5 seconds after load it counts visible controls and writes `data-jobpilotto-fill` on `<html>`:
    - **form** — 3 or more fields, a textarea, or a file input. It fills.
    - **no-form** — a job page, a search box, or an Apply button. It does not type.
    - **account** — any password field. Sign-in and sign-up. It does not type.
-3. Claude attaches to that same Chrome (`--chrome`), finds the tab, and reads the state every 3 seconds, up to 90 seconds.
+3. Claude reads the state every 3 seconds, up to 90 seconds, in its own tab.
 4. Each new address is classified again. A tab opened by that tab is the same session.
 5. The owner does CAPTCHA, legal-consent boxes, and Submit.
 

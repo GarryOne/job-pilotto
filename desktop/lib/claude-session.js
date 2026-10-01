@@ -48,10 +48,12 @@ export function sessionEnv(storage, parent = process.env, platform = process.pla
 
 // The session's instructions: the skill does the work; this names the job, the files and the hand-off.
 export function prompt(url, {auditFile}) {
-  // The app opened the posting in Chrome before this session started, with the mark that arms the Job Pilotto
-  // extension on that tab: the extension fills most fields in seconds; this session does the rest.
-  const handoff = 'The form tab is already open: the app opened it and the Job Pilotto extension is filling it by itself. Use that tab ' +
-    '(find it with tabs_context_mcp) and never open a second tab for this job. On each page, if <html> has data-jobpilotto-hook, read ' +
+  // This session opens the one form tab itself, with the mark that arms the Job Pilotto extension on it (claude-in-chrome
+  // only sees tabs in its own group, so a tab the app opened is invisible to it): the extension fills most fields in
+  // seconds; this session does the rest.
+  const handoff = `Open the form tab yourself, once: tabs_context_mcp with createIfEmpty true, then navigate that tab to ${url}#jobpilotto-fill ` +
+    '(keep the #jobpilotto-fill at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself). It is the ' +
+    'only tab for this application: never open a second one. On each page, if <html> has data-jobpilotto-hook, read ' +
     'document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s). state running: keep waiting. ' +
     'done: fill ONLY its todo (dropdowns that ignore scripted clicks, per the skill), then press Next when the form has another page. ' +
     'error: fill this page yourself. no-form: this page is not the form, so press Apply or Next in this same tab. account: sign in or create ' +

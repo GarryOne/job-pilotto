@@ -33,9 +33,11 @@ test('the prompt names the job and the audit file, uses the open form tab and th
   const text = session.prompt('https://jobs.example.com/1', {auditFile: 'C:/Temp/audit_1.json'});
   assert.match(text, /apply-to-job skill/);
   assert.match(text, /--audit "C:\/Temp\/audit_1.json"/);
-  // The app opens the tab with the fill mark, so Claude never fires the extension itself (no ticket, no event).
-  assert.match(text, /already open/);
-  assert.match(text, /never open a second tab/);
+  // Claude opens the one tab with the fill mark, and never fires the extension itself (no ticket, no event).
+  assert.match(text, /Open the form tab yourself/);
+  assert.match(text, /createIfEmpty true/);
+  assert.match(text, /https:\/\/jobs\.example\.com\/1#jobpilotto-fill/);
+  assert.match(text, /never open a second one/);
   assert.match(text, /no-form/);
   assert.match(text, /read by an applicant, not a developer/);
   assert.match(text, /account/);
