@@ -144,4 +144,20 @@ for (const [name, js, settings, evalJs, ok] of SCREENS) {
   if (!passed) throw new Error(`${name}: expected ${what}, the window reported ${JSON.stringify(reported)}`);
   say(`screen ${name}: ${what} · ${path.basename(png)} (${Math.round(fs.statSync(png).size / 1024)} KB)`);
 }
+// Installing over an install, which is what an update really is: the app quits and /S replaces it where it stands.
+// Every check above ran against a fresh install on a bare runner, so "replace what is there" was never tried — and
+// that is the half of the update this machine can prove without a second release.
+{
+  execFileSync(path.resolve(installer), ['/S'], {stdio: 'inherit', timeout: 5 * 60 * 1000});
+  if (!fs.existsSync(exe)) throw new Error(`the app is gone after installing over itself: ${exe}`);
+  say(py(['-c', "print('the bundled Python still runs after installing over it')"]));
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-over-'));
+  const png = path.join(out, 'windows-install-over.png');
+  spawnSync(exe, [], {timeout: 90000, stdio: 'inherit',
+    env: {...process.env, JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: '',
+      JOB_PILOTTO_SMOKE_EVAL: `({wizard: !document.getElementById('wizard').hidden})`}});
+  const reported = fs.existsSync(`${png}.json`) ? JSON.parse(fs.readFileSync(`${png}.json`, 'utf8')) : null;
+  if (!reported?.wizard) throw new Error(`the app did not start after installing over it (${reported ? JSON.stringify(reported) : 'no answer'})`);
+  say('installing over an existing install ok: replaced quietly, and the app still starts');
+}
 say('Windows smoke test passed');
