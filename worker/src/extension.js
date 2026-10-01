@@ -334,6 +334,23 @@ export async function handleExtension(request, env) {
       if (!run.url || !env.NOTION_TOKEN || !env.NOTION_AGENT_RUNS_DB) return json({ ok: false, skipped: true });
       return json(await logRun(env, run).catch((error) => ({ ok: false, error: error.message })));
     }
+    if (request.method === 'POST' && url.pathname === '/extension/log') {
+      // The extension's own decisions, pushed as they happen (and re-pushed after a crashed worker). Cleaned here, at
+      // the boundary: counts and ids, never a form answer or a message body (lib/log.js's rule, enforced on the way
+      // in). The desktop app writes them to logs/app.log; a Cloudflare Worker prints them.
+      const { entries } = await request.json().catch(() => ({}));
+      const clean = (Array.isArray(entries) ? entries : []).slice(-50).map((entry) => ({
+        at: typeof entry?.at === 'string' ? entry.at.slice(0, 30) : '',
+        kind: String(entry?.kind || 'note').slice(0, 24),
+        text: String(entry?.text || '').slice(0, 300),
+        fields: Object.fromEntries(Object.entries(entry?.fields && typeof entry.fields === 'object' ? entry.fields : {})
+          .slice(0, 8).map(([key, value]) => [String(key).slice(0, 24),
+            typeof value === 'string' ? value.slice(0, 60) : typeof value === 'number' || typeof value === 'boolean' ? value : ''])),
+      }));
+      if (env.onLog) await env.onLog(clean);
+      else console.log(`extension log: ${clean.map((entry) => `${entry.kind}: ${entry.text}`).join(' | ')}`);
+      return json({ ok: true, kept: clean.length });
+    }
     if (request.method === 'POST' && url.pathname === '/extension/applied') {
       const { url: job, why, evidence } = await request.json().catch(() => ({}));
       if (!job || !/^https?:\/\//.test(job)) return json({ error: 'url is required' }, 400);

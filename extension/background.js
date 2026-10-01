@@ -11,6 +11,42 @@ async function onPage(tabId, url) {
   return sameSite(tab?.url, url) ? tab : null;
 }
 
+// ---- What the extension decided, and why ----
+// A service worker's console dies with it, and a decision it made (marking a job Applied, or refusing to) used to
+// leave no trace anywhere — which is why 1 Oct 2026's wrong "Applied" could not be explained. Every decision is kept
+// in a small ring buffer in chrome.storage.local and pushed to the app, whose log holds it (`grep extension
+// logs/app.log`); entries the push could not deliver stay unsent and go with the next one, so a crashed worker's
+// last decisions still arrive. Ids, hosts, reasons and counts only — never a form answer or a page's text.
+const LOG_KEY = 'jp-decisions';
+const LOG_KEEP = 50;
+async function decisions() {
+  const {[LOG_KEY]: kept = []} = await chrome.storage.local.get(LOG_KEY).catch(() => ({}));
+  return Array.isArray(kept) ? kept : [];
+}
+async function decide(kind, text, fields = {}) {
+  const entry = {at: new Date().toISOString(), kind: String(kind).slice(0, 24), text: String(text).slice(0, 300),
+    fields: {...fields, version: chrome.runtime.getManifest().version}, sent: false};
+  await chrome.storage.local.set({[LOG_KEY]: [...await decisions(), entry].slice(-LOG_KEEP)}).catch(() => {});
+  pushDecisions();
+  return entry;
+}
+async function pushDecisions() {
+  const kept = await decisions();
+  const unsent = kept.filter(entry => !entry.sent);
+  if (!unsent.length) return;
+  try {
+    const config = await settings();
+    const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}/extension/log`, {method: 'POST',
+      headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify({entries: unsent.slice(-20)})});
+    if (!response.ok) return;
+    const sent = new Set(unsent.map(entry => entry.at + entry.text));
+    await chrome.storage.local.set({[LOG_KEY]: (await decisions())
+      .map(entry => (sent.has(entry.at + entry.text) ? {...entry, sent: true} : entry))});
+  } catch { /* not paired, or the app is closed: they stay unsent for the next push */ }
+}
+pushDecisions();  // a worker that just started delivers whatever the last one could not
+
 async function note(tabId, text, url = '') {
   if (url && !(await onPage(tabId, url))) return;  // the tab is showing something else now: leave it alone
   await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', args: [text], func: message => {
@@ -162,10 +198,13 @@ async function fillOpenedTab(tab, url, force = false, {fast = false} = {}) {
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
     await progress(tab.id, '', page);
     if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note);
+    decide('fill', result.ineligible ? `did not fill: ${result.note || 'ineligible'}` : 'filled the form',
+      {url: page, ineligible: !!result.ineligible});
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
     return result;
   } catch (error) {
     await progress(tab.id, '', page);
+    decide('fill', `failed: ${error.message}`, {url: page});
     await note(tab.id, `✈️ Job Pilotto couldn't fill this page: ${error.message}. If the form is behind an "Apply" button, open it and use the extension there.`, page);
     chrome.action.setBadgeText({tabId: tab.id, text: '!'}).catch(() => {});  // the tab may already be closed
     return {error: error.message};
@@ -367,8 +406,16 @@ async function checkSubmitted(tabId, tab) {
   // press this page reported. The old third path — a page whose text merely read "thank you for applying" — is what
   // marked an unsubmitted job Applied; it is gone (1 Oct 2026). A site we cannot see (no permission) leaves the
   // marking to you: "I submitted it" on the job's row.
-  if (!confirmationUrl && !pressed) return;
+  if (!confirmationUrl && !pressed) {
+    // The near-miss that used to be the bug: a page whose address reads like a confirmation, with no submit press
+    // seen in that tab. It is exactly what a next investigation will want to find in the record.
+    if (/thank|confirm|success|applied/i.test(tab.url)) {
+      decide('submitted?', 'looks like a confirmation URL, but no submit press was seen: not marked', {job, url: tab.url});
+    }
+    return;
+  }
   const why = confirmationUrl ? 'confirmation URL' : `submit press seen ${Math.round((Date.now() - submit.at) / 1000)}s before`;
+  decide('submitted', `marking Applied: ${why}`, {job, url: tab.url});
   await chrome.storage.session.remove([key, sent]);  // once per job
   const config = await settings();
   try {
@@ -378,8 +425,10 @@ async function checkSubmitted(tabId, tab) {
         pressAt: submit?.at || null, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(),
         version: chrome.runtime.getManifest().version}})});
     const result = await response.json().catch(() => ({}));
+    decide('submitted', result.ok === false ? `the app refused it: ${result.error}` : 'marked Applied', {job});
     await note(tabId, result.ok === false ? `✈️ Submitted, but Job Pilotto couldn't mark it Applied: ${result.error}` : '✈️ Submitted: marked Applied in Job Pilotto and Notion.');
   } catch (error) {
+    decide('submitted', `could not reach the app: ${error.message}`, {job});
     await note(tabId, `✈️ Submitted, but Job Pilotto couldn't reach the app to mark it Applied (${error.message}). Use the extension's "I submitted it" button.`);
   }
 }

@@ -112,6 +112,13 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     },
     NOTION_KNOWLEDGE_PAGE: ids.NOTION_KNOWLEDGE_PAGE || '',
     localJob: async url => { const job = await find(url); return job ? summary(job) : null; },
+    // The extension's own decisions (worker /extension/log), cleaned at that boundary: written here so a decision made
+    // in Chrome is in the app's log with everything else (1 Oct 2026: nothing recorded why a job went Applied).
+    onLog: entries => {
+      for (const entry of Array.isArray(entries) ? entries : []) {
+        appLog('extension', `${entry?.kind || 'note'}: ${entry?.text || ''}`, entry?.fields || {});
+      }
+    },
     onRun: async run => {
       // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});

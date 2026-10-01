@@ -45,9 +45,9 @@ function mockFetch({ exact = [row], loose = [], withKit = true } = {}) {
   return calls;
 }
 
-const call = (path, { token = 'ext-secret', method = 'GET', body } = {}) => worker.fetch(new Request(`https://bot.test${path}`, {
+const call = (path, { token = 'ext-secret', method = 'GET', body } = {}, extra = {}) => worker.fetch(new Request(`https://bot.test${path}`, {
   method, headers: token ? { Authorization: `Bearer ${token}` } : {}, ...(body ? { body: JSON.stringify(body) } : {}),
-}), env, { waitUntil() {} });
+}), {...env, ...extra}, { waitUntil() {} });
 
 test('extension calls need the token', async () => {
   mockFetch();
@@ -91,6 +91,30 @@ test('mark applied dispatches the apply workflow by URL', async () => {
   const dispatch = calls.find((c) => c.url.includes('/dispatches'));
   assert.deepEqual(dispatch.body, { ref: 'main', inputs: { mode: 'apply', job: JOB, action: 'applied' } });
   assert.equal((await call('/extension/applied', { method: 'POST', body: { url: 'javascript:alert(1)' } })).status, 400);
+});
+
+// The decisions the extension made used to die with its worker. They are pushed here instead, cleaned at the
+// boundary (counts, ids, reasons — never a form answer or a page's text) and handed to the app's log.
+test("the extension's decisions reach the app, cleaned and bounded", async () => {
+  const seen = [];
+  const response = await call('/extension/log', { method: 'POST', body: { entries: [
+    { at: '2026-10-01T08:00:00.000Z', kind: 'submitted?', text: 'looks like a confirmation URL, but no submit press was seen: not marked',
+      fields: { job: JOB, url: 'https://x.test/a', version: '0.8.26' } },
+    { kind: 'fill', text: 'x'.repeat(400), fields: { big: 'y'.repeat(400), [('k').repeat(60)]: 1, nested: {a: 1}, n: 2, ok: true } },
+  ] } }, { onLog: async entries => seen.push(...entries) });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).kept, 2);
+  assert.equal(seen.length, 2);
+  assert.equal(seen[0].kind, 'submitted?');
+  assert.equal(seen[0].fields.job, JOB);
+  assert.equal(seen[1].text.length, 300);                 // truncated, not stored whole
+  assert.equal(seen[1].fields.big.length, 60);
+  assert.equal(seen[1].fields[('k').repeat(60)], undefined); // a property name is bounded too
+  assert.equal(seen[1].fields.nested, '');                 // only scalars survive
+  assert.equal(seen[1].fields.ok, true);
+  // Without an app (a Cloudflare Worker), nothing is lost: the same entries are printed to its log.
+  const many = Array.from({length: 80}, (_, i) => ({kind: 'fill', text: `fill ${i}`}));
+  assert.equal((await (await call('/extension/log', { method: 'POST', body: { entries: many } })).json()).kept, 50);
 });
 
 test('job keys for Greenhouse, Lever and Ashby links', () => {

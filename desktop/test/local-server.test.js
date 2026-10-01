@@ -24,6 +24,23 @@ function fakePty() {
 
 const fakeStorage = () => ({settings: () => ({}), secret: () => 'token', setSecret: () => {}});
 
+// The extension keeps its own decisions and pushes them (worker /extension/log): the app writes them to its log, so a
+// decision made in Chrome can be read beside everything else instead of dying with the service worker.
+test('the extension\'s decisions land in the app log', async () => {
+  const log = await import('../lib/log.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-extlog-'));
+  log.logTo(dir);
+  const storage = {settings: () => ({}), secret: () => 't', setSecret: () => {}, path: (...p) => path.join(dir, ...p)};
+  await server.localEnv(storage).onLog([
+    {at: '2026-10-01T08:00:00.000Z', kind: 'submitted?', text: 'looks like a confirmation URL, but no submit press was seen: not marked',
+      fields: {job: 'https://job-boards.greenhouse.io/anthropic/jobs/5114768008', version: '0.8.26'}},
+  ]);
+  const written = fs.readFileSync(path.join(dir, 'app.log'), 'utf8').trim().split('\n');
+  assert.match(written.at(-1), /\[extension\] submitted\?: looks like a confirmation URL, but no submit press was seen: not marked/);
+  assert.match(written.at(-1), /"version":"0\.8\.26"/);
+  log.logTo(null);
+});
+
 // The extension reports a submission with what decided it, and the app writes that down before it acts: an
 // irreversible mark that nothing explained is what made 1 Oct 2026's wrong "Applied" unattributable.
 test('a reported submit is logged with its evidence, before the job is marked', async () => {
