@@ -30,6 +30,7 @@ flowchart LR
 |---|---|---|---|---|---|
 | `build.yml` · CI · Tests | push / PR to main | Python, worker, desktop suites | nothing | red/green | — |
 | `desktop.yml` · Release · Desktop app | push touching the app | builds Mac + Windows, signs, provenance, pre-release; prunes to 3 test builds; rebuilds main if workflows changed mid-build | releases | GitHub pre-release | promote (or canary) |
+| `windows-smoke.yml` · CI · Windows smoke | weekly (Mondays 06:17 UTC) | builds the Windows app from main and installs it on a fresh runner, with no release: runner or bundled-native drift shows up in a quiet week | main | screenshots (artifact) | — |
 | `canary-promote.yml` · Canary | daily 09:17 UTC | promotes a pre-release 48 h old, green, used and healthy | the Latest release | stable → apps offer "Update to …" | variable `JOB_PILOTTO_AUTO_PROMOTE=on` |
 | `site.yml` · Release · Website | push touching `site/` | deploys the website worker | the live site | jobpilotto.workers.dev | — |
 | `telemetry-triage.yml` · App reports | website cron, daily | one issue per reported problem; Claude (Haiku) adds a likely cause | issues | `telemetry` issues | — |

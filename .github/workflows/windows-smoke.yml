@@ -1,0 +1,63 @@
+name: CI · Windows smoke (weekly)
+
+# The release workflow installs and smoke-tests the Windows app only when a push touches it, so a quiet week is a
+# blind week: the runner image changes under us, and so do the things the app bundles (node-pty, PyAV, sherpa-onnx,
+# the Python build). Once a week, build the Windows app from main and install it on a fresh runner, with no release
+# attached — if this goes red while nothing was pushed, the environment moved and not our code.
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # Mondays, 06:17 UTC (an hour before the daily discovery run)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-smoke
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5   # only reads the Python release list; the app bundles its own
+        with:
+          python-version: '3.12'
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+      - name: App tests (on Windows)
+        working-directory: desktop
+        run: npm test
+      - name: Add the shared Google app client
+        env:
+          CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}
+        run: if [ -n "$CLIENT" ]; then printf '%s' "$CLIENT" > config/google_oauth_client.json; fi
+      - name: Bundle Python
+        working-directory: desktop
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHON_ARCH: x86_64-pc-windows-msvc
+        run: node scripts/stage.mjs --app && scripts/python.sh
+      - name: Build the installer
+        working-directory: desktop
+        run: npm run build:win -- -c.buildVersion="${{ github.run_number }}"
+      - name: Install it and smoke-test what a user gets
+        working-directory: desktop
+        run: node scripts/windows-smoke.mjs "$(ls dist/Job-Pilotto-*-x64.exe | head -1)" smoke
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-screens
+          path: desktop/smoke
+          if-no-files-found: ignore
+          retention-days: 14

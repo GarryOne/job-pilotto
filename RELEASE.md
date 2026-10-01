@@ -138,7 +138,9 @@ buttons `site/src/brain.js`, decisions in Notion **🧭 Product Brain · Decisio
 Every release builds, installs and smoke-tests the Windows app (`desktop.yml`'s `windows` job: silent per-user install,
 the bundled Python, the Credential Manager, the in-app terminal, the wizard's screens, and PyAV decoding a generated
 WAV). `build.yml` runs the desktop suite on Windows on every push, so a Windows-only break fails the push that caused
-it — the fast gate is what `tools/pre-push-check.sh` reads before letting another commit stack on top.
+it — the fast gate is what `tools/pre-push-check.sh` reads before letting another commit stack on top. And
+`windows-smoke.yml` does the same build-and-install every Monday with **no release attached**: if it goes red while
+nothing was pushed, the runner image or the bundled native pieces moved, not our code.
 
 These parts are still the Mac's alone. Read this before promising a PC user feature parity:
 
