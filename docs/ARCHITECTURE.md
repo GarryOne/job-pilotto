@@ -16,7 +16,7 @@ sources → crawl → SQLite cache → AI → Notion + Telegram → you submit �
 2. **Cache.** `data/jobs.sqlite` remembers what was already seen. It is a cache, not the record.
 3. **Read and rank.** Stage 1 (Haiku) extracts facts from the posting. Stage 2 (Sonnet) scores fit against the Notion profile. Top matches get an application kit (cover letter and form answers).
 4. **Deliver.** A ranked Telegram digest, plus rows in Notion. Every run writes a row in Search runs.
-5. **Act, locally.** The desktop app and the Chrome extension fill the form. The owner reviews and submits.
+5. **Act, locally.** The desktop app and the Chrome extension fill the form. The owner reviews and submits. How an application starts, who fills, and what is still open: [docs/apply-flow.md](apply-flow.md).
 6. **Learn.** Read-only Gmail and Calendar update stages. Interview recordings are transcribed on the machine. A daily insight and a Monday report go back to Telegram.
 
 The core crawl and printed digest need no accounts. Everything else turns on when its keys exist, and `JOB_PILOTTO_DISABLE` can switch a feature off. The registry is `src/features.py`.
