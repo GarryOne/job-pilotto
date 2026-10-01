@@ -9,6 +9,7 @@ import * as notion from './notion.js';
 
 export const MAX_BYTES = 5 * 1024 * 1024;
 export const CV_HEADING = '📎 CV';
+export const LETTER_HEADING = '✉️ Cover letter';  // the approved general cover letter PDFs, newest first
 const API = 'https://api.notion.com/v1/';
 export const fingerprint = file => crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 16);
 
@@ -26,12 +27,12 @@ export async function upload(token, file, name = path.basename(file), fetcher = 
   return created.id;
 }
 
-// The CV on the Profile page: a "📎 CV" heading, newest version first under it (older versions stay below).
-export async function cvToProfile(token, profileId, file, name, when = new Date(), fetcher) {
+// A PDF on the Profile page under its heading ("📎 CV", "✉️ Cover letter"), newest version first (older ones stay below).
+export async function cvToProfile(token, profileId, file, name, when = new Date(), fetcher, headingText = CV_HEADING) {
   const id = await upload(token, file, name, fetcher);
   const blocks = await notion.textBlocks(token, profileId, fetcher);
-  let heading = blocks.find(block => block.type.startsWith('heading') && block.text.trim() === CV_HEADING)?.id;
-  if (!heading) heading = await notion.appendHeading(token, profileId, CV_HEADING, fetcher);
+  let heading = blocks.find(block => block.type.startsWith('heading') && block.text.trim() === headingText)?.id;
+  if (!heading) heading = await notion.appendHeading(token, profileId, headingText, fetcher);
   const caption = `${name} · ${when.toISOString().slice(0, 10)}`;
   await notion.call(token, 'PATCH', `blocks/${profileId}/children`, {after: heading, children: [{object: 'block', type: 'file',
     file: {type: 'file_upload', file_upload: {id}, caption: [{type: 'text', text: {content: caption}}]}}]}, fetcher);
@@ -60,3 +61,10 @@ export async function syncCv(storage, fetcher) {
   storage.saveSettings({cvInNotion: print});
   return {uploaded: caption};
 }
+
+// The approved cover letter on the Profile page, once per approval (the user's text is in the PDF; Notion keeps every version).
+export const coverLetterToProfile = (storage, file, fetcher) => {
+  const token = storage.secret('NOTION_TOKEN'), profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
+  if (!token || !profile || !fs.existsSync(file)) return Promise.resolve(null);
+  return cvToProfile(token, profile, file, 'Cover letter.pdf', new Date(), fetcher, LETTER_HEADING);
+};
