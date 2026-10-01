@@ -81,3 +81,15 @@ test('a missing link or missing people does not invent them', () => {
   assert.equal(bare.consent, '');
   assert.equal(bare.status.sentence, '');
 });
+
+// A check that sent nothing to Telegram (no update worth telling you about, or Telegram off) has no message: its
+// Notion report lines are then the only account of what it did — and those now name what it changed.
+test('without a message the report lines say what the check recorded and changed', () => {
+  const row = ['Gmail check: 2 new email(s) read, 1 update(s) recorded; AI cost $0.004.',   // the status already says this
+               '📬 Application received · Canonical — Software Engineer - Data Infrastructure · Stage Applied → Confirmation received',
+               'Emails with claude-haiku-4-5: 2 of 2; tokens in 3252 (+0 cached), out 142; $0.0040'];  // not about the emails
+  const report = parseMailReport(null, 'Gmail check: 2 new email(s) read, 1 update(s) recorded', row);
+  assert.deepEqual(report.status, {title: 'Check complete', sentence: '2 emails reviewed. 1 application record changed.'});
+  assert.deepEqual(report.notes, [{icon: '📬', text: 'Application received · Canonical — Software Engineer - Data Infrastructure · Stage Applied → Confirmation received'}]);
+  assert.equal(parseMailReport(null, '', []), null);  // no message and no report: nothing to draw
+});

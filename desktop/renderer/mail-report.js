@@ -14,7 +14,7 @@ const NEXT_STEP = /^📝\s*(.+)$/;
 const CONSENT = /^Recording\?/i;
 const NOTION_LINK = /^Application in Notion\s*\((\S+)\)\s*$/i;
 const PEOPLE = /^With:\s*(.+)$/i;
-const HEAD = /^(📧|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)\s*/u;
+const HEAD = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)\s*/u;
 
 // The row's own result line as one sentence: "Gmail check: 1 new email(s) read, 0 update(s) recorded".
 export function mailStatus(result) {
@@ -37,8 +37,15 @@ const paragraphs = text => String(text).split(/,\s+(?=with\b)/i)
   })
   .filter(Boolean);
 
-export function parseMailReport(message, result = '') {
-  const lines = String(message || '').split('\n').map(line => line.trim()).filter(Boolean);
+// fromRow: the run's own report lines, read from its Notion row (lib/run-history.js). A check that sent nothing to
+// Telegram has no message, and then these are the only account of what it did: the update it recorded, with what it
+// changed ("📬 … · Stage Applied → Confirmation received"). Its first line is the summary the status already shows,
+// and the run's other report lines (the "Stages" cost line, warnings) are not about the emails.
+const DID = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)|\[\w[\w ]*\]/u;
+export function parseMailReport(message, result = '', fromRow = []) {
+  const said = String(message || '').split('\n');
+  const lines = [...(message ? said : []), ...fromRow.slice(1).filter(line => DID.test(String(line)))]
+    .map(line => line.trim()).filter(Boolean);
   if (!lines.length) return null;
   const report = {status: mailStatus(result), interview: null, topics: [], nextSteps: [], consent: '', notes: [], url: ''};
   let reading = '';  // what the last line put us inside: the meeting's own lines, its topics, or the next step

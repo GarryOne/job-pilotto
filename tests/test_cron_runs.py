@@ -295,3 +295,34 @@ class EmailSectionTest(unittest.TestCase):
         props, children = cron_runs.run_page(run)
         self.assertNotIn('Emails read', [block.get('heading_3', {}).get('rich_text', [{}])[0].get('text', {}).get('content')
                                          for block in children])
+
+
+class StageLineTest(unittest.TestCase):
+    """The "Stages" line names what the step did, not the column it filled: a Gmail check reads emails."""
+
+    def test_a_mail_check_says_it_read_emails(self):
+        run = {'mode': 'mail', 'started_at': '2026-10-01T01:18:00+00:00', 'warnings': [], 'updates': [],
+               'mail': {'done': 2, 'model': 'claude-haiku-4-5', 'tokens_in': 10, 'tokens_out': 2,
+                        'cache_read': 0, 'usd': 0.001, 'cli_calls': 1}}
+        _props, children = cron_runs.run_page(run)
+        line = next(b['bulleted_list_item']['rich_text'][0]['text']['content'] for b in children
+                    if b['type'] == 'bulleted_list_item' and 'claude-haiku-4-5' in str(b))
+        self.assertTrue(line.startswith('Read job emails with claude-haiku-4-5;'), line)
+
+    def test_a_queued_step_keeps_its_own_label(self):
+        run = {'mode': 'scheduled', 'started_at': '2026-10-01T01:18:00+00:00', 'warnings': [],
+               'enrich': {'pending': 4, 'done': 4, 'model': 'claude-haiku-4-5', 'tokens_in': 1, 'tokens_out': 1,
+                          'cache_read': 0, 'usd': 0.0}}
+        _props, children = cron_runs.run_page(run)
+        self.assertTrue(any('Enriched with claude-haiku-4-5: 4 of 4;' in str(b) for b in children))
+
+    def test_a_negative_note_is_not_prefixed_with_changed(self):
+        run = {'mode': 'mail', 'started_at': '2026-10-01T01:18:00+00:00', 'warnings': [], 'updates': [],
+               'mail': {'done': 1},
+               'emails': [{'subject': 'Security code for your application to Canonical', 'from': 'Greenhouse <no-reply@us.greenhouse-mail.io>',
+                           'at': '2026-10-01T03:44:00+02:00', 'action': 'reviewed', 'label': 'Canonical',
+                           'changes': 'nothing to record', 'link': 'https://mail.google.com/mail/u/0/#all/x'}]}
+        _props, children = cron_runs.run_page(run)
+        line = next(b['bulleted_list_item']['rich_text'][0]['text']['content'] for b in children
+                    if 'Security code' in str(b))
+        self.assertTrue(line.endswith('[read] · Canonical · nothing to record'), line)

@@ -98,7 +98,8 @@ def email_lines(run):
         if label and label.lower() != what.lower():  # "not about your applications" is not said twice
             parts.append(label)
         if email.get('changes'):
-            parts.append(f"changed {email['changes']}")
+            # "changed nothing to record" reads badly: the negative note stands on its own.
+            parts.append(email['changes'] if email['changes'].startswith('nothing') else f"changed {email['changes']}")
         lines.append((email.get('link') or '', f"{head} — {' · '.join(parts)}"))
     return lines
 
@@ -150,6 +151,8 @@ def mail_lines(run):
 # One-off jobs (not crawls): their name when they finish without a result line of their own.
 ONE_OFF = {'add': 'Logged activity', 'insight': 'Insight', 'weekly': 'Weekly report', 'interview': 'Interview review',
            'prepare': 'Application kit', 'apply': 'Marked applied', 'scout': 'Find employers', 'prep': 'Interview prep kit'}
+# A job whose AI step has no queue needs a verb, not a column's label: the "Stages" line of a Gmail check.
+STEP_NAME = {'mail': 'Read job emails'}
 
 
 def report_lines(run):
@@ -313,8 +316,12 @@ def run_page(run, final=True):
         info = run.get(stage)
         if info:
             done = f": {info.get('done', 0)} of {info.get('pending', 0)}" if info.get('pending') else ''  # no "0 of 0"
+            # The step's name when it has a queue (or the job's own name), else what it read: "Read job emails with
+            # claude-haiku-4-5", never "Emails with claude-haiku-4-5" (1 Oct 2026).
+            queued = info.get('pending')
+            heading = label if queued else (run.get('name') or STEP_NAME.get(run['mode']) or ONE_OFF.get(run['mode'], label))
             children.append(_para(
-                f"{ONE_OFF.get(run['mode'], label) if not info.get('pending') else label} with {info.get('model', '?')}{done}; "
+                f"{heading} with {info.get('model', '?')}{done}; "
                 f"tokens in {info.get('tokens_in', 0)} (+{info.get('cache_read', 0)} cached), "
                 f"out {info.get('tokens_out', 0)}; "
                 + ('Claude Code, your plan' if info.get('cli_calls') and not info.get('api_calls') else f"${info.get('usd', 0.0):.4f}"),

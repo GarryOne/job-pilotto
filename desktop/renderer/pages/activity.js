@@ -400,7 +400,8 @@ export function renderActivity(fresh) {
   const card = !run?.live && run?.message ? parseRunMessage(run.message) : null;
   // A Gmail check's message has no digest header but plenty of structure (the interview it is about, the topics to
   // strengthen, the recruiter's next step): it gets its own card, not its raw lines in a <pre>.
-  const mail = !run?.live && !card && kindOf(run) === 'mail' && run?.message ? parseMailReport(run.message, run.result) : null;
+  const mail = !run?.live && !card && kindOf(run) === 'mail' && (run?.message || run?.report?.length)
+    ? parseMailReport(run.message, run.result, run.report || []) : null;
   // An insight is written to be sent, not read: its card is the finding, the numbers behind it and the one action
   // (the mockup, 30 Sep). Only what the insight carries is drawn — anything else is absent, never an empty slot.
   const insight = !run?.live && !card && !mail && run?.message ? parseInsight(run.message) : null;
