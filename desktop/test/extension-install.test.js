@@ -47,8 +47,8 @@ test('older browsers keep it in Preferences, which is read too', () => {
 
 test('every browser that has it is listed, and the copy loaded from our folder is marked current', () => {
   const io = {
-    exists: at => at === '/support/Google/Chrome' || at === '/support/BraveSoftware/Brave-Browser'
-      || at.endsWith('/Default/Secure Preferences'),
+    exists: at => at === platforms('/support/Google/Chrome') || at === platforms('/support/BraveSoftware/Brave-Browser')
+      || at.endsWith(platforms('/Default/Secure Preferences')),
     read: at => prefs(at.includes('Brave') ? {bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: record('Job Pilotto', {path: '/Users/x/Desktop/extension'})}
       : {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: record('Job Pilotto')}),
   };
