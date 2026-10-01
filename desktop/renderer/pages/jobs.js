@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, toReview, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, sorted, statClick, statPressed, stats, statusPill, tags, toReview, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
@@ -292,18 +292,20 @@ export function renderJobs() {
       }
     } else if (job.status !== 'applied' && job.url && job.code) {
       // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).
-      const prepare = Object.assign(el('button', 'row-main state-prepare', 'Prepare'), {
-        title: 'Draft the application kit (form answers and cover letter) in your Notion; then Apply'});
+      const state = prepareState(job);
+      const prepare = Object.assign(el('button', 'row-main state-prepare', state === 'failed' ? 'Retry prepare' : state === 'cloud' ? 'Preparing…' : state ? 'Preparing' : 'Prepare'), {
+        title: state === 'cloud' ? 'Preparing on GitHub: the list reloads when it is done' : state === 'local' ? 'Drafting the kit: usually 15–30 s'
+          : 'Draft the application kit (form answers and cover letter) in your Notion; then Apply'});
+      if (state === 'local' || state === 'cloud') { prepare.disabled = true; if (state === 'local') prepare.classList.add('busy', 'state-busy'); }  // spinner only; the fixed width keeps the row still
       prepare.addEventListener('click', async () => {
-        prepare.disabled = true;
-        prepare.classList.add('busy', 'state-busy');  // spinner only; the fixed width keeps the row still
-        prepare.textContent = 'Preparing';
-        prepare.title = 'Drafting the kit: usually 15–30 s';
+        preparing.set(job.code, 'local');
+        renderJobs();  // the row is rebuilt as Preparing, and stays so through any later re-render
         const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
-        prepare.classList.remove('busy', 'state-busy');
         // On GitHub (Always on): the row says so; the list reloads when it's done.
-        if (result.cloud) { prepare.textContent = 'Preparing…'; prepare.title = 'Preparing on GitHub: the list reloads when it is done'; return; }
-        if (result.ok) { job.kit = true; renderJobs(); } else { prepare.disabled = false; prepare.textContent = 'Retry prepare'; }
+        if (result.cloud) preparing.set(job.code, 'cloud');
+        else if (result.ok) { preparing.delete(job.code); for (const item of shared.allJobs) if (item.code === job.code) item.kit = true; job.kit = true; }
+        else preparing.set(job.code, 'failed');
+        renderJobs();
       });
       box.append(prepare);
     }

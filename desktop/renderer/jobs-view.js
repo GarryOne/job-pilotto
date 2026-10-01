@@ -184,3 +184,12 @@ export function ago(iso, now = Date.now()) {
 
 // "Applying" that no open session explains: the session was closed without saying whether it was submitted.
 export const isStuck = (job, hasSession) => job.stage === 'Applying' && !hasSession(job);
+
+// Which jobs are having their kit drafted, by job code. The list re-renders whenever anything changes (a Skip, a Save, a
+// reload), so "Preparing" can't live on the button: a rebuilt row asks here. 'local' = running on this Mac, 'cloud' = on
+// GitHub (until the reloaded list shows the kit), 'failed' = the last try failed (the row offers Retry).
+export const preparing = new Map();
+export const prepareState = (job, tracker = preparing) => {
+  if (job.kit) { tracker.delete(job.code); return ''; }
+  return tracker.get(job.code) || '';
+};
