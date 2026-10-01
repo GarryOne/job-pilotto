@@ -1,6 +1,5 @@
 // The application the extension reports as submitted (POST /extension/applied) is marked Applied in Notion — and
-// the Claude session that filled that form is over too. It may not read as if Claude were still working, but it
-// stays in the list as Submitted: it used to be deleted, so the session (and a day's work) vanished with it.
+// the Claude session that filled that form leaves Application sessions. The job stays on Jobs.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -57,7 +56,7 @@ test('a reported submit is logged with its evidence, before the job is marked', 
   log.logTo(null);  // the app log goes quiet again for the rest of the suite
 });
 
-test('the session behind a reported submit ends: marked Submitted, kept, and never re-marked', async () => {
+test('the session behind a reported submit is marked Submitted and leaves the list', async () => {
   terminals._reset();
   terminals.usePty(fakePty().loader);
   await terminals.start({id: 'c1', url: 'https://job-boards.greenhouse.io/canonical/jobs/3014391',
@@ -65,11 +64,7 @@ test('the session behind a reported submit ends: marked Submitted, kept, and nev
                          file: 'claude', env: {}});
   const record = terminals.record('c1');
   assert.equal(server.sessionSubmitted('https://job-boards.greenhouse.io/canonical/jobs/3014391'), 'c1');
-  // Kept, marked Submitted (1 Oct 2026: it used to be deleted, so a day's session vanished with nothing to look at).
-  const kept = terminals.get('c1');
-  assert.notEqual(kept, null);
-  assert.equal(kept.outcome, 'submitted');
-  assert.equal(kept.live, false);                 // not running: it is finished, not "Applying"
+  assert.equal(terminals.get('c1'), null);        // gone from Application sessions
   assert.equal(record.outcome, 'submitted');      // its statistics say why it ended (lib/session-runs.js)
   assert.ok(record.decidedAt);
   // Asking twice (reconciliation runs on every jobs read) does nothing more.
@@ -97,8 +92,7 @@ test('a fresh job list ends the sessions of jobs already Applied, and only those
     {url: 'https://jobs.test/acme/1', stage: 'Applied'}];                        // no session for it
   assert.deepEqual(server.appliedSessions(jobs), ['https://jobs.test/canonical/3014391']);
   assert.deepEqual(server.reconcileAppliedSessions(jobs), ['https://jobs.test/canonical/3014391']);
-  assert.equal(terminals.get('a1').outcome, 'submitted');  // marked Submitted, and kept: its job is Applied
-  assert.equal(terminals.get('a1').live, false);           // and not running: finished, not "Applying"
+  assert.equal(terminals.get('a1'), null);            // Applied: off Application sessions
   assert.notEqual(terminals.get('b2'), null);         // still Applying: the "Did you submit?" question owns it
   assert.deepEqual(server.reconcileAppliedSessions(jobs), []);  // idempotent: every jobs read can call it
   terminals._reset();
@@ -109,7 +103,7 @@ test('a rejected or interviewing job also ends its session; a trailing slash is 
   terminals.usePty(fakePty().loader);
   await terminals.start({id: 'r1', url: 'https://jobs.test/acme/9/', company: 'Acme', file: 'claude', env: {}});
   assert.deepEqual(server.reconcileAppliedSessions([{url: 'https://jobs.test/acme/9', stage: 'Rejected'}]), ['https://jobs.test/acme/9/']);
-  assert.equal(terminals.get('r1').outcome, 'submitted');  // a rejection past Applied: the session is over too
+  assert.equal(terminals.get('r1'), null);  // past Applied: the session leaves the screen too
   terminals._reset();
 });
 
