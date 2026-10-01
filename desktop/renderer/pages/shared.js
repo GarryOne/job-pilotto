@@ -5,7 +5,7 @@ export const shared = {
   openSessionId: null,
   xterm: null,
   xtermFit: null,
-  dockOpen: true,
+  dockOpen: false,  // "Application sessions" starts collapsed: the summary pills say what needs you, the head expands it
   termShownFor: null,
   draft: null,
   rebuildAsked: false,  // Rebuild from CV: the strategy step opens on the note + Build, not the last draft
