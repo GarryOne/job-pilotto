@@ -249,6 +249,20 @@ retireEverywhere();
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
+  // "Use on this tab" in the popup: the user's own click stands in for the fill mark (panel, then the fill).
+  if (message?.type === 'useTab') {
+    (async () => {
+      const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
+      if (!tab?.id || !/^https:/.test(tab.url || '')) return {ok: false, why: 'Open the job application page first.'};
+      const url = tab.url.replace(`#${FILL_MARK}`, '');
+      decide('panel', 'used on this tab by hand', {host: new URL(url).hostname});
+      await chrome.storage.session.set({[`from:${tab.id}`]: url});
+      await arm(tab.id, 'by hand');
+      if (!started.has(tab.id)) { started.add(tab.id); await fillOpenedTab(tab, url); }
+      return {ok: true};
+    })().then(reply, () => reply({ok: false, why: 'Could not start on this tab.'}));
+    return true;
+  }
   if (message?.type === 'armTab') {
     const tabId = Number(message.tabId);
     if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
