@@ -343,10 +343,16 @@ export function renderNextStep(item) {
     actions.push(submittedButton(item));
     actions.push(sessionButton('Remove from the list', 'secondary', () => removeSession(item)));
   } else if (asking) {
-    actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
+    // Continue only means something after a pause (Esc). When Claude asked for something, "Continue." gives it nothing
+    // new and it asks again (a 4-hour loop on 1 Oct 2026): the main action is to answer it.
+    if (/^Paused/i.test(item.note || '')) {
+      actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
+      actions.push(sessionButton('Answer in your own words', 'link', () => openLog(true), 'chat'));
+    } else {
+      actions.push(sessionButton('Answer', 'primary', () => openLog(true), 'chat'));
+    }
     actions.push(submittedButton(item));
     actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
-    actions.push(sessionButton('Answer in your own words', 'link', () => openLog(true), 'chat'));
   } else if (running) {
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => {
       await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));

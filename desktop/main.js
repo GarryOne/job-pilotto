@@ -14,6 +14,7 @@ import * as updater from './lib/updater.js';
 import * as canary from './lib/canary.js';
 import * as telemetryLib from './lib/telemetry.js';
 import * as poolShare from './lib/pool-share.js';
+import {shouldNotify} from './lib/needs-you.js';
 import * as reminders from './lib/interview-reminders.js';
 import * as engineLog from './lib/engine-log.js';
 import * as requestLog from './lib/request-log.js';
@@ -1732,9 +1733,11 @@ function resumeQueue() {
 }
 
 // A Claude session waits for you: a notification (a click opens that session in the app) and a Telegram message.
+const needsYouSeen = new Map();  // session id -> the last question announced (lib/needs-you.js)
 function sessionNeedsYou(session) {
   const what = terminals.label(session);
   const text = session.brief || 'Claude needs your input';  // one plain sentence; the whole message is on the session page
+  if (!shouldNotify(needsYouSeen, session.id, text)) return;  // the card says it; no new ping for the same question
   if (!process.env.JOB_PILOTTO_SMOKE && Notification.isSupported()) {
     const note = new Notification({title: `Needs your input · ${what}`, body: text});
     note.on('click', () => { window?.show(); window?.focus(); toWindow('session', 'open', {id: session.id}); });
