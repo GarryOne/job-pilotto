@@ -45,8 +45,8 @@ def run(db, tracker, url, *, client=None, stats=None, now=None):
                     'row': existing, 'created': False}
     description = (meta.get('description') or '').strip()
     if len(description) < MIN_DESCRIPTION:
-        raise ValueError('This page could not be read. LinkedIn, Glassdoor and Indeed are not read, and some '
-                         'boards publish no posting text.')
+        raise ValueError('This page could not be read. LinkedIn, Glassdoor and Indeed are not read, and this '
+                         'page has no posting text.')
     now = now or datetime.now(timezone.utc)
     item = {'url': url, 'title': meta.get('title') or 'Role', 'company': meta.get('company') or '',
             'location': meta.get('location') or '', 'description': description,

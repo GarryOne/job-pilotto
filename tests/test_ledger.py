@@ -231,6 +231,24 @@ class AddApplicationTests(unittest.TestCase):
                          ('Infrastructure Engineer', 'Robotics Co', 'Zürich, Switzerland'))
         self.assertIn('Build & run', meta['description'])
 
+    def test_a_page_without_a_feed_or_schema_is_read_from_its_own_words(self):
+        page = """<html><head><title>Senior SRE at Example</title>
+            <script>var noise = 'not the posting';</script><style>.x{color:red}</style></head>
+            <body><h1>Senior SRE</h1><p>Own the platform, the network and on-call for the access team. """ + (
+            'Terraform and Kubernetes in production. ' * 5) + "</p></body></html>"
+        with mock.patch.object(ledger.ats, 'posting', lambda url: None):
+            meta = ledger.page_meta('https://example.com/jobs/sre', opener=lambda req, timeout: io.BytesIO(page.encode()))
+        self.assertEqual(meta['title'], 'Senior SRE at Example')
+        self.assertIn('Own the platform', meta['description'])
+        self.assertNotIn('not the posting', meta['description'])
+        self.assertNotIn('color:red', meta['description'])
+
+    def test_a_short_page_is_not_treated_as_a_posting(self):
+        page = '<html><title>Example</title><body><p>Careers</p></body></html>'
+        with mock.patch.object(ledger.ats, 'posting', lambda url: None):
+            meta = ledger.page_meta('https://example.com/careers', opener=lambda req, timeout: io.BytesIO(page.encode()))
+        self.assertNotIn('description', meta)
+
     def test_new_application_row_event_on_its_date_and_record(self):
         tracker = FakeTracker([])
         meta = {'title': 'Infrastructure Engineer', 'company': 'Robotics Co', 'location': 'Zürich', 'date_posted': '2026-07-20'}

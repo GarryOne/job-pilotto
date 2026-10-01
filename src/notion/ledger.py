@@ -687,9 +687,19 @@ def no_fetch(url):
     return any(site in host for site in NO_FETCH)
 
 
+def _visible_text(page):
+    """The words on a page, when it has no feed and no schema.org JobPosting. Same tag stripping as the board
+    crawl (sources/boards.py text); scripts and styles are dropped first so they are not read as the posting."""
+    from ..sources.boards import text
+    cleaned = re.sub(r'<(script|style|noscript)\b[^>]*>.*?</\1>', ' ', page or '', flags=re.I | re.S)
+    return text(cleaned)[:ats.DESCRIPTION_LIMIT]
+
+
 def page_meta(url, opener=urllib.request.urlopen):
-    """Title, company, location, posting date and description of a job page: the job board's API when
-    supported (ats.posting), else the page's schema.org JobPosting (most job sites publish one). Never for
+    """Title, company, location, posting date and description of a job page.
+
+    The board feed when the link is one a Jobs check reads (ats.posting), else the page's schema.org
+    JobPosting, else the words on the page. The same facts and fit score then read that text. Never for
     NO_FETCH sites (LinkedIn, Glassdoor…): {} there."""
     if no_fetch(url):
         return {}
@@ -699,7 +709,8 @@ def page_meta(url, opener=urllib.request.urlopen):
         with opener(request, timeout=20) as response:
             page = response.read().decode('utf-8', errors='replace')
     except Exception:  # noqa: BLE001 — a page we can't read still gets tracked with what we have
-        return meta
+        return {k: v for k, v in meta.items() if v}
+    found_posting = False
     for block in re.findall(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', page, re.S):
         try:
             data = _json.loads(block)
@@ -718,10 +729,18 @@ def page_meta(url, opener=urllib.request.urlopen):
                 meta.setdefault('location', address)
                 meta.setdefault('date_posted', item.get('datePosted'))
                 meta.setdefault('description', re.sub(r'<[^>]+>', ' ', html.unescape(item.get('description') or '')))
-                return {k: v for k, v in meta.items() if v}
+                found_posting = True
+                break
+        if found_posting:
+            break
     if not meta.get('title') and (m := re.search(r'<title>(.*?)</title>', page, re.S)):
         meta['title'] = html.unescape(m[1]).strip()
-    return meta
+    # A posting that is only written on the page, with the form beside it, still has its text.
+    if len((meta.get('description') or '').strip()) < 80:
+        visible = _visible_text(page)
+        if len(visible) >= 80:
+            meta['description'] = visible
+    return {k: v for k, v in meta.items() if v}
 
 
 def company_for(tracker, url, meta):
