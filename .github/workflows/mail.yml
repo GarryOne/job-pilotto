@@ -108,8 +108,9 @@ jobs:
           pip install --quiet -r requirements.txt
           send=()
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send=(--send); fi
-          # Started by someone (Telegram button, the app, the Run button): always answer, even "nothing new".
-          if [ ${#send[@]} -gt 0 ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then send+=(--always-report); fi
+          # Only a check that recorded something answers on Telegram: a quiet one says so in the app and on its ⏱️
+          # Search runs row, and a "nothing that changes your applications" message for every check someone started
+          # is noise (the app dispatches this workflow for its "Check Gmail now", 1 Oct 2026).
           # --log-run: its ⏱️ Search runs row (running, then result and log) is how the app and Notion see it.
           python -m src.ai.mail "${send[@]}" --log-run --days "${{ inputs.days || '2' }}"
       - name: Save mail state

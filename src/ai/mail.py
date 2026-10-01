@@ -981,8 +981,9 @@ def prep_message(tracker, row, event, start, day):
 
 def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None, calendar=True, dry_run=False,
         now=None, state_path=STATE_FILE, stats=None, on_new=None, always_report=False):
-    """always_report: a check you started (Telegram button, the app, GitHub's Run button) answers even when
-    there's nothing new, so "news arrives in about a minute" is always followed by a message."""
+    """always_report: a check answers even when there's nothing new. Off for the mail workflow, which the app
+    dispatches for "Check Gmail now": a quiet check says so in the app and on its ⏱️ Search runs row, and a
+    Telegram message for every check someone started is noise (1 Oct 2026)."""
     state = load_state(state_path)
     apps = applications(tracker)
     index = _events_index(tracker)
