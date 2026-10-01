@@ -69,3 +69,19 @@ test('a rejected or interviewing job also ends its session; a trailing slash is 
   assert.equal(terminals.get('r1'), null);
   terminals._reset();
 });
+
+// A fill that fails while Chrome runs an older copy of the extension than the app ships is explained, not left as
+// "the extension can't fill these fields" (1 Oct 2026: a Claude session hit that and filled a whole form by hand).
+test('a stale extension is named, with the reload to do; matching or unknown versions say nothing', () => {
+  assert.match(server.staleExtension('0.8.20', '0.8.23'),
+               /Chrome runs Job Pilotto extension 0\.8\.20, older than this app's 0\.8\.23: reload it once/);
+  assert.equal(server.staleExtension('0.8.23', '0.8.23'), '');
+  assert.equal(server.staleExtension('', '0.8.23'), '');       // nothing reported yet
+  assert.equal(server.staleExtension('0.8.23', ''), '');       // the app's copy isn't readable
+});
+
+test('the extension version the app reads is its own manifest', async () => {
+  const fs = await import('node:fs');
+  const manifest = JSON.parse(fs.readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8'));
+  assert.equal(server.latestExtension(), manifest.version);
+});

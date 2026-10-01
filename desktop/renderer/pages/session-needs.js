@@ -203,12 +203,12 @@ export function emptyRow(label, item) {
   li.append(badge(), body, actions);
   return li;
 }
-// A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to fix it.
+// A problem with the extension: when Chrome runs an older copy than this app's, that's the likely cause; say how to
+// fix it. The sentence comes from the app (server.staleExtension), so it is the same one a failed fill records.
 export async function explainExtension(row) {
   const seen = await window.pilot.extensionSeen().catch(() => null);
-  if (!seen?.version || !seen.latest || seen.version === seen.latest) return;
-  row.append(el('div', 'small ss-check-more', `Likely cause: Chrome runs Job Pilotto extension ${seen.version}, older than this app's ${seen.latest}. ` +
-    'Reload it once (chrome://extensions → ↻ on Job Pilotto); from then on it updates itself.'));
+  if (!seen?.note) return;
+  row.append(el('div', 'small ss-check-more', `Likely cause: ${seen.note}`));
 }
 // While Chrome is being brought to the form: the button says so at once, then what's taking time.
 export async function opening(button, work) {

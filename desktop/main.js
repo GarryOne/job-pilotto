@@ -107,6 +107,7 @@ function outcomes(settings) {
 }
 let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
 let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
+let staleWarned = '';  // the extension version already reported as stale in the log (once per version)
 let testBuild = null;  // Get Test Builds on: the canary trial (lib/canary.js): {state, canary, line, newestOffer, newestIsCanary}
 // Running from source (npm start): never offer or install an update. It would quit the dev app and open the
 // downloaded one in its place. From source, updating is `git pull` + restart.
@@ -1194,7 +1195,14 @@ function handlers() {
   // Send feedback… (lib/app-feedback.js): to the owner, through the website. Demo mode sends nothing.
   ipcMain.handle('sendFeedback', (_, text, contact) => DEMO ? {ok: true}
     : appFeedback.send({text, contact}, {storage, version: app.getVersion()}));
-  ipcMain.handle('extensionSeen', () => (server.extensionSeen() ? {...server.extensionSeen(), latest: server.latestExtension()} : null));
+  // latest + note: the pages show one wording for a stale copy (server.staleExtension), the same sentence the app
+  // records with a failed fill.
+  ipcMain.handle('extensionSeen', () => {
+    const seen = server.extensionSeen();
+    if (!seen) return null;
+    const latest = server.latestExtension();
+    return {...seen, latest, note: server.staleExtension(seen.version, latest)};
+  });
   // A failed Notion read is reported (not an empty list), so the section says why instead of disappearing.
   ipcMain.handle('openQuestions', () => (DEMO ? Promise.resolve(storage.settings().openQuestions || []) : questions.list(storage)).then(list => ({ok: true, list}), error => ({ok: false, error: error.message, list: []})));
   ipcMain.handle('answerQuestion', (_, questionKey, answer) => questions.answer(storage, questionKey, answer)
@@ -1476,7 +1484,15 @@ if (firstCopy) app.whenReady().then(() => {
       telemetry.record('run_failed', {job: `${args[0]}${mode ? ` ${mode}` : ''}`, code, seconds, error,
         cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' ')), tail: tail.slice(-5)});
     });
-    server.setFormIssueHandler(fields => telemetry.record('form_issue', fields));
+    server.setFormIssueHandler(fields => {
+      telemetry.record('form_issue', fields);
+      // A stale extension is not a filled field: it is the cause of the fields that failed, so the app's own log
+      // says it too (once per version pair — the extension reports every field of every form).
+      if (fields.type === 'version' && staleWarned !== fields.version) {
+        staleWarned = fields.version;
+        appLog('extension', fields.reason, {reportedBy: fields.site});
+      }
+    });
     setTimeout(() => { healthOnce(); telemetry.flush(); }, 60 * 1000);
     setInterval(() => { healthOnce(); telemetry.flush(); }, 10 * 60 * 1000);
   }

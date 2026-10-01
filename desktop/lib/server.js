@@ -116,6 +116,11 @@ export function localEnv(storage, submitted = sessionSubmitted) {
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
       reports.send(storage, run).then(report => {  // each field also shows in the app reports (/telemetry)
+        // A fill that failed while Chrome ran an older copy than this app ships is explained first, as its own
+        // report: otherwise the fields read as "the extension can't fill these", and the cause stays invisible
+        // (1 Oct 2026: a Claude session hit exactly that and filled the whole form by hand).
+        const stale = staleExtension(report?.version, latestExtension());
+        if (stale) formIssue({site: report.site, label: 'Job Pilotto extension', type: 'version', reason: stale, version: report.version});
         for (const field of report?.fields || []) formIssue({site: report.site, label: field.label, type: field.type, reason: field.reason, version: report.version});
       }).catch(error => console.error('Fill report:', error.message));
     },
@@ -215,6 +220,14 @@ export const extensionSeen = () => seen;
 // The extension version in the app's folder (the one Chrome loads unpacked): an older one in Chrome reloads itself.
 export function latestExtension(read = fs.readFileSync) {
   try { return JSON.parse(read(`${pipeline.REPO}/extension/manifest.json`, 'utf8')).version || ''; } catch { return ''; }
+}
+
+// The sentence a stale copy deserves, or '' when the two agree (or either is unknown). One wording for the two
+// places that need it: the fill failure the app records, and the sessions page's "likely cause" line.
+export function staleExtension(version, latest) {
+  if (!version || !latest || version === latest) return '';
+  return `Chrome runs Job Pilotto extension ${version}, older than this app's ${latest}: reload it once `
+    + '(chrome://extensions → ↻ on Job Pilotto); from then on it updates itself.';
 }
 export const openTabs = () => [...tabs];
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
