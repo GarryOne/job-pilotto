@@ -300,7 +300,6 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
    of one: roomier padding, its own rhythm between sections, and steps that aren't wall-to-wall. */
 .conn-card { padding: var(--sp-5); gap: var(--sp-5); }
 .conn-card .conn-head { padding-bottom: var(--sp-5); }
-.conn-file { margin-top: var(--sp-5); }
 .conn-card .conn-steps li { align-items: flex-start; padding: var(--sp-4) var(--sp-5); }
 /* The chip sits on the step's first line (its title), however many lines the step runs to — the title's line box is
    --fs-lg at the body's line-height, so half the difference between that and the chip is the nudge. */
@@ -315,8 +314,17 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .conn-step-words { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .conn-step-words b { font-size: var(--fs-lg); }
 .conn-step-words code { font-size: var(--fs-base); }
-/* The folder to paste into Chrome's Load unpacked dialog, on the step's tinted band. */
-.conn-step-words .path-line code { background: var(--surface); padding: var(--sp-2) var(--sp-3); }
+/* The folder to paste into Chrome's picker, inside the step that asks for it: one box, Copy at its end, the
+   folder button beside it, and the keystrokes under it. */
+.conn-pick { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
+.pick-box { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.pick-box > .icon { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.pick-box code { flex: 1; min-width: 0; padding: 0; background: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--ink-2); }
+.pick-box .link { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; padding-left: var(--sp-3); border-left: 1px solid var(--line); }
+.pick-box .link .icon { width: 16px; height: 16px; }
+.conn-pick > button { flex: none; }
 /* chrome://extensions in the steps: the code chip it was, but clicking it opens that page in Chrome. */
 .conn-step-words .code-link { font: var(--fs-sm) var(--font-mono); background: var(--sky); color: var(--ink); padding: 2px 6px;
   border-radius: var(--r-sm); font-weight: 600; }
