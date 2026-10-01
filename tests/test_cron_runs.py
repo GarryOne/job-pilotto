@@ -1,9 +1,13 @@
 from types import SimpleNamespace
+import io
+import json
 import unittest
+import urllib.error
 
 from src import daily
 from src.ai import cost
 from src.notion import cron_runs
+from src.notion.client import Tracker
 
 
 def sample_run(**extra):
@@ -100,6 +104,33 @@ class ReportTest(unittest.TestCase):
         self.assertEqual((props['Emails']['number'], props['Updates']['number']), (4, 1))
         self.assertIsNone(props['Feeds']['number'])
         self.assertNotIn('Application', props)
+
+    def test_a_missing_column_named_only_in_the_notion_body_is_dropped(self):
+        # The real client raises HTTPError whose text is "Bad Request" until it copies Notion's message in.
+        # This is the path a GitHub run hit on 1 Oct 2026: the row never opened, so the app showed no run.
+        sent = []
+
+        class Answer(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        def opener(request, timeout):
+            payload = json.loads(request.data.decode())
+            if 'Run id' in payload.get('properties', {}):
+                body = json.dumps({'message': 'Run id is not a property that exists.'}).encode()
+                raise urllib.error.HTTPError(request.full_url, 400, 'Bad Request', {}, io.BytesIO(body))
+            sent.append(payload)
+            return Answer(json.dumps({'url': 'https://notion.so/row', 'id': 'row'}).encode())
+
+        url = cron_runs.log_run(Tracker('t', 'db', opener=opener, sleep=lambda _s: None),
+                                {'mode': 'mail', 'started_at': '2026-10-01T13:47:00+00:00', 'warnings': [],
+                                 'run_id': '36871274548', 'mail': {'done': 4}, 'updates': ['a', 'b']})
+        self.assertEqual(url, 'https://notion.so/row')
+        self.assertNotIn('Run id', sent[0]['properties'])
+        self.assertEqual(sent[0]['properties']['Emails'], {'number': 4})
 
     def test_a_column_the_workspace_lacks_yet_is_dropped_not_the_row(self):
         sent = []

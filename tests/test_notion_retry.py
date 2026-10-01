@@ -52,6 +52,18 @@ class NotionRetryTest(unittest.TestCase):
             Tracker('t', 'db', opener=missing, sleep=waits.append)._request('GET', 'pages/x')
         self.assertEqual(waits, [])
 
+    def test_a_400_keeps_notions_reason(self):
+        # urllib would say only "Bad Request". The column name is in the body, and a run row is dropped
+        # when that name never reaches the caller.
+        body = json.dumps({'message': 'Run id is not a property that exists.'}).encode()
+
+        def opener(request, timeout):
+            raise urllib.error.HTTPError(request.full_url, 400, 'Bad Request', {}, io.BytesIO(body))
+
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            Tracker('t', 'db', opener=opener, sleep=lambda _s: None)._request('POST', 'pages', {'properties': {}})
+        self.assertIn('Run id is not a property that exists', str(caught.exception))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -80,6 +80,20 @@ def _log_request(method, path, status, started, attempt):
     except OSError:
         pass
 
+def _notion_message(error):
+    """The message in a Notion error body. Empty when there isn't one."""
+    try:
+        raw = error.read()
+    except Exception:  # noqa: BLE001 — a body we can't read is the same as no message
+        return ''
+    text = raw.decode('utf-8', 'replace') if isinstance(raw, (bytes, bytearray)) else str(raw or '')
+    try:
+        message = json.loads(text).get('message') or ''
+    except json.JSONDecodeError:
+        message = text
+    return str(message).replace('\n', ' ').strip()[:500]
+
+
 class Tracker:
     def __init__(self, token, database_id=DEFAULT_DATABASE_ID, opener=urllib.request.urlopen, sleep=time.sleep):
         self.token, self.database_id, self.opener, self.sleep = token, database_id, opener, sleep
@@ -120,6 +134,12 @@ class Tracker:
             except urllib.error.HTTPError as error:
                 _log_request(method, path, error.code, started, attempt)
                 if error.code not in self.RETRY_STATUS or attempt == self.RETRIES:
+                    # urllib's own text is only "HTTP Error 400: Bad Request". Notion's reason
+                    # ("Run id is not a property that exists.") is the body, and callers that drop a
+                    # missing column read it from the exception.
+                    message = _notion_message(error)
+                    if message:
+                        error.msg = message
                     raise
                 try:
                     wait = float(error.headers.get('Retry-After') or 0) if error.headers else 0

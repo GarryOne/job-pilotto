@@ -451,9 +451,10 @@ def _without_missing(send, properties):
             return send(properties)
         except Exception as error:  # noqa: BLE001 — only a missing column is retried
             missing = re.search(r'([^:.\n]+?) is not a property that exists', str(error))
-            if not missing or missing.group(1).strip() not in properties:
+            name = missing.group(1).strip().strip('"').strip("'") if missing else ''
+            if name not in properties:
                 raise
-            properties = {k: v for k, v in properties.items() if k != missing.group(1).strip()}
+            properties = {k: v for k, v in properties.items() if k != name}
     return send(properties)
 
 
