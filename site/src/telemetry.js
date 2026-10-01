@@ -136,7 +136,7 @@ td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top;overflow-
 pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--line);white-space:nowrap}
 .kind.crash{color:var(--red)}.kind.run_failed{color:var(--amber)}.kind.form_issue{color:var(--teal)}
 </style></head><body><main>
-<header><h1>✈ Job Pilotto · app reports</h1><span class="muted">${range} · <a href="/stats">Website stats →</a></span></header>
+<header><h1>✈ Job Pilotto · app reports</h1><span class="muted">${range} · <a href="/feedback">Live feedback →</a> · <a href="/stats">Website stats →</a></span></header>
 <div class="tiles">${tiles.map(([label, value]) => `<div class="card tile"><span class="muted">${label}</span><b>${value}</b></div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>How it helped</h2><small class="muted">all ${data.reporting} installs reporting, their latest totals</small>
 <div class="tiles" style="margin:10px 0 0">${[['🎯 Jobs matched', 'matches'], ['⭐ Good fits (70+)', 'goodFits'], ['🧩 Forms filled', 'formsFilled'],

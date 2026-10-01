@@ -42,3 +42,20 @@ test('the brain gets the words, never the contact', async () => {
   assert.equal(rows[0].text, good.text);
   assert.ok(!JSON.stringify(rows).includes('ana@example.com'));
 });
+
+test('the live page is the owner\'s only: 404 without the key, the page and its JSON with it', async () => {
+  const {view} = await import('../src/feedback.js');
+  const e = {...env(), STATS_KEY: 'secret'};
+  await send(e, good);
+  const open = (path, headers = {}) => view(new Request(`https://x/feedback${path}`, {headers}), e);
+  assert.equal((await open('')).status, 404);
+  assert.equal((await open('?json=1')).status, 404);
+  const auth = {Authorization: 'Bearer secret'};
+  const page = await open('', auth);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Job Pilotto · feedback/);
+  const data = await (await open('?json=1', auth)).json();
+  assert.equal(data.rows.length, 1);
+  assert.equal(data.rows[0].text, good.text);
+  assert.equal(data.rows[0].contact, good.contact);
+});

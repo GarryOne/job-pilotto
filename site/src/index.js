@@ -7,7 +7,7 @@ import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
 import {install} from './install.js';
 import {signals} from './signals.js';
-import {feedback} from './feedback.js';
+import {feedback, view as feedbackView} from './feedback.js';
 import {trial} from './trial.js';
 import {brain} from './brain.js';
 import {index as employerIndex} from './employers.js';
@@ -71,6 +71,7 @@ export default {
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);
     if (pathname === '/api/feedback') return feedback(request, env);
+    if (pathname === '/feedback') return feedbackView(request, env);
     if (pathname.startsWith('/api/ai/')) return trial(request, env);
     if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
     if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
