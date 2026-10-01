@@ -80,7 +80,9 @@ export function prompt(url, {auditFile}) {
     `sends my "Form filled" or "Needs your input" notification. If the posting is gone ("Job not found", 404, or not on the company's board), ` +
     `don't stop to ask: run python3 -m src.ai.apply_batch --mark-closed ${url} (marks it Closed and notifies me), close the tab, and finish. ` +
     `If you stop on any other blocker before filling, just run tools/notify.sh ${url} "Needs your input — see Terminal". ` +
-    "Job Pilotto marks the job applied when I submit, so you don't need to watch the tab. Start now.";
+    "Job Pilotto marks the job applied when I submit, so you don't need to watch the tab. Everything you write is read by an applicant, not a " +
+    "developer: never mention this repo, git status, tests, config files or code, and don't comment on anything that isn't the form. When you " +
+    'stop or wait, end with one plain line about the form (for example "Review the form and click Submit"). Start now.';
 }
 
 const shellQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`;

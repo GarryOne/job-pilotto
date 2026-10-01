@@ -37,6 +37,7 @@ test('the prompt names the job and the audit file, uses the open form tab and th
   assert.match(text, /already open/);
   assert.match(text, /never open a second tab/);
   assert.match(text, /no-form/);
+  assert.match(text, /read by an applicant, not a developer/);
   assert.match(text, /account/);
   assert.match(text, /the extension follows it/);
   assert.match(text, /don't read this repo's tests, config or README/);
