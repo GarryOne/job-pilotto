@@ -1074,12 +1074,22 @@ function handlers() {
   // macOS permission needed, never the wrong tab). Only when no page answers does the app look for the tab itself.
   const showForm = async (id, label, url, company) => {
     const key = String(id), name = String(label || '');
-    // Plain "Open in Chrome" (no field to scroll to): Chrome's own tab list finds the form and brings it forward at once. The
-    // page's check-in is slow in a tab that has been in the background (Chrome slows its timers), so it is not waited for.
-    if (!name && process.platform === 'darwin') {
+    // On a Mac the form tab is found and brought forward first, through Chrome's own tab list: at once, whatever the page is
+    // doing (a background tab's timers are slow). One attempt: it worked, or it says no tab is this job's form.
+    if (process.platform === 'darwin') {
       const direct = await openFormTab({url, company}, shell.openExternal, {confident: true}).catch(() => 'none');
-      appLog('review', `show ${key}: ${direct === 'tab' ? 'went straight to the form tab' : 'no tab is this job\'s form; nothing queued'}`, {went: direct});
-      return {taken: direct === 'tab', went: direct, found: null};  // one attempt: it worked, or it says it did not
+      if (direct !== 'tab') {
+        appLog('review', `show ${key}: no tab is this job's form; nothing queued`, {went: direct});
+        return {taken: false, went: 'none', found: null};
+      }
+      if (!name) { appLog('review', `show ${key}: went straight to the form tab`, {went: direct}); return {taken: true, went: direct, found: null}; }
+      // A field: the tab is in front now, so its page checks in quickly and scrolls to it.
+      review.queueFocus(key, name);
+      const answered = await review.delivered(key, 6000);
+      if (!answered) review.cancelFocus(key);  // nobody took it: it must not fire later
+      const seen = answered ? await review.focusFound(key, 3000) : null;
+      appLog('review', `show ${key}: tab in front, ${answered ? 'the page took the field' : 'the page did not answer'}`, {label: name.slice(0, 60), found: seen});
+      return {taken: answered, went: 'tab', found: seen};
     }
     review.queueFocus(key, name);
     let taken = await review.delivered(key, 4000);  // the page checks in every 2 s
