@@ -35,6 +35,7 @@ from zoneinfo import ZoneInfo
 from .. import telegram
 from ..notion import client as notion, cron_runs, ledger
 from ..notion import origin as origin_rule, titles
+from ..notion.funnel import PREPARED_STAGES
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 from ..paths import DATA
 from ..sources.google import Google
@@ -143,16 +144,20 @@ def save_state(state, path=STATE_FILE):
 
 
 def applications(tracker):
-    """Applications that emails and events can belong to, oldest first (stable indexes)."""
+    """The owner's jobs that emails and events can belong to, oldest first (stable indexes). Every job on the
+    tracker, not only the ones already applied to: the role a confirmation is about is often still at Saved,
+    Kit ready or Applying (1 Oct 2026: Canonical's SRE confirmation got no event because that row, at Kit ready,
+    wasn't in the list the reader matched against, and the role looked untracked)."""
     stages = lambda names: {'or': [{'property': 'Stage', 'select': {'equals': stage}} for stage in names]}
+    listed = OUTCOME_STAGES + (opportunity.LEAD_STAGE,) + PREPARED_STAGES + ('Saved',)
     try:
-        rows = tracker.query_database(tracker.database_id, stages(OUTCOME_STAGES + (opportunity.LEAD_STAGE,)))
+        rows = tracker.query_database(tracker.database_id, stages(listed))
     except urllib.error.HTTPError as error:
         # A workspace without the "Recruiter lead" choice yet (it's added by the app's repair, or by the first lead):
         # Notion refuses a filter on an unknown choice, and then there are no leads to match anyway.
         if error.code != 400:
             raise
-        rows = tracker.query_database(tracker.database_id, stages(OUTCOME_STAGES))
+        rows = tracker.query_database(tracker.database_id, stages(OUTCOME_STAGES + PREPARED_STAGES + ('Saved',)))
     return sorted(rows, key=lambda r: (plain(r['properties'].get('Applied on')) or '', r['id']))
 
 

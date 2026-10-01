@@ -171,6 +171,45 @@ class MailTests(unittest.TestCase):
         self.assertEqual(changes['fields']['Stage'], ['Applied', 'Confirmation received'])  # what the email changed
         self.assertEqual(apps[0]['properties']['Stage']['select']['name'], 'Confirmation received')  # repair a partially saved event
 
+    def test_a_confirmation_for_a_role_still_at_kit_ready_is_recorded(self):
+        # 1 Oct 2026: Canonical's "Thank you for applying" named the role "Site Reliability Engineer", which the
+        # tracker held at Stage Kit ready (a kit drafted, never marked Applied). applications() listed only outcome
+        # stages, so the reader couldn't see that row: it reached for the rejected "Site Reliability / Gitops
+        # Engineer", whose one Confirmation event the ledger's one-per-kind rule reused — no event, no move, and
+        # "0 updates" for an email that was really a confirmation.
+        kit = app('p1', 'Canonical', 'Site Reliability Engineer', stage='Kit ready')
+
+        class Tracker(FakeTracker):
+            def query_database(self, database_id, filter_=None):
+                if database_id == ledger.EVENTS_DATABASE_ID:
+                    return self.events
+                stages = [choice['select']['equals'] for choice in (filter_ or {}).get('or', [])]
+                return [row for row in self.apps if not stages or row['properties']['Stage']['select']['name'] in stages]
+
+        tracker = Tracker([kit])
+        google = FakeGoogle([email('m1', 'Thank you for applying to Canonical', '2026-10-01T02:56:00+02:00',
+                                   body='Dear Igor\n\nThank you for applying to the Site Reliability Engineer '
+                                        'position at Canonical.')])
+        # The reader answers with that row's index (the replay of 1 Oct 2026: application 27 = this row), and the
+        # row stays the one the email names, so the event is recorded on it rather than on a twin.
+        with mock.patch.object(mail, 'classify', lambda *a, **k: {0: {
+                **result(0, 0, 'Confirmation received', company='Canonical'), 'role': 'Site Reliability Engineer'}}), \
+                mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+            summary = mail.run(tracker, google, client=SimpleNamespace(), days=2, send=[].append, calendar=False, now=NOW,
+                               state_path=self.state, stats={})
+        self.assertIn('1 new email(s) classified, 1 update(s)', summary)
+        self.assertEqual(kit['properties']['Stage']['select']['name'], 'Confirmation received')
+        self.assertTrue(kit['properties']['Confirmation email']['checkbox'])
+        kinds = [p['Kind']['select']['name'] for p in tracker.created]
+        self.assertEqual(kinds, ['Confirmation received'])  # its own event, not swallowed as a repeat
+
+    def test_the_reader_sees_roles_still_at_kit_ready_or_applying(self):
+        tracker, filters = FakeTracker([]), []
+        tracker.query_database = lambda db, f=None: filters.append(f) or []
+        mail.applications(tracker)
+        self.assertIn({'property': 'Stage', 'select': {'equals': 'Kit ready'}}, filters[0]['or'])
+        self.assertIn({'property': 'Stage', 'select': {'equals': 'Applying'}}, filters[0]['or'])
+
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
         apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),
                 app('p2', 'Acme', 'SRE', stage='Offer')]
