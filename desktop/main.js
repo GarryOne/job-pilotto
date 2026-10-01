@@ -1060,6 +1060,8 @@ function handlers() {
   ipcMain.handle('sessionStop', (_, id) => terminals.stop(String(id)));
   ipcMain.handle('sessionResume', async (_, id) => (await claudeConsent()) ? apply.resumeSession(storage, String(id)) : {ok: false, error: 'Cancelled.'});
   ipcMain.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
+  // Its job is already Applied: the form was submitted, so the session ends (recorded as submitted, then gone).
+  ipcMain.handle('sessionSubmitted', (_, url) => (DEMO ? null : server.sessionSubmitted(String(url))));
   // Removing a session whose job is still Applying: was it submitted? Notion first; the session goes only if that worked.
   ipcMain.handle('sessionFinish', async (_, id) => {
     const found = terminals.get(String(id));

@@ -179,3 +179,10 @@ export function ago(iso, now = Date.now()) {
 
 // "Applying" that no open session explains: the session was closed without saying whether it was submitted.
 export const isStuck = (job, hasSession) => job.stage === 'Applying' && !hasSession(job);
+
+// Sessions left over from a previous run whose job is already Applied (or past it): the form was submitted — that
+// is what Applied means — so the session is finished. It happens when the extension's report arrived while the app
+// was closing, or its own I-submitted-it button was used instead. Ends them without asking.
+export function staleAppliedSessions(sessions, jobFor) {
+  return sessions.filter(session => session.askAtStart && SENT.has(jobFor(session)?.stage));
+}

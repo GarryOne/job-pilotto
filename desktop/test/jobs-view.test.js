@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {interviewJob, notionPageUrl, ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
+import {interviewJob, notionPageUrl, ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, staleAppliedSessions, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -194,3 +194,17 @@ test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and Inb
   assert.match(html, /<b id="stat-inbound">–<\/b><span>Inbound<\/span>/);
 });
 
+
+test('a session left over from the last run whose job is already Applied is finished, not asked about', () => {
+  const sessions = [
+    {id: 'a', url: 'https://jobs.test/canonical/1', askAtStart: true},   // Applied: the form was submitted
+    {id: 'b', url: 'https://jobs.test/acme/2', askAtStart: true},        // still Applying: ask
+    {id: 'c', url: 'https://jobs.test/beta/3', askAtStart: false},       // running now: leave it
+    {id: 'd', url: 'https://jobs.test/gamma/4', askAtStart: true}];      // no tracked job
+  const stages = {'canonical': 'Applied', 'acme': 'Applying', 'beta': 'Applied'};
+  const jobFor = session => ({stage: stages[new URL(session.url).pathname.split('/')[1]]});
+  // Applied and past it; Kit ready (never applied) and no job at all are not finished this way.
+  assert.deepEqual(staleAppliedSessions(sessions, jobFor).map(s => s.id), ['a']);
+  const confirmed = session => ({stage: session.url.includes('canonical') ? 'Confirmation received' : 'Kit ready'});
+  assert.deepEqual(staleAppliedSessions(sessions, confirmed).map(s => s.id), ['a']);
+});

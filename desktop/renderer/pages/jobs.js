@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, staleAppliedSessions, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
@@ -737,13 +737,24 @@ export async function loadJobs() {
   renderJobs();
   if (freshJobs) askAboutLeftOpen();
 }
-// Once per launch, on fresh data: sessions left open by the last run whose jobs are still Applying. Keep them, go
-// through them one by one (the "Did you submit?" question), or reset them all to Kit ready.
+// Once per launch, on fresh data: sessions left open by the last run. One whose job is already Applied is over
+// without a question (the form was submitted — that is what Applied means), and the rest are still Applying: keep
+// them, go through them one by one (the "Did you submit?" question), or reset them all to Kit ready.
 async function askAboutLeftOpen() {
   if (leftOpenAsked || jobsLoading || !shared.allJobs.length) return;
   await refreshSessions();
-  const open = sessionList.filter(item => item.askAtStart && sessionJob(item).stage === 'Applying');
   leftOpenAsked = true;
+  // The extension's report can arrive while the app is closing, or the job is marked Applied from Jobs or in
+  // Notion: then nothing is left to decide, so the session ends itself rather than sitting in the list.
+  const done = staleAppliedSessions(sessionList, sessionJob);
+  for (const item of done) await window.pilot.sessionSubmitted(item.url);
+  if (done.length) {
+    toastMessage(`${done.length} finished session${done.length === 1 ? '' : 's'} cleared`,
+      `${done.length === 1 ? 'It was' : 'They were'} already marked Applied.`);
+    await refreshSessions();
+    renderJobs();
+  }
+  const open = sessionList.filter(item => item.askAtStart && sessionJob(item).stage === 'Applying');
   if (!open.length) return;
   const answer = await window.pilot.sessionsLeftOpen(open.map(item => item.id));
   if (answer?.kept) toastMessage(`${answer.kept} application${answer.kept === 1 ? '' : 's'} restored`,
