@@ -19,12 +19,15 @@ function append(text) {
 }
 
 // The run's two markers. `args` is the module and its arguments: `src.daily --mode run` (never user content).
-export function start(args = [], at = new Date()) {
-  append(`${at.toISOString()} ---- python -m ${args.join(' ')}`);
+// runId, when the app minted one, is on both markers so a line in this file joins the Notion row and app.log.
+export function start(args = [], at = new Date(), runId = '') {
+  const id = runId ? ` run_id=${runId}` : '';
+  append(`${at.toISOString()} ---- python -m ${args.join(' ')}${id}`);
 }
 export function line(text) {
   append(String(text));
 }
-export function end({code, seconds} = {}, at = new Date()) {
-  append(`${at.toISOString()} ---- exit ${code} after ${seconds}s`);
+export function end({code, seconds, runId} = {}, at = new Date()) {
+  const id = runId ? ` run_id=${runId}` : '';
+  append(`${at.toISOString()} ---- exit ${code} after ${seconds}s${id}`);
 }

@@ -1082,6 +1082,9 @@
         "Run URL": {
           "type": "url"
         },
+        "Run id": {
+          "type": "rich_text"
+        },
         "Scored": {
           "type": "number",
           "format": "number"

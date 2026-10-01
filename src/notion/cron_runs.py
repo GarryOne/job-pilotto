@@ -14,6 +14,8 @@ import os
 import re
 import sys
 
+from .. import run_result
+
 CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '')
 # (run key, the old per-step column (retired: each step's cost is on the run's page now), its label).
 STAGES = (('enrich', 'Cost enrich (USD)', 'Enriched'), ('score', 'Cost score (USD)', 'Scored'),
@@ -28,7 +30,7 @@ def new_run(mode):
     # The desktop app says what started it (JOB_PILOTTO_TRIGGER: "Mac schedule" or "Mac (you)").
     trigger = os.getenv('JOB_PILOTTO_TRIGGER') or {'schedule': 'Schedule', '': 'Local'}.get(event, 'Manual')
     run = {'mode': mode, 'started_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
-           'trigger': trigger, 'warnings': []}
+           'trigger': trigger, 'warnings': [], 'run_id': run_result.current_id()}
     if os.getenv('GITHUB_RUN_ID'):
         run['run_url'] = (f"{os.getenv('GITHUB_SERVER_URL', 'https://github.com')}/"
                           f"{os.getenv('GITHUB_REPOSITORY', '')}/actions/runs/{os.getenv('GITHUB_RUN_ID')}")
@@ -265,6 +267,7 @@ def log_job(run, row, created):
            'title': title, 'job_url': (props.get('Job URL') or {}).get('url') or '', 'created': bool(created)}
     run['application'] = row['id']
     run['subject'] = job_subject(row)  # the run's title names the job
+    run_result.note_job(job)
     print(JOB_LINE + json.dumps(job, ensure_ascii=False))
     return job
 
@@ -306,6 +309,8 @@ def run_page(run, final=True):
         properties['Application'] = {'relation': [{'id': run['application']}]}
     if run.get('run_url'):
         properties['Run URL'] = {'url': run['run_url']}
+    if run.get('run_id'):  # joins this row to logs/app.log, logs/engine.log, and the Actions log
+        properties['Run id'] = _text(str(run['run_id']))
     children = [_para('Report', 'heading_3')] + [_para(line, 'bulleted_list_item') for line in lines]
     read = email_lines(run)
     if read:  # every email this check read, its subject linking to it, and what the check did about it
@@ -370,10 +375,12 @@ def begin(tracker, run):
         return None
     try:
         properties = {key: value for key, value in run_page(run, final=False)[0].items()
-                      if key in ('Run', 'Started', 'Mode', 'Trigger', 'Run URL')}
+                      if key in ('Run', 'Started', 'Mode', 'Trigger', 'Run URL', 'Run id')}
         properties['Status'] = {'select': {'name': 'Running'}}
-        page = tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID}, 'properties': properties})
+        page = _without_missing(lambda props: tracker._request(
+            'POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID}, 'properties': props}), properties)
         _open.update(tracker=tracker, id=page['id'], url=page.get('url'), run=run)
+        run_result.note_notion(page.get('url'))
         print(f"Cronjob run logged: {page.get('url')}")  # the desktop app links its activity row to this
         return page.get('url')
     except Exception as error:
@@ -462,11 +469,17 @@ def log_run(tracker, run, failed=False):
             _open.pop('run')
             _without_missing(lambda props: tracker._request('PATCH', f"pages/{_open['id']}", {'properties': props}), properties)
             tracker._request('PATCH', f"blocks/{_open['id']}/children", {'children': children[:100]})
-            return _open.get('url')
+            url = _open.get('url')
+            run_result.note_notion(url)
+            run_result.publish(run, failed=failed)
+            return url
         page = _without_missing(lambda props: tracker._request('POST', 'pages', {'parent': {'database_id': CRON_RUNS_DATABASE_ID},
                                                                                 'properties': props, 'children': children[:100]}), properties)
+        run_result.note_notion(page.get('url'))
+        run_result.publish(run, failed=failed)
         return page.get('url')
     except Exception as error:
+        run_result.publish(run, failed=True)
         print(f'Warning: cronjob run not logged to Notion: {type(error).__name__}: {error}')
         return None
 

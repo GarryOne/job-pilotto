@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "ok": false,
+  "run_id": "abc123def456",
+  "warnings": [{"message": "1 feed failed"}],
+  "job": {"page_id": "page-1", "url": "https://www.notion.so/page1", "title": "SRE", "job_url": "https://jobs.example/1", "created": true},
+  "notion_url": "https://www.notion.so/run1",
+  "mail": {"skipped": "spend"}
+}

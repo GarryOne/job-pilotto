@@ -262,6 +262,7 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Telegram | Text | Sent / not sent |
 | Summary | Text | Report headline |
 | Run URL | URL | GitHub Actions run |
+| Run id | Text | Joins this row to logs/app.log, logs/engine.log, and `run_id=` in the Actions log |
 | Changed jobs | Number |  |
 | Cost enrich (USD) | Number |  |
 | Cost insight (USD) | Number |  |

@@ -6,13 +6,15 @@ const row = (id, props, extra = {}) => ({id, url: `https://www.notion.so/${id}`,
   Started: {date: {start: props.started}}, Mode: {select: {name: props.mode}}, Status: {select: {name: props.status}},
   Trigger: {select: {name: props.trigger}}, Summary: {rich_text: [{plain_text: props.summary || ''}]},
   'Duration (s)': {number: props.seconds ?? null}, 'New jobs': {number: props.fresh ?? 0}, 'AI cost (USD)': {number: 0.01},
-  'Run URL': {url: props.runUrl || null}}});
+  'Run URL': {url: props.runUrl || null},
+  'Run id': props.runId ? {rich_text: [{plain_text: props.runId}]} : {rich_text: []}}});
 const NOW = Date.parse('2026-09-28T12:10:00Z');
 
 test('a Notion ⏱️ Search runs row reads as an activity record, wherever it ran', () => {
   const gh = history.fromRow(row('r1', {started: '2026-09-28T12:00:00Z', mode: 'insight', status: 'OK', trigger: 'Schedule', seconds: 50,
-    summary: 'Insight sent: Skills — Go is in 40% (AI cost $0.012)', runUrl: 'https://github.com/me/p/actions/runs/1'}), NOW);
+    summary: 'Insight sent: Skills — Go is in 40% (AI cost $0.012)', runUrl: 'https://github.com/me/p/actions/runs/1', runId: 'abc123def456'}), NOW);
   assert.equal(gh.kind, 'insight');
+  assert.equal(gh.runId, 'abc123def456');
   assert.equal(gh.where, 'github');
   assert.equal(gh.trigger, 'schedule');
   assert.equal(gh.ok, true);

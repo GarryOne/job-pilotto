@@ -59,6 +59,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/review.js` — The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
 - `desktop/lib/root.js` — Where the pipeline, config, tools and extension live: the repo when developing, the app's
 - `desktop/lib/run-history.js` — Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
+- `desktop/lib/run-result.js` — The engine's result file (src/run_result.py): one object per run, instead of the last stdout line.
 - `desktop/lib/schedule.js` — Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 - `desktop/lib/secrets.js` — Pasted keys and tokens: drop what copying adds (spaces, line breaks, invisible characters) and
@@ -232,6 +233,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
 - `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
+- `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
 - `src/sources/ats.py` — Public job feeds of common applicant-tracking systems, normalised to one shape.

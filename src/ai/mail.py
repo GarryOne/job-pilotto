@@ -1067,6 +1067,14 @@ def main(argv=None):
         if logged:
             log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash
+        from .. import run_result
+        # Noted before the run row is written, so the result file carries the code and not only the sentence.
+        if 'invalid_grant' in str(error):
+            run_result.note_mail('google')
+        elif cost.cli_limit(error):
+            run_result.note_mail('plan' if 'usage window' in str(error) else 'claude')
+        elif cost.limit_reached(error):
+            run_result.note_mail('spend')
         if logged:
             log_check(f'check failed: {type(error).__name__}: {str(error)[:200]}')
         if 'invalid_grant' in str(error):

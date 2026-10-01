@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import * as engineLog from '../lib/engine-log.js';
-import {log, logTo} from '../lib/log.js';
+import {logTo} from '../lib/log.js';
 import * as pipeline from '../lib/pipeline.js';
 
 test('a run is written down: engine.log takes its output, app.log its two markers', async () => {
@@ -16,16 +16,17 @@ test('a run is written down: engine.log takes its output, app.log its two marker
   logTo(dir);
   engineLog.setFile(path.join(dir, 'engine.log'));
   // A module that cannot exist: python fails at once (no stdin to wait on), so the failure path is what is logged.
-  const {code} = await pipeline.run(storage, ['no_such_module_for_this_test']);
+  const {code, runId} = await pipeline.run(storage, ['no_such_module_for_this_test']);
   assert.notEqual(code, 0);
+  assert.match(runId, /^[0-9a-f]+$/);
   const engine = fs.readFileSync(path.join(dir, 'engine.log'), 'utf8');
-  assert.match(engine, /---- python -m no_such_module_for_this_test\n/);          // the header, before the output
+  assert.match(engine, new RegExp(`---- python -m no_such_module_for_this_test run_id=${runId}\\n`));  // the header, before the output
   assert.match(engine, /No module named no_such_module_for_this_test/);           // the engine's own words
-  assert.match(engine, /---- exit \d+ after \d+s/);                               // and the exit line
+  assert.match(engine, new RegExp(`---- exit \\d+ after \\d+s run_id=${runId}`));  // and the exit line, same id
   assert.ok(engine.indexOf('---- python -m') < engine.indexOf('No module named'));
   const app = fs.readFileSync(path.join(dir, 'app.log'), 'utf8');
-  assert.match(app, /\[run\] start: python -m no_such_module_for_this_test/);
-  assert.match(app, /\[run\] end: python -m no_such_module_for_this_test -> exit \d+ in \d+s/);
+  assert.match(app, new RegExp(`\\[run\\] start: python -m no_such_module_for_this_test \\{"run_id":"${runId}"\\}`));
+  assert.match(app, new RegExp(`\\[run\\] end: python -m no_such_module_for_this_test -> exit \\d+ in \\d+s \\{"run_id":"${runId}"`));
   logTo(null);
   engineLog.setFile(null);
 });

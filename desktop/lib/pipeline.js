@@ -3,9 +3,12 @@ import * as claudeCode from './claude-code.js';
 import * as poolShare from './pool-share.js';
 import * as demo from './demo.js';
 import * as requestLog from './request-log.js';
-import {jobFrom} from './job-line.js';
+import {jobFrom, jobFromResult} from './job-line.js';
+import {mailProblem as mailProblemFrom, readResult} from './run-result.js';
 import {spawn} from 'node:child_process';
+import {randomBytes} from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {cadence} from './cadence.js';
@@ -111,11 +114,14 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   const told = onLine;
   // The run's output is written down as it comes (logs/engine.log) and its two markers go to the app log, so a run
   // that went wrong can be read back afterwards instead of being lost with the window (1 Oct 2026).
-  engineLog.start(args);
-  appLog('run', `start: python -m ${args.join(' ')}`);
+  const runId = extraEnv.JOB_PILOTTO_RUN_ID || randomBytes(6).toString('hex');
+  const resultFile = path.join(os.tmpdir(), `jp-result-${runId}.json`);
+  engineLog.start(args, new Date(), runId);
+  appLog('run', `start: python -m ${args.join(' ')}`, {run_id: runId});
   onLine = line => { tail.push(line); if (tail.length > 30) tail.shift(); told(line); };
   return new Promise((resolve, reject) => {
-    const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv}});
+    const child = spawn(python(), ['-m', ...args], {cwd: REPO, env: {...pipelineEnv(storage), ...extraEnv,
+      JOB_PILOTTO_RUN_ID: runId, JOB_PILOTTO_RESULT_FILE: resultFile}});
     children.add(child);
     child.on('exit', () => children.delete(child));
     let stdout = '', buffer = '';
@@ -131,10 +137,13 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
     child.on('close', code => {
       if (buffer) { engineLog.line(buffer); onLine(readable(buffer)); }
       const seconds = Math.round((Date.now() - started) / 1000);
-      engineLog.end({code, seconds});
-      appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {tail: tail.slice(-3)});
-      for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail]}); } catch {} }
-      resolve({code, stdout});
+      const result = readResult(resultFile);
+      try { fs.unlinkSync(resultFile); } catch {}
+      if (result && code !== 0) result.ok = false;
+      engineLog.end({code, seconds, runId});
+      appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
+      for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId}); } catch {} }
+      resolve({code, stdout, result, runId});
     });
   });
 }
@@ -150,11 +159,11 @@ export async function jobs(storage) {
 // details: {title, company, text, origin} (origin: 'inbound' when a recruiter or company wrote first) for pages that aren't read (LinkedIn…); the AI stages then score it like a found job.
 export async function addApplied(storage, url, when = '', onLine = () => {}, details = {}) {
   const inputs = {mode: 'add', job: url, note: when, jobTitle: details.title, jobCompany: details.company, jobText: details.text, origin: details.origin};
-  const {code, stdout} = await run(storage, dailyArgs(storage, inputs), onLine);
+  const {code, stdout, result} = await run(storage, dailyArgs(storage, inputs), onLine);
   const line = stdout.trim().split('\n').filter(Boolean).pop() || '';
   const text = readable(line);
   const ok = code === 0 && !text.startsWith('⚠️');
-  return {ok, text: text || 'Could not add it (see the activity log)', job: ok ? jobFrom(stdout.split('\n')) : null};
+  return {ok, text: text || 'Could not add it (see the activity log)', job: ok ? (jobFromResult(result) || jobFrom(stdout.split('\n'))) : null};
 }
 
 // A pasted message or screenshot (LinkedIn, Gmail, WhatsApp): Claude finds the job it's about and updates it in Notion,
@@ -293,25 +302,21 @@ export function mailArgs(storage, now = Date.now()) {
   return ['src.ai.mail', '--days', String(days), ...(telegram ? ['--send'] : []), '--log-run'];
 }
 // A check that ended normally (exit 0, so a GitHub run isn't marked crashed) without reading the mail: why, or null.
-export function mailProblem(stdout) {
-  if (/^Mail check skipped: the Anthropic API spend limit/m.test(stdout)) return 'not checked: the Anthropic API spend limit was reached';
-  if (/^Mail check skipped: Claude Code: your Claude usage window/m.test(stdout)) return 'not checked: your Claude usage window is exhausted; it runs again later';
-  if (/^Mail check skipped: Claude Code (?:is not signed in|was not found)/m.test(stdout)) return 'not checked: Claude Code is not ready (Settings → AI)';
-  if (/The Google sign-in for Gmail and Calendar has expired/.test(stdout)) return 'not checked: the Google sign-in expired (Settings → Gmail and Calendar)';
-  return null;
+export function mailProblem(stdout, result) {
+  return mailProblemFrom(stdout, result);
 }
 export function checkMail(storage, onLine, trigger = 'you') {
   let off = false, problem = null;
   return tracked(storage, 'mail', trigger, onLine, async tee => {
-    const {code, stdout} = await run(storage, mailArgs(storage), tee, triggerEnv(trigger));
+    const {code, stdout, result} = await run(storage, mailArgs(storage), tee, triggerEnv(trigger));
     off = /Gmail \+ Calendar is off/.test(stdout);
-    problem = code === 0 ? mailProblem(stdout) : null;
+    problem = code === 0 ? mailProblem(stdout, result) : null;
     // lastMailAt paces the schedule (a failed or "not connected" check waits for the next time too);
     // lastMailOkAt sets how far back the next check looks: only a check that read the mail moves it.
     const at = new Date().toISOString();
     const ok = code === 0 && !problem;
     storage.saveSettings({lastMailAt: at, ...(ok && !off ? {lastMailOkAt: at} : {})});
-    return {ok};
+    return {ok, result};
   }, {}, (record, log) => ({...mailResult(log), off, problem}));
 }
 // What a Gmail check recorded and its "Mail: …" summary line (also read from GitHub runs' logs, cloud-runs.js).
@@ -342,8 +347,8 @@ export function scout(storage, onLine, trigger = 'you', batch = 15) {
 }
 export function task(storage, kind, args, onLine, trigger = 'you') {
   return tracked(storage, kind, trigger, onLine, async tee => {
-    const {code} = await run(storage, args, tee, triggerEnv(trigger));
-    return {ok: code === 0};
+    const {code, result} = await run(storage, args, tee, triggerEnv(trigger));
+    return {ok: code === 0, result};
   }, {args}, (record, log) => ({summary: taskSummary(kind, log), message: appMessage(log)}));
 }
 // Without Telegram the pipeline prints its message between <<<message / message>>> (src/telegram.py to_app);
@@ -382,14 +387,17 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
       else if (!inMessage && !/^\s|^Warning/.test(line) && line.length < 120) current = {...current, step: line};
       onLine(line);
     };
-    let ok = false;
+    let ok = false, result = null;
     try {
-      ok = (await work(tee)).ok;
+      const outcome = (await work(tee)) || {};
+      ok = outcome.ok;
+      result = outcome.result || null;
     } catch (error) {
       tee(`${taskName(kind)} failed: ${error.message}`);
     } finally {
-      const notionUrl = log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
-      Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, log: log.slice(-400), ...summarize(record, log)});
+      const notionUrl = result?.notion_url || log.map(line => line.match(/^Cronjob run logged: (\S+)/)?.[1]).filter(Boolean).pop() || null;
+      Object.assign(record, {endedAt: new Date().toISOString(), ok, notionUrl, runId: result?.run_id || null,
+        log: log.slice(-400), ...summarize(record, log)});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
       saveQueue(storage);
@@ -408,9 +416,9 @@ function searchOnce(storage, onLine, mode, trigger = 'you') {
     onLine('Searching job boards (jobs.ch, TechTree)…');
     await run(storage, ['src', 'discover', '--pages', '1', '--max-companies', '40'], onLine);
     onLine('Checking employer career pages' + (ai ? ', then reading and scoring new jobs…' : '…'));
-    const {code} = await run(storage, dailyArgs(storage, {mode}), onLine, triggerEnv(trigger));
+    const {code, result} = await run(storage, dailyArgs(storage, {mode}), onLine, triggerEnv(trigger));
     storage.saveSettings({lastSearchAt: new Date().toISOString(), lastSearchOk: code === 0});
-    return {ok: code === 0};
+    return {ok: code === 0, result};
   })();
 }
 

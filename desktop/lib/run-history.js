@@ -39,6 +39,7 @@ export function fromRow(page, now = Date.now()) {
   // The Interviews page's insights share the daily insight's mode; their result line tells them apart.
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
   const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind, mode,
+    runId: text(p['Run id']) || null,
     trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
   if (running) return {...record, live: true, step: summary.replace(/^⏳\s*/, '') || 'Running'};
   const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported

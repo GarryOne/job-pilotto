@@ -114,7 +114,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           JOB_PILOTTO_MAIL_MODEL: ${{ vars.JOB_PILOTTO_MAIL_MODEL || 'claude-haiku-4-5' }}
+          JOB_PILOTTO_RUN_ID: ${{ github.run_id }}
         run: |
+          echo "run_id=${JOB_PILOTTO_RUN_ID}"
           pip install --quiet -r requirements.txt
           send=()
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send=(--send); fi

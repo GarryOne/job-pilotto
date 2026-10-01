@@ -86,7 +86,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           BATCH: ${{ inputs.batch || '15' }}
+          JOB_PILOTTO_RUN_ID: ${{ github.run_id }}
         run: |
+          echo "run_id=${JOB_PILOTTO_RUN_ID}"
           send=""
           if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then send="--send"; fi
           python -m src scout --batch "$BATCH" $send --log-run
