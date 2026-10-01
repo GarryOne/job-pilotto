@@ -275,7 +275,7 @@ export function renderNextStep(item) {
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
       ? 'The form is behind a sign-in or sign-up. Claude can create the account, read the confirmation email and fill the form; you still submit it.'
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Claude can find the form, follow the links and fill it; you still submit it.')]
-    : gone ? [el('p', 'rich-p', 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
+    : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', item.kind === 'form' ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
       // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
@@ -321,6 +321,7 @@ export function renderNextStep(item) {
         if (panelDead.delete(item.id)) renderSessionPage();
         return;
       }
+      if (result?.went === 'none') { toastMessage('The form tab is closed', 'No open Chrome tab is this job\'s form. Press Reopen form.'); return; }   // nothing to repair: there is no tab
       panelDead.add(item.id);
       renderSessionPage();
       toastMessage('Form tab not found', osText('The form\'s page didn\'t answer, so the extension isn\'t attached to it. '
@@ -399,8 +400,8 @@ export function renderNextStep(item) {
   // (what it filled, the problems it hit, its audit). Its other report sections join what happened.
   const sorted = sortChecks(checks), mine = sortChecks(forYou, {forYou: true});
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
-  const empty = emptyFields(item, needs);
-  show($('ss-needs-card'), needs.length + empty.length > 0);
+  const empty = gone ? [] : emptyFields(item, needs);   // a closed tab has no empty fields to open
+  show($('ss-needs-card'), needs.length + empty.length > 0 && !(gone && item.kind === 'form'));
   $('ss-needs-title').textContent = 'Needs your attention';
   $('ss-needs-sub').textContent = review ? 'Claude filled most of the form, but a few items need your review.'
     : 'Claude flagged these while it worked.';

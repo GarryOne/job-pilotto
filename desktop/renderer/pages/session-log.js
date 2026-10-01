@@ -8,6 +8,7 @@ import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {isSubmitted} from '../session-state.js';
+import {formGone} from './session-needs.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
@@ -31,6 +32,8 @@ function clearHeader() {
   $('ss-status').replaceChildren();
   $('ss-more').replaceChildren();
 }
+// A form session whose Chrome tab was closed is not "Form open" any more (the tab report says so within seconds).
+const stateOf = item => (item.kind === 'form' && formGone(item) ? ['Form closed', 'neutral'] : sessionState(item));
 export function renderSessionPage() {
   // The session shown is the open one; after a reload (⌘R) the one open before it, else the first. It becomes the
   // open session, so the log, replies and buttons act on the session you see (with none set, the log stayed empty).
@@ -47,7 +50,7 @@ export function renderSessionPage() {
   show($('ss-refreshing'), panels.refreshing);
   if (panels.loading) { clearHeader(); return; }  // nothing to describe yet
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
-    const [label, tone] = sessionState(entry);
+    const [label, tone] = stateOf(entry);
     const li = el('li', `ss-row tone-${tone}${entry.id === item?.id ? ' is-current' : ''}`);
     const words = el('div', 'ss-row-words');
     const top = el('div', 'ss-row-top');
@@ -60,7 +63,7 @@ export function renderSessionPage() {
     return li;
   }));
   if (!item) { clearHeader(); return; }
-  const [label, tone] = sessionState(item);
+  const [label, tone] = stateOf(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
   $('ss-status').replaceChildren(pill(sessionReview(item) && tone !== 'good' && item.kind !== 'form' ? 'Ready for review' : label, tone, {dot: true}));
