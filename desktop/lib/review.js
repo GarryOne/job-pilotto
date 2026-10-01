@@ -71,6 +71,11 @@ export function queueClose(id, now = Date.now()) {
 export function queueReload(id, now = Date.now()) {
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {reload: true, at: now}]);
 }
+// A "show me this field" nobody picked up: dropped, so the page doesn't act on it minutes later and pull Chrome forward.
+export function cancelFocus(id) {
+  const rest = (commands.get(id) || []).filter(command => command.focus === undefined);
+  if (rest.length) commands.set(id, rest); else commands.delete(id);
+}
 export function queueFocus(id, label, now = Date.now()) {
   focusAnswers.delete(id);
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {focus: String(label), at: now}]);

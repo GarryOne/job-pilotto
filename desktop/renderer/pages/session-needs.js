@@ -203,7 +203,7 @@ export function emptyRow(label, item) {
   body.append(titleLine(name), el('span', 'ss-need-desc small', more
     ? `Still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
     : 'This section is still empty in the form.'));
-  actions.append(more ? smallButton('Open the form', 'primary', event => opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id)))
+  actions.append(more ? smallButton('Open the form', 'primary', event => openForm(item, event.currentTarget))
     : smallButton('Open in form', 'secondary is-signal', event => showInForm(item, label, event.currentTarget)));
   li.append(badge(), body, actions);
   return li;
@@ -227,6 +227,13 @@ export async function opening(button, work) {
     if (words) words.textContent = before;
     if (button) button.disabled = false;
   }
+}
+// Plain "Open in Chrome": one attempt. Chrome comes forward on that job's form tab, or the toast says no tab is it (nothing
+// is left queued that could pull Chrome forward later).
+export async function openForm(item, button) {
+  const result = await opening(button, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+  if (result?.went === 'none') toastMessage('Form tab not found', 'No open Chrome tab is this job\'s form. Open the form in Chrome yourself, or press Start again.');
+  return result;
 }
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
 async function showInForm(item, label, button) {

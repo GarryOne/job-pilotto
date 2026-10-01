@@ -10,7 +10,7 @@ import {$, osText, show} from './core.js';
 import {pageKey, renderJobs} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
-import {applyFormStates, askRow, reviewStates, opening, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
+import {applyFormStates, askRow, reviewStates, opening, openForm, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
@@ -348,7 +348,7 @@ export function renderNextStep(item) {
     if (item.resumable) actions.push(resume('primary'));
     // Claude closed with the app, but the form may still be open in Chrome.
     if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
-      await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+      await openForm(item, event.currentTarget);
     }, 'link'));
     actions.push(submittedButton(item));
     actions.push(sessionButton('Remove from the list', 'secondary', () => removeSession(item)));
@@ -363,13 +363,13 @@ export function renderNextStep(item) {
     }
     // The form is waiting in Chrome while Claude asks: one click to look at it, as when it works.
     if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
-      await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+      await openForm(item, event.currentTarget);
     }, 'link'));
     actions.push(submittedButton(item));
     actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
   } else if (running) {
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => {
-      await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+      await openForm(item, event.currentTarget);
     }, 'link'));
     actions.push(sessionButton('Pause', 'secondary', pauseSession));
     actions.push(submittedButton(item));

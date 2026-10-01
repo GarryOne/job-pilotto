@@ -1077,7 +1077,8 @@ function handlers() {
     // page's check-in is slow in a tab that has been in the background (Chrome slows its timers), so it is not waited for.
     if (!name && process.platform === 'darwin') {
       const direct = await openFormTab({url, company}, shell.openExternal, {confident: true}).catch(() => 'none');
-      if (direct === 'tab') { appLog('review', `show ${key}: went straight to the form tab`, {went: direct}); return {taken: true, went: direct, found: null}; }
+      appLog('review', `show ${key}: ${direct === 'tab' ? 'went straight to the form tab' : 'no tab is this job\'s form; nothing queued'}`, {went: direct});
+      return {taken: direct === 'tab', went: direct, found: null};  // one attempt: it worked, or it says it did not
     }
     review.queueFocus(key, name);
     let taken = await review.delivered(key, 4000);  // the page checks in every 2 s
@@ -1089,6 +1090,7 @@ function handlers() {
       await extensionInstall.openInChrome(`chrome-extension://${server.EXTENSION_ID}/wake.html`).catch(() => {});
       taken = await review.delivered(key, 6000);
     }
+    if (!taken) review.cancelFocus(key);  // nobody took it: it must not fire later and pull Chrome forward
     const went = taken ? 'tab' : await openFormTab({url, company}, shell.openExternal);
     appLog('review', `show ${key}: ${taken ? 'form page answered' : `no page answered, app went to: ${went}`}`, {label: name.slice(0, 60), taken: !!taken, went});
     const found = taken && name ? await review.focusFound(key, 3000) : null;

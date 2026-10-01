@@ -207,3 +207,13 @@ test('a session closed with the app (restored, waiting, not live) still owns its
   assert.equal(review.report([{...restored[0], status: 'ended'}], page).matched, null);  // a finished session owns nothing
   review._reset();
 });
+
+test('a "show me this field" nobody took is cancelled, so the page does not act on it later', () => {
+  review._reset();
+  review.queueFocus('s1', 'Street');
+  review.queueClose('s1');
+  review.cancelFocus('s1');
+  const reply = review.report(sessions, form());
+  assert.deepEqual(reply.commands, [{close: true}]);  // only the focus is dropped
+  review._reset();
+});
