@@ -187,6 +187,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
+- `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.
 
 ## Python pipeline
 

@@ -247,7 +247,22 @@ chrome.runtime.onStartup.addListener(retireEverywhere);
 retireEverywhere();
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  // The page's panel saw a submit press (review.js): the evidence that a submission happened in that tab.
+  // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
+  if (message?.type === 'armTab') {
+    const tabId = Number(message.tabId);
+    if (!Number.isInteger(tabId)) { reply({ok: false}); return false; }
+    arm(tabId, 'review').then(() => reply({ok: true}), () => reply({ok: false}));
+    return true;
+  }
+  if (message?.type === 'focusResult' && sender.tab) {
+    (async () => {
+      const config = await settings();
+      if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
+      return api(config, '/extension/focus', {method: 'POST', body: JSON.stringify({
+        url: sender.tab.url, title: sender.tab.title || '', found: !!message.found})});
+    })().then(reply, () => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'panelAllowed' && sender.tab) {
     const key = `armed:${sender.tab.id}`;
     chrome.storage.session.get(key).then(stored => {

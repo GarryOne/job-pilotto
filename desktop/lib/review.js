@@ -12,6 +12,8 @@ const watches = new Map();     // session id -> [{id, label}] the app wants trac
 const commands = new Map();    // session id -> [{focus, at}]
 const last = new Map();        // session id -> the last state passed on
 const waiting = new Map();     // session id -> resolvers waiting for a page to take a "show me this field"
+const focusAnswers = new Map(); // session id -> whether the page found the field the app asked to show
+const focusWaiters = new Map(); // session id -> resolvers waiting for that answer
 let reporter = () => {};
 let keptFile = '';             // the last states, on disk: a restarted app shows "Ready to submit" before the page reports again
 
@@ -51,7 +53,38 @@ export function queueReload(id, now = Date.now()) {
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {reload: true, at: now}]);
 }
 export function queueFocus(id, label, now = Date.now()) {
+  focusAnswers.delete(id);
   commands.set(id, [...(commands.get(id) || []).filter(c => now - c.at < COMMAND_SECONDS * 1000), {focus: String(label), at: now}]);
+}
+// Tabs the extension should join (inject the panel, do not reload) because a session is waiting to show a field
+// and no page has answered yet. The match is the same one a reporting page uses, so it never joins a stranger's tab.
+export function tabsToArm(sessions, tabs, now = Date.now()) {
+  const pending = (sessions || []).filter(session => (commands.get(session.id) || []).some(command => now - command.at < COMMAND_SECONDS * 1000));
+  const urls = [];
+  for (const tab of tabs || []) {
+    if (!tab?.url || !matchSession(pending, {url: tab.url, title: tab.title || ''})) continue;
+    urls.push(String(tab.url).split('#')[0]);
+  }
+  return [...new Set(urls)];
+}
+// The page scrolled, or looked and found no such field. Resolves whoever is waiting; kept if they ask just after.
+export function noteFocus(sessions, payload) {
+  const session = matchSession(sessions, {url: String(payload?.url || ''), title: String(payload?.title || '')});
+  if (!session) return {ok: false};
+  const found = !!payload?.found;
+  focusAnswers.set(session.id, found);
+  for (const done of focusWaiters.get(session.id) || []) done(found);
+  focusWaiters.delete(session.id);
+  return {ok: true, id: session.id};
+}
+// Whether the page found the field. null when it never said (the panel came forward, the field check did not).
+export function focusFound(id, ms = 3000) {
+  if (focusAnswers.has(id)) return Promise.resolve(focusAnswers.get(id));
+  return new Promise(resolve => {
+    const timer = setTimeout(() => { focusWaiters.set(id, (focusWaiters.get(id) || []).filter(fn => fn !== done)); resolve(null); }, ms);
+    const done = found => { clearTimeout(timer); resolve(found); };
+    focusWaiters.set(id, [...(focusWaiters.get(id) || []), done]);
+  });
 }
 // Resolves true once a form page took this session's "show me this field", false after ms (no page with the
 // extension answered: the extension isn't on that tab, or the tab is closed).
@@ -94,4 +127,4 @@ export function report(sessions, payload, now = Date.now()) {
 }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
-export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); last.clear(); waiting.clear(); reporter = () => {}; };  // tests
+export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; };  // tests

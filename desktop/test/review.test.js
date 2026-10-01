@@ -117,6 +117,30 @@ test('each filled field is ticked off with the time it was first seen, and keeps
   assert.deepEqual(heard.at(-1).filled.map(item => item.label), ['First name']);
 });
 
+test('a waiting "show me this field" names the open tab to join, and no other tab', () => {
+  review._reset();
+  assert.deepEqual(review.tabsToArm(sessions, [{url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890', title: 'Anthropic'}]), []);
+  review.queueFocus('s1', 'Agreement to Arbitrate', 1000);
+  assert.deepEqual(review.tabsToArm(sessions, [
+    {url: 'https://news.ycombinator.com/', title: 'Hacker News'},
+    {url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890#jobpilotto-fill', title: 'Job Application for Staff+ Engineer at Anthropic'},
+  ], 2000), ['https://job-boards.greenhouse.io/anthropic/jobs/4567890']);
+  review.report(sessions, form(), 2000);  // the page took the command: nothing left to join
+  assert.deepEqual(review.tabsToArm(sessions, [{url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890', title: 'Anthropic'}], 2000), []);
+});
+
+test('the page says whether it found the field, including when it looked before anyone waited', async () => {
+  review._reset();
+  review.queueFocus('s1', 'Agreement to Arbitrate');
+  assert.equal(review.noteFocus(sessions, {url: 'https://news.ycombinator.com/', title: 'Hacker News', found: true}).ok, false);
+  const waiting = review.focusFound('s1', 2000);
+  assert.equal(review.noteFocus(sessions, {url: form().url, title: form().title, found: false}).ok, true);
+  assert.equal(await waiting, false);
+  review.queueFocus('s1', 'Again');  // a new ask forgets the previous answer
+  assert.equal(review.noteFocus(sessions, {url: form().url, title: form().title, found: true}).id, 's1');
+  assert.equal(await review.focusFound('s1', 50), true);
+});
+
 test('what is left comes as the ring counts it, and an older extension sends no filled list at all', () => {
   review._reset();
   const heard = [];

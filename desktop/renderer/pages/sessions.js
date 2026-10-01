@@ -322,6 +322,9 @@ export function renderNextStep(item) {
     actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
     actions.push(sessionButton('Answer in your own words', 'link', () => openLog(true), 'chat'));
   } else if (running) {
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => {
+      await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+    }, 'link'));
     actions.push(sessionButton('Pause', 'secondary', pauseSession));
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
   } else if (item.resumable && !submitted) {

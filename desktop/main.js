@@ -1070,15 +1070,25 @@ function handlers() {
   // The extension first: the form page takes the request, brings its own tab forward and scrolls to the field (no
   // macOS permission needed, never the wrong tab). Only when no page answers does the app look for the tab itself.
   const showForm = async (id, label, url, company) => {
-    review.queueFocus(String(id), String(label || ''));
-    const taken = await review.delivered(String(id), 4000);  // the page checks in every 2 s
+    const key = String(id), name = String(label || '');
+    review.queueFocus(key, name);
+    let taken = await review.delivered(key, 4000);  // the page checks in every 2 s
+    if (!taken) {
+      // The tab Claude opened has no panel. Wake the extension and inject into that tab; do not reload it.
+      let host = '';
+      try { host = new URL(String(url || '')).hostname; } catch { /* no url */ }
+      appLog('review', 'extension not on the form tab: joining it', {host});
+      await extensionInstall.openInChrome(`chrome-extension://${server.EXTENSION_ID}/wake.html`).catch(() => {});
+      taken = await review.delivered(key, 6000);
+    }
     const went = taken ? 'tab' : await openFormTab({url, company}, shell.openExternal);
-    return {taken, went};
+    const found = taken && name ? await review.focusFound(key, 3000) : null;
+    return {taken, went, found};
   };
   ipcMain.handle('reviewFocus', async (_, id, label, url, company) => {
-    const {taken, went} = await showForm(id, label, url, company);
+    const result = await showForm(id, label, url, company);
     const seen = server.extensionSeen(), latest = server.latestExtension();
-    return {went, taken, extension: seen?.version || '', latest, outdated: !!(seen?.version && latest && seen.version !== latest)};
+    return {...result, extension: seen?.version || '', latest, outdated: !!(seen?.version && latest && seen.version !== latest)};
   });
   ipcMain.handle('unapplyJob', (_, url) => pipeline.unapply(storage, String(url)));
   // "This wasn't submitted": only ever asked for by the user, and only from a bare Applied.
@@ -1500,6 +1510,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
+  server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {
     if (!terminals.get(id)) return false;
     if (!window || window.isDestroyed()) createWindow();

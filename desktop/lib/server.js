@@ -301,6 +301,11 @@ export function setSessionReporter(fn) { sessionReporter = fn; }
 // The application form page (extension/review.js) and its session: what is left in the form, what to show (lib/review.js).
 let reviewHandler = () => ({matched: null, watch: [], commands: []});
 export function setReviewHandler(fn) { reviewHandler = fn; }
+// Review in form, when the panel is not on the tab yet: which open tabs to inject into, and whether the field was there.
+let joinHandler = () => [];
+export function setJoinHandler(fn) { joinHandler = fn; }
+let focusHandler = () => ({ok: false});
+export function setFocusHandler(fn) { focusHandler = fn; }
 // The panel's "Open in Job Pilotto": the app comes forward on that session's page.
 let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)
 export function setFormIssueHandler(fn) { formIssue = fn; }
@@ -384,6 +389,17 @@ export function start(storage, onError = () => {}) {
         const {session} = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify({ok: ok && !!openHandler(String(session || ''))}));
+        return;
+      }
+      if (req.url === '/extension/join' || req.url === '/extension/focus') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+        const answer = !ok ? {ok: false} : req.url === '/extension/join' ? {ok: true, arm: joinHandler(payload.tabs || [])} : focusHandler(payload);
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(answer));
         return;
       }
       if (req.url === '/extension/review') {

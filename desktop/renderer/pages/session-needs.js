@@ -228,12 +228,14 @@ export async function opening(button, work) {
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
 async function showInForm(item, label, button) {
   const result = await opening(button, () => window.pilot.reviewFocus(item.id, label, item.url, sessionCompany(item)));
-  if (result?.taken) return;
+  if (result?.taken) {
+    if (result.found === false) toastMessage('Not a field on this form', `"${label}" is not a label on the open form.`);
+    return;
+  }
   if (result?.outdated) toastMessage('Reload the Chrome extension once', `Chrome still runs Job Pilotto ${result.extension}; this app has ${result.latest}. ` +
     'In Chrome open chrome://extensions and click ↻ on Job Pilotto. Your open forms keep their answers; later updates load by themselves.');
   else if (result?.went !== 'tab') toastMessage('Form tab not found', 'No open Chrome tab matches this job. Find the tab Claude used, then click here again.');
-  else toastMessage('Scroll to it yourself this time', `The form tab didn't answer: the Job Pilotto extension isn't running on it. Look for "${label}" in the form. ` +
-    'In Chrome, chrome://extensions → ↻ on Job Pilotto makes it join the tabs already open.');
+  else toastMessage('Scroll to it yourself this time', `The form tab is open, but the extension could not attach to it. Look for "${label}" in the form.`);
 }
 export function needRow(need, item) {
   const key = `${item.id}|${need.text}`, li = el('li', `ss-need is-${need.kind}`);
@@ -388,7 +390,10 @@ export async function init() {
       if (!document.querySelector('.view[data-view="sessions"]').hidden) { renderSessionPage(); return; }
     }
     if (changed && item && shared.openSessionId === state.id) renderSessionPage();
-    if (item && shared.openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) applyFormStates(item);
+    if (item && shared.openSessionId === state.id && !document.querySelector('.view[data-view="sessions"]').hidden) {
+      applyFormStates(item);
+      showFormState(item);  // filled fields arrive while the session is still running
+    }
   });
   document.querySelector('.sd-head').addEventListener('click', event => {
     if (event.target.closest('#sd-all')) return;

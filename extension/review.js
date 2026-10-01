@@ -369,8 +369,11 @@
         if (command.close) { send({type: 'panelCloseTab'}).catch(() => {}); return; }  // the application was cancelled in the app
         send({type: 'panelShowTab'}).catch(() => {});
         if (!open) setOpen(true);
-        const field = command.focus && find(command.focus, state.list);
-        if (field) flash(field.el);
+        if (command.focus) {
+          const field = find(command.focus, state.list);
+          if (field) flash(field.el);
+          send({type: 'focusResult', found: !!field}).catch(() => {});
+        }
       }
       // The job once per page (and again when a session matched): title, stage, kit.
       const wanted = session?.url || location.href;
