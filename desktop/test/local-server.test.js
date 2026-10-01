@@ -43,3 +43,29 @@ test('another job\'s session is left alone, and a URL with no session is harmles
   assert.notEqual(terminals.get('o1'), null);
   terminals._reset();
 });
+
+test('a fresh job list ends the sessions of jobs already Applied, and only those', async () => {
+  terminals._reset();
+  terminals.usePty(fakePty().loader);
+  await terminals.start({id: 'a1', url: 'https://jobs.test/canonical/3014391', company: 'Canonical', file: 'claude', env: {}});
+  await terminals.start({id: 'b2', url: 'https://jobs.test/canonical/5002072', company: 'Canonical', file: 'claude', env: {}});
+  const jobs = [
+    {url: 'https://jobs.test/canonical/3014391', stage: 'Applied'},              // the form was submitted
+    {url: 'https://jobs.test/canonical/5002072', stage: 'Applying'},             // filled, not submitted: ask
+    {url: 'https://jobs.test/acme/1', stage: 'Applied'}];                        // no session for it
+  assert.deepEqual(server.appliedSessions(jobs), ['https://jobs.test/canonical/3014391']);
+  assert.deepEqual(server.reconcileAppliedSessions(jobs), ['https://jobs.test/canonical/3014391']);
+  assert.equal(terminals.get('a1'), null);            // gone: its job is Applied
+  assert.notEqual(terminals.get('b2'), null);         // still Applying: the "Did you submit?" question owns it
+  assert.deepEqual(server.reconcileAppliedSessions(jobs), []);  // idempotent: every jobs read can call it
+  terminals._reset();
+});
+
+test('a rejected or interviewing job also ends its session; a trailing slash is the same job', async () => {
+  terminals._reset();
+  terminals.usePty(fakePty().loader);
+  await terminals.start({id: 'r1', url: 'https://jobs.test/acme/9/', company: 'Acme', file: 'claude', env: {}});
+  assert.deepEqual(server.reconcileAppliedSessions([{url: 'https://jobs.test/acme/9', stage: 'Rejected'}]), ['https://jobs.test/acme/9/']);
+  assert.equal(terminals.get('r1'), null);
+  terminals._reset();
+});

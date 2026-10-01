@@ -643,6 +643,13 @@ function handlers() {
     }
     const result = await pipeline.jobs(storage);
     for (const job of result.jobs || []) job.tailored = !!job.code && cvlib.exists(storage, job.code);
+    // A session whose job is already Applied is over (the form was submitted): the extension's report can arrive
+    // while the app is closing, so this cannot wait for the window to notice. Cheap and idempotent.
+    const ended = server.reconcileAppliedSessions(result.jobs || []);
+    if (ended.length) {
+      log('sessions', `Ended ${ended.length} session(s) whose job is already Applied`, {urls: ended});
+      toWindow('session', 'update', {ended});
+    }
     return viewCache.remember(storage, 'jobs', result);
   });
   // The last good Jobs / Focus / Strategy read, shown at once while the fresh one loads (lib/view-cache.js).

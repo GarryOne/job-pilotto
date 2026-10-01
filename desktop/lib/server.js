@@ -45,6 +45,23 @@ export function sessionSubmitted(url) {
   return session.id;
 }
 
+// Sessions whose job is already Applied (or past it) in Notion: the form was submitted — that is what Applied
+// means — so they are finished, whatever state the window happens to be in.
+export const APPLIED = new Set(['Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing',
+                                'Offer', 'Rejected', 'Withdrawn', 'No response']);
+export function appliedSessions(jobs = []) {
+  const applied = new Set((jobs || []).filter(job => APPLIED.has(job.stage)).map(job => String(job.url || '').replace(/\/$/, '')));
+  return terminals.list().filter(session => applied.has(String(session.url || '').replace(/\/$/, ''))).map(session => session.url);
+}
+// Run on every fresh job list (main.js 'jobs'): a session for an Applied job is left over from a previous run —
+// the extension's report arrived while the app was closing, or the job was marked Applied in the window itself.
+// Idempotent: once the session is gone there is nothing to end, so this can run on every read.
+export function reconcileAppliedSessions(jobs = []) {
+  const ended = [];
+  for (const url of appliedSessions(jobs)) { if (sessionSubmitted(url)) ended.push(url); }
+  return ended;
+}
+
 export function localEnv(storage, submitted = sessionSubmitted) {
   const settings = storage.settings();
   const summary = job => ({title: job.title, company: job.company, stage: job.status, url: job.url, notion_url: ''});
