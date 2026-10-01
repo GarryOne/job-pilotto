@@ -73,7 +73,7 @@ While off, it still runs daily as a dry run. Promoting by hand (above) keeps wor
 
 | Part | When | How |
 |---|---|---|
-| **App** (Mac/Windows) | they click "Update to …" | `desktop/lib/updater.js`: Mac swaps the `.app` and reopens; Windows runs the installer |
+| **App** (Mac/Windows) | they click "Update to …" | `desktop/lib/updater.js`, the same way on both: download, quit, put the new version in place, reopen. Mac unpacks the `.zip` and swaps the `.app`; Windows waits for the app to exit, installs quietly (`/S` — no wizard) and reopens it |
 | **Python pipeline, Chrome extension** | with the app | bundled in it; the extension reloads itself when the app is newer |
 | **Notion schema** | next app start | `desktop/lib/schema.js` adds missing columns and choices, removes `retired` columns |
 | **Always on** (their GitHub repo) | next app start | the app writes its own tag into their workflows (`@desktop-v…` + `code_ref`) |

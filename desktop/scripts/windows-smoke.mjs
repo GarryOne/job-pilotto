@@ -7,10 +7,11 @@
 // 3. The installed app renders three screens (welcome, the wizard's extras with the Apply with Claude
 //    checklist, the Jobs page) in smoke mode (JOB_PILOTTO_SMOKE); screenshots go to the output folder.
 // Any failure exits non-zero, so the release isn't published with a Windows app that doesn't start.
-import {execFileSync, spawnSync} from 'node:child_process';
+import {execFileSync, spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {windowsUpdateScript} from '../lib/updater.js';
 
 const [installer, out] = process.argv.slice(2);
 if (!installer || !out) throw new Error('usage: node scripts/windows-smoke.mjs <installer.exe> <output folder>');
@@ -75,6 +76,28 @@ const openConnections = `(async () => {
 })()`;
 const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
   notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
+// Updating itself: the app hands a PowerShell script the job of waiting for it to exit, installing quietly and
+// reopening it. That script is the one part of the update that cannot be exercised from a Mac, so it is run here —
+// with stubs standing in for the installer and the app, since a run can only install itself once.
+{
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-update-'));
+  const flag = path.join(folder, 'flag.txt'), reopened = path.join(folder, 'reopened.txt');
+  const stubInstaller = path.join(folder, 'stub-installer.cmd'), stubApp = path.join(folder, 'stub-app.cmd');
+  fs.writeFileSync(stubInstaller, `@echo off\r\necho %1> "${flag}"\r\n`);
+  fs.writeFileSync(stubApp, `@echo off\r\necho reopened> "${reopened}"\r\n`);
+  // Something to wait for that is still running when the script starts: a ping that takes about three seconds.
+  const sleeper = spawn('cmd.exe', ['/c', 'ping -n 4 127.0.0.1 >nul'], {stdio: 'ignore'});
+  const script = path.join(folder, 'update.ps1');
+  fs.writeFileSync(script, windowsUpdateScript(sleeper.pid, stubInstaller, stubApp));
+  const started = Date.now();
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {stdio: 'inherit', timeout: 60000});
+  const took = Date.now() - started;
+  const passed = fs.existsSync(flag) ? fs.readFileSync(flag, 'utf8').trim() : '';
+  if (passed !== '/S') throw new Error(`the update ran the installer without /S (argument was "${passed}")`);
+  if (!fs.existsSync(reopened)) throw new Error('the update did not reopen the app after installing');
+  if (took < 1500) throw new Error(`the update did not wait for the app to exit (finished in ${took} ms)`);
+  say(`update ok on Windows: waited ${took} ms for the app, installed with /S, reopened it`);
+}
 // The in-app terminal (Apply with Claude sessions): node-pty loads in the installed app and runs a command.
 {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-pty-'));
