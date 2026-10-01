@@ -26,27 +26,6 @@ export const neverForm = url => {
   }
 };
 
-// Does the URL match one of Chrome match patterns ('https://*.greenhouse.io/*', 'https://jobs.lever.co/*')? Host only.
-export function matchesSites(url, patterns = []) {
-  let host = '';
-  try { host = new URL(String(url)).hostname.toLowerCase(); } catch { return false; }
-  return patterns.some(pattern => {
-    const wanted = String(pattern).replace(/^https:\/\//, '').replace(/\/.*$/, '').toLowerCase();
-    return wanted.startsWith('*.') ? host === wanted.slice(2) || host.endsWith(wanted.slice(1)) : host === wanted;
-  });
-}
-
-// "Use on this tab" (the toolbar popup): by hand only where an application form is expected: a known application site that shows
-// a form. Anywhere else the panel belongs to the tab the Job Pilotto app opens (Apply): a page's shape cannot tell a job
-// application from any other form (the website's own waitlist form passed as one, 2 Oct 2026). role: from pageRole; null = unread.
-export function useTabVerdict(url, role = null, known = false) {
-  if (!/^https:/.test(String(url || ''))) return {ok: false, why: 'Open the job application page first.'};
-  if (neverForm(url)) return {ok: false, why: 'No form detected: this is a search or Notion page.'};
-  if (!known) return {ok: false, why: 'Not a job application site. Press Apply in the Job Pilotto app: it opens the form and fills it.'};
-  if (role === 'no-form') return {ok: false, why: 'No form detected on this page. Open the application form, then press this.'};
-  return {ok: true, why: ''};
-}
-
 // What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
 // creates the account, and the extension never types it. Several fields, a textarea or a file input is the
 // application form. Anything smaller is a page Claude still has to click through (Apply, Next).

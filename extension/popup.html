@@ -15,8 +15,6 @@
   p { margin: 0; color: var(--muted); }
   button { font: inherit; font-weight: 600; padding: 9px 12px; border: 0; border-radius: 8px; background: var(--signal); color: #fff; cursor: pointer; }
   button:disabled { opacity: .6; cursor: default; }
-  .note { font-size: 12px; min-height: 16px; }
-  .note:not(:empty) { color: var(--ink); background: #fff4e5; border-left: 3px solid var(--signal); padding: 6px 8px; border-radius: 4px; }
   .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
   .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .status.on::before { background: var(--good); }
@@ -25,9 +23,7 @@
 <body>
 <header><img src="icons/icon-48.png" alt="" width="22" height="22"><b>Job Pilotto</b><a href="#" id="settings">Settings</a></header>
 <main>
-  <p>The panel appears on a tab the Job Pilotto app opened. On any other page it stays off until you press the button.</p>
-  <button id="use">Use on this tab</button>
-  <p class="note" id="note"></p>
+  <p>The panel appears only on a tab the Job Pilotto app opens: press <b>Apply</b> in the app. On any other page the extension does nothing.</p>
   <div class="status" id="status">Checking the connection…</div>
 </main>
 <script type="module" src="popup.js"></script>
