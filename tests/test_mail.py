@@ -605,3 +605,30 @@ class GoogleApiTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RunLogContractTests(unittest.TestCase):
+    """The run dict main() logs and the page cron_runs writes must agree: this is the one place a check's own
+    payload is rendered as Notion sees it."""
+
+    def test_the_logged_run_renders_every_email_with_its_link_and_action(self):
+        from src.notion import cron_runs
+        stats = {'pending': 1, 'done': 1, 'usd': 0.0,
+                 'updates': ['📬 Application received · Canonical — Site Reliability Engineer · Stage Applied → Confirmation received'],
+                 'emails': [{'subject': 'Thank you for applying to Canonical', 'from': 'no-reply@us.greenhouse-mail.io',
+                             'at': '2026-10-01T00:56:05+00:00', 'action': 'recorded',
+                             'label': 'Canonical — Site Reliability Engineer',
+                             'changes': 'Stage Applied → Confirmation received; Confirmation email set',
+                             'link': 'https://mail.google.com/mail/u/0/#all/1a0f4f6224933d5c'}]}
+        logged = {'mode': 'mail', 'started_at': '2026-10-01T01:18:00+00:00', 'warnings': [],
+                  'mail': {k: v for k, v in stats.items() if k not in ('updates', 'emails')},
+                  'updates': stats['updates'], 'emails': stats['emails']}  # exactly what main()'s log_check builds
+        props, children = cron_runs.run_page(logged)
+        self.assertEqual((props['Emails']['number'], props['Updates']['number']), (1, 1))
+        line = next(b for b in children if b['type'] == 'bulleted_list_item'
+                    and b['bulleted_list_item']['rich_text'][0]['text'].get('link'))
+        self.assertIn('[recorded] · Canonical — Site Reliability Engineer · changed Stage Applied → '
+                      'Confirmation received; Confirmation email set',
+                      line['bulleted_list_item']['rich_text'][0]['text']['content'])
+        self.assertEqual(line['bulleted_list_item']['rich_text'][0]['text']['link']['url'],
+                         'https://mail.google.com/mail/u/0/#all/1a0f4f6224933d5c')
