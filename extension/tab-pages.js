@@ -11,6 +11,15 @@ export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, ''
 // A page the user is just browsing, Calendly included, is not one of those.
 export const tabArmed = ({url, armed} = {}) => !!armed || String(url || '').includes('#jobpilotto-fill');
 
+// What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
+// creates the account, and the extension never types it. Several fields, a textarea or a file input is the
+// application form. Anything smaller is a page Claude still has to click through (Apply, Next).
+export function pageRole({fields = 0, passwords = 0, files = 0, textareas = 0} = {}) {
+  if ((Number(passwords) || 0) > 0) return 'account';
+  if ((Number(files) || 0) > 0 || (Number(textareas) || 0) > 0 || (Number(fields) || 0) >= 3) return 'form';
+  return 'no-form';
+}
+
 // The URL's origin, or '' when it isn't a URL.
 export function originOf(url) {
   try {

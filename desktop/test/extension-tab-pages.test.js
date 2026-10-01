@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, missedConfirmation, originOf, pageFingerprint, pageKey, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {confirmationOf, forJob, missedConfirmation, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -14,6 +14,16 @@ test('the panel runs only on a tab the desktop app opened', () => {
   assert.equal(tabArmed({url: 'https://calendly.com/acme/30min'}), false);
   assert.equal(tabArmed({url: JOB}), false);
   assert.equal(tabArmed({}), false);
+});
+
+test('a later page is a form, an account page, or neither', () => {
+  assert.equal(pageRole({fields: 1}), 'no-form'); // a search box, or a job page with only an Apply button
+  assert.equal(pageRole({}), 'no-form');
+  assert.equal(pageRole({passwords: 1, fields: 2}), 'account'); // sign in
+  assert.equal(pageRole({passwords: 2, fields: 8}), 'account'); // sign up: still Claude's, never auto-filled
+  assert.equal(pageRole({fields: 12}), 'form');
+  assert.equal(pageRole({fields: 1, files: 1}), 'form');
+  assert.equal(pageRole({textareas: 1}), 'form');
 });
 
 test('a submit is asked about once the page changes, with or without a redirect', () => {

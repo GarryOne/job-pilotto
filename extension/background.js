@@ -1,8 +1,9 @@
-// The background worker: tabs the app opens to fill (#jobpilotto-fill), Apply with Claude's hand-off, the ring's
-// messages to the app, and the connection check. The result of a fill shows in a panel on the page and in the icon badge.
+// The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
+// opens, Apply with Claude's hand-off, the ring's messages to the app, and the connection check. The result of a
+// fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, sameSite, submissionOutcome, SUBMIT_WAIT_MS, tabArmed} from './tab-pages.js';
+import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -82,13 +83,73 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
   chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
-  if (info.status !== 'complete' || started.has(tabId)) return;
-  started.add(tabId);
-  await fillOpenedTab(tab, tab.url.replace(`#${FILL_MARK}`, ''));
+  if (info.status !== 'complete') return;
+  await consider(tab, tab.url.replace(`#${FILL_MARK}`, ''));
 });
 
-// The panel is injected only into a tab the desktop app opened. A new document in that same tab (the form's
-// next step) gets the scripts again. Nothing is injected into a tab the user opened themselves.
+// Counts only, in the page: no labels and no values. Passwords and file inputs are counted apart from the rest.
+function pageShape(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+    const shown = el => el.getClientRects().length > 0 && el.type !== 'hidden';
+    const controls = [...document.querySelectorAll('input, textarea, select')].filter(shown);
+    const skip = new Set(['submit', 'button', 'reset', 'search', 'image', 'password', 'file', 'hidden']);
+    return {
+      fields: controls.filter(el => el.tagName !== 'TEXTAREA' && !skip.has(el.type)).length,
+      passwords: controls.filter(el => el.type === 'password').length,
+      files: controls.filter(el => el.type === 'file').length,
+      textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
+    };
+  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+}
+// Claude reads this on <html data-jobpilotto-fill>. States: running, done, error, no-form, account.
+function writeState(tabId, value) {
+  return chrome.scripting.executeScript({target: {tabId}, args: [JSON.stringify(value)],
+    func: text => { if (document.documentElement) document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
+}
+const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
+// One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
+// and the page says which, so Claude does not wait for a fill that will not come.
+async function consider(tab, jobUrl) {
+  const key = fillKey(tab.id, tab.url);
+  if (started.has(key)) return;
+  started.add(key);
+  await new Promise(resolve => setTimeout(resolve, 1500)); // the form renders after the load event
+  const live = await chrome.tabs.get(tab.id).catch(() => null);
+  if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
+  const counts = await pageShape(tab.id);
+  if (!counts) { started.delete(key); return; }
+  const role = pageRole(counts);
+  let host = '';
+  try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+  if (role !== 'form') {
+    await writeState(tab.id, {state: role});
+    decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
+    return;
+  }
+  await writeState(tab.id, {state: 'running'});
+  const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true});
+  await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
+    : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
+}
+async function jobOf(tab) {
+  const stored = await chrome.storage.session.get([`from:${tab.id}`, `job:${tab.id}`]);
+  return stored[`job:${tab.id}`] || stored[`from:${tab.id}`] || pageKey(tab.url);
+}
+// A tab opened by an armed tab (Apply in a new tab) is the same session. A tab the user opened is not.
+async function followOpener(tab) {
+  if (tab.openerTabId == null) return false;
+  const opener = tab.openerTabId;
+  const stored = await chrome.storage.session.get([`armed:${opener}`, `from:${opener}`, `job:${opener}`]);
+  if (!stored[`armed:${opener}`]) return false;
+  const next = {[`armed:${tab.id}`]: true};
+  if (stored[`from:${opener}`]) next[`from:${tab.id}`] = stored[`from:${opener}`];
+  if (stored[`job:${opener}`]) next[`job:${tab.id}`] = stored[`job:${opener}`];
+  await chrome.storage.session.set(next);
+  return true;
+}
+
+// The panel is injected only into a tab the desktop app opened, a later page in that tab, or a tab that tab
+// opened. A new document gets the scripts again. Nothing is injected into a tab the user opened themselves.
 async function arm(tabId, why = 'app tab') {
   await chrome.storage.session.set({[`armed:${tabId}`]: true});
   const tab = await chrome.tabs.get(tabId).catch(() => null);
@@ -104,8 +165,17 @@ async function arm(tabId, why = 'app tab') {
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== 'complete' || !/^https:/.test(tab.url || '') || tab.url.includes(`#${FILL_MARK}`)) return;
   const key = `armed:${tabId}`;
-  if (!(await chrome.storage.session.get(key))[key]) return;
+  let armed = (await chrome.storage.session.get(key))[key];
+  if (!armed) armed = await followOpener(tab);
+  if (!armed) return;
   await arm(tabId, 'next page');
+  await consider(tab, await jobOf(tab));
+});
+chrome.tabs.onCreated.addListener(async tab => {
+  if (!(await followOpener(tab))) return;
+  let host = '';
+  try { host = new URL(tab.pendingUrl || tab.url || '').hostname; } catch { /* the address is not ready yet */ }
+  decide('panel', 'following a tab this session opened', {host, why: 'child'});
 });
 
 // A progress panel on the page while a tab fills itself (the popup is closed then). `url`: the page being filled —
@@ -249,7 +319,7 @@ retireEverywhere();
 
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
   // Review in form, for a tab Claude opened (no fill mark): inject the panel. Do not fill again, and do not reload.
-  // "Use on this tab" in the popup: the user's own click stands in for the fill mark (panel, then the fill).
+  // "Use on this tab" in the popup: the user's own click stands in for the fill mark (panel, then the same page decision).
   if (message?.type === 'useTab') {
     (async () => {
       const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
@@ -258,7 +328,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       decide('panel', 'used on this tab by hand', {host: new URL(url).hostname});
       await chrome.storage.session.set({[`from:${tab.id}`]: url});
       await arm(tab.id, 'by hand');
-      if (!started.has(tab.id)) { started.add(tab.id); await fillOpenedTab(tab, url); }
+      await consider(tab, url);
       return {ok: true};
     })().then(reply, () => reply({ok: false, why: 'Could not start on this tab.'}));
     return true;

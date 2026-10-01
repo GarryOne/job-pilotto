@@ -51,11 +51,13 @@ export function prompt(url, {auditFile}) {
   // The app opened the posting in Chrome before this session started, with the mark that arms the Job Pilotto
   // extension on that tab: the extension fills most fields in seconds; this session does the rest.
   const handoff = 'The form tab is already open: the app opened it and the Job Pilotto extension is filling it by itself. Use that tab ' +
-    '(find it with tabs_context_mcp) and never open a second tab for this job. On each form page, if <html> has data-jobpilotto-hook, wait ' +
-    'for the extension first: read document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s) until ' +
-    "its state is done or error; if there's no data-jobpilotto-hook after 10 s, carry on without it. When it's done, run the audit and fill " +
-    "ONLY what it left (its todo list: dropdowns that ignore scripted clicks, per the skill), then verify as usual. Never trigger the " +
-    'extension\'s fill yourself. Work only from the form in Chrome and the --context output: don\'t read this repo\'s tests, config or README, ' +
+    '(find it with tabs_context_mcp) and never open a second tab for this job. On each page, if <html> has data-jobpilotto-hook, read ' +
+    'document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s). state running: keep waiting. ' +
+    'done: fill ONLY its todo (dropdowns that ignore scripted clicks, per the skill), then press Next when the form has another page. ' +
+    'error: fill this page yourself. no-form: this page is not the form, so press Apply or Next in this same tab. account: sign in or create ' +
+    'the account as the skill says; the extension does not type the password. After each navigation, wait for the new state. A tab opened from ' +
+    'this one is the same session: use it, the extension follows it. If there is no data-jobpilotto-hook after 10 s, carry on without the extension. ' +
+    'Never trigger the extension\'s fill yourself. Work only from the form in Chrome and the --context output: don\'t read this repo\'s tests, config or README, ' +
     'and report as needing my attention only a control on the form. ';
   return `Use the apply-to-job skill to apply to this job: ${url}. Don't ask me questions or discuss the skill file — just follow it: ` +
     'pull the drafted kit from Notion Applications for this job URL, get to the actual form in the open tab (claude-in-chrome) ' +

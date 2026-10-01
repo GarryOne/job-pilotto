@@ -36,6 +36,9 @@ test('the prompt names the job and the audit file, uses the open form tab and th
   // The app opens the tab with the fill mark, so Claude never fires the extension itself (no ticket, no event).
   assert.match(text, /already open/);
   assert.match(text, /never open a second tab/);
+  assert.match(text, /no-form/);
+  assert.match(text, /account/);
+  assert.match(text, /the extension follows it/);
   assert.match(text, /don't read this repo's tests, config or README/);
   assert.doesNotMatch(text, /jobpilotto:fill|ticket/);
   assert.match(text, /src\.ai\.passwords/);

@@ -194,15 +194,17 @@ in that file next time — keep evolving it.
    Sponsorship is not a blocker: the owner applies anyway (answer from Application Answers, e.g.
    "will require sponsorship"). Only a required language the owner doesn't speak, or a hard
    location restriction the owner can't meet, is worth showing before opening the form.
-2. **Open the form** in a new Chrome tab (claude-in-chrome). Greenhouse: the form is on the job
-   page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the description.
-   A job board's page (jobs.ch, TechTree) or a careers page with only an Apply button: see
-   "Reaching the form".
-3. **Extension first (Apply with Claude)**: the app already opened the form tab with `#jobpilotto-fill`, so
-   the extension is filling it; use that tab (never a second one). When the page has
-   `<html data-jobpilotto-hook>`, wait for `data-jobpilotto-fill` to say `done` (or `error`: then fill
-   yourself). It fills kit answers, contact details, the CV and dropdowns in seconds; you audit and fill
-   only its `todo`. No hook after 10 s (site not allowed for the extension, app not running): fill yourself.
+2. **Use the tab the app already opened** (claude-in-chrome attaches to it; do not open another).
+   Greenhouse: the form is on the job page (`job-boards.greenhouse.io/<board>/jobs/<id>`), below the
+   description. A job board's page (jobs.ch, TechTree) or a careers page with only an Apply button: see
+   "Reaching the form". If Apply opens a new tab, that tab is the same session: use it.
+3. **Extension first (Apply with Claude)**: the app opened the tab with `#jobpilotto-fill`, and the
+   extension follows later pages in that tab and a tab that tab opens. When the page has
+   `<html data-jobpilotto-hook>`, read `data-jobpilotto-fill` and act on its `state`: `running` wait;
+   `done` audit and fill only its `todo`, then press Next if the form has another page; `error` fill
+   this page yourself; `no-form` press Apply or Next in this tab; `account` sign in or create the
+   account (the extension does not type the password). After each navigation, wait for the new state.
+   No hook after 10 s (site not allowed for the extension, app not running): do that step yourself.
    Don't fire `jobpilotto:fill` yourself.
 3b. **Map fields in one JS pass**: list `form input, textarea` with `id`, `type`, `role`,
    `aria-required` and label text. Match kit answers by `field` (= element id; strip `[]`).
@@ -645,6 +647,7 @@ None of the three beat this skill on "actually fills the form, stays inside the 
 gate enforced in code rather than by the model's own judgment call." Re-test before switching.
 
 ## Log (newest first; one line per application or finding)
+- 2026-10-01 · process · The extension fills a later page in the opened tab, and a tab that tab opens. It leaves a password page and a page with no form, and says so (`account`, `no-form`) for Claude to click through.
 - 2026-09-28 · process · Apply with Claude hands known forms to the extension first (ticket from the
   app, `jobpilotto:fill` event, result in `data-jobpilotto-fill`), then fills only what it left.
 - 2026-09-28 · process · Owner: the extension can't get past job board Apply → employer site →
