@@ -437,10 +437,12 @@ export async function focus(storage) {
   try { return {ok: code === 0, focus: JSON.parse(stdout.trim().split('\n').pop())}; }
   catch { return {ok: false, error: 'Could not read your Notion (see the activity log).'}; }
 }
-// what: 'replied' (you answered them) or 'followed_up' (Focus → Follow up: your nudge, which re-arms it).
+// what: 'replied' (you answered them), 'followed_up' (Focus → Follow up: your nudge, which re-arms it),
+// or 'details_skipped' (you don't know the employer yet: the card stays gone after a refresh).
 export async function focusDone(storage, pageId, what = 'replied') {
   const which = {followed_up: 'followed_up', details_skipped: 'details_skipped'}[what] || 'replied';
   const {code} = await run(storage, ['src.focus', 'done', pageId, which]);
+  appLog('focus', `marked ${which}`, {page_id: pageId, ok: code === 0});
   return {ok: code === 0};
 }
 // What you resolved from Focus, newest first (Notion: 📈 Application Events from the app, 💡 Insights you rated).

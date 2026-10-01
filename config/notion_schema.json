@@ -1254,6 +1254,10 @@
             {
               "name": "Interview cancelled",
               "color": "gray"
+            },
+            {
+              "name": "Details skipped",
+              "color": "gray"
             }
           ]
         },

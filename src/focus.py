@@ -21,6 +21,7 @@ Usage:
   python -m src.focus [--target 30]            # the list as JSON (for the app); the target defaults to
                                                # "Daily applications target" on ⚙️ Search settings
   python -m src.focus done <page id> replied   # you answered: log it
+  python -m src.focus done <page id> details_skipped  # you don't know the employer yet: it stays skipped
   python -m src.focus history                   # what you resolved from Focus (Notion), newest first
   python -m src.focus remind [--target 30] [--send]
 """
@@ -384,7 +385,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         if stage in ('Interview scheduled', 'Interviewing') and missing:
             coming_at = _when(_field(row, 'Next interview'))
             # Skip means "I don't know yet" for this interview. A later date asks again; the same one stays quiet.
-            if any(e.get('source_id') == f'skip-details:{details_token(coming_at, stage)}' for e in history):
+            if _skipped_details(history, coming_at, stage):
                 missing = []
             else:
                 when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
@@ -533,8 +534,38 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
 
 
 def details_token(coming_at, stage):
-    """Which interview the "I don't know the employer yet" skip belongs to. A new date is a new ask."""
-    return (coming_at.isoformat(timespec='seconds') if coming_at else '') or stage or 'unknown'
+    """Which interview the "I don't know the employer yet" skip belongs to, as UTC.
+    Notion returns the same moment as Z or with an offset; both are this interview. A new date is a new ask."""
+    if coming_at:
+        return coming_at.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+    return stage or 'unknown'
+
+
+def _same_interview(stored, coming_at):
+    """A skip token and the job's Next interview are the same moment, whatever offset each was stored with."""
+    if not coming_at or not stored:
+        return False
+    try:
+        moment = datetime.fromisoformat(stored.replace('Z', '+00:00'))
+    except ValueError:
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=TZ)
+    return moment.astimezone(timezone.utc).replace(microsecond=0) == coming_at.astimezone(timezone.utc).replace(microsecond=0)
+
+
+def _skipped_details(history, coming_at, stage):
+    """True when Skip was saved for this interview. The event (Kind "Details skipped", source id skip-details:…)
+    is what a refresh reads, so the card stays gone. An older skip stored the interview's own offset; that still counts."""
+    want = details_token(coming_at, stage)
+    for event in history:
+        source_id = event.get('source_id') or ''
+        if event.get('kind') != 'Details skipped' and not source_id.startswith('skip-details:'):
+            continue
+        stored = source_id[len('skip-details:'):] if source_id.startswith('skip-details:') else ''
+        if not stored or stored == want or _same_interview(stored, coming_at):
+            return True
+    return False
 
 
 def _days_ago(days, short=False):

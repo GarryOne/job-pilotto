@@ -320,10 +320,17 @@ class AddDetailsTests(unittest.TestCase):
         skipped = event('a1', 'Details skipped', '2026-10-01T12:00:00Z', "You don't know the employer yet",
                         f'skip-details:{token}', 'Job Pilotto app')
         self.assertFalse([i for i in focus.build([invite], [skipped], target=0, now=NOW)['items'] if i['kind'] == 'details'])
+        # Notion may hand the same moment back as Z. The skip was stored with the offset it had that day.
+        as_z = row('a1', '', 'Senior DevOps Engineer', stage='Interview scheduled', Via='AG Talent',
+                   interview='2026-10-02T06:30:00.000Z', Salary='€70k–90k')
+        older = event('a1', 'Details skipped', '2026-10-01T12:00:00Z', "You don't know the employer yet",
+                      'skip-details:2026-10-02T08:30:00+02:00', 'Job Pilotto app')
+        self.assertFalse([i for i in focus.build([as_z], [older], target=0, now=NOW)['items'] if i['kind'] == 'details'])
         # A later round is a new ask: the client may have been named by then.
         later = row('a1', '', 'Senior DevOps Engineer', stage='Interview scheduled', Via='AG Talent',
                     interview='2026-10-20T08:30:00+02:00', Salary='€70k–90k')
         self.assertTrue([i for i in focus.build([later], [skipped], target=0, now=NOW)['items'] if i['kind'] == 'details'])
+        self.assertTrue([i for i in focus.build([later], [older], target=0, now=NOW)['items'] if i['kind'] == 'details'])
 
     def test_only_talking_to_an_agency_with_a_hidden_employer_is_not_a_to_do(self):
         pitch = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent', Salary='€70k–90k')
