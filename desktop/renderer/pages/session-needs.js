@@ -257,6 +257,9 @@ export function needRow(need, item) {
     loadAnswers();
     const choices = answerOptions(need, knownAnswers);
     const chip = el('span', 'ss-answer');
+    // Only "Change with Claude…" to pick (Claude proposed nothing, and none is saved): a lone dropdown under the label
+    // "Proposed answer" proposes nothing, so the row gets one plain button instead.
+    const onlyChange = choices.length === 1;
     chip.append(el('span', 'ss-answer-label', 'Proposed answer'));
     const select = el('select', 'ss-answer-select');
     select.title = 'Claude\'s answer, or one of the answers you saved for this question';
@@ -290,7 +293,7 @@ export function needRow(need, item) {
     });
     if (offline(item)) { select.disabled = true; select.title = offline(item); }
     chip.append(select);
-    actions.append(chip, smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
+    actions.append(onlyChange ? smallButton('Tell Claude…', 'secondary', ask, offline(item)) : chip, smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
   }
   li.append(badge(), body, actions);
   if (handled.has(key)) doneRow(li, key, handled.get(key));
