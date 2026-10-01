@@ -134,3 +134,10 @@ test('the PC\'s profiles are read too: %LOCALAPPDATA%, one folder deeper than th
   // A browser with no Windows layout of its own (a test fixture, or a new entry) still gets read by its Mac folder.
   assert.equal(ext.browserDir({dir: 'Acme/Browser'}, 'win32'), 'Acme/Browser');
 });
+
+test('every browser carries both platforms\' folders and a PC process name, so a new one cannot be half-listed', () => {
+  for (const browser of ext.BROWSERS) {
+    assert.match(browser.win, /User Data$/, `${browser.name}: no folder under the PC's local app data`);
+    assert.match(ext.PROCESS[browser.app] || '', /\.exe$/, `${browser.name}: no Windows process name`);
+  }
+});

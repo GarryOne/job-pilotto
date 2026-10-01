@@ -19,6 +19,22 @@ export const NAME = 'Job Pilotto';
 
 // Chromium-family browsers that keep their extension records in <support>/<dir>/<Profile>/Secure Preferences.
 // `dir` is the Mac layout; `win` the PC's, which repeats the browser's own folder under a "User Data" one.
+//
+// Every PC layout below was checked against the browser's own documentation on 1 Oct 2026, because nobody here can
+// look at a PC:
+//   Chrome, Chrome Canary, Chromium  Chromium's docs: %LOCALAPPDATA%\Google\Chrome\User Data,
+//                                    %LOCALAPPDATA%\Google\Chrome SxS\User Data (the canary channel's install
+//                                    suffix), %LOCALAPPDATA%\Chromium\User Data
+//                                    https://chromium.googlesource.com/chromium/src/+/main/docs/user_data_dir.md
+//   Brave                            %userprofile%\AppData\Local\BraveSoftware\Brave-Browser\User Data
+//                                    https://support.brave.app/hc/en-us/articles/29808985123085
+//   Microsoft Edge                   …\AppData\Local\Microsoft\Edge\User Data (edge://version shows it)
+//                                    https://learn.microsoft.com/en-us/deployedge/edge-learnmore-create-user-directory-vars
+//   Vivaldi                          …\AppData\Local\Vivaldi\User Data (vivaldi://about shows it)
+//                                    https://help.vivaldi.com/desktop/privacy/preventing-vivaldi-profiles-from-being-uploaded-to-git-repositories/
+//
+// A browser that isn't in this list, or one started with --user-data-dir, keeps its profile somewhere this can't
+// know: on a PC, chrome://version (edge://version, brave://version) names the real Profile Path and its parent.
 export const BROWSERS = [
   {name: 'Google Chrome', dir: 'Google/Chrome', win: 'Google/Chrome/User Data', app: 'Google Chrome'},
   {name: 'Google Chrome Canary', dir: 'Google/Chrome Canary', win: 'Google/Chrome SxS/User Data', app: 'Google Chrome Canary'},
@@ -90,15 +106,18 @@ export function installed({folder = '', support: root = '', browsers = BROWSERS,
   return out;
 }
 
-// The browser's own process name on Windows, where there is no pgrep. Anything unlisted falls back to its app name.
-const IMAGE = {'Google Chrome': 'chrome.exe', 'Google Chrome Canary': 'chrome.exe', Chromium: 'chromium.exe',
-  Brave: 'brave.exe', 'Microsoft Edge': 'msedge.exe', Vivaldi: 'vivaldi.exe'};
+// The browser's own process name on Windows — Task Manager's name for it — where there is no pgrep. These are the
+// conventional image names, not something a vendor documents, which is why the test insists every browser in
+// BROWSERS has one: the `${app}.exe` fallback below would ask tasklist for "Microsoft Edge.exe" and be told, wrongly,
+// that nothing is running.
+export const PROCESS = {'Google Chrome': 'chrome.exe', 'Google Chrome Canary': 'chrome.exe', Chromium: 'chromium.exe',
+  'Brave Browser': 'brave.exe', 'Microsoft Edge': 'msedge.exe', Vivaldi: 'vivaldi.exe'};
 
 // Is that browser up? pgrep on the Mac, tasklist on Windows — neither needs any automation permission, and either
 // is what tells "open Chrome" from "waiting for its next report".
 export function running(app, {exec = execFile, platform = process.platform} = {}) {
   if (platform !== 'win32') return new Promise(resolve => exec('/usr/bin/pgrep', ['-x', app], error => resolve(!error)));
-  const image = IMAGE[app] || `${app}.exe`;
+  const image = PROCESS[app] || `${app}.exe`;
   return new Promise(resolve => exec('tasklist', ['/FI', `IMAGENAME eq ${image}`, '/NH'],
     (error, stdout) => resolve(!error && String(stdout || '').includes(image))));
 }
