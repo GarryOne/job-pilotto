@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const {mailStatus, parseMailReport} = await import('../renderer/mail-report.js');
+const {mailChanges, mailStatus, parseMailReport} = await import('../renderer/mail-report.js');
 
 const PREP = [
   '🗓 Tomorrow 08:30 — Huxley — Principal SRE',
@@ -114,4 +114,15 @@ test('each email read becomes a row: subject, who sent it, when, what was done w
     {subject: 'Thank you for applying to Canonical', sender: 'us.greenhouse-mail.io', time: '01 Oct 03:45',
      action: 'recorded', by: 'Canonical — Software Engineer - Data Infrastructure',
      changes: 'Stage Applied → Confirmation received; Confirmation email set'}]);
+});
+
+// "Stage Applied → Confirmation received; Confirmation email set" as the card's two pills. A bug here showed the
+// first pill as "[object HTMLElement], → Confirmation received" (an array handed to el(), which takes one node or
+// text), so the split is its own tested function now.
+test('one update change becomes a movement and a flag', () => {
+  assert.deepEqual(mailChanges('Stage Applied → Confirmation received; Confirmation email set'),
+    [{from: 'Stage Applied', to: 'Confirmation received'}, {flag: 'Confirmation email set'}]);
+  assert.deepEqual(mailChanges('Next interview Thu 01 Oct 12:30 → Fri 02 Oct 09:00'),
+    [{from: 'Next interview Thu 01 Oct 12:30', to: 'Fri 02 Oct 09:00'}]);
+  assert.deepEqual(mailChanges(''), []);
 });

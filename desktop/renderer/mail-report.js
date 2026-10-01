@@ -37,6 +37,16 @@ const paragraphs = text => String(text).split(/,\s+(?=with\b)/i)
   })
   .filter(Boolean);
 
+// What one recorded update changed on a job, from the run's own words: "Stage Applied → Confirmation received;
+// Confirmation email set" -> [{from: 'Stage Applied', to: 'Confirmation received'}, {flag: 'Confirmation email set'}].
+// A movement reads as a label and where it went; anything else ("Confirmation email set") is a flag on its own.
+export function mailChanges(changes) {
+  return String(changes || '').split(';').map(part => part.trim()).filter(Boolean).map(part => {
+    const move = /^(.+?)\s*→\s*(.+)$/.exec(part);
+    return move ? {from: move[1].trim(), to: move[2].trim()} : {flag: part};
+  });
+}
+
 // The two lines a Gmail check's run page adds about the emails themselves: the update it recorded on a job
 // ("📬 Application received · Canonical — SRE · Stage Applied → Confirmation received"), and one line per email read
 // ("Thank you for applying … · us.greenhouse-mail.io · 01 Oct 03:45 — [recorded] · Canonical — SRE · changed …").

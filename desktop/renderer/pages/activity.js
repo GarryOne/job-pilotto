@@ -5,7 +5,7 @@ import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
-import {parseMailReport} from '../mail-report.js';
+import {mailChanges, parseMailReport} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {filterRuns, groupRuns, kindCounts, runTime} from '../run-list.js';
@@ -589,10 +589,13 @@ function renderCardSkeleton() {
 // it read, each opening in Gmail. Its own rows, so a check that sent nothing to Telegram still accounted for itself.
 function mailDiff(changes) {
   const row = el('div', 'mail-diff');
-  for (const part of String(changes || '').split(';')) {
-    const field = /^\s*([^→]+?)\s*→\s*(.+)$/.exec(part);
-    // "Stage Applied → Confirmation received" reads as a label and its movement; "Confirmation email set" is one word.
-    row.append(field ? el('span', 'mail-diff-move', [el('b', '', field[1]), ` → ${field[2]}`]) : el('span', 'mail-diff-flag', part.trim()));
+  for (const part of mailChanges(changes)) {
+    // "Stage Applied → Confirmation received" reads as a label and its movement; "Confirmation email set" is one flag.
+    // el() takes one node or text, never an array of both (that renders "[object HTMLElement]"): append them here.
+    const pill = el('span', part.flag ? 'mail-diff-flag' : 'mail-diff-move');
+    if (part.flag) pill.textContent = part.flag;
+    else pill.append(el('b', '', part.from), ` → ${part.to}`);
+    row.append(pill);
   }
   return row;
 }
