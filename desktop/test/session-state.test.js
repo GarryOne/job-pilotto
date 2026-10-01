@@ -81,3 +81,11 @@ test('a form session the extension cannot reach says so (no form, or an account 
   assert.deepEqual(sessionState({...form, stuck: 'no-form'}), ['Can\'t reach form', 'warn']);
   assert.deepEqual(sessionState({...form, stuck: 'account'}), ['Needs an account', 'warn']);
 });
+
+test('a waiting session whose form is complete is ready for review, whatever Claude last asked', () => {
+  const asked = {status: 'input', question: 'Send me the missing details (street, NPA) or finish it in Chrome.', brief: 'Send me the missing details?', live: false};
+  assert.equal(sessionReview(asked), false);  // the form page said nothing: Claude's question stands
+  assert.equal(sessionReview(asked, true), true);  // every required field filled: it is moot
+  assert.deepEqual(sessionState(asked, true), ['Ready to submit', 'good']);
+  assert.deepEqual(sessionState(asked, false), ['Question for you', 'warn']);
+});

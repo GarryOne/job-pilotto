@@ -14,14 +14,16 @@ export const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|fil
 // question ("Any relatives working at Acme?") is not Claude asking.
 export const asksYou = item => (item.question ? readSessionMessage(item.question).intro.some(line => /\?\**\s*$/.test(line)) : /\?\s*$/.test(item.brief || ''));
 // A message that ends on a question still waits for your answer first.
-export const sessionReview = item => item.status === 'done'
-  || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !asksYou(item));
+// `formReady`: the form page says every required field is filled. Then what Claude asked earlier is moot: the form is
+// ready for review and submit, whatever its last message says (1 Oct 2026: a card still asked for a street already typed).
+export const sessionReview = (item, formReady = false) => item.status === 'done'
+  || (item.status === 'input' && (formReady || (REVIEW_WORDS.test(item.question || '') && !asksYou(item))));
 // formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
 // A session whose application was submitted is finished, whatever its process did: "Submitted", never "Applying".
 export const sessionState = (item, formReady = false) => (item?.outcome === 'submitted' && !isLive(item) ? SESSION_STATE.submitted
   : item.kind === 'form' && item.stuck ? [item.stuck === 'account' ? 'Needs an account' : 'Can\'t reach form', 'warn']
-  : item.kind === 'form' && !formReady && sessionReview(item) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
-  : sessionReview(item) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
+  : item.kind === 'form' && !formReady && sessionReview(item, formReady) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
+  : sessionReview(item, formReady) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
     : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the
 // tab" repair offered: reloading a form page loses what was typed in it since the last save, so it must not be a

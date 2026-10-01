@@ -8,7 +8,7 @@ import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
 import {isSubmitted} from '../session-state.js';
-import {formGone} from './session-needs.js';
+import {formGone, formReady} from './session-needs.js';
 import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
@@ -66,7 +66,7 @@ export function renderSessionPage() {
   const [label, tone] = stateOf(item);
   $('ss-title').textContent = sessionCompany(item);
   $('ss-role').textContent = sessionTitle(item);
-  $('ss-status').replaceChildren(pill(sessionReview(item) && tone !== 'good' && item.kind !== 'form' ? 'Ready for review' : label, tone, {dot: true}));
+  $('ss-status').replaceChildren(pill(sessionReview(item, formReady(item)) && tone !== 'good' && item.kind !== 'form' ? 'Ready for review' : label, tone, {dot: true}));
   // Start again and Cancel beside ⋯: the two ways out of a session that isn't going well.
   const again = Object.assign(el('button', 'secondary', '↺ Start again'), {title: 'Close this session and start a new one on the same job'});
   again.addEventListener('click', () => restartSession(item));
@@ -85,7 +85,7 @@ export function renderSessionPage() {
   head.append(sessionLogo(item), words, view);
   $('ss-job').replaceChildren(head);
   renderNextStep(item);
-  const review = sessionReview(item);
+  const review = sessionReview(item, formReady(item));
   const [logLabel, logTone] = isSubmitted(item) ? [label, tone] : item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
     : item.status === 'input' && !isLive(item) ? ['Closed with the app', 'neutral']
     : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];

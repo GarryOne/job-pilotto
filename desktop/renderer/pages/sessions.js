@@ -67,14 +67,14 @@ export function sessionLogo(item) {
 }
 // The sessions most worth opening first: waiting for your answer, a review whose form isn't complete yet, working,
 // ready to submit, then the rest (latest first).
-const urgency = item => (item.status === 'input' && !sessionReview(item) ? 0 : sessionReview(item) && !formReady(item) ? 1
-  : isLive(item) && item.status === 'running' ? 2 : sessionReview(item) ? 3 : 4);
+const urgency = item => (item.status === 'input' && !sessionReview(item, formReady(item)) ? 0 : sessionReview(item, formReady(item)) && !formReady(item) ? 1
+  : isLive(item) && item.status === 'running' ? 2 : sessionReview(item, formReady(item)) ? 3 : 4);
 export function bestSession() {
   return [...sessionList].sort((a, b) => urgency(a) - urgency(b) || Date.parse(b.startedAt || 0) - Date.parse(a.startedAt || 0))[0] || null;
 }
 // The menu's foot: "1 session needs you" (amber), "2 applying" (blue), "1 ready to submit" (green), else how many there are.
 function renderNavBadge() {
-  const open = sessionList.filter(item => !item.endedAt || sessionReview(item));
+  const open = sessionList.filter(item => !item.endedAt || sessionReview(item, formReady(item)));
   const needs = open.filter(item => urgency(item) <= 1).length, working = open.filter(item => urgency(item) === 2).length;
   const ready = open.filter(item => urgency(item) === 3).length;
   const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -248,7 +248,7 @@ const answerHint = () => el('p', 'rich-p muted small', 'Press Answer, then type 
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
   const stuck = !submitted && item.kind === 'form' && !!item.stuck;   // the extension can't reach this form
-  const review = !submitted && !stuck && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
+  const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
   const gone = review && formGone(item);  // the form's Chrome tab was closed
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
