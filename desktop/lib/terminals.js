@@ -85,6 +85,7 @@ export async function available() {
 // A session is live while its process runs; a restored or ended one is not (but can be resumed with its claudeId).
 const isLive = s => !!s.term && !s.endedAt;
 const publicView = s => ({id: s.id, url: s.url, title: s.title, company: s.company, status: s.status, note: s.note,
+  outcome: s.outcome || '',
   live: isLive(s), resumable: !!s.claudeId && !isLive(s),
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),

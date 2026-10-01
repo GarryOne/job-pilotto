@@ -1,7 +1,7 @@
 // A session's state on the session page: ready for review, asking you, working, and how long it took.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
+import {SESSION_STATE, firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
 
 test('a filled form waiting for you is "ready for review"; a message ending on your question is not', () => {
   const report = 'The N26 form is filled and open in Chrome. Nothing was submitted.\n\n**Left for you:**\n' +
@@ -50,4 +50,15 @@ test('only a form page that did not answer asks for the reload repair', () => {
   assert.equal(panelAnswered({went: 'posting', taken: false}), false);
   assert.equal(panelAnswered(undefined), false);
   assert.equal(panelAnswered('tab'), false);  // the old string shape cannot answer "did it?" — never "answered"
+});
+
+// A session whose application was submitted says so, whatever its process last did: it is finished, not applying.
+test('a submitted session reads "Submitted", not "Ready for review"', () => {
+  const done = {status: 'done', endedAt: '2026-10-01T07:37:19Z', outcome: 'submitted', question: 'The form is filled; submit it yourself.'};
+  assert.deepEqual(sessionState(done), SESSION_STATE.submitted);
+  assert.equal(sessionState(done)[0], 'Submitted');
+  // Without the outcome it is the ordinary finished session.
+  assert.equal(sessionState({...done, outcome: ''})[0], 'Ready for review');
+  // A running process still Applying: the outcome only speaks for a session that is over.
+  assert.equal(sessionState({status: 'running', live: true, outcome: 'submitted'})[0], 'Applying');
 });

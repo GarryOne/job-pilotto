@@ -34,19 +34,22 @@ export function extensionToken(storage) {
   return token;
 }
 
-// The application the extension just reported as submitted: the session that filled that form is over too (it may
-// not stay in Application sessions as if Claude were still on it). Exactly what the "I submitted it" button does
-// when pressed, only without pressing it. Tests pass their own.
+// The application the extension just reported as submitted: the session that filled that form is over (it must not
+// read as if Claude were still on it) — but it stays in the list, marked Submitted, instead of being deleted. It used
+// to be removed outright, so a session that had taken a day of work vanished from the window when its form was
+// submitted, with nothing left to look at (1 Oct 2026). Exactly what the "I submitted it" button does when pressed,
+// only without pressing it. Tests pass their own.
 export function sessionSubmitted(url) {
   const session = terminals.byUrl(url);
   if (!session) return null;
-  terminals.setOutcome(session.id, 'submitted');  // its statistics, before it goes (lib/session-runs.js)
-  terminals.remove(session.id);
+  if (session.outcome === 'submitted' && !session.live) return null;  // already done: reconciliation runs on every read
+  terminals.setOutcome(session.id, 'submitted');  // its statistics (lib/session-runs.js), and what the row shows
+  terminals.stop(session.id);                     // its process, if it still had one
   return session.id;
 }
 
 // Sessions whose job is already Applied (or past it) in Notion: the form was submitted — that is what Applied
-// means — so they are finished, whatever state the window happens to be in.
+// means — so they are finished, whatever state the window happens to be in. Finished, not gone: the row stays.
 export const APPLIED = new Set(['Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing',
                                 'Offer', 'Rejected', 'Withdrawn', 'No response']);
 export function appliedSessions(jobs = []) {

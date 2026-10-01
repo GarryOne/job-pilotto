@@ -3,7 +3,7 @@
 import {readSessionMessage} from './session-message.js';
 
 export const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question for you', 'warn'], done: ['Ready for review', 'warn'],
-  ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad'], submit: ['Ready to submit', 'good']};
+  ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad'], submit: ['Ready to submit', 'good'], submitted: ['Submitted', 'good']};
 // Claude is running in it (demo sessions say nothing: they run while not ended).
 export const isLive = item => item.live ?? !item.endedAt;
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
@@ -15,8 +15,10 @@ export const asksYou = item => (item.question ? readSessionMessage(item.question
 export const sessionReview = item => item.status === 'done'
   || (item.status === 'input' && REVIEW_WORDS.test(item.question || '') && !asksYou(item));
 // formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
-export const sessionState = (item, formReady = false) => (sessionReview(item) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
-  : SESSION_STATE[item.status] || SESSION_STATE.ended);
+// A session whose application was submitted is finished, whatever its process did: "Submitted", never "Applying".
+export const sessionState = (item, formReady = false) => (item?.outcome === 'submitted' && !isLive(item) ? SESSION_STATE.submitted
+  : sessionReview(item) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
+    : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the
 // tab" repair offered: reloading a form page loses what was typed in it since the last save, so it must not be a
 // button to press by habit next to Open filled form (1 Oct 2026).
