@@ -27,6 +27,24 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     terminals.remove(old.id);
     return {ok: true, closed};
   });
+  // Skip this role: give up on the job. Claude stops, the form tab closes, the job is Dismissed in Notion (hidden from the
+  // list, as Dismiss in its menu), the session goes. No question: the button says it.
+  checkedSessions.handle('sessionSkip', async (_, id) => {
+    const old = terminals.get(String(id));
+    if (!old) return {ok: false, error: 'This session is no longer in the list.'};
+    terminals.stop(old.id);
+    review.queueClose(old.id);
+    const closed = (await review.delivered(old.id, 6000)) || await closeTab({url: old.url, company: old.company});
+    // Applying is undone first (back to what it was: Kit ready), then the job is dismissed.
+    const reset = DEMO ? {ok: true} : await pipeline.unapply(storage, old.url).catch(error => ({ok: false, error: error.message}));
+    if (!reset.ok) return {ok: false, error: `Notion: ${reset.error || 'not updated'}. The session stays; try again.`, closed};
+    const dismissed = DEMO ? {ok: true} : await pipeline.setStatus(storage, old.url, 'dismissed').catch(error => ({ok: false, error: error.message}));
+    if (dismissed.ok === false) return {ok: false, error: `Notion: ${dismissed.error || 'could not dismiss the job'}. It is back to Kit ready; dismiss it from its menu.`, closed};
+    appLog('sessions', `skipped by the user: job dismissed, session removed`, {id: old.id, closed: !!closed});
+    terminals.setOutcome(old.id, 'cancelled');
+    terminals.remove(old.id);
+    return {ok: true, closed};
+  });
   checkedSessions.handle('sessionRestart', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};

@@ -167,6 +167,18 @@ export async function cancelSession(item) {
   await refreshSessions();
   if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs();
 }
+// Skip this role: give up. Claude stops, the form tab closes, the job is dismissed, the session goes (no question).
+export async function skipSession(item) {
+  const result = await window.pilot.sessionSkip(item.id);
+  if (!result?.ok) { toastMessage('Not skipped', result?.error || 'Try again.'); await refreshSessions(); return; }
+  const job = sessionJob(item);
+  job.stage = 'Dismissed';
+  job.status = 'dismissed';
+  if (!result.closed) toastMessage('Role skipped', 'The job is dismissed. Its form tab wasn\'t found: close it in Chrome yourself.');
+  if (shared.openSessionId === item.id) shared.openSessionId = null;
+  await refreshSessions();
+  if (!document.querySelector('.view[data-view="jobs"]').hidden) renderJobs();
+}
 // Start again: this session closes and a new one starts on the same job (asked once, in a dialog).
 export async function restartSession(item) {
   const result = await window.pilot.sessionRestart(item.id);
@@ -321,7 +333,7 @@ export function renderNextStep(item) {
       toastMessage('Couldn\'t reload the form tab', why || osText('Press ⌘R in the form\'s tab instead.'));
     }, 'refresh'));
     actions.push(submittedButton(item));  // you pressed Submit in Chrome: say so here too
-    if (live) actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    if (live) actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
     else if (item.resumable) actions.push(resume('secondary'));
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
@@ -333,7 +345,7 @@ export function renderNextStep(item) {
   } else if (asking) {
     actions.push(sessionButton('Continue', 'primary', () => say('Continue.')));
     actions.push(submittedButton(item));
-    actions.push(sessionButton('Skip this role', 'secondary', () => say('Skip this role: close its tab and finish without filling anything.')));
+    actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
     actions.push(sessionButton('Answer in your own words', 'link', () => openLog(true), 'chat'));
   } else if (running) {
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => {

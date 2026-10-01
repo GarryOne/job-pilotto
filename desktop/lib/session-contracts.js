@@ -50,6 +50,7 @@ export const sessionContracts = Object.freeze({
   sessionSubmitted: {args: [id], response: nullable(id)},
   sessionResume: {args: [id], response: result},
   sessionCancel: {args: [id], response: result},
+  sessionSkip: {args: [id], response: result},
   sessionRestart: {args: [id], response: result},
   sessionFinish: {args: [id], response: result},
   sessionsLeftOpen: {args: [array(id)], response: leftOpen},

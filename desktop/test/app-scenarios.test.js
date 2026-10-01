@@ -190,6 +190,20 @@ test('journey: cancel confirmation keeps the session; confirmed cancellation sta
   assert.equal((await s.pilot.sessionResume(id)).ok, false);
 });
 
+test('journey: skip this role resets Applying, dismisses the job and removes the session, with no question', async t => {
+  const s = scenario(t), id = await s.start();
+  assert.equal((await s.pilot.sessionSkip(id)).ok, true);
+  assert.equal(s.status(), 'dismissed'); assert.equal(s.processes[0].killed, true);
+  assert.equal(await s.view(id), undefined);
+  s.restart(); assert.equal(await s.view(id), undefined);
+});
+
+test('journey: skip this role with Notion refusing the reset keeps the session and the job Applying', async t => {
+  const s = scenario(t), id = await s.start(); s.failReset();
+  assert.equal((await s.pilot.sessionSkip(id)).ok, false);
+  assert.equal(s.status(), 'applying'); assert.equal((await s.view(id)).live, false);
+});
+
 test('journey: failed Notion reset keeps the stopped session available after restart', async t => {
   const s = scenario(t), id = await s.start(); s.failReset(); s.choices.push(0);
   assert.equal((await s.pilot.sessionCancel(id)).ok, false);
