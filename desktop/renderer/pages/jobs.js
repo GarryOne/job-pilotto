@@ -252,7 +252,7 @@ export function renderJobs() {
       else toastMessage('Could not open the job', 'It has no link.');
     };
     if (job.status !== 'applied' && job.url && job.kit) {
-      // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
+      // Stays "Opened" for the session (until marked applied); a click opens it again.
       const opened = shared.openedInChrome.has(pageKey(job.url));
       // The easy way is the main button: Chrome opens the form in a normal tab and the extension fills it from the kit.
       // Apply with Claude (a session that drives Chrome through the employer's site, sign-up and every page) is in the
@@ -266,8 +266,8 @@ export function renderJobs() {
         box.append(open);
         menu.push({icon: 'puzzle', label: 'Fill in Chrome', run: () => fillInChrome()});
       } else {
-        const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened in Chrome ↻' : 'Apply'), {
-          title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
+        const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened ↻' : 'Apply'), {
+          title: opened ? 'Opened in Chrome: click to open it there again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
         fill.addEventListener('click', () => fillInChrome(fill));
         box.append(fill);
         if (claudeReady) {

@@ -235,7 +235,7 @@ table.runs tr.run:hover, table.runs tr.run.open { background: var(--surface-2); 
 .contact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 14px; }
 .contact-grid label { display: grid; gap: 4px; font-size: var(--fs-md); font-weight: 600; }
 .contact-grid input { padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: var(--r-md); font: inherit; font-weight: 400; }
-/* The row's main button (Prepare / Preparing… / Apply / Opened in Chrome): one fixed width, so a ticking
+/* The row's main button (Prepare / Preparing… / Apply / Opened): one fixed width, so a ticking
    counter or a state change never shifts the buttons next to it, and rows line up. */
 .row-actions .row-main { width: 11.5em; flex: none; justify-content: center; text-align: center; font-variant-numeric: tabular-nums;
   white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
