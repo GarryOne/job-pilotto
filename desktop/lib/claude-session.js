@@ -52,7 +52,7 @@ export function prompt(url, {auditFile}) {
   // only sees tabs in its own group, so a tab the app opened is invisible to it): the extension fills most fields in
   // seconds; this session does the rest.
   const handoff = `Open the form tab yourself, once: tabs_context_mcp with createIfEmpty true, then navigate that tab to ${url}#jobpilotto-fill ` +
-    '(keep the #jobpilotto-fill at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself). It is the ' +
+    '(keep the #jobpilotto-fill at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself; whenever you navigate that tab to another address yourself, put #jobpilotto-fill at the end of that address too, or the tab stops being part of this application). It is the ' +
     'only tab for this application: never open a second one. On each page, if <html> has data-jobpilotto-hook, read ' +
     'document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s). state running: keep waiting. ' +
     'done: fill ONLY its todo (dropdowns that ignore scripted clicks, per the skill), then press Next when the form has another page. ' +

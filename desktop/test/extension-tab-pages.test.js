@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {pickApplyButton, confirmationOf, forJob, evidenceIn, missedConfirmation, neverForm, onSite, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -134,15 +134,20 @@ test('the user\'s Notion is never a job form: an armed tab sent there is let go'
   assert.equal(neverForm('not a url'), false);
 });
 
-test('a page reads as a job application from two word groups; known job boards match by address pattern', () => {
-  assert.equal(evidenceIn('Software Developer (M/F) Ref: 2085 Nationality Marital status Date of birth'), 2);  // an agency form
-  assert.equal(evidenceIn('Find your perfect domain. Sign up, transfer, hosting. Sign in'), 0);
-  assert.equal(evidenceIn('Careers at Acme: apply now with your CV'), 3);
-  const sites = ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*'];
-  assert.equal(onSite(sites, 'https://job-boards.greenhouse.io/scaleai/jobs/1'), true);
-  assert.equal(onSite(sites, 'https://jobs.lever.co/acme/1'), true);
-  assert.equal(onSite(sites, 'https://www.namecheap.com/'), false);
-  assert.equal(onSite(sites, 'https://evil-greenhouse.io/x'), false);
+test('a person walking away ends the application tab; a page moving on keeps it, with the mark carried along', () => {
+  for (const transitionType of ['typed', 'generated', 'auto_bookmark', 'start_page', 'keyword']) assert.equal(navigationKind({transitionType}), 'by-hand');
+  assert.equal(navigationKind({transitionType: 'link', transitionQualifiers: ['from_address_bar']}), 'by-hand');
+  for (const transitionType of ['link', 'form_submit', 'reload']) assert.equal(navigationKind({transitionType}), 'page');
+  assert.equal(navigationKind({transitionType: 'link', transitionQualifiers: ['client_redirect']}), 'page');
+  assert.equal(withMark('https://api.easytemp.ch/live/bew/1.php'), 'https://api.easytemp.ch/live/bew/1.php#jobpilotto-fill');
+  assert.equal(withMark('https://x.test/a?b=1'), 'https://x.test/a?b=1#jobpilotto-fill');
+  assert.equal(withMark('https://x.test/#/apply'), '');  // the page's own fragment is not touched
+  assert.equal(withMark('chrome://settings'), '');
+});
+
+test('an armed form on any site counts as an open tab, a closed one does not', () => {
+  assert.deepEqual(reportedIds({jobSiteIds: [3, 4], armedIds: [4, 7, 9], existingIds: [3, 4, 7, 12]}), [3, 4, 7]);
+  assert.deepEqual(reportedIds({}), []);
 });
 
 test('the Apply button in front of a form is picked by rule: an apply phrase on its own, never sign-in, Easy Apply or a mail link', () => {

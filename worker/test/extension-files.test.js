@@ -15,7 +15,7 @@ test('manifest asks for activeTab, alarms, debugger, scripting and storage, and 
   const manifest = JSON.parse(read('extension/manifest.json'));
   assert.equal(manifest.manifest_version, 3);
   // debugger: real clicks on dropdowns, used only when Settings → Fill drop-down menus too is on (Chrome can't make it optional).
-  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'alarms', 'debugger', 'scripting', 'storage']);
+  assert.deepEqual(manifest.permissions.sort(), ['activeTab', 'alarms', 'debugger', 'scripting', 'storage', 'webNavigation']);
   // The flow's own list ("Opened in Chrome", auto-fill) is the same.
   assert.match(read('extension/flow.js'), /successfactors\.eu/);
   // Granted at install, so tabs opened by the app or "Open & fill" fill themselves (as optional

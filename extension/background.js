@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, EVIDENCE, forJob, neverForm, onSite, reportedIds, tabArmed} from './tab-pages.js';
+import {pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, reportedIds, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -81,7 +81,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     chrome.action.setTitle({tabId, title: 'Job Pilotto: this site needs Settings → Work on every job site'}).catch(() => {});  // the tab may already be closed
     return;
   }
-  chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+  // `from` is the job this tab was opened for. A mark the extension carried onto the next page (markPage) does not change it:
+  // the posting that led to an agency's form stays the job, whichever site the form is on.
+  const carried = (await chrome.storage.session.get(`carried:${tabId}`))[`carried:${tabId}`];
+  if (carried !== tab.url) chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
   if (info.status !== 'complete') return;
   await consider(tab, tab.url.replace(`#${FILL_MARK}`, ''));
@@ -89,7 +92,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
 
 // Counts only, in the page: no labels and no values. Passwords and file inputs are counted apart from the rest.
 function pageShape(tabId) {
-  return chrome.scripting.executeScript({target: {tabId}, args: [EVIDENCE], func: groups => {
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {
     const shown = el => el.getClientRects().length > 0 && el.type !== 'hidden';
     const controls = [...document.querySelectorAll('input, textarea, select')].filter(shown);
     const skip = new Set(['submit', 'button', 'reset', 'search', 'image', 'password', 'file', 'hidden']);
@@ -98,8 +101,6 @@ function pageShape(tabId) {
       passwords: controls.filter(el => el.type === 'password').length,
       files: controls.filter(el => el.type === 'file').length,
       textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
-      // How many job-application word groups the page touches; the words themselves stay in the page.
-      evidence: groups.filter(source => new RegExp(source, 'i').test(`${document.title} ${(document.body?.innerText || '').slice(0, 8000)}`)).length,
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
@@ -164,13 +165,6 @@ async function consider(tab, jobUrl) {
   let role = pageRole(counts);
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-  // An armed tab stays armed when you browse on in it. Unless it is a known job board, or the site this tab was opened
-  // for, a "form" must read like a job application: otherwise it is left alone (no fill, no popup).
-  if (role === 'form' && !onSite(JOB_SITES, tab.url) && !sameSite(tab.url, await jobOf(tab)) && (counts.evidence || 0) < 2) {
-    await writeState(tab.id, {state: 'no-form'});
-    decide('fill', 'not an application page: left alone', {host, evidence: counts.evidence || 0});
-    return;
-  }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
@@ -179,7 +173,7 @@ async function consider(tab, jobUrl) {
       decide('fill', 'pressed the Apply button', {host, label});
       const after = await formAfterPress(tab.id, tab.url);
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
-      if (after) { counts.evidence = 2; role = 'form'; }
+      if (after) role = 'form';
     }
   }
   if (role !== 'form') {
@@ -224,6 +218,33 @@ async function arm(tabId, why = 'app tab') {
   }
   await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
 }
+// The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
+// redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
+// put back in place, without a reload. When a person walks away (types an address, searches, opens a bookmark), the tab is
+// let go. Without the permission this needs, tabs stay armed until closed (webNavigation).
+const forget = tabId => chrome.storage.session.remove([`armed:${tabId}`, `from:${tabId}`, `job:${tabId}`, `carried:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
+async function markPage(tabId, url) {
+  const marked = withMark(url);
+  if (!marked) return false;
+  await chrome.storage.session.set({[`carried:${tabId}`]: marked});
+  await chrome.scripting.executeScript({target: {tabId}, args: [marked], func: address => { try { history.replaceState(history.state, '', address); } catch { /* sandboxed page */ } }}).catch(() => {});
+  return true;
+}
+if (chrome.webNavigation) {
+  chrome.webNavigation.onCommitted.addListener(async details => {
+    if (details.frameId !== 0) return;
+    const key = `armed:${details.tabId}`;
+    if (!(await chrome.storage.session.get(key))[key] || String(details.url).includes(`#${FILL_MARK}`)) return;
+    let host = '';
+    try { host = new URL(details.url).hostname; } catch { /* not a url */ }
+    if (navigationKind(details) === 'by-hand') {
+      await forget(details.tabId);
+      decide('panel', 'tab left by hand: no longer the application', {host});
+      return;
+    }
+    if (await markPage(details.tabId, details.url)) decide('panel', 'mark carried to the next page', {host});
+  });
+}
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== 'complete' || !/^https:/.test(tab.url || '') || tab.url.includes(`#${FILL_MARK}`)) return;
   const key = `armed:${tabId}`;
@@ -235,20 +256,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     }
     return;
   }
-  let armed = (await chrome.storage.session.get(key))[key];
-  if (!armed) armed = await followOpener(tab);
-  if (!armed) return;
-  // The panel goes only where it can help: a job board, the site this tab was opened for, or a page that reads like an
-  // application. A form-like page of some other site (you browsed on in an armed tab) gets nothing injected.
-  if (!onSite(JOB_SITES, tab.url) && !sameSite(tab.url, await jobOf(tab))) {
-    const shape = await pageShape(tabId);
-    if (shape && pageRole(shape) === 'form' && (shape.evidence || 0) < 2) {
-      let host = '';
-      try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-      decide('panel', 'not an application page: no panel', {host, evidence: shape.evidence || 0});
-      return;
-    }
-  }
+  if (!(await chrome.storage.session.get(key))[key]) return;
+  await markPage(tabId, tab.url);
   await arm(tabId, 'next page');
   await consider(tab, await jobOf(tab));
 });
