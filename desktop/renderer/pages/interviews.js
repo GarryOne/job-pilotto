@@ -200,7 +200,7 @@ async function saveToNotion(andReview) {
     renderDrafts(await iv.drafts());
     message('iv-message', 'Saved to Notion 🎤 Interviews.', 'ok');
     await readAgain();
-    if (andReview) reviewRow(result.id);
+    if (andReview) reviewRow(result.id, 'Save & review');
   } finally {
     for (const button of ['iv-save', 'iv-save-review']) $(button).disabled = false;
   }
@@ -534,13 +534,13 @@ function renderSaved() {
   }));
 }
 
-async function reviewRow(pageId) {
+async function reviewRow(pageId, why = 'Review') {
   if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
   if (reviewing.has(pageId)) return;  // already asked for: a second press must not spend a second review (1 Oct 2026)
   reviewing.add(pageId);
   message('iv-message', 'Claude is reviewing the interview (about a minute)…');
   readAgain();
-  const result = await iv.review(pageId);
+  const result = await iv.review(pageId, why);
   if (result.ok && result.cloud) pendingReviews.add(pageId);  // GitHub reviews it: keep "Reviewing…" until it lands
   else reviewing.delete(pageId);
   message('iv-message', result.ok ? `${result.summary}. The review is on the Notion page.` : result.error, result.ok ? 'ok' : 'error');
@@ -554,7 +554,7 @@ async function reviewAgainRow(pageId) {
   if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
   reviewingAgain.add(pageId);
   message('iv-message', reviewAgain.START);
-  const result = await iv.review(pageId).catch(error => ({ok: false, error: String(error?.message || error)}));
+  const result = await iv.review(pageId, 'Review again').catch(error => ({ok: false, error: String(error?.message || error)}));
   reviewingAgain.delete(pageId);
   message('iv-message', ...reviewAgain.doneMessage(result));
   if (result.ok) loadSaved();

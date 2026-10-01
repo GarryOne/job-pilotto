@@ -6,6 +6,7 @@
 // engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
 import * as poolShare from './pool-share.js';
 import fs from 'node:fs';
+import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import path from 'node:path';
 
@@ -230,19 +231,33 @@ export async function updateRepo(storage, {fetcher} = {}) {
   return changed;
 }
 
-// Telegram buttons and the app's Actions start a run in the user's repo instead of on this Mac.
-export function cloudDispatch(storage, onLine = () => {}, fetcher) {
-  return async (inputs, workflow = 'daily.yml') => {
+// Telegram buttons and the app's Actions start a run in the user's repo instead of on this Mac. `note` receives one
+// line per attempt for the app's own log (lib/log.js, wired in main.js): a dispatch is the one action that spends
+// money and time elsewhere, and until now it left no trace on this Mac — two runs 38 s apart for one interview could
+// not be told apart afterwards (1 Oct 2026). `why` names what asked for it, so the log answers "who started this?".
+export function cloudDispatch(storage, onLine = () => {}, {fetcher, note = () => {}} = {}) {
+  return async (inputs, workflow = 'daily.yml', why = '') => {
     const {repo} = storage.settings().cloud;
     const clean = Object.fromEntries(Object.entries(inputs || {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
       .map(([k, v]) => [k, String(v)]));
+    const name = workflow.replace(/\.yml$/, '');
+    // What identifies this dispatch: who asked, the workflow, its mode, and a short digest of the inputs. Never their
+    // values — a Telegram action can carry the user's own words, and the log holds no personal data. Two runs for the
+    // same interview carry the same digest, which is exactly what makes a duplicate visible.
+    const tag = `#${createHash('sha1').update(JSON.stringify(clean)).digest('hex').slice(0, 8)}`;
+    const what = `${why || 'unknown caller'} → ${name}${clean.mode ? ` (${clean.mode})` : ''} ${tag} in ${repo}`;
+    note(`start ${what}`);  // written before the request, so a dispatch that hangs is still on the record
     try {
       await client(storage.secret('GITHUB_TOKEN'), fetcher)('POST', `/repos/${repo}/actions/workflows/${workflow}/dispatches`,
         {ref: 'main', inputs: clean});
-      onLine(`Started ${workflow.replace('.yml', '')}${clean.mode ? ` (${clean.mode})` : ''} in ${repo}.`);
+      onLine(`Started ${name}${clean.mode ? ` (${clean.mode})` : ''} in ${repo}.`);
+      note(`sent ${what}`);
       dispatched.forEach(listener => listener({workflow, inputs: clean}));
+      return {ok: true, workflow, repo, inputs: clean};
     } catch (error) {
       onLine(`Could not start the run in ${repo}: ${error.message}`);
+      note(`failed ${what}: ${error.message}`);
+      return {ok: false, error: error.message, workflow, repo, inputs: clean};
     }
   };
 }

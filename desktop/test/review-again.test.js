@@ -38,8 +38,14 @@ test('every outcome has a message: done here, on GitHub, failed', () => {
 test('the page wires it into the row menu through the same review IPC; demo mode writes nothing', () => {
   const page = fs.readFileSync(new URL('../renderer/pages/interviews.js', import.meta.url), 'utf8');
   assert.match(page, /row\.overall \? \[\{again: true, run: \(\) => reviewAgainRow\(row\.id\)\}\]/);
-  assert.match(page, /await iv\.review\(pageId\)\.catch/);
+  assert.match(page, /await iv\.review\(pageId, 'Review again'\)\.catch/);
+  // Which button asked is carried into the app's log, so a second dispatch is attributable.
+  assert.match(page, /iv\.review\(pageId, why\)/);
+  assert.match(page, /reviewRow\(result\.id, 'Save & review'\)/);
   const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  // Which button asked is carried into the app's log, so a second dispatch is attributable.
+  assert.match(main, /caller = `Interview review \(\$\{why \|\| 'interviews page'\}\)`/);
+  assert.match(main, /appLog\('dispatch', `refused \$\{caller\}/);
   assert.match(main, /ipcMain\.handle\('ivReview'/);                       // one handler, whatever asks for the review
   assert.match(main, /if \(DEMO\) return \{ok: true, summary: 'Reviewed \(demo\): nothing was written'\}/);  // demo writes nothing
   const demo = JSON.parse(fs.readFileSync(new URL('../demo/interviews.json', import.meta.url), 'utf8'));

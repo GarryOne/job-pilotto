@@ -76,10 +76,17 @@ function github(env, path, init = {}) {
 async function dispatch(env, inputs, workflow = env.WORKFLOW_FILE) {
   // The desktop app runs the same pipeline locally instead of starting a GitHub workflow.
   if (env.dispatch) return env.dispatch(inputs, workflow);
+  // A dispatch from Telegram (an audio file, /interview, a button) starts a run the Mac never sees: log it here, or
+  // "who started this run?" has no answer on either side (1 Oct 2026: two runs 38 s apart for one interview).
+  // Fields and mode only — never the user's words in `note`.
+  console.log(`dispatch ${workflow} mode=${inputs?.mode || '-'} keys=${Object.keys(inputs || {}).sort().join(',')}`);
   const response = await github(env, `actions/workflows/${workflow}/dispatches`, {
     method: 'POST', body: JSON.stringify({ ref: 'main', inputs }),
   });
-  if (response.status !== 204) throw new Error(`GitHub dispatch failed: ${response.status} ${await response.text()}`);
+  if (response.status !== 204) {
+    console.log(`dispatch failed ${workflow} status=${response.status}`);
+    throw new Error(`GitHub dispatch failed: ${response.status} ${await response.text()}`);
+  }
 }
 
 export function formatRuns(runs) {

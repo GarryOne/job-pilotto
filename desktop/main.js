@@ -223,7 +223,7 @@ let polling = null;
 
 function restartTelegram() {
   polling?.stop();
-  polling = telegram.startPolling(storage, log);
+  polling = telegram.startPolling(storage, log, undefined, dispatchNote);
 }
 
 // Notion inside the app: its own window (Notion refuses to be shown in an iframe). The session is kept
@@ -326,6 +326,13 @@ function toWindow(...args) {
   if (window && !window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send(...args);
 }
 const log = line => toWindow('log', line);
+
+// Every cloud run this app starts is written to its own log, with the caller named at the call site: a dispatch
+// spends money and time on GitHub, and two runs 38 s apart for one interview could not be told apart afterwards
+// without it (1 Oct 2026). Lines: `start <caller> → <workflow> (<mode>) #<digest> in <repo>`, then `sent`/`failed`.
+const dispatchNote = line => appLog('dispatch', line);
+const dispatchCloud = (why, inputs, workflow) =>
+  github.cloudDispatch(storage, log, {note: dispatchNote})(inputs, workflow, why);
 
 // A CV page (cv/template.js) printed to PDF by Chromium in a hidden window. Fixed pages (a custom design)
 // never grow, so a page whose content doesn't fit is reported instead of silently cut.
@@ -628,11 +635,12 @@ function handlers() {
   ipcMain.handle('runDetail', (_, pageId) => runHistory.detail(storage, pageId).catch(error => ({message: null, log: [`Not read from Notion: ${error.message}`]})));
 
   ipcMain.handle('checkMail', () => (storage.settings().cloud?.repo
-    ? github.cloudDispatch(storage, log)({}, 'mail.yml').then(() => ({ok: true, cloud: true}))
+    ? dispatchCloud('Gmail check (Check now)', {}, 'mail.yml').then(result => (result.ok
+      ? {ok: true, cloud: true} : {ok: false, error: result.error}))
     : pipeline.checkMail(storage, log, 'you').then(({ok, run}) => ({ok, run}))));
   // Right after setup: the first search, so the Jobs screen fills while the user watches.
   ipcMain.handle('firstSearch', () => (storage.settings().lastSearchAt || pipeline.running() ? {ok: true, skipped: true}
-    : cloud() ? github.cloudDispatch(storage, log)({mode: 'run'}).then(() => ({ok: true, cloud: true}))  // background jobs run in one place
+    : cloud() ? dispatchCloud('First search (after setup)', {mode: 'run'}).then(r => ({ok: r.ok, cloud: true, error: r.error}))  // background jobs run in one place
       : pipeline.refresh(storage, log, 'run', 'first')));
   ipcMain.handle('jobs', async () => {
     if (DEMO) return JSON.parse(fs.readFileSync(path.join(here, 'demo', 'jobs.json'), 'utf8'));
@@ -659,8 +667,8 @@ function handlers() {
     const blocked = allowanceBlock();
     if (blocked) return blocked;
     if (!storage.settings().cloud?.repo) return pipeline.refresh(storage, log, 'run', 'you');
-    await github.cloudDispatch(storage, log)({mode: 'run'});
-    return {ok: true, cloud: true};
+    const started = await dispatchCloud('Run now (Refresh)', {mode: 'run'});
+    return started.ok ? {ok: true, cloud: true} : {ok: false, error: started.error};
   });
   // Always on: sign in to GitHub (code approved in the browser), then set up
   // the user's private repo. Also re-run after a key or setting changes ("Update").
@@ -727,7 +735,7 @@ function handlers() {
   ipcMain.handle('command', async (_, name, arg = '') => {
     if (!COMMANDS.includes(name)) return {text: 'Unknown command'};
     if (name === 'run' && allowanceBlock()) return {text: 'The free allowance is over. Paste a license key in Settings → License to search again.'};
-    try { return await telegram.runCommand(storage, name, arg, log); } catch (error) { return {text: `⚠️ ${error.message}`}; }
+    try { return await telegram.runCommand(storage, name, arg, log, undefined, dispatchNote); } catch (error) { return {text: `⚠️ ${error.message}`}; }
   });
   // Jobs → Applied elsewhere: tracked like /add, but waited for, so the list shows it as Applied right away.
   ipcMain.handle('addApplied', async (_, url, when = '', details = {}) => {
@@ -877,16 +885,20 @@ function handlers() {
   // reviews of one transcript. The window is short enough that a deliberate "Review again" later still runs.
   const REVIEW_WINDOW_MS = 2 * 60 * 1000;
   const reviewingStarted = new Map();  // interview page id -> when its review was last started
-  ipcMain.handle('ivReview', (_, pageId) => {
+  // `why` comes from the window (the row's Review, ⋯ Review again, Save & review): the log then names the button, not
+  // just "the app", which is what makes a second dispatch attributable.
+  ipcMain.handle('ivReview', (_, pageId, why = '') => {
     if (DEMO) return {ok: true, summary: 'Reviewed (demo): nothing was written'};
-    const id = String(pageId);
+    const id = String(pageId), caller = `Interview review (${why || 'interviews page'})`;
     if (Date.now() - (reviewingStarted.get(id) || 0) < REVIEW_WINDOW_MS) {
+      appLog('dispatch', `refused ${caller} → daily.yml (interview) in ${storage.settings().cloud?.repo || 'this Mac'}: already started within ${REVIEW_WINDOW_MS / 60000} min`);
       return {ok: true, already: true, summary: 'Already reviewing this interview — it shows in Recent activity'};
     }
     reviewingStarted.set(id, Date.now());
     if (cloud()) {
-      return github.cloudDispatch(storage, log)({mode: 'interview', interview: id}).then(() => ({ok: true, cloud: true,
-        summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}));
+      return dispatchCloud(caller, {mode: 'interview', interview: id}).then(started => (started.ok
+        ? {ok: true, cloud: true, summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}
+        : {ok: false, error: `Could not start the review on GitHub: ${started.error}`}));
     }
     return Promise.resolve(interviews.review(storage, id)).then(result => {
       if (!result?.ok) reviewingStarted.delete(id);  // it failed: a retry must be able to start at once
@@ -1238,8 +1250,8 @@ function handlers() {
     // With Always on, background jobs run in the user's GitHub repo: Recent activity
     // shows it starting, its progress and its result (its ⏱️ Search runs row); the job's row updates from Notion.
     if (cloud()) {
-      await github.cloudDispatch(storage, log)({mode: 'prepare', job: code});
-      return {ok: true, cloud: true};
+      const started = await dispatchCloud(`Application kit (${name})`, {mode: 'prepare', job: code});
+      return started.ok ? {ok: true, cloud: true} : {ok: false, error: started.error};
     }
     // Quietly: the result comes as a notification (and the row's Apply), not as log output.
     const lines = [];

@@ -60,7 +60,7 @@ export function localDispatch(storage, onLine = () => {}) {
   };
 }
 
-export function telegramEnv(storage, onLine) {
+export function telegramEnv(storage, onLine, note = () => {}) {
   const settings = storage.settings();
   const ids = settings.notionIds || {};
   return {
@@ -71,7 +71,7 @@ export function telegramEnv(storage, onLine) {
     NOTION_EVENTS_DB: ids.NOTION_EVENTS_DB || '',
     NOTION_CRON_RUNS_DB: ids.NOTION_CRON_RUNS_DB || '',  // /status and the app's Status: the runs in Notion
     // With Always on, runs happen in the user's GitHub repo.
-    dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine) : localDispatch(storage, onLine),
+    dispatch: settings.cloud?.repo ? github.cloudDispatch(storage, onLine, {note}) : localDispatch(storage, onLine),
     status: () => {
       const s = storage.settings();
       if (s.cloud?.repo) return `☁️ Always on: Job Pilotto runs from your GitHub repo ${s.cloud.repo} on your schedule, even with your computer off.`;
@@ -82,7 +82,7 @@ export function telegramEnv(storage, onLine) {
 }
 
 // Long polling: runs while the app is open. stop() ends it (e.g. when the token changes).
-export function startPolling(storage, onLine = () => {}, fetcher) {
+export function startPolling(storage, onLine = () => {}, fetcher, note = () => {}) {
   let running = true;
   (async () => {
     let offset = storage.settings().telegramOffset;
@@ -95,7 +95,7 @@ export function startPolling(storage, onLine = () => {}, fetcher) {
         for (const update of updates) {
           offset = update.update_id + 1;
           storage.saveSettings({telegramOffset: offset});
-          await handleUpdate(telegramEnv(storage, onLine), update);
+          await handleUpdate(telegramEnv(storage, onLine, note), update);
         }
       } catch (error) {
         onLine(`Telegram: ${error.message}`);
@@ -111,8 +111,8 @@ export function startPolling(storage, onLine = () => {}, fetcher) {
 export const plainText = html => String(html || '').replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
-export async function runCommand(storage, name, arg = '', onLine = () => {}, fetcher) {
-  const env = telegramEnv(storage, onLine);
+export async function runCommand(storage, name, arg = '', onLine = () => {}, fetcher, note = () => {}) {
+  const env = telegramEnv(storage, onLine, note);
   const answer = name === 'add' ? await handleAdd(env, `/add ${arg}`) : await handleCommand(env, {name, arg});
   const {text, keyboard} = typeof answer === 'string' ? {text: answer} : answer;
   if (env.TELEGRAM_BOT_TOKEN && env.OWNER_CHAT_ID) {

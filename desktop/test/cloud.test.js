@@ -100,7 +100,7 @@ test('with the cloud on: no local timer, and buttons start runs in the repo', as
   storage.saveSettings({cloud: {repo: 'ada/job-pilotto-private'}});
   assert.equal(due(storage.settings()), false);
   const gh = await fakeGitHub();
-  await github.cloudDispatch(storage, () => {}, gh.fetcher)({mode: 'apply', job: 'ab12', page: undefined, seed: 7}, 'daily.yml');
+  await github.cloudDispatch(storage, () => {}, {fetcher: gh.fetcher})({mode: 'apply', job: 'ab12', page: undefined, seed: 7}, 'daily.yml');
   const call = gh.calls.find(c => c.route.includes('/dispatches'));
   assert.equal(call.route, '/repos/ada/job-pilotto-private/actions/workflows/daily.yml/dispatches');
   assert.deepEqual(call.data, {ref: 'main', inputs: {mode: 'apply', job: 'ab12', seed: '7'}});
@@ -135,4 +135,37 @@ test('installed on several repositories: the user chooses one; the choice is use
     return gh.fetcher(url, init);
   };
   await assert.rejects(github.connect(userStorage(), 't', {fetcher}), error => error.needsChoice && error.repos.length === 2);
+});
+
+// A dispatch is the one action that spends money and time on GitHub. Until 1 Oct 2026 it left no trace on this Mac, so
+// two runs 38 s apart for one interview could not be told apart. Every attempt now goes to the app's log with what
+// asked for it — and the inputs' values never do (a Telegram action can carry the user's own words).
+test('a dispatch is logged with its caller, and its failure is reported, not swallowed', async () => {
+  const storage = userStorage();
+  storage.setSecret('GITHUB_TOKEN', 'gho_token');
+  storage.saveSettings({cloud: {repo: 'ada/job-pilotto-private'}});
+  const lines = [];
+  const gh = await fakeGitHub();
+  const send = github.cloudDispatch(storage, () => {}, {fetcher: gh.fetcher, note: line => lines.push(line)});
+  const started = await send({mode: 'interview', interview: '3ec62be8-fd86-8173-9446-d83a1e46c805'}, 'daily.yml', 'Interview review (Review)');
+  assert.equal(started.ok, true);
+  assert.match(lines[0], /^start Interview review \(Review\) → daily \(interview\) #[0-9a-f]{8} in ada\/job-pilotto-private$/);
+  assert.match(lines[1], /^sent Interview review \(Review\) → daily \(interview\) #[0-9a-f]{8} in ada\/job-pilotto-private$/);
+  assert.ok(!lines.join(' ').includes('3ec62be8'), 'the log carries no input values');
+  assert.ok(!lines.join(' ').includes('gho_token'), 'and no token');
+  // The same inputs give the same tag, which is what makes a duplicate dispatch visible; another interview does not.
+  const again = [];
+  await github.cloudDispatch(storage, () => {}, {fetcher: gh.fetcher, note: line => again.push(line)})
+    ({mode: 'interview', interview: '3ec62be8-fd86-8173-9446-d83a1e46c805'}, 'daily.yml', 'Interview review (Review again)');
+  assert.equal(again[0].split('#')[1].split(' ')[0], lines[0].split('#')[1].split(' ')[0]);
+  const other = [];
+  await github.cloudDispatch(storage, () => {}, {fetcher: gh.fetcher, note: line => other.push(line)})
+    ({mode: 'interview', interview: 'another-page'}, 'daily.yml', 'Interview review (Review)');
+  assert.notEqual(other[0].split('#')[1].split(' ')[0], lines[0].split('#')[1].split(' ')[0]);
+  // A refused dispatch comes back as a failure: the window must not say "reviewing" when nothing was started.
+  const failing = github.cloudDispatch(storage, () => {}, {fetcher: async () => ({ok: false, status: 422, json: async () => ({message: 'Workflow does not have'})}), note: line => lines.push(line)});
+  const failed = await failing({mode: 'run'}, 'daily.yml', 'Run now (Refresh)');
+  assert.equal(failed.ok, false);
+  assert.equal(failed.error, 'Workflow does not have');
+  assert.match(lines.at(-1), /^failed Run now \(Refresh\) → daily \(run\) #[0-9a-f]{8} in ada\/job-pilotto-private: Workflow does not have$/);
 });
