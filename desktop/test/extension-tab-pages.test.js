@@ -136,11 +136,11 @@ test('the user\'s Notion is never a job form: an armed tab sent there is let go'
 
 test('"Use on this tab" is off on a search page, a non-https page and a page with no form; on for a form or an unreadable page', () => {
   assert.equal(useTabVerdict('https://www.google.com/search?q=acme', 'no-form').ok, false);
-  assert.match(useTabVerdict('https://www.google.com/search?q=acme').why, /search or Notion/);
+  assert.match(useTabVerdict('https://www.google.com/search?q=acme').why, /No form detected.*search or Notion/);
   assert.equal(useTabVerdict('http://example.com/apply', 'form').ok, false);
   assert.equal(useTabVerdict('chrome://extensions').ok, false);
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').ok, false);
-  assert.match(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').why, /No application form/);
+  assert.match(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').why, /No form detected/);
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'form').ok, true);
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'account').ok, true);
   assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', null).ok, true);   // couldn't be read: not blocked on a guess

@@ -16,6 +16,7 @@
   button { font: inherit; font-weight: 600; padding: 9px 12px; border: 0; border-radius: 8px; background: var(--signal); color: #fff; cursor: pointer; }
   button:disabled { opacity: .6; cursor: default; }
   .note { font-size: 12px; min-height: 16px; }
+  .note:not(:empty) { color: var(--ink); background: #fff4e5; border-left: 3px solid var(--signal); padding: 6px 8px; border-radius: 4px; }
   .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
   .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .status.on::before { background: var(--good); }

@@ -30,8 +30,8 @@ export const neverForm = url => {
 // that shows no application form (role from pageRole; null = the page couldn't be read: don't block on a guess).
 export function useTabVerdict(url, role = null) {
   if (!/^https:/.test(String(url || ''))) return {ok: false, why: 'Open the job application page first.'};
-  if (neverForm(url)) return {ok: false, why: 'This is a search or Notion page, not an application form.'};
-  if (role === 'no-form') return {ok: false, why: 'No application form on this page. Open the form first, then press this.'};
+  if (neverForm(url)) return {ok: false, why: 'No form detected: this is a search or Notion page.'};
+  if (role === 'no-form') return {ok: false, why: 'No form detected on this page. Open the application form, then press this.'};
   return {ok: true, why: ''};
 }
 

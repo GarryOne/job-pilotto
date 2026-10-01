@@ -341,7 +341,9 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     (async () => {
       const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
       if (!tab?.id || !/^https:/.test(tab.url || '')) return {ok: false, why: 'Open the job application page first.'};
-      if (neverForm(tab.url)) return {ok: false, why: useTabVerdict(tab.url).why};
+      const counts = neverForm(tab.url) ? null : await pageShape(tab.id).catch(() => null);
+      const verdict = useTabVerdict(tab.url, counts ? pageRole(counts) : null);   // the click checks again: the page may have changed
+      if (!verdict.ok) return verdict;
       const url = tab.url.replace(`#${FILL_MARK}`, '');
       decide('panel', 'used on this tab by hand', {host: new URL(url).hostname});
       await chrome.storage.session.set({[`from:${tab.id}`]: url});
