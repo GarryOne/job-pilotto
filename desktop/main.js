@@ -1150,7 +1150,8 @@ function handlers() {
     telemetry?.record(String(kind), fields || {});
     return true;
   });
-  ipcMain.handle('telemetryShown', () => ({on: telemetry?.enabled() ?? false, events: telemetry?.shown() || []}));
+  // The switch shows the saved choice (on unless turned off), also in a build that doesn't send (the reporter is null there).
+  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || []}));
   // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
   ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));
   ipcMain.handle('poolShareSet', async (_, value) => {

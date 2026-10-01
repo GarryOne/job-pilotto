@@ -7,7 +7,7 @@ async function show() {
 }
 
 export async function init() {
-  const {on} = await window.pilot.poolShareGet().catch(() => ({on: false}));
+  const {on} = await window.pilot.poolShareGet().catch(() => ({on: true}));
   $('pool-share-on').checked = on;
   $('pool-share-on').addEventListener('change', async event => { await window.pilot.poolShareSet(event.target.checked); });
   document.querySelector('.pool-share-shown').addEventListener('toggle', event => { if (event.target.open) show(); });
