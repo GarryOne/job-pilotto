@@ -16,6 +16,7 @@ import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';
 import * as questions from './questions.js';
+import * as terminals from './terminals.js';
 import {log} from './log.js';
 import * as reports from './reports.js';
 
@@ -33,7 +34,18 @@ export function extensionToken(storage) {
   return token;
 }
 
-export function localEnv(storage) {
+// The application the extension just reported as submitted: the session that filled that form is over too (it may
+// not stay in Application sessions as if Claude were still on it). Exactly what the "I submitted it" button does
+// when pressed, only without pressing it. Tests pass their own.
+export function sessionSubmitted(url) {
+  const session = terminals.byUrl(url);
+  if (!session) return null;
+  terminals.setOutcome(session.id, 'submitted');  // its statistics, before it goes (lib/session-runs.js)
+  terminals.remove(session.id);
+  return session.id;
+}
+
+export function localEnv(storage, submitted = sessionSubmitted) {
   const settings = storage.settings();
   const summary = job => ({title: job.title, company: job.company, stage: job.status, url: job.url, notion_url: ''});
   const find = async url => {
@@ -67,6 +79,10 @@ export function localEnv(storage) {
       if (!job) return {ok: false, error: 'This job isn\'t in your list'};
       const result = await pipeline.setStatus(storage, job.url, 'applied');
       if (!result.ok) return {ok: false, error: result.error || 'Could not mark it Applied'};
+      // The confirmation page is the submission (the extension only reports one): the session that filled that
+      // form is over too, not left in Application sessions as if Claude were still on it. The "I submitted it"
+      // button's own end, without pressing anything.
+      submitted(job.url);
       notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`);
       return {ok: true, message: 'Marked Applied in your Notion.'};
     },
