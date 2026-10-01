@@ -83,3 +83,10 @@ test('a confirmation page with no stored job is logged, and only that page', () 
   assert.equal(missedConfirmation({url: page, job: 'https://job-boards.greenhouse.io/anthropic/jobs/5002072'}).text,
     'confirmation page is not the job stored on this tab: not marked');
 });
+
+test('the fill mark goes on the tab\'s own address, once', async () => {
+  const {markedUrl} = await import('../lib/form-tab.js');
+  assert.equal(markedUrl('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=1'), 'https://job-boards.greenhouse.io/embed/job_app?for=n26&token=1#jobpilotto-fill');
+  assert.equal(markedUrl('https://x.io/a#jobpilotto-fill'), '');
+  assert.equal(markedUrl('chrome://extensions'), '');
+});

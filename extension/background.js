@@ -68,7 +68,8 @@ const armedLogged = new Set();
 const panelRefused = new Set();
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (!tab.url?.includes(`#${FILL_MARK}`)) return;
-  if (info.status !== 'loading' && info.status !== 'complete') return;
+  // A mark added to a tab already open changes only its address (a hash change: no loading status).
+  if (info.status !== 'loading' && info.status !== 'complete' && !info.url?.includes(`#${FILL_MARK}`)) return;
   let origin = '';
   try { origin = new URL(tab.url).origin + '/*'; } catch { return; }
   if (!(await chrome.permissions.contains({origins: [origin]}))) {

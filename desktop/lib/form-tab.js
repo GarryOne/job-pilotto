@@ -118,6 +118,9 @@ export async function reloadFormTab({url, company}, platform = process.platform)
   } catch { return tabs === undefined ? 'permission' : 'other'; }
 }
 
+// The tab's own address with the fill mark (the page may differ from the posting: an embedded form), or '' if it has it.
+export const markedUrl = url => (/^https?:/.test(url || '') && !String(url).includes('#jobpilotto-fill') ? `${String(url).split('#')[0]}#jobpilotto-fill` : '');
+
 // Switches Chrome to the form's tab; returns how it went: 'tab', 'chrome' (no matching tab) or 'posting'. The posting
 // opens only when Chrome isn't running: on most job sites the posting's link IS the form, so opening it while Chrome
 // runs would add a second, empty copy of the form next to the filled one.
@@ -127,7 +130,13 @@ export async function openFormTab({url, company}, openExternal) {
     const tabs = JSON.parse(await jxa(LIST));
     if (!tabs) { await openExternal(url); return 'posting'; }
     const tab = pickTab(tabs, {url, company});
-    if (tab) { await jxa(focus(tab)); return 'tab'; }
+    if (tab) {
+      // A tab without the fill mark is one the extension never joined (Claude opened it): add the mark so it does.
+      const marked = markedUrl(tab.url);
+      if (marked) await jxa(`Application('Google Chrome').windows.byId(${Number(tab.win)}).tabs[${Number(tab.index) - 1}].url = ${JSON.stringify(marked)}`);
+      await jxa(focus(tab));
+      return 'tab';
+    }
     await jxa("Application('Google Chrome').activate()");
     return 'chrome';
   } catch {

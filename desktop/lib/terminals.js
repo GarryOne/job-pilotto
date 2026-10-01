@@ -99,6 +99,15 @@ export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
 export const byUrl = url => list().filter(s => s.url === url).pop() || null;
 
+// Claude Code's screen after Esc on a running turn. `data` must hold the end of the phrase, so one already on screen
+// (from before the reply) never pauses the session again.
+const INTERRUPTED = /Interrupted\s*·\s*What should Claude do instead\?/;
+export function interruptedIn(before, data) {
+  const tail = String(before).slice(-80);
+  const match = INTERRUPTED.exec(tail + String(data));
+  return !!match && match.index + match[0].length > tail.length;
+}
+
 // Runs the process of a session: its output is kept and saved, its exit ends it (unless the app is closing).
 function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
   return loadPty().then(pty => {
@@ -107,7 +116,10 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
     Object.assign(session, {cols, rows});
     if (session.mirror) session.mirror.term.resize(cols, rows); else session.mirror = newMirror(cols, rows);
     term.onData(data => {
+      const paused = session.status === 'running' && interruptedIn(session.output, data);
       session.output = (session.output + data).slice(-OUTPUT_LIMIT);
+      // Esc on a running turn fires no Stop hook, so the card would say "Working…" for a session that is waiting.
+      if (paused) report(session.id, {event: 'input', message: 'Paused: tell Claude what to do, or press Continue'});
       session.mirror?.term.write(data);
       listener('data', {id: session.id, data});
       save();

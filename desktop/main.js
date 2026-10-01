@@ -1082,6 +1082,7 @@ function handlers() {
       taken = await review.delivered(key, 6000);
     }
     const went = taken ? 'tab' : await openFormTab({url, company}, shell.openExternal);
+    appLog('review', `show ${key}: ${taken ? 'form page answered' : `no page answered, app went to: ${went}`}`, {label: name.slice(0, 60), taken: !!taken, went});
     const found = taken && name ? await review.focusFound(key, 3000) : null;
     return {taken, went, found};
   };

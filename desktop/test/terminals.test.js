@@ -280,3 +280,10 @@ test('a restored session without its transcript\'s path gets it found by its ins
   assert.match(terminals.get('12e25e4e').question, /^The form is filled\.\n\n- \*\*Needs you:\*\*/);
   terminals._reset();
 });
+
+test('Esc on a running turn is told apart from a phrase that was already on screen', () => {
+  const screen = 'Interrupted · What should Claude do instead?';
+  assert.equal(terminals.interruptedIn('working…', screen), true);
+  assert.equal(terminals.interruptedIn('Interrupted · What should', ' Claude do instead?'), true);
+  assert.equal(terminals.interruptedIn(`${screen}\n> `, 'next reply'), false);
+});
