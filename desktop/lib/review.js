@@ -4,7 +4,7 @@
 //   page -> app  POST /extension/review {url, title, left, total, missing: [label], filled: [label], watch: [{id, filled: true|false|null}]}
 //   app -> page  the reply: {matched, watch: [{id, label}], commands: [{focus: label}]}
 import fs from 'node:fs';
-import {scoreTab} from './form-tab.js';
+import {ATS, scoreTab} from './form-tab.js';
 
 const MIN_SCORE = 50;          // the company in the title or an application-form host naming it, at least
 const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the page to pick it up
@@ -49,6 +49,11 @@ export function matchSession(sessions, page) {
 export function sessionFor(sessions, page, tab) {
   const scored = matchSession(sessions, page);
   if (scored || !String(page.url || '').includes('jobpilotto-fill')) return scored;
+  // A form on a known job board is some other job's (it would have matched by its job ID or company): left alone, or a stray
+  // tab of a finished application (1 Oct 2026: a Scale AI form) lands on this card.
+  let host = '';
+  try { host = new URL(page.url).hostname; } catch { return scored; }
+  if (ATS.test(host)) return scored;
   const free = sessions.filter(session => session.live !== false && ['running', 'input'].includes(session.status)
     && (!bound.has(session.id) || (Number.isInteger(tab) && bound.get(session.id) === tab)));
   return free.length === 1 ? free[0] : null;

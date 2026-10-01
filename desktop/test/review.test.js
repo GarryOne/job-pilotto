@@ -187,6 +187,8 @@ test('an armed form on another site that names no company belongs to the one ope
   const agency = (extra = {}) => ({url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)', left: 3, total: 15, tab: 7, watch: [], ...extra});
   assert.equal(review.report(open, agency()).matched, 'u1');
   assert.equal(review.report(open, agency({url: 'https://api.easytemp.ch/other.php'})).matched, null);  // no fill mark: some stranger's tab
+  review._reset();
+  assert.equal(review.report(open, agency({url: 'https://job-boards.greenhouse.io/scaleai/jobs/4719479005#jobpilotto-fill', tab: 9})).matched, null);  // another job's form on a job board
   // Two sessions without a tab: ambiguous, no guess. One already on its own tab: the other is the one.
   review._reset();
   const two = [...open, {id: 'u2', url: 'https://boards.example/jobs/1', company: 'Example', status: 'running', live: true, startedAt: '2026-10-01T17:34:00Z'}];

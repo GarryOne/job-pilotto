@@ -4,7 +4,7 @@
 import {execFile} from 'node:child_process';
 
 // Hosts of application forms (applicant tracking systems): a tab there naming the company is the form.
-const ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|workable\.com|recruitee\.com|personio\.|teamtailor\.com|bamboohr\.com|jobvite\.com|icims\.com|join\.com|rippling\.com/i;
+export const ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|workable\.com|recruitee\.com|personio\.|teamtailor\.com|bamboohr\.com|jobvite\.com|icims\.com|join\.com|rippling\.com/i;
 const slug = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const bare = url => String(url || '').replace(/[?#].*$/, '').replace(/\/+$/, '');
 

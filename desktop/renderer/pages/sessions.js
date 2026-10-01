@@ -346,6 +346,10 @@ export function renderNextStep(item) {
     actions.push(never);
   } else if (asking && !live) {
     if (item.resumable) actions.push(resume('primary'));
+    // Claude closed with the app, but the form may still be open in Chrome.
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
+      await opening(event.currentTarget, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
+    }, 'link'));
     actions.push(submittedButton(item));
     actions.push(sessionButton('Remove from the list', 'secondary', () => removeSession(item)));
   } else if (asking) {
