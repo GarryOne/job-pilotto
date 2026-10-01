@@ -139,8 +139,18 @@ function focusCard(item) {
   if (item.kind === 'feedback_wait') actions.append(focusButton('Add feedback', 'primary', () => openFeedback(item, 'receive')));
   if (item.kind === 'feedback_review') actions.append(focusButton('Read feedback', 'primary', () => openFeedback(item, 'review')));
   if (item.link && !item.kind.startsWith('feedback')) actions.append(focusButton(item.link_label || 'Open', 'primary', event => openLink(item.link, event)));
-  if (item.kind === 'details') actions.append(focusButton('Add details', 'primary',
-    () => openLogFor(item.job_url, `${item.company || item.via || '—'} · ${item.job}`)));
+  if (item.kind === 'details') {
+    actions.append(focusButton('Add details', 'primary',
+      () => openLogFor(item.job_url, `${item.company || item.via || '—'} · ${item.job}`)));
+    const skip = focusButton('Skip', 'secondary', async event => {
+      event.currentTarget.disabled = true;
+      const done = await window.pilot.focusDone(item.page_id, 'details_skipped');
+      if (!done.ok) toastMessage('Not saved', done.error || 'Notion refused it. Try again.');
+      loadFocus();
+    });
+    skip.title = "I don't know the employer yet";
+    actions.append(skip);
+  }
   if (item.kind === 'which_job') {  // an email the Gmail check wasn't sure about: your answer places it
     if (item.suggested_url) actions.append(focusButton('Yes, that job', 'primary', async event => {
       event.currentTarget.disabled = true;

@@ -313,6 +313,18 @@ class AddDetailsTests(unittest.TestCase):
         self.assertEqual([i['missing'] for i in details], [['salary', 'job description']])
         self.assertEqual(focus.present(details[0])['headline'], 'Tell Job Pilotto about the Huxley interview')
 
+    def test_skip_means_you_dont_know_the_employer_yet_for_this_interview(self):
+        invite = row('a1', '', 'Senior DevOps Engineer', stage='Interview scheduled', Via='AG Talent',
+                     interview='2026-10-02T08:30:00+02:00', Salary='€70k–90k')
+        token = focus.details_token(focus._when('2026-10-02T08:30:00+02:00'), 'Interview scheduled')
+        skipped = event('a1', 'Details skipped', '2026-10-01T12:00:00Z', "You don't know the employer yet",
+                        f'skip-details:{token}', 'Job Pilotto app')
+        self.assertFalse([i for i in focus.build([invite], [skipped], target=0, now=NOW)['items'] if i['kind'] == 'details'])
+        # A later round is a new ask: the client may have been named by then.
+        later = row('a1', '', 'Senior DevOps Engineer', stage='Interview scheduled', Via='AG Talent',
+                    interview='2026-10-20T08:30:00+02:00', Salary='€70k–90k')
+        self.assertTrue([i for i in focus.build([later], [skipped], target=0, now=NOW)['items'] if i['kind'] == 'details'])
+
     def test_only_talking_to_an_agency_with_a_hidden_employer_is_not_a_to_do(self):
         pitch = row('a1', '', 'Senior DevOps Engineer', stage='Screening', Via='AG Talent', Salary='€70k–90k')
         self.assertFalse([i for i in focus.build([pitch], [], target=0, now=NOW)['items'] if i['kind'] == 'details'])

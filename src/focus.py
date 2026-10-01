@@ -383,12 +383,16 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         # Only once an interview is booked: an agency keeping the employer hidden while you're only talking is normal.
         if stage in ('Interview scheduled', 'Interviewing') and missing:
             coming_at = _when(_field(row, 'Next interview'))
-            when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
-            who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
-            items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_role(row)[:70]}",
-                               f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
-                               "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
-                               row, missing=missing))
+            # Skip means "I don't know yet" for this interview. A later date asks again; the same one stays quiet.
+            if any(e.get('source_id') == f'skip-details:{details_token(coming_at, stage)}' for e in history):
+                missing = []
+            else:
+                when = f"Interview {coming_at.astimezone(TZ):%a %d %b, %H:%M}" if coming_at and coming_at > now else stage
+                who = _field(row, 'Company') or _field(row, 'Via') or 'a recruiter'
+                items.append(_item(1, 'details', '🧩', f"Add details: {who} — {_role(row)[:70]}",
+                                   f"{when}, but Job Pilotto doesn't know the {' or '.join(missing)}. Paste the LinkedIn chat, "
+                                   "the recruiter's message or the job link: it fills in the job, so your prep and kit fit it.",
+                                   row, missing=missing))
         last = next((e for e in reversed(history) if not _bookkeeping(e)), None)
         company = _field(row, 'Company') or _field(row, 'Via') or 'A recruiter'
         label = f"{company} — {_role(row)[:70]}"
@@ -528,6 +532,11 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
             'generated_at': now.isoformat(timespec='seconds')}
 
 
+def details_token(coming_at, stage):
+    """Which interview the "I don't know the employer yet" skip belongs to. A new date is a new ask."""
+    return (coming_at.isoformat(timespec='seconds') if coming_at else '') or stage or 'unknown'
+
+
 def _days_ago(days, short=False):
     """"yesterday" / "3 days ago" (short: "1 day" / "3 days")."""
     if short:
@@ -649,6 +658,7 @@ HISTORY_TITLES = {
     'Feedback received': ('📥', 'Got feedback from {company}'),
     'Feedback reviewed': ('📝', "Reviewed {company}'s feedback"),
     'Feedback skipped': ('⏭️', 'Skipped asking {company} for feedback'),
+    'Details skipped': ('⏭️', "Don't know the employer yet: {company}"),
     'Interview cancelled': ('🚫', 'Interview with {company} cancelled'),
     'Interview scheduled': ('📅', 'Interview with {company} moved'),
     'Interviewing': ('🎤', 'Interview with {company} held'),
@@ -715,8 +725,13 @@ def main(argv=None):
         if not args.page_id:
             raise SystemExit('done needs the application page id')
         row = tracker._request('GET', f'pages/{args.page_id}')
-        add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You followed up (marked done in Focus)'
-                  if args.what == 'followed_up' else 'You answered (marked done in Focus)')
+        if args.what == 'details_skipped':
+            token = details_token(_when(_field(row, 'Next interview')), _field(row, 'Stage'))
+            add_event(tracker, row, 'Details skipped', 'Job Pilotto app', note="You don't know the employer yet",
+                      source_id=f'skip-details:{token}')
+        else:
+            add_event(tracker, row, REPLIED, 'Job Pilotto app', note='You followed up (marked done in Focus)'
+                      if args.what == 'followed_up' else 'You answered (marked done in Focus)')
         print(json.dumps({'ok': True}))
         return 0
     focus = load(tracker, target=args.target)

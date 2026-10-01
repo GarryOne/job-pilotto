@@ -640,16 +640,18 @@ function leadTargets() {
     option('new', 'Not in my list yet: add it from these details'), ...(tracked.length ? [group] : []));
 }
 // "Find the job automatically" (ticked by default): untick it to choose the job yourself.
-function setAuto(on) {
+function setAuto(on, locked = false) {
   $('lead-auto').checked = on;
   $('lead-target-box').hidden = on;
+  // Opened on a job Focus already knows: guessing which job it is would only undo that.
+  $('lead-auto-row').hidden = locked;
 }
 const leadTarget = () => confirmStep.targetOf($('lead-auto').checked, $('lead-target').value);
 // The Log box, opened on one job (Focus → Add details): its "Which job?" already set to it.
 export function openLogFor(url, label = '') {
   $('lead-open').click();
   if (!url) return;
-  setAuto(false);
+  setAuto(false, true);
   let chosen = [...$('lead-target').options].find(o => o.value === url);
   if (!chosen) $('lead-target').append(chosen = Object.assign(document.createElement('option'), {value: url}));
   chosen.textContent = label || chosen.textContent.replace(/\s*\(.*\)$/, '');

@@ -154,7 +154,7 @@ test('the first form finds the job automatically by default; unticking shows the
   assert.equal(lead.targetOf(false, ''), '');  // none chosen yet: the dialog asks you to choose
   const js = fs.readFileSync(new URL('../renderer/pages/jobs.js', import.meta.url), 'utf8');
   const openFor = js.slice(js.indexOf('export function openLogFor'), js.indexOf('\n}\n', js.indexOf('export function openLogFor')));
-  assert.match(openFor, /setAuto\(false\)[\s\S]*\$\('lead-target'\)\.value = url/);  // Focus → Add details: that job, preselected
+  assert.match(openFor, /setAuto\(false, true\)[\s\S]*\$\('lead-target'\)\.value = url/);  // Focus → Add details: that job, and no "find it automatically"
 });
 
 const unsure = {...pitch, new: true, target: '', fields: {job: {value: '', state: 'ask', question: 'Which job is this?', candidates: [

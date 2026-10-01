@@ -439,7 +439,8 @@ export async function focus(storage) {
 }
 // what: 'replied' (you answered them) or 'followed_up' (Focus → Follow up: your nudge, which re-arms it).
 export async function focusDone(storage, pageId, what = 'replied') {
-  const {code} = await run(storage, ['src.focus', 'done', pageId, what === 'followed_up' ? 'followed_up' : 'replied']);
+  const which = {followed_up: 'followed_up', details_skipped: 'details_skipped'}[what] || 'replied';
+  const {code} = await run(storage, ['src.focus', 'done', pageId, which]);
   return {ok: code === 0};
 }
 // What you resolved from Focus, newest first (Notion: 📈 Application Events from the app, 💡 Insights you rated).
