@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {useTabVerdict, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, reportedIds, tabArmed} from './tab-pages.js';
+import {matchesSites, useTabVerdict, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, neverForm, reportedIds, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -333,7 +333,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     (async () => {
       const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
       const counts = tab?.id && !neverForm(tab.url) && /^https:/.test(tab.url || '') ? await pageShape(tab.id).catch(() => null) : null;
-      return useTabVerdict(tab?.url, counts ? pageRole(counts) : null);
+      return useTabVerdict(tab?.url, counts ? pageRole(counts) : null, matchesSites(tab?.url, JOB_SITES));
     })().then(reply, () => reply({ok: true, why: ''}));
     return true;
   }
@@ -342,7 +342,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       const tab = await chrome.tabs.get(Number(message.tabId)).catch(() => null);
       if (!tab?.id || !/^https:/.test(tab.url || '')) return {ok: false, why: 'Open the job application page first.'};
       const counts = neverForm(tab.url) ? null : await pageShape(tab.id).catch(() => null);
-      const verdict = useTabVerdict(tab.url, counts ? pageRole(counts) : null);   // the click checks again: the page may have changed
+      const verdict = useTabVerdict(tab.url, counts ? pageRole(counts) : null, matchesSites(tab.url, JOB_SITES));   // the click checks again: the page may have changed
       if (!verdict.ok) return verdict;
       const url = tab.url.replace(`#${FILL_MARK}`, '');
       decide('panel', 'used on this tab by hand', {host: new URL(url).hostname});

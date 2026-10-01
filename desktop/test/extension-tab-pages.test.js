@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {useTabVerdict, confirmationOf, forJob, missedConfirmation, neverForm, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {matchesSites, useTabVerdict, confirmationOf, forJob, missedConfirmation, neverForm, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -134,19 +134,24 @@ test('the user\'s Notion is never a job form: an armed tab sent there is let go'
   assert.equal(neverForm('not a url'), false);
 });
 
-test('"Use on this tab" is off on a search page, a non-https page and a page with no form; on for a form or an unreadable page', () => {
-  assert.equal(useTabVerdict('https://www.google.com/search?q=acme', 'no-form').ok, false);
-  assert.match(useTabVerdict('https://www.google.com/search?q=acme').why, /No form detected.*search or Notion/);
-  assert.equal(useTabVerdict('http://example.com/apply', 'form').ok, false);
-  assert.equal(useTabVerdict('chrome://extensions').ok, false);
-  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').ok, false);
-  assert.match(useTabVerdict('https://careers.acme.com/jobs/1', 'no-form').why, /No form detected/);
-  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'form').ok, true);
-  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', 'account').ok, true);
-  assert.equal(useTabVerdict('https://careers.acme.com/jobs/1', null).ok, true);   // couldn't be read: not blocked on a guess
+test('"Use on this tab" works only on a known application site that shows a form; everywhere else it points to Apply in the app', () => {
+  const ATS = 'https://job-boards.greenhouse.io/acme/jobs/1';
+  assert.equal(useTabVerdict(ATS, 'form', true).ok, true);
+  assert.equal(useTabVerdict(ATS, 'account', true).ok, true);
+  assert.equal(useTabVerdict(ATS, null, true).ok, true);                       // couldn't be read: not blocked on a guess
+  assert.match(useTabVerdict(ATS, 'no-form', true).why, /No form detected/);
+  assert.match(useTabVerdict('https://www.jobpilotto.workers.dev/', 'form', false).why, /Press Apply in the Job Pilotto app/);  // a form, but not an application
+  assert.match(useTabVerdict('https://www.google.com/search?q=acme', 'no-form', false).why, /search or Notion/);
+  assert.equal(useTabVerdict('http://example.com/apply', 'form', true).ok, false);
+  assert.equal(useTabVerdict('chrome://extensions', null, true).ok, false);
 });
 
-test('an armed form on any site counts as an open tab, a closed one does not', () => {
-  assert.deepEqual(reportedIds({jobSiteIds: [3, 4], armedIds: [4, 7, 9], existingIds: [3, 4, 7, 12]}), [3, 4, 7]);
-  assert.deepEqual(reportedIds({}), []);
+test('a match pattern list is read by host: a wildcard subdomain, an exact host, never a lookalike', () => {
+  const sites = ['https://*.greenhouse.io/*', 'https://jobs.lever.co/*'];
+  assert.equal(matchesSites('https://job-boards.greenhouse.io/acme/jobs/1', sites), true);
+  assert.equal(matchesSites('https://greenhouse.io/x', sites), true);
+  assert.equal(matchesSites('https://jobs.lever.co/acme/1', sites), true);
+  assert.equal(matchesSites('https://evil-greenhouse.io/x', sites), false);
+  assert.equal(matchesSites('https://www.jobpilotto.workers.dev/', sites), false);
+  assert.equal(matchesSites('not a url', sites), false);
 });
