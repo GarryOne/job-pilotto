@@ -394,7 +394,9 @@ test('Apply with Claude needs Claude Code, Notion and the job\'s kit, then start
   assert.match((await apply.claudeOne(storage, url, launch, found, async () => ({ok: false, error: 'No application kit'}))).error, /kit/);
   assert.equal(launched.length, 0);
   assert.deepEqual(await apply.claudeOne(storage, `${url}#top`, launch, found, kit), {ok: true});
-  assert.deepEqual(launched[0], [[url], {claude: '/usr/local/bin/claude'}]);
+  assert.deepEqual(launched[0][0], [url]);
+  assert.equal(launched[0][1].claude, '/usr/local/bin/claude');
+  assert.equal(typeof launched[0][1].open, 'function');  // the form tab opens (with the fill mark) before Claude starts
   assert.match(apply.claudeReady(storage, found, 'win32', () => '').error, /Git for Windows/);
   assert.equal(apply.claudeReady(storage, found, 'win32', () => 'C:\\Git\\bin\\bash.exe').ok, true);
 });

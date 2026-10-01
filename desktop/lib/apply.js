@@ -117,6 +117,9 @@ export async function inApp(storage, available = terminals.available) {
   return storage.settings().sessionsInApp !== false && await available();
 }
 
+// The posting in Chrome with the fill mark, as a Claude session starts: the extension fills while Claude gets going.
+const openForm = url => { openOne(url); };
+
 export async function claudeOne(storage, url, launch = session.launch, binary = claudeBinary, kit = hasKit, details = null) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   const ready = claudeReady(storage, binary);
@@ -125,10 +128,10 @@ export async function claudeOne(storage, url, launch = session.launch, binary = 
   if (!drafted.ok) return drafted;
   // A launcher passed in (tests, the Terminal fallback) is used as given; the app's default is the in-app terminal.
   if (launch === session.launch && await inApp(storage)) {
-    const [started] = await session.launchInApp(storage, [url.split('#')[0]], {claude: binary(), details: details ? {[url.split('#')[0]]: details} : {}});
+    const [started] = await session.launchInApp(storage, [url.split('#')[0]], {claude: binary(), open: openForm, details: details ? {[url.split('#')[0]]: details} : {}});
     return {ok: true, session: started};
   }
-  await launch(storage, [url.split('#')[0]], {claude: binary()});
+  await launch(storage, [url.split('#')[0]], {claude: binary(), open: openForm});
   return {ok: true};
 }
 
@@ -147,7 +150,7 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
     const urls = await next(storage, n);
     if (!urls.length) return {ok: false, error: 'No job has an application kit yet. Press Prepare on the jobs you like first (about 20 s each).'};
     const here = launch === session.launch && await inApp(storage);
-    (here ? session.launchInApp(storage, urls, {claude: claudeBinary(), details: urls.details || {}}) : launch(storage, urls, {claude: claudeBinary()})).catch(() => {});
+    (here ? session.launchInApp(storage, urls, {claude: claudeBinary(), open: openForm, details: urls.details || {}}) : launch(storage, urls, {claude: claudeBinary(), open: openForm})).catch(() => {});
     n = urls.length;
     return {ok: true, inApp: here, message: here
       ? `Starting ${n} Claude session(s) in the app, a few seconds apart. Each shows in Application sessions at the bottom; you're notified when one needs you. It stops before Submit for your review.`

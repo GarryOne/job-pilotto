@@ -29,14 +29,17 @@ test('python3 for the session is a small script pointing at the app\'s Python (f
   assert.match(fs.readFileSync(path.join(dir, 'python3'), 'utf8'), /exec 'C:\/Users\/x\/AppData\/Local\/Programs\/Job Pilotto\/resources\/pilot\/python\/python.exe' "\$@"/);
 });
 
-test('the prompt names the job, the audit file and the hand-off ticket, and uses the password helper', () => {
-  const text = session.prompt('https://jobs.example.com/1', {ticket: 'abc', auditFile: 'C:/Temp/audit_1.json'});
+test('the prompt names the job and the audit file, uses the open form tab and the password helper', () => {
+  const text = session.prompt('https://jobs.example.com/1', {auditFile: 'C:/Temp/audit_1.json'});
   assert.match(text, /apply-to-job skill/);
   assert.match(text, /--audit "C:\/Temp\/audit_1.json"/);
-  assert.match(text, /ticket:'abc'/);
+  // The app opens the tab with the fill mark, so Claude never fires the extension itself (no ticket, no event).
+  assert.match(text, /already open/);
+  assert.match(text, /never open a second tab/);
+  assert.match(text, /don't read this repo's tests, config or README/);
+  assert.doesNotMatch(text, /jobpilotto:fill|ticket/);
   assert.match(text, /src\.ai\.passwords/);
   assert.doesNotMatch(text, /security find-generic-password|\/tmp\//);
-  assert.doesNotMatch(session.prompt('https://x/1', {auditFile: 'a.json'}), /jobpilotto:fill/);
 });
 
 test('Windows: one console window per job through start, reading its instructions from a file', async () => {
@@ -111,4 +114,13 @@ test('resume: the same conversation with fresh hooks; a stopped session is told 
   assert.match((await session.resumeInApp(storage, 'l3', options)).error, /already running/);
   assert.match((await session.resumeInApp(storage, 'o4', options)).error, /can't be resumed/);
   assert.match((await session.resumeInApp(storage, 'zz', options)).error, /no longer in the list/);
+});
+
+test('a session opens its job in Chrome before Claude starts, once per job', async () => {
+  const order = [];
+  const storage = tempStorage();
+  await session.launchInApp(storage, ['https://a/1', 'https://b/2'], {claude: 'claude', gap: 0, port: 1,
+    pipelineRun: async () => ({code: 0}), open: url => order.push(`open ${url}`),
+    term: {hookSettings: () => '{}', start: async ({url}) => { order.push(`start ${url}`); return {}; }}});
+  assert.deepEqual(order, ['open https://a/1', 'start https://a/1', 'open https://b/2', 'start https://b/2']);
 });

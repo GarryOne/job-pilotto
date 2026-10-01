@@ -14,7 +14,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 import * as pipeline from './pipeline.js';
-import {issueTicket, PORT} from './server.js';
+import {PORT} from './server.js';
 import * as terminals from './terminals.js';
 
 // What a session gets from the app on top of the user's own environment: Notion, Telegram and the app's
@@ -47,21 +47,25 @@ export function sessionEnv(storage, parent = process.env, platform = process.pla
 }
 
 // The session's instructions: the skill does the work; this names the job, the files and the hand-off.
-export function prompt(url, {ticket = '', auditFile}) {
-  const handoff = ticket ? 'Extension first: on each form page, if <html> has data-jobpilotto-hook, hand the form to the Job Pilotto ' +
-    `extension before filling anything yourself: evaluate document.dispatchEvent(new CustomEvent('jobpilotto:fill',{detail:JSON.stringify({job:'${url}',ticket:'${ticket}'})})), ` +
-    'then read document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s) until its state is done or error; ' +
-    "if it's still missing after 5 s, or there's no data-jobpilotto-hook, carry on without it. When it's done, run the audit and fill ONLY what it left " +
-    "(its todo list), then verify as usual. Never send the event twice on the same page. " : '';
+export function prompt(url, {auditFile}) {
+  // The app opened the posting in Chrome before this session started, with the mark that arms the Job Pilotto
+  // extension on that tab: the extension fills most fields in seconds; this session does the rest.
+  const handoff = 'The form tab is already open: the app opened it and the Job Pilotto extension is filling it by itself. Use that tab ' +
+    '(find it with tabs_context_mcp) and never open a second tab for this job. On each form page, if <html> has data-jobpilotto-hook, wait ' +
+    'for the extension first: read document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s) until ' +
+    "its state is done or error; if there's no data-jobpilotto-hook after 10 s, carry on without it. When it's done, run the audit and fill " +
+    "ONLY what it left (its todo list: dropdowns that ignore scripted clicks, per the skill), then verify as usual. Never trigger the " +
+    'extension\'s fill yourself. Work only from the form in Chrome and the --context output: don\'t read this repo\'s tests, config or README, ' +
+    'and report as needing my attention only a control on the form. ';
   return `Use the apply-to-job skill to apply to this job: ${url}. Don't ask me questions or discuss the skill file — just follow it: ` +
-    'pull the drafted kit from Notion Applications for this job URL, open the posting in Chrome (claude-in-chrome) and get to the actual form ' +
-    `as the skill's "Reaching the form" section says: when the page is a job board's or only links out, follow its Apply / Apply now buttons to ` +
+    'pull the drafted kit from Notion Applications for this job URL, get to the actual form in the open tab (claude-in-chrome) ' +
+    `as the skill's "Reaching the form" section says, in that same tab: when the page is a job board's or only links out, follow its Apply / Apply now buttons to ` +
     "the employer's site, and create an account or sign in there if it asks (password from python3 -m src.ai.passwords, pasted from the clipboard, " +
     "never typed or shown). A confirmation email's code or link you read yourself with python3 -m src.sources.google verify --from <employer domain> " +
     `(Gmail, read-only). Whenever a CAPTCHA or a terms checkbox blocks you, run tools/notify.sh ${url} "Needs your input — see Terminal", ` +
     `tell me in one line what to do in Chrome, wait for my reply, then carry on. ${handoff}Fill it per the skill's rules (fast-path dropdowns via JS, ` +
     'leave genuine guesses/legal checkboxes empty), verify, and hand it over for me to review and Submit. If the --context call below finds no kit ' +
-    `for this job, stop right there: open nothing, run tools/notify.sh ${url} "No kit yet — press Prepare first", say so in one line and finish. ` +
+    `for this job, stop right there: fill nothing, run tools/notify.sh ${url} "No kit yet — press Prepare first", say so in one line and finish. ` +
     "Get everything in ONE call first — the kit, Profile, Application Answers and earlier runs' learnings for this job board: " +
     `python3 -m src.ai.apply_run --context ${url} (don't fetch those pages separately). For every dropdown, open it and pick with ` +
     "window.__jobPilottoClickOption('<exact option text>') — never type + Return, which picks partial matches (\"Male\" -> \"Female\"). " +
@@ -116,7 +120,7 @@ function openWindows(options, run) {
 
 // Start one session per job URL. Resolves with the number started.
 export async function launch(storage, urls, {claude, platform = process.platform, run = spawn, pipelineRun = pipeline.run,
-  ticket = issueTicket, gap = GAP_MS} = {}) {
+  gap = GAP_MS, open = () => {}} = {}) {
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);
@@ -129,9 +133,10 @@ export async function launch(storage, urls, {claude, platform = process.platform
     if (index > 1 && gap) await new Promise(resolve => setTimeout(resolve, gap));
     // Stage → Applying right away, so a second run never queues the same job twice.
     await pipelineRun(storage, ['src.ai.apply_batch', '--mark-applying', url]).catch(() => {});
+    open(url);  // the form tab, armed for the extension, before Claude starts
     const auditFile = path.join(dir, `audit_${index}.json`).replaceAll('\\', '/');
     const promptFile = path.join(dir, `prompt_${index}.txt`);
-    fs.writeFileSync(promptFile, prompt(url, {ticket: ticket(url), auditFile}), {mode: 0o600});
+    fs.writeFileSync(promptFile, prompt(url, {auditFile}), {mode: 0o600});
     const options = {claude, repo, env, shim, promptFile, dir, index};
     if (platform === 'win32') openWindows(options, run);
     else openMac(options, run);
@@ -143,7 +148,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
 // (terminals.js), shown as a card in the window's session dock and as a full terminal on a click. Hooks and
 // tools/notify.sh report its state (JOB_PILOTTO_SESSION names it). Resolves with the sessions started.
 export async function launchInApp(storage, urls, {claude, platform = process.platform, pipelineRun = pipeline.run,
-  ticket = issueTicket, gap = GAP_MS, term = terminals, port = PORT, details = {}} = {}) {
+  gap = GAP_MS, term = terminals, port = PORT, details = {}, open = () => {}} = {}) {
   const repo = pipeline.REPO;
   const shim = pythonShim(storage, pipeline.python(), platform);
   const env = sessionEnv(storage, process.env, platform, shim);
@@ -152,11 +157,12 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
   for (const [index, url] of urls.entries()) {
     if (index && gap) await new Promise(resolve => setTimeout(resolve, gap));
     await pipelineRun(storage, ['src.ai.apply_batch', '--mark-applying', url]).catch(() => {});
+    open(url);  // the form tab, armed for the extension, before Claude starts
     const id = crypto.randomUUID().slice(0, 8);
     const auditFile = path.join(dir, `audit_${id}.json`).replaceAll('\\', '/');
     const promptFile = path.join(dir, `prompt_${id}.txt`);
     const settingsFile = path.join(dir, `settings_${id}.json`);
-    fs.writeFileSync(promptFile, prompt(url, {ticket: ticket(url), auditFile}), {mode: 0o600});
+    fs.writeFileSync(promptFile, prompt(url, {auditFile}), {mode: 0o600});
     fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
     const claudeId = crypto.randomUUID();  // the conversation: resume() can reopen it after the app was closed
     const flags = ['--chrome', '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', claudeId];
