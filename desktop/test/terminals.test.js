@@ -297,6 +297,7 @@ test('a resumed Claude repainting an old "Interrupted" line does not pause the s
   pty.spawned[0].emit(`history… ${screen}\r\n`);  // the conversation repainted at start: no prompt taken yet
   assert.equal(terminals.get('p1').status, 'running');
   terminals.report('p1', {event: 'prompt'});
+  pty.spawned[0].emit('x'.repeat(120));
   pty.spawned[0].emit(`working… ${screen}`);  // Esc on the running turn
   assert.equal(terminals.get('p1').status, 'input');
   terminals._reset();
