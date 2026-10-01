@@ -93,7 +93,7 @@ const publicView = s => assertSession({id: s.id, kind: s.kind || 'claude', url: 
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
-  question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
+  stuck: s.stuck || '', question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
 export const claudeIdOf = id => sessions.get(id)?.claudeId || '';
@@ -175,6 +175,28 @@ export function startForm({id, url, title = '', company = '', location = '', wor
   return publicView(session);
 }
 
+// The extension could not get to this form ('no-form': no form and no Apply button it may press; 'account': it needs a sign-in):
+// the session says so and offers Apply with Claude. Cleared when the extension reports a form on it after all.
+export function noteStuck(id, why) {
+  const session = sessions.get(id);
+  if (!session || session.kind !== 'form' || session.outcome || session.stuck === why) return;
+  session.stuck = why;
+  session.note = why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form';
+  listener('update', publicView(session));
+  save();
+}
+export function clearStuck(id) {
+  const session = sessions.get(id);
+  if (!session?.stuck) return;
+  Object.assign(session, {stuck: '', note: 'Form open in Chrome'});
+  listener('update', publicView(session));
+  save();
+}
+// Apply with Claude took over the job: its form session is not needed any more.
+export function dropForm(url) {
+  for (const session of [...sessions.values()]) if (session.kind === 'form' && session.url === url) remove(session.id);
+}
+
 // Starts Claude again in the conversation of a session that isn't running (restored, ended or stopped). Its record
 // stays: job, output (a line marks the restart), question. A stopped one goes back to working; one that waited
 // for you stays as it was (it waits in the resumed conversation).
@@ -197,7 +219,7 @@ export async function resume(id, launch) {
 // ---- Saving and restoring (sessions.json in the data folder; a cache of runtime state, never the only copy of
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
-const saved = s => ({id: s.id, kind: s.kind || 'claude', url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
+const saved = s => ({id: s.id, kind: s.kind || 'claude', stuck: s.stuck || '', url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
   claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
   decidedAt: s.decidedAt || null, runPage: s.runPage || '', conversationSaved: s.conversationSaved || 0, status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,

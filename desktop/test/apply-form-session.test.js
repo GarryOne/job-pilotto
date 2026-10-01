@@ -63,3 +63,49 @@ test('a form session never reports to the Claude run statistics', () => {
   assert.deepEqual(heard, []);
   assert.equal(terminals.get('f1').outcome, 'submitted');
 });
+
+test('known sites open on the form itself, others as they are', () => {
+  const id = '621bb104-9daa-4c9e-949a-03d5730334e8';
+  assert.equal(apply.formUrl(`https://jobs.ashbyhq.com/openai/${id}`), `https://jobs.ashbyhq.com/openai/${id}/application`);
+  assert.equal(apply.formUrl(`https://jobs.ashbyhq.com/openai/${id}/`), `https://jobs.ashbyhq.com/openai/${id}/application`);
+  assert.equal(apply.formUrl(`https://jobs.ashbyhq.com/openai/${id}/application`), `https://jobs.ashbyhq.com/openai/${id}/application`);
+  assert.equal(apply.formUrl(`https://jobs.lever.co/palantir/${id}?lever-source=x`), `https://jobs.lever.co/palantir/${id}/apply?lever-source=x`);
+  assert.equal(apply.formUrl('https://apply.workable.com/acme/j/ABC123DEF4/'), 'https://apply.workable.com/acme/j/ABC123DEF4/apply');
+  assert.equal(apply.formUrl('https://job-boards.greenhouse.io/anthropic/jobs/5211305008'), 'https://job-boards.greenhouse.io/anthropic/jobs/5211305008');
+  assert.equal(apply.formUrl('https://www.jobs.ch/en/vacancies/detail/abc/'), 'https://www.jobs.ch/en/vacancies/detail/abc/');
+  assert.equal(apply.formUrl('not a url'), 'not a url');
+});
+
+test('Apply opens the form url with the fill mark, and the session keeps the posting url', async () => {
+  const {opened, options} = harness();
+  const id = '621bb104-9daa-4c9e-949a-03d5730334e8';
+  await apply.applyOne({}, `https://jobs.ashbyhq.com/openai/${id}`, {company: 'OpenAI'}, options);
+  assert.ok(opened[0].flat(2).includes(`https://jobs.ashbyhq.com/openai/${id}/application#jobpilotto-fill`));
+  assert.equal(terminals.list()[0].url, `https://jobs.ashbyhq.com/openai/${id}`);
+});
+
+test('a stuck form session says so, is cleared when a form shows up, and is dropped when Claude takes over', () => {
+  terminals._reset();
+  terminals.startForm({id: 'f1', url: URL1, company: 'OpenAI'});
+  terminals.noteStuck('f1', 'no-form');
+  assert.equal(terminals.get('f1').stuck, 'no-form');
+  assert.match(terminals.get('f1').note, /can't reach the form/);
+  terminals.clearStuck('f1');
+  assert.equal(terminals.get('f1').stuck, '');
+  terminals.noteStuck('f1', 'account');
+  terminals.dropForm(URL1);
+  assert.equal(terminals.list().length, 0);
+  terminals.startForm({id: 'f2', url: URL1});
+  terminals.setOutcome('f2', 'submitted');
+  terminals.noteStuck('f2', 'no-form');                       // a submitted one is never marked stuck
+  assert.equal(terminals.get('f2').stuck, '');
+});
+
+test('a stuck report belongs to its own job only, never to another job at the same company', () => {
+  const posting = 'https://jobs.ashbyhq.com/openai/621bb104-9daa-4c9e-949a-03d5730334e8';
+  assert.equal(apply.isFormOf(`${posting}/application`, posting), true);
+  assert.equal(apply.isFormOf(`${posting}#jobpilotto-fill`, posting), true);
+  assert.equal(apply.isFormOf(posting, posting), true);
+  assert.equal(apply.isFormOf('https://jobs.ashbyhq.com/openai/0000aaaa-9daa-4c9e-949a-03d5730334e8/application', posting), false);
+  assert.equal(apply.isFormOf('', posting), false);
+});

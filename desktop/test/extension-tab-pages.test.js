@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {confirmationOf, forJob, evidenceIn, missedConfirmation, neverForm, onSite, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {pickApplyButton, confirmationOf, forJob, evidenceIn, missedConfirmation, neverForm, onSite, reportedIds, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -143,4 +143,18 @@ test('a page reads as a job application from two word groups; known job boards m
   assert.equal(onSite(sites, 'https://jobs.lever.co/acme/1'), true);
   assert.equal(onSite(sites, 'https://www.namecheap.com/'), false);
   assert.equal(onSite(sites, 'https://evil-greenhouse.io/x'), false);
+});
+
+test('the Apply button in front of a form is picked by rule: an apply phrase on its own, never sign-in, Easy Apply or a mail link', () => {
+  const b = (text, extra = {}) => ({index: 0, text, tag: 'button', area: 20000, visible: true, disabled: false, href: '', ...extra});
+  const pick = list => pickApplyButton(list.map((item, index) => ({...item, index})))?.text;
+  assert.equal(pick([b('Share'), b('Apply for this Job')]), 'Apply for this Job');
+  assert.equal(pick([b('Jetzt bewerben')]), 'Jetzt bewerben');
+  assert.equal(pick([b('Postuler')]), 'Postuler');
+  assert.equal(pick([b('Apply with LinkedIn'), b('Easy Apply'), b('Sign in to apply')]), undefined);
+  assert.equal(pick([b('Apply now', {visible: false}), b('Apply now', {disabled: true})]), undefined);
+  assert.equal(pick([b('Apply now', {tag: 'a', href: 'mailto:jobs@acme.com'})]), undefined);
+  assert.equal(pick([b('Apply to jobs at Acme and 40 other companies today, sign up now!')]), undefined);   // a sentence, not a button
+  assert.equal(pick([b('Apply', {tag: 'a', area: 900, href: '/x'}), b('Apply now', {area: 90000})]), 'Apply now');   // the larger, button-like one
+  assert.equal(pick([]), undefined);
 });

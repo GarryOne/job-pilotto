@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, EVIDENCE, forJob, neverForm, onSite, reportedIds, tabArmed} from './tab-pages.js';
+import {pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, EVIDENCE, forJob, neverForm, onSite, reportedIds, tabArmed} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -108,6 +108,47 @@ function writeState(tabId, value) {
   return chrome.scripting.executeScript({target: {tabId}, args: [JSON.stringify(value)],
     func: text => { if (document.documentElement) document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
 }
+// The posting before its form: a page with no form and one "Apply" button (chosen by rule: tab-pages.js pickApplyButton).
+const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
+function applyCandidates(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: selector => [...document.querySelectorAll(selector)].map((el, index) => {
+    const box = el.getBoundingClientRect(), style = getComputedStyle(el);
+    return {index, tag: el.tagName.toLowerCase(), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
+      area: Math.round(box.width * box.height), visible: el.getClientRects().length > 0 && style.visibility !== 'hidden',
+      disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true', href: el.getAttribute('href') || ''};
+  }), args: [PAGE_BUTTONS]}).then(rows => rows?.[0]?.result || []).catch(() => []);
+}
+async function pressApply(tabId) {
+  const pick = pickApplyButton(await applyCandidates(tabId));
+  if (!pick) return null;
+  const done = await chrome.scripting.executeScript({target: {tabId}, func: (selector, index) => {
+    const el = document.querySelectorAll(selector)[index];
+    if (!el) return false;
+    el.scrollIntoView({block: 'center'});
+    el.click();
+    return true;
+  }, args: [PAGE_BUTTONS, pick.index]}).then(rows => !!rows?.[0]?.result).catch(() => false);
+  return done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null;
+}
+// After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
+// whole decision again). null when neither happens in time.
+async function formAfterPress(tabId, url, ms = 8000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const live = await chrome.tabs.get(tabId).catch(() => null);
+    if (!live) return null;
+    if (pageKey(live.url) !== pageKey(url)) return 'navigated';
+    const counts = await pageShape(tabId);
+    if (counts && pageRole(counts) === 'form') return counts;
+  }
+  return null;
+}
+// The app is told the extension can't get to this form (its session offers "Apply with Claude"): why, and the site.
+async function stuck(job, host, why) {
+  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why})}); } catch { /* the app is closed */ }
+}
+const triedApply = new Set();
 const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
@@ -130,9 +171,21 @@ async function consider(tab, jobUrl) {
     decide('fill', 'not an application page: left alone', {host, evidence: counts.evidence || 0});
     return;
   }
+  // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
+  if (role === 'no-form' && !triedApply.has(key)) {
+    triedApply.add(key);
+    const label = await pressApply(tab.id);
+    if (label) {
+      decide('fill', 'pressed the Apply button', {host, label});
+      const after = await formAfterPress(tab.id, tab.url);
+      if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
+      if (after) { counts.evidence = 2; role = 'form'; }
+    }
+  }
   if (role !== 'form') {
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
+    stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form');   // tier 3: the app offers Apply with Claude
     return;
   }
   await writeState(tab.id, {state: 'running'});

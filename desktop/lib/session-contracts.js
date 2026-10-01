@@ -19,7 +19,7 @@ export class ContractError extends TypeError {
 const sessionFields = {
   id, kind: optional(oneOf(['claude', 'form'])), url: string, title: string, company: string,
   status: oneOf(['running', 'input', 'done', 'ended', 'failed']), note: string, startedAt: string,
-  question: optional(string), brief: optional(string), location: optional(string), workMode: optional(string), outcome: optional(string),
+  stuck: optional(string), question: optional(string), brief: optional(string), location: optional(string), workMode: optional(string), outcome: optional(string),
   live: optional(boolean), resumable: optional(boolean), askAtStart: optional(boolean),
   endedAt: optional(nullable(string)), needsYouSince: optional(nullable(string)), exitCode: optional(nullable(Number.isInteger)),
 };

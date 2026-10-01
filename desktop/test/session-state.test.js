@@ -75,3 +75,9 @@ test('a form session (the Apply button) says the form is open until the extensio
   assert.deepEqual(sessionState({...form, outcome: 'submitted'}), SESSION_STATE.submitted);
   assert.deepEqual(sessionState({status: 'done', outcome: '', endedAt: null}), SESSION_STATE.done);   // a Claude session is unchanged
 });
+
+test('a form session the extension cannot reach says so (no form, or an account is needed)', () => {
+  const form = {kind: 'form', status: 'done', outcome: '', live: false, endedAt: null};
+  assert.deepEqual(sessionState({...form, stuck: 'no-form'}), ['Can\'t reach form', 'warn']);
+  assert.deepEqual(sessionState({...form, stuck: 'account'}), ['Needs an account', 'warn']);
+});

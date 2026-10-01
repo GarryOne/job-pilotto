@@ -247,14 +247,16 @@ const submittedButton = item => sessionButton('I submitted it', 'secondary', asy
 const answerHint = () => el('p', 'rich-p muted small', 'Press Answer, then type your reply in the log below, or use a quick reply there.');
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
-  const review = !submitted && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
+  const stuck = !submitted && item.kind === 'form' && !!item.stuck;   // the extension can't reach this form
+  const review = !submitted && !stuck && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
   const gone = review && formGone(item);  // the form's Chrome tab was closed
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
-  const tone = submitted ? 'good' : review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
+  const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
+    : stuck ? (item.stuck === 'account' ? 'This site needs an account' : 'The extension can\'t reach this form')
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
     : asking ? ask || 'Claude needs your answer'
@@ -263,12 +265,16 @@ export function renderNextStep(item) {
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
   state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
+    : stuck ? '· nothing filled yet'
     : review ? (item.kind === 'form' ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask && !isDevTalk(line));
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
+    : stuck ? [el('p', 'rich-p', item.stuck === 'account'
+      ? 'The form is behind a sign-in or sign-up. Claude can create the account, read the confirmation email and fill the form; you still submit it.'
+      : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Claude can find the form, follow the links and fill it; you still submit it.')]
     : gone ? [el('p', 'rich-p', 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : review ? [el('p', 'rich-p', item.kind === 'form' ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
@@ -288,6 +294,16 @@ export function renderNextStep(item) {
   label();
   toggle.onclick = () => { full.hidden = !full.hidden; label(); };
   const actions = [], live = isLive(item);
+  if (stuck) {
+    // Tier 3: the cheap ways ran out (the direct form link, then the Apply button); Claude is the one that can go further.
+    actions.push(sessionButton('Apply with Claude', 'primary', async event => {
+      const result = await opening(event.currentTarget, () => window.pilot.applyWithClaude(item.url, {title: item.title, company: item.company, location: item.location, workMode: item.workMode}));
+      if (result?.ok === false) { toastMessage('Claude could not start', result.error || 'Try again.'); return; }
+      await refreshSessions();
+      if (result?.session?.id) openSession(result.session.id);
+    }, 'bot'));
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => { await openForm(item, event.currentTarget); }, 'link'));
+  }
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (gone) {
     // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.

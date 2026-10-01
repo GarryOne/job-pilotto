@@ -1062,7 +1062,7 @@ function handlers() {
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, apply, pipeline, review, server, notion, claudeConsent});
   ipcMain.handle('applyWithClaude', async (_, url, details = null) => allowanceBlock() || (await claudeConsent())
-    ? apply.claudeOne(storage, url, undefined, undefined, undefined, details)
+    ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) terminals.dropForm(String(url).split('#')[0]); return result; })
     : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8')) : review.allStates()));
@@ -1597,7 +1597,14 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     toWindow('session', 'open', {id});
     return true;
   });
+  server.setStuckHandler(event => {   // tier 3: the extension can't reach a form: that job's form session offers Apply with Claude
+    const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
+    const match = forms.find(session => apply.isFormOf(event.url, session.url));
+    appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match});
+    if (match) terminals.noteStuck(match.id, event.why === 'account' ? 'account' : 'no-form');
+  });
   review.setReporter(state => {
+    if (state.total > 0) terminals.clearStuck(state.id);
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
     toWindow('review', state);
   });

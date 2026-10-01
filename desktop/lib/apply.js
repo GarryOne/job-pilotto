@@ -21,10 +21,32 @@ export function pick(jobs, n) {
     .slice(0, n);
 }
 
+// Tier 1: where the application form lives for a known site, when the posting page only has an "Apply" button in front of it.
+// Ashby: <posting>/application, Lever: <posting>/apply, Workable: <posting>/apply. Anything else (or a URL already there) opens as it is.
+export function formUrl(url) {
+  let parsed;
+  try { parsed = new URL(String(url).split('#')[0]); } catch { return String(url || ''); }
+  const path = parsed.pathname.replace(/\/+$/, '');
+  const host = parsed.hostname.toLowerCase();
+  const to = suffix => `${parsed.origin}${path}${suffix}${parsed.search}`;
+  if (host === 'jobs.ashbyhq.com' && /^\/[^/]+\/[0-9a-f-]{36}$/i.test(path)) return to('/application');
+  if (host === 'jobs.lever.co' && /^\/[^/]+\/[0-9a-f-]{36}$/i.test(path)) return to('/apply');
+  if (host === 'apply.workable.com' && /^\/[^/]+\/j\/[0-9A-Za-z]+$/.test(path)) return to('/apply');
+  return String(url).split('#')[0];
+}
+
+// Is this URL (a page the extension reported) the form of that job's posting: the posting itself, its direct form link, or a
+// page below it. Exact on the job, unlike the page-to-session match, so a stuck report never lands on another job at the same company.
+export function isFormOf(reported, posting) {
+  const key = url => String(url || '').split('#')[0].replace(/\/+$/, '');
+  const [page, job] = [key(reported), key(posting)];
+  return !!page && !!job && (page === job || page === key(formUrl(posting)) || page.startsWith(`${job}/`));
+}
+
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
 export function openOne(url, open = spawn) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
-  const chrome = chromeCommand([`${url.split('#')[0]}#${FILL_MARK}`]);
+  const chrome = chromeCommand([`${formUrl(url)}#${FILL_MARK}`]);
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true};

@@ -26,6 +26,24 @@ export const neverForm = url => {
   }
 };
 
+// A page with no form but an "Apply" button (the posting first, the form behind it): which button to press, by rule, never by
+// guess. candidates: [{index, text, tag, area, visible, disabled, href}] read in the page. The text must be an apply phrase
+// on its own (a button, not a sentence), and never sign-in, "Easy Apply", "Apply with LinkedIn", a mail link or Submit.
+// → the candidate, or null. Tested in desktop/test/extension-tab-pages.test.js.
+const APPLY_PHRASE = /^(apply( now| here| online| today)?( for (this|the) (job|role|position|opening))?|apply to this (job|role|position)|i['\u2019]?m interested|start (your |the )?application|jetzt bewerben|online bewerben|bewerben|zur bewerbung|bewerbung starten|postuler( maintenant| en ligne)?|candidater|postuler [a\u00e0] (ce|cette) (poste|offre)|candidati( ora)?|invia candidatura|inscribirme|aplicar( ahora)?)[\s!.\u2192>\u203a]*$/i;
+const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|save|share|alert|easy apply|apply with |already applied|follow|subscribe/i;
+export function pickApplyButton(candidates = []) {
+  let best = null, bestScore = -1;
+  for (const item of candidates) {
+    const text = String(item?.text || '').replace(/\s+/g, ' ').trim();
+    if (!item?.visible || item.disabled || !text || text.length > 40 || !APPLY_PHRASE.test(text) || NOT_APPLY.test(text)) continue;
+    if (/^(mailto|tel|javascript):/i.test(String(item.href || ''))) continue;
+    const score = 100 - text.length + (item.tag === 'button' ? 5 : 0) + Math.min(20, Math.log10(Math.max(1, Number(item.area) || 1)) * 4);
+    if (score > bestScore) { best = item; bestScore = score; }
+  }
+  return best;
+}
+
 // What an armed tab is showing, from counts only. A password field is an account page: Claude signs in or
 // creates the account, and the extension never types it. Several fields, a textarea or a file input is the
 // application form. Anything smaller is a page Claude still has to click through (Apply, Next).
