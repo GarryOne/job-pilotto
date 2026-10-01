@@ -5,6 +5,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
+import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
+import {sessionIpc} from './lib/session-contracts.js';
 import * as cvlib from './lib/cv.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
@@ -413,6 +415,7 @@ function announceRuns() {
 }
 
 function handlers() {
+  const checkedSessions = sessionIpc(ipcMain, appLog);
   // Demo mode: what would reach outside or change this computer answers "demo" instead (lib/demo.js BLOCKED).
   if (DEMO) ipcMain.handle = demo.guard(ipcMain.handle.bind(ipcMain));
   ipcMain.handle('state', () => ({
@@ -1053,7 +1056,7 @@ function handlers() {
   // Apply with Claude session starts on the same job (its kit, a new conversation). The job stays Applying.
   // Cancel: Claude stops, the form tab closes (the extension closes it; else the Mac's scripting, on a confident match),
   // the job goes back to Kit ready in Notion, and the session goes (outcome 'Cancelled' in its statistics).
-  ipcMain.handle('sessionCancel', async (_, id) => {
+  checkedSessions.handle('sessionCancel', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
     const {message, detail, buttons} = quitDialog.cancel(old.company);
@@ -1069,7 +1072,7 @@ function handlers() {
     terminals.remove(old.id);
     return {ok: true, closed};
   });
-  ipcMain.handle('sessionRestart', async (_, id) => {
+  checkedSessions.handle('sessionRestart', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
     const {message, detail, buttons} = quitDialog.restart(old.company);
@@ -1087,14 +1090,14 @@ function handlers() {
   // Apply with Claude sessions inside the app (lib/terminals.js): the dock, the session page and its terminal.
   // Demo mode: fictional sessions (demo/sessions.json) for screenshots; nothing runs.
   const demoSessions = () => JSON.parse(fs.readFileSync(path.join(here, 'demo', 'sessions.json'), 'utf8'));
-  ipcMain.handle('sessions', () => (DEMO ? demoSessions() : terminals.list()));
+  checkedSessions.handle('sessions', () => (DEMO ? demoSessions() : terminals.list()));
   const demoOutput = () => (process.env.JOB_PILOTTO_DEMO_OUTPUT ? fs.readFileSync(process.env.JOB_PILOTTO_DEMO_OUTPUT, 'utf8')  // a recorded session
     : '\x1b[2m19:10:02\x1b[0m \x1b[32m✓\x1b[0m Loaded the kit, Profile and answers from Notion\r\n\x1b[2m19:10:06\x1b[0m \x1b[32m✓\x1b[0m Opened the posting in Chrome\r\n' +
       '\x1b[2m19:10:09\x1b[0m \x1b[33m!\x1b[0m Location: San Francisco, CA · On-site\r\n\x1b[2m19:10:11\x1b[0m \x1b[35m⏸\x1b[0m Paused before opening the form. Waiting for your reply…\r\n\r\n\x1b[1m>\x1b[0m ');
-  ipcMain.handle('sessionOutput', (_, id) => (DEMO ? demoOutput() : terminals.output(String(id))));
+  checkedSessions.handle('sessionOutput', (_, id) => (DEMO ? demoOutput() : terminals.output(String(id))));
   // The log's screen when it opens (see terminals.snapshot); JOB_PILOTTO_DEMO_OUTPUT replays a recorded session in demo mode.
   // A finished session as a conversation (its Claude Code transcript), for the log's page-text view.
-  ipcMain.handle('sessionTranscript', (_, id) => {
+  checkedSessions.handle('sessionTranscript', (_, id) => {
     const record = DEMO ? null : terminals.record(String(id));
     const file = DEMO ? path.join(here, 'demo', 'transcript.jsonl') : record?.transcript;
     const talk = file ? transcript.conversation(file) : null;
@@ -1102,16 +1105,16 @@ function handlers() {
     // The Mac's transcript is gone (Claude Code deletes old ones): the copy on the session's Agent Runs row.
     return transcript.load((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), record.runPage).catch(() => null);
   });
-  ipcMain.handle('sessionSnapshot', (_, id) => (DEMO ? terminals.snapshotOf(demoOutput()) : terminals.snapshot(String(id))));
-  ipcMain.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
-  ipcMain.handle('sessionResize', (_, id, cols, rows) => terminals.resize(String(id), Number(cols), Number(rows)));
-  ipcMain.handle('sessionStop', (_, id) => terminals.stop(String(id)));
-  ipcMain.handle('sessionResume', async (_, id) => (await claudeConsent()) ? apply.resumeSession(storage, String(id)) : {ok: false, error: 'Cancelled.'});
-  ipcMain.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
+  checkedSessions.handle('sessionSnapshot', (_, id) => (DEMO ? terminals.snapshotOf(demoOutput()) : terminals.snapshot(String(id))));
+  checkedSessions.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
+  checkedSessions.handle('sessionResize', (_, id, cols, rows) => terminals.resize(String(id), Number(cols), Number(rows)));
+  checkedSessions.handle('sessionStop', (_, id) => terminals.stop(String(id)));
+  checkedSessions.handle('sessionResume', async (_, id) => (await claudeConsent()) ? apply.resumeSession(storage, String(id)) : {ok: false, error: 'Cancelled.'});
+  checkedSessions.handle('sessionRemove', (_, id) => terminals.remove(String(id)));
   // Its job is already Applied: the form was submitted, so the session ends (recorded as submitted, then gone).
-  ipcMain.handle('sessionSubmitted', (_, url) => (DEMO ? null : server.sessionSubmitted(String(url))));
+  checkedSessions.handle('sessionSubmitted', (_, url) => (DEMO ? null : server.sessionSubmitted(String(url))));
   // Removing a session whose job is still Applying: was it submitted? Notion first; the session goes only if that worked.
-  ipcMain.handle('sessionFinish', async (_, id) => {
+  checkedSessions.handle('sessionFinish', async (_, id) => {
     const found = terminals.get(String(id));
     if (!found) return {ok: true};
     const {message, detail, buttons} = quitDialog.submitted(found.company);
@@ -1125,7 +1128,7 @@ function handlers() {
     return {ok: true, submitted: response === 0};
   });
   // At start: sessions left open (the app closed, or was killed) whose jobs are still Applying. Keep, ask one by one, or reset.
-  ipcMain.handle('sessionsLeftOpen', async (_, ids) => {
+  checkedSessions.handle('sessionsLeftOpen', async (_, ids) => {
     const all = (Array.isArray(ids) ? ids : []).map(id => terminals.get(String(id))).filter(Boolean);
     // A form still open in Chrome can be resumed as it is: kept without asking. Only the others are asked about.
     // What is open comes from the extension's report first (every browser it runs in), with Chrome's own scripting
@@ -1449,22 +1452,10 @@ function backupNow() {
 }
 try { resetDone = reset.applyPending(app.getPath('userData')); } catch (error) { console.error('Reset failed:', error.message); }
 
-// One copy per data folder: two would fight over the same files, Telegram bot and extension port.
-const firstCopy = app.requestSingleInstanceLock();
-if (!firstCopy) {
-  app.whenReady().then(() => {
-    dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
-      detail: `Quit the other copy first (${process.platform === 'darwin' ? '⌘Q' : 'close its window'}), then open this one again.`});
-    app.quit();
-  });
-}
-// Opened again while running: bring the window back, or a new one if it was closed.
-app.on('second-instance', () => {
-  if (!app.isReady()) return;
-  if (!window) createWindow();
-  if (window.isMinimized()) window.restore();
-  window.show();
-  window.focus();
+// One copy per data folder: lifecycle callbacks are tested without launching Electron.
+const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
+  showDuplicate: () => dialog.showMessageBoxSync({type: 'info', message: 'Job Pilotto is already running',
+    detail: `Quit the other copy first (${process.platform === 'darwin' ? '⌘Q' : 'close its window'}), then open this one again.`}),
 });
 
 // Apply with Claude sessions run without asking before each action (--permission-mode bypassPermissions), so the
@@ -1504,8 +1495,8 @@ process.on('uncaughtExceptionMonitor', error => {
   telemetry?.record('crash', {where: 'main', type: error?.name || 'Error', message: error?.message || String(error), stack: error?.stack});
 });
 
-if (firstCopy) app.whenReady().then(() => {
-  if (offerMove({app, dialog})) return;  // moving to Applications: Electron quits and opens the moved copy
+startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(), createWindow, start: () => {
+  if (offerMove({app, dialog})) return false;  // moving to Applications: Electron quits and opens the moved copy
   buildMenu();
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
@@ -1675,8 +1666,7 @@ if (firstCopy) app.whenReady().then(() => {
     setTimeout(resumeQueue, 20 * 1000);  // after the schedule's own catch-up check has queued what's due
   }
   if (!DEMO) setInterval(() => focusReminder().catch(() => {}), 5 * 60 * 1000);
-  app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
-});
+}});
 
 // Focus reminders at 11:00, 15:00 and 19:00 (this Mac's time), once per slot: a notification and a Telegram
 // message when someone waits for an answer, an interview is close, or today's applications are behind the target.
@@ -1693,7 +1683,6 @@ async function focusReminder(now = new Date()) {
   if (text) notify('Focus: what to do next', text);
 }
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 // Jobs you started that were running or waiting when the app quit (pipeline queue.json) start again. The
 // schedule's own (searches, Gmail checks) aren't: its catch-up runs whatever is due anyway.
@@ -1726,50 +1715,12 @@ function sessionNeedsYou(session) {
   if (token && chat) telegram.api(token, 'sendMessage', {chat_id: chat, text: `🧭 Needs your input · ${what}\n${text}\n\nAnswer it in Job Pilotto → Application sessions.`})
     .catch(error => log(`Telegram: ${error.message}`));
 }
-// Sessions still running when the app quits end with it (a Claude session can't outlive its terminal).
-// Their state is saved first and stays as it was: the sessions come back at the next start (terminals.restore).
-app.on('will-quit', () => terminals.shutdown());
-
-// Quitting while something runs or waits: ask. "Quit when done" closes the app once the queue is empty;
-// "Quit now" stops the running job cleanly and keeps the queue for next time (resumeQueue).
-let quitting = false;
-app.on('before-quit', event => {
-  if (quitting || DEMO || process.env.JOB_PILOTTO_SMOKE) return;
-  // Quitting mid-setup: once, ask why (lib/setup-funnel.js). The window answers with leaveReason, which quits again.
-  if (storage && window && !window.isDestroyed() && setupFunnel.shouldAskOnQuit(storage.settings(), !!telemetry?.enabled())) {
-    event.preventDefault();
-    storage.saveSettings({leaveAsked: true});
-    window.show();
-    toWindow('askWhyLeaving');
-    setTimeout(() => app.quit(), 5 * 60 * 1000);  // no answer: quit anyway
-    return;
-  }
-  const busy = pipeline.running(), queue = pipeline.queued();
-  // Claude sessions actively working. One waiting for you (a question, a filled form) is kept as it is: it comes
-  // back at the next start, and Resume reopens its conversation.
-  const sessions = terminals.running().filter(session => session.status === 'running');
-  if (!busy && !queue.length && !sessions.length) return;
-  event.preventDefault();
-  const label = session => session.company || terminals.label(session);
-  const icon = nativeImage.createFromPath(path.join(here, 'assets', 'icon.png'));
-  if (!busy && !queue.length) {  // only sessions: keep them, or stop them and quit
-    const {message, detail, buttons} = quitDialog.sessionsOnly(sessions, label);
-    const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {type: 'none', icon, buttons, defaultId: 0, cancelId: 0, message, detail});
-    if (choice === 0) { window?.show(); toWindow('session', 'open', {id: sessions[0].id}); return; }
-    quitting = true;
-    app.quit();
-    return;
-  }
-  const {message, detail, buttons} = quitDialog.working({busy, queue, sessions, label, taskName: pipeline.taskName});
-  const choice = dialog.showMessageBoxSync(BrowserWindow.getAllWindows()[0], {type: 'none', icon, buttons, defaultId: 0, cancelId: 2, message, detail});
-  if (choice === 2) return;
-  quitting = true;
-  if (choice === 1) {
-    pipeline.freezeQueue(storage);
-    pipeline.stopRunning();
-    app.quit();
-    return;
-  }
-  notify('Job Pilotto will quit when done', detail);
-  pipeline.whenIdle().then(() => app.quit());
+// Quitting decisions read current services, so they remain testable without global mocks.
+installQuitHandling({app, platform: process.platform,
+  state: () => ({storage, window, telemetry, demo: DEMO, smoke: !!process.env.JOB_PILOTTO_SMOKE}),
+  pipeline, terminals, shouldAskOnQuit: setupFunnel.shouldAskOnQuit,
+  askWhyLeaving: () => toWindow('askWhyLeaving'),
+  showDialog: (parent, options) => dialog.showMessageBoxSync(parent, options),
+  icon: () => nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')),
+  getWindows: () => BrowserWindow.getAllWindows(), toWindow, notify, log: appLog,
 });

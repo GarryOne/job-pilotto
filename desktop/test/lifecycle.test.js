@@ -1,0 +1,74 @@
+// Exercise the actual lifecycle callbacks with fake Electron and pipeline services.
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {claimInstance, startWhenReady, installQuitHandling} from '../lib/lifecycle.js';
+
+function fixture({choice = 0, busy = {kind: 'search'}, queue = [], sessions = [], platform = 'darwin', ask = false, demo = false, smoke = false} = {}) {
+  const calls = [], handlers = {};
+  let drain, timeout;
+  const idle = new Promise(resolve => { drain = resolve; });
+  const app = {on: (event, fn) => { handlers[event] = fn; }, quit: () => calls.push('quit')};
+  const storage = {settings: () => ({}), saveSettings: patch => calls.push(patch)};
+  const window = {show: () => calls.push('show'), isDestroyed: () => false};
+  const beforeQuit = installQuitHandling({app, platform, state: () => ({storage, window, demo, smoke}),
+    pipeline: {running: () => busy, queued: () => queue, taskName: () => 'Search', freezeQueue: value => { assert.equal(value, storage); calls.push('freeze'); },
+      stopRunning: () => calls.push('stop'), whenIdle: () => idle},
+    terminals: {running: () => sessions, label: () => 'Company', shutdown: () => calls.push('shutdown')},
+    shouldAskOnQuit: () => ask, askWhyLeaving: () => calls.push('ask'),
+    showDialog: (_parent, options) => { calls.push(options.buttons); return choice; }, icon: () => ({}), getWindows: () => [window],
+    toWindow: (...args) => calls.push(args), notify: (...args) => calls.push(args), later: (fn, ms) => { timeout = fn; assert.equal(ms, 300000); },
+  });
+  return {app, handlers, calls, drain, idle, timeout: () => timeout(), quit: () => beforeQuit({preventDefault: () => calls.push('prevent')})};
+}
+
+test('quit when done notifies, waits for idle, and allows the final quit without prompting again', async () => {
+  const f = fixture(); f.quit();
+  assert.ok(f.calls.some(value => Array.isArray(value) && value[0] === 'Job Pilotto will quit when done'));
+  assert.ok(!f.calls.includes('quit'));
+  f.drain(); await f.idle;
+  assert.equal(f.calls.at(-1), 'quit');
+  const count = f.calls.length; f.quit(); assert.equal(f.calls.length, count);
+});
+test('quit now freezes the queue before stopping work; cancel does neither', () => {
+  const f = fixture({choice: 1}); f.quit(); assert.deepEqual(f.calls.slice(-3), ['freeze', 'stop', 'quit']);
+  const cancel = fixture({choice: 2}); cancel.quit(); assert.ok(!cancel.calls.includes('quit')); assert.ok(!cancel.calls.includes('stop'));
+});
+test('sessions-only keep opens the running session; stop quits; waiting sessions do not block', () => {
+  const sessions = [{id: 's1', status: 'running'}];
+  const keep = fixture({busy: null, sessions}); keep.quit(); assert.deepEqual(keep.calls.at(-1), ['session', 'open', {id: 's1'}]);
+  const stop = fixture({busy: null, sessions, choice: 1}); stop.quit(); assert.equal(stop.calls.at(-1), 'quit');
+  const waiting = fixture({busy: null, sessions: [{id: 's1', status: 'input'}]}); waiting.quit(); assert.deepEqual(waiting.calls, []);
+});
+test('setup feedback is asked before quit and the timeout quits; demo and smoke bypass prompts', () => {
+  const f = fixture({ask: true}); f.quit(); assert.ok(f.calls.includes('ask')); assert.ok(f.calls.some(value => value?.leaveAsked)); f.timeout(); assert.equal(f.calls.at(-1), 'quit');
+  for (const options of [{demo: true}, {smoke: true}]) { const bypass = fixture(options); bypass.quit(); assert.deepEqual(bypass.calls, []); }
+});
+test('window close quits on Windows only; terminal shutdown runs on will-quit', () => {
+  for (const platform of ['darwin', 'win32']) {
+    const f = fixture({platform}); f.handlers['window-all-closed'](); assert.equal(f.calls.includes('quit'), platform === 'win32');
+    f.handlers['will-quit'](); assert.equal(f.calls.at(-1), 'shutdown');
+  }
+});
+test('instance ownership and ready/activate callbacks preserve startup ordering', async () => {
+  const handlers = {}, calls = []; let window = null, ready = false;
+  const app = {requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(), isReady: () => ready,
+    on: (event, fn) => { handlers[event] = fn; }, quit: () => calls.push('quit')};
+  const createWindow = () => { calls.push('create'); window = {isMinimized: () => true, restore: () => calls.push('restore'), show: () => calls.push('show'), focus: () => calls.push('focus')}; };
+  const firstCopy = claimInstance({app, showDuplicate: () => calls.push('duplicate'), getWindow: () => window, createWindow});
+  handlers['second-instance'](); assert.deepEqual(calls, []);
+  await startWhenReady({app, firstCopy, start: () => calls.push('start'), getWindows: () => window ? [window] : [], createWindow});
+  assert.deepEqual(calls, ['start']); ready = true; handlers['second-instance']();
+  assert.deepEqual(calls.slice(-4), ['create', 'restore', 'show', 'focus']);
+  handlers.activate(); assert.equal(calls.filter(value => value === 'create').length, 1);
+  window = null; handlers.activate(); assert.equal(calls.at(-1), 'create');
+  app.requestSingleInstanceLock = () => false;
+  assert.equal(claimInstance({app, showDuplicate: () => calls.push('duplicate'), getWindow: () => window, createWindow}), false);
+  await Promise.resolve(); assert.deepEqual(calls.slice(-2), ['duplicate', 'quit']);
+});
+test('moving the app does not install activation callbacks or start a second instance', async () => {
+  const handlers = {}; let starts = 0;
+  const app = {whenReady: () => Promise.resolve(), on: (name, fn) => { handlers[name] = fn; }};
+  await startWhenReady({app, firstCopy: false, start: () => { starts++; }});
+  await startWhenReady({app, firstCopy: true, start: () => { starts++; return false; }});
+  assert.equal(starts, 1); assert.deepEqual(handlers, {});
+});

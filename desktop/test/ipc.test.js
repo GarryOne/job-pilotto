@@ -12,7 +12,7 @@ const files = dir => fs.readdirSync(path.join(here, dir)).filter(name => name.en
 const preload = read('preload.cjs');
 const exposed = new Set([...preload.matchAll(/^\s*(\w+):/gm), ...preload.matchAll(/[,{]\s*(\w+):\s*(?:call\(|callback|\()/g)].map(m => m[1]));
 const actions = [...preload.matchAll(/call\('(\w+)'\)/g)].map(m => m[1]);
-const handled = new Set([...read('main.js').matchAll(/ipcMain\.(?:handle|on)\('(\w+)'/g)].map(m => m[1]));
+const handled = new Set([...read('main.js').matchAll(/(?:ipcMain|checkedSessions)\.(?:handle|on)\('(\w+)'/g)].map(m => m[1]));
 
 test('every window.pilot.* used by the window exists in preload.cjs', () => {
   const used = new Set();

@@ -183,3 +183,8 @@ down — is the signal to add logging, not to move on. Add it in the same turn, 
 
 ## JavaScript lint checks
 Desktop `npm test` runs ESLint first across `desktop/` and `extension/` (including tests and scripts). `no-undef` blocks failures; `no-unused-vars` is advisory. Use `cd desktop && npm run lint` for fast feedback. Fix the cause of lint errors; do not silence them by inventing globals. Browser, Node, preload and Chrome-extension globals are configured in `eslint.config.mjs`; generated build and shared files are excluded.
+
+## Shared verification and checked desktop boundaries
+Use `tools/check.sh --fast` while editing, `tools/check.sh --area desktop` (or python/worker/site) for a full area suite, and `tools/check.sh --clean-install` before landing. The command selects Python 3.12+ and supported Node, stages desktop shared files, and reports setup problems without installing packages. CI and Claude hooks delegate to this same runner; it works from any directory and any agent.
+
+Electron lifecycle callbacks are in `desktop/lib/lifecycle.js` with injected services; import them directly in tests. `main.js` supplies startup initialization and current app services. Session IPC channels must register through `sessionIpc` in `desktop/lib/session-contracts.js`; every exposed session channel has argument and response checks. Public terminal session views use that same contract. Add a channel's contract and tests before exposing it. Contracts cover the session bridge, not every IPC action yet. Contract failures log channel/direction/field names only, never argument values or session content.

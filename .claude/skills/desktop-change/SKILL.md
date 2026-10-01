@@ -15,7 +15,7 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
    `tools/worktree.sh --done <topic>` when landed.
 2. Edit with anchored replacements: check the anchor exists (`assert old in s`). **Never cut code by index ranges**
    (`s[a:b]`) without printing the range first: it once deleted a whole render block.
-3. `cd desktop && node scripts/stage.mjs >/dev/null && npm test` (builds `shared/`; ~20 s).
+3. `tools/check.sh --fast` while editing; `tools/check.sh --area desktop` before landing (selects runtimes and stages `shared/`).
 4. UI: `npm run shot -- jobs --select '<css>' --eval "(async()=>{…click…; await new Promise(r=>setTimeout(r,500)); return 'ok'})()"`
    then Read the printed PNG. Pages other than the first: reach them by clicking (`.nav[data-view=settings]`, `[data-settings-go=…]`).
    State instead of pixels: `--eval "…JSON.stringify(…)" --no-picture`.

@@ -19,31 +19,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest discover -s tests
+      - run: bash tools/check.sh --area python
 
   worker:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - run: npm ci
         working-directory: worker
-      - run: npm test
-        working-directory: worker
+      - run: bash tools/check.sh --area worker
 
   site:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci && npm test
+      - run: npm ci
         working-directory: site
+      - run: bash tools/check.sh --area site
 
   desktop:
     # Both platforms, on every push: Windows is where the app's platform branches really run (Credential
@@ -61,6 +67,9 @@ jobs:
         shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -71,5 +80,4 @@ jobs:
         working-directory: desktop
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      - run: npm test
-        working-directory: desktop
+      - run: bash tools/check.sh --area desktop

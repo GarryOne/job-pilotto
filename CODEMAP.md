@@ -41,6 +41,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 30 applications
+- `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
 - `desktop/lib/notion-oauth.js` — "Connect with Notion": Notion's own consent page instead of a token to create and paste. The app opens the
@@ -62,6 +63,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 - `desktop/lib/secrets.js` — Pasted keys and tokens: drop what copying adds (spaces, line breaks, invisible characters) and
 - `desktop/lib/server.js` — The Chrome extension talks to the app on this computer (127.0.0.1) instead of a Cloudflare Worker.
+- `desktop/lib/session-contracts.js` — Runtime contracts for session IPC requests, responses and public session views; errors never contain values.
 - `desktop/lib/session-runs.js` — Each Apply with Claude session's statistics on its row in Notion 🎏 Agent Runs (session-stats.js computes them).
 - `desktop/lib/session-stats.js` — The statistics of an Apply with Claude session, for its row in Notion 🎏 Agent Runs, so the process can be measured
 - `desktop/lib/setup-funnel.js` — Setup funnel: each install reports, once per step, the furthest setup step it reached (and when setup finished),
@@ -256,6 +258,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/benchmark-apply-runs.py` — Score local browser-run reports against human-checked, unsubmitted ATS forms.
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
 - `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
+- `tools/check.py` — Run consistent fast, area or full project verification with supported runtimes and actionable failures."""
+- `tools/check.sh` — Every agent uses this entry point; select a supported Python, then let check.py select Node and run CI checks.
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/fix_issues.py` — No-AI steps of the daily self-fix run (fix-issues.yml): stale close, snapshot-only issue pick, Claude log summary.

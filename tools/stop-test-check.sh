@@ -72,9 +72,9 @@ for repo in "${repos[@]}"; do
   logs="$(mktemp -d)"; pids=()
   for s in "${suites[@]}"; do
     case "$s" in
-      python) cmd=(env JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs "$py" -m unittest discover -s tests -q); dir="$repo" ;;
+      python) cmd=(bash tools/check.sh --area python); dir="$repo" ;;
       codemap) cmd=(node --test test/codemap.test.js); dir="$repo/desktop" ;;
-      *) cmd=(npm test --silent); dir="$repo/$s" ;;
+      *) cmd=(bash tools/check.sh --area "$s"); dir="$repo" ;;
     esac
     if [ "$s" != python ] && [ ! -e "$dir/node_modules" ]; then
       notes+="$s not tested in $repo: no node_modules (run npm ci there in the owner's terminal, or tools/worktree.sh links them)."$'\n'

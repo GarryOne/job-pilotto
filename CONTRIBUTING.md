@@ -20,7 +20,16 @@ Your own keys live in the macOS Keychain (`job-pilotto.*`), never in files you c
    Several people and agents push to `main` at once: never edit the main checkout, never bare `git stash`.
 2. **Find the file:** read [`CODEMAP.md`](CODEMAP.md) (every file → what it's for), open only that file.
 3. **Change it**, with a test for anything that can break again (`tests/` for Python, `desktop/test/` for the app).
-4. **Check it:**
+4. **Check it:** every AI tool and CI use the same runner, which selects supported Python and Node runtimes:
+
+   - `tools/check.sh --fast` — desktop lint, staging, lifecycle and session contract tests.
+   - `tools/check.sh --area desktop` (or `python`, `worker`, `site`) — a complete suite; repeat `--area` to select several.
+   - `tools/check.sh` — all four suites, external Python services disabled as in CI.
+   - `tools/check.sh --clean-install` — also prove dependency lockfiles install in temporary folders before landing.
+   - Missing dependencies are reported, never silently installed; `tools/worktree.sh` links the existing packages.
+
+   Direct suite commands remain available:
+
 
    | Area | Command |
    |---|---|

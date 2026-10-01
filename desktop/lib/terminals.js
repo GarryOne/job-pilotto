@@ -17,6 +17,7 @@
 // redraws it in place many times a second, so replaying its output at another size, or from a cut-off tail,
 // leaves a blank or garbled screen. A headless terminal (the mirror) follows each session at its real size, and
 // snapshot() serializes it: what a real terminal shows now. The saved record keeps that screen too.
+import {assertSession} from './session-contracts.js';
 import fs from 'node:fs';
 import os from 'node:os';
 
@@ -86,12 +87,12 @@ export async function available() {
 
 // A session is live while its process runs; a restored or ended one is not (but can be resumed with its claudeId).
 const isLive = s => !!s.term && !s.endedAt;
-const publicView = s => ({id: s.id, url: s.url, title: s.title, company: s.company, status: s.status, note: s.note,
+const publicView = s => assertSession({id: s.id, url: s.url, title: s.title || '', company: s.company || '', status: s.status, note: s.note || '',
   outcome: s.outcome || '',
   live: isLive(s), resumable: !!s.claudeId && !isLive(s),
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
-  startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
+  startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   question: s.question || '', brief: briefly(s.question || s.note), location: s.location || '', workMode: s.workMode || ''});
 export const list = () => [...sessions.values()].map(publicView);
 export const get = id => (sessions.has(id) ? publicView(sessions.get(id)) : null);
@@ -161,7 +162,7 @@ export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
   claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
   decidedAt: s.decidedAt || null, runPage: s.runPage || '', conversationSaved: s.conversationSaved || 0, status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
-  startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
+  startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
   screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
 // A record that leaves this file leaves the app: the list is the app's only copy of a session (its transcript and
