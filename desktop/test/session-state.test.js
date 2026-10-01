@@ -1,7 +1,7 @@
 // A session's state on the session page: ready for review, asking you, working, and how long it took.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {SESSION_STATE, firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
+import {SESSION_STATE, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
 
 test('a filled form waiting for you is "ready for review"; a message ending on your question is not', () => {
   const report = 'The N26 form is filled and open in Chrome. Nothing was submitted.\n\n**Left for you:**\n' +
@@ -61,4 +61,9 @@ test('a submitted session reads "Submitted", not "Ready for review"', () => {
   assert.equal(sessionState({...done, outcome: ''})[0], 'Ready for review');
   // A running process still Applying: the outcome only speaks for a session that is over.
   assert.equal(sessionState({status: 'running', live: true, outcome: 'submitted'})[0], 'Applying');
+  // A stopped process (exit 129) whose application was submitted still reads Submitted.
+  const stopped = {status: 'failed', note: 'Session stopped (exit 129)', endedAt: '2026-10-01T15:15:00Z', outcome: 'submitted', live: false};
+  assert.equal(isSubmitted(stopped), true);
+  assert.equal(sessionState(stopped, true)[0], 'Submitted');
+  assert.equal(isSubmitted({status: 'failed', outcome: '', live: false}), false);
 });

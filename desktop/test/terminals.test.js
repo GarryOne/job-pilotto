@@ -66,6 +66,24 @@ test('the hooks report to the app on this computer only, for this session', () =
   assert.deepEqual(Object.keys(settings.hooks).sort(), ['Notification', 'Stop', 'UserPromptSubmit']);
 });
 
+test('marking a session submitted, then stopping it, is not a crash', async () => {
+  let exit;
+  terminals.usePty(async () => ({spawn: () => ({
+    onData() {}, onExit(fn) { exit = fn; }, kill() { exit({exitCode: 129}); }, write() {}, resize() {},
+  })}));
+  await terminals.start({id: 'submitted', url: 'https://jobs.test/anthropic', company: 'Anthropic', claudeId: 'abc', file: 'claude', env: {}});
+  terminals.setOutcome('submitted', 'submitted');
+  terminals.stop('submitted');
+  const view = terminals.get('submitted');
+  assert.equal(view.outcome, 'submitted');
+  assert.equal(view.status, 'ended');
+  assert.equal(view.note, 'Submitted');
+  assert.equal(view.exitCode, 129);
+  assert.equal(view.live, false);
+  assert.equal(view.resumable, false);
+  terminals.remove('submitted');
+});
+
 test('a notification gets one plain sentence: the question if there is one, never markdown or a cut-off start', () => {
   const message = 'Filled 14 of 16 fields. Please check these kit answers before you submit:\n\n' +
     '- **Go/Ruby:** "No" to reading Go or Ruby.\n- **Visa:** "Yes, but not one of the visas listed".\n\nShall I change the visa answer?';

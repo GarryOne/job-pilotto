@@ -1102,6 +1102,7 @@ main { min-width: 0; }
 .ss-next.tone-warn { background: var(--warn-soft); border-color: var(--warn-line); border-left-color: var(--warn); }
 .ss-next.tone-info { background: var(--info-soft); border-color: var(--info-line); border-left-color: var(--info); }
 .ss-next.tone-bad { background: var(--bad-soft); border-color: var(--bad-line); border-left-color: var(--bad); }
+.ss-next.tone-good { background: var(--good-soft); border-color: transparent; border-left-color: var(--good); }
 .ss-next-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
 .ss-next-title { font-size: var(--fs-base); line-height: 1.25; }
 .ss-full { border-top: 1px solid var(--warn-line); padding-top: var(--sp-2); color: var(--ink-2); max-height: 20em; overflow: auto; }

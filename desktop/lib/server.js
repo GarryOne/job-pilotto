@@ -20,6 +20,7 @@ import * as questions from './questions.js';
 import * as terminals from './terminals.js';
 import {log} from './log.js';
 import * as reports from './reports.js';
+import {confirmationsToMark} from './confirmation.js';
 
 export const PORT = 47111;
 // The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
@@ -246,6 +247,36 @@ export function staleExtension(version, latest) {
 export const openTabs = () => [...tabs];
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 
+// Confirmation URLs already handed to Notion this run. A tab report arrives every 30 s; one mark is enough.
+const confirming = new Set();
+// A reported Chrome tab is this session's Greenhouse /confirmation or Lever /thanks page: mark Applied.
+// The bash watcher gives up after 3 hours, and the extension's check needs a job it stored on that tab.
+// Tests pass their own marker.
+export async function markReportedConfirmations(storage, tabUrls, {
+  setStatus = pipeline.setStatus, submitted = sessionSubmitted, sessions = () => terminals.list(), log = appLog,
+} = {}) {
+  for (const url of confirmationsToMark(tabUrls, sessions())) {
+    const key = pageKey(url);
+    if (confirming.has(key)) continue;
+    confirming.add(key);
+    log('extension', `mark Applied: ${url} — confirmation page open in Chrome`, {path: 'confirmation'});
+    try {
+      const result = await setStatus(storage, url, 'applied');
+      if (!result?.ok) {
+        confirming.delete(key);
+        log('extension', `confirmation not marked: ${result?.error || 'no result'}`);
+        continue;
+      }
+      submitted(url);
+      const session = sessions().find(item => item.url === url);
+      notify('Marked Applied ✓', session?.company ? `${session.company}. Saved in your Notion.` : 'Saved in your Notion.');
+    } catch (error) {
+      confirming.delete(key);
+      log('extension', `confirmation not marked: ${error.message}`);
+    }
+  }
+}
+
 // Apply with Claude → extension hand-off (extension/hook.js). The launcher (tools/apply-batch-claude.sh) asks
 // for a ticket per job (POST /claude/ticket, from this computer, with a header web pages can't send without a
 // CORS preflight this server never grants); the Claude session hands it to the extension on the form page, and
@@ -338,6 +369,7 @@ export function start(storage, onError = () => {}) {
             const report = JSON.parse(body?.toString() || '{}');
             tabs = new Set((report.urls || []).map(pageKey));
             seen = {at: Date.now(), version: report.version || ''};
+            void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});

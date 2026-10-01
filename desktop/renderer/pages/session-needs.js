@@ -1,6 +1,7 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
 import {splitLabel} from '../session-message.js';
+import {isSubmitted} from '../session-state.js';
 import {icon} from '../icons.js';
 import {sameQuestion} from '../labels.js';
 import {answerOptions} from '../answer-options.js';
@@ -130,7 +131,8 @@ function showFormCard(item, state) {
   let host = '';
   try { host = state.url ? new URL(state.url).hostname.replace(/^www\./, '') : ''; } catch {}
   $('ss-form-where').textContent = host ? `Chrome · ${host}` : '';
-  $('ss-form-pill').replaceChildren(state.ready ? pill('Ready to submit', 'good', {dot: true})
+  $('ss-form-pill').replaceChildren(isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
+    : state.ready ? pill('Ready to submit', 'good', {dot: true})
     : pill(`${state.left} remaining`, 'warn', {title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists the rest)`}));
   const count = $('ss-form-count');
   count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));

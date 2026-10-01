@@ -7,6 +7,7 @@ import {clockTime} from './activity.js';
 import {$, show} from './core.js';
 import {renderJobs} from './jobs.js';
 import {openView, remembered} from './nav.js';
+import {isSubmitted} from '../session-state.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
 import {toastMessage} from './startup.js';
@@ -66,7 +67,7 @@ export function renderSessionPage() {
   again.addEventListener('click', () => restartSession(item));
   const cancel = Object.assign(el('button', 'secondary', 'Cancel application'), {title: 'Claude stops, the form tab closes, the job goes back to Kit ready'});
   cancel.addEventListener('click', () => cancelSession(item));
-  $('ss-more').replaceChildren(again, cancel, moreButton(sessionMenu(item), 'More'));
+  $('ss-more').replaceChildren(...(isSubmitted(item) ? [] : [again, cancel]), moreButton(sessionMenu(item), 'More'));
   const job = sessionJob(item);
   const head = el('div', 'ss-job-card');
   const words = el('div', 'ss-job-words');
@@ -78,19 +79,21 @@ export function renderSessionPage() {
   $('ss-job').replaceChildren(head);
   renderNextStep(item);
   const review = sessionReview(item);
-  const [logLabel, logTone] = item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
+  const [logLabel, logTone] = isSubmitted(item) ? [label, tone] : item.status === 'running' ? ['Working', 'info'] : review ? ['Completed', 'good']
     : item.status === 'input' && !isLive(item) ? ['Closed with the app', 'neutral']
     : item.status === 'input' ? ['Waiting for your reply', 'warn'] : [label, tone];
   const livePill = pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true});
   if (item.status === 'running') ticking(livePill, `${logLabel} · `, item.startedAt);
   $('ss-live-state').replaceChildren(livePill);
-  $('ss-log-last').textContent = `> ${review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
+  $('ss-log-last').textContent = `> ${isSubmitted(item) ? 'Submitted. Marked Applied in Notion.' : review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
   // A session that isn't running (closed with the app, or ended) takes no typing: say so, with Resume one click away.
   const offline = !isLive(item);
   show($('ss-offline'), offline);
   show($('ss-replies'), !offline);
-  $('ss-offline-resume').hidden = !item.resumable;
-  $('ss-offline').querySelector('span').textContent = item.resumable
+  $('ss-offline-resume').hidden = !item.resumable || isSubmitted(item);
+  $('ss-offline').querySelector('span').textContent = isSubmitted(item)
+    ? 'Submitted. This application is marked Applied in Notion.'
+    : item.resumable
     ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.'
     : 'This session has ended. Start a new session from the job to continue.';
   openLog(logChoice[item.id] ?? item.status === 'running', false);

@@ -24,6 +24,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/canary.js` — Test builds (menu → Get Test Builds): the app stays on one canary build for its 48 h trial, not the newest build.
 - `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
+- `desktop/lib/confirmation.js` — A Greenhouse or Lever confirmation page is a submission. The 3-hour watcher
 - `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
 - `desktop/lib/cv-change.js` — A replaced CV after setup (Strategy → Replace CV…): what follows it and what doesn't.
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),

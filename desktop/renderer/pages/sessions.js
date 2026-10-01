@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {asksYou, firstLine, isLive, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
+import {asksYou, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
@@ -103,7 +103,7 @@ export function renderDock() {
     const title = el('b', 'focus-headline', `${sessionCompany(item)} · ${sessionTitle(item)}`);
     title.title = title.textContent;
     const state = el('div', 'sd-state');  // the badge, then what it's doing (or asking), on one line under the title
-    const note = el('span', 'muted small sd-note', item.status === 'input' ? item.brief || item.note || '' : item.note || '');
+    const note = el('span', 'muted small sd-note', isSubmitted(item) ? 'Marked Applied' : item.status === 'input' ? item.brief || item.note || '' : item.note || '');
     note.title = note.textContent;
     state.append(pill(label, tone, {dot: item.status === 'running'}), note);
     words.append(title, state);
@@ -117,7 +117,7 @@ export function renderDock() {
 export function sessionMenu(item) {
   const menu = [{icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.url)}];
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
-  if (item.resumable) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
+  if (item.resumable && !isSubmitted(item)) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
   if (isLive(item)) menu.push({label: '⏹ Stop Claude', run: () => window.pilot.sessionStop(item.id)});
   menu.push({label: '✕ Close this session', danger: true, run: () => closeSession(item)});
   return menu;
@@ -218,24 +218,28 @@ function foldRow(short, more) {
 }
 let fullFor = null, reportFor = null;  // the session whose Claude's message the banner shows (folded again for another one)
 export function renderNextStep(item) {
-  const review = sessionReview(item), asking = item.status === 'input' && !review, running = item.status === 'running';
-  const {checks, needs: forYou, audit, done, intro} = readSessionMessage(item.question);
-  const tone = review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
+  const submitted = isSubmitted(item);
+  const review = !submitted && sessionReview(item), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
+  const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
+  const tone = submitted ? 'good' : review || asking ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
-  $('ss-next-title').textContent = review ? 'Review the filled application'
+  $('ss-next-title').textContent = submitted ? 'Submitted'
+    : review ? 'Review the filled application'
     : asking ? ask || 'Claude needs your answer'
     : running ? 'Claude is filling the application' : item.status === 'failed' ? 'The session stopped' : 'The session ended';
   // Its state, after the title: finished (when), waiting (since when) or working (for how long).
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
-  state.textContent = review ? `· Claude finished at ${hhmmOf(since)}` : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
+  state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
+    : review ? `· Claude finished at ${hhmmOf(since)}` : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask);
-  $('ss-question').replaceChildren(...(review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
+  $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
+    : review ? [el('p', 'rich-p', 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? richText(said.join('\n'))
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
   const full = $('ss-full');
@@ -315,7 +319,7 @@ export function renderNextStep(item) {
   } else if (running) {
     actions.push(sessionButton('Pause', 'secondary', pauseSession));
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
-  } else if (item.resumable) {
+  } else if (item.resumable && !submitted) {
     actions.push(resume('primary'));
   }
   $('ss-actions').replaceChildren(...actions);

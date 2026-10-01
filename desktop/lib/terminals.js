@@ -89,7 +89,7 @@ export async function available() {
 const isLive = s => !!s.term && !s.endedAt;
 const publicView = s => assertSession({id: s.id, url: s.url, title: s.title || '', company: s.company || '', status: s.status, note: s.note || '',
   outcome: s.outcome || '',
-  live: isLive(s), resumable: !!s.claudeId && !isLive(s),
+  live: isLive(s), resumable: !!s.claudeId && !isLive(s) && s.outcome !== 'submitted',
   // Came back from the last run (the app closed, or was killed) and you weren't asked yet what to do with it.
   askAtStart: !!s.restored && !s.asked && !isLive(s),
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
@@ -116,8 +116,14 @@ function attach(session, {file, args = [], cwd, env, cols = 120, rows = 32}) {
       if (closing || session.term !== term) return;  // the app is quitting (state already saved), or it was resumed since
       session.exitCode = exitCode;
       session.endedAt = new Date().toISOString();
-      if (session.status !== 'done') session.status = exitCode === 0 ? 'ended' : 'failed';
-      if (session.status !== 'done') session.note = exitCode === 0 ? 'Session ended' : `Session stopped (exit ${exitCode})`;
+      // Marking Applied stops the process (SIGHUP, exit 129). That is a submission, not a crash.
+      if (session.outcome === 'submitted') {
+        session.status = 'ended';
+        session.note = 'Submitted';
+      } else if (session.status !== 'done') {
+        session.status = exitCode === 0 ? 'ended' : 'failed';
+        session.note = exitCode === 0 ? 'Session ended' : `Session stopped (exit ${exitCode})`;
+      }
       mark(session, session.status === 'done' ? 'ended after filling' : session.status);
       listener('update', publicView(session));
       save();

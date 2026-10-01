@@ -6,6 +6,8 @@ export const SESSION_STATE = {running: ['Applying', 'info'], input: ['Question f
   ended: ['Ended', 'neutral'], failed: ['Stopped', 'bad'], submit: ['Ready to submit', 'good'], submitted: ['Submitted', 'good']};
 // Claude is running in it (demo sessions say nothing: they run while not ended).
 export const isLive = item => item.live ?? !item.endedAt;
+// The application was submitted and Claude is no longer in it. The badge, the step and the log all read this.
+export const isSubmitted = item => item?.outcome === 'submitted' && !isLive(item);
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
 export const REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself|ready for you to review|nothing was submitted/i;
 // Claude asks you something when one of its own sentences (outside its report's lists) ends with "?"; a listed form
