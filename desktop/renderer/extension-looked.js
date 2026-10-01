@@ -9,8 +9,11 @@ const list = items => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and 
 export function lookedText(looked) {
   if (!looked?.length) return '';
   const here = looked.filter(entry => entry.there).map(entry => entry.dir);
-  return [`Looked in ${list(looked.map(entry => entry.dir))}.`,
-    here.length ? `On this computer: ${list(here)}.`
-      : 'None of those folders is on this computer: a browser started with --user-data-dir, or one this app doesn\'t '
-        + 'know, keeps its profile somewhere else — chrome://version shows the browser\'s real Profile Path.'].join(' ');
+  const first = `Looked in ${list(looked.map(entry => entry.dir))}.`;
+  if (!here.length) {
+    return `${first} None of those folders is on this computer: a browser started with --user-data-dir, or one this `
+      + 'app doesn\'t know, keeps its profile somewhere else — chrome://version shows the browser\'s real Profile Path.';
+  }
+  // Naming them again only says something when some are missing (the usual Mac has all six).
+  return here.length === looked.length ? first : `${first} On this computer: ${list(here)}.`;
 }

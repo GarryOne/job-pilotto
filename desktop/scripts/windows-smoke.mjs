@@ -123,9 +123,9 @@ const SCREENS = [
     `({step: ${ACTIVE_STEP}, controls: document.querySelectorAll('.step[data-step="notion"] button, .step[data-step="notion"] input').length})`,
     ({step, controls}) => [step === 'notion' && controls >= 1, `the Notion step is up with its controls rendered (${controls})`]],
   ['settings-connections', openConnections, DONE,
-    `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', status: (document.getElementById('ext-status') || {}).textContent || '', steps: document.querySelectorAll('#ext-setup li').length})`,
-    ({view, status, steps}) => [view === 'settings' && steps >= 3 && status.length > 0,
-      `Settings → Connections drew its extension steps (${steps}) and read the state as "${status}"`]],
+    `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', status: (document.getElementById('ext-status') || {}).textContent || '', steps: document.querySelectorAll('#ext-setup li').length, looked: (document.getElementById('ext-looked') || {}).textContent || ''})`,
+    ({view, status, steps, looked}) => [view === 'settings' && steps >= 3 && status.length > 0 && looked.includes('Looked in'),
+      `Settings → Connections drew its extension steps (${steps}), read the state as "${status}" and listed where it looked`]],
 ];
 for (const [name, js, settings, evalJs, ok] of SCREENS) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));

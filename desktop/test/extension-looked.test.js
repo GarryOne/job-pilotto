@@ -13,7 +13,7 @@ test('the folders looked in are named, and which of them is on this computer', (
   assert.equal(lookedText([chrome, vivaldi]),
     'Looked in Google/Chrome/User Data and Vivaldi/User Data. On this computer: Google/Chrome/User Data.');
   assert.equal(lookedText([chrome]),
-    'Looked in Google/Chrome/User Data. On this computer: Google/Chrome/User Data.');
+    'Looked in Google/Chrome/User Data.');  // nothing missing: naming them twice would say nothing
   assert.equal(lookedText([chrome, {browser: 'Chromium', dir: 'Chromium/User Data', at: '/x/c', there: true}, vivaldi]),
     'Looked in Google/Chrome/User Data, Chromium/User Data and Vivaldi/User Data. On this computer: Google/Chrome/User Data and Chromium/User Data.');
 });
