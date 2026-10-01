@@ -525,7 +525,7 @@ function renderRunCard(card, run = null) {
   const rows = el('ol', 'run-card-rows');
   let heading, more = null;
   if (card.kind === 'digest') {
-    stats.append(stat(card.open, 'open'), stat(card.local, 'in Switzerland'), stat(card.applied, 'applied'), stat(card.fresh, 'new this run'));
+    stats.append(stat(card.open, 'open'), stat(card.local, 'in Switzerland'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run'));
     heading = 'Top matches';
     rows.append(...card.items.slice(0, 3).map(item => {
       const row = el('li', 'run-card-row');
