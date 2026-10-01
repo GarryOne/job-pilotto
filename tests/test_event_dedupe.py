@@ -135,6 +135,37 @@ class WritersDoNotRepeatTests(unittest.TestCase):
         self.assertNotIn('_existing', other)
         self.assertEqual(tracker.kinds().count('Reply received'), 2)
 
+    def test_a_second_confirmation_weeks_later_is_its_own_event(self):
+        # 1 Oct 2026: Canonical's second confirmation was silently absorbed by the rejected row's month-old event,
+        # because any same-kind event counted as a repeat, whenever it happened. Applied twice (a second role at the
+        # same employer, or reapplying) must leave two rows.
+        tracker = Tracker(app('Applied'))
+        first = ledger.add_event(tracker, tracker.rows[0], 'Confirmation received', 'Gmail',
+                                 at='2026-09-25T09:00:00+00:00', source_id='m1')
+        later = ledger.add_event(tracker, tracker.rows[0], 'Confirmation received', 'Gmail',
+                                 at='2026-10-01T09:00:00+00:00', source_id='m2')
+        self.assertNotIn('_existing', first)
+        self.assertNotIn('_existing', later)
+        self.assertEqual(tracker.kinds(), ['Confirmation received', 'Confirmation received'])
+
+    def test_the_same_report_twice_within_a_day_is_still_one_event(self):
+        # The duplicate this idempotence is for: the same thing recorded twice (two sources, a watcher plus the app,
+        # or a double read) — hours apart, never a day.
+        tracker = Tracker(app('Applied'))
+        first = ledger.add_event(tracker, tracker.rows[0], 'Confirmation received', 'Gmail',
+                                 at='2026-09-25T09:00:00+00:00', source_id='m1')
+        again = ledger.add_event(tracker, tracker.rows[0], 'Confirmation received', 'Gmail',
+                                 at='2026-09-25T14:00:00+00:00', source_id='')
+        self.assertTrue(again['_existing'] and again['id'] == first['id'])
+        self.assertEqual(tracker.kinds(), ['Confirmation received'])
+
+    def test_an_event_with_no_recorded_time_still_counts_as_a_repeat(self):
+        tracker = Tracker(app('Applied'), [event('old', 'Confirmation received', '')])
+        again = ledger.add_event(tracker, tracker.rows[0], 'Confirmation received', 'Gmail',
+                                 at='2026-10-01T09:00:00+00:00', source_id='m2')
+        self.assertTrue(again['_existing'])  # nothing to compare: as before, not a twin on every read
+        self.assertEqual(tracker.kinds(), ['Confirmation received'])
+
     def test_a_stage_event_is_once_per_application(self):
         tracker = Tracker(app())
         for _ in range(2):

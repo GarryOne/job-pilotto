@@ -421,7 +421,27 @@ def events_of(tracker, page):
     return [e for e in events if key in _link_ids(e)]
 
 
-def existing_event(tracker, page, kind, *, source_id='', interview_at=''):
+# How close two same-kind events have to be to be one occurrence: a duplicate report of the same thing (the same
+# email from two sources, a watcher and the app, a hand-logged twin), never a genuinely later one. Without a bound,
+# an application's *second* "Confirmation received" — or a re-rejection weeks later — was swallowed forever
+# (1 Oct 2026: Canonical's confirmation vanished into the rejected row's month-old event).
+SAME_OCCURRENCE_HOURS = 24
+
+
+def _same_occurrence(event, when, hours=SAME_OCCURRENCE_HOURS):
+    """True when an existing event is the same occurrence as one at `when`. An event with no readable time counts as
+    the same (the old behaviour), rather than creating a twin on every read."""
+    recorded = plain(event['properties'].get('At')) or ''
+    if not recorded:
+        return True
+    try:
+        datetime.fromisoformat(recorded.replace('Z', '+00:00'))
+    except ValueError:
+        return True
+    return abs((moment(recorded) - when).total_seconds()) <= hours * 3600
+
+
+def existing_event(tracker, page, kind, *, source_id='', interview_at='', at=None):
     """The event this one would repeat, or None when it is genuinely new."""
     events = events_of(tracker, page)
     if source_id:
@@ -443,21 +463,29 @@ def existing_event(tracker, page, kind, *, source_id='', interview_at=''):
         known = [event_interview_at(e) for e in same]
         if any(known) and not any(k and moment(k) == moment(interview_at) for k in known):
             return None  # another interview
+        # An interview's identity is the interview itself, so a message about it may arrive days later (another
+        # message, or the real invite that gives a pasted one its time): never filtered by when it arrived.
+    elif at:  # a kind identified by the report: the same kind a day or more later is another occurrence
+        when = moment(at)
+        same = [e for e in same if _same_occurrence(e, when)]
+        if not same:
+            return None
     return same[0]
 
 
 def add_event(tracker, page, kind, source, *, at=None, note='', source_id='', interview_at=''):
     """One 📈 Application Events row linked to the Applications page. Idempotent: an event this one would repeat
-    (see existing_event) is not written again; that existing row is returned, marked `_existing`. An impossible
-    interview time (plausible_interview) is never stored."""
+    (see existing_event — the same thing, recorded twice, within SAME_OCCURRENCE_HOURS) is not written again; that
+    existing row is returned, marked `_existing`. A genuinely later event of the same kind is a new row. An
+    impossible interview time (plausible_interview) is never stored."""
     interview_at = plausible_interview(interview_at, at)
-    found = existing_event(tracker, page, kind, source_id=source_id, interview_at=interview_at)
-    if found:
-        return {**found, '_existing': True}
     props = page['properties']
     if not at and kind == 'Applied':
         at = plain(props.get('Applied on'))  # the application's own date, never "now" for an old one
     at = at or datetime.now(timezone.utc).isoformat(timespec='seconds')
+    found = existing_event(tracker, page, kind, source_id=source_id, interview_at=interview_at, at=at)
+    if found:
+        return {**found, '_existing': True}
     company = plain(props.get('Company')) or plain(props.get('Job')) or 'application'
     properties = {
         'Event': {'title': [{'text': {'content': f'{kind} · {company}'[:200]}}]},
