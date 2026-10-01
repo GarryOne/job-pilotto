@@ -89,14 +89,17 @@ export async function closeFormTab({url, company}, platform = process.platform) 
 // Reloads this job's form tab: the repair for a tab whose page still holds a panel from an older extension — after an
 // uninstall/reinstall the page's script is orphaned and can't answer the app, and only a fresh page load brings the
 // extension back onto it. Chrome's own reload (its scripting dictionary: "reload tab"). Says why when it can't:
-// 'reloaded', 'permission' (macOS won't let Job Pilotto control Chrome), 'no-tab', 'no-chrome', 'manual' (this isn't
-// a Mac: Chrome's scripting is macOS-only, so reloading the tab is the user's to do), 'other'.
+// 'reloaded', 'permission' (macOS won't let Job Pilotto control Chrome), 'no-tab', 'no-window' (Chrome is running but
+// answered with no windows: another Chrome instance — an automation's headless one — is holding the scripting
+// connection, so the window the user works in is not reachable this way), 'no-chrome', 'manual' (this isn't a Mac:
+// Chrome's scripting is macOS-only, so reloading the tab is the user's to do), 'other'.
 export async function reloadFormTab({url, company}, platform = process.platform) {
   if (platform !== 'darwin') return 'manual';
   let tabs, tab;
   try {
     tabs = JSON.parse(await jxa(LIST));
     if (!tabs) return 'no-chrome';
+    if (!tabs.length) return 'no-window';
     tab = reloadTarget(tabs, {url, company});
     if (!tab) return 'no-tab';
     await jxa(`Application('Google Chrome').windows.byId(${Number(tab.win)}).tabs[${Number(tab.index) - 1}].reload()`);

@@ -1270,15 +1270,19 @@ function handlers() {
   // "Reload the tab": the repair for a form page whose panel died with an older extension. Chrome reloads that tab,
   // then the page's fresh panel answers the focus handshake, so one press both heals and brings Chrome to the field.
   ipcMain.handle('reviewReload', async (_, id, url, company) => {
-    // 1. The page's own panel: it reloads itself, in whatever browser it runs (and no macOS permission needed).
-    review.queueReload(String(id));
-    if (await review.delivered(String(id), 4000)) return {result: 'reloaded'};
+    const seen = server.extensionSeen(), latest = server.latestExtension();
+    const current = !!seen?.version && seen.version === latest;  // an older copy ignores the command below, silently
+    // 1. The page's own panel: it reloads itself, in whatever browser and instance it runs (no macOS permission).
+    if (current) {
+      review.queueReload(String(id));
+      if (await review.delivered(String(id), 4000)) return {result: 'reloaded', extension: seen.version, latest};
+    }
     // 2. No page answered (a panel from an older extension instance can't): Chrome's own scripting can reload the
-    //    tab without the extension. It only ever sees Chrome, and it needs the user's Automation permission.
+    //    tab without the extension. It needs the user's Automation permission, and it reaches one instance only.
     const result = await reloadFormTab({url: String(url), company: String(company || '')});
-    if (result !== 'reloaded') return {result};
+    if (result !== 'reloaded') return {result, extension: seen?.version || '', latest, outdated: !current};
     await new Promise(resolve => setTimeout(resolve, 2500));  // the panel boots and reports within a second or two
-    return {result: 'reloaded-chrome', ...(await showForm(String(id), '', String(url), String(company || '')))};
+    return {result: 'reloaded-chrome', extension: seen?.version || '', latest, ...(await showForm(String(id), '', String(url), String(company || '')))};
   });
   // Notion pages open where the user is already signed in: the Notion app when it's installed, else the
   // browser. ⌘-click opens the app's own Notion window instead (its own sign-in, kept between restarts).

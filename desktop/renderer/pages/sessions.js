@@ -248,8 +248,16 @@ export function renderNextStep(item) {
         if (result.went !== 'tab') toastMessage('Reloaded, but no answer yet', 'The tab is fresh; give the extension a few seconds, then press Open filled form again.');
         return;
       }
+      if (result?.outdated) {
+        toastMessage('Reload the Chrome extension once', `Chrome runs Job Pilotto ${result.extension}; this app has ${result.latest}. ` +
+          'In Chrome open chrome://extensions and click ↻ on Job Pilotto, then press again — it updates itself from then on.');
+        return;
+      }
       const why = {permission: 'macOS won\'t let Job Pilotto control Chrome: System Settings → Privacy & Security → Automation → Job Pilotto → Google Chrome. Or press ⌘R in that tab.',
-        'no-tab': 'No open Chrome tab matches this job. Open the posting, then press again.',
+        // Chrome running with no windows means an automation's headless Chrome holds the scripting connection, not
+        // the window the user is working in: say so, rather than "no tab matches" about a tab that is right there.
+        'no-window': 'Chrome answered with no windows: a background Chrome (an automation\'s) holds the scripting connection, not the window you use. Press ⌘R in the tab you are reviewing.',
+        'no-tab': 'No Chrome tab matches this job. If you apply in another browser or Chrome window, press ⌘R in its tab.',
         'no-chrome': 'Google Chrome isn\'t running.',
         // Chrome's scripting is macOS-only. Saying "Chrome isn't running" on Windows would be untrue, and the
         // generic advice names ⌘R, which isn't a key there.
