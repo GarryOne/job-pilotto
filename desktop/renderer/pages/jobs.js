@@ -254,41 +254,35 @@ export function renderJobs() {
     if (job.status !== 'applied' && job.url && job.kit) {
       // Stays "Opened in Chrome" for the session (until marked applied); a click opens it again.
       const opened = shared.openedInChrome.has(pageKey(job.url));
-      if (claudeReady) {
-        // Recommended: a Claude session drives Chrome from the posting through the employer's site
-        // (its own Apply buttons, sign-up, every page) to a filled form; it asks you for CAPTCHAs.
-        const live = sessionFor(job.url);
-        if (live) {
-          // A session inside the app: Continue when it waits for you, else View session.
-          const open = el('button', `row-main ${live.status === 'input' ? 'state-apply' : 'state-opened'}`, live.status === 'input' ? 'Continue' : 'View session');
-          open.title = live.note || 'Open this Claude session';
-          open.addEventListener('click', () => openSession(live.id));
-          box.append(open);
-          menu.push({icon: 'puzzle', label: 'Fill in Chrome', run: () => fillInChrome()});
-        }
-        const started = !live && claudeStarted.has(pageKey(job.url));
-        const claude = live ? null : Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
-          disabled: started,
-          title: started ? 'A Claude session is filling this one in its window: answer it there' :
-            'Recommended. Claude opens the posting in Chrome, follows Apply to the employer\'s site, creates an account there ' +
-            'if it asks (password saved in your Keychain) and fills every page from your kit. You solve CAPTCHAs, tick the terms and submit.'});
-        if (claude) claude.addEventListener('click', async () => {
-          claude.disabled = true;
-          const result = await window.pilot.applyWithClaude(job.url, {title: job.title, company: job.company, location: job.location, workMode: job.work_mode});
-          if (result.ok) { claudeStarted.add(pageKey(job.url)); if (result.session) await refreshSessions(); renderJobs(); return; }
-          claude.disabled = false;
-          claude.title = result.error;
-          // The list said there was a kit but Notion has none (removed or redrafting): show Prepare again.
-          if (/kit/i.test(result.error || '')) { claude.textContent = 'Prepare first'; loadJobs(); } else claude.textContent = 'Not ready';
-        });
-        if (claude) box.append(claude);
-        if (claude) menu.push({icon: 'puzzle', label: opened ? 'Fill in Chrome again' : 'Fill in Chrome', run: () => fillInChrome(),
-          title: 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
+      // The easy way is the main button: Chrome opens the form in a normal tab and the extension fills it from the kit.
+      // Apply with Claude (a session that drives Chrome through the employer's site, sign-up and every page) is in the
+      // ⋯ menu, for pages the extension can't reach on its own.
+      const live = claudeReady ? sessionFor(job.url) : null;
+      if (live) {
+        // A session inside the app: Continue when it waits for you, else View session.
+        const open = el('button', `row-main ${live.status === 'input' ? 'state-apply' : 'state-opened'}`, live.status === 'input' ? 'Continue' : 'View session');
+        open.title = live.note || 'Open this Claude session';
+        open.addEventListener('click', () => openSession(live.id));
+        box.append(open);
+        menu.push({icon: 'puzzle', label: 'Fill in Chrome', run: () => fillInChrome()});
       } else {
         const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened in Chrome ↻' : 'Apply'), {
           title: opened ? 'Open it in Chrome again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
         fill.addEventListener('click', () => fillInChrome(fill));
         box.append(fill);
+        if (claudeReady) {
+          const started = claudeStarted.has(pageKey(job.url));
+          menu.push({icon: 'bot', label: started ? 'Claude is applying' : 'Apply with Claude', disabled: started,
+            title: started ? 'A Claude session is filling this one in its window: answer it there' :
+              'For pages the extension can\'t fill alone: Claude opens the posting in Chrome, follows Apply to the employer\'s site, creates an account there ' +
+              'if it asks (password saved in your Keychain) and fills every page from your kit. You solve CAPTCHAs, tick the terms and submit.',
+            run: async () => {
+              const result = await window.pilot.applyWithClaude(job.url, {title: job.title, company: job.company, location: job.location, workMode: job.work_mode});
+              if (result.ok) { claudeStarted.add(pageKey(job.url)); if (result.session) await refreshSessions(); renderJobs(); return; }
+              // The list said there was a kit but Notion has none (removed or redrafting): show Prepare again.
+              if (/kit/i.test(result.error || '')) { toastMessage('Kit not found', 'Prepare it again.'); loadJobs(); } else toastMessage('Claude could not start', result.error || 'Try again.');
+            }});
+        }
       }
     } else if (job.status !== 'applied' && job.url && job.code) {
       // No kit yet: draft it first (reads the form's questions, answers each, writes a cover letter).

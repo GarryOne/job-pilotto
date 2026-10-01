@@ -78,6 +78,7 @@ export function openMenu(anchor, items) {
     const button = el('button', `${item.danger ? 'danger' : ''}${item.icon ? ' with-menu-icon' : ''}`.trim(), item.icon ? icon(item.icon) : null);
     if (item.icon) button.append(item.label); else button.textContent = item.label;
     button.title = item.title || '';
+    button.disabled = !!item.disabled;
     button.setAttribute('role', 'menuitem');
     button.addEventListener('click', event => { closeMenu(); item.run(event); });
     return button;
