@@ -33,6 +33,24 @@ say(py(['-c', 'import anthropic, keyring, sqlite3, ssl, sherpa_onnx, av, numpy, 
 say(py(['-c', "from src import secret_store as s; s.put('job-pilotto.smoke.test', 'ok', 'ci'); " +
   "v = s.get('job-pilotto.smoke.test', 'ci'); s.delete('job-pilotto.smoke.test', 'ci'); " +
   "assert v == 'ok', v; assert s.get('job-pilotto.smoke.test', 'ci') is None; print('Credential Manager round-trip ok')"]));
+// The audio half of interview transcription: PyAV's bundled ffmpeg decoding a real file. The recogniser's models are
+// a 520 MB download, so CI doesn't run those — but importing `av` proves nothing about whether its native codecs
+// load on Windows, and this does.
+say(py(['-c', `
+import os, tempfile, wave
+import av
+folder = tempfile.mkdtemp(prefix='jp-av-')
+path = os.path.join(folder, 'tone.wav')
+with wave.open(path, 'wb') as w:
+    w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+    w.writeframes(bytes([0, 0]) * 16000)
+with av.open(path) as container:
+    frames = list(container.decode(audio=0))
+samples = sum(f.samples for f in frames)
+assert samples >= 16000, samples
+os.remove(path); os.rmdir(folder)
+print('PyAV decoded', samples, 'samples at', frames[0].sample_rate, 'Hz')
+`]));
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-data-'));
 for (const sub of ['config', 'data']) fs.mkdirSync(path.join(data, sub), {recursive: true});
 for (const name of fs.readdirSync(path.join(pilot, 'config')).filter(n => n.endsWith('.json'))) {
@@ -59,15 +77,33 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
   if (!text.includes('pty-ok')) throw new Error(`in-app terminal: ${text.slice(0, 300)}`);
   say('in-app terminal ok (node-pty ran cmd.exe in the installed app)');
 }
-for (const [name, js, settings] of [['welcome', '', null], ['wizard-extras', extras, null], ['wizard-notion', waitForJobs, DONE]]) {
+// What each screen must actually report back, not just that a picture was taken: a blank or half-built window
+// still saves one. JOB_PILOTTO_SMOKE_EVAL is evaluated in the window and written beside the screenshot as JSON.
+const ACTIVE_STEP = `([...document.querySelectorAll('.step')].find(s => !s.hidden) || {}).dataset?.step || ''`;
+const SCREENS = [
+  ['welcome', '', null, `({step: ${ACTIVE_STEP}, wizard: !document.getElementById('wizard').hidden})`,
+    ({wizard}) => [wizard === true, 'the setup wizard is up']],
+  ['wizard-extras', extras, null, `({step: ${ACTIVE_STEP}, checklist: document.querySelectorAll('#claude-prereqs li').length})`,
+    ({checklist}) => [checklist >= 3, `the Apply with Claude checklist rendered (${checklist} items)`]],
+  ['wizard-notion', waitForJobs, DONE,
+    `({step: ${ACTIVE_STEP}, controls: document.querySelectorAll('.step[data-step="notion"] button, .step[data-step="notion"] input').length})`,
+    ({step, controls}) => [step === 'notion' && controls >= 1, `the Notion step is up with its controls rendered (${controls})`]],
+];
+for (const [name, js, settings, evalJs, ok] of SCREENS) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
   if (settings) fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify(settings));
   const png = path.join(out, `windows-${name}.png`);
   const result = spawnSync(exe, [], {timeout: 90000, stdio: 'inherit',
-    env: {...process.env, JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: js}});
+    env: {...process.env, JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: js, JOB_PILOTTO_SMOKE_EVAL: evalJs}});
   if (!fs.existsSync(png) || fs.statSync(png).size < 10000) {
     throw new Error(`${name}: the installed app saved no screenshot (exit ${result.status}${result.error ? `, ${result.error.message}` : ''})`);
   }
-  say(`screen ${name}: ${png} (${Math.round(fs.statSync(png).size / 1024)} KB)`);
+  const reported = fs.existsSync(`${png}.json`) ? JSON.parse(fs.readFileSync(`${png}.json`, 'utf8')) : null;
+  if (!reported || reported.error) {
+    throw new Error(`${name}: the window answered nothing (${reported ? reported.error : `no ${path.basename(png)}.json`})`);
+  }
+  const [passed, what] = ok(reported);
+  if (!passed) throw new Error(`${name}: expected ${what}, the window reported ${JSON.stringify(reported)}`);
+  say(`screen ${name}: ${what} · ${path.basename(png)} (${Math.round(fs.statSync(png).size / 1024)} KB)`);
 }
 say('Windows smoke test passed');
