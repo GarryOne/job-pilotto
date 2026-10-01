@@ -31,6 +31,7 @@ class CheckTests(unittest.TestCase):
         fast = check.commands('desktop', True, 'node', 'npm')
         self.assertEqual(fast[0][1], ['node', 'scripts/stage.mjs'])
         self.assertIn('test/session-contracts.test.js', fast[-1][1])
+        self.assertIn('test/app-scenarios.test.js', fast[-1][1])
         self.assertEqual(check.commands('python', False, None, None)[0][1][1:4], ['-m', 'unittest', 'discover'])
 
     def test_failure_propagates_and_external_services_are_disabled(self):

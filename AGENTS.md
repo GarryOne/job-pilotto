@@ -191,3 +191,15 @@ Desktop `npm test` runs ESLint first across `desktop/` and `extension/` (includi
 Use `tools/check.sh --fast` while editing, `tools/check.sh --area desktop` (or python/worker/site) for a full area suite, and `tools/check.sh --clean-install` before landing. The command selects Python 3.12+ and supported Node, stages desktop shared files, and reports setup problems without installing packages. CI and Claude hooks delegate to this same runner; it works from any directory and any agent.
 
 Electron lifecycle callbacks are in `desktop/lib/lifecycle.js` with injected services; import them directly in tests. `main.js` supplies startup initialization and current app services. Session IPC channels must register through `sessionIpc` in `desktop/lib/session-contracts.js`; every exposed session channel has argument and response checks. Public terminal session views use that same contract. Add a channel's contract and tests before exposing it. Contracts cover the session bridge, not every IPC action yet. Contract failures log channel/direction/field names only, never argument values or session content.
+
+## Offline app scenario tests
+`tools/check.sh --fast` and the full desktop suite run `desktop/test/app-scenarios.test.js`.
+Use `cd desktop && npm run test:scenarios` to reproduce just these journeys (stages shared files first).
+When changing startup/reconciliation, session questions, resume, cancel, review handoff or quit, extend a
+journey with the user's actions and observable consequences, including after restart and on service failure.
+The suite runs the real preload, `lib/session-handlers.js` registrations, launcher, terminal persistence,
+lifecycle callbacks and renderer state/cache helpers. Inject fake terminals, browser/dialog replies and Notion
+responses; use fictional data in temporary folders, never real keys, applications, AI calls or browser tabs.
+`main.js` supplies the live services to `registerSessionHandlers`; keep behavior there rather than duplicating
+handlers in a test. These are offline integration tests, not a graphical Electron/Chrome end-to-end test.
+Render changed screens with the normal demo smoke tools; live service compatibility needs separate checks.

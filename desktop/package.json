@@ -11,6 +11,7 @@
     "start": "electron .",
     "pretest": "node scripts/stage.mjs",
     "test": "npm run lint && node --test test/*.test.js",
+    "test:scenarios": "node scripts/stage.mjs && node --test test/app-scenarios.test.js",
     "build": "node scripts/stage.mjs --app && electron-builder --mac --publish never",
     "screenshots": "node scripts/stage.mjs && node scripts/screenshots.mjs",
     "gallery": "JOB_PILOTTO_DEMO=1 JOB_PILOTTO_PAGE=gallery.html JOB_PILOTTO_USER_DATA=${TMPDIR:-/tmp}/job-pilotto-gallery electron .",

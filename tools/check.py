@@ -43,7 +43,7 @@ def commands(area, fast, node, npm):
     if fast and area == 'desktop':
         return [(folder, [node, 'scripts/stage.mjs']),
                 (folder, [npm, 'run', 'lint']),
-                (folder, [node, '--test', 'test/lifecycle.test.js', 'test/session-contracts.test.js', 'test/ipc.test.js', 'test/codemap.test.js'])]
+                (folder, [node, '--test', 'test/lifecycle.test.js', 'test/app-scenarios.test.js', 'test/session-contracts.test.js', 'test/ipc.test.js', 'test/codemap.test.js'])]
     return [(folder, [npm, 'test'])]
 
 

@@ -8,7 +8,7 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 ## Find, don't search
 - **`CODEMAP.md`** (repo root): every file → its purpose. Open the one file you need, read only the part you change.
 - A page's code: `desktop/renderer/pages/<page>.js`; its markup: `desktop/renderer/index.html` (grep the element id).
-- Main ↔ window: `preload.cjs` (window.pilot.*) ↔ `ipcMain.handle(...)` in `main.js`. `test/ipc.test.js` checks both halves.
+- Main ↔ window: `preload.cjs` (window.pilot.*) ↔ handlers in `main.js` and session handlers in `lib/session-handlers.js`. `test/ipc.test.js` checks both halves.
 
 ## The loop (small change: 5–10 minutes)
 1. `tools/worktree.sh <topic>` (a worktree from origin/main with node_modules linked; never `npm install` in it);
@@ -40,6 +40,12 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 | Notion 429s | Notion's limit (~3/s) is shared by everything using the key: the app, its Python jobs (one pace file on the Mac) and **GitHub runs** (slower pace, `JOB_PILOTTO_NOTION_GAP_MS`). Read `logs/notion-requests.log` (who called what, status, ms) before guessing. |
 | Values in CSS | Tokens only (`tokens.css`); `design.test.js` fails otherwise. |
 | Demo data | Fictional only (`desktop/demo/`); add the case you need to render. |
+
+## Session workflow scenarios
+For question, resume, cancel, review handoff, startup or quit changes: extend `desktop/test/app-scenarios.test.js`.
+Run `npm run test:scenarios` in desktop (also included in `tools/check.sh --fast` and full CI). Use real handlers
+from `lib/session-handlers.js` and fictional external services; assert the window state and persistence after
+restart. Never use real AI, Notion or browser tabs. These offline integration tests do not replace rendering.
 
 ## Before saying done
 - Tests pass; the screen was rendered and looked at (or say why not).

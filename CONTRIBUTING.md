@@ -22,7 +22,7 @@ Your own keys live in the macOS Keychain (`job-pilotto.*`), never in files you c
 3. **Change it**, with a test for anything that can break again (`tests/` for Python, `desktop/test/` for the app).
 4. **Check it:** every AI tool and CI use the same runner, which selects supported Python and Node runtimes:
 
-   - `tools/check.sh --fast` — desktop lint, staging, lifecycle and session contract tests.
+   - `tools/check.sh --fast` — desktop lint, staging, lifecycle, app scenarios and session contract tests.
    - `tools/check.sh --area desktop` (or `python`, `worker`, `site`) — a complete suite; repeat `--area` to select several.
    - `tools/check.sh` — all four suites, external Python services disabled as in CI.
    - `tools/check.sh --clean-install` — also prove dependency lockfiles install in temporary folders before landing.
@@ -94,3 +94,5 @@ Everyone here follows the [Code of Conduct](CODE_OF_CONDUCT.md). Security proble
 
 More: [CLAUDE.md](CLAUDE.md) (project rules and data ownership), [AGENTS.md](AGENTS.md) (agents, form filling),
 [README.md](README.md) (what the product does).
+
+For session workflow changes, extend `desktop/test/app-scenarios.test.js`: real preload and handlers, fictional terminal/service responses, temporary persistence, and checks after restart. Run `cd desktop && npm run test:scenarios` for that suite alone. It runs in normal desktop CI and `tools/check.sh --fast`; graphical and live-service smoke checks remain separate.

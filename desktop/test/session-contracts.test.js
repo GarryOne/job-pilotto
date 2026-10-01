@@ -10,9 +10,10 @@ const session = {id: 's1', url: 'https://example.com/job', company: 'Example', t
 
 test('all session channels exposed by preload are contracted and registered through validation', () => {
   const preload = fs.readFileSync(new URL('../preload.cjs', import.meta.url), 'utf8');
-  const main = fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8');
+  const main = fs.readFileSync(new URL('../lib/session-handlers.js', import.meta.url), 'utf8');
   const channels = [...preload.matchAll(/call\('(sessions\w*|session[A-Z]\w*)'\)/g)].map(match => match[1]);
   assert.deepEqual(channels.sort(), Object.keys(sessionContracts).sort());
+  assert.match(fs.readFileSync(new URL('../main.js', import.meta.url), 'utf8'), /registerSessionHandlers\(\{ipcMain/);
   for (const name of channels) assert.ok(main.includes(`checkedSessions.handle('${name}'`), name);
 });
 test('invalid IDs, dimensions, arrays, and extra arguments fail before a handler runs; errors contain no values', async () => {

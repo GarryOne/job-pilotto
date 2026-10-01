@@ -64,6 +64,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/secrets.js` — Pasted keys and tokens: drop what copying adds (spaces, line breaks, invisible characters) and
 - `desktop/lib/server.js` — The Chrome extension talks to the app on this computer (127.0.0.1) instead of a Cloudflare Worker.
 - `desktop/lib/session-contracts.js` — Runtime contracts for session IPC requests, responses and public session views; errors never contain values.
+- `desktop/lib/session-handlers.js` — Register the real session IPC flows with injected app services, so scenarios exercise the same handlers as Electron.
 - `desktop/lib/session-runs.js` — Each Apply with Claude session's statistics on its row in Notion 🎏 Agent Runs (session-stats.js computes them).
 - `desktop/lib/session-stats.js` — The statistics of an Apply with Claude session, for its row in Notion 🎏 Agent Runs, so the process can be measured
 - `desktop/lib/setup-funnel.js` — Setup funnel: each install reports, once per step, the furthest setup step it reached (and when setup finished),
