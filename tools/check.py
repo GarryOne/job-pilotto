@@ -59,6 +59,8 @@ def main(argv=None):
         return 2
     env = dict(os.environ)
     env['JOB_PILOTTO_DISABLE'] = 'mail,notion,telegram,google_jobs'
+    # Match CI even when the developer's global npm config skips peer dependencies.
+    env['npm_config_legacy_peer_deps'] = 'false'
     node = npm = None
     try:
         if args.clean_install or any(area != 'python' for area in areas):

@@ -37,6 +37,7 @@ class CheckTests(unittest.TestCase):
         with mock.patch.object(check.subprocess, 'run', return_value=mock.Mock(returncode=3)) as run:
             self.assertEqual(check.main(['--area', 'python']), 1)
             self.assertEqual(run.call_args.kwargs['env']['JOB_PILOTTO_DISABLE'], 'mail,notion,telegram,google_jobs')
+            self.assertEqual(run.call_args.kwargs['env']['npm_config_legacy_peer_deps'], 'false')
 
     def test_missing_dependencies_are_actionable(self):
         with mock.patch.object(check, 'find_node', return_value=('/node', 'v22.23.1')), mock.patch.object(check.shutil, 'which', return_value='/npm'), mock.patch.object(check.Path, 'is_dir', return_value=False):
