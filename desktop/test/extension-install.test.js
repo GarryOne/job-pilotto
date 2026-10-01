@@ -10,11 +10,14 @@ import * as ext from '../lib/extension-install.js';
 const record = (name, extra = {}) => ({manifest: {name, version: '0.8.16'}, path: '/app/extension', location: 4,
   disable_reasons: [], ...extra});
 const prefs = settings => JSON.stringify({extensions: {settings}});
-// A browser whose <profile>/Secure Preferences is the given JSON, and which has nothing else.
+// A browser whose <profile>/Secure Preferences is the given JSON, and which has nothing else. The fixtures name their
+// files with "/", as Chrome's own paths are written; the app builds them with path.join, which is "\" on Windows —
+// so compare on the platform's own separator, or the same test means two different things on two machines.
+const platforms = key => key.split('/').join(path.sep);
 const fake = (files, list = () => ['Default']) => ({
   list,
-  exists: at => Object.keys(files).some(key => at.endsWith(key)),
-  read: at => { const key = Object.keys(files).find(k => at.endsWith(k)); if (!key) throw new Error(`no ${at}`); return files[key]; },
+  exists: at => Object.keys(files).some(key => at.endsWith(platforms(key))),
+  read: at => { const key = Object.keys(files).find(k => at.endsWith(platforms(k))); if (!key) throw new Error(`no ${at}`); return files[key]; },
 });
 
 test('the Job Pilotto record in a browser profile is found; other extensions are not', () => {
@@ -81,7 +84,7 @@ test('the extension ID comes from the manifest\'s own key (stable), and from the
   assert.notEqual(ext.extensionId('/tmp/a/extension'), ext.extensionId('/tmp/b/extension'));
 });
 
-test('the two pages open in Chrome itself', async () => {
+test('the two pages open in Chrome itself', {skip: process.platform === 'win32' && 'opening a chrome:// page is macOS-only today (openInChrome runs /usr/bin/open); on Windows the button does nothing'}, async () => {
   const opened = [];
   const exec = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
   assert.equal(await ext.openExtensionsPage({exec}), true);
