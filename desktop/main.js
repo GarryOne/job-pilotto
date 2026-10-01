@@ -1766,7 +1766,7 @@ function resumeQueue() {
   }
 }
 
-// A Claude session waits for you: a notification (a click opens that session in the app) and a Telegram message.
+// A Claude session waits for you: a notification (a click opens that session in the app) and a toast in the window.
 const needsYouSeen = new Map();  // session id -> the last question announced (lib/needs-you.js)
 function sessionNeedsYou(session) {
   const what = terminals.label(session);
@@ -1778,9 +1778,7 @@ function sessionNeedsYou(session) {
     note.show();
   }
   toWindow('toast', {title: `Needs your input · ${what}`, body: text});
-  const token = storage.secret('TELEGRAM_BOT_TOKEN'), chat = storage.settings().telegramChatId;
-  if (token && chat) telegram.api(token, 'sendMessage', {chat_id: chat, text: `🧭 Needs your input · ${what}\n${text}\n\nAnswer it in Job Pilotto → Application sessions.`})
-    .catch(error => log(`Telegram: ${error.message}`));
+  // Not on Telegram: a session waiting for you is answered in the app, and the pings added noise (1 Oct 2026).
 }
 // Quitting decisions read current services, so they remain testable without global mocks.
 installQuitHandling({app, platform: process.platform,
