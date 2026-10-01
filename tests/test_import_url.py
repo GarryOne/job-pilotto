@@ -99,6 +99,17 @@ class ImportUrlTests(unittest.TestCase):
         self.assertEqual(again['row']['id'], 'match-1')
         self.assertEqual(len(tracker.matches), 1)
 
+    def test_a_board_link_is_stored_as_the_posting_the_crawl_would_store(self):
+        canonical = 'https://n26.com/en-eu/careers/positions/7768035?gh_jid=7768035'
+        tracker = Tracker()
+        meta = dict(META, url=canonical)
+        with mock.patch.dict('os.environ', AI_ON, clear=False), \
+                mock.patch.object(import_url.ledger, 'page_meta', lambda _url: meta), \
+                mock.patch.object(import_url, 'local_profile', lambda: 'Profile: SRE in Zurich'):
+            outcome = import_url.run(self.db, tracker, URL, client=Client(FACTS, FIT), stats={})
+        self.assertTrue(outcome['ok'])
+        self.assertEqual(tracker.matches[0][1]['Job URL'], {'url': canonical})
+
     def test_a_match_already_in_notion_is_updated_instead_of_posted_again(self):
         tracker = Tracker(match_pages=[{'id': 'match-existing', 'properties': {}}])
         outcome = self.run_import(tracker, Client(FACTS, FIT))

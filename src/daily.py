@@ -106,6 +106,8 @@ def _job_arg(value):
 def _url_key(url):
     """Greenhouse links to one job come in several forms; compare them by board-independent job id."""
     match = re.search(r'greenhouse\.io/[\w-]+/jobs/(\d+)', url) or re.search(r'[?&]gh_jid=(\d+)', url)
+    if not match and 'greenhouse.io' in (url or ''):
+        match = re.search(r'[?&]token=(\d+)', url)
     return f'greenhouse:{match.group(1)}' if match else url.split('?')[0].split('#')[0].rstrip('/').lower()
 
 

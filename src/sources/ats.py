@@ -191,7 +191,8 @@ GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio'
 
 # Hosts that reveal an ATS and its board slug inside a careers or job URL.
 URL_PATTERNS = [
-    ('greenhouse', r'(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([\w-]+)'),
+    # embed/job_board and embed/job_app are the same board: the job id is the token, not the path.
+    ('greenhouse', r'(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_(?:board|app)\?for=)?([\w-]+)'),
     ('greenhouse', r'boards-api\.greenhouse\.io/v1/boards/([\w-]+)'),
     ('lever', r'jobs\.(?:eu\.)?lever\.co/([\w-]+)'),
     ('ashby', r'jobs\.ashbyhq\.com/([\w.-]+)'),
@@ -234,6 +235,20 @@ def _board(ats, slug):
     return tuple(fetch(ats, slug))
 
 
+def _wanted(url):
+    """The job id a board URL points at. A Greenhouse embed puts it in token or gh_jid; other links use the
+    last path segment, which is also how a crawled row's URL is matched."""
+    if 'greenhouse.io' in (url or ''):
+        match = re.search(r'[?&](?:token|gh_jid)=(\d+)', url)
+        if match:
+            return match.group(1).lower()
+    return (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
+
+
+def _same_job(job, wanted):
+    return job['id'].lower() == wanted or job['url'].split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower() == wanted
+
+
 def posting(url):
     """One posting fetched live from its job board by URL, or None when the board isn't supported or
     the posting is gone. Lets kit drafting and apply marking work for tracked jobs the crawl no
@@ -241,14 +256,13 @@ def posting(url):
     found = detect(url)
     if not found:
         return None
-    wanted = (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
+    wanted = _wanted(url)
     try:
         jobs = _board(*found)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
             json.JSONDecodeError, OSError):
         return None
-    return next((j for j in jobs if j['id'].lower() == wanted or
-                 j['url'].split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower() == wanted), None)
+    return next((job for job in jobs if _same_job(job, wanted)), None)
 
 
 def is_live(url):
@@ -257,7 +271,7 @@ def is_live(url):
     found = detect(url)
     if not found:
         return None
-    wanted = (url or '').split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower()
+    wanted = _wanted(url)
     try:
         jobs = _board(*found)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, KeyError, ET.ParseError,
@@ -265,8 +279,7 @@ def is_live(url):
         return None
     if not jobs:
         return None  # an empty board is more likely an outage than every job closing at once
-    return any(j['id'].lower() == wanted or j['url'].split('?')[0].rstrip('/').rsplit('/', 1)[-1].lower() == wanted
-               for j in jobs)
+    return any(_same_job(job, wanted) for job in jobs)
 
 
 def probe(ats, slug):

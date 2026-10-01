@@ -95,6 +95,23 @@ class ScoutTests(unittest.TestCase):
 
     def test_detects_ats_in_links(self):
         self.assertEqual(ats.detect('https://job-boards.greenhouse.io/datadog/jobs/123'), ('greenhouse', 'datadog'))
+        self.assertEqual(ats.detect('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035'),
+                         ('greenhouse', 'n26'))
+        self.assertEqual(ats.detect('https://boards.greenhouse.io/embed/job_board?for=acme'), ('greenhouse', 'acme'))
+        from src.daily import _url_key
+        embed = 'https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035'
+        careers = 'https://n26.com/en-eu/careers/positions/7768035?gh_jid=7768035'
+        self.assertEqual(_url_key(embed), _url_key(careers))
+        self.assertEqual(_url_key(embed), 'greenhouse:7768035')
+
+    def test_an_embed_application_link_reads_the_same_board_posting(self):
+        job = ats._job('7768035', 'Senior Site Reliability Engineer', 'Berlin',
+                       'https://n26.com/en-eu/careers/positions/7768035?gh_jid=7768035', '',
+                       'Own the platform and the access path. ' * 4)
+        with mock.patch.object(ats, '_board', return_value=(job,)):
+            found = ats.posting('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035')
+        self.assertEqual(found['id'], '7768035')
+        self.assertIn('Own the platform', found['description'])
         self.assertEqual(ats.detect('https://jobs.lever.co/palantir/abc'), ('lever', 'palantir'))
         self.assertEqual(ats.detect('https://jobs.ashbyhq.com/posthog'), ('ashby', 'posthog'))
         self.assertEqual(ats.detect('https://acme.jobs.personio.de/job/1'), ('personio', 'acme'))

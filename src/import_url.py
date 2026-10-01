@@ -31,8 +31,18 @@ def run(db, tracker, url, *, client=None, stats=None, now=None):
                 'row': existing, 'created': False}
     if not (features.enabled('enrich') and features.enabled('score')):
         raise ValueError('Scoring needs an AI key. Add it in Settings, then add this job again.')
-    meta = ledger.page_meta(url)
-    meta['company'] = ledger.company_for(tracker, url, meta)
+    pasted = url
+    meta = ledger.page_meta(pasted)
+    meta['company'] = ledger.company_for(tracker, pasted, meta)
+    # The board's own link when it has one, so this is the same row a Jobs check would store.
+    url = (meta.get('url') or pasted).strip()
+    if url != pasted:
+        existing = tracker.find(url)
+        if existing:
+            stage = ledger.plain(existing['properties'].get('Stage')) or 'tracked'
+            title = ledger.plain(existing['properties'].get('Job')) or url
+            return {'ok': True, 'line': f'Already in your applications ({stage}): {title}', 'subject': title,
+                    'row': existing, 'created': False}
     description = (meta.get('description') or '').strip()
     if len(description) < MIN_DESCRIPTION:
         raise ValueError('This page could not be read. LinkedIn, Glassdoor and Indeed are not read, and some '
