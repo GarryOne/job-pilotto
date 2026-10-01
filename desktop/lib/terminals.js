@@ -19,6 +19,8 @@
 // snapshot() serializes it: what a real terminal shows now. The saved record keeps that screen too.
 import fs from 'node:fs';
 import os from 'node:os';
+
+import {log as appLog} from './log.js';
 import path from 'node:path';
 
 let Headless = null;  // {Terminal, SerializeAddon}; without it the log falls back to the raw output
@@ -162,13 +164,29 @@ const saved = s => ({id: s.id, url: s.url, title: s.title, company: s.company, l
   startedAt: s.startedAt, endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
   output: s.output.length > SAVED_OUTPUT ? s.output.slice(-SAVED_OUTPUT).replace(/^[^\n]*\n/, '') : s.output,
   screen: s.mirror ? screenOf(s.mirror) : s.screen || '', cols: s.cols || 120, rows: s.rows || 32, savedAt: new Date().toISOString()});
+// A record that leaves this file leaves the app: the list is the app's only copy of a session (its transcript and
+// statistics live elsewhere, but "which sessions do I have" does not). So when a save would write *fewer* records
+// than the file already holds, the file as it stands is kept beside it as sessions.json.previous first — a session
+// that disappears (a removal, a reconciler, or a quit that saved an empty list over a hand-written record: 1 Oct
+// 2026, twice) can always be read back. Written by hand or by an older build, an unreadable file is left alone.
+function keepPrevious(next) {
+  try {
+    const onDisk = JSON.parse(fs.readFileSync(saveFile, 'utf8'));
+    if (!Array.isArray(onDisk) || onDisk.length <= next.length) return;
+    fs.copyFileSync(saveFile, `${saveFile}.previous`);
+    appLog('sessions', `kept ${onDisk.length} record(s) as sessions.json.previous before writing ${next.length}`,
+      {ids: onDisk.map(record => record.id).filter(Boolean)});
+  } catch { /* no file, or not ours: nothing to keep */ }
+}
 export function saveNow() {
   clearTimeout(saveTimer);
   saveTimer = null;
   if (!saveFile) return;
   try {
     fs.mkdirSync(path.dirname(saveFile), {recursive: true});
-    fs.writeFileSync(saveFile + '.tmp', JSON.stringify([...sessions.values()].map(saved)), {mode: 0o600});  // output can hold form answers
+    const next = [...sessions.values()].map(saved);
+    keepPrevious(next);
+    fs.writeFileSync(saveFile + '.tmp', JSON.stringify(next), {mode: 0o600});  // output can hold form answers
     fs.renameSync(saveFile + '.tmp', saveFile);
   } catch { /* not saved this time; the next change tries again */ }
 }

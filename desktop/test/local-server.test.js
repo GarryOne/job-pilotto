@@ -111,3 +111,33 @@ test('the extension version the app reads is its own manifest', async () => {
   const manifest = JSON.parse(fs.readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8'));
   assert.equal(server.latestExtension(), manifest.version);
 });
+
+// A session that leaves the file must stay readable: the app's list is the only copy of "which sessions do I have",
+// and 1 Oct 2026 lost one twice — a reconciler deleting it, and a quit that saved an empty list over a record
+// written by hand while the app was running.
+test('a save that would write fewer sessions keeps the file it is replacing', async () => {
+  terminals._reset();
+  terminals.usePty(fakePty().loader);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-sessions-'));
+  const file = path.join(dir, 'sessions.json');
+  terminals.persist(file);
+  await terminals.start({id: 'k1', url: 'https://jobs.test/acme/1', company: 'Acme', file: 'claude', env: {}});
+  terminals.saveNow();
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).length, 1);
+  assert.ok(!fs.existsSync(`${file}.previous`));          // nothing was lost yet: no copy to keep
+
+  terminals.remove('k1');                                  // the session goes
+  terminals.saveNow();
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).length, 0);
+  const kept = JSON.parse(fs.readFileSync(`${file}.previous`, 'utf8'));
+  assert.deepEqual(kept.map(record => record.id), ['k1']);
+  assert.equal(kept[0].url, 'https://jobs.test/acme/1');   // and it can be read back and restored by hand
+
+  // A file that isn't ours (garbage on disk) doesn't stop the save, and the kept copy stays the last good one.
+  fs.writeFileSync(file, 'not json');
+  terminals.saveNow();
+  assert.equal(fs.readFileSync(file, 'utf8'), '[]');                    // the app's own list is written
+  assert.deepEqual(JSON.parse(fs.readFileSync(`${file}.previous`, 'utf8')), kept);  // never the garbage
+  terminals._reset();
+  terminals.persist(null);
+});
