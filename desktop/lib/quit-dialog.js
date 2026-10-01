@@ -7,21 +7,6 @@ export function submitted(company) {
   };
 }
 
-// At start: sessions left open by a closed, killed or crashed app whose jobs are still Applying. Three ways on.
-// kept: how many others were kept without asking (their form is still open in Chrome).
-export function leftOpen(sessions, label, kept = 0) {
-  const one = sessions.length === 1;
-  const others = kept ? `\n\n${kept} other${kept === 1 ? ' is' : 's are'} still open in Chrome and ${kept === 1 ? 'was' : 'were'} kept.` : '';
-  return {
-    message: one ? 'An application was left open' : `${sessions.length} applications were left open`,
-    detail: `${sessionLines(sessions, label).join('\n')}\n\nJob Pilotto closed while ${one ? 'it was' : 'they were'} in progress, and ${one ? 'it is' : 'they are'} still marked Applying in Notion. What now?\n\n` +
-      `Keep: ${one ? 'it stays' : 'they stay'} in Application sessions; press Resume Claude to carry on.\n` +
-      'One by one: I ask you about each: did you submit it?\n' +
-      `Reset: not submitted. ${one ? 'It goes' : 'They go'} back to Kit ready.${others}`,
-    buttons: [one ? 'Keep it (recommended)' : 'Keep them (recommended)', 'Go through them one by one', one ? 'Reset it' : 'Reset them all'],
-  };
-}
-
 // "Cancel application": what goes, asked once (the form's answers are lost with its tab).
 export function cancel(company) {
   return {

@@ -85,27 +85,16 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     terminals.remove(String(id));
     return {ok: true, submitted: response === 0};
   });
-  // At start: sessions left open (the app closed, or was killed) whose jobs are still Applying. Keep, ask one by one, or reset.
+  // At start: sessions left open (the app closed, or was killed) whose jobs are still Applying. They are all kept, with no
+  // question: a session's state is preserved, so it waits in Application sessions (Resume Claude) and the job's own
+  // "I submitted it" / Cancel handle the rest. `kept` counts the ones whose form is still open in Chrome (for the toast).
   checkedSessions.handle('sessionsLeftOpen', async (_, ids) => {
     const all = (Array.isArray(ids) ? ids : []).map(id => terminals.get(String(id))).filter(Boolean);
-    // A form still open in Chrome can be resumed as it is: kept without asking. Only the others are asked about.
     // What is open comes from the extension's report first (every browser it runs in), with Chrome's own scripting
     // added when it can see anything: a stray background Chrome made that scripting list empty, and sessions whose
     // forms were open looked closed (1 Oct 2026).
     const open = DEMO ? new Set() : withOpenForm(all, mergeTabs(server.openTabs(), await tabs()));
-    terminals.markAsked([...open]);
-    const found = all.filter(session => !open.has(session.id));
-    if (!found.length) return {choice: 'keep', kept: open.size};
-    const {message, detail, buttons} = quitDialog.leftOpen(found, session => session.company || terminals.label(session), open.size);
-    const {response} = await dialog.showMessageBox(getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined,
-      {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 0, cancelId: 0, message, detail});
-    terminals.markAsked(found.map(session => session.id));
-    if (response !== 2) return {choice: response === 1 ? 'each' : 'keep', kept: open.size, asked: found.map(session => session.id)};
-    const reset = [], failed = [];
-    for (const session of found) {
-      const result = DEMO ? {ok: true} : await pipeline.unapply(storage, session.url).catch(error => ({ok: false, error: error.message}));
-      if (result.ok) { terminals.setOutcome(session.id, 'not submitted'); terminals.remove(session.id); reset.push(session.url); } else failed.push({url: session.url, error: result.error});
-    }
-    return {choice: 'reset', reset, failed, kept: open.size};
+    terminals.markAsked(all.map(session => session.id));
+    return {choice: 'keep', kept: open.size};
   });
 }
