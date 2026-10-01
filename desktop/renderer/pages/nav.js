@@ -3,6 +3,7 @@ import {openPalette} from '../palette.js';
 import {$, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
+import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
 import {loadSettings} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
@@ -35,6 +36,7 @@ export function openView(name, {fromHistory = false} = {}) {
     window.pilot.dailyTarget().then(setting => { $('set-target').value = $('set-target').dataset.saved = setting.target; $('set-remind').checked = setting.reminders; });
   }
   if (name === 'interviews') loadInterviews();
+  if (name === 'calendar') loadCalendar();
   if (name === 'focus') loadFocus();
 }
 

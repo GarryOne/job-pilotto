@@ -90,6 +90,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/activity.js` — Recent activity: the bar at the bottom of every screen and its panel.
 - `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
+- `desktop/renderer/pages/calendar.js` — Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
 - `desktop/renderer/pages/connections.js` — Settings → connections: Apply with Claude, the extension, how often, Always on.
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
 - `desktop/renderer/pages/cv-change.js` — A replaced CV and what follows it.
@@ -128,6 +129,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/ai-engine-view.js` — The AI engine chooser's words and states (the setup wizard's AI step and Settings → Connections → AI), kept free of
 - `desktop/renderer/answer-options.js` — What a "needs you" row can offer as an answer, kept free of the window so a test can check it (session-needs.js
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
+- `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,

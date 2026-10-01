@@ -285,7 +285,8 @@
     <button class="nav active" data-view="jobs"><i data-icon="briefcase"></i>Jobs<span class="nav-badge nav-count" id="nav-jobs-badge" hidden></span></button>
     <button class="nav" data-view="sessions"><i data-icon="send"></i>Applying<span class="nav-badge" id="nav-applying-badge" hidden></span></button>
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions</button>
-    <button class="nav" data-view="interviews"><i data-icon="calendar"></i>Interviews</button>
+    <button class="nav" data-view="calendar"><i data-icon="calendar"></i>Calendar</button>
+    <button class="nav" data-view="interviews"><i data-icon="mic"></i>Interviews</button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy</button>
     <button class="nav" data-view="settings" data-settings="profile"><i data-icon="user"></i>Profile</button>
@@ -584,6 +585,25 @@
         <ol class="runs-table" id="runs-table"></ol>
       </section>
       <section class="card status-card" id="status-card" hidden></section>
+    </div>
+
+    <div class="view" data-view="calendar" hidden>
+      <header class="view-head jobs-head">
+        <div><h1>Calendar</h1><p class="muted subtitle">Every screening and interview, coming and held.</p></div>
+        <div class="head-actions">
+          <button class="secondary" id="cal-prev" aria-label="Previous month">‹</button>
+          <b id="cal-title" class="cal-title"></b>
+          <button class="secondary" id="cal-next" aria-label="Next month">›</button>
+          <button class="secondary" id="cal-today">Today</button>
+        </div>
+      </header>
+      <div class="cal-layout">
+        <section class="card"><div class="cal-grid" id="cal-grid"></div></section>
+        <aside class="cal-side">
+          <section class="card"><h2>Coming up</h2><div id="cal-upcoming"></div></section>
+          <section class="card"><h2>Past</h2><div id="cal-past"></div></section>
+        </aside>
+      </div>
     </div>
 
     <div class="view" data-view="interviews" hidden>
