@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, sorted, statClick, statPressed, stats, statusPill, tags, toReview, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
@@ -144,8 +144,8 @@ export function renderJobs() {
   // A pasted link finds that job whatever its status; words filter within the chosen status.
   const anyStatus = looksLikeLink(text);
   // The counters count every application (real workload); without one, the menu decides (byFilter): job matches by
-  // status, the inbound ones under Inbound only (the open ones are also "In conversation" above), all under All jobs;
-  // a pasted link finds any job.
+  // status, all of them under All matches, the opportunities that found you under Inbound only (the open ones are also
+  // "In conversation" above); a pasted link finds any job.
   const counted = statFilter === 'stuck' ? shared.allJobs.filter(stuck)
     : statFilter?.urls ? shared.allJobs.filter(job => statFilter.urls.has(fullKey(job.url)))
     : statFilter ? byStat(COUNTS_ALL.has(statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), statFilter) : null;
@@ -764,13 +764,18 @@ function showJobsData(data) {
     // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
     const matched = matchesOnly(shared.allJobs);
     const count = stats(matched, data.total == null ? undefined : data.total - (shared.allJobs.length - matched.length));
-    $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` + (data.filtered ? ` · ${data.filtered} hidden` : '') +
+    $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` +
+      (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     $('stat-total').textContent = count.total;
     $('stat-high').textContent = count.high;
     $('stat-inbound').textContent = inboundCount(shared.allJobs);
-    Object.assign($('nav-jobs-badge'), {hidden: !count.week, textContent: count.week, title: `${count.week} new this week`});
+    // The menu item counts the list as it opens ("New matches"), the number the list bar shows too. "New this week" is
+    // a delta, not how many jobs there are: it goes in the tooltip and the line above the cards instead of the badge.
+    const toReviewCount = toReview(shared.allJobs);
+    Object.assign($('nav-jobs-badge'), {hidden: !toReviewCount, textContent: toReviewCount,
+      title: `${toReviewCount} job${toReviewCount === 1 ? '' : 's'} to review · ${count.week} new this week`});
     $('stat-companies').textContent = count.companies;
     const applications = applicationStats(shared.allJobs);
     for (const kind of Object.keys(applications)) $(`stat-${kind}`).textContent = applications[kind];
@@ -815,7 +820,7 @@ export async function init() {
   $('jobs-filter-clear').addEventListener('click', () => { statFilter = null; renderJobs(); });
   $('jobs-filter-back').addEventListener('click', () => document.querySelector('.nav[data-view="focus"]').click());
   // The counters filter the list to the jobs they count, whatever their status (so the list matches the number);
-  // clicking the active one again, or Total matches, shows every job.
+  // clicking the active one again, or Total matches, shows every match.
   document.querySelectorAll('[data-stat]').forEach(card => card.addEventListener('click', () => {
     const kind = card.dataset.stat;
     const next = statClick(kind, typeof statFilter === 'string' ? statFilter : null, $('filter-status').value);

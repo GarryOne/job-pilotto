@@ -146,8 +146,8 @@ test('an inbound opportunity counts as workload, as Applied only once you applie
   assert.deepEqual(inConversation([{stage: 'Recruiter lead', source: 'Gmail'}, {stage: 'Dismissed', source: 'LinkedIn'}]).length, 1);
 });
 
-test('the Show menu: inbound only under Inbound (newest activity first), not under New matches / Saved / Applied / Dismissed', async () => {
-  const {byFilter, inboundCount, sorted: order} = await import('../renderer/jobs-view.js');
+test('the Show menu: matches by status, every match under All matches, inbound under Inbound only', async () => {
+  const {byFilter, inboundCount, sorted: order, toReview} = await import('../renderer/jobs-view.js');
   const jobs = [
     {url: 'm-new', status: 'unreviewed', first_seen_at: '2026-09-01'},
     {url: 'm-saved', status: 'saved'},
@@ -163,12 +163,16 @@ test('the Show menu: inbound only under Inbound (newest activity first), not und
   assert.deepEqual(urls('applied'), []);
   assert.deepEqual(urls('dismissed'), ['m-gone']);
   assert.deepEqual(urls('inbound'), ['i-lead', 'i-new', 'i-talk', 'i-over']);
-  assert.deepEqual(urls('all'), jobs.map(job => job.url));
+  // All matches = every job match, whatever its status: exactly the set the Total matches card counts, so clicking that
+  // card lists the number it shows. The opportunities that found you are Inbound's alone.
+  assert.deepEqual(urls('all'), ['m-new', 'm-saved', 'm-gone']);
   assert.deepEqual(order(byFilter(jobs, 'inbound'), 'activity').map(job => job.url), ['i-talk', 'i-over', 'i-new', 'i-lead']);
   assert.equal(inboundCount(jobs), 4);
+  // The Jobs menu item's count: the list as it opens — each match waiting for a first look, inbound left out.
+  assert.equal(toReview(jobs), 1);
 });
 
-test('the Inbound counter opens the Inbound list; again shows every job; the other counters unchanged', async () => {
+test('the Inbound counter opens the Inbound list; again shows every match; the other counters unchanged', async () => {
   const {statClick, statPressed} = await import('../renderer/jobs-view.js');
   assert.deepEqual(statClick('inbound', null, 'open'), {stat: null, filter: 'inbound'});
   assert.deepEqual(statClick('inbound', 'high', 'all'), {stat: null, filter: 'inbound'});
@@ -182,12 +186,12 @@ test('the Inbound counter opens the Inbound list; again shows every job; the oth
   assert.equal(statPressed('high', 'high', 'all'), true);
 });
 
-test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and Inbound in place of "New this week"', async () => {
+test('Jobs page: "New matches" (not "To review"), an Inbound menu entry, and All matches = every match', async () => {
   const fs = await import('node:fs');
   const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
   const menu = html.slice(html.indexOf('<select id="filter-status"'), html.indexOf('</select>', html.indexOf('<select id="filter-status"')));
   assert.deepEqual([...menu.matchAll(/<option value="(\w+)">([^<]+)</g)].map(m => `${m[1]}:${m[2]}`),
-    ['open:New matches', 'saved:Saved', 'applied:Applied', 'dismissed:Dismissed', 'inbound:Inbound', 'all:All jobs']);
+    ['open:New matches', 'saved:Saved', 'applied:Applied', 'dismissed:Dismissed', 'inbound:Inbound', 'all:All matches']);
   assert.ok(!html.includes('To review'));
   const cards = [...html.matchAll(/data-stat="(\w+)"/g)].map(m => m[1]);
   assert.deepEqual(cards, ['applied', 'waiting', 'interviews', 'closed', 'total', 'high', 'inbound', 'companies']);

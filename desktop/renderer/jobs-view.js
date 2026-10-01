@@ -50,12 +50,13 @@ const APPLICATION = {
 // The "In process" box's hover: how many are screening and how many interviewing.
 export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(job.stage)).length,
   interviews: jobs.filter(job => INTERVIEWS.has(job.stage)).length});
-// Opportunities that found you are not job matches: the list leaves them out (the counters above it and a pasted link
-// still reach them), and the active ones are "In conversation" above it, the next step first.
+// Opportunities that found you are not job matches: every match list leaves them out (Inbound is the list for them;
+// the application counters above and a pasted link still reach them), and the active ones are "In conversation" above.
 const OVER = new Set([...ENDED, 'Dismissed', 'Closed']);
 export const matchesOnly = jobs => jobs.filter(job => !isInbound(job));
-// The list's "Show" menu: New matches (value open), Saved, Applied, Dismissed = job matches with that status; Inbound =
-// every opportunity that found you, whatever its stage; All jobs = everything.
+// The list's "Show" menu: New matches (value open), Saved, Applied, Dismissed = job matches with that status; All
+// matches (value all) = every job match, whatever its status; Inbound = every opportunity that found you, whatever
+// its stage (they are not matches, so no match list shows them).
 export function inStatus(job, filter) {
   if (filter === 'all') return true;
   if (filter === 'inbound') return isInbound(job);
@@ -63,14 +64,17 @@ export function inStatus(job, filter) {
 }
 export const inboundCount = jobs => jobs.filter(isInbound).length;
 // A counter clicked above the list: the list it filters to (stat) and the menu's value. Inbound is the menu's own
-// Inbound list; the active counter again, or Total matches, shows every job.
+// Inbound list; the active counter again, or Total matches, shows every match.
 export function statClick(kind, active, filter) {
   if (kind === 'inbound') return {stat: null, filter: !active && filter === 'inbound' ? 'all' : 'inbound'};
   return {stat: kind === 'total' || kind === active ? null : kind, filter: 'all'};
 }
 export const statPressed = (kind, active, filter) => kind === active || (!active && kind === {all: 'total', inbound: 'inbound'}[filter]);
-export const byFilter = (jobs, filter) => (filter === 'all' || filter === 'inbound' ? jobs : matchesOnly(jobs))
+export const byFilter = (jobs, filter) => (filter === 'inbound' ? jobs : matchesOnly(jobs))
   .filter(job => inStatus(job, filter));
+// The list as it opens (the menu's "New matches"): the jobs waiting for a first look. The Jobs menu item carries this
+// count — the same number the list bar shows under the page title, whatever the list is later filtered to.
+export const toReview = jobs => byFilter(jobs, 'open').length;
 // In conversation: a person is talking to you about it. Every open inbound opportunity (a recruiter's pitch included),
 // and the jobs you applied to that reached a screening or interviews.
 export const inConversation = jobs => jobs.filter(job => isInbound(job) ? !OVER.has(job.stage) : TALKING.has(job.stage))
