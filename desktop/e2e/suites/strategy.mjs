@@ -4,8 +4,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {launch} from '../lib/app.mjs';
+import {digestTitles} from '../lib/digest.mjs';
 import {watch} from '../lib/activity.mjs';
-import {emptyDatabase, findPagesBeside, pageSections, rowTitles, setSection, trashPage} from '../lib/notion.mjs';
+import {emptyDatabase, findPagesBeside, pageSections, setSection, trashPage} from '../lib/notion.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 30;
@@ -37,14 +38,20 @@ export async function run(ctx) {
   const sections = async () => pageSections(NOTION, await settingsPage());
   const has = (list, word) => (list || []).some(entry => new RegExp(word, 'i').test(entry));
 
-  // One Jobs check on the feeds in this suite; resolves with the titles the app lists afterwards.
+  // This suite is about which postings the crawl keeps, not about scoring them: the AI answers "no credit" locally, so it costs nothing and does not depend on the test key's limit.
+  ctx.proxy.setMode('no-credit');
+  // One Jobs check on the feeds in this suite; resolves with the titles its digest listed.
   const check = async () => {
+    const engineLog = path.join(ctx.profile, 'logs', 'engine.log');
+    const logStart = fs.existsSync(engineLog) ? fs.statSync(engineLog).size : 0;   // only what this check writes counts
     await page.click('.nav[data-view="jobs"]');
     await page.click('#refresh');
     const {samples, endedAt} = await watch(page, {every: 3000, maxMs: 420000});
     if (endedAt == null) throw new Error('the Jobs check was still running after 7 minutes');
     if (samples.at(-1).newest?.ok === false) throw new Error(`the Jobs check failed: ${samples.at(-1).newest.result}`);
-    return rowTitles(NOTION, 'Job Matches — AI Scored');
+    // What the check told the person: the digest it just wrote to the engine log (it exists whether or not the AI scored the jobs, and it is after the person's own filters).
+    const log = path.join(ctx.profile, 'logs', 'engine.log');
+    return digestTitles(fs.existsSync(log) ? fs.readFileSync(log).subarray(logStart).toString('utf8') : '');
   };
   // A new posting on one of the boards (the seen ones are not "new" again, so each check is judged on postings added just before it).
   const addPosting = (file, id, title, place = 'Lugano') => {
