@@ -15,7 +15,7 @@ globalThis.Node = FakeNode;
 globalThis.document = {createElement: tag => new FakeNode(tag), createElementNS: (_, tag) => new FakeNode(tag),
   body: new FakeNode('body'), addEventListener() {}, querySelector: () => null};
 globalThis.window ??= {addEventListener() {}};
-const {funnelSteps, inboundSteps} = await import('../renderer/funnel-view.js');
+const {EMPTY_FUNNEL_HINT, funnelIsEmpty, funnelSteps, inboundSteps} = await import('../renderer/funnel-view.js');
 
 const INBOUND = {contacted: 4, screening: 2, interviews: 1, offers: 0, steps: [
   {step: '📥 Contacted you', reached: 4, of_contacted: 1, urls: ['l', 'm', 'n', 'o']},
@@ -47,4 +47,14 @@ test('each step drawn with its count, bar and share; a click (or Enter) lists ex
   assert.equal(steps[3].className, 'funnel-step');
   assert.equal(steps[3].listeners.click, undefined);
   assert.match(steps[0].className, /is-link/);
+});
+
+// A new account has no applications: the engine still returns its five steps, all at 0. The card says it fills in later.
+test('a funnel with nothing prepared yet is empty, one with any application is not', () => {
+  const zero = ['Prepared', 'Applied', 'Human reply'].map(step => ({step, reached: 0}));
+  assert.equal(funnelIsEmpty(zero), true);
+  assert.equal(funnelIsEmpty([]), true);
+  assert.equal(funnelIsEmpty(undefined), true);
+  assert.equal(funnelIsEmpty([{step: 'Prepared', reached: 1}, {step: 'Applied', reached: 0}]), false);
+  assert.match(EMPTY_FUNNEL_HINT, /fills in as you prepare and send applications/i);
 });

@@ -1,7 +1,7 @@
 // Focus page.
 import {el, moreButton, pill} from '../components.js';
 import {icon} from '../icons.js';
-import {funnelSteps, inboundSteps} from '../funnel-view.js';
+import {EMPTY_FUNNEL_HINT, funnelIsEmpty, funnelSteps, inboundSteps} from '../funnel-view.js';
 import {shared} from './shared.js';
 import {$, savedAgo, show} from './core.js';
 import {openLogFor, showJobsIn} from './jobs.js';
@@ -333,6 +333,10 @@ function renderFunnel(funnel) {
   show($('focus-inbound'), inbound.length > 0);
   $('inbound-steps').replaceChildren(...funnelSteps(inbound, showInJobs));
   if (!steps.length) return;
+  const empty = funnelIsEmpty(steps);  // nothing prepared yet: the steps stay (the shape of the pipeline), greyed, with a line saying so
+  $('focus-funnel').classList.toggle('is-empty', empty);
+  $('funnel-empty').textContent = EMPTY_FUNNEL_HINT;
+  show($('funnel-empty'), empty);
   const first = Math.max(steps[0].reached, 1);
   $('funnel-steps').replaceChildren(...funnelSteps(steps.map(step => {
     const share = Math.round(100 * step.reached / first);

@@ -19,6 +19,10 @@ export function inboundSteps(inbound) {
   });
 }
 
+// A new account has no applications, yet the engine returns its steps (all at 0): the card then says it fills in later.
+export const EMPTY_FUNNEL_HINT = 'Fills in as you prepare and send applications.';
+export const funnelIsEmpty = steps => !(steps || []).some(step => step.reached > 0);
+
 // The list items of one funnel: a step, an arrow, a step… open(label, urls) runs on a click (or Enter) on a step
 // that has links.
 export function funnelSteps(steps, open) {
