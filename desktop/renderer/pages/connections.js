@@ -342,9 +342,12 @@ export async function init() {
   });
   $('auto-search').addEventListener('change', () => window.pilot.setAutomation({autoSearch: $('auto-search').checked}));
   $('open-login').addEventListener('change', () => window.pilot.setAutomation({openAtLogin: $('open-login').checked}));
-  $('google-connect').addEventListener('click', async () => {
+  // Google calls the app unverified: say so before the browser opens, with the three clicks that get through it.
+  $('google-connect').addEventListener('click', () => $('google-warning-dialog').showModal());
+  $('google-warning-go').addEventListener('click', async () => {
+    $('google-warning-dialog').close();
     $('google-connect').disabled = true;
-    message('google-message', 'Finish the sign-in in your browser (Google may call the app unverified: Advanced → Go to Job Pilotto).');
+    message('google-message', 'Finish the sign-in in your browser: on Google\'s warning page press Advanced, then Go to Job Pilotto (unsafe).');
     const result = await window.pilot.googleConnect();
     $('google-connect').disabled = false;
     message('google-message', result.ok ? 'Connected ✓' : result.error, result.ok ? 'ok' : 'error');

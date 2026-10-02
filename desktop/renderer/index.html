@@ -1451,6 +1451,25 @@
   </form>
 </dialog>
 <!-- The free allowance is over (pages/license.js): new work pauses, everything else keeps working. -->
+<dialog id="google-warning-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mail"></i></span>
+      <h2>Google shows a warning first</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p class="dialog-lead">Job Pilotto is free and Google has not reviewed it yet, so its sign-in page says <b>"Google hasn't verified this app"</b>. That is expected. Three clicks get you through:</p>
+    <ol class="dialog-steps">
+      <li>Click <b>Advanced</b> at the bottom left of Google's page (Google writes it in your language: Avansat, Erweitert, Avancé…).</li>
+      <li>Click <b>Go to Job Pilotto (unsafe)</b>, the link that appears.</li>
+      <li>Tick the Gmail and Calendar read access and press <b>Continue</b>.</li>
+    </ol>
+    <p class="muted small">Read-only: Job Pilotto can read your mail and calendar to track replies and interviews, and never sends, changes or deletes anything. The sign-in stays on this computer, in its Keychain or Credential Manager.</p>
+    <div class="dialog-foot">
+      <button class="ghost" value="cancel" formnovalidate>Cancel</button>
+      <button id="google-warning-go" type="button" class="primary" value="default">Continue to Google</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="allowance-dialog" class="panel-dialog">
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="zap"></i></span>

@@ -1872,3 +1872,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .ss-tip-hide:hover, .ss-tip-show:hover { color: inherit; }
 .ss-tips.is-still .ss-tip-text { animation: none; padding-left: 0; display: block; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-reduced-motion: reduce) { .ss-tip-text { animation: none; padding-left: 0; display: block; overflow: hidden; text-overflow: ellipsis; } }
+
+/* A dialog's numbered steps (the Google sign-in warning): short lines, the key words bold. */
+.dialog-steps { margin: var(--sp-3) 0; padding-left: var(--sp-5); display: grid; gap: var(--sp-2); }
