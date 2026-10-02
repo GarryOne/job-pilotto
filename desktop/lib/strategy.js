@@ -6,7 +6,7 @@ import path from 'node:path';
 import * as notion from './notion.js';
 import {REPO} from './pipeline.js';
 
-export const MODEL = 'claude-sonnet-5';
+export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5';   // the override is for the end-to-end journey (desktop/e2e): every step on Haiku
 const PRICE = {input: 2, output: 10}; // USD per million tokens, claude-sonnet-5
 
 // Contact details typed into application forms (the Chrome extension's fields), read from the CV.

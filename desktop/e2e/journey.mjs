@@ -6,6 +6,7 @@
 // Read README.md for the secrets, the cost and what is faked.
 import path from 'node:path';
 import {E2E, launch, pickFile, step} from './lib/app.mjs';
+import {clearRoot, testRoot} from './lib/notion.mjs';
 
 const KEY = process.env.E2E_ANTHROPIC_KEY || '', NOTION = process.env.E2E_NOTION_TOKEN || '';
 // A local run may point E2E_CV at a real CV on this Mac (never copied into the repo, which is public); CI uses the fictional one.
@@ -29,13 +30,17 @@ async function run(name, fn, {needs = []} = {}) {
     throw error;
   }
 }
-const expectStep = async (page, name) => {
-  await page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout: 20000})
+const expectStep = async (page, name, timeout = 20000) => {
+  await page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout})
     .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(page)}"`); });
 };
 
 try {
-  session = await launch();
+  // A new user starts with an empty Notion page: empty the test page first (to the trash; refuses any other workspace).
+  const root = NOTION ? await testRoot(NOTION) : null;
+  if (root) console.log(`Notion test page "${root.title}" in "${root.workspace}": ${await clearRoot(NOTION, root.id)} item(s) moved to the trash`);
+  // Every AI step on the cheapest model: the journey checks that things work, not how good the answers are.
+  session = await launch({env: {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5'}});
   const {page} = session;
 
   await run('the app starts on the welcome screen', async () => {
@@ -58,6 +63,38 @@ try {
     await page.click('#ai-save');
     await expectStep(page, 'notion');
   }, {needs: [{name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('a Notion token connects and the workspace is built inside the test page', async () => {
+    await page.evaluate(() => { const box = document.getElementById('notion-manual'); box.hidden = false; box.open = true; });
+    await page.fill('#notion-key', NOTION);
+    await page.click('#notion-connect');
+    // The app builds the workspace, then moves on by itself (or offers Continue, if it was already built).
+    const started = Date.now();
+    while ((await step(page)) !== 'cv') {
+      if (Date.now() - started > 240000) throw new Error(`the workspace was not built in 4 minutes (the app shows "${await step(page)}": ${await page.locator('#notion-message').innerText().catch(() => '')})`);
+      if (await page.locator('#notion-next').isVisible().catch(() => false)) await page.click('#notion-next');
+      await page.waitForTimeout(1000);
+    }
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('a CV is chosen and read', async (_page, {app}) => {
+    await pickFile(app, CV);
+    await page.click('#cv-choose');
+    await page.waitForFunction(() => document.getElementById('cv-name')?.textContent !== 'No CV chosen yet', null, {timeout: 30000});
+    await page.waitForFunction(() => !document.getElementById('cv-next')?.disabled, null, {timeout: 30000});
+    await page.click('#cv-next');
+    await expectStep(page, 'draft');
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('the strategy is built from the CV and shows roles to search for', async () => {
+    await page.click('#draft-build');
+    await page.locator('#draft-view').waitFor({state: 'visible', timeout: 300000});
+    const roles = await page.locator('#chips-roles > *').count();
+    if (!roles) throw new Error('the strategy has no roles to search for');
+    await page.click('#draft-save');
+    await expectStep(page, 'extras', 180000);
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('finishing the setup lands on the Jobs page', async () => {
+    await page.click('#finish');
+    await page.waitForFunction(() => !document.querySelector('.step:not([hidden])') || document.body.dataset.page === 'jobs' || !!document.querySelector('#jobs-stats'), null, {timeout: 60000});
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
 } finally {
   await session?.shot('last');
   await session?.close();
