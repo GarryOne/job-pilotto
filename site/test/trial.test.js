@@ -57,5 +57,7 @@ test('$1 used up, or the monthly cap reached: 402 with what to do; streaming is 
 test('cost: list prices; unknown models charged like the priciest', () => {
   assert.equal(costUsd('claude-haiku-4-5', {input_tokens: 1e6, output_tokens: 0}), 1);
   assert.equal(costUsd('claude-sonnet-5-20260101', {input_tokens: 0, output_tokens: 1e6}), 10);
+  assert.equal(costUsd('claude-sonnet-5-5', {input_tokens: 1e6, output_tokens: 0}), 2);   // Sonnet 5.5: $2 / $10
+  assert.equal(costUsd('claude-opus-5-5', {input_tokens: 1e6, output_tokens: 0}), 4);     // Opus 5.5: $4 / $20
   assert.equal(costUsd('mystery', {input_tokens: 1e6}), 15);
 });

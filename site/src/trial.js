@@ -9,7 +9,9 @@ import {verifyLicense} from './license.js';
 const ANTHROPIC = 'https://api.anthropic.com';
 // USD per million tokens (input, output), Anthropic list prices; unknown models are charged like the priciest known.
 const PRICES = {'claude-haiku-4-5': [1, 5], 'claude-sonnet-5': [2, 10], 'claude-sonnet-5-5': [2, 10], 'claude-opus-5-5': [4, 20]};
-const price = model => PRICES[Object.keys(PRICES).find(name => String(model || '').startsWith(name))] || PRICES['claude-opus-5-5'];
+// A model not in the list is charged like a $15 / $75 model: dearer than any model the trial offers, so an unknown name can never dodge the monthly cap.
+const UNKNOWN_MODEL = [15, 75];
+const price = model => PRICES[Object.keys(PRICES).find(name => String(model || '').startsWith(name))] || UNKNOWN_MODEL;
 
 export function costUsd(model, usage = {}) {
   const [input, output] = price(model);
