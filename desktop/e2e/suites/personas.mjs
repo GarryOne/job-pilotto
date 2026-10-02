@@ -37,7 +37,7 @@ db = store.connect(JOBS_DB)
 jobs, _ = digest.eligible_jobs(db)
 search = load_search_config()
 print(json.dumps({'text': digest.format_digest(db, limit=50),
-  'jobs': [{'title': j['title'], 'location': j.get('location') or '', 'sponsorship': digest.needs_sponsorship(j), 'inPlaces': digest.in_places(j), 'ai': bool(j.get('ai'))} for j in jobs],
+  'jobs': [{'title': j['title'], 'location': j.get('location') or '', 'sponsorship': digest.needs_sponsorship(j), 'inPlaces': digest.in_places(j), 'salary': digest._salary(j.get('description') or '') or ''} for j in jobs],
   'google': {'places': google_jobs.places(google_jobs.settings(search)), 'country': google_jobs.settings(search).get('country')}}))
 `;
 
@@ -137,7 +137,8 @@ export async function run(ctx) {
       const abroad = result.jobs.filter(job => !job.inPlaces && !/remote/i.test(job.location));
       if (abroad.length && !/Outside your places/.test(result.text)) problems.push('the digest does not say "Outside your places" above jobs elsewhere');
       if (!/your places/i.test(result.text) && abroad.length) problems.push('the digest never says "your places"');
-      if (!result.text.includes(profile.expect.currency)) problems.push(`the posting's salary "${profile.expect.currency}…" is not in the digest in its own currency`);
+      if (!result.jobs.some(job => job.salary.includes(profile.expect.currency))) problems.push(`no posting's salary was read as "${profile.expect.currency}…" in its own currency: ${JSON.stringify(result.jobs.map(job => job.salary))}`);
+      for (const job of result.jobs.filter(job => job.sponsorship)) if (!/visa sponsorship needed/.test(result.text.split(/\n\n(?=\d+\. )/).find(block => block.includes(job.title)) || '')) problems.push(`the digest shows no "visa sponsorship needed" for ${job.title}`);
       if (JSON.stringify(result.google.places) !== JSON.stringify(Object.fromEntries(profile.google.locations.map(place => [place.location, place.language])))) problems.push(`Google Jobs places are ${JSON.stringify(result.google.places)}, not theirs`);
       if (result.google.country !== profile.google.country) problems.push(`Google Jobs country is "${result.google.country}", not "${profile.google.country}"`);
       if (problems.length) throw new Error(problems.join('; '));

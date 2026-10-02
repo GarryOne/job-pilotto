@@ -66,6 +66,14 @@ class SponsorshipFollowsTheUser(unittest.TestCase):
             self.assertNotIn('🔴 visa sponsorship needed', digest._ai_badges(ai, job('Austin, TX')))
 
 
+    def test_the_badge_shows_even_without_ai_facts(self):
+        with as_user(AUSTIN):
+            block = digest._job_block(1, {'title': 'Analytics Engineer', 'company': 'Acme', 'location': 'Lisbon, Portugal', 'city': '', 'url': ''})
+            self.assertIn('🔴 visa sponsorship needed', block)
+            home = digest._job_block(1, {'title': 'Data Analyst', 'company': 'Acme', 'location': 'Austin, TX', 'city': '', 'url': ''})
+            self.assertNotIn('visa sponsorship', home)
+
+
 class WordingIsNotSwiss(unittest.TestCase):
     def test_places_and_digest_wording(self):
         with as_user(AUSTIN):

@@ -234,7 +234,8 @@ def _job_block(index, job):
     star = '⭐ ' if job.get('saved') else ''
     head = f"{index}. {star}{title}" + (f" · 🎯 <b>{fit['score']}</b>" if fit else '')
     lines = [head, INDENT + ' · '.join(facts)]
-    signals = _ai_badges(ai, job) if ai else []
+    # The visa flag is a rule on your places and work rights, not an AI finding: it shows without AI facts too.
+    signals = _ai_badges(ai, job) if ai else (['🔴 visa sponsorship needed'] if needs_sponsorship(job) else [])
     if signals:
         lines.append(INDENT + ' · '.join(signals))
     if fit and fit.get('reason'):
