@@ -1,3 +1,4 @@
+/* global document */
 // Settings: every section, with each AI engine chosen. Starts from a set-up install (a key saved, a workspace connected).
 import {finish, snap} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
