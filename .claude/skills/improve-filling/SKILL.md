@@ -3,11 +3,6 @@ name: improve-filling
 description: Improve the Job Pilotto Chrome extension's form filling from its recorded runs. Use when asked to "improve filling", review extension failures, or on the weekly improvement routine.
 ---
 
-> **2 Oct 2026: the extension's code is in the private repo `GarryOne/job-pilotto-extension`.** Steps below that edit `extension/…`
-> are done in a checkout of that repo (its root is the old `extension/`: `page/fill.js`, `manifest.json`, `npm run fingerprint`).
-> The fixtures stay here (`worker/test/fixtures/fill/`); the replay test runs there (`test/replay.test.js`, with this repo beside it
-> or `JOB_PILOTTO_PUBLIC_REPO`). `tools/fill-fixture.mjs` still makes the fixture here.
-
 # Improve the form filling from recorded runs
 
 Every extension fill writes a record to Notion's 🎏 Job Apply — Agent Runs (Agent = Extension): a

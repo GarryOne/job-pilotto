@@ -1,0 +1,54 @@
+name: Form lab
+# A daily headless browser runs the extension's real operators on PUBLIC application forms with a test applicant that never
+# submits (tools/form-lab.mjs), and reports what worked to the site (POST /api/lab): the success rate per board and kind of
+# control, measured before any user hits a failure. It also tries the site's candidate recipes and gives one a small canary when
+# it works on enough different pages. Design: Notion "Self-improving form filling".
+# The pages are chosen from the site's plan (/api/lab/plan): revisits of failing or unproven controls first, then the boards users
+# fill most, with a small share of random exploration. Needs the repository secret LAB_KEY (the site's STATS_KEY, Keychain job-pilotto.site.stats_key); without it the run is a notice.
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      feeds: {description: 'How many forms to visit', required: false, default: '25'}
+
+permissions:
+  contents: read
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      LAB_KEY: ${{ secrets.LAB_KEY }}
+    steps:
+      - name: LAB_KEY present?
+        run: |
+          if [ -z "$LAB_KEY" ]; then echo "::notice::Add the LAB_KEY repository secret (the site's STATS_KEY) to run the form lab."; fi
+      - uses: actions/checkout@v4
+        if: env.LAB_KEY != ''
+      - uses: actions/setup-node@v4
+        if: env.LAB_KEY != ''
+        with: {node-version: 22}
+      - uses: actions/setup-python@v5
+        if: env.LAB_KEY != ''
+        with: {python-version: '3.12'}
+      - name: Install
+        if: env.LAB_KEY != ''
+        run: |
+          pip install -r requirements.txt
+          npm install --no-save --no-audit --no-fund playwright-core
+          npx playwright-core install --with-deps chromium
+      - name: Where the lab should look (the site's plan, busiest boards and failing or unproven controls)
+        if: env.LAB_KEY != ''
+        run: |
+          curl -fsS -H "Authorization: Bearer $LAB_KEY" https://www.jobpilotto.workers.dev/api/lab/plan -o plan.json || echo '{}' > plan.json
+      - name: Public application forms to visit
+        if: env.LAB_KEY != ''
+        run: python3 tools/form_lab_urls.py --feeds "${{ github.event.inputs.feeds || '25' }}" --plan plan.json > urls.txt
+      - name: Run the lab
+        if: env.LAB_KEY != ''
+        run: node tools/form-lab.mjs --urls urls.txt --max "${{ github.event.inputs.feeds || '25' }}" --promote --out lab-result.json
+      - uses: actions/upload-artifact@v4
+        if: env.LAB_KEY != ''
+        with: {name: lab-result, path: lab-result.json, retention-days: 14}

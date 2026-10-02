@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "Job Pilotto",
+  "version": "0.8.63",
+  "description": "Fills a job application from your drafted kit. You review and click Submit yourself.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Job Pilotto",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "activeTab",
+    "alarms",
+    "debugger",
+    "scripting",
+    "storage",
+    "webNavigation"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2XCmInXV9qDQ3HEblkvmJnq4FOqBmjdv0XltlGlVPdgwC0HJ/SKX+7I41cTPJ/iQ2IjS3ndQH27n/I/el9VjNMFbDqCJ97qyJuZg9XpbMg7Qk0v0VEObYHRf4ArVLkEYGg/91FcMbccDuf+TUpwkiksO09i4SpVfig7ph2P/MY5MgJrbJ2W0VoRlcvuRFo1uYP+n3dzcQ8W267s3J/BoXdhVhEZ9YWZ7yhAO6AiOpH3ZLEg8IUTAn6fp1ofyHaQSiXrMI31L7ki+idTQXtQdBo4DH5gE6VB0VQaf1j9Fvze++Fc6HfQxQc/yMGW2mS0uJ914Q+DaDCZivH7qFC4kOwIDAQAB",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "host_permissions": [
+    "https://*.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.ashbyhq.com/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://*.smartrecruiters.com/*",
+    "https://apply.workable.com/*",
+    "https://*.successfactors.eu/*",
+    "https://*.successfactors.com/*",
+    "https://*.jobs.personio.de/*",
+    "https://*.jobs.personio.com/*",
+    "https://*.teamtailor.com/*",
+    "https://*.recruitee.com/*",
+    "https://*.softgarden.io/*",
+    "https://*.umantis.com/*",
+    "https://*.taleo.net/*",
+    "https://*.icims.com/*",
+    "https://*.bamboohr.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ]
+}

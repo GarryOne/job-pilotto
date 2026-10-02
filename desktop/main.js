@@ -72,8 +72,6 @@ import * as demo from './lib/demo.js';
 let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
-// Development: JOB_PILOTTO_EXTENSION_DIR is a checkout of the private extension repo (see where the extension folder is chosen).
-const devExtension = () => process.env.JOB_PILOTTO_EXTENSION_DIR || '';
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
 const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
@@ -1063,8 +1061,7 @@ function handlers() {
   });
   ipcMain.handle('apply', async (_, options) => allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options)));
-  ipcMain.handle('applyOne', (_, url, details) => allowanceBlock() || (!DEMO && !extensionHere() ? {ok: false, error: 'The Chrome extension is not installed in this app yet: use Apply with Claude.'}
-    : DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {})));
+  ipcMain.handle('applyOne', (_, url, details) => allowanceBlock() || (DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {})));
   // Checked session workflows share the production registration with the offline app scenario tests.
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, apply, pipeline, review, server, notion, claudeConsent});
@@ -1398,13 +1395,8 @@ function handlers() {
   ipcMain.handle('strayChrome', () => backgroundChrome.stray());
   ipcMain.handle('quitStrayChrome', (_, pid) => backgroundChrome.quit(Number(pid)));
   // The extension: the copy downloaded from the site (lib/extension-pack.js) when there is one, else the one in the app's files.
-  // Development: JOB_PILOTTO_EXTENSION_DIR is a checkout of the private extension repo, loaded unpacked in Chrome; the app reads its version
-  // (the loaded extension reloads itself on a higher one) and does not download anything.
-  const extensionFolder = () => devExtension() || extensionPack.folder(storage);
-  const extensionHere = () => !!devExtension() || extensionPack.status(storage).present;
+  const extensionFolder = () => (extensionPack.status(storage).present ? extensionPack.folder(storage) : path.join(pipeline.REPO, 'extension'));
   server.setExtensionDir(extensionFolder);
-  // What the window needs to know: is the extension here (else Apply with Claude is the main button), and why not.
-  ipcMain.handle('extensionPack', () => ({...extensionPack.status(storage), present: DEMO || extensionHere(), dev: !!devExtension()}));
   // The Chrome extension from the browsers' own records: is it installed, is it on, is that browser up, and which
   // copy is loaded. A file read answers in milliseconds — Settings no longer shows "Checking…" for a minute and then
   // calls it "not connected" (1 Oct 2026).
@@ -1607,7 +1599,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
   // The extension comes from the site (lib/extension-pack.js): checked shortly after start and every 6 hours; a newer one lands in the
   // data folder and the loaded extension reloads itself. Offline, or a closed trial, leaves what is installed.
-  if (!DEMO && !process.env.JOB_PILOTTO_SMOKE && !devExtension()) {
+  if (!DEMO && !process.env.JOB_PILOTTO_SMOKE) {
     const syncExtension = () => extensionPack.sync(storage).then(result => { if (result.updated) toWindow('extension-updated', {version: result.version}); }).catch(() => {});
     setTimeout(syncExtension, 8000).unref?.();
     setInterval(syncExtension, 6 * 3600 * 1000).unref?.();

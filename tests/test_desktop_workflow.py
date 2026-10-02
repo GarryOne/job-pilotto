@@ -9,7 +9,7 @@ STAGE = (pathlib.Path(__file__).resolve().parent.parent / 'desktop/scripts/stage
 class DesktopWorkflowTest(unittest.TestCase):
     def test_every_bundled_folder_triggers_a_build(self):
         # desktop/scripts/stage.mjs copies these into the app; a change to any of them must build a release.
-        for item in ['src', 'config', 'tools', 'templates']:
+        for item in ['src', 'config', 'tools', 'extension', 'templates']:
             self.assertIn(item, STAGE)
             self.assertIn(f"- '{item}/**'", WORKFLOW)
 

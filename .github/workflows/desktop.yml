@@ -14,8 +14,8 @@ on:
       - 'config/**'
       - 'templates/**'
       - 'tools/**'
+      - 'extension/**'
       - 'worker/src/**'
-      - 'site/src/recipe-schema.js'   # the recipe format, copied into the app
       - 'requirements.txt'
       - 'requirements-transcribe.txt'
       - 'docs/notion-profile-template.md'

@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = ROOT / 'extension' / 'manifest.json'
 SNAPSHOT_MARK = '<!-- job-pilotto:snapshot v1 -->'  # written by fill-failure-intake.yml
 NEEDS_SNAPSHOT = 'needs-snapshot'
 STALE_MINOR_GAP = 2  # 0.6.x is stale when the extension is at 0.8.x
@@ -130,10 +131,7 @@ def open_issues(label):
 
 
 def current_version():
-    """The extension's current version, from env EXTENSION_VERSION (the extension is in a private repo now, so there is no manifest
-    here). Unset: None, and nothing is closed as stale."""
-    version = os.environ.get('EXTENSION_VERSION', '').strip()
-    return parse_version(version) if version else None
+    return parse_version(json.loads(MANIFEST.read_text())['version'])
 
 
 def summary(line):

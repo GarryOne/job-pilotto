@@ -27,7 +27,7 @@ The core crawl and printed digest need no accounts. Everything else turns on whe
 |---|---|---|
 | Python engine | `src/` | The pipeline. Entry: `python -m src <check\|scout\|discover\|feeds\|enrich\|doctor>`. `src/daily.py` orchestrates a jobs check (`daily` is the old name). |
 | Desktop app | `desktop/` | Electron cockpit (v0.4.0-alpha). `start.js` → `main.js`. The window is one module per page under `desktop/renderer/pages/`. `desktop/lib/pipeline.js` shells out to the same Python engine. |
-| Chrome extension | private repo `GarryOne/job-pilotto-extension` | Fills a form from the kit. Talks to the app on `127.0.0.1` (`desktop/lib/server.js`). Never submits. Delivered by the website to licensed users and trials: published by that repo's CI (`site/src/extension-pack.js`), downloaded and kept updated by the app (`desktop/lib/extension-pack.js`). Dev: `JOB_PILOTTO_EXTENSION_DIR=<your checkout>`. |
+| Chrome extension | `extension/` | Fills a form from the kit. Talks to the app on `127.0.0.1` (`desktop/lib/server.js`). Never submits. |
 | Website worker | `site/` | One Cloudflare worker: the site, Notion sign-in, the employer index, telemetry, license/trial, fill-failure intake. |
 | Telegram bot | `worker/` | Commands and buttons. The app long-polls it locally. "Always on" uploads a bundle to the user's own Cloudflare account so buttons work while the Mac is off. |
 
@@ -48,6 +48,7 @@ desktop/
   lib/                          pipeline, Notion, GitHub, Telegram, apply, schema, logs
   renderer/pages/               focus, jobs, sessions, strategy, settings, interviews, activity
 config/                         search.json, sources.json, notion_schema.json (workspace as code)
+extension/                      MV3; content scripts on Greenhouse, Lever, Ashby, Workday, …
 tools/                          worktrees, form fast-path, schema snapshot, release
 .github/workflows/              CI, desktop release, site deploy, and the user-called engine workflows
 ```

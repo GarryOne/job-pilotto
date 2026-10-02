@@ -5,7 +5,7 @@ const globals = createRequire(new URL('./desktop/package.json', import.meta.url)
 export default [
   {ignores: ['**/node_modules/**', 'desktop/dist/**', 'desktop/build/**', 'desktop/shared/**', 'desktop/renderer/vendor/**']},
   {
-    files: ['desktop/**/*.js', 'desktop/**/*.mjs', 'desktop/**/*.cjs'],
+    files: ['desktop/**/*.js', 'desktop/**/*.mjs', 'desktop/**/*.cjs', 'extension/**/*.js'],
     languageOptions: {globals: globals.node},
     rules: {
       'no-undef': 'error',
@@ -13,4 +13,5 @@ export default [
     },
   },
   {files: ['desktop/renderer/**/*.js', 'desktop/demo/**/*.js', 'desktop/preload.cjs'], languageOptions: {globals: globals.browser}},
+  {files: ['extension/**/*.js'], languageOptions: {globals: {...globals.browser, chrome: 'readonly'}}},
 ];

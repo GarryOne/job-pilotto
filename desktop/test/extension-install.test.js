@@ -87,21 +87,21 @@ test('an unpacked copy is recorded by its path alone — no manifest block — a
 });
 
 test('the extension ID comes from the manifest\'s own key (stable), and from the folder path without one', () => {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  // The key in the extension's manifest.json (a fixture copy here; the extension itself is in a private repo): the ID Chrome itself recorded for this install, whatever folder it is in.
-  assert.equal(ext.extensionId(path.join(here, 'fixtures', 'extension')), 'gpffoneapcfceflfmfgedkcfbommgcfk');
+  const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  // The key in extension/manifest.json: the ID Chrome itself recorded for this install, whatever folder it is in.
+  assert.equal(ext.extensionId(path.join(repo, 'extension')), 'gpffoneapcfceflfmfgedkcfbommgcfk');
   assert.match(ext.extensionId('/tmp/somewhere/extension'), /^[a-p]{32}$/);  // no manifest there: Chrome's path hash
   assert.notEqual(ext.extensionId('/tmp/a/extension'), ext.extensionId('/tmp/b/extension'));
 });
 
 test('the two pages open in Chrome itself, on the Mac and on the PC', async () => {
-  const here = path.dirname(fileURLToPath(import.meta.url));
+  const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const options = 'chrome-extension://gpffoneapcfceflfmfgedkcfbommgcfk/options.html';  // the manifest key's ID
   const opened = [];
   const record = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
   // The Mac: `open -a`, which is what knows Chrome's name whatever folder it was installed into.
   assert.equal(await ext.openExtensionsPage({exec: record, platform: 'darwin'}), true);
-  assert.equal(await ext.openOptionsPage(path.join(here, 'fixtures', 'extension'), {exec: record, platform: 'darwin'}), true);
+  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec: record, platform: 'darwin'}), true);
   assert.deepEqual(opened, [['open', '-a Google Chrome chrome://extensions'], ['open', '-a Google Chrome ' + options]]);
   // Windows: chrome.exe itself, from where its installer puts it — no shell, so a URL's & stays in the URL.
   const chrome = path.win32.join('C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');

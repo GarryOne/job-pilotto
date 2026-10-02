@@ -1,7 +1,6 @@
 name: Issues · Fix automatically
 # Once a day, per label, the oldest open issue without "fix-attempted" goes to Claude Code (Haiku 4.5, capped turns):
-#   (fill-failure issues, a form field the extension couldn't operate, are fixed in the private extension repo, where the
-#   extension's code lives; this workflow now takes only the telemetry label)
+#   fill-failure  a form field the extension couldn't operate (from the owner's app, see fill-failure-intake.yml)
 #   telemetry     a problem Job Pilotto apps reported (filed by telemetry-triage.yml)
 # Claude may only read/edit files, run the tests and commit locally (least-privilege --allowedTools: in automation
 # mode the action allows no Bash at all otherwise, which is why the first runs ended with permission denials and
@@ -46,6 +45,16 @@ jobs:
       max-parallel: 1
       matrix:
         include:
+          - label: fill-failure
+            extra_tools: ',Bash(node tools/fill-fixture.mjs:*)'
+            prompt: |
+              It reports a form field the Job Pilotto Chrome extension could not operate.
+              Follow .claude/skills/improve-filling/SKILL.md, step 3 (ignore its worktree and push advice): the issue
+              carries the field's scrubbed HTML snapshot, so first make the failing fixture with
+              `node tools/fill-fixture.mjs <issue number> --answer "<representative answer>" --expect-picked "<option>"`
+              (or --expect-checked / --expect-value), check that `npm --prefix worker test` fails on it, then find the
+              cause in extension/page/fill.js (or extension/flow.js) and fix it until every test passes. Bump the
+              version in extension/manifest.json. If tools/browser-*.js changed, run `bash extension/sync.sh`.
           - label: telemetry
             extra_tools: ',Bash(python3 -m unittest:*),Bash(npm --prefix desktop test:*)'
             prompt: |
@@ -53,7 +62,7 @@ jobs:
               already name a likely cause: check it, don't trust it blindly.
               Start from CODEMAP.md and open only the files it points to. Fix the root cause with a regression test in
               the matching suite and run that suite: Python `src/` → tests/ (`python3 -m unittest discover -s tests`),
-              desktop/ → desktop/test/ (`npm --prefix desktop test`), worker/ → worker/test/
+              desktop/ → desktop/test/ (`npm --prefix desktop test`), worker/ or extension/ → worker/test/
               (`npm --prefix worker test`).
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -104,7 +113,7 @@ jobs:
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-haiku-4-5 --max-turns 25
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh issue view ${{ steps.pick.outputs.number }}:*),Bash(gh issue comment ${{ steps.pick.outputs.number }}:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git checkout -b:*),Bash(git switch -c:*),Bash(git add:*),Bash(git commit:*),Bash(npm --prefix worker test:*)${{ matrix.extra_tools }}"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh issue view ${{ steps.pick.outputs.number }}:*),Bash(gh issue comment ${{ steps.pick.outputs.number }}:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git checkout -b:*),Bash(git switch -c:*),Bash(git add:*),Bash(git commit:*),Bash(npm --prefix worker test:*),Bash(bash extension/sync.sh)${{ matrix.extra_tools }}"
             --disallowedTools "WebFetch,WebSearch,Bash(git push:*),Bash(gh pr:*)"
           prompt: |
             Fix GitHub issue #${{ steps.pick.outputs.number }} in this repository (read it with

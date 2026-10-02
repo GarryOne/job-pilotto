@@ -8,7 +8,7 @@
 //   POST /api/controls  from apps: scrubbed control structures (to propose recipes from) and how the operators fared (the canary's
 //                       evidence). Product data only: no user data, no text, no answers.
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
-import {appliesTo, validateRecipe} from './recipe-schema.js';
+import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
 import {allowed} from './stats.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];

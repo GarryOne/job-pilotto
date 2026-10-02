@@ -41,9 +41,8 @@ class FixIssuesWorkflowTest(unittest.TestCase):
         labels = [row['label'] for row in doc['jobs']['fix']['strategy']['matrix']['include']]
         self.assertEqual(labels, ['fill-failure', 'telemetry'])
 
-    def test_telemetry_label_one_issue(self):
-        # fill-failure issues are fixed in the private extension repo (the extension's code lives there).
-        self.assertNotIn('- label: fill-failure', self.text)
+    def test_both_labels_one_issue_each(self):
+        self.assertIn('- label: fill-failure', self.text)
         self.assertIn('- label: telemetry', self.text)
         self.assertIn('python3 tools/fix_issues.py pick', self.text)  # one issue per label (choose() returns one)
         self.assertFalse((WORKFLOW.parent / 'fix-fill-failures.yml').exists(), 'replaced by fix-issues.yml')
@@ -51,7 +50,7 @@ class FixIssuesWorkflowTest(unittest.TestCase):
     def test_tools_are_allowed_but_least_privilege(self):
         # In automation mode the action allows no Bash unless listed: the first runs ended with permission denials.
         allowed = re.search(r'--allowedTools "([^"]+)"', self.text).group(1)
-        tools = allowed.replace('${{ matrix.extra_tools }}', '').split(',')   # the label's own extra tools are added at run time
+        tools = allowed.split(',')
         for needed in ('Read', 'Edit', 'Write', 'Bash(git commit:*)', 'Bash(npm --prefix worker test:*)'):
             self.assertIn(needed, tools)
         self.assertTrue(any(t.startswith('Bash(gh issue view ${{ steps.pick.outputs.number }}') for t in tools))
@@ -68,6 +67,11 @@ class FixIssuesWorkflowTest(unittest.TestCase):
 
     def test_turn_cap(self):
         self.assertIn('--max-turns 25', self.text)
+
+    def test_fixture_tool_allowed_for_fill_failures(self):
+        fill_row = self.text.split('- label: fill-failure')[1].split('- label: telemetry')[0]
+        self.assertIn("extra_tools: ',Bash(node tools/fill-fixture.mjs:*)'", fill_row)
+        self.assertIn('fill-fixture.mjs', fill_row)  # and the prompt says to use it first
 
     def test_pick_needs_snapshot_and_runs_before_claude(self):
         pick = self.text.split('- name: Pick today')[1].split('uses: anthropics/claude-code-action')[0]

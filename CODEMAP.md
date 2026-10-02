@@ -176,6 +176,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 - `desktop/scripts/apply-demo.mjs` — The website's "How automatic apply works" videos, recorded in real time from staged pages (a Greenhouse-style form,
 - `desktop/scripts/codemap.mjs` — CODEMAP.md at the repo root: every source file and what it's for, from its own first comment (JS) or docstring
+- `desktop/scripts/extension-fingerprint.mjs` — The Chrome extension's fingerprint (extension/fingerprint.json): a hash of its files, with the version it shipped as.
 - `desktop/scripts/record-page.cjs` — Records a web page as frames while it animates (Electron offscreen, a fixed frame rate), for the website's videos.
 - `desktop/scripts/screenshots.mjs` — Screenshots and a short walkthrough video of the app for the website (site/public/images/app/),
 - `desktop/scripts/shot.mjs` — One screen, fast (~5 s), to check a change: npm run shot -- <page> [options]. Fictional demo data only (demo/).
@@ -184,6 +185,19 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/scripts/stage.mjs` — Build staging.
 - `desktop/scripts/ui-shots.mjs` — Reference screenshots of every screen, for the ui-look-and-feel skill (.claude/skills/ui-look-and-feel):
 - `desktop/scripts/windows-smoke.mjs` — Windows smoke test (CI, after the installer is built): installs Job Pilotto the way a user would, then checks
+
+## Chrome extension
+
+- `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
+- `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
+- `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
+- `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
+- `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app. The panel and the fill start only on a tab the desktop
+- `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
+- `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and
+- `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
+- `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
+- `extension/wake.js` — Review in form woke this page: inject the panel into the open form tab, then close. Never reloads that tab.
 
 ## Python pipeline
 
@@ -268,7 +282,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/form_lab_urls.py` — Public application-form URLs for the form lab (tools/form-lab.mjs), aimed where users actually are.
 - `tools/form-lab-lib.mjs` — The form lab's decisions, kept apart from the browser so they can be tested (tools/form-lab.mjs runs them).
-- `tools/form-lab.mjs` — The form lab: a headless browser runs the extension's REAL operators (page/skeleton.js and controls.js of the private extension
+- `tools/form-lab.mjs` — The form lab: a headless browser runs the extension's REAL operators (extension/page/skeleton.js and controls.js) on public
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links
 - `tools/notion_schema.py` — The Job Pilotto Notion workspace as code: config/notion_schema.json.

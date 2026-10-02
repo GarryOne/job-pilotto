@@ -192,7 +192,7 @@ down — is the signal to add logging, not to move on. Add it in the same turn, 
   `window`): a new one is fine, a renamed one is a small tax on every future grep.
 
 ## JavaScript lint checks
-Desktop `npm test` runs ESLint first across `desktop/` (including tests and scripts; the extension has its own repo). `no-undef` blocks failures; `no-unused-vars` is advisory. Use `cd desktop && npm run lint` for fast feedback. Fix the cause of lint errors; do not silence them by inventing globals. Browser, Node, preload and Chrome-extension globals are configured in `eslint.config.mjs`; generated build and shared files are excluded.
+Desktop `npm test` runs ESLint first across `desktop/` and `extension/` (including tests and scripts). `no-undef` blocks failures; `no-unused-vars` is advisory. Use `cd desktop && npm run lint` for fast feedback. Fix the cause of lint errors; do not silence them by inventing globals. Browser, Node, preload and Chrome-extension globals are configured in `eslint.config.mjs`; generated build and shared files are excluded.
 
 ## Shared verification and checked desktop boundaries
 Use `tools/check.sh --fast` while editing, `tools/check.sh --area desktop` (or python/worker/site) for a full area suite, and `tools/check.sh --clean-install` before landing. The command selects Python 3.12+ and supported Node, stages desktop shared files, and reports setup problems without installing packages. CI and Claude hooks delegate to this same runner; it works from any directory and any agent.
