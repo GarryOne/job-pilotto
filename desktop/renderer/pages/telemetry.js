@@ -9,8 +9,10 @@ function report(fields) {
 }
 
 async function show() {
-  const {on, events} = await window.pilot.telemetryShown().catch(() => ({on: true, events: []}));
+  const {on, events, alpha, alphaLogs} = await window.pilot.telemetryShown().catch(() => ({on: true, events: []}));
   $('telemetry-on').checked = on;
+  $('alpha-logs-row').hidden = !alpha;
+  $('alpha-logs-on').checked = !!alphaLogs;
   $('telemetry-events').textContent = events.length ? events.map(item => JSON.stringify(item, null, 1)).join('\n\n') : 'Nothing sent yet.';
 }
 
@@ -20,6 +22,7 @@ export async function init() {
   window.addEventListener('unhandledrejection', event => report({type: event.reason?.name || 'Rejection',
     message: event.reason?.message || String(event.reason), stack: event.reason?.stack}));
   $('telemetry-on').addEventListener('change', async event => { await window.pilot.telemetrySet(event.target.checked); show(); });
+  $('alpha-logs-on').addEventListener('change', async event => { await window.pilot.alphaLogsSet(event.target.checked); });
   document.querySelector('.telemetry-shown').addEventListener('toggle', show);
   show();
 }

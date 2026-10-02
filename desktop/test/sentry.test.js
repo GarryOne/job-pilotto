@@ -68,3 +68,21 @@ test('native crashes go to the minidump address with only the version and instal
   assert.equal(sentry.startNativeCrashes({start() { throw new Error('x'); }}, {dsn: DSN}), false);
   assert.equal(sentry.startNativeCrashes({start() {}}, {dsn: ''}), false);
 });
+
+test('the trail keeps the last 25 step names and rides on the next report; a run log is attached only when given, scrubbed', () => {
+  const sent = [];
+  const client = sentry.create({dsn: DSN, release: 'job-pilotto@1', installId: 'i', fetcher: (...args) => { sent.push(args); return Promise.resolve(); }});
+  for (let n = 0; n < 30; n++) client.note('page_view', {page: `p${n}`});
+  client.capture('run_failed', {job: 'src daily', error: 'boom', logLines: ['ok line', 'mail igor@example.com failed with key sk-ant-abc123', '/Users/igor/job-pilotto/x.py']});
+  const parts = sent[0][1].body.split('\n');
+  const event = JSON.parse(parts[2]);
+  assert.equal(event.breadcrumbs.values.length, 25);
+  assert.equal(event.breadcrumbs.values.at(-1).message, 'page_view: p29');
+  const header = JSON.parse(parts[3]);
+  assert.equal(header.type, 'attachment');
+  const body = parts.slice(4).join('\n');
+  assert.doesNotMatch(body, /igor@example|sk-ant|\/Users\/igor/);
+  assert.match(body, /<email>/);
+  client.capture('stuck', {action: 'wait'});
+  assert.equal(sent[1][1].body.includes('"type":"attachment"'), false, 'no log lines given: no attachment');
+});

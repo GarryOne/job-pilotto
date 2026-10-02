@@ -81,7 +81,8 @@ let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
 let analytics = null;  // usage events (lib/analytics.js, PostHog); crash reports (lib/sentry.js) have the same gate and switch as telemetry
-const track = (event, props) => analytics?.track(event, props);
+let trail = null;  // lib/sentry.js note(): the last steps, attached to the next crash report
+const track = (event, props) => { analytics?.track(event, props); trail?.(event, props); };
 let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
 const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
@@ -1245,7 +1246,8 @@ function handlers() {
     return true;
   });
   // The switch shows the saved choice (on unless turned off), also in a build that doesn't send (the reporter is null there).
-  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || []}));
+  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || [], alpha: app.getVersion().includes('alpha'), alphaLogs: storage.settings().alphaLogs === true}));
+  ipcMain.handle('alphaLogsSet', (_, on) => { storage.saveSettings({alphaLogs: !!on}); appLog('telemetry', `alpha run logs ${on ? 'on' : 'off'}`); return {on: !!on}; });
   // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
   ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));
   ipcMain.handle('poolShareSet', async (_, value) => {
@@ -1599,7 +1601,11 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const sentryClient = sentryLib.create({dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId, os: identity.os, enabled: telemetry.enabled});
     if (sentryClient.active) {
       const record = telemetry.record.bind(telemetry);
-      telemetry.record = (kind, fields) => { record(kind, fields); sentryClient.capture(kind, fields); };
+      trail = sentryClient.note;
+      // Alpha builds only, and only for a tester who switched it on (Settings → Technical reports): the scrubbed tail of the run log
+      // rides along with a failed or hung run's report to Sentry (never to our own telemetry store).
+      const logLines = kind => (['run_failed', 'stuck'].includes(kind) && identity.version.includes('alpha') && storage.settings().alphaLogs === true) ? engineLog.tailLines(200) : undefined;
+      telemetry.record = (kind, fields) => { record(kind, fields); sentryClient.capture(kind, {...fields, logLines: logLines(kind)}); };
       if (telemetry.enabled()) sentryLib.startNativeCrashes(crashReporter, {dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId});
       pipeline.setCrashReports({dsn: keys.sentryDsn, version: identity.version, installId: identity.installId, enabled: telemetry.enabled});
     }
