@@ -24,6 +24,9 @@ SEARCH_PAGE = 'NOTION_SEARCH_SETTINGS_PAGE'
 def workflow_text(name, ref=None):
     """The workflow file; `ref` reads an older commit (to prove a test fails against the broken workflow)."""
     if ref:
+        # CI checks out one commit (actions/checkout, depth 1): the older workflow is not there, so these proofs are skipped, not failed.
+        if subprocess.run(['git', 'cat-file', '-e', f'{ref}:.github/workflows/{name}'], cwd=ROOT, capture_output=True).returncode:
+            raise unittest.SkipTest(f'{ref} is not in this clone (shallow checkout)')
         return subprocess.run(['git', 'show', f'{ref}:.github/workflows/{name}'], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return (WORKFLOWS / name).read_text()
 
