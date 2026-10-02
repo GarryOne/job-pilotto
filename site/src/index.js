@@ -9,6 +9,7 @@ import {install} from './install.js';
 import {signals} from './signals.js';
 import {feedback, view as feedbackView} from './feedback.js';
 import * as recipeLibrary from './recipes.js';
+import * as triageQueue from './triage.js';
 import {trial} from './trial.js';
 import {brain} from './brain.js';
 import {index as employerIndex} from './employers.js';
@@ -46,10 +47,13 @@ export async function waitlist(request, env) {
   return json(200, {ok: true});
 }
 
-// Form-structure reports from every Job Pilotto app (desktop/lib/reports.js; worker/src/report.js checks them):
-// they start the public repo's intake workflow. Secrets GITHUB_TOKEN (dispatch) and REPORT_TOKEN (the owner's
-// app, trusted); GITHUB_REPO in wrangler.toml.
+// Form-structure reports from every Job Pilotto app (desktop/lib/reports.js; worker/src/report.js checks them): a failure that
+// recurs is queued for the private repo's triage (src/triage.js). Secrets GITHUB_TOKEN (the product brain's dispatch) and
+// REPORT_TOKEN (the owner's app, trusted); GITHUB_REPO in wrangler.toml.
 export async function dispatch(env, inputs, workflow, fetcher = fetch) {
+  // Recurring failures and problems are queued for the private repo's triage to pull (src/triage.js); other workflows (the
+  // product brain's) are still started on GitHub.
+  if (triageQueue.queued(workflow)) return triageQueue.queue(env, inputs, workflow);
   const response = await fetcher(`https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${workflow}/dispatches`, {
     method: 'POST', body: JSON.stringify({ref: 'main', inputs}),
     headers: {Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'job-pilotto-site',
@@ -73,6 +77,7 @@ export default {
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
     if (pathname === '/api/lab') return recipeLibrary.lab(request, env);
+    if (pathname === '/api/triage') return triageQueue.triage(request, env);
     if (pathname === '/api/contribute') return pool.contribute(request, env);
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);

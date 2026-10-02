@@ -10,11 +10,11 @@ test('form reports reach the site worker; nothing mechanical is refused before G
   assert.equal(response.status, 400);
 });
 
-test('a report starts the intake workflow on the public repo with the dispatch token', async () => {
+test('a workflow the site still starts on GitHub (the product brain) is dispatched with the token; reports are queued instead', async () => {
   const calls = [];
   const fetcher = async (url, init) => { calls.push([url, init]); return new Response(null, {status: 204}); };
-  await dispatch({GITHUB_REPO: 'GarryOne/job-pilotto', GITHUB_TOKEN: 'ghp_x'}, {report: '{}', trusted: 'false'}, 'fill-failure-intake.yml', fetcher);
-  assert.equal(calls[0][0], 'https://api.github.com/repos/GarryOne/job-pilotto/actions/workflows/fill-failure-intake.yml/dispatches');
+  await dispatch({GITHUB_REPO: 'GarryOne/job-pilotto', GITHUB_TOKEN: 'ghp_x'}, {report: '{}', trusted: 'false'}, 'product-brain.yml', fetcher);
+  assert.equal(calls[0][0], 'https://api.github.com/repos/GarryOne/job-pilotto/actions/workflows/product-brain.yml/dispatches');
   assert.equal(calls[0][1].headers.Authorization, 'Bearer ghp_x');
   assert.deepEqual(JSON.parse(calls[0][1].body), {ref: 'main', inputs: {report: '{}', trusted: 'false'}});
   await assert.rejects(dispatch({GITHUB_REPO: 'o/r'}, {}, 'x.yml', async () => new Response('no', {status: 401})), /401/);
