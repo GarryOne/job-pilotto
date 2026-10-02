@@ -15,6 +15,7 @@ import {toastMessage} from './startup.js';
 import {openFeedback} from './feedback.js';
 import {outcomeChoices} from '../outcome-tap.js';
 import {hostStats, scoreBucket, snapshot} from '../intel.js';
+let benchmarkText = {};   // url -> the board's typical reply line (lib/benchmarks.js), refreshed with the jobs list
 import {askWhy} from './dismiss-reason.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
@@ -368,6 +369,7 @@ export function renderJobs() {
     const choices = job.url ? outcomeChoices(job.stage) : [];
     if (choices.length) {
       menu.push('-');
+      if (benchmarkText[job.url]) menu.push({icon: 'info', label: benchmarkText[job.url], disabled: true, title: 'From how other people\'s applications on this job board went (anonymous counts)'});
       for (const choice of choices) {
         menu.push({icon: choice.icon, label: choice.label, title: choice.title, run: async () => {
           const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on, bucket: scoreBucket(job.fit)}).catch(error => ({ok: false, error: error.message}));
@@ -774,6 +776,7 @@ export async function loadJobs() {
     askAboutLeftOpen();
     // How the fit score relates to what became of each job, as counts per band and state (once a day; the app drops it if reports are off).
     if (shared.allJobs.length) window.pilot.intelSnapshot(snapshot(shared.allJobs), hostStats(shared.allJobs)).catch(() => {});
+    if (shared.allJobs.length) window.pilot.benchmarkLines(shared.allJobs.map(job => job.url).filter(Boolean)).then(result => { benchmarkText = result?.lines || {}; }).catch(() => {});
   }
 }
 // Once per launch, on fresh data: sessions left open by the last run whose jobs are still Applying. Keep them, go

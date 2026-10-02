@@ -3,6 +3,7 @@
 // passes on only what the shared schema accepts. Off with the Technical reports switch: nothing is asked, the built-in patterns work alone.
 import {validateBundle} from '../shared/alias-schema.js';
 import {installId} from './app-feedback.js';
+import * as benchmarks from './benchmarks.js';
 import {log} from './log.js';
 import {SITE, token} from './recipes.js';
 
@@ -29,6 +30,7 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
     const body = await response.json();
     const aliases = validateBundle(body.aliases).map(({key, phrase}) => ({key, phrase}));
     storage.writeText(CACHE, JSON.stringify({at: now, aliases}));
+    benchmarks.save(storage, body.benchmarks, now);
     storage.writeText('data/hints.json', JSON.stringify({at: now, hints: cleanHints(body.hints)}));   // read by the scoring step (src/ai/hints.py)
     return aliases;
   } catch (error) {

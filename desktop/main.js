@@ -65,6 +65,7 @@ import * as analyticsLib from './lib/analytics.js';
 import * as sentryLib from './lib/sentry.js';
 import {installId as telemetryInstallId} from './lib/app-feedback.js';
 import * as applicationOutcomes from './lib/outcomes.js';
+import * as benchmarkLib from './lib/benchmarks.js';
 import * as aliasLibrary from './lib/aliases.js';
 import {flowState, unplaced} from './lib/question-labels.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
@@ -790,6 +791,7 @@ function handlers() {
     recipeReporterRef?.sources(applicationOutcomes.sourceStats(hosts, controlEvents.boardName));
     return {ok: true};
   });
+  ipcMain.handle('benchmarkLines', (_, urls) => ({ok: true, lines: benchmarkLib.lines(storage, urls, controlEvents.boardName)}));
   ipcMain.handle('searchCoverage', async () => {
     if (DEMO) return {ok: true, coverage: null};
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);

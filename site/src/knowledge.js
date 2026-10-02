@@ -82,6 +82,28 @@ export async function report(db, days = 7, now = new Date(), limit = 100) {
   return {questions, flows, outcomes};
 }
 
+// What applications typically get, per job board, for the apps to show back to their users ("Typical on Greenhouse: 38% hear back, usually within 4-7 days").
+// Only a known board, only with 30+ marked outcomes in the last 180 days; "heard" = a reply, a call or an offer. The days are the middle bucket of the answers.
+export const BENCH_MIN = 30;
+const ORDER = ['0-3', '4-7', '8-14', '15-30', '31+'];
+export async function benchmarks(db, now = new Date()) {
+  const from = day(new Date(now.getTime() - 179 * 86400000));
+  const rows = (await db.prepare('SELECT board, outcome, days, SUM(n) AS n FROM application_outcomes WHERE day >= ? GROUP BY board, outcome, days').bind(from).all().catch(() => ({results: []}))).results || [];
+  const boards = new Map();
+  for (const row of rows) {
+    if (!/^[a-z]{3,20}$/.test(row.board)) continue;   // a hashed site means nothing to a person
+    const entry = boards.get(row.board) || {board: row.board, n: 0, heard: 0, days: {}};
+    entry.n += row.n;
+    if (['reply', 'screening', 'offer'].includes(row.outcome)) { entry.heard += row.n; if (ORDER.includes(row.days)) entry.days[row.days] = (entry.days[row.days] || 0) + row.n; }
+    boards.set(row.board, entry);
+  }
+  return [...boards.values()].filter(entry => entry.n >= BENCH_MIN).sort((a, b) => b.n - a.n).slice(0, 12).map(entry => {
+    let seen = 0, middle = '';
+    for (const bucket of ORDER) { seen += entry.days[bucket] || 0; if (!middle && seen * 2 >= entry.heard && entry.heard) middle = bucket; }
+    return {board: entry.board, n: entry.n, heard: Math.round(entry.heard / entry.n * 100) / 100, days: middle};
+  });
+}
+
 // GET /api/knowledge (owner).
 export async function knowledge(request, env, now = new Date()) {
   if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});

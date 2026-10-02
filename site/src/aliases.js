@@ -9,7 +9,7 @@ import {hints} from './intelligence.js';
 import {BUTTON_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias} from '../../extension/alias-schema.js';
 import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, flag} from './guard.js';
-import {report} from './knowledge.js';
+import {benchmarks, report} from './knowledge.js';
 import {allowed} from './stats.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
@@ -39,7 +39,7 @@ export async function pack(request, env, now = new Date()) {
     const rollout = row.status === 'verified' ? 100 : row.rollout;
     if (checked.ok && appliesTo({rollout}, install)) out.push({...checked.alias, rollout});
   }
-  return json({ok: true, aliases: out, hints: await hints(env.STATS, now).catch(() => [])});
+  return json({ok: true, aliases: out, hints: await hints(env.STATS, now).catch(() => []), benchmarks: await benchmarks(env.STATS, now).catch(() => [])});
 }
 
 // Daily: a verified alias keeps being judged over the last week; if it starts failing it is switched off like a canary would be.

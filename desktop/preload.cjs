@@ -22,7 +22,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onPrepStep: callback => ipcRenderer.on('prepStep', (_, step) => callback(step)),
   markOutcome: call('markOutcome'),
   searchCoverage: call('searchCoverage'), addRoles: call('addRoles'),
-  dismissReason: call('dismissReason'), intelSnapshot: call('intelSnapshot'),
+  dismissReason: call('dismissReason'), intelSnapshot: call('intelSnapshot'), benchmarkLines: call('benchmarkLines'),
   license: call('license'), licenseSet: call('licenseSet'), licenseRemove: call('licenseRemove'),
   onAllowance: callback => ipcRenderer.on('allowance', (_, state) => callback(state)),
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'), alphaLogsSet: call('alphaLogsSet'),

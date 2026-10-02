@@ -124,3 +124,13 @@ test('hints need 50 dismissals and a reason at 30%+; the calibration says whethe
   assert.equal(calibration(rows([0.1, 0.2])).status, 'inverted');
   assert.equal(calibration(rows([null, 0.2])).status, 'thin');
 });
+
+test('board benchmarks need 30+ applications on a known board, and say how many heard back and when', async () => {
+  const {benchmarks} = await import('../src/knowledge.js');
+  const e = env();
+  e.STATS.db.exec(readFileSync(new URL('../migrations/0013_application_outcomes.sql', import.meta.url), 'utf8'));
+  const add = (board, outcome, days, n) => e.STATS.db.prepare('INSERT INTO application_outcomes (day, board, outcome, days, n) VALUES (?, ?, ?, ?, ?)').run('2026-09-30', board, outcome, days, n);
+  add('greenhouse', 'reply', '4-7', 10); add('greenhouse', 'screening', '8-14', 4); add('greenhouse', 'no_response', '31+', 36);   // 50 marked, 14 heard (28%), middle bucket 4-7
+  add('lever', 'reply', '0-3', 5); add('h:abc1234567', 'reply', '0-3', 99);
+  assert.deepEqual(await benchmarks(e.STATS, now), [{board: 'greenhouse', n: 50, heard: 0.28, days: '4-7'}]);
+});
