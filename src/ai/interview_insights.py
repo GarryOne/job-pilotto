@@ -25,6 +25,7 @@ import urllib.error
 
 from ..notion import client as notion, titles
 from ..notion.ledger import plain
+from . import engine
 from . import budget, cost, interviews
 
 CATEGORY = 'Interview patterns'
@@ -263,7 +264,7 @@ def generate(client, model_, items):
     return interviews.ask(client, model_, max_tokens=interviews.MAX_TOKENS,
                           system=[{'type': 'text', 'text': SYSTEM}],
                           messages=[{'role': 'user', 'content': 'Reviewed interviews (JSON):\n' + json.dumps(prompt_input(items), ensure_ascii=False)}],
-                          output_config=interviews.output_config(SCHEMA, model_))
+                          output_config=engine.structured(SCHEMA, model_))
 
 
 def validate(result, items):
@@ -462,7 +463,6 @@ def _update(tracker, *, client, model_, stats, now, force, budget_status):
     items = gather(tracker, rows)
     model_ = model_ or model()
     if client is None:
-        from . import engine
         client = engine.client(action='interview')
     result, usage, model_ = generate(client, model_, items)
     cost.add(stats, model_, usage)

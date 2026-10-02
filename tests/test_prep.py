@@ -311,5 +311,22 @@ class MarkdownTests(unittest.TestCase):
         self.assertEqual([b['type'] for b in blocks], ['heading_3', 'bulleted_list_item', 'heading_3', 'bulleted_list_item'])
         self.assertEqual(blocks[0]['heading_3']['rich_text'][0]['text']['content'], 'Tech Stack')
 
+
+class PrepEffortTests(unittest.TestCase):
+    """Haiku 4.5 rejects the `effort` setting with a 400; the end-to-end journey runs every step on it."""
+
+    def effort_for(self, model):
+        tracker, row = job(INVITE + '\n' + ROLE)
+        tracker.database_id = 'apps'
+        tracker.query_database = lambda db, filter_=None: []
+        client = Client()
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+            prep.build(tracker, row, client=client, model=model, now=NOW)
+        return client.calls[0]['output_config'].get('effort')
+
+    def test_haiku_gets_no_effort_and_other_models_keep_medium(self):
+        self.assertIsNone(self.effort_for('claude-haiku-4-5'))
+        self.assertEqual(self.effort_for('claude-sonnet-5'), 'medium')
+
 if __name__ == '__main__':
     unittest.main()

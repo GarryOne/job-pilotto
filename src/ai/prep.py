@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from ..notion import client as notion, ledger
 from ..notion.ledger import _block, plain
-from . import cost, mail
+from . import cost, engine, mail
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_PREP_MODEL', 'claude-sonnet-5')
 HEADING = '🎤 Interview prep'
@@ -306,7 +306,6 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
     if client is None and about_role(role) < MIN_ROLE and not screenshots(tracker, row, fetch=False):
         return _ask()
     if client is None:
-        from . import engine
         client = engine.client(action='prep')
     if about_role(role) < MIN_ROLE:
         # Screenshots you logged on the job (e.g. a LinkedIn chat, before the Log box kept its text) say what the
@@ -333,7 +332,7 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
         model=model, max_tokens=8000, system=SYSTEM,
         messages=[{'role': 'user', 'content': '\n'.join(facts) + (f'\n\n{follow_up}' if follow_up else '')
                    + f'\n\n# The job\n{role[:12000]}\n\n# Owner\'s Profile\n{profile[:12000]}'}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
+        output_config=engine.structured(SCHEMA, model))
     cost.add(stats, model, response.usage)
     if getattr(response, 'stop_reason', None) == 'max_tokens':  # a cut-off answer is no kit: say so, not a JSON error
         raise RuntimeError('The prep kit came back cut off (too long for one answer). Try again; if it repeats, the job text is very long.')

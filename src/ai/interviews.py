@@ -35,6 +35,7 @@ import urllib.request
 
 from ..notion import client as notion
 from ..notion import titles
+from . import engine
 from ..notion.titles import named  # noqa: F401 — the one placeholder rule (job titles too)
 from ..notion.ledger import EVENTS_DATABASE_ID, add_event, plain
 from . import cost, transcribe
@@ -176,14 +177,6 @@ def candidates(tracker):
     return sorted(rows, key=lambda r: plain(r['properties'].get('Applied on')) or '', reverse=True)
 
 
-def output_config(schema, model):
-    """The structured-output request; `effort` medium only for a model that takes it (Haiku rejects the parameter: score.py)."""
-    config = {'format': {'type': 'json_schema', 'schema': schema}}
-    if not model.startswith('claude-haiku'):
-        config['effort'] = 'medium'
-    return config
-
-
 def ask(client, model, **request):
     """One structured call; when `model` declines it (stop_reason "refusal"), the same request once on FALLBACK_MODEL.
     Returns (parsed JSON, usage, the model that answered): cost is counted at that model's price."""
@@ -206,7 +199,7 @@ def analyse(client, model, profile, apps, caption, transcript):
                system=[{'type': 'text', 'text': SYSTEM + profile}],
                messages=[{'role': 'user', 'content': f'Applications:\n{listing or "(none)"}\n\nCaption: {caption or "(none)"}\n\n'
                                                      f'Transcript or notes:\n{transcript}'}],
-               output_config=output_config(SCHEMA, model))
+               output_config=engine.structured(SCHEMA, model))
 
 
 def _block(kind, content, bold=False):
@@ -589,7 +582,6 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
     if chosen and chosen not in apps:
         apps = [chosen] + apps
     if client is None:
-        from . import engine
         client = engine.client(action='interview')
     result, usage, model = analyse(client, model, tracker.page_text(), apps, caption, transcript)
     cost.add(stats, model, usage)

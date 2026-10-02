@@ -17,7 +17,7 @@ import re
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
-from . import cost
+from . import cost, engine
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', 'claude-sonnet-5')
 KIT_VERSION = 1
@@ -179,7 +179,7 @@ def draft(client, model, job, profile, answers, questions):
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
             f"URL: {job['url']}\nAnalysis so far: {json.dumps(context, ensure_ascii=False)}\n\n"
             f"Application form questions:\n{_question_text(questions)}\n\nPosting:\n{job.get('description') or ''}")}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
+        output_config=engine.structured(SCHEMA, model),
     )
     response = client.messages.create(**params)
     if response.stop_reason != 'end_turn':
@@ -248,7 +248,6 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
     if not pending:
         return '0 kit(s) auto-drafted', []
     if client is None:
-        from . import engine
         client = engine.client(action='kit')
     profile, answers = tracker.page_text(), standard_answers(tracker)
     drafted_jobs, failures = [], 0

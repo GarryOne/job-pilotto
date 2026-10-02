@@ -196,6 +196,18 @@ class AutoKitTests(unittest.TestCase):
                 self.assertEqual(drafted, [])
 
 
+class EffortTests(unittest.TestCase):
+    """Haiku 4.5 rejects the `effort` setting with a 400; the end-to-end journey runs every step on it."""
+
+    def effort_for(self, model):
+        client = FakeClient()
+        kit.draft(client, model, {'title': 'SRE', 'company': 'Acme', 'url': URL}, 'p', 'a', [])
+        return client.requests[0]['output_config'].get('effort')
+
+    def test_haiku_gets_no_effort_and_other_models_keep_medium(self):
+        self.assertIsNone(self.effort_for('claude-haiku-4-5'))
+        self.assertEqual(self.effort_for('claude-sonnet-5'), 'medium')
+
 if __name__ == '__main__':
     unittest.main()
 
