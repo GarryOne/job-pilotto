@@ -708,8 +708,7 @@ function mailConfirm(questions) {
 // Answered questions stop asking: the update row and the note say "answered in Focus" instead of "which job?".
 function settleMail(report, asked) {
   for (const update of report.updates) {
-    const text = settleQuestion(update.job, asked);
-    if (text !== update.job) Object.assign(update, {job: text.replace(/: answered in Focus$/, ''), changes: 'Answered in Focus'});
+    if (settleQuestion(update.job, asked) !== update.job) update.changes = 'Answered in Focus';   // the question stays, the answer sits beside it
   }
   for (const note of report.notes) note.text = settleQuestion(note.text, asked);
 }

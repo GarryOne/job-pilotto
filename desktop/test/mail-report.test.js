@@ -138,9 +138,9 @@ test('an email that is not about the applications is not listed, older runs incl
 test('a "which job?" line reads as answered once Focus no longer holds the question', () => {
   const open = [{headline: 'Blockdaemon: Meeting invitation', detail: 'Invitation from an unknown sender'}];
   assert.equal(settleQuestion('Blockdaemon — which job?', open), 'Blockdaemon — which job?');
-  assert.equal(settleQuestion('Blockdaemon — which job?', []), 'Blockdaemon: answered in Focus');
-  assert.equal(settleQuestion('Interview scheduled · Blockdaemon — which job?'.replace('Interview scheduled · ', ''), []), 'Blockdaemon: answered in Focus');
-  assert.equal(settleQuestion('Blockdaemon: Meeting invitation … which job? Answer in Job Pilotto (Focus).', []), 'Blockdaemon: answered in Focus');
+  assert.equal(settleQuestion('Blockdaemon — which job?', []), 'Blockdaemon — which job? Answered in Focus');
+  assert.equal(settleQuestion('Interview scheduled · Blockdaemon — which job?'.replace('Interview scheduled · ', ''), []), 'Blockdaemon — which job? Answered in Focus');
+  assert.equal(settleQuestion('Blockdaemon: Meeting invitation … which job? Answer in Job Pilotto (Focus).', []), 'Blockdaemon — which job? Answered in Focus');
   assert.equal(settleQuestion('Blockdaemon — which job?', null), 'Blockdaemon — which job?');   // Focus not loaded: no judgement
   assert.equal(settleQuestion('Canonical — SRE', []), 'Canonical — SRE');
 });

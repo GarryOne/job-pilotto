@@ -146,5 +146,5 @@ export function settleQuestion(text, pending) {
   const company = (ASKED.exec(line.replace(HEAD, '')) || [])[1]?.trim();
   if (!company) return line;
   const open = pending.some(item => `${item.headline || ''} ${item.title || ''} ${item.detail || ''}`.toLowerCase().includes(company.toLowerCase()));
-  return open ? line : `${company}: answered in Focus`;
+  return open ? line : `${company} — which job? Answered in Focus`;
 }
