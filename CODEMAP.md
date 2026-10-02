@@ -237,6 +237,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/passwords.py` — Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.
 - `src/ai/prep.py` — Interview prep kit: how to prepare for one interview, from the job's description, your Profile and how your past
 - `src/ai/provenance.py` — Which inputs produced a kit, so the app can say whether it's still current.
+- `src/ai/quality.py` — Quality checks for the words the AI writes for the owner (insight headline, next step).
 - `src/ai/reassign.py` — Your answer about an email the Gmail check wasn't sure where to place.
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.

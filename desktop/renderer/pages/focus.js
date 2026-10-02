@@ -314,7 +314,7 @@ function renderInsight(insight) {
   const round = el('span', 'focus-round tone-warn');
   round.append(icon('alert'));
   const body = el('div', 'focus-body');
-  body.append(el('div', 'focus-headline', insight.headline), el('div', 'muted small', `${insight.reason} · ${insight.detail}`));
+  body.append(el('div', 'focus-source', insight.reason), el('div', 'focus-headline', insight.headline), el('div', 'muted small focus-detail', insight.detail));
   body.title = insight.lesson || '';
   box.append(round, body);
   if (insight.notion_url) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', event => openLink(insight.notion_url, event)));

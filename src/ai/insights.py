@@ -31,7 +31,7 @@ from ..notion import client as notion
 from ..notion import funnel
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
 from . import cost, engine, enrich, interviews, score
-from . import learning
+from . import learning, quality
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5')
 INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
@@ -64,7 +64,7 @@ SCHEMA = {
         'headline': {'type': 'string', 'description': 'One sentence, max 110 characters, with the key number'},
         'evidence': {'type': 'array', 'items': {'type': 'string'},
                      'description': '2-4 short lines, each with numbers taken from the statistics'},
-        'action': {'type': 'string', 'description': 'One concrete next step, max 160 characters'},
+        'action': {'type': 'string', 'description': 'One concrete next step, max 100 characters, starting with a verb'},
         'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
         'basis': {'type': 'string', 'enum': ['Market', 'Applications', 'Both']},
         'sample_size': {'type': 'integer', 'description': 'Number of jobs or applications behind the finding'},
@@ -72,6 +72,17 @@ SCHEMA = {
 }
 SCHEMA['required'].append('issues')
 SCHEMA['properties']['issues'] = learning.ISSUE_SCHEMA
+
+HONEST = """
+Say only what the statistics show:
+- The headline is a finding with a number from the statistics. Never state a situation the statistics do not \
+contain (for example that the search is paused or the market is empty): zero or very few rows means "not enough \
+data yet", not a fact about the market or the owner.
+- With a small sample or no applications, say so in the headline ("Not enough data yet: 3 jobs, 0 applications") \
+and make the next step collecting data (run a search, send applications), not a strategy change.
+- The next step is one sentence under 100 characters that starts with a verb and names where to act in the app \
+(Strategy, Profile, Jobs, Applying). No "clarify with a recruiter", no advice that does not follow from the headline.
+"""
 
 SYSTEM = """You are the job-search analyst inside Job Pilotto. Each day you send the owner ONE \
 insight that could change what they do: which skills to learn or put on the CV, where to look, \
@@ -96,7 +107,7 @@ that form; build on ones marked "Acting on it" (for example, follow up on their 
 The owner's profile (their CV and preferences) follows.
 
 """
-SYSTEM = learning.RULES + '\n' + SYSTEM
+SYSTEM = learning.RULES + '\n' + HONEST + '\n' + SYSTEM
 
 
 def _norm_tech(name):
@@ -264,6 +275,13 @@ def sent_today(tracker, today):
     return any(plain(r['properties'].get('Category')) != INTERVIEW_PATTERNS for r in rows)
 
 
+def _log_quality(kind, headline, action, sample_size=None):
+    """A line in the run's output (a 'Warning' is never shown as a step) when the AI's words break the HONEST rules."""
+    found = quality.problems(headline, action, sample_size)
+    if found:
+        print(f"Warning: {kind} quality: {'; '.join(found)}")
+
+
 def generate(client, model, profile, stats):
     """(insight dict, usage) from one schema-constrained call."""
     response = client.messages.create(
@@ -281,12 +299,12 @@ WEEKLY_SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['headline', 'summary', 'worked', 'change', 'focus', 'confidence'],
     'properties': {
-        'headline': {'type': 'string', 'description': 'The week in one sentence, max 110 characters'},
+        'headline': {'type': 'string', 'description': 'The week in one sentence, max 110 characters, with a number from the statistics; "Not enough data yet" when the sample is tiny'},
         'summary': {'type': 'string', 'description': '2-3 sentences: what happened this week, with numbers'},
         'worked': {'type': 'array', 'items': {'type': 'string'}, 'description': '0-3 things that worked, with evidence'},
         'change': {'type': 'array', 'items': {'type': 'string'},
                    'description': '1-3 concrete changes for next week (strategy, CV, skills, targets), with the reason'},
-        'focus': {'type': 'string', 'description': 'The single most important focus for next week'},
+        'focus': {'type': 'string', 'description': 'The single most important focus for next week: one sentence under 100 characters, starting with a verb'},
         'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
     },
 }
@@ -302,7 +320,7 @@ no emojis. "worked" may be empty in a quiet week; never pad it.
 The owner's profile (their CV and preferences) follows.
 
 """
-WEEKLY_SYSTEM = learning.RULES + '\n' + WEEKLY_SYSTEM
+WEEKLY_SYSTEM = learning.RULES + '\n' + HONEST + '\n' + WEEKLY_SYSTEM
 
 
 def week_stats(tracker, now):
@@ -388,6 +406,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
         raise RuntimeError(f'stopped with {response.stop_reason}')
     report = json.loads(next(block.text for block in response.content if block.type == 'text'))
     report['issues'] = learning.validate(report.get('issues') or [], data['learning'])
+    _log_quality('weekly report', report['headline'], report.get('focus'))
     cost.add(stats, model, response.usage)
     usd = cost.usd(model, response.usage)
     if stats is not None:
@@ -473,6 +492,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
         client = engine.client(action='insight')
     insight, usage = generate(client, model, profile, data)
     insight['issues'] = learning.validate(insight.get('issues') or [], data['learning'])
+    _log_quality('insight', insight['headline'], insight.get('action'), insight.get('sample_size'))
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
     if stats is not None:
