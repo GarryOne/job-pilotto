@@ -44,12 +44,15 @@ export function extensionToken(storage) {
 // The application was submitted: record that (the Agent Runs row), stop Claude, and take the session off
 // Application sessions. The job stays on Jobs as Applied. A session already marked Submitted is removed too,
 // so one left on screen from before this still goes away on the next job-list read.
+// Every session for that job ends, not one: a job can have a Claude session and a form session at once (Reopen form, Take over with Claude).
 export function sessionSubmitted(url) {
-  const session = terminals.byUrl(url);
-  if (!session) return null;
-  if (session.outcome !== 'submitted') terminals.setOutcome(session.id, 'submitted');
-  terminals.remove(session.id);
-  return session.id;
+  const same = String(url || '').replace(/\/$/, '');
+  const found = terminals.list().filter(session => String(session.url || '').replace(/\/$/, '') === same);
+  for (const session of found) {
+    if (session.outcome !== 'submitted') terminals.setOutcome(session.id, 'submitted');
+    terminals.remove(session.id);
+  }
+  return found.length ? found[found.length - 1].id : null;
 }
 
 // Sessions whose job is already Applied (or past it) in Notion: the form was submitted — that is what Applied

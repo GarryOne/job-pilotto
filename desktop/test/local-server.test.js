@@ -72,6 +72,18 @@ test('the session behind a reported submit is marked Submitted and leaves the li
   terminals._reset();
 });
 
+test('a job with a Claude session and a form session loses both when it is submitted', async () => {
+  terminals._reset();
+  terminals.usePty(fakePty().loader);
+  const url = 'https://www.jobs.ch/en/vacancies/detail/c59e9c97/';
+  await terminals.start({id: 'c1', url, company: 'Undisclosed', file: 'claude', env: {}});
+  terminals.startForm({id: 'f1', url: url.replace(/\/$/, ''), title: 'Developpeur', company: 'Undisclosed'});
+  assert.ok(server.sessionSubmitted(url));
+  assert.equal(terminals.get('c1'), null);
+  assert.equal(terminals.get('f1'), null);
+  terminals._reset();
+});
+
 test('another job\'s session is left alone, and a URL with no session is harmless', async () => {
   terminals._reset();
   terminals.usePty(fakePty().loader);

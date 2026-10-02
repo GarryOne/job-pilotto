@@ -1036,7 +1036,7 @@ function handlers() {
     appLog('applied', `asked from the app (you): ${job}`);
     const result = await pipeline.setStatus(storage, job, status).catch(error => ({ok: false, error: error.message}));
     appLog('applied', `asked from the app (you): ${job} -> ${result?.ok ? 'marked applied' : result?.error || 'failed'}`);
-    if (result?.ok) track('applied', {how: 'manual'});
+    if (result?.ok) { track('applied', {how: 'manual'}); server.sessionSubmitted(job); }   // the job is Applied: its sessions are over, as for a submit the extension saw
     return result;
   });
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
