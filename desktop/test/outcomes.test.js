@@ -7,8 +7,8 @@ import {outcomeChoices} from '../renderer/outcome-tap.js';
 const NOW = Date.parse('2026-10-20T12:00:00Z');
 
 test('every outcome the window can send maps to a stage the engine accepts', () => {
-  assert.deepEqual(OUTCOMES, ['reply', 'screening', 'offer', 'rejected', 'no_response']);
-  assert.deepEqual(Object.values(STAGES), ['Reply received', 'Interview scheduled', 'Offer', 'Rejected', 'No response']);
+  assert.deepEqual(OUTCOMES, ['reply', 'screening', 'offer', 'rejected', 'no_response', 'withdrawn']);
+  assert.deepEqual(Object.values(STAGES), ['Reply received', 'Interview scheduled', 'Offer', 'Rejected', 'No response', 'Withdrawn']);
 });
 
 test('days are counted in coarse buckets, and an unknown date counts as none', () => {

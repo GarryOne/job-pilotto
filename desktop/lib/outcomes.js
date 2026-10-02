@@ -4,8 +4,9 @@
 // company, the role or the job's address, because where someone applied is theirs to keep.
 import {boardName} from './control-events.js';
 
+// withdrawn is the owner's own decision, not what an employer did: written to Notion, never counted (main.js).
 // outcome id (what the window sends) -> the ledger stage (src/notion/ledger.py EVENT_KINDS)
-export const STAGES = {reply: 'Reply received', screening: 'Interview scheduled', offer: 'Offer', rejected: 'Rejected', no_response: 'No response'};
+export const STAGES = {reply: 'Reply received', screening: 'Interview scheduled', offer: 'Offer', rejected: 'Rejected', no_response: 'No response', withdrawn: 'Withdrawn'};
 export const OUTCOMES = Object.keys(STAGES);
 export const DAY_BUCKETS = ['0-3', '4-7', '8-14', '15-30', '31+'];
 

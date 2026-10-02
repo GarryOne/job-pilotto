@@ -1205,8 +1205,8 @@ function handlers() {
     if (DEMO) return {ok: true, stage};
     appLog('outcome', `marked ${outcome} (${stage})`, {board: applicationOutcomes.anonymous({url, outcome})?.board || ''});
     const result = await pipeline.markOutcome(storage, url, stage);
-    if (result.ok) recipeReporterRef?.application(applicationOutcomes.anonymous({url, outcome, appliedOn: input?.appliedOn}));
-    if (result.ok) recipeReporterRef?.reply(String(input?.bucket || ''), outcome);   // the job's score band, to see whether the score predicts replies
+    if (result.ok && outcome !== 'withdrawn') recipeReporterRef?.application(applicationOutcomes.anonymous({url, outcome, appliedOn: input?.appliedOn}));
+    if (result.ok && outcome !== 'withdrawn') recipeReporterRef?.reply(String(input?.bucket || ''), outcome);   // the job's score band, to see whether the score predicts replies
     return result;
   });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
