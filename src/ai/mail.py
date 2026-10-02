@@ -232,6 +232,12 @@ def classify(client, model, apps, items, stats=None):
     return results
 
 
+def _unread_invitation(email, now=None):
+    """A calendar invitation (its .ics carries a start) for a time still ahead: someone invited the owner to a call."""
+    start = _when(email.get('invite_at') or '')
+    return bool(start and start > (now or datetime.now(timezone.utc)) and re.match(r'\s*(updated )?invitation', email.get('subject', ''), re.I))
+
+
 def _when(value):
     try:
         moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
@@ -542,6 +548,15 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             print(f"{email['date'][:16]} {email['subject'][:60]!r}: {result}")
             continue
         state['seen'].append(email['id'])
+        if not result.get('relevant') and _unread_invitation(email, now):
+            # The AI read a meeting invitation as "not about your applications" (2 Oct 2026: a Calendly booking from
+            # "Blockdaemon DM" was dropped that way). A person invited the owner to a call: never a silent skip. Focus
+            # asks which job it is (or that it is none); nothing is attached or created until the owner answers.
+            invited = {**result, 'kind': 'Interview scheduled', 'interview_at': email['invite_at'],
+                       'summary': f"Meeting invitation: {email['subject'][:90]}"}
+            ask(tracker, email, invited, None, index, lines, stats)
+            note(email, 'asked', result.get('company') or '', "a meeting invitation; needs you in Focus (nothing moved)")
+            continue
         if not result.get('relevant'):
             continue  # not about your applications: marked seen, never listed (a receipt or newsletter is not a finding)
         if row:
