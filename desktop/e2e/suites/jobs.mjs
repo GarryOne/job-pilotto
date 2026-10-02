@@ -31,6 +31,11 @@ export async function run(ctx) {
   await ctx.run('this suite starts with no jobs and no runs in its Notion page', async () => {
     const rows = [await emptyDatabase(NOTION, 'Job Matches — AI Scored'), await emptyDatabase(NOTION, 'Cronjob Runs')];
     console.log(`  cleared ${rows[0]} job row(s) and ${rows[1]} run row(s)`);
+    // The app listed last run's fixture jobs when it started; read the list again, or the next step sees them, passes at once and never waits for its check.
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    await page.waitForFunction(() => Array.isArray(window.__jp?.shared?.allJobs) && !window.__jp.shared.allJobs.some(job => /^E2E /.test(job.company || '')), null, {timeout: 60000, polling: 1000})
+      .catch(() => { throw new Error('the app still lists fixture jobs after their rows were cleared'); });
   }, {needs: ctx.needs});
   await ctx.run('a jobs check reads the fixture feeds, drops the wrong roles and scores the matching jobs', async () => {
     // The employers to crawl: two fixture boards (feeds come from fixtures/feeds, never the network).
