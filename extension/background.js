@@ -179,8 +179,18 @@ async function consider(tab, jobUrl) {
   await new Promise(resolve => setTimeout(resolve, 1500)); // the form renders after the load event
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
-  const counts = await pageShape(tab.id);
-  if (!counts) { started.delete(key); return; }
+  // The page can refuse a read right after its load (still swapping documents, the worker just woke): look again before giving up,
+  // or the tab is left with no fill and no state at all, for Claude and the app to wait on.
+  let counts = await pageShape(tab.id);
+  for (let again = 0; !counts && again < 4; again++) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    counts = await pageShape(tab.id);
+  }
+  if (!counts) {
+    started.delete(key);
+    decide('fill', 'the page could not be read', {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+    return;
+  }
   let role = pageRole(counts);
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
