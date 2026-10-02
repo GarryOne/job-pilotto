@@ -26,20 +26,14 @@ test('only the owner\'s app (REPORT_TOKEN) is trusted; others go to triage', asy
   assert.equal(calls[1].inputs.trusted, 'false');
 });
 
-test('untrusted reports are limited: 10 per sender per day, the same site + fields once a week', async () => {
+test('untrusted reports are limited: 10 per sender per day', async () => {
   const store = new Map();
   const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
-  const calls = [];
-  const dispatch = async () => calls.push(1);
+  const dispatch = async () => {};
   const post = (body, ip = '1.2.3.4') => new Request('https://x/report/fill-failure',
     { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body: JSON.stringify(body) });
   const now = Date.parse('2026-09-29T12:00:00Z');
-  const first = await (await handleReport(post(report), { WAITLIST: kv }, dispatch, now)).json();
-  const again = await (await handleReport(post(report), { WAITLIST: kv }, dispatch, now)).json();
-  assert.deepEqual([first.ok, again.duplicate, calls.length], [true, true, 1]);  // the copy isn't re-run
-  for (let i = 0; i < 8; i++) {
-    await handleReport(post({ ...report, site: `site${i}.example.com` }), { WAITLIST: kv }, dispatch, now);
-  }
+  for (let i = 0; i < 10; i++) await handleReport(post({ ...report, site: `site${i}.example.com` }), { WAITLIST: kv }, dispatch, now);
   const over = await handleReport(post({ ...report, site: 'eleven.example.com' }), { WAITLIST: kv }, dispatch, now);
   assert.equal(over.status, 429);
   const other = await handleReport(post({ ...report, site: 'eleven.example.com' }, '5.6.7.8'), { WAITLIST: kv }, dispatch, now);
@@ -47,4 +41,31 @@ test('untrusted reports are limited: 10 per sender per day, the same site + fiel
   const trusted = await handleReport(new Request('https://x', { method: 'POST', headers: { Authorization: 'Bearer t', 'CF-Connecting-IP': '1.2.3.4' },
     body: JSON.stringify(report) }), { WAITLIST: kv, REPORT_TOKEN: 't' }, dispatch, now);
   assert.equal(trusted.status, 200);  // the owner's app is never limited
+});
+
+test('a failure becomes an issue only when it recurs: three different senders, or ten reports; then once a week', async () => {
+  const store = new Map();
+  const kv = { get: async (key) => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); } };
+  const calls = [];
+  const dispatch = async () => calls.push(1);
+  const now = Date.parse('2026-09-29T12:00:00Z');
+  const post = (ip, body = report) => handleReport(new Request('https://x/report/fill-failure', { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body: JSON.stringify(body) }), { WAITLIST: kv }, dispatch, now);
+  const first = await (await post('1.1.1.1')).json();
+  assert.deepEqual([first.issue, first.counted, first.senders, calls.length], [false, 1, 1, 0]);   // data, not a ticket
+  await post('1.1.1.1');
+  assert.equal(calls.length, 0);   // the same sender again: still not enough senders
+  await post('2.2.2.2');
+  assert.equal(calls.length, 0);
+  await post('3.3.3.3');
+  assert.equal(calls.length, 1);   // three different senders: one issue
+  await post('4.4.4.4');
+  assert.equal(calls.length, 1);   // not again this week
+  // one install failing over and over also counts, at ten reports
+  const other = { ...report, site: 'solo.example.com' };
+  const reports = [];
+  for (let i = 0; i < 10; i++) reports.push(await post(`9.9.9.${i % 2}`, other));
+  assert.equal(calls.length, 2);
+  // without the site's storage (the Telegram bot's worker) every report is passed on, as before
+  await handleReport(new Request('https://x', { method: 'POST', body: JSON.stringify(report) }), {}, dispatch, now);
+  assert.equal(calls.length, 3);
 });

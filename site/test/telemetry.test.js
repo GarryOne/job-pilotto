@@ -41,15 +41,25 @@ test('without the key the page does not exist; junk is refused', async () => {
   assert.equal((await send(e, [{kind: 'nonsense', install: 'x'}])).status, 400);
 });
 
-test('the daily run sends the top problems of the day to triage', async () => {
+test('the daily run sends only problems that recur to triage: three installs, or many times', async () => {
   const e = env();
-  await send(e, [crash('install-aaaa'), crash('install-bbbb')]);
-  const sent = [];
   const today = new Date();
+  await send(e, [crash('install-aaaa'), crash('install-bbbb')]);
   e.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
-  assert.equal(await daily(e, async (_env, inputs, workflow) => sent.push({inputs, workflow}), today), 1);
+  const sent = [];
+  const dispatch = async (_env, inputs, workflow) => sent.push({inputs, workflow});
+  assert.equal(await daily(e, dispatch, today), 0);   // two installs: counted, not a ticket yet
+  assert.equal(sent.length, 0);
+  await send(e, [crash('install-cccc')]);
+  e.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
+  assert.equal(await daily(e, dispatch, today), 1);
   assert.equal(sent[0].workflow, 'telemetry-triage.yml');
-  assert.equal(JSON.parse(sent[0].inputs.problems)[0].users, 2);
+  assert.equal(JSON.parse(sent[0].inputs.problems)[0].users, 3);
+  // one install failing very often counts too
+  const solo = env();
+  await send(solo, Array.from({length: 20}, (_, i) => crash('install-dddd', '0.4.1', 100 + i % 1)));
+  solo.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
+  assert.equal(await daily(solo, dispatch, today), 1);
 });
 
 test('fingerprints ignore numbers and ids but keep what differs', () => {

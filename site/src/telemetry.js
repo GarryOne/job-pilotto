@@ -6,6 +6,7 @@ import {feedbackList} from './feedback.js';
 import {allowed, esc, remember} from './stats.js';
 
 export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup', 'control'];
+export const TRIAGE_MIN_USERS = 3, TRIAGE_MIN_TIMES = 20;
 const MAX_EVENTS = 50, MAX_BYTES = 8000, PER_INSTALL_PER_DAY = 1000, KEEP_DAYS = 90;
 const day = date => date.toISOString().slice(0, 10);
 const text = (value, max = 300) => String(value ?? '').slice(0, max);
@@ -221,7 +222,10 @@ export async function evidence(request, env) {
 export async function daily(env, dispatch, now = new Date()) {
   if (!env.STATS) return 0;
   await env.STATS.prepare('DELETE FROM telemetry WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_DAYS * 86400000))).run();
-  const {rows} = await problems(env.STATS, 1, now, 10);
+  const {rows: found} = await problems(env.STATS, 7, now, 50);
+  // Only what recurs becomes an issue: several installs, or very many times. The rest stays counted, visible on /telemetry, and
+  // waits (2 Oct 2026). A control failure that a running recipe already covers is handled there, not here.
+  const rows = found.filter(row => row.users >= TRIAGE_MIN_USERS || row.n >= TRIAGE_MIN_TIMES).slice(0, 10);
   if (!rows.length) return 0;
   const brief = rows.map(row => ({fingerprint: row.fingerprint, kind: row.kind, summary: row.summary, users: row.users, times: row.n,
     versions: row.versions, sample: String(row.sample).slice(0, 2500)}));

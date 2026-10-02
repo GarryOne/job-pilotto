@@ -32,11 +32,14 @@ export function sanitize(report) {
   return { site, version: text(report.version, 20), fields };
 }
 
-// Untrusted reports (anyone can POST) are limited, since each one starts a GitHub Actions run: per sender per day,
-// and the same site + fields only once a week (later copies are accepted, not re-run). Kept in the site's KV
-// (WAITLIST, keys "report:…", expiring); without it (the bot's worker) there is no limit to apply.
+// Untrusted reports (anyone can POST) are limited per sender per day. Every report is counted by failure (site + fields);
+// the intake workflow (an issue) starts only when it recurs (ISSUE_MIN_SENDERS / ISSUE_MIN_REPORTS), once a week per failure.
+// Kept in the site's KV (WAITLIST, keys "report:…", expiring); without it (the bot's worker) every report dispatches.
 export const PER_SENDER_PER_DAY = 10;
 const WEEK = 7 * 24 * 3600;
+// An issue is opened only for a failure that recurs: reported by this many different senders, or this many times in all. One
+// report is data, not a ticket (2 Oct 2026: 17 single-field issues piled up before the self-improving system could judge them).
+export const ISSUE_MIN_SENDERS = 3, ISSUE_MIN_REPORTS = 10;
 
 async function fingerprint(report) {
   const data = new TextEncoder().encode(JSON.stringify([report.site, report.fields.map((f) => [f.label, f.reason])]));
@@ -56,9 +59,19 @@ export async function handleReport(request, env, dispatch, now = Date.now()) {
     const count = Number(await kv.get(countKey)) || 0;
     if (count >= PER_SENDER_PER_DAY) return Response.json({ ok: false, error: 'too many reports today' }, { status: 429 });
     await kv.put(countKey, String(count + 1), { expirationTtl: 2 * 24 * 3600 });
-    const seenKey = `report:seen:${await fingerprint(report)}`;
-    if (await kv.get(seenKey)) return Response.json({ ok: true, trusted, duplicate: true });
-    await kv.put(seenKey, '1', { expirationTtl: WEEK });
+  }
+  if (kv) {
+    // Counted per failure (site + fields), for everyone: distinct senders and total reports. Dispatched once, when it recurs.
+    const key = `report:count:${await fingerprint(report)}`;
+    const who = trusted ? 'owner' : (request.headers.get('CF-Connecting-IP') || 'unknown');
+    const seen = JSON.parse((await kv.get(key)) || '{"senders":[],"n":0,"sent":false}');
+    seen.n += 1;
+    if (!seen.senders.includes(who) && seen.senders.length < 20) seen.senders.push(who);
+    const recurs = seen.senders.length >= ISSUE_MIN_SENDERS || seen.n >= ISSUE_MIN_REPORTS;
+    const open = recurs && !seen.sent;
+    if (open) seen.sent = true;
+    await kv.put(key, JSON.stringify(seen), { expirationTtl: open ? WEEK : 14 * 24 * 3600 });
+    if (!open) return Response.json({ ok: true, trusted, counted: seen.n, senders: seen.senders.length, issue: false });
   }
   await dispatch(env, { report: JSON.stringify(report), trusted: String(trusted) }, 'fill-failure-intake.yml');
   return Response.json({ ok: true, trusted });
