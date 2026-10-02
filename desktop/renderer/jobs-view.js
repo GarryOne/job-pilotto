@@ -162,7 +162,15 @@ export function interviewJob(row, job) {
 export function placeAndMode(location, mode) {
   const {kind, label} = workMode(mode);
   const said = kind && MODES.find(([k]) => k === kind)[2].test(location || '');
-  return [location, mode && !said ? label : ''].filter(Boolean).join(' · ');
+  return [shortPlace(location).text, mode && !said ? label : ''].filter(Boolean).join(' · ');
+}
+
+// A posting may list a dozen countries ("Remote - European Union; Spain; Italy; …"): the row shows the first two and a count, and all of
+// them on hover (`full`, empty when nothing was cut).
+export function shortPlace(location, max = 2) {
+  const parts = String(location || '').split(/\s*;\s*/).filter(Boolean);
+  if (parts.length <= max) return {text: parts.join('; '), full: ''};
+  return {text: `${parts.slice(0, max).join('; ')} +${parts.length - max}`, full: parts.join('; ')};
 }
 
 // Fit ring colour band.

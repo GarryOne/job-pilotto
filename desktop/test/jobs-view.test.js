@@ -211,3 +211,13 @@ test('a job being prepared stays Preparing through re-renders, until its kit sho
   assert.equal(prepareState({code: 'cd34', kit: true}, tracker), '');  // the reloaded list has the kit: forgotten
   assert.equal(tracker.has('cd34'), false);
 });
+
+test('a posting that lists many places shows the first two and a count, with all of them on hover (2 Oct 2026: one row was 20 lines tall)', async () => {
+  const {shortPlace} = await import('../renderer/jobs-view.js');
+  const many = 'Remote - European Union; Spain; Italy; Germany; Switzerland; Denmark; Norway; Croatia; Ireland; Stockholm; Romania; Austria; Barcelona; Netherlands; Portugal; France; Berlin; Sweden; Hungary; Estonia';
+  assert.deepEqual(shortPlace(many), {text: 'Remote - European Union; Spain +18', full: many.replace(/;\s*/g, '; ')});
+  assert.deepEqual(shortPlace('Zurich; Geneva'), {text: 'Zurich; Geneva', full: ''});   // two or fewer: as written
+  assert.deepEqual(shortPlace('Zurich, Switzerland'), {text: 'Zurich, Switzerland', full: ''});
+  assert.deepEqual(shortPlace(''), {text: '', full: ''});
+  assert.equal(placeAndMode(many, 'Remote').split(' · ')[0], 'Remote - European Union; Spain +18');   // the compact list too
+});
