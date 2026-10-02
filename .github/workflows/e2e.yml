@@ -50,6 +50,15 @@ jobs:
         working-directory: desktop/e2e
         timeout-minutes: 15   # a hung journey stops here, not after the job's limit
         run: node journey.mjs
+      - name: AI review of the screenshots
+        if: always() && env.E2E_ANTHROPIC_KEY != ''
+        working-directory: desktop/e2e
+        timeout-minutes: 10
+        run: node review-ui.mjs
+      - name: The journey's own tests (layout check, review parser)
+        if: always()
+        working-directory: desktop/e2e
+        run: npm test
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v4

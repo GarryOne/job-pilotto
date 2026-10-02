@@ -1,0 +1,34 @@
+{
+ "jobs": [
+  {
+   "id": 2001,
+   "title": "Senior DevOps Engineer",
+   "location": {
+    "name": "Remote - Europe"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2001",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Fully remote within Europe. Run CI/CD, Kubernetes and AWS infrastructure for a fintech product. Terraform, Prometheus, Grafana, on-call rotation. Senior level, English only.</p>"
+  },
+  {
+   "id": 2002,
+   "title": "Product Designer",
+   "location": {
+    "name": "Berlin, Germany"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2002",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Design the web product end to end: research, flows, prototypes in Figma. 4+ years of product design experience.</p>"
+  },
+  {
+   "id": 2003,
+   "title": "Site Reliability Engineering Intern",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2003",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>A six month internship for students learning about reliability engineering. No experience required.</p>"
+  }
+ ]
+}

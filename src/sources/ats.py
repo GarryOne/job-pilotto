@@ -8,18 +8,33 @@ Only documented public endpoints are used; they need no login.
 import functools
 import html
 import json
+import os
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 USER_AGENT = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/job-pilotto)'
 TIMEOUT = 20
 DESCRIPTION_LIMIT = 12000
 
 
+def _fixture(folder, url):
+    """JOB_PILOTTO_FIXTURE_DIR (the end-to-end journey, desktop/e2e): a feed is read from <folder>/routes.json -> file instead of the network,
+    so the test is the same every day. A URL with no route fails like an unreachable feed; nothing leaves the computer."""
+    routes = json.loads((Path(folder) / 'routes.json').read_text())
+    for part, name in routes.items():
+        if part in url:
+            return (Path(folder) / name).read_bytes()
+    raise OSError(f'no fixture for {url}')
+
+
 def _get(url):
+    fixtures = os.getenv('JOB_PILOTTO_FIXTURE_DIR')
+    if fixtures:
+        return _fixture(fixtures, url)
     request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT, 'Accept': 'application/json, text/xml'})
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
         return response.read()

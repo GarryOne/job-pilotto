@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import time
 from urllib.parse import urljoin, urlsplit, urlencode
+import os
 from urllib.request import Request, urlopen
 
 from ..paths import DATA, REPORTS, keyword_regex, load_search_config
@@ -199,6 +200,8 @@ def main():
     from ..features import disabled
     if disabled('discover'):
         print('jobs.ch/TechTree discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # the end-to-end journey (desktop/e2e): only its fixture feeds, no live crawl
+        print('jobs.ch/TechTree discovery is off (fixture feeds only).');return 0
     client=Client(args.refresh);jobs=[];sources=[]
     for query in _SEARCH['jobs_board_search_queries']:
         for page in range(1,args.pages+1):

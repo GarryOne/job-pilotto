@@ -1,0 +1,55 @@
+// AI review of a page screenshot: finds what a person would call a bug or ugly (broken layout, clipped or overlapping text, an error shown to the
+// user, an empty screen where data should be, inconsistent spacing or tone). Pure functions here (build the request, validate the answer);
+// review-ui.mjs makes the call. The answer is checked against a fixed shape so a bad reply can never become a "finding".
+export const KINDS = ['layout', 'text', 'error-shown', 'empty-state', 'consistency', 'functionality'];
+export const SEVERITIES = ['high', 'medium', 'low'];
+export const MODEL = process.env.E2E_REVIEW_MODEL || 'claude-haiku-4-5';
+
+// What each page should show after the journey (a fictional SRE with two matching jobs).
+export const EXPECTED = {
+  focus: 'Up-next actions, an insight area, funnel numbers and a side column. Data may still be loading or empty for a brand-new account.',
+  jobs: 'A list of scored jobs (fit ring, role, company, place, status, actions) with stat tiles and a toolbar. Rows are compact (about 56-100 px).',
+  strategy: 'The strategy: roles, places, languages, profile text and standard answers, editable.',
+  interviews: 'A recorder, drafts and a saved-interviews table (empty for a new account).',
+  calendar: 'Upcoming interviews and events (empty for a new account).',
+  actions: 'Task cards grouped by category with a Run button each, and a Recent runs table.',
+  sessions: 'Application sessions list (empty for a new account).',
+  settings: 'Setting rows: title, a one-line explanation and a control, in sections.',
+};
+
+export const SYSTEM = `You review one screenshot of the Job Pilotto desktop app (a job-search tool) as a careful QA engineer and product designer.
+Report only real problems a user would notice, each with evidence you can SEE in the picture: a row or cell far taller than its neighbours, text
+clipped, overlapping or running out of its box, a raw error or technical text shown to the user, an empty screen where the page should have data,
+misaligned columns, inconsistent spacing or button styles, unreadable contrast, a control that looks broken.
+Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
+Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
+Reply with ONE JSON object and nothing else:
+{"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","suggestion":"<the smallest fix, in plain words>"}]}`;
+
+export function buildRequest({view, pngBase64, rules = '', model = MODEL}) {
+  return {
+    model, max_tokens: 1200, temperature: 0, system: SYSTEM,
+    messages: [{role: 'user', content: [
+      {type: 'image', source: {type: 'base64', media_type: 'image/png', data: pngBase64}},
+      {type: 'text', text: `Page: ${view}\nExpected to show: ${EXPECTED[view] || 'its normal content'}\n\nThe app's design rules (excerpt):\n${rules.slice(0, 3000)}\n\nReview this screenshot.`},
+    ]}],
+  };
+}
+
+// -> [{view, severity, kind, title, detail, suggestion}], dropping anything off the fixed shape; at most 6 per page.
+export function parseFindings(text, view) {
+  let data;
+  try { data = JSON.parse(String(text).slice(String(text).indexOf('{'), String(text).lastIndexOf('}') + 1)); } catch { return []; }
+  return (Array.isArray(data?.findings) ? data.findings : []).filter(item => item && SEVERITIES.includes(item.severity) && KINDS.includes(item.kind)
+      && typeof item.title === 'string' && item.title.trim() && typeof item.detail === 'string' && item.detail.trim())
+    .slice(0, 6).map(item => ({view, severity: item.severity, kind: item.kind, title: item.title.trim().slice(0, 80), detail: item.detail.trim().slice(0, 400),
+      suggestion: typeof item.suggestion === 'string' ? item.suggestion.trim().slice(0, 300) : ''}));
+}
+
+// A stable id for "the same problem again" (the nightly loop opens one PR per problem, not one per night).
+export function fingerprint(finding) {
+  const words = `${finding.view}|${finding.kind}|${finding.title}`.toLowerCase().replace(/[^a-z0-9|]+/g, ' ').trim();
+  let hash = 5381;
+  for (const char of words) hash = ((hash << 5) + hash + char.charCodeAt(0)) >>> 0;
+  return `${finding.view}-${finding.kind}-${hash.toString(36)}`;
+}

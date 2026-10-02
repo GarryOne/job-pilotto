@@ -3,6 +3,11 @@
   "private": true,
   "type": "module",
   "description": "End-to-end journey tests: Playwright drives the real Electron app (see README.md here). Kept out of ../package.json so the shipped app never bundles it.",
-  "scripts": {"spike": "node spike.mjs"},
-  "devDependencies": {"playwright-core": "^1.55.0"}
+  "scripts": {
+    "spike": "node spike.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  }
 }

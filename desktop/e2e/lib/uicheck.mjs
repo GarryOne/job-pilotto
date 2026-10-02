@@ -1,0 +1,48 @@
+/* global document, window, getComputedStyle */
+// Deterministic UI checks, run on every page the journey visits: the layout bugs a person sees at a glance and a unit test never does
+// (2 Oct 2026: one job row was twenty lines tall). Cheap and exact, no AI. Each finding: {view, severity, kind, detail}.
+//   severe  -> fails the journey (the page is visibly broken)
+//   warning -> reported, shown in the summary
+export const VIEWS = ['focus', 'jobs', 'strategy', 'interviews', 'calendar', 'actions', 'sessions', 'settings'];
+export const LIMITS = {rowHeight: 220, cellHeight: 200, minFont: 10};
+
+// Runs inside the page. Returns plain findings (no DOM nodes).
+export function inspect({view, limits}) {
+  const found = [];
+  const visible = el => { const box = el.getBoundingClientRect(); return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden' && el.offsetParent !== null; };
+  const label = el => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
+  const snippet = el => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const root = document.querySelector(`.view[data-view="${view}"]`) || document.body;
+  if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 2) {
+    found.push({view, severity: 'severe', kind: 'page-overflow', detail: `the page scrolls sideways (${document.documentElement.scrollWidth}px wide in a ${document.documentElement.clientWidth}px window)`});
+  }
+  for (const el of root.querySelectorAll('.job-row, tr, li, .card, .place, [class*="cell"]')) {
+    if (!visible(el)) continue;
+    const height = Math.round(el.getBoundingClientRect().height);
+    const isRow = el.matches('.job-row, tr');
+    const limit = isRow ? limits.rowHeight : limits.cellHeight;
+    if (height > limit && !el.matches('.card') && el.children.length < 40) {
+      found.push({view, severity: isRow ? 'severe' : 'warning', kind: isRow ? 'tall-row' : 'tall-cell', detail: `${label(el)} is ${height}px tall (limit ${limit}): "${snippet(el)}"`});
+    }
+  }
+  const clipped = [];
+  for (const el of root.querySelectorAll('h1, h2, h3, b, span, a, button, p, td, label')) {
+    if (!visible(el) || el.children.length > 2) continue;
+    const style = getComputedStyle(el);
+    if (el.scrollWidth > el.clientWidth + 3 && style.overflowX !== 'visible' && style.textOverflow !== 'ellipsis' && el.clientWidth > 0) clipped.push(el);
+  }
+  for (const el of clipped.slice(0, 5)) found.push({view, severity: 'warning', kind: 'clipped-text', detail: `${label(el)} cuts its text off: "${snippet(el)}"`});
+  for (const el of root.querySelectorAll('*')) {
+    if (!visible(el) || !el.childNodes.length || ![...el.childNodes].some(node => node.nodeType === 3 && node.textContent.trim())) continue;
+    if (parseFloat(getComputedStyle(el).fontSize) < limits.minFont) { found.push({view, severity: 'warning', kind: 'tiny-text', detail: `${label(el)} text is under ${limits.minFont}px: "${snippet(el)}"`}); break; }
+  }
+  for (const img of root.querySelectorAll('img')) {
+    if (visible(img) && img.complete && img.naturalWidth === 0) found.push({view, severity: 'severe', kind: 'broken-image', detail: `${label(img)} does not load`});
+  }
+  for (const button of root.querySelectorAll('button, a[href]')) {
+    if (visible(button) && !(button.textContent || '').trim() && !button.getAttribute('aria-label') && !button.title && !button.querySelector('svg, img')) {
+      found.push({view, severity: 'warning', kind: 'unnamed-control', detail: `${label(button)} has no text, label or icon`}); break;
+    }
+  }
+  return found;
+}

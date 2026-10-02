@@ -46,7 +46,8 @@ export function ensureConfig(storage) {
 // Job Pilotto settings exported in the shell the app was started from.
 // On Windows, Python can't open a socket without SystemRoot, and finds the user's folders through the rest.
 const SYSTEM = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'SSL_CERT_FILE',
-  'SystemRoot', 'SYSTEMROOT', 'windir', 'USERPROFILE', 'USERNAME', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'ComSpec', 'PATHEXT'];
+  'SystemRoot', 'SYSTEMROOT', 'windir', 'USERPROFILE', 'USERNAME', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'ComSpec', 'PATHEXT',
+  'JOB_PILOTTO_FIXTURE_DIR'];   // the last one: the end-to-end journey's fixture feeds (desktop/e2e), never set for a user
 
 // Crash reports from the engine: the app sets this (main.js) only for an installed build with Technical reports on; the engine reports
 // unhandled errors to it (src/crash_reporting.py). The install id and version ride along as tags.

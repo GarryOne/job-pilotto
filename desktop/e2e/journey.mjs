@@ -1,12 +1,14 @@
-/* global document */
+/* global document, window */
 // The end-to-end journey: a new user installs Job Pilotto and goes through the setup wizard (AI, Notion, CV, strategy),
 // then runs a jobs check and looks at the scores. Each step prints how long it took; the first failure stops the run,
 // leaves a screenshot in e2e/artifacts and exits non-zero.
 //   node journey.mjs            # needs E2E_ANTHROPIC_KEY and E2E_NOTION_TOKEN for the steps that use them; others are skipped
 // Read README.md for the secrets, the cost and what is faked.
+import fs from 'node:fs';
 import path from 'node:path';
-import {E2E, launch, pickFile, step} from './lib/app.mjs';
+import {ARTIFACTS, E2E, launch, pickFile, step} from './lib/app.mjs';
 import {clearRoot, testRoot} from './lib/notion.mjs';
+import {LIMITS, VIEWS, inspect} from './lib/uicheck.mjs';
 
 const KEY = process.env.E2E_ANTHROPIC_KEY || '', NOTION = process.env.E2E_NOTION_TOKEN || '';
 // A local run may point E2E_CV at a real CV on this Mac (never copied into the repo, which is public); CI uses the fictional one.
@@ -40,7 +42,7 @@ try {
   const root = NOTION ? await testRoot(NOTION) : null;
   if (root) console.log(`Notion test page "${root.title}" in "${root.workspace}": ${await clearRoot(NOTION, root.id)} item(s) moved to the trash`);
   // Every AI step on the cheapest model: the journey checks that things work, not how good the answers are.
-  session = await launch({env: {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5'}});
+  session = await launch({env: {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: path.join(E2E, 'fixtures', 'feeds')}});
   const {page} = session;
 
   await run('the app starts on the welcome screen', async () => {
@@ -91,9 +93,40 @@ try {
     await page.click('#draft-save');
     await expectStep(page, 'extras', 180000);
   }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
-  await run('finishing the setup lands on the Jobs page', async () => {
+  await run('finishing the setup opens the main window', async () => {
     await page.click('#finish');
-    await page.waitForFunction(() => !document.querySelector('.step:not([hidden])') || document.body.dataset.page === 'jobs' || !!document.querySelector('#jobs-stats'), null, {timeout: 60000});
+    await page.waitForFunction(() => !!document.querySelector('.view:not([hidden])'), null, {timeout: 60000});
+    const view = await page.evaluate(() => document.querySelector('.view:not([hidden])')?.dataset.view);
+    if (!['focus', 'jobs'].includes(view)) throw new Error(`after the setup the app shows "${view}"`);
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('a jobs check reads the fixture feeds, drops the wrong roles and scores the matching jobs', async () => {
+    // The employers to crawl: two fixture boards (feeds come from fixtures/feeds, never the network).
+    fs.mkdirSync(path.join(session.profile, 'config'), {recursive: true});
+    fs.copyFileSync(path.join(E2E, 'fixtures', 'feeds', 'sources.json'), path.join(session.profile, 'config', 'sources.json'));
+    await page.click('.nav[data-view="jobs"]');
+    await page.click('#refresh');
+    const scored = () => page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => job.title && job.fit != null && job.fit !== '').map(job => ({title: job.title, fit: Number(job.fit)})));
+    await page.waitForFunction(() => (window.__jp.shared.allJobs || []).some(job => /reliability|devops|platform/i.test(job.title) && job.fit != null && job.fit !== ''),
+      null, {timeout: 480000, polling: 3000});
+    const jobs = await scored();
+    const titles = jobs.map(job => job.title);
+    console.log(`  scored: ${jobs.map(job => `${job.title} (${job.fit})`).join('; ')}`);
+    if (jobs.some(job => !(job.fit >= 0 && job.fit <= 100))) throw new Error('a score is outside 0 to 100');
+    const wrong = titles.filter(title => /account executive|product designer|intern/i.test(title));
+    if (wrong.length) throw new Error(`jobs for the wrong role were kept: ${wrong.join(', ')}`);
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('every page renders without layout problems', async () => {
+    const findings = [];
+    for (const view of VIEWS) {
+      await page.click(`.nav[data-view="${view}"]`);
+      await page.waitForTimeout(1500);
+      await session.shot(`ui-${view}`);
+      findings.push(...await page.evaluate(inspect, {view, limits: LIMITS}));
+    }
+    fs.writeFileSync(path.join(ARTIFACTS, 'ui-findings.json'), JSON.stringify(findings, null, 2));
+    for (const finding of findings) console.log(`  ${finding.severity === 'severe' ? '✗' : '!'} [${finding.view}] ${finding.kind}: ${finding.detail}`);
+    const severe = findings.filter(finding => finding.severity === 'severe');
+    if (severe.length) throw new Error(`${severe.length} severe layout problem(s): ${severe.map(f => `${f.view}/${f.kind}`).join(', ')}`);
   }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
 } finally {
   await session?.shot('last');

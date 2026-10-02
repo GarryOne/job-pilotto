@@ -15,6 +15,8 @@ export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts'
 export async function launch({env = {}, executablePath, args} = {}) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));
   fs.mkdirSync(ARTIFACTS, {recursive: true});
+  // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
+  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
   const app = await electron.launch({
     executablePath: executablePath || path.join(DESKTOP, 'node_modules', '.bin', 'electron'),
     args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
@@ -39,7 +41,9 @@ export const pickFile = (app, file) => app.evaluate(({dialog}, filePath) => {
 // The app has its own quit handling (it asks before closing while sessions run), so app.close() can wait forever. Exit it directly,
 // and kill the process if even that does not return.
 async function closeApp(app) {
-  const child = app.process();
-  await Promise.race([app.evaluate(({app: electron}) => electron.exit(0)).catch(() => {}), new Promise(resolve => setTimeout(resolve, 5000))]);
-  if (child.exitCode === null) child.kill('SIGKILL');
+  try {
+    const child = app.process();
+    await Promise.race([app.evaluate(({app: electron}) => electron.exit(0)).catch(() => {}), new Promise(resolve => setTimeout(resolve, 5000))]);
+    if (child.exitCode === null) child.kill('SIGKILL');
+  } catch { /* the app is already gone */ }
 }

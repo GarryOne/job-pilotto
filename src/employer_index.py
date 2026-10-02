@@ -79,6 +79,8 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
     """The downloaded index (list of feeds), from the cache when it is under a day old. Never raises."""
     global problem
     problem = ''
+    if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # the end-to-end journey: only its own fixture feeds, nothing downloaded
+        return []
     retry_wait = RETRY_WAIT if retry_wait is None else retry_wait
     cache = cache or CACHE
     url = url or os.getenv('JOB_PILOTTO_INDEX_URL') or URL
