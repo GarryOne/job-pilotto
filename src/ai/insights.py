@@ -30,7 +30,7 @@ from .. import digest, store
 from ..notion import client as notion
 from ..notion import funnel
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
-from . import cost, enrich, interviews, score
+from . import cost, engine, enrich, interviews, score
 from . import learning
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5')
@@ -270,7 +270,7 @@ def generate(client, model, profile, stats):
         model=model, max_tokens=MAX_TOKENS,
         system=[{'type': 'text', 'text': SYSTEM.format(min_group=MIN_GROUP) + profile}],
         messages=[{'role': 'user', 'content': 'Statistics as of today (JSON):\n' + json.dumps(stats, ensure_ascii=False)}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
+        output_config=engine.structured(SCHEMA, model),
     )
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')
@@ -377,13 +377,12 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
             'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now),
             'learning': learning.evidence(tracker, now)}
     if client is None:
-        from . import engine
         client = engine.client(action='insight')
     response = client.messages.create(
         model=model, max_tokens=MAX_TOKENS,
         system=[{'type': 'text', 'text': WEEKLY_SYSTEM.format(min_group=MIN_GROUP) + profile}],
         messages=[{'role': 'user', 'content': 'Statistics as of today (JSON):\n' + json.dumps(data, ensure_ascii=False)}],
-        output_config={'format': {'type': 'json_schema', 'schema': WEEKLY_SCHEMA}, 'effort': 'medium'},
+        output_config=engine.structured(WEEKLY_SCHEMA, model),
     )
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')

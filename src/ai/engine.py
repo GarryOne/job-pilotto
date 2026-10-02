@@ -84,6 +84,14 @@ def client(env=None, action=''):
     return _api(action) if action else _api()
 
 
+def structured(schema, model, effort='medium'):
+    """The `output_config` of a schema-constrained call: the JSON schema, and the effort setting for the models that have one (Haiku 4.5 rejects it with a 400)."""
+    config = {'format': {'type': 'json_schema', 'schema': schema}}
+    if not model.startswith('claude-haiku'):
+        config['effort'] = effort
+    return config
+
+
 def label(usage_or_stats):
     """How a call or a stage was paid for, in words."""
     billing = getattr(usage_or_stats, 'billing', None) if not isinstance(usage_or_stats, dict) else (

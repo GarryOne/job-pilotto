@@ -278,5 +278,31 @@ class MessageTests(unittest.TestCase):
         self.assertIn('2 jobs', insights.message({**self.INSIGHT, 'basis': 'Jobs', 'sample_size': 2}))
 
 
+class EffortTests(unittest.TestCase):
+    """Haiku 4.5 rejects the `effort` setting (400 "This model does not support the effort parameter"): the end-to-end journey runs every step on it."""
+
+    def sent(self, call, model):
+        seen = {}
+        class Client:
+            class messages:
+                @staticmethod
+                def create(**kwargs):
+                    seen.update(kwargs)
+                    return SimpleNamespace(stop_reason='end_turn', usage=None, content=[SimpleNamespace(type='text', text='{}')])
+        call(Client, model)
+        return seen['output_config']
+
+    def test_no_effort_for_haiku_and_medium_for_the_rest(self):
+        call = lambda client, model: insights.generate(client, model, PROFILE, {})
+        self.assertNotIn('effort', self.sent(call, 'claude-haiku-4-5'))
+        self.assertEqual(self.sent(call, 'claude-sonnet-5')['effort'], 'medium')
+        self.assertEqual(self.sent(call, 'claude-haiku-4-5')['format']['type'], 'json_schema')
+
+    def test_the_shared_helper_the_weekly_report_uses(self):
+        from src.ai import engine
+        self.assertEqual(engine.structured({'a': 1}, 'claude-haiku-4-5'), {'format': {'type': 'json_schema', 'schema': {'a': 1}}})
+        self.assertEqual(engine.structured({'a': 1}, 'claude-opus-5-5'), {'format': {'type': 'json_schema', 'schema': {'a': 1}}, 'effort': 'medium'})
+
+
 if __name__ == '__main__':
     unittest.main()
