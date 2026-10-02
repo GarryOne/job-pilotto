@@ -17,6 +17,9 @@ export const name = 'employers';
 // The scout judges feeds for this person whatever the test workspace's search settings hold (src/paths.py: JOB_PILOTTO_LOCATIONS_FILE).
 export const env = {JOB_PILOTTO_LOCATIONS_FILE: path.join(E2E, 'fixtures', 'feeds', 'employers', 'person.json')};
 const PERSON = 'A fictional senior site reliability / platform engineer in Zurich, Switzerland (Kubernetes, AWS, Terraform), looking for SRE, platform and DevOps roles in Zurich or elsewhere in Switzerland.';
+// "quality" is the scout's 0-100 score of a whole feed (relevance, freshness, location, stack): a feed with older postings or a few off-target roles scores in the 30s-50s and is
+// still a sensible employer to follow. The judge must not read a middling score as a contradiction with "stack overlap" or "in preferred places", which describe single postings.
+const QUALITY_NOTE = 'Note: "quality" is a 0-100 score of the whole job feed, also lowered by stale postings or a few unrelated roles, so a middling score next to a good stack or place match is normal; judge only whether following this employer suits the person.';
 const ROOT = path.resolve(E2E, '..', '..');
 
 const find = dir => {
@@ -194,7 +197,7 @@ export async function run(ctx) {
     const added = state.rows.filter(row => row.Active === true);
     const items = added.map(row => ({name: row.Company, board: row.ATS, quality: row.Quality, cities: row.Cities, why: row.Notes, relevantRoles: row['Relevant roles'], inPreferredPlaces: row['In preferred places']}));
     if (items.length !== 2) throw new Error(`expected two added employers to judge, found ${items.length}`);
-    const verdicts = await judge({key: ctx.key, person: PERSON, items});
+    const verdicts = await judge({key: ctx.key, person: `${PERSON} ${QUALITY_NOTE}`, items});
     console.log(`  judge: ${verdicts.map(item => `${item.name}: ${item.makes_sense ? 'yes' : 'NO'} (${item.reason})`).join(' | ')}`);
     const problems = judgeProblems(items.map(item => item.name), verdicts);
     if (problems.length) throw new Error(problems.join('; '));
