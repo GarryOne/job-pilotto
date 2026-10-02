@@ -46,3 +46,23 @@ class DiscoveryTest(unittest.TestCase):
         with mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': '/nowhere'}), mock.patch.object(boards, 'urlopen', side_effect=AssertionError('went online')), \
                 mock.patch('sys.argv', ['discover']):
             self.assertEqual(boards.main(), 0)
+
+
+class ScoutTest(unittest.TestCase):
+    def test_the_scout_uses_only_its_seeds_and_the_fixture_feeds_in_fixture_mode(self):
+        import sqlite3
+        from src import scout
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        root = Path(folder.name)
+        (root / 'routes.json').write_text(json.dumps({'/boards/e2e-gamma/jobs': 'gamma.json'}))
+        (root / 'gamma.json').write_text(json.dumps({'jobs': [
+            {'id': 1, 'title': 'Senior Site Reliability Engineer', 'location': {'name': 'Zurich, Switzerland'}, 'absolute_url': 'https://boards.example.test/g/1', 'content': '<p>x</p>', 'updated_at': '2026-10-01'}]}))
+        seeds = {'excluded': [], 'tier1_known': [{'name': 'E2E Gamma', 'ats': 'greenhouse', 'slug': 'e2e-gamma'}], 'tier1': [], 'manual_watch': [], 'regional': {}, 'boards': []}
+        db = sqlite3.connect(':memory:')
+        db.row_factory = sqlite3.Row
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_FIXTURE_DIR': folder.name}), mock.patch('urllib.request.urlopen') as online:
+            summary, results = scout.run(db, batch=5, seeds=seeds)
+        online.assert_not_called()   # no Hacker News, no whiteboards: the scout swallows a failed source, so only "never tried" proves it
+        self.assertEqual([(candidate['name'], outcome['status']) for candidate, outcome in results], [('E2E Gamma', 'found')])
+        self.assertEqual(summary['harvested'], 1)

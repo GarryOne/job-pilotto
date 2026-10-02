@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {ARTIFACTS, E2E, assertNothingQueued, launch, pickFile, settle, step} from './lib/app.mjs';
-import {clearRoot, testRoot} from './lib/notion.mjs';
+import {clearRoot, findPage, testRoot} from './lib/notion.mjs';
 import {LIMITS, VIEWS, inspect} from './lib/uicheck.mjs';
 
 const KEY = process.env.E2E_ANTHROPIC_KEY || '', NOTION = process.env.E2E_NOTION_TOKEN || '';
@@ -114,6 +114,18 @@ try {
     if (jobs.some(job => !(job.fit >= 0 && job.fit <= 100))) throw new Error('a score is outside 0 to 100');
     const wrong = titles.filter(title => /account executive|product designer|intern/i.test(title));
     if (wrong.length) throw new Error(`jobs for the wrong role were kept: ${wrong.join(', ')}`);
+  }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('Find new employers probes the seed company and lists it in Notion', async () => {
+    fs.copyFileSync(path.join(E2E, 'fixtures', 'feeds', 'scout_seeds.json'), path.join(session.profile, 'config', 'scout_seeds.json'));
+    await page.click('.nav[data-view="actions"]');
+    await page.click('[data-command="scout"]');
+    const started = Date.now();
+    let listed = null;
+    while (!listed && Date.now() - started < 240000) {
+      listed = await findPage(NOTION, 'E2E Gamma').catch(() => null);
+      if (!listed) await page.waitForTimeout(4000);
+    }
+    if (!listed) throw new Error('"E2E Gamma" was not listed in Notion (Employers & Sources) within 4 minutes');
   }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
   await run('every page renders without layout problems', async () => {
     const findings = [];

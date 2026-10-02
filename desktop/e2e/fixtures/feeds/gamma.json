@@ -1,0 +1,34 @@
+{
+ "jobs": [
+  {
+   "id": 3001,
+   "title": "Senior Site Reliability Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3001",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Operate Kubernetes on AWS for a Zurich scale-up: SLOs, incident response, Terraform, Datadog. Senior role, hybrid in Zurich.</p>"
+  },
+  {
+   "id": 3002,
+   "title": "Staff Platform Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3002",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Lead the internal platform: EKS, GitOps, CI/CD and developer tooling. Staff level, hybrid in Zurich, English working language.</p>"
+  },
+  {
+   "id": 3003,
+   "title": "Senior DevOps Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3003",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Run CI/CD and cloud infrastructure with Terraform and Python. Senior, Zurich.</p>"
+  }
+ ]
+}

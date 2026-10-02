@@ -50,3 +50,9 @@ export async function clearRoot(token, id) {
   }
   return count;
 }
+
+// A page of the test workspace by its title (what a feature wrote into Notion), or null. Read-only.
+export async function findPage(token, title) {
+  const found = await call(token, 'POST', 'search', {query: title, filter: {property: 'object', value: 'page'}, page_size: 20});
+  return found.results.find(page => !page.archived && titleOf(page).trim() === title) || null;
+}

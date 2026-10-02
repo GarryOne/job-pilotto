@@ -5,6 +5,11 @@ You have about 40 turns: be quick and direct. Do NOT read all of CLAUDE.md or th
 .claude/skills/ui-look-and-feel/SKILL.md. Start from the page named in the finding (the page's code is desktop/renderer/pages/<view>.js, its helpers are desktop/renderer/<view>-view.js or jobs-view.js),
 grep for the symptom (the text or class in the detail), and open only the files you need.
 
+How pages are tested here: there is no browser or DOM in the unit tests. Test a fix either through an exported pure helper in desktop/renderer/*-view.js (best), or, when the
+bug is in how a page wires things, with a source-level check that reads the page file (see desktop/test/jobs-place-column.test.js for the shape). Do not look for a DOM test harness: there is none.
+
+WRITE .heal/pr-body.md AS SOON AS YOU KNOW THE ROOT CAUSE (first line the title, then root cause with file:line) and refine it at the end. If you run out of turns, the pull request still needs it.
+
 Rules (a script checks them afterwards and refuses the change if you break one):
 1. Read CLAUDE.md, then .claude/skills/ui-look-and-feel/SKILL.md. Use only var(--…) tokens and the shared components; desktop/test/design.test.js fails on raw colours, sizes or fonts.
 2. Find the ROOT CAUSE in the code that renders the problem; do not paper over it. Name it (file:line) in the pull request text.

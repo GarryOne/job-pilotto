@@ -168,9 +168,10 @@ def harvest(db, seeds, sources=None):
     extra = [name for name in os.getenv('JOB_PILOTTO_EXCLUDED_COMPANIES', '').split(',') if name.strip()]
     excluded = {key_for(name.strip()) for name in seeds.get('excluded', []) + extra}
     known = {row['key'] for row in db.execute('SELECT key FROM scout_candidates')}
-    sources = sources if sources is not None else [
-        lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates,
-        lambda: local_company_candidates(db)]
+    if sources is None:
+        # JOB_PILOTTO_FIXTURE_DIR (the end-to-end journey, desktop/e2e): the seeds only, no Hacker News or whiteboard crawl.
+        sources = [lambda: seed_candidates(seeds)] if os.getenv('JOB_PILOTTO_FIXTURE_DIR') else [
+            lambda: seed_candidates(seeds), hacker_news_candidates, whiteboards_candidates, lambda: local_company_candidates(db)]
     added = 0
     for source in sources:
         try:
