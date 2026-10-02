@@ -97,7 +97,7 @@ export async function run(ctx) {
       const prefs = JSON.parse(fs.readFileSync(path.join(config, 'preferences.json'), 'utf8'));
       if (JSON.stringify(search.locations) !== JSON.stringify(profile.places)) throw new Error(`the places were not kept: ${JSON.stringify(search.locations)}`);
       if (JSON.stringify(prefs.work_rights) !== JSON.stringify(profile.work_rights)) throw new Error(`citizenship / work rights were not kept: ${JSON.stringify(prefs.work_rights)}`);
-      const settingsPage = await pageText(NOTION, '⚙️ Search settings');
+      const settingsPage = await pageText(NOTION, 'Search settings');
       if (!/Where you can work without a visa/i.test(settingsPage)) throw new Error('⚙️ Search settings in Notion has no "Where you can work without a visa" section');
       if (!new RegExp(profile.work_rights[0], 'i').test(settingsPage.split(/Where you can work without a visa/i)[1] || '')) throw new Error(`Notion's work-rights section does not list ${profile.work_rights[0]}`);
     }, {needs: ctx.needs});
@@ -152,7 +152,7 @@ export async function run(ctx) {
       }
       read.ui = texts.join('\n');
       read.notion = [await databaseText(NOTION, 'Job Matches — AI Scored'), await databaseText(NOTION, 'Job Tracker'), await databaseText(NOTION, 'Employers & Sources'),
-        await databaseText(NOTION, 'Cronjob Runs'), await pageText(NOTION, '⚙️ Search settings'), await pageText(NOTION, 'Profile — CV and Preferences')].join('\n');
+        await databaseText(NOTION, 'Cronjob Runs'), await pageText(NOTION, 'Search settings'), await pageText(NOTION, 'Profile — CV and Preferences')].join('\n');
       const config = ['search.json', 'preferences.json'].map(file => fs.readFileSync(path.join(ctx.profile, 'config', file), 'utf8')).join('\n');
       const hits = [];
       for (const [where, text] of Object.entries({'the window': read.ui, 'the digest': read.digest, 'Notion': read.notion, 'the cached settings': config})) {
