@@ -208,6 +208,6 @@ test('Machines table: the version each install runs now, and the versions it has
   const ev = (version, at) => ({kind: 'health', install: 'install-aaaa', version, platform: 'darwin', at});
   await send(e, [ev('0.4.0', '2026-09-28T08:00:00Z'), ev('0.4.2', '2026-09-30T08:00:00Z'), ev('0.4.1', '2026-09-29T08:00:00Z')]);
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
-  assert.match(html, /<td><b>0\.4\.2<\/b><\/td>/);
-  assert.match(html, /<span class="v">0\.4\.0<\/span><span class="v">0\.4\.1<\/span><span class="v now">0\.4\.2<\/span>/);
+  assert.match(html, /<span class="v now">0\.4\.2<\/span>/);
+  assert.match(html, /<span class="v">0\.4\.0<\/span><span class="v">0\.4\.1<\/span><\/td>/);   // earlier versions only; the current one is the amber chip
 });
