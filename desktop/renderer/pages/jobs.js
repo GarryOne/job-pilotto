@@ -17,6 +17,7 @@ import {outcomeChoices} from '../outcome-tap.js';
 import {hostStats, scoreBucket, snapshot} from '../intel.js';
 let benchmarkText = {};   // url -> the board's typical reply line (lib/benchmarks.js), refreshed with the jobs list
 import {askWhy} from './dismiss-reason.js';
+import {searchSelect} from '../search-select.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
@@ -844,6 +845,7 @@ export function showJobsIn(label, urls, from = '') {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  searchSelect($('lead-target'));
   try { $('jobs-talking').open = localStorage.getItem(TALKING_OPEN) !== '0'; } catch {}
   $('jobs-talking').addEventListener('toggle', event => { try { localStorage.setItem(TALKING_OPEN, event.target.open ? '1' : '0'); } catch {} });
   $('jobs-stuck-show').addEventListener('click', () => {

@@ -6,6 +6,7 @@ import {$, message} from './core.js';
 import {loadFocus} from './focus.js';
 import {loadJobs} from './jobs.js';
 import {toastMessage} from './startup.js';
+import {searchSelect} from '../search-select.js';
 
 const option = (value, text) => Object.assign(document.createElement('option'), {value, textContent: text});
 const labelOf = job => `${job.company || job.via || '—'} · ${job.title}${job.stage ? ` (${job.stage})` : ''}`;
@@ -46,6 +47,7 @@ export function whichJob(item) {
 }
 
 export async function init() {
+  searchSelect($('reassign-target'));
   $('reassign-save').addEventListener('click', async event => {
     event.preventDefault();
     if (!pending) return;

@@ -2,6 +2,7 @@
 import * as pendingReviews from '../review-pending.js';
 import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill, tile} from '../components.js';
+import {searchSelect} from '../search-select.js';
 import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
 import * as practice from '../practice-session.js';
@@ -690,6 +691,7 @@ async function startRecording(micOnly) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  searchSelect($('iv-job'));
   const remind = await iv.remindGet().catch(() => ({on: true}));
   $('iv-remind').checked = remind.on;
   $('iv-remind').addEventListener('change', event => iv.remindSet(event.target.checked));
