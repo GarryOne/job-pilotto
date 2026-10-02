@@ -1,6 +1,6 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
-import {groupWarnings, humanError, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
+import {AI_BUSY, groupWarnings, humanError, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
 import {runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -92,6 +92,9 @@ function warningSummary(warnings) {
   if (warnings.some(text => /usage limits?|credit balance|AI limit reached|spending limit/i.test(text))) {
     return 'Your Anthropic API spending limit was reached, so this step couldn\'t finish. '
       + 'Raise the limit at console.anthropic.com → Settings → Limits; the next check runs it again.';
+  }
+  if (warnings.some(text => AI_BUSY.test(text))) {
+    return 'The AI service is busy (rate limit), so some jobs may not be scored yet. Try again in a few minutes.';
   }
   if (warnings.some(text => /429|Too Many Requests/i.test(text))) {
     return 'Notion was busy (rate limit): saved settings were used and some Notion steps were skipped. They run again next time.';
