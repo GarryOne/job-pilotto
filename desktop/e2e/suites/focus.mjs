@@ -37,10 +37,17 @@ export async function run(ctx) {
   });
   const readNotion = async () => { rows = await queryAll(NOTION, ids.tracker); events = await queryAll(NOTION, ids.events); };
   // The helper every count goes through: what Focus shows against what Notion says (an independent oracle, lib/focus-data.mjs).
+  // Notion's query API is eventually consistent: a read a moment after a write can miss it, and the engine and this oracle read at different moments.
+  // So a difference is checked again (Notion re-read, Focus refreshed) for up to ~30 s; a real bug does not go away, and the log says how long agreement took.
   const numbersMatchSource = async label => {
-    await readNotion();
-    const diffs = compareNumbers(await shownNumbers(), expectedNumbers(rows, events, {now, target}));
-    if (diffs.length) throw new Error(`${label}: ${diffs.join('; ')}`);
+    let diffs = [];
+    for (let attempt = 0; attempt < 7; attempt++) {
+      if (attempt) { await page.waitForTimeout(5000); if (attempt % 2 === 0) await refresh(); }
+      await readNotion();
+      diffs = compareNumbers(await shownNumbers(), expectedNumbers(rows, events, {now, target}));
+      if (!diffs.length) { if (attempt) console.log(`  ${label}: Notion and Focus agreed after ${attempt} re-read(s)`); return; }
+    }
+    throw new Error(`${label}: ${diffs.join('; ')} (Notion has ${rows.length} application(s) and ${events.length} event(s); still different after 30 s)`);
   };
   // The events of one kind on one application (found by who it is for), for up to 30 s: Notion shows a write a moment after it returns.
   const eventsOf = async (kind, who) => {
