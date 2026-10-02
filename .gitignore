@@ -3,7 +3,7 @@ data/
 reports/
 .env
 *.sqlite
-.venv/
+.venv
 *.pdf
 .DS_Store
 .wrangler/
