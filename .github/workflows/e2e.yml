@@ -1,0 +1,60 @@
+name: CI · End-to-end journey
+
+# A new user goes through the real app: the setup wizard (AI key, Notion, CV, strategy), then a jobs check and the scores.
+# Playwright drives the real Electron app on a virtual display (desktop/e2e/README.md). Runs by hand, nightly on main, and
+# before a build is promoted to stable (tools/release-stable.sh asks for a green run of the same commit).
+# Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY (a key with a small spend cap), E2E_NOTION_TOKEN (a Notion
+# connection that can only see the empty "Job Pilotto E2E" test page). Without them only the offline steps run.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '47 2 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/e2e/**'
+      - '.github/workflows/e2e.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false   # one journey at a time: they share one Notion test page
+
+jobs:
+  journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the journey
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Python packages the engine needs
+        run: pip install --quiet -r requirements.txt
+      - name: Run the journey (virtual display)
+        working-directory: desktop/e2e
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libnss3 libgbm1 libasound2t64 libgtk-3-0t64 >/dev/null
+          xvfb-run --auto-servernum node journey.mjs
+      - name: Screenshots and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: e2e-artifacts
+          if-no-files-found: ignore

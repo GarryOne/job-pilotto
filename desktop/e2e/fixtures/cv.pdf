@@ -1,0 +1,56 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1088 >>
+stream
+BT /F1 10 Tf 40 800 Td 14 TL
+(Alex Example) Tj T*
+(Senior Site Reliability Engineer, Zurich, Switzerland) Tj T*
+(alex.example@example.test) Tj T*
+() Tj T*
+(SUMMARY) Tj T*
+(Site reliability engineer with 9 years of experience in cloud infrastructure, Kubernetes, observability) Tj T*
+(and incident response. Prefers distributed systems and platform engineering roles.) Tj T*
+() Tj T*
+(EXPERIENCE) Tj T*
+(Senior SRE, Acme Cloud, Zurich \(2022 - present\)) Tj T*
+(- Ran 400 microservices on Kubernetes \(AWS EKS\); cut incident time by 40 percent with Datadog and OpenTelemetry.) Tj T*
+(- Built the Terraform platform used by 120 engineers; led the on-call rotation of 8 people.) Tj T*
+(Platform Engineer, Beta Systems, Berlin \(2018 - 2022\)) Tj T*
+(- Migrated 60 services to Kubernetes; introduced SLOs and error budgets.) Tj T*
+() Tj T*
+(SKILLS) Tj T*
+(Kubernetes, Terraform, AWS, Python, Go, Datadog, Prometheus, Grafana, PostgreSQL) Tj T*
+() Tj T*
+(EDUCATION) Tj T*
+(BSc Computer Science, Example University) Tj T*
+() Tj T*
+(LANGUAGES) Tj T*
+(English \(fluent\), German \(B1\)) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001381 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1451
+%%EOF
