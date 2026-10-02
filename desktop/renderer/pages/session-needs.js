@@ -230,10 +230,15 @@ export async function opening(button, work) {
 }
 // Plain "Open in Chrome": one attempt. Chrome comes forward on that job's form tab, or the toast says no tab is it (nothing
 // is left queued that could pull Chrome forward later).
-export async function openForm(item, button) {
+// `reopen`: when no tab is the form, open it again (the way Reopen form does) instead of only saying so. For a form session the extension fills.
+export async function openForm(item, button, {reopen = false} = {}) {
   const result = await opening(button, () => window.pilot.showBrowser(item.url, sessionCompany(item), item.id));
-  if (result?.went === 'none') toastMessage('Form tab not found', 'No open Chrome tab is this job\'s form. Open the form in Chrome yourself, or press Start again.');
-  return result;
+  if (result?.went !== 'none') return result;
+  if (!reopen) { toastMessage('Form tab not found', 'No open Chrome tab is this job\'s form. Open the form in Chrome yourself, or press Start again.'); return result; }
+  const reopened = await opening(button, () => window.pilot.applyOne(item.url));
+  if (reopened?.ok === false) toastMessage('Could not open the form', reopened.error || 'Try again.');
+  else toastMessage('No tab had this form', 'Opened it in a new Chrome tab.');
+  return reopened;
 }
 // Chrome comes forward on the form tab and the page scrolls to the field. When no page picked the request up, say why.
 async function showInForm(item, label, button) {

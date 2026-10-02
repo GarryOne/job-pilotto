@@ -247,9 +247,10 @@ const submittedButton = item => sessionButton('I submitted it', 'secondary', asy
 const answerHint = () => el('p', 'rich-p muted small', 'Press Answer, then type your reply in the log below, or use a quick reply there.');
 export function renderNextStep(item) {
   const submitted = isSubmitted(item);
-  const stuck = !submitted && item.kind === 'form' && !!item.stuck;   // the extension can't reach this form
+  const closed = !submitted && item.kind === 'form' && formGone(item);   // its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach)
+  const stuck = !submitted && item.kind === 'form' && !!item.stuck && !closed;   // the extension can't reach this form
   const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
-  const gone = review && formGone(item);  // the form's Chrome tab was closed
+  const gone = closed || (review && formGone(item));  // the form's Chrome tab was closed
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
@@ -302,7 +303,7 @@ export function renderNextStep(item) {
       await refreshSessions();
       if (result?.session?.id) openSession(result.session.id);
     }, 'bot'));
-    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => { await openForm(item, event.currentTarget); }, 'link'));
+    if (item.url) actions.push(sessionButton('Open in Chrome', 'secondary', async event => { await openForm(item, event.currentTarget, {reopen: true}); }, 'link'));
   }
   const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
   if (gone) {
