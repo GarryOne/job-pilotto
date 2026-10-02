@@ -51,8 +51,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
   adopt(await launch({env}));
   ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close(); await ctx.proxy?.close(); await ctx.forms?.close(); };
-  // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment.
-  ctx.relaunch = async (extra = {}) => { const profile = session.profile; await session.close(); adopt(await launch({env: {...env, ...extra}, profile})); };
+  // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
+  ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close(); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile})); };
   ctx.expectStep = async (name, timeout = 20000) => {
     await ctx.page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout})
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });

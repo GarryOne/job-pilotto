@@ -70,7 +70,7 @@ export function leaks(text, {secrets = [], dirs = []} = {}) {
   if (/sk-ant-[\w-]{8,}/.test(body)) found.push('an Anthropic key');
   if (/\b(?:ntn_|secret_)[A-Za-z0-9]{12,}/.test(body)) found.push('a Notion token');
   if (/\b\d{6,}:[A-Za-z0-9_-]{30,}\b/.test(body)) found.push('a Telegram bot token');
-  const email = body.match(/[\w.+-]+@(?!example\.(?:com|org)\b)[\w-]+\.[\w.-]+/);
+  const email = body.match(/[\w.+-]+@(?!example\.(?:com|org)\b)[\w-]*[A-Za-z][\w-]*\.[A-Za-z]{2,}\b/);   // a domain with letters: "python@3.12" in a Homebrew path is not one
   if (email) found.push(`an email address (${email[0].replace(/^[^@]*/, '…')})`);
   if (/(?:\/Users\/|\/home\/)[^\s/]+\/|[A-Z]:\\Users\\/.test(body)) found.push('a path in a home folder');
   for (const dir of dirs.filter(Boolean)) if (body.includes(dir)) found.push(`a path on this computer (${dir.split(/[\\/]/).slice(0, 3).join('/')}/…)`);

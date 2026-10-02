@@ -21,6 +21,7 @@ test('a log with a key, a token, an email or a home path is flagged; a clean one
   assert.match(leaks('token ntn_abcdefghijkl1234')[0], /Notion token/);
   assert.match(leaks('chat 123456789:AAAbbbCCCdddEEEfffGGGhhhIIIjjjKKK12')[0], /Telegram/);
   assert.match(leaks('mail from igor@gmail.com')[0], /email/);
+  assert.deepEqual(leaks('lib /opt/homebrew/Cellar/python@3.12/3.12.6/lib/python3.12/urllib/request.py'), []);   // a version after an @ is not an address
   assert.match(leaks('wrote /Users/mac/Library/x.json')[0], /home folder/);
   assert.match(leaks('wrote C:\\Users\\igor\\x.json')[0], /home folder/);
   assert.match(leaks('data in /var/folders/zz/jp-e2e-abc/data', {dirs: ['/var/folders/zz/jp-e2e-abc']})[0], /path on this computer/);
