@@ -123,6 +123,7 @@ def main(argv=None):
     parser.add_argument('--sample', type=int, default=60)
     parser.add_argument('--variants', default='haiku,sonnet-low,repeat')
     parser.add_argument('--seed', type=int, default=1)
+    parser.add_argument('--profile-file', help='the Profile text to score against (default: the app\'s local Profile file, else the Notion page)')
     parser.add_argument('--out')
     parser.add_argument('--estimate', action='store_true', help='print the expected cost and stop')
     parser.add_argument('--yes', action='store_true', help='really call the API')
@@ -145,7 +146,15 @@ def main(argv=None):
         print(f'Only {len(rows)} scored job(s) here: too few to compare.')
         return 1
     sample = stratified_sample(rows, args.sample, args.seed)
-    profile = score.scoring_profile(local_profile() or notion.Tracker.from_env().page_text())
+    if args.profile_file:
+        text = Path(args.profile_file).read_text()
+    else:
+        tracker = notion.Tracker.from_env()
+        text = local_profile() or (tracker.page_text() if tracker else '')
+    if not text.strip():
+        print('No Profile text: set NOTION_TOKEN, or pass --profile-file with the Profile page as text.')
+        return 1
+    profile = score.scoring_profile(text)
     client = engine.client()
     report = {'sample': len(sample), 'base_scores': [row['base'] for row in sample], 'variants': {}}
     for name in names:

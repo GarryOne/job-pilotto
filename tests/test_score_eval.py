@@ -105,6 +105,27 @@ class RunTest(unittest.TestCase):
             self.assertEqual([row['bar'] for row in report['cascade']], list(score_eval.BARS))
             self.assertIn('Cascade (cheap pass first', text)
 
+    def test_without_any_profile_it_stops_before_calling_the_api(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from src import store as job_store
+        from src.ai import score as score_module
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / 'jobs.sqlite'
+            with job_store.connect(db_path) as db:
+                job_store.import_watch_report(db, {'jobs': [{'company': 'E', 'id': str(i), 'title': f'SRE {i}', 'location': 'Zurich', 'url': f'https://x.test/{i}', 'description': 'd'} for i in range(14)]})
+                db.executescript(score_module.SCORES_TABLE)
+                for row in db.execute('SELECT id FROM jobs').fetchall():
+                    db.execute("INSERT INTO scores (job_id, scorer_version, input_hash, model, created_at, data_json) VALUES (?, 2, 'h', 'm', 'now', ?)", (row['id'], json.dumps({'score': 50})))
+                db.commit()
+            real_connect = job_store.connect
+            boom = mock.Mock(side_effect=AssertionError('the API must not be called'))
+            with mock.patch('src.ai.engine.client', boom), mock.patch('src.paths.local_profile', return_value=''), mock.patch('src.notion.client.Tracker.from_env', return_value=None), \
+                    mock.patch('src.store.connect', lambda path: real_connect(db_path)):
+                buffer = io.StringIO()
+                with redirect_stdout(buffer):
+                    self.assertEqual(score_eval.main(['--yes', '--sample', '12']), 1)
+            self.assertIn('No Profile text', buffer.getvalue())
+
     def test_nothing_is_called_without_yes(self):
         buffer = io.StringIO()
         with redirect_stdout(buffer):
