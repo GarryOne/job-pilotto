@@ -119,7 +119,7 @@ export async function run(ctx) {
     const card = await page.evaluate(() => ({hidden: document.querySelector('#focus-insight-card').hidden, text: document.querySelector('#focus-insight').innerText,
       button: document.querySelector('#focus-insight button')?.textContent.trim()}));
     if (card.hidden) throw new Error('the Insight card is hidden although a rejection with a lesson was saved today');
-    if (!/Seniority mismatch/.test(card.text) || !/Hard skills/.test(card.text) || !/Gale Robotics/.test(card.text)) throw new Error(`the Insight card does not show the saved lesson: "${card.text}"`);
+    if (!/Seniority mismatch/.test(card.text) || !/Hard skills/i.test(card.text) || !/Gale Robotics/.test(card.text)) throw new Error(`the Insight card does not show the saved lesson: "${card.text}"`);
     if (ERROR_WORDS.test(card.text)) throw new Error(`the Insight card shows error-like text: "${card.text}"`);
     if (card.button !== 'Review rejection') throw new Error(`the Insight button says "${card.button}", expected "Review rejection"`);
   }, {needs: ctx.needs});
