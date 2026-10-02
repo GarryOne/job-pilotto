@@ -117,6 +117,13 @@ test('the pipeline never inherits the developer\'s tokens or .env', () => {
   assert.equal(env.JOB_PILOTTO_NO_DOTENV, '1');
 });
 
+test('the end-to-end journey\'s fixture feeds and its fictional candidate reach the engine; nothing else of the shell does', () => {
+  const env = pipeline.pipelineEnv(tempStorage(), {PATH: '/usr/bin', JOB_PILOTTO_FIXTURE_DIR: '/fx', JOB_PILOTTO_LOCATIONS_FILE: '/fx/person.json', JOB_PILOTTO_EXCLUDED_COMPANIES: 'Acme'});
+  assert.equal(env.JOB_PILOTTO_FIXTURE_DIR, '/fx');
+  assert.equal(env.JOB_PILOTTO_LOCATIONS_FILE, '/fx/person.json');   // dropped before, so the scout judged feeds for the example Amsterdam analyst, not the test candidate
+  assert.equal(env.JOB_PILOTTO_EXCLUDED_COMPANIES, undefined);
+});
+
 test('with Notion connected, the Profile comes from Notion, not the local file', () => {
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_x');
