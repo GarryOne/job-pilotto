@@ -234,16 +234,26 @@ export function writePage(token, pageId, markdown, fetcher, onProgress) {
   run.catch(() => {}).then(() => { if (pageWrites.get(pageId) === run) pageWrites.delete(pageId); });
   return run;
 }
-const listBlocks = async (token, pageId, fetcher) => {
-  const found = [];
-  let cursor;
-  do {
-    const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
-    found.push(...page.results);
-    cursor = page.has_more ? page.next_cursor : null;
-  } while (cursor);
-  return found;
-};
+// Every child block of a page or block. Notion's cursor is the id of a block: if another writer archives that block between two reads, the cursor dies ("The start_cursor
+// provided is invalid", 2 Oct 2026, strategy e2e: a whole save failed). The listing then starts again from the top, a few times, instead of failing its caller.
+const staleCursor = error => /start_cursor/i.test(error.message || '') && /invalid/i.test(error.message || '');
+async function listChildren(token, id, fetcher) {
+  for (let attempt = 0; ; attempt++) {
+    const found = [];
+    let cursor;
+    try {
+      do {
+        const page = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+        found.push(...page.results);
+        cursor = page.has_more ? page.next_cursor : null;
+      } while (cursor);
+      return found;
+    } catch (error) {
+      if (!staleCursor(error) || attempt >= 3) throw error;
+    }
+  }
+}
+const listBlocks = (token, pageId, fetcher) => listChildren(token, pageId, fetcher);
 // Notion answers "Can't edit block that is archived" to a DELETE of a block that is still on the page (seen 2 Oct 2026: two thirds of a page's
 // blocks, the rest deleted fine), so an old copy survived and the new one was appended beside it: every Search settings section twice, and the
 // two copies merged into one setting list. So a delete is never trusted: the page is read again, and what is still there is deleted again
@@ -300,13 +310,7 @@ async function writePageNow(token, pageId, markdown, fetcher, onProgress = () =>
 async function sweepLeftovers(token, pageId, added, fetcher) {
   if (!added.size) return;
   for (let round = 0; round < 4; round++) {
-    const stale = [];
-    let cursor;
-    do {
-      const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
-      stale.push(...page.results.filter(block => !added.has(block.id)));
-      cursor = page.has_more ? page.next_cursor : null;
-    } while (cursor);
+    const stale = (await listChildren(token, pageId, fetcher)).filter(block => !added.has(block.id));
     if (!stale.length) return;
     for (const block of stale) {
       try { await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher); }
@@ -460,16 +464,7 @@ const TEXT_TYPES = new Set(['paragraph', 'heading_1', 'heading_2', 'heading_3', 
   'to_do', 'toggle', 'quote', 'callout', 'code']);
 const plainRich = items => (items || []).map(item => ({type: 'text', text: {content: item.plain_text || '', ...(item.href ? {link: {url: item.href}} : {})},
   annotations: item.annotations}));
-async function childrenOf(token, id, fetcher) {
-  const found = [];
-  let cursor;
-  do {
-    const page = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
-    found.push(...page.results);
-    cursor = page.has_more ? page.next_cursor : null;
-  } while (cursor);
-  return found;
-}
+const childrenOf = (token, id, fetcher) => listChildren(token, id, fetcher);
 // A block the page's list still shows although it is gone (2 Oct 2026: a table of the Profile, 404 "Could not find block"): skipped, never fatal.
 const isGone = error => error.status === 404 || /could not find block|archived/i.test(error.message);
 // A page's blocks as blocks that can be created elsewhere (text, lists, tables, dividers; nested ones included).

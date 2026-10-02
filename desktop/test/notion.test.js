@@ -144,6 +144,30 @@ test('a block Notion refuses to delete is deleted again, and nothing is appended
   assert.deepEqual(appended, [[]]);
 });
 
+// 2 Oct 2026 (strategy e2e): "The start_cursor provided is invalid" while a page's blocks were listed. Notion's cursor is the id of a block; if that block is
+// archived by another writer between two reads, the cursor dies and the whole save failed ("Couldn't write to Notion"). The listing starts again from the top.
+test('a page listing whose cursor goes stale is read again from the start, not failed', async () => {
+  const notion = await import('../lib/notion.js');
+  notion.rewriteTuning.waitMs = 0;
+  let staleOnce = true, blocks = ['a', 'b', 'c'];
+  const appended = [];
+  const fetcher = async (url, {method}) => {
+    const reply = (status, body) => ({ok: status < 300, status, json: async () => body});
+    if (method === 'GET') {
+      if (url.includes('start_cursor=')) {
+        if (staleOnce) { staleOnce = false; return reply(400, {code: 'validation_error', message: 'The start_cursor provided is invalid: cur1'}); }
+        return reply(200, {results: blocks.slice(1).map(id => ({id})), has_more: false});
+      }
+      return reply(200, staleOnce ? {results: [{id: 'a'}], has_more: true, next_cursor: 'cur1'} : {results: blocks.map(id => ({id})), has_more: false});
+    }
+    if (method === 'DELETE') { blocks = blocks.filter(id => !url.endsWith(`/${id}`)); return reply(200, {}); }
+    appended.push([...blocks]);
+    return reply(200, {});
+  };
+  await notion.writePage('ntn_x', 'page', '# Title\n- one', fetcher);
+  assert.deepEqual(appended, [[]], 'every old block was deleted before the new content went in');
+});
+
 test('a page that keeps its old blocks is not written to, and the failure says so', async () => {
   const notion = await import('../lib/notion.js');
   notion.rewriteTuning.waitMs = 0;
