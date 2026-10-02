@@ -59,6 +59,9 @@ RECRUITER_DOMAINS = ('huxley.com', 'hays.com', 'hays.ch', 'hays.de', 'michaelpag
                      'progressive.com', 'oliverjames.com', 'harnham.com', 'wearehirehive.com', 'kforce.com', 'kellyservices.ch')
 # Emailed calendar invitations carry an invite.ics: an interview booked by someone the check doesn't know yet.
 INVITES = 'filename:invite.ics'
+# Google's own wrappers around an invitation (an unknown sender's booking, the notification once it is accepted): the
+# attachment's file name is not a safe thing to rely on alone (2 Oct 2026: a Calendly booking was never found).
+INVITE_MAILS = ('from:calendar-notification@google.com', 'subject:"Invitation from an unknown sender"', 'filename:ics')
 # Short forms of the user's role words, as recruiters write them in subjects.
 ROLE_SHORT = {'site reliability': 'SRE', 'devops': 'DevOps', 'platform engineer': 'Platform', 'kubernetes': 'Kubernetes'}
 SUBJECT_WORDS = ('application', 'applying', 'applied', 'interview', 'candidacy', 'your candidature', 'next steps',
@@ -187,7 +190,7 @@ def query(apps, days):
 def extra_query(days):
     """A second, short search (a single long one risks Gmail's query limit): recruitment agencies and emailed
     calendar invitations, which the first search misses when nothing about them is tracked yet."""
-    terms = [f'from:{d}' for d in RECRUITER_DOMAINS] + [INVITES]
+    terms = [f'from:{d}' for d in RECRUITER_DOMAINS] + [INVITES, *INVITE_MAILS]
     return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
 
 
@@ -561,7 +564,13 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             same = [r for r in apps if _names_person(r, f"{email['from']} {email['subject']} {email['body'][:4000]}")]
             if len(same) == 1:
                 row = same[0]
-        if not row and result.get('kind') == 'Interview scheduled' and not _about_tracked(
+        if not row and guess is None and result.get('kind') == 'Interview scheduled':
+            # A booking naming no tracked job, while exactly one recruiter lead has no employer yet: not a new job,
+            # and not certain either; Focus asks "Is this about …?" with that lead suggested (never a silent guess).
+            unnamed = _unnamed_leads(apps)
+            if len(unnamed) == 1:
+                guess = unnamed[0]
+        if not row and guess is None and result.get('kind') == 'Interview scheduled' and not _about_tracked(
                 apps, f"{result['company']} {email['from']} {email['subject']} {email['body'][:1500]}"):
             # An interview for a job not tracked yet (often via an agency, the employer unnamed): track it from the
             # email and let Focus ask for the missing details, rather than drop it or name the job after the agency.
@@ -910,6 +919,13 @@ def _by_mention(apps, text):
     """The single application this text names (company, platform or contact), or None."""
     found = [row for row in apps if _matches(row, text)]
     return found[0] if len(found) == 1 else None
+
+
+def _unnamed_leads(apps):
+    """Open recruiter leads whose employer nobody named (no Company, no Via): a booking from a stranger's address
+    ("Blockdaemon DM" on a Gmail account) is likely about one of them, but nothing in the email says which."""
+    return [row for row in apps if not _field(row, 'Company').strip() and not _field(row, 'Via').strip()
+            and _field(row, 'Contact').strip() and _field(row, 'Stage') in (opportunity.LEAD_STAGE, 'Screening')]
 
 
 def _about_tracked(apps, text):
