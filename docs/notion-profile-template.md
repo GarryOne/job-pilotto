@@ -110,7 +110,6 @@ this page — see "Where the CV file and contact details live" below.
 | LinkedIn | ❓ |
 | GitHub | ❓ |
 | Website / portfolio | ❓ |
-| CV file | ❓ filename only — the actual path is set via `JOB_PILOTTO_CV_PATH` in `.env`, never written here |
 
 # Common questions
 

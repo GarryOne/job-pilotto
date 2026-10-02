@@ -60,9 +60,9 @@ const hintOf = answer => answer.replace(/^❓\s*/, '').replace(/^(to confirm|opt
 export async function list(storage, fetcher) {
   const target = notionPage(storage);
   const blocks = await notion.textBlocks(target.token, target.page, fetcher);
-  const lines = blocks.filter(block => block.text.includes('❓') && isQuestionLine(block.text)).map(parseLine).filter(q => q.question);
+  const lines = blocks.filter(block => block.text.includes('❓') && isQuestionLine(block.text)).map(parseLine).filter(q => q.question && !isFileQuestion(q.question));
   const rows = (await openRows(target.token, target.page, fetcher)).map(({row, cells}) =>
-    ({key: row.id, question: unmarked(cells[0].replace(/❓/g, '')), company: '', hint: hintOf(cells[1])}));
+    ({key: row.id, question: unmarked(cells[0].replace(/❓/g, '')), company: '', hint: hintOf(cells[1])})).filter(q => !isFileQuestion(q.question));
   return [...lines, ...rows];
 }
 
@@ -72,10 +72,14 @@ export async function list(storage, fetcher) {
 // "Last Name: ❓" and "Email: ❓" to the answers page.
 export const CONTACT = /first\s*name|given\s*name|vorname|prénom|last\s*name|family\s*name|surname|nachname|nom de famille|^\s*(full\s*)?name\s*\*?\s*$|full\s*name|e-?mail|phone|mobile|telefon|téléphone|linked\s*in|github|website|portfolio|personal\s*(site|page)|^\s*(current\s*)?(location|city)\b/i;
 
+// The CV is a file, uploaded from your Profile on every form, never an answer to remember: a "CV file" row (the old Notion template
+// had one), or a fill that found "Resume/CV" unanswered, must not become a question (2 Oct 2026: a user was asked to type one).
+export const isFileQuestion = text => /^\s*(cv|c\.v\.|resume|r[ée]sum[ée]|curriculum vitae|lebenslauf)(\s*[/&,]\s*(cv|resume|r[ée]sum[ée]|cover letter))?(\s+(file|document|upload|attachment|pdf))?\s*[*:]*\s*$/i.test(unmarked(text));
+
 // Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has, and contact
 // fields, which come from the Profile).
 export async function collect(storage, run, company = '', fetcher) {
-  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && !CONTACT.test(unmarked(field.label)));
+  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && !CONTACT.test(unmarked(field.label)) && !isFileQuestion(field.label));
   if (!wanted.length) return 0;
   const target = notionPage(storage);
   const fresh = [];

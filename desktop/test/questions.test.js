@@ -10,10 +10,12 @@ import {createStorage} from '../lib/storage.js';
 const rt = text => [{plain_text: text, text: {content: text}, annotations: {bold: false}}];
 function page() {
   const rows = [['Question', 'Answer'], ['Notice period', '3 months'],
-    ['If a salary field is optional', '❓ to confirm — leave blank, or always fill'], ['Pronunciation', '❓ Optional']];
+    ['If a salary field is optional', '❓ to confirm — leave blank, or always fill'], ['Pronunciation', '❓ Optional'],
+    ['CV file', '❓ filename only — the actual path is set in Profile']];
   const top = [
     {id: 'note', type: 'paragraph', paragraph: {rich_text: rt('Fields marked ❓ to confirm are blanks or guesses — replace them.')}, has_children: false},
     {id: 'line', type: 'bulleted_list_item', bulleted_list_item: {rich_text: rt('Visa sponsorship needed: ❓ (asked by Acme)')}, has_children: false},
+    {id: 'cvline', type: 'bulleted_list_item', bulleted_list_item: {rich_text: rt('Resume/CV: ❓ (asked by Acme)')}, has_children: false},
     {id: 'table', type: 'table', table: {has_column_header: true}, has_children: true}];
   const cells = rows.map((r, i) => ({id: `row${i}`, type: 'table_row', table_row: {cells: r.map(rt)}}));
   const patched = [];
@@ -109,4 +111,18 @@ test('remember: a session\'s ❓ answered with one tick answers the open line, e
   assert.equal(writes.at(-1)[0], 'blocks/answers/children');
   assert.match(writes.at(-1)[1], /Bachelor's degree result: 8\.5 \/ 10/);
   assert.equal((await questions.remember(s, 'Anything', ' ', fetcher)).ok, false);
+});
+
+test('the CV is uploaded, never answered: no "CV file" or "Resume/CV" question, from the page or from a fill', async () => {
+  const {fetcher} = page();
+  const open = await questions.list(storage(), fetcher);
+  assert.ok(!open.some(q => questions.isFileQuestion(q.question)), 'the page has a "CV file" row and a "Resume/CV" line; neither is listed');
+  for (const yes of ['CV file', 'CV', 'Resume', 'Résumé', 'Resume/CV', 'Resume / CV *', 'CV upload', 'Lebenslauf', 'Curriculum Vitae']) assert.ok(questions.isFileQuestion(yes), yes);
+  for (const no of ['CV gaps explained', 'Do you have a resume gap?', 'Website / portfolio', 'Cover letter', 'Notice period']) assert.ok(!questions.isFileQuestion(no), no);
+  const added = [];
+  const run = {trace: [{required: true, reason: questions.NO_ANSWER, label: 'Resume/CV'}, {required: true, reason: questions.NO_ANSWER, label: 'Visa sponsorship?'}]};
+  const fetchAdd = async (url, init = {}) => { if (init.method === 'PATCH') added.push(JSON.parse(init.body)); return {ok: true, json: async () => ({results: [], has_more: false})}; };
+  assert.equal(await questions.collect(storage(), run, 'Acme', fetchAdd), 1, 'only the visa question is added');
+  assert.match(JSON.stringify(added), /Visa sponsorship/);
+  assert.doesNotMatch(JSON.stringify(added), /Resume/);
 });
