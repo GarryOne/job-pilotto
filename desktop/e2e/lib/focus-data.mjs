@@ -96,11 +96,14 @@ export const idsFromApp = notionIds => {
   return ids;
 };
 
+// Notion may still list a row it has already trashed: trashing it again is not an error.
+const archive = (token, id) => call(token, 'PATCH', `pages/${id}`, {archived: true}).catch(error => { if (!/archived/i.test(error.message)) throw error; });
+
 async function emptyById(token, databaseId) {   // every row to the trash, then check (Notion shows it a moment later)
   let rows = await queryAll(token, databaseId);
   const count = rows.length;
   for (let round = 0; rows.length && round < 6; round++) {
-    for (const row of rows) { await call(token, 'PATCH', `pages/${row.id}`, {archived: true}).catch(error => { if (!/archived/i.test(error.message)) throw error; }); await sleep(350); }
+    for (const row of rows) { await archive(token, row.id); await sleep(350); }
     await sleep(2000);
     rows = await queryAll(token, databaseId);
   }
@@ -142,9 +145,9 @@ export async function resetFocusData(token, ids, {data = null, target = 5} = {})
   // an event that belongs to none of this scenario's applications is not part of the data under test. Remove it, and say so.
   const mine = new Set(Object.values(pages).map(page => page.id));
   const strayRows = (await queryAll(token, ids.tracker)).filter(row => !mine.has(row.id));
-  for (const row of strayRows) { await call(token, 'PATCH', `pages/${row.id}`, {archived: true}); await sleep(350); }
+  for (const row of strayRows) { await archive(token, row.id); await sleep(350); }
   const foreign = (await queryAll(token, ids.events)).filter(item => !(item.properties.Application?.relation || []).some(link => mine.has(link.id)));
-  for (const item of foreign) { await call(token, 'PATCH', `pages/${item.id}`, {archived: true}); await sleep(350); }
+  for (const item of foreign) { await archive(token, item.id); await sleep(350); }
   if (foreign.length || strayRows.length) console.log(`  removed ${strayRows.length} application(s) and ${foreign.length} event(s) another session wrote into this page meanwhile (a shared fallback page: set E2E_NOTION_TOKEN_FOCUS for a page of its own)`);
   return pages;
 }

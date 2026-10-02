@@ -2,6 +2,7 @@
 // Focus: what a person sees on the first page they open each day. Dummy applications in every stage are written to Notion, then the page is
 // judged as a person would: the Up next rows in the right order with the right buttons, every number against the Notion rows, the target, finishing
 // an action, the Insight card, a fresh account. Starts from a set-up install; resets only this suite's own rows (never the workspace).
+import {call} from '../lib/notion.mjs';
 import {expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, idsFromApp, queryAll, readTargetLine, resetFocusData, scenario} from '../lib/focus-data.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -67,7 +68,7 @@ export async function run(ctx) {
   await ctx.run('a search with applications in every stage is written to Notion (dummy employers, target 5)', async () => {
     ids = idsFromApp(await page.evaluate(async () => (await window.pilot.state()).settings.notionIds || {}));
     await resetFocusData(NOTION, ids, {data: scenario(now), target});
-    await readNotion();
+    for (let i = 0; i < 12; i++) { await readNotion(); if (rows.length === 10 && events.length === 14) break; await page.waitForTimeout(5000); }   // Notion lists new rows a moment later
     if (rows.length !== 10 || events.length !== 14) throw new Error(`expected 10 applications and 14 events in Notion, found ${rows.length} and ${events.length}`);
   }, {needs: ctx.needs});
 
@@ -145,7 +146,7 @@ export async function run(ctx) {
     await page.fill('#focus-target', '3');
     await page.press('#focus-target', 'Tab');
     await page.waitForFunction(() => document.querySelector('#focus-of').textContent.includes('/ 3 '), null, {timeout: 60000})
-      .catch(async () => { throw new Error(`the page never showed the new target. Messages the app showed: ${JSON.stringify(await page.evaluate(() => window.__toasts))}`); });
+      .catch(async () => { throw new Error(`the page never showed the new target. Messages the app showed: ${JSON.stringify(await page.evaluate(() => window.__toasts))}. State: ${JSON.stringify(await page.evaluate(() => ({of: document.querySelector('#focus-of').textContent, input: document.querySelector('#focus-target').value, rowHidden: document.querySelector('#focus-target-row').hidden, disabled: document.querySelector('#focus-target').disabled, status: document.querySelector('#focus-status').textContent})))}`); });
     await focusReady();
     target = 3;
     await numbersMatchSource('after the target changed to 3');
@@ -156,12 +157,12 @@ export async function run(ctx) {
     const written = await page.evaluate(async () => (await window.pilot.state()).settings.notionIds?.NOTION_SEARCH_SETTINGS_PAGE || '');
     if (!written) throw new Error('changing the target did not save a Search settings page id in the app');
     let line = NaN, last = '';
-    for (let i = 0; i < 10 && line !== 3; i++) {   // Notion shows a rewritten page a moment after the write returns
+    for (let i = 0; i < 20 && line !== 3; i++) {   // Notion shows a rewritten page a moment after the write returns (a page of 26+ blocks: up to a minute)
       try { line = await readTargetLine(NOTION, written); } catch (error) { last = error.message; }
       if (line !== 3) await page.waitForTimeout(3000);
     }
-    if (line !== 3 && last) throw new Error(`the target was not saved to Notion within 30 s: ${last}`);
-    if (line !== 3) throw new Error(`Notion's "Daily applications target" is ${line}, expected 3`);
+    if (line !== 3 && last) throw new Error(`the target was not saved to Notion within 60 s: ${last}`);
+    if (line !== 3) throw new Error(`Notion's "Daily applications target" is ${line}, expected 3 (page ${written}: ${JSON.stringify((await call(NOTION, 'GET', `blocks/${written}/children?page_size=100`)).results.map(block => (block[block.type].rich_text || []).map(part => part.plain_text).join('').slice(0, 30)).filter(Boolean).slice(0, 60))})`);
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await goFocus();
@@ -180,7 +181,7 @@ export async function run(ctx) {
     await focusReady();
     if ((await upNext()).some(item => item.headline.includes('Huxley'))) throw new Error('the answered recruiter came back after Focus was read from Notion again');
     const written = await eventsOf('Replied', 'Huxley Partners');
-    if (written.length !== 1) throw new Error(`Done should write one "Replied" event to Notion, found ${written.length}`);
+    if (written.length !== 1) throw new Error(`Done should write one "Replied" event to Notion, found ${written.length}: ${written.map(item => `${item.properties.At.date?.start} ${item.properties.Source.select?.name} "${(item.properties.Note.rich_text[0]?.plain_text || '').slice(0, 50)}" created ${item.created_time}`).join(' | ')}`);
     await numbersMatchSource('after Done');
   }, {needs: ctx.needs});
 
@@ -202,9 +203,10 @@ export async function run(ctx) {
     await page.evaluate(() => window.pilot.setDailyTarget(5));   // the app's own cache of the target, as a new install has it
     // Notion still lists a trashed row for a few seconds: refresh until Focus has caught up, and say how long that took (it must catch up).
     let tries = 0;
-    for (; tries < 8; tries++) {
+    for (; tries < 14; tries++) {
       await refresh();
-      if ((await shownNumbers()).funnel.length === 0 && (await upNext()).length === 1) break;
+      const [first, ...rest] = await upNext();   // caught up: the one next step says there are no kits yet (a trashed kit row is listed for a while)
+      if (first && !rest.length && /Prepare kits from your best matches/.test(first.meta) && (await shownNumbers()).funnel.every(step => step.count === '0')) break;
       await page.waitForTimeout(5000);
     }
     if (tries) console.log(`  Focus caught up with the emptied workspace after ${tries} refresh(es)`);
