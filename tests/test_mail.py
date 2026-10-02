@@ -356,6 +356,18 @@ class MailTests(unittest.TestCase):
         self.assertIn(('k1', {'Stage': {'select': {'name': 'Rejected'}}}), tracker.updates)
         self.assertIn('➕ Marked applied · Grafana Labs — Staff SRE | Spain | Remote', stats['updates'])
 
+    def test_an_email_naming_the_employer_of_a_recruiters_lead_is_the_same_opportunity(self):
+        """2 Oct 2026: "AG Talent — Senior DevOps Engineer" (Company hidden, Via AG Talent) and a twin "Blinq — DevOps Engineer"."""
+        lead = app('p1', '', 'Senior DevOps Engineer', stage='Screening', via='AG Talent', contact='Sam · sam@agtalent.com')
+        tracker = FakeTracker([lead])
+        google = FakeGoogle([email('m1', 'Blinq - DevOps Engineer', sender='Sam <sam@agtalent.com>',
+                                   body='Hi Igor, AG Talent here. Blinq is hiring a DevOps Engineer, B2B contract.')])
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+            mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
+                     days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats={})
+        self.assertEqual([p for p in tracker.created if 'Stage' in p], [])  # no twin row
+        self.assertIn(('p1', {'Company': {'rich_text': [{'text': {'content': 'Blinq'}}]}}), tracker.updates)  # the lead learns its employer
+
     def test_a_placeholder_plain_part_falls_back_to_the_html(self):
         encode = lambda text: base64.urlsafe_b64encode(text.encode()).decode()
         payload = {'mimeType': 'multipart/alternative', 'parts': [

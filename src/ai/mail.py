@@ -707,6 +707,15 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
             and words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     if same:
         return same[0]
+    # A recruiter's lead with the employer hidden (Company empty, Via = the agency): the email that names the employer is the
+    # same opportunity, not a second one (2 Oct 2026: "AG Talent — Senior DevOps Engineer" and "Blinq — DevOps Engineer").
+    text = f"{email.get('from', '')} {email.get('subject', '')} {email.get('body', '')}"
+    hidden = [r for r in apps if not _field(r, 'Company') and words(_role(r)) and _matches(r, text)
+              and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
+    if len(hidden) == 1 and company:
+        tracker.update_page(hidden[0]['id'], {'Company': {'rich_text': [{'text': {'content': company[:200]}}]}})
+        hidden[0]['properties']['Company'] = {'type': 'rich_text', 'rich_text': [{'plain_text': company}]}
+        return hidden[0]
     applied = (email['date'] or '')[:10]
     # The role may be on the list before it was applied to (Saved, Kit ready…) and applied to without marking it:
     # that row becomes the application, so the job keeps its posting, kit and fit instead of getting a twin.
