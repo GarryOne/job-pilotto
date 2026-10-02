@@ -1604,7 +1604,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   if (!DEMO) { const channel = installSource.consume(app.getPath('userData'), storage); if (channel) appLog('install', 'channel taken from the installer', {channel}); }
   // CI smoke runs (windows-smoke.mjs) launch the packaged app with a fresh profile each time: they (any launch with CI/GITHUB_ACTIONS set) must not count as installs.
   const smokeRun = !!(process.env.JOB_PILOTTO_SMOKE || process.env.JOB_PILOTTO_PTY_SMOKE || process.env.CI || process.env.GITHUB_ACTIONS);
-  telemetry = DEMO || smokeRun || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
+  telemetry = DEMO || smokeRun || (!app.isPackaged && !telemetryLib.sourceRunReports()) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
     // Crash reports (Sentry) and usage events (PostHog): only an installed build, only with Technical reports on, only when

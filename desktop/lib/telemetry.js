@@ -27,6 +27,14 @@ export function scrub(value, max = 500, home = os.homedir()) {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+// A run from source (npm start, the e2e harness) stays silent unless JOB_PILOTTO_TELEMETRY asks for reports. "0", "off",
+// "false" and "no" mean no: the e2e harness sets '0', and a plain "is it set?" test read that as yes, so every e2e run
+// reported itself as a new machine (2 Oct 2026: nine fake installs on /telemetry).
+export function sourceRunReports(env = process.env) {
+  const value = String(env.JOB_PILOTTO_TELEMETRY ?? '').trim().toLowerCase();
+  return value !== '' && !['0', 'off', 'false', 'no'].includes(value);
+}
+
 // One event: its kind, its own safe fields (every string scrubbed, shallow), and who/what/when without identity.
 export function event(kind, fields, {install, version, platform = process.platform, osVersion = os.release(), now = Date.now()}) {
   const safe = {};

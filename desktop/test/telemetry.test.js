@@ -70,3 +70,10 @@ test('every report says which channel the install came from, once the installer 
   await telemetry.flush();
   assert.deepEqual(sent.map(item => item.source), [undefined, 'reddit-devops', 'hn']);
 });
+
+test('a source run reports only when JOB_PILOTTO_TELEMETRY asks for it: "0" (the e2e harness) means no', async () => {
+  const {sourceRunReports} = await import('../lib/telemetry.js');
+  for (const off of [undefined, '', '0', 'off', 'OFF', 'false', 'no', ' 0 ']) assert.equal(sourceRunReports({JOB_PILOTTO_TELEMETRY: off}), false, `${off}`);
+  for (const on of ['1', 'on', 'true', 'yes']) assert.equal(sourceRunReports({JOB_PILOTTO_TELEMETRY: on}), true, on);
+  assert.equal(sourceRunReports({}), false);
+});
