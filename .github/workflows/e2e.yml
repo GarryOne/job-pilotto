@@ -21,18 +21,30 @@ permissions:
   contents: read
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: The suites that exist (every file in desktop/e2e/suites)
+        id: list
+        working-directory: desktop/e2e
+        run: echo "matrix=$(node suite.mjs --list)" >> "$GITHUB_OUTPUT"
   suite:
     name: ${{ matrix.suite }}
+    needs: plan
     runs-on: macos-latest   # the Mac app is the product: real Keychain, no virtual display (on Linux Electron has no keyring to save the key in)
     timeout-minutes: ${{ matrix.minutes }}
     strategy:
       fail-fast: false      # one suite failing must not hide what the others found
-      matrix:
-        include:
-          - {suite: wizard, minutes: 20}
-          - {suite: jobs, minutes: 30}
-          - {suite: interviews, minutes: 15}
-          - {suite: settings, minutes: 15}
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     concurrency:
       group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
       cancel-in-progress: false

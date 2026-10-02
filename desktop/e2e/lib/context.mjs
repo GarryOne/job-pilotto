@@ -9,7 +9,9 @@ import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
 
-export const SUITES = ['wizard', 'jobs', 'interviews', 'settings'];
+// A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
+import {readdirSync} from 'node:fs';
+export const SUITES = readdirSync(path.join(E2E, 'suites')).filter(file => file.endsWith('.mjs')).map(file => file.slice(0, -4)).sort();
 const KEY = () => process.env.E2E_ANTHROPIC_KEY || '';
 // Each suite has its own Notion page and connection, so suites can run at the same time. E2E_NOTION_TOKEN is the wizard's; a suite without its own token falls
 // back to it on a developer's Mac (one suite at a time), and is skipped in CI.

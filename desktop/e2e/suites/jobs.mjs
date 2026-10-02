@@ -7,6 +7,7 @@ import {emptyDatabase, findPage} from '../lib/notion.mjs';
 import {finish, visit} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
+export const minutes = 30;
 export const name = 'jobs';
 export async function run(ctx) {
   const {page, proxy, feeds, token: NOTION, ARTIFACTS} = ctx;

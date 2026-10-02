@@ -3,6 +3,7 @@
 import {finish, visit} from '../lib/layout.mjs';
 import {runWizard} from '../lib/wizard.mjs';
 
+export const minutes = 20;
 export const name = 'wizard';
 export const fresh = true;
 export async function run(ctx) {

@@ -1,6 +1,14 @@
 // Runs one suite of the end-to-end tests:   node suite.mjs wizard|jobs|interviews|settings
 // Each suite has its own Notion test page and starts from its own state (see README.md), so suites can run at the same time.
 const name = process.argv[2];
+// The CI matrix is built from the suites that exist:   node suite.mjs --list
+if (name === '--list') {
+  const {SUITES: all} = await import('./lib/context.mjs');
+  const include = [];
+  for (const suite of all) include.push({suite, minutes: (await import(`./suites/${suite}.mjs`)).minutes || 15});
+  console.log(JSON.stringify({include}));
+  process.exit(0);
+}
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 const {assertNothingQueued} = await import('./lib/app.mjs');
 const {SUITES, openContext} = await import('./lib/context.mjs');

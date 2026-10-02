@@ -22,6 +22,12 @@ E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 - **A suite resets only its own data** (the jobs suite empties its job rows and run rows), never the workspace.
 - Files: `suite.mjs` the runner · `suites/*.mjs` the steps · `lib/context.mjs` secrets, Notion guard, feeds, proxy, launch · `lib/seed.mjs` the fast seed · `lib/wizard.mjs` the real first-run path · `lib/layout.mjs` screenshots + checks · `lib/activity.mjs` + `lib/ai-proxy.mjs` the slow-AI scenario.
 
+## Adding a suite (a file, nothing else to edit)
+1. Create `suites/<name>.mjs`: `export const name = '<name>'; export const minutes = 15; export async function run(ctx) { … }`. The CI matrix is built from the files in `suites/` (`node suite.mjs --list`).
+2. Start with `await ensureSetUp(ctx)` (from `lib/seed.mjs`) for a set-up install in seconds, then `ctx.run('what a person can now do', async () => {…}, {needs: ctx.needs})` per step; `snap`/`visit`/`finish` from `lib/layout.mjs` for screenshots and layout checks.
+3. A suite that writes to Notion needs **its own Notion test page and connection** (suites share nothing): add `E2E_NOTION_TOKEN_<NAME>: ${{ secrets.E2E_NOTION_TOKEN_<NAME> }}` to the `env:` block of `.github/workflows/e2e.yml` and the secret to GitHub. Without the token the suite is skipped in CI and falls back to the wizard's page on a Mac.
+4. Reset only your own data, keep the isolation rules below, put dummy data in through the Notion API (`lib/notion.mjs`) rather than the AI where you can.
+
 ## What is real, what is faked
 | Part | How |
 |---|---|
