@@ -156,6 +156,7 @@ test('the Apply button in front of a form is picked by rule: an apply phrase on 
   assert.equal(pick([b('Share'), b('Apply for this Job')]), 'Apply for this Job');
   assert.equal(pick([b('Jetzt bewerben')]), 'Jetzt bewerben');
   assert.equal(pick([b('Postuler')]), 'Postuler');
+  assert.equal(pick([b('To apply', {tag: 'a', href: '/bewerbung/'})]), 'To apply');   // consultandpepper.com: the agency's own step before its form
   assert.equal(pick([b('Apply with LinkedIn'), b('Easy Apply'), b('Sign in to apply')]), undefined);
   assert.equal(pick([b('Apply now', {visible: false}), b('Apply now', {disabled: true})]), undefined);
   assert.equal(pick([b('Apply now', {tag: 'a', href: 'mailto:jobs@acme.com'})]), undefined);
