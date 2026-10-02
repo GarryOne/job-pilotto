@@ -1136,9 +1136,16 @@ function handlers() {
   // Checked session workflows share the production registration with the offline app scenario tests.
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, apply, pipeline, review, server, notion, claudeConsent});
-  ipcMain.handle('applyWithClaude', async (_, url, details = null) => allowanceBlock() || (await claudeConsent())
+  const startClaude = async (url, details = null) => allowanceBlock() || (await claudeConsent())
     ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) track('apply_started', {how: 'claude'}); terminals.dropForm(String(url).split('#')[0]); return result; })
-    : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
+    : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'};
+  ipcMain.handle('applyWithClaude', (_, url, details = null) => startClaude(url, details));
+  server.setTakeOverHandler(async event => {   // the panel's button: the person's own request, the same start as the session card's Apply with Claude
+    const job = event.job;
+    appLog('extension', 'take over with Claude asked from the page', {host: event.host, known: !!job});
+    const result = await startClaude(String(event.url || ''), job ? {title: job.title, company: job.company, location: job.location, workMode: job.work_mode} : null);
+    if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); } else toWindow('toast', {title: 'Claude could not start', body: result?.error || 'Try again from the Applying page.'});
+  });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8')) : review.allStates()));
   ipcMain.handle('reviewWatch', (_, id, items) => {

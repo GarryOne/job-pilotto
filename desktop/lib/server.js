@@ -334,6 +334,8 @@ export function setFocusHandler(fn) { focusHandler = fn; }
 // The panel's "Open in Job Pilotto": the app comes forward on that session's page.
 let stuckHandler = () => {};  // the extension can't get to a form (no form / needs an account): the app's session offers Apply with Claude
 export function setStuckHandler(fn) { stuckHandler = fn; }
+let takeOverHandler = () => {};  // the panel's "Take over with Claude": the person asks for Claude on this application (set by main.js)
+export function setTakeOverHandler(fn) { takeOverHandler = fn; }
 let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)
 export function setFormIssueHandler(fn) { formIssue = fn; }
 let openHandler = () => false;
@@ -504,6 +506,7 @@ export function start(storage, onError = () => {}) {
           const {jobs} = await pipeline.jobs(storage).catch(() => ({jobs: []}));
           const job = jobs.find(j => pageKey(j.url) === pageKey(event.url));
           if (event.type === 'stuck') stuckHandler(event);
+          if (event.type === 'take-over') takeOverHandler({...event, job});
           if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
           if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`);
           if (event.type === 'fill-done') {

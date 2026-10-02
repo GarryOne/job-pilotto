@@ -250,6 +250,7 @@
         <div class="note" hidden><span></span><button class="anyway" hidden>Fill anyway</button></div>
         <div class="left" hidden><h4>Left for you</h4><div class="list"></div></div>
         <div class="actions">
+          <button class="secondary take-over" hidden title="Claude drives this application in Chrome, from where you are now. It never clicks Submit.">Take over with Claude</button>
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
         </div>
       </div>
@@ -316,6 +317,8 @@
     }));
     // actions + connection
     $('.open-app').hidden = !session;
+    // Offered whenever the app is connected and Claude is not already on this form; the person's click, never automatic (it uses Claude).
+    $('.take-over').hidden = !connection?.connected || !connection.app || !!(session?.live && ['running', 'input'].includes(session.status));
     const foot = $('.foot');
     foot.classList.toggle('on', !!connection?.connected);
     foot.textContent = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
@@ -368,6 +371,14 @@
   }
   $('.fill').onclick = () => fill();
   $('.anyway').onclick = () => fill(true);
+  $('.take-over').onclick = async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Asking Job Pilotto…';
+    const answer = await send({type: 'panelTakeOver'}).catch(() => null);
+    button.textContent = answer?.ok ? 'Claude is starting in Job Pilotto' : 'Job Pilotto did not answer';
+    setTimeout(() => { button.disabled = false; button.textContent = 'Take over with Claude'; }, 8000);
+  };
   $('.open-app').onclick = () => session && send({type: 'panelOpenApp', session: session.id}).catch(() => {});
   // The extension's fill reports its steps here (instead of a floating box).
   chrome.runtime.onMessage.addListener((message, _, reply) => {

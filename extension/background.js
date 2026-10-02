@@ -624,6 +624,18 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     chrome.tabs.remove(sender.tab.id).then(() => reply({ok: true}), () => reply({ok: false}));
     return true;
   }
+  // "Take over with Claude": the person asks the app to start its Claude session for this application, from this page. The job is the
+  // posting that led here (jobOf), the page is where Claude picks up.
+  if (message?.type === 'panelTakeOver' && sender.tab) {
+    (async () => {
+      const job = String(await jobOf(sender.tab)).split('#')[0];
+      const host = (() => { try { return new URL(sender.tab.url).hostname; } catch { return ''; } })();
+      decide('panel', 'asked Claude to take over', {host});
+      const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'take-over', url: job, page: sender.tab.url.split('#')[0], host})});
+      reply({ok: !!data?.ok});
+    })().catch(() => reply({ok: false}));
+    return true;
+  }
   if (message?.type === 'panelOpenApp') {
     settings().then(config => api(config, '/extension/open', {method: 'POST', body: JSON.stringify({session: message.session})}))
       .then(data => reply({ok: !!data.ok}), () => reply({ok: false}));
