@@ -15,7 +15,7 @@ export async function snap(ctx, name, {view, situation = 'default', busy = false
   if (!settled) ctx.findings.push({view: name, severity: 'warning', kind: 'stuck-loading', detail: `${name} still shows its loading state (skeleton or spinner) after 20 seconds`});
   await session.shot(`ui-${name}`);
   fs.writeFileSync(path.join(ARTIFACTS, `ui-${name}.json`), JSON.stringify({...await facts(page), situation}, null, 2));
-  ctx.findings.push(...(await page.evaluate(inspect, {view: view || name, limits: LIMITS})).map(item => ({...item, view: name})));
+  ctx.findings.push(...(await page.evaluate(inspect, {view: view || name, limits: LIMITS})).map(item => ({...item, view: item.chrome ? 'app-chrome' : name, shot: name})));   // the sidebar and the bottom bar are on every page: one finding, not one per page
 }
 
 export async function visit(ctx, views) {

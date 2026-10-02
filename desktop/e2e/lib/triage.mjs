@@ -8,7 +8,7 @@ export const FALSE_POSITIVE = 'wontfix-auto';
 export const CONFIRMED = 'confirmed';   // a person looked at the finding and says it is real: ready without a second sighting
 export const NOT_SEEN = 'not-seen-latest';   // the page was photographed and reviewed again and the finding did not come back
 export const SIGHTINGS_NEEDED = 2;   // a finding must show in two runs before anyone (or anything) acts on it: one-off flakes and model noise drop out
-export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image'];
+export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill'];
 const RANK = {high: 3, medium: 2, low: 1};
 
 // Allowed edits of an automatic fix: the window's pages, styles and their tests. Nothing that touches data, Notion, secrets, the engine, the site or workflows.
@@ -20,7 +20,7 @@ export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) &
 export function normalize({ui = [], ai = [], suite = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const finding = {view: item.view, severity: item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
-      title: `${item.kind.replace(/-/g, ' ')} on ${item.view}`, detail: item.detail, suggestion: '', source: 'layout-check', dir: item._dir};
+      title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
     return {...finding, id: fingerprint(finding)};
   });
   const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, dir: item._dir, id: item.id || fingerprint(item), source: 'ai-review'}));

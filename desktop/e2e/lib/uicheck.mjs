@@ -38,6 +38,18 @@ export function inspect({view, limits}) {
     if (el.scrollWidth > el.clientWidth + 3 && style.overflowX !== 'visible' && style.textOverflow !== 'ellipsis' && el.clientWidth > 0) clipped.push(el);
   }
   for (const el of clipped.slice(0, 5)) found.push({view, severity: 'warning', kind: 'clipped-text', detail: `${label(el)} cuts its text off: "${snippet(el)}"`});
+  // Text that runs out of its box and stays visible (overflow: visible), the opposite of clipped: the brand in the icon rail spilling over the page title, a button label running out of its
+  // button (2 Oct 2026, issue #47). In the page, and in the app chrome around it (the sidebar and the bottom bar), which the page's own root does not contain.
+  const spills = (scope, isChrome) => {
+    const hits = [scope, ...scope.querySelectorAll('aside, nav, header, footer, button, a, b, span, p, h1, h2, h3, label, td, li, .card, .brand, .nav, .pill, .tag')].filter(el => {
+      if (!visible(el) || !(el.textContent || '').trim()) return false;
+      return getComputedStyle(el).overflowX === 'visible' && el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 3;
+    });
+    return hits.filter(el => !hits.some(other => other !== el && el.contains(other))).slice(0, 4)   // the innermost: the container only spills because of what is in it
+      .map(el => ({view, severity: 'warning', kind: 'spill', chrome: isChrome, detail: `${label(el)} content runs out of its box (${el.scrollWidth}px of ${el.clientWidth}px): "${snippet(el)}"`}));
+  };
+  found.push(...spills(root, false));
+  for (const area of document.querySelectorAll('.sidebar, #activity')) found.push(...spills(area, true));
   for (const el of root.querySelectorAll('*')) {
     if (!visible(el) || !el.childNodes.length || ![...el.childNodes].some(node => node.nodeType === 3 && node.textContent.trim())) continue;
     const size = parseFloat(getComputedStyle(el).fontSize);   // size 0 hides a label on purpose (the nav buttons of the icon rail): not tiny text

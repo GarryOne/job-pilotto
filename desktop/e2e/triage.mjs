@@ -29,7 +29,8 @@ const views = dir => { try { return fs.readdirSync(dir).map(name => /^ui-(.+)\.p
 // The files that show a finding: the page's screenshot, or for a failed step its failure screenshot.
 function evidenceFile(finding) {
   if (!finding.dir) return '';
-  const choices = finding.source === 'suite-failure' ? [`${slug(finding.stepName || finding.title.replace(/^step failed: /, ''))}.png`, 'last.png'] : [`ui-${finding.view}.png`];
+  if (finding.file) { const own = path.join(finding.dir, finding.file); if (fs.existsSync(own)) return own; }   // the picture the AI review looked at (a page, or a failure screenshot)
+  const choices = finding.source === 'suite-failure' ? [`${slug(finding.stepName || finding.title.replace(/^step failed: /, ''))}.png`, 'last.png'] : [`ui-${finding.shot || finding.view}.png`];
   return choices.map(name => path.join(finding.dir, name)).find(file => fs.existsSync(file)) || '';
 }
 const urlOf = (urls, to) => (to && urls[to]) || '';

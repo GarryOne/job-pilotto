@@ -2,7 +2,8 @@ You fix ONE user-interface problem in the Job Pilotto desktop app (Electron; pag
 The problem is described at the end. It was found by a nightly end-to-end run (a layout check or an AI review of a screenshot) and seen in two runs.
 
 You have about 40 turns: be quick and direct. Do NOT read all of CLAUDE.md or the whole skill: read only the "Desktop UI: one design system" section of CLAUDE.md and the first 60 lines of
-.claude/skills/ui-look-and-feel/SKILL.md. Start from the page named in the finding (the page's code is desktop/renderer/pages/<view>.js, its helpers are desktop/renderer/<view>-view.js or jobs-view.js),
+.claude/skills/ui-look-and-feel/SKILL.md. The view `app-chrome` is the window around every page: the sidebar (`.sidebar`, its brand and the icon rail at ≤ 1179 px) and the bottom activity bar (`#activity`); look in desktop/renderer/style.css and index.html.
+Start from the page named in the finding (the page's code is desktop/renderer/pages/<view>.js, its helpers are desktop/renderer/<view>-view.js or jobs-view.js),
 grep for the symptom (the text or class in the detail), and open only the files you need.
 
 How pages are tested here: there is no browser or DOM in the unit tests. Test a fix either through an exported pure helper in desktop/renderer/*-view.js (best), or, when the

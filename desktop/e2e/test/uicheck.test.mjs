@@ -78,3 +78,23 @@ test('text that is hidden on purpose with font-size 0 is not tiny; real tiny tex
     assert.ok(tiny.some(item => item.kind === 'tiny-text'), `real tiny text was not flagged: ${JSON.stringify(tiny)}`);
   } finally { await browser.close(); }
 });
+
+// 2 Oct 2026 (issue #47's screenshot): in the icon rail the brand text ("Job Pilotto" + DEV) ran out of its 72 px box over the page title, and the "Search & commands" button was cut.
+// No check saw it: the checks looked only inside the page (the sidebar is outside it), and "text cut off" only covered clipped text, not text that spills out and stays visible.
+test('text that runs out of its box and stays visible is found, in the app chrome too, and an element that fits is not', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1024, height: 700}});
+    const run = markup => findings(page, `<aside class="sidebar" style="width:72px"><div class="brand" style="white-space:nowrap">${markup}</div></aside><section class="view" data-view="jobs"><h1>Jobs</h1></section>`);
+    const spilled = await run('Job Pilotto <span class="dev-tag">DEV</span>');
+    const hit = spilled.find(item => item.kind === 'spill');
+    assert.ok(hit, `the spilling brand was not flagged: ${JSON.stringify(spilled)}`);
+    assert.equal(hit.chrome, true, 'something in the sidebar belongs to the app, not to the page');
+    assert.match(hit.detail, /sidebar|brand/);
+    const fine = await run('JP');
+    assert.deepEqual(fine.filter(item => item.kind === 'spill'), []);
+    const inPage = await findings(page, '<section class="view" data-view="jobs"><div class="card" style="width:60px"><span style="white-space:nowrap">a long label that does not fit</span></div></section>');
+    const own = inPage.find(item => item.kind === 'spill');
+    assert.ok(own && !own.chrome, `a spill inside the page: ${JSON.stringify(inPage)}`);
+  } finally { await browser.close(); }
+});

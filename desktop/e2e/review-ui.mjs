@@ -11,13 +11,15 @@ const skill = path.resolve(DESKTOP, '..', '.claude', 'skills', 'ui-look-and-feel
 const rules = fs.existsSync(skill) ? fs.readFileSync(skill, 'utf8').replace(/^---[\s\S]*?---/, '') : '';
 const all = [];
 // A skipped suite (no token yet) or a suite that stopped early leaves nothing to look at: that is not an error.
-if (!fs.existsSync(ARTIFACTS) || !fs.readdirSync(ARTIFACTS).some(name => /^ui-.+\.png$/.test(name))) { console.log('No screenshots to review.'); process.exit(0); }
+if (!fs.existsSync(ARTIFACTS) || !fs.readdirSync(ARTIFACTS).some(name => /^(ui|failed)-.+\.png$/.test(name))) { console.log('No screenshots to review.'); process.exit(0); }
 let rejected = 0;
-const views = fs.readdirSync(ARTIFACTS).filter(name => /^ui-.+\.png$/.test(name)).map(name => name.slice(3, -4)).sort();
-for (const view of views) {
-  const file = path.join(ARTIFACTS, `ui-${view}.png`);
-  const factsFile = path.join(ARTIFACTS, `ui-${view}.json`);
-  const facts = fs.existsSync(factsFile) ? JSON.parse(fs.readFileSync(factsFile, 'utf8')) : null;
+const names = fs.readdirSync(ARTIFACTS);
+// The pages the journey photographed, and the window at the moment a step failed (at most two): a failure screenshot shows the whole app, the sidebar and the bottom bar too.
+const jobs = [...names.filter(name => /^ui-.+\.png$/.test(name)).sort().map(name => ({view: name.slice(3, -4), png: name, factsFile: path.join(ARTIFACTS, `ui-${name.slice(3, -4)}.json`)})),
+  ...names.filter(name => /^failed-.+\.png$/.test(name)).sort().slice(0, 2).map(name => ({view: 'failure-screenshot', png: name, factsFile: ''}))];
+for (const {view, png, factsFile} of jobs) {
+  const file = path.join(ARTIFACTS, png);
+  const facts = factsFile && fs.existsSync(factsFile) ? JSON.parse(fs.readFileSync(factsFile, 'utf8')) : null;
   const response = await fetch('https://api.anthropic.com/v1/messages', {method: 'POST',
     headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'},
     body: JSON.stringify(buildRequest({view, pngBase64: fs.readFileSync(file).toString('base64'), rules, facts}))});
@@ -31,7 +33,7 @@ for (const view of views) {
     continue;
   }
   const data = await response.json();
-  const found = parseFindings(data.content?.[0]?.text, view).map(item => ({...item, id: fingerprint(item)}));
+  const found = parseFindings(data.content?.[0]?.text, view).map(item => ({...item, id: fingerprint(item), file: png}));   // file: the picture the finding was seen on
   console.log(`${found.length ? '!' : '✓'} ${view}: ${found.length} finding(s)${found.map(item => `\n    [${item.severity}] ${item.title}: ${item.detail}`).join('')}`);
   all.push(...found);
 }

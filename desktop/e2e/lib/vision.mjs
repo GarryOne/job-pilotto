@@ -18,7 +18,7 @@ export const EXPECTED = {
 };
 
 // settings-<section> and settings-connections-<engine>-chosen pages have no entry of their own: they are parts of the Settings page.
-export const expectedFor = view => EXPECTED[view] || (view.startsWith('activity-') ? `${EXPECTED.actions} The Recent activity panel is open over it, listing runs with a status pill, what each did and when; this screenshot shows ${view.replace('activity-', '').replace(/-/g, ' ')} state of a run. A Failed or With warnings pill must come with a reason in plain words.` : '') || (view.startsWith('settings-') ? `${EXPECTED.settings} This is the "${view.replace('settings-', '')}" part of Settings.` : 'its normal content');
+export const expectedFor = view => (view === 'failure-screenshot' ? 'The whole app window at the moment a test step failed: any page. Judge what is visible, above all the sidebar and the bottom bar; the failed step itself is not your concern.' : '') || EXPECTED[view] || (view.startsWith('activity-') ? `${EXPECTED.actions} The Recent activity panel is open over it, listing runs with a status pill, what each did and when; this screenshot shows ${view.replace('activity-', '').replace(/-/g, ' ')} state of a run. A Failed or With warnings pill must come with a reason in plain words.` : '') || (view.startsWith('settings-') ? `${EXPECTED.settings} This is the "${view.replace('settings-', '')}" part of Settings.` : 'its normal content');
 
 export const SYSTEM = `You review one screenshot of the Job Pilotto desktop app (a job-search tool) as a careful QA engineer and product designer.
 Report only real problems a user would notice, each with evidence you can SEE in the picture: a row or cell far taller than its neighbours, text
@@ -28,6 +28,9 @@ You are also given FACTS the app holds about its own state (for example which AI
 report a place where what the page shows CONTRADICTS the facts, or would MISLEAD a person who knows those facts (a status like "Connected" or "Active" for something that is
 not in use in the chosen mode, a selected option whose own panel talks about another option, a count that does not match, a button that offers what the state makes impossible).
 Say which fact and which element disagree. These are the findings that matter most; a person cannot see them without knowing the state.
+Report EVERY defect you can see, each as its own finding, not only the most important one. Always look at the whole window, not just the page's content: the sidebar (the brand and its tag, the icon
+rail, the search button at its foot), the page header, and the bar along the bottom. Text that runs out of its box or over a neighbour, a label cut off at the edge, a badge covering a title,
+and icons or controls that are misaligned are real defects, each its own finding.
 Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:

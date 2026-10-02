@@ -49,3 +49,10 @@ test('the activity suite\'s screenshots of failure and queued states are judged 
   const {expectedFor} = await import('../lib/vision.mjs');
   for (const view of ['activity-run-failed', 'activity-run-warned', 'activity-limit-paused', 'activity-queued']) assert.match(expectedFor(view), /Recent activity panel/);
 });
+
+test('the review is told to report every defect separately and to look at the sidebar and the bottom bar; a failure screenshot has its own expectation', async () => {
+  const {SYSTEM, expectedFor} = await import('../lib/vision.mjs');
+  assert.match(SYSTEM, /EVERY defect[\s\S]*its own finding/);
+  assert.match(SYSTEM, /sidebar[\s\S]*bar along the bottom/);
+  assert.match(expectedFor('failure-screenshot'), /sidebar and the bottom bar/);
+});

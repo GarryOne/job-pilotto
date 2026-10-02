@@ -201,3 +201,16 @@ test('a suite that tests the spend-limit message on purpose is not read as havin
   triage({artifacts: root, runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
   assert.equal(state.created.length, 1);
 });
+
+test('a spill in the app chrome is one finding for the whole window (not one per page), with its element in the title and the page it was seen on as the picture', () => {
+  const {gh, state} = stub();
+  const uploads = [];
+  const root = artifacts({ui: [{view: 'app-chrome', shot: 'focus', severity: 'warning', kind: 'spill', detail: 'div.brand content runs out of its box (140px of 72px): "Job Pilotto DEV"'},
+    {view: 'app-chrome', shot: 'jobs', severity: 'warning', kind: 'spill', detail: 'div.brand content runs out of its box (140px of 72px): "Job Pilotto DEV"'},
+    {view: 'app-chrome', shot: 'focus', severity: 'warning', kind: 'spill', detail: 'button.palette content runs out of its box (160px of 72px): "Search & commands"'}], pngs: ['ui-focus.png', 'ui-jobs.png'], withAi: false});
+  const out = triage({artifacts: root, runUrl: RUN, gh, publish: publish(uploads), repo: 'o/r'});
+  assert.equal(out.filed.length, 2, 'the brand and the search button, each once');
+  assert.match(state.created[0].title, /spill on app-chrome: div\.brand/);
+  assert.match(state.created[0].labels, /kind:spill/);
+  assert.ok(uploads.some(name => /-ui-focus\.png$/.test(name)), 'the picture is the page the check ran on');
+});
