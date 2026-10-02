@@ -38,8 +38,10 @@ export async function run(ctx) {
     fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources.json'), path.join(ctx.profile, 'config', 'sources.json'));
     await page.click('.nav[data-view="jobs"]');
     await page.click('#refresh');
-    const scored = () => page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => job.title && job.fit != null && job.fit !== '').map(job => ({title: job.title, fit: Number(job.fit)})));
-    await page.waitForFunction(() => (window.__jp.shared.allJobs || []).some(job => /reliability|devops|platform/i.test(job.title) && job.fit != null && job.fit !== ''),
+    // Only the fixture employers' jobs (E2E …) count: the app's list also holds this workspace's own application records, scored long ago, which made this wait pass at once
+    // and the slow check below join a check still in flight (CI, 2 Oct 2026: "0 new jobs", no AI call).
+    const scored = () => page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '') && job.title && job.fit != null && job.fit !== '').map(job => ({title: job.title, fit: Number(job.fit)})));
+    await page.waitForFunction(() => (window.__jp.shared.allJobs || []).some(job => /^E2E /.test(job.company || '') && /reliability|devops|platform/i.test(job.title) && job.fit != null && job.fit !== ''),
       null, {timeout: 480000, polling: 3000});
     const jobs = await scored();
     const titles = jobs.map(job => job.title);
