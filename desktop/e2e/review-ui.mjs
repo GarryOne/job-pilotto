@@ -12,6 +12,7 @@ const rules = fs.existsSync(skill) ? fs.readFileSync(skill, 'utf8').replace(/^--
 const all = [];
 // A skipped suite (no token yet) or a suite that stopped early leaves nothing to look at: that is not an error.
 if (!fs.existsSync(ARTIFACTS) || !fs.readdirSync(ARTIFACTS).some(name => /^ui-.+\.png$/.test(name))) { console.log('No screenshots to review.'); process.exit(0); }
+let rejected = 0;
 const views = fs.readdirSync(ARTIFACTS).filter(name => /^ui-.+\.png$/.test(name)).map(name => name.slice(3, -4)).sort();
 for (const view of views) {
   const file = path.join(ARTIFACTS, `ui-${view}.png`);
@@ -20,7 +21,15 @@ for (const view of views) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {method: 'POST',
     headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'},
     body: JSON.stringify(buildRequest({view, pngBase64: fs.readFileSync(file).toString('base64'), rules, facts}))});
-  if (!response.ok) { console.log(`- ${view}: review failed (HTTP ${response.status})`); continue; }
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => '')).slice(0, 300);
+    // 4xx: our request is wrong (this once hid a deprecated parameter for days): fail the step. 429/5xx: the service is busy, a warning.
+    const billing = /credit balance|usage limit|spend limit|rate limit/i.test(detail);   // the test key's own limit: a warning, not a product bug
+    if (response.status >= 400 && response.status < 500 && response.status !== 429 && !billing) { console.log(`::error::AI review of ${view} was rejected (HTTP ${response.status}): ${detail}`); rejected++; }
+    else console.log(`::warning::AI review of ${view} failed (HTTP ${response.status}); skipped`);
+    console.log(`- ${view}: review failed (HTTP ${response.status})`);
+    continue;
+  }
   const data = await response.json();
   const found = parseFindings(data.content?.[0]?.text, view).map(item => ({...item, id: fingerprint(item)}));
   console.log(`${found.length ? '!' : '✓'} ${view}: ${found.length} finding(s)${found.map(item => `\n    [${item.severity}] ${item.title}: ${item.detail}`).join('')}`);
@@ -28,3 +37,4 @@ for (const view of views) {
 }
 fs.writeFileSync(path.join(ARTIFACTS, 'ai-findings.json'), JSON.stringify({model: MODEL, findings: all}, null, 2));
 console.log(`\n${all.length} finding(s) written to ai-findings.json`);
+if (rejected) process.exit(1);

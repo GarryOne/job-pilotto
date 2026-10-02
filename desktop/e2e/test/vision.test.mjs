@@ -38,3 +38,9 @@ test('the reviewer is given the app\'s own facts and told to look for contradict
   assert.match(expectedFor('settings-connections-cli-chosen'), /"connections-cli-chosen" part of Settings/);
   assert.equal(buildRequest({view: 'jobs', pngBase64: 'AAAA'}).messages[0].content[1].text.includes('FACTS'), false, 'no facts, no facts block');
 });
+
+test('the request never carries a temperature: claude-sonnet-5 rejects it with a 400 (the nightly review did nothing for days because of it)', () => {
+  const request = buildRequest({view: 'jobs', pngBase64: 'AAAA'});
+  assert.equal('temperature' in request, false);
+  assert.equal(request.model, 'claude-sonnet-5');
+});

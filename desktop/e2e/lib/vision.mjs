@@ -35,7 +35,7 @@ Reply with ONE JSON object and nothing else:
 
 export function buildRequest({view, pngBase64, rules = '', facts = null, model = MODEL}) {
   return {
-    model, max_tokens: 1200, temperature: 0, system: SYSTEM,
+    model, max_tokens: 1200, system: SYSTEM,   // no temperature: claude-sonnet-5 rejects it ("deprecated for this model", 400)
     messages: [{role: 'user', content: [
       {type: 'image', source: {type: 'base64', media_type: 'image/png', data: pngBase64}},
       {type: 'text', text: `Page: ${view}\nExpected to show: ${expectedFor(view)}\n${facts ? `\nFACTS about the app's state when this was taken:\n${JSON.stringify(facts, null, 1)}\n` : ''}\nThe app's design rules (excerpt):\n${rules.slice(0, 3000)}\n\nReview this screenshot.`},
