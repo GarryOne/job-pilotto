@@ -47,6 +47,9 @@ export function renderActionsPage(data) {
     const kind = kindOf(running);
     $('run-banner-title').textContent = `${TASK_TITLE[kind] || KIND[kind]?.name || 'A task'} is running`;
     $('run-banner-step').textContent = `Started ${new Date(running.startedAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} · ${running.step || 'starting'}`;
+    const log = $('run-banner-log');
+    log.hidden = !running.rowUrl;
+    log.dataset.url = running.rowUrl || '';
   }
   const rows = runs.slice(0, 5).map(run => {
     const kind = kindOf(run);
@@ -64,6 +67,7 @@ export function renderActionsPage(data) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  $('run-banner-log').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(event.currentTarget.dataset.url); });
   $('run-banner-view').addEventListener('click', () => openActivity(true));
   $('actions-result-close').addEventListener('click', () => show($('actions-result'), false));
   $('runs-all').addEventListener('click', event => { event.preventDefault(); openActivity(true); });

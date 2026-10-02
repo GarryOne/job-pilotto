@@ -416,7 +416,7 @@ export function taskSummary(kind, log) {
 // A line of the engine's output that says what it is doing now (the banner's and the activity's step): not an indented line, a warning, a long line, or the traceback
 // and exception line of a crash (its row is still being closed while those print, and the run shows as running until then).
 const CRASH_LINE = /^(?:Traceback \(most recent call last\)|(?:[\w.]+\.)?[A-Z]\w*(?:Error|Exception|Exit|Interrupt)\b)/;
-export const isProgressStep = line => !/^\s|^Warning/.test(line) && line.length < 120 && !CRASH_LINE.test(line);
+export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged/.test(line) && line.length < 120 && !CRASH_LINE.test(line);
 
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
@@ -437,6 +437,8 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
     const tee = line => {
       log.push(line);
       current = {...current, log: log.slice(-300)};   // the window can be reloaded (⌘R) without losing what the run said so far
+      const rowUrl = /^Cronjob run logged: (\S+)/.exec(line)?.[1];
+      if (rowUrl) current = {...current, rowUrl};   // the banner's "View log" link; the line itself is not a step
       if (line === '<<<message' || line === 'message>>>') inMessage = line === '<<<message';
       else if (!inMessage && isProgressStep(line)) current = {...current, step: line};
       onLine(line);
