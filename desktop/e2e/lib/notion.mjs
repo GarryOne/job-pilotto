@@ -387,3 +387,31 @@ export async function rewriteLines(token, title, pattern, text) {
   await walk(page.id, 0);
   return changed;
 }
+
+// One block as a line of text, tables included (a table row is its cells joined by " | "): the Profile the scorer reads is mostly tables, which pageText leaves out.
+export function blockLine(block) {
+  const content = block[block.type] || {};
+  if (block.type === 'table_row') return (content.cells || []).map(cell => joinText(cell)).join(' | ');
+  return joinText(content.rich_text) || (typeof content.title === 'string' ? content.title : '');
+}
+
+// The whole page as the scorer sees it: headings, paragraphs, lists and table rows, nested blocks included.
+export async function profileText(token, title) {
+  const page = await findPage(token, title);
+  if (!page) throw new Error(`the page "${title}" was not found in the test workspace`);
+  const lines = [];
+  const walk = async (id, depth) => {
+    let cursor;
+    do {
+      const children = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`);
+      for (const block of children.results) {
+        const line = blockLine(block);
+        if (line.trim()) lines.push(line);
+        if (block.has_children && depth < 3 && block.type !== 'child_database') await walk(block.id, depth + 1);
+      }
+      cursor = children.has_more ? children.next_cursor : null;
+    } while (cursor);
+  };
+  await walk(page.id, 0);
+  return lines.join('\n');
+}

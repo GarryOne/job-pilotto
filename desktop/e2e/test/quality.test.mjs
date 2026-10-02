@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import {blockLine} from '../lib/notion.mjs';
 import {HARD_JUMP, allowedMisses, judgeVerdict, stabilityVerdict, checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missingColumns, normalizeUrl, rankingViolations, unstable} from '../lib/quality.mjs';
 
 const truth = JSON.parse(fs.readFileSync(new URL('../fixtures/golden/truth.json', import.meta.url), 'utf8'));
@@ -115,4 +116,12 @@ test('noise allowance: one in nine is tolerated, two is not, and a big jump neve
   assert.ok(!judgeVerdict(['x'], 5).ok);                                                              // five texts: no allowance
   assert.deepEqual(judgeVerdict(['x'], 9).tolerated, ['x']);
   assert.deepEqual(judgeVerdict(['x', 'y'], 9).tolerated, []);
+});
+
+test('a Notion block becomes a line: text, and table rows as their cells (the Profile is mostly tables)', () => {
+  const text = value => [{plain_text: value}];
+  assert.equal(blockLine({type: 'paragraph', paragraph: {rich_text: text('Target: CHF 170,000')}}), 'Target: CHF 170,000');
+  assert.equal(blockLine({type: 'table_row', table_row: {cells: [text('Seniority'), text('Senior or Staff')]}}), 'Seniority | Senior or Staff');
+  assert.equal(blockLine({type: 'divider', divider: {}}), '');
+  assert.equal(blockLine({type: 'child_page', child_page: {title: 'Answers'}}), 'Answers');
 });

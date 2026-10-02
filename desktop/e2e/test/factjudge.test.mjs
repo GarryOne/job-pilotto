@@ -62,3 +62,11 @@ test('a blank reply is asked again once; a second blank reply is an error', asyn
   assert.equal(blank, 2);
   assert.match(buildRequest({posting, profile: 'p', produced: 'x'}).system, /not stated, unknown or unspecified/);
 });
+
+test('the request carries the extracted facts the scorer saw, and skips empty ones', () => {
+  const text = buildRequest({posting, profile: 'p', produced: 'x', facts: {Seniority: 'Senior', Languages: ['English', 'German +'], Salary: '', Recruiter: false, Technologies: ''}}).messages[0].content;
+  assert.match(text, /EXTRACTED FACTS \(stage 1\)\nSeniority: Senior\nLanguages: English, German \+\nRecruiter: false/);
+  assert.ok(!/Salary:|Technologies:/.test(text));
+  assert.match(buildRequest({posting, profile: 'p', produced: 'x'}).messages[0].content, /EXTRACTED FACTS \(stage 1\)\n\(none\)/);
+  assert.match(buildRequest({posting, profile: 'p', produced: 'x'}).system, /extracted facts/);
+});

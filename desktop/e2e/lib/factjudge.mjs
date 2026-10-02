@@ -3,19 +3,19 @@
 export const JUDGE_MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5-5';
 const FLAGS = ['grounded', 'contradicts_posting', 'invents_facts', 'useful'];
 
-export const SYSTEM = `You are a strict fact-checker for a job-search tool. You get a job POSTING, the CANDIDATE's profile and a TEXT the tool wrote about how well the job fits the candidate.
+export const SYSTEM = `You are a strict fact-checker for a job-search tool. You get a job POSTING, the FACTS the tool extracted from it (the scorer was given these too, so they count as grounded), the CANDIDATE's profile and a TEXT the tool wrote about how well the job fits the candidate.
 Judge only the TEXT against the POSTING and the CANDIDATE:
-- grounded: every claim in the text can be found in the posting or the candidate's profile.
+- grounded: every claim in the text can be found in the posting, the extracted facts or the candidate's profile.
 - contradicts_posting: the text says something the posting says the opposite of (a place, a seniority, a language rule, a work mode, a salary).
-- invents_facts: the text states a fact (a figure, technology, requirement, benefit, employer detail) that is in neither the posting nor the profile. Reasonable judgement ("a strong match") is not a fact, and neither is correct common knowledge (rough geography, a currency conversion, simple arithmetic on the posting's own figures, what a role title usually means). A caveat that says something is not stated, unknown or unspecified ("visa sponsorship unspecified", "no salary stated") is not an invented fact: listing unknowns is wanted. A claim that is WRONG by common knowledge or arithmetic (a 2-hour trip called a short commute, a wrong percentage) is an invented fact.
+- invents_facts: the text states a fact (a figure, technology, requirement, benefit, employer detail) that is in none of the posting, the extracted facts and the profile. Reasonable judgement ("a strong match") is not a fact, and neither is correct common knowledge (rough geography, a currency conversion, simple arithmetic on the posting's own figures, what a role title usually means). A caveat that says something is not stated, unknown or unspecified ("visa sponsorship unspecified", "no salary stated") is not an invented fact: listing unknowns is wanted. A claim that is WRONG by common knowledge or arithmetic (a 2-hour trip called a short commute, a wrong percentage) is an invented fact.
 - useful: a person deciding whether to apply learns something specific from it (not just "good fit").
 Reply with ONE JSON object and nothing else: {"grounded":true|false,"contradicts_posting":true|false,"invents_facts":true|false,"useful":true|false,"why":"<one sentence of at most 30 words>"}`;
 
-export function buildRequest({posting, profile, produced, model = JUDGE_MODEL}) {
+export function buildRequest({posting, profile, produced, facts = {}, model = JUDGE_MODEL}) {
   const text = Array.isArray(produced) ? produced.filter(Boolean).join('\n') : String(produced ?? '');
   return {
     model, max_tokens: 1000, system: SYSTEM,   // no temperature: claude-sonnet-5-5 rejects it
-    messages: [{role: 'user', content: `POSTING\nTitle: ${posting.title}\nLocation: ${posting.location}\n${posting.description}\n\nCANDIDATE\n${profile}\n\nTEXT THE TOOL WROTE\n${text}\n\nJudge the text.`}],
+    messages: [{role: 'user', content: `POSTING\nTitle: ${posting.title}\nLocation: ${posting.location}\n${posting.description}\n\nEXTRACTED FACTS (stage 1)\n${Object.entries(facts).filter(([, value]) => value !== '' && value != null && !(Array.isArray(value) && !value.length)).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n') || '(none)'}\n\nCANDIDATE\n${profile}\n\nTEXT THE TOOL WROTE\n${text}\n\nJudge the text.`}],
   };
 }
 
@@ -34,10 +34,10 @@ export function failures(verdict) {
   return [verdict.invents_facts && 'invents facts', verdict.contradicts_posting && 'contradicts the posting'].filter(Boolean);
 }
 
-export async function judge({key, posting, profile, produced, fetchImpl = fetch}) {
+export async function judge({key, posting, profile, produced, facts, fetchImpl = fetch}) {
   const ask = async () => {
     const response = await fetchImpl('https://api.anthropic.com/v1/messages', {method: 'POST',
-      headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: JSON.stringify(buildRequest({posting, profile, produced}))});
+      headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: JSON.stringify(buildRequest({posting, profile, produced, facts}))});
     const data = await response.json();
     if (!response.ok) throw new Error(`the judge call failed (${response.status}): ${data?.error?.message || 'unknown'}`);
     return parseVerdict((data.content || []).map(part => part.text || '').join(''));

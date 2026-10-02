@@ -8,7 +8,7 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
-import {databaseRows, emptyDatabase, pageText, rewriteLines} from '../lib/notion.mjs';
+import {databaseRows, emptyDatabase, profileText, rewriteLines} from '../lib/notion.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
@@ -183,14 +183,15 @@ export async function run(ctx) {
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
       const {byId} = matchRows(truth, rows);
       // The candidate as the app knows them: the CV text plus the Profile page the scoring read (figures such as a salary minimum may come from there).
-      const profile = `${candidate}\n\nPROFILE PAGE IN NOTION\n${await pageText(NOTION, 'Profile — CV and Preferences').catch(() => '')}`.slice(0, 12000);
+      const profile = `${candidate}\n\nPROFILE PAGE IN NOTION\n${await profileText(NOTION, 'Profile — CV and Preferences').catch(() => '')}`.slice(0, 30000);
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {
         await Promise.all(todo.slice(i, i + 4).map(async item => {
           const p = byId[item.id][0].props;
           const produced = [p.Reason, p.Strengths && `Strengths: ${p.Strengths}`, p.Gaps && `Gaps: ${p.Gaps}`];
-          const verdict = await judge({key: ctx.key, posting: item, profile, produced});
+          const facts = Object.fromEntries(['Seniority', 'Work mode', 'Languages', 'Salary', 'Role family', 'Technologies', 'Recruiter'].map(column => [column, p[column]]));
+        const verdict = await judge({key: ctx.key, posting: item, profile, produced, facts});
           verdicts.push({id: item.id, title: item.title, produced, verdict});
           const bad = failures(verdict);
           if (bad.length) problems.push(`"${item.title}" ${bad.join(' and ')}: ${verdict.why} [text: ${produced.filter(Boolean).join(' / ')}]`);
