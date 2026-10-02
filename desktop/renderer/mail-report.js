@@ -135,3 +135,16 @@ export function parseMailReport(message, result = '', fromRow = []) {
   const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length;
   return empty && !report.status.sentence ? null : report;
 }
+
+// A "which job?" line a Gmail check wrote stays in its run for good, long after the owner answered it in Focus.
+// Given the questions Focus still holds, a line whose company is no longer among them reads as answered; one that
+// is still open is left as it was. `pending` is null while Focus has not loaded: then nothing is judged.
+const ASKED = /^(?:.*?·\s*)?([^:·—]+?)(?:\s+—\s+which job\?|:.*which job\?)/u;
+export function settleQuestion(text, pending) {
+  const line = String(text || '');
+  if (!pending || !/which job\?/.test(line)) return line;
+  const company = (ASKED.exec(line.replace(HEAD, '')) || [])[1]?.trim();
+  if (!company) return line;
+  const open = pending.some(item => `${item.headline || ''} ${item.title || ''} ${item.detail || ''}`.toLowerCase().includes(company.toLowerCase()));
+  return open ? line : `${company}: answered in Focus`;
+}

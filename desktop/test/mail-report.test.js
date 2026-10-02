@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const {mailChanges, mailStatus, parseMailReport} = await import('../renderer/mail-report.js');
+const {mailChanges, mailStatus, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
 
 const PREP = [
   '🗓 Tomorrow 08:30 — Huxley — Principal SRE',
@@ -133,4 +133,14 @@ test('an email that is not about the applications is not listed, older runs incl
     'Your receipt from Anthropic Ireland, Limited #2695-4622 · Anthropic Ireland, Limited · 02 Oct 02:31 — [not about your applications]',
     'Thank you for applying · us.greenhouse-mail.io · 01 Oct 02:56 — [recorded] · Canonical — SRE · changed Stage Applied → Confirmation received']);
   assert.deepEqual(record.emails.map(email => email.action), ['recorded']);
+});
+
+test('a "which job?" line reads as answered once Focus no longer holds the question', () => {
+  const open = [{headline: 'Blockdaemon: Meeting invitation', detail: 'Invitation from an unknown sender'}];
+  assert.equal(settleQuestion('Blockdaemon — which job?', open), 'Blockdaemon — which job?');
+  assert.equal(settleQuestion('Blockdaemon — which job?', []), 'Blockdaemon: answered in Focus');
+  assert.equal(settleQuestion('Interview scheduled · Blockdaemon — which job?'.replace('Interview scheduled · ', ''), []), 'Blockdaemon: answered in Focus');
+  assert.equal(settleQuestion('Blockdaemon: Meeting invitation … which job? Answer in Job Pilotto (Focus).', []), 'Blockdaemon: answered in Focus');
+  assert.equal(settleQuestion('Blockdaemon — which job?', null), 'Blockdaemon — which job?');   // Focus not loaded: no judgement
+  assert.equal(settleQuestion('Canonical — SRE', []), 'Canonical — SRE');
 });

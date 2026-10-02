@@ -6,7 +6,7 @@ import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
 import {parseRunMessage} from '../run-cards.js';
-import {mailChanges, parseMailReport} from '../mail-report.js';
+import {mailChanges, parseMailReport, settleQuestion} from '../mail-report.js';
 import {confidenceLabel, confidenceTone, parseInsight, sourceLine} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {parseInterviewReview} from '../interview-review.js';
@@ -16,7 +16,7 @@ import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
-import {loadFocus, pendingMailQuestions} from './focus.js';
+import {lastQuestions, loadFocus, pendingMailQuestions} from './focus.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openView} from './nav.js';
 import {renderSessionPage} from './session-log.js';
@@ -412,7 +412,8 @@ export function renderActivity(fresh) {
   $('activity-result').textContent = result;
   show($('activity-result'), !!result);
   showRunJob(!run?.live && kindOf(run) === 'add' ? run.job : null);
-  const updates = !run?.live && kindOf(run) === 'mail' ? run.updates || [] : [];
+  const asked = lastQuestions();
+  const updates = !run?.live && kindOf(run) === 'mail' ? (run.updates || []).map(text => settleQuestion(text, asked)) : [];
   const at = run && kindOf(run) === 'search' ? phaseIndex(lines) : -1;
   const live = !!run?.live;
   $('activity-phases').replaceChildren(...(updates.length ? updates.map(text => Object.assign(document.createElement('li'), {className: 'update', textContent: text}))
@@ -442,6 +443,7 @@ export function renderActivity(fresh) {
   else if (mail) {
     const latestMail = runs.find(item => kindOf(item) === 'mail');
     const questions = latestMail && run?.id === latestMail.id ? pendingMailQuestions() : [];
+    settleMail(mail, lastQuestions());
     renderMailCard(mail, questions);
   }
   else if (insight) renderInsightCard(insight);
@@ -702,6 +704,14 @@ function mailConfirm(questions) {
     section.append(row);
   }
   return section;
+}
+// Answered questions stop asking: the update row and the note say "answered in Focus" instead of "which job?".
+function settleMail(report, asked) {
+  for (const update of report.updates) {
+    const text = settleQuestion(update.job, asked);
+    if (text !== update.job) Object.assign(update, {job: text.replace(/: answered in Focus$/, ''), changes: 'Answered in Focus'});
+  }
+  for (const note of report.notes) note.text = settleQuestion(note.text, asked);
 }
 function renderMailCard(report, questions = []) {
   const box = el('div', 'mail-card');

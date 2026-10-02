@@ -282,6 +282,8 @@ async function loadHistory() {
 let lastFocus = null;
 // Emails the last Gmail check could not place (Needs you). Recent activity asks about them on that check.
 export const pendingMailQuestions = () => (lastFocus?.items || []).filter(item => item.kind === 'which_job');
+// null until Focus has loaded: nothing can be called answered before then.
+export const lastQuestions = () => (lastFocus ? pendingMailQuestions() : null);
 export function markPrep(pageId, state) {
   const item = lastFocus?.items?.find(one => one.kind === 'prepare' && one.page_id === pageId);
   if (!item) return;
