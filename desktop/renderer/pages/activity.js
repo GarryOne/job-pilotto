@@ -444,7 +444,7 @@ export function renderActivity(fresh) {
   if (card) renderRunCard(card, run);
   else if (mail) {
     const latestMail = runs.find(item => kindOf(item) === 'mail');
-    renderMailCard(mail, pendingMailQuestions(), lastAnswered(), !!latestMail && run?.id === latestMail.id);
+    renderMailCard(mail, pendingMailQuestions(), lastAnswered());
   }
   else if (insight) renderInsightCard(insight);
   else if (weekly) renderWeeklyCard(weekly);
@@ -641,14 +641,27 @@ function mailDiff(changes) {
   }
   return row;
 }
-function mailSections(box, report) {
+function mailSections(box, report, pending = [], answered = null) {
   if (report.updates.length) {
     const section = el('section', 'mail-block mail-changed');
     section.append(el('h4', '', 'What changed'));
+    const questions = report.emails.filter(email => NEEDS_YOU.has(email.action)).map(email => ({email, ...questionState(email, pending, answered)}));
     for (const update of report.updates) {
       const row = el('div', 'mail-changed-row');
-      row.append(el('b', 'mail-changed-job', update.job));
-      if (update.changes) row.append(mailDiff(update.changes));
+      const ask = /\s+—\s+which job\?$/.exec(update.job);
+      const sentence = el('p', 'mail-changed-sentence');
+      if (ask) {
+        // Not sure which job: the check wrote a question for you (Focus) and moved nothing.
+        const company = update.job.slice(0, ask.index);
+        const state = questions.find(question => question.email.by === company) || {};
+        sentence.append('Not sure which job ', el('b', '', company), ' is about. Asked you; nothing was moved.');
+        row.append(sentence, pill(state.open ? 'Waiting for you' : 'Answered in Focus', state.open ? 'warn' : 'good'));
+      } else {
+        if (update.summary) sentence.append(el('b', '', update.summary), '. Mapped to ');
+        sentence.append(el('b', 'mail-changed-job', update.job), update.summary ? '.' : '');
+        row.append(sentence);
+        if (update.changes) row.append(mailDiff(update.changes));
+      }
       section.append(row);
     }
     box.append(section);
@@ -666,8 +679,9 @@ function mailSections(box, report) {
       words.append(el('span', 'mail-read-meta', [email.sender, email.time].filter(Boolean).join(' · ')));
       row.append(words);
       const acted = email.by && email.by !== email.action;
-      row.append(pill(email.action, email.action === 'recorded' ? 'good' : email.action === 'asked' ? 'warn' : 'neutral'));
+      row.append(pill(email.action, email.action === 'recorded' ? 'good' : NEEDS_YOU.has(email.action) ? 'warn' : 'neutral'));
       if (acted) row.append(el('span', 'mail-read-by', email.by));
+      if (NEEDS_YOU.has(email.action)) row.append(questionBlock(questionState(email, pending, answered)));
       rows.append(row);
     }
     section.append(rows);
@@ -677,10 +691,10 @@ function mailSections(box, report) {
 
 // A Gmail check's card: what the check did, the interview it is about, what to prepare, the recruiter's next step and
 // the consent line — the message's own content, in the shape the owner reads it (the mockup, 30 Sep).
-// A Gmail check that was not sure which job an email belongs to: one block per question, with the email that raised it
-// and what became of it. Still open, it carries the buttons (the same question lives on Focus); answered, it says which
-// job you picked; the email's row under "Emails read" repeats that answer, so the two are never read apart.
+// A Gmail check that was not sure which job an email belongs to asks, and the question sits on that email's own row.
+// Still open, it carries the buttons (the same question lives on Focus); answered, it says which job you picked.
 const subjectKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 100);
+const NEEDS_YOU = new Set(['needs you', 'asked']);
 function questionState(email, pending, answered) {
   const key = subjectKey(email.subject);
   const open = key && pending.find(item => subjectKey(item.subject) === key);
@@ -689,58 +703,34 @@ function questionState(email, pending, answered) {
   if (done) return {answer: done.job ? `You answered: ${done.job}` : 'You said: not about a job'};
   return answered ? {answer: 'Answered in Focus'} : {};
 }
-function mailQuestions(report, pending, answered, latest) {
-  const asked = report.emails.filter(email => email.action === 'asked');
-  const rows = asked.length ? asked : report.asked.map(update => ({subject: update.job.replace(/\s*—\s*which job\?$/, ''), sender: '', time: ''}));
-  const matched = new Set();
-  const entries = rows.map(email => {
-    const state = questionState(email, pending, answered);
-    if (state.open) matched.add(state.open);
-    return {email, ...state};
-  });
-  // The newest check also lists what no check above explains (an older check's question, still open).
-  if (latest) pending.filter(item => !matched.has(item)).forEach(item => entries.push({email: {subject: item.subject || item.headline || item.title, sender: '', time: ''}, open: item}));
-  if (!entries.length) return null;
-  const section = el('section', 'mail-block mail-questions');
-  const head = el('div', 'mail-block-head');
-  head.append(el('h4', '', entries.length === 1 ? 'Question' : 'Questions'), pill(String(entries.length), 'neutral'));
-  section.append(head);
-  for (const entry of entries) {
-    const {email, open, answer} = entry;
-    const row = el('div', 'mail-question');
-    const mail = el('div', 'mail-question-email');
-    mail.append(icon('mail'), el('b', '', email.subject || 'An email'),
-      el('span', 'mail-read-meta', [email.sender, email.time].filter(Boolean).join(' · ')));
-    row.append(mail);
-    const ask = el('div', 'mail-question-ask');
-    ask.append(el('span', 'mail-question-mark', '?'), el('span', '', open?.title || 'Which job is this email about?'));
-    row.append(ask);
-    if (open) {
-      if (open.detail) row.append(el('p', 'mail-sub', open.detail));
-      const actions = el('div', 'mail-confirm-actions');
-      const press = (label, tone, run) => {
-        const button = el('button', tone, label);
-        button.type = 'button';
-        button.addEventListener('click', run);
-        return button;
-      };
-      if (open.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
-        event.currentTarget.disabled = true;
-        await moveEmail(open.event_id, open.suggested_url, open);
-      }));
-      actions.append(press(open.suggested_url ? 'Other job…' : 'Pick the job', open.suggested_url ? 'secondary' : 'primary', () => whichJob(open)));
-      row.append(actions);
-    } else {
-      const done = el('div', 'mail-question-answer');
-      done.append(icon('check-circle'), el('span', '', answer || 'Answer pending: open Focus'));
-      row.append(done);
-      entry.email.by = answer || '';
-    }
-    section.append(row);
+function questionBlock(state) {
+  const {open, answer} = state;
+  const block = el('div', 'mail-question');
+  const ask = el('div', 'mail-question-ask');
+  ask.append(el('span', 'mail-question-mark', '?'), el('span', '', open?.title || 'Which job is this email about?'));
+  block.append(ask);
+  if (!open) {
+    const done = el('div', 'mail-question-answer');
+    done.append(icon('check-circle'), el('span', '', answer || 'Waiting for your answer in Focus'));
+    block.append(done);
+    return block;
   }
-  return section;
+  const actions = el('div', 'mail-confirm-actions');
+  const press = (label, tone, run) => {
+    const button = el('button', tone, label);
+    button.type = 'button';
+    button.addEventListener('click', run);
+    return button;
+  };
+  if (open.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
+    event.currentTarget.disabled = true;
+    await moveEmail(open.event_id, open.suggested_url, open);
+  }));
+  actions.append(press(open.suggested_url ? 'Other job…' : 'Pick the job', open.suggested_url ? 'secondary' : 'primary', () => whichJob(open)));
+  block.append(actions);
+  return block;
 }
-function renderMailCard(report, pending = [], answered = null, latest = false) {
+function renderMailCard(report, pending = [], answered = null) {
   const box = el('div', 'mail-card');
   const status = el('div', 'mail-status');
   const tick = el('span', 'mail-tick');
@@ -754,9 +744,7 @@ function renderMailCard(report, pending = [], answered = null, latest = false) {
   stats.append(stat(report.emails.length, report.emails.length === 1 ? 'email read' : 'emails read'),
                stat(report.updates.length, report.updates.length === 1 ? 'update' : 'updates'));
   if (report.emails.length || report.updates.length) box.append(stats);
-  const questions = mailQuestions(report, pending, answered, latest);
-  if (questions) box.append(questions);
-  mailSections(box, report);
+  mailSections(box, report, pending, answered);
   const {interview} = report;
   if (interview) {
     const panel = el('section', 'mail-interview');

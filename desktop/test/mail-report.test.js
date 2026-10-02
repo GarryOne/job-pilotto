@@ -92,7 +92,7 @@ test('without a message the report lines say what the check recorded and changed
   const report = parseMailReport(null, 'Gmail check: 2 new email(s) read, 1 update(s) recorded', row);
   assert.deepEqual(report.status, {title: 'Check complete', sentence: '2 emails reviewed. 1 application record changed.'});
   // The update is its own line — the job, and what moved on it — not a note.
-  assert.deepEqual(report.updates, [{job: 'Canonical — Software Engineer - Data Infrastructure',
+  assert.deepEqual(report.updates, [{summary: 'Application received', job: 'Canonical — Software Engineer - Data Infrastructure',
                                      changes: 'Stage Applied → Confirmation received'}]);
   // The run's own lines are marked, so the card can draw them as sections instead of as loose text.
   assert.ok(report.notes.every(note => note.fromRow));
@@ -106,7 +106,7 @@ test('each email read becomes a row: subject, who sent it, when, what was done w
                'Security code for your application to Canonical · Greenhouse · 01 Oct 03:44 — [read] · Canonical · nothing to record',
                'Thank you for applying to Canonical · us.greenhouse-mail.io · 01 Oct 03:45 — [recorded] · Canonical — Software Engineer - Data Infrastructure · changed Stage Applied → Confirmation received; Confirmation email set'];
   const report = parseMailReport(null, '', row);
-  assert.deepEqual(report.updates, [{job: 'Canonical — Software Engineer - Data Infrastructure',
+  assert.deepEqual(report.updates, [{summary: 'Application received', job: 'Canonical — Software Engineer - Data Infrastructure',
                                      changes: 'Stage Applied → Confirmation received; Confirmation email set'}]);
   assert.deepEqual(report.emails, [
     {subject: 'Security code for your application to Canonical', sender: 'Greenhouse', time: '01 Oct 03:44',
@@ -145,13 +145,12 @@ test('a "which job?" line reads as answered once Focus no longer holds the quest
   assert.equal(settleQuestion('Canonical — SRE', []), 'Canonical — SRE');
 });
 
-test('a "which job?" is a question, not a change: "What changed" keeps only what was written', async () => {
+test('a "which job?" stays an update (a side effect) and the email that raised it is told apart by its action', () => {
   const report = parseMailReport('', 'Gmail check: 2 new email(s) read, 2 update(s) recorded', [
     'Gmail check: 2 new email(s) read, 2 update(s) recorded',
     '📬 Application received · Canonical — SRE · Stage Applied → Confirmation received',
     '❓ Interview scheduled · Blockdaemon — which job?',
     'Meeting invitation · Cal.com · 02 Oct 21:30 — [needs you] · Blockdaemon']);
-  assert.deepEqual(report.updates.map(update => update.job), ['Canonical — SRE']);
-  assert.deepEqual(report.asked.map(update => update.job), ['Blockdaemon — which job?']);
+  assert.deepEqual(report.updates.map(update => update.job), ['Canonical — SRE', 'Blockdaemon — which job?']);
   assert.equal(report.emails[0].action, 'needs you');
 });

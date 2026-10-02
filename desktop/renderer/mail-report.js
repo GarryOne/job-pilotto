@@ -63,11 +63,11 @@ const UPDATED = /^([^·]+?)\s*·\s*(.*)$/;
 const CHANGE = /→|^(?:Stage|Next interview|Confirmation email|Feedback status)\b/;
 function parseUpdated(line) {
   const [, summary, rest] = UPDATED.exec(line.replace(DID, '').trim()) || [];
-  if (!summary || rest === undefined) return {job: (summary || '').trim(), changes: ''};
+  if (!summary || rest === undefined) return {summary: '', job: (summary || '').trim(), changes: ''};
   const parts = rest.split(/\s*·\s*/);
   const at = parts.findIndex(part => CHANGE.test(part));
-  return at < 0 ? {job: parts.join(' · ').trim(), changes: ''}
-                : {job: parts.slice(0, at).join(' · ').trim(), changes: parts.slice(at).join(' · ').trim()};
+  return at < 0 ? {summary: summary.trim(), job: parts.join(' · ').trim(), changes: ''}
+                : {summary: summary.trim(), job: parts.slice(0, at).join(' · ').trim(), changes: parts.slice(at).join(' · ').trim()};
 }
 const DID = /^(📧|📬|❓|🗓|🎤|📝|🔔|📥|🎯|⚠️|🏋️)|\[\w[\w ]*\]/u;
 
@@ -132,10 +132,7 @@ export function parseMailReport(message, result = '', fromRow = []) {
     report.notes.push({icon: head ? head[1] : '', text: head ? line.slice(head[0].length) : line, fromRow: fromRow_});
     reading = '';
   }
-  // "What changed" is what this check wrote to your applications. A "which job?" is a question, not a change: it moves
-  // to report.asked and the card draws it as its own section, with the email that raised it and your answer.
-  report.asked = report.updates.filter(update => /which job\?$/.test(update.job));
-  report.updates = report.updates.filter(update => !report.asked.includes(update));
+  // The "which job?" note repeats the question the email's row already asks: drop it.
   report.notes = report.notes.filter(note => !/which job\?.*Answer in Job Pilotto/.test(note.text));
   const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length;
   return empty && !report.status.sentence ? null : report;
