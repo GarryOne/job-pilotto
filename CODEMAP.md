@@ -222,6 +222,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/cost.py` — API prices and per-call cost, shared by the AI stages and the cronjob run report.
 - `src/ai/engine.py` — The AI engine every AI step calls through: the Anthropic API (the user's key) or the user's own Claude Code.
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
+- `src/ai/hints.py` — Scoring hints learned from what people dismiss (site/src/intelligence.js hints, fetched by desktop/lib/aliases.js into data/hints.json).
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.
 - `src/ai/interview_insights.py` — Interview insights: what your reviewed interviews say together, for the Interviews page and 💡 Insights.

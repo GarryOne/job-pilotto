@@ -4,12 +4,12 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {bucketOf} from '../../extension/recipe-schema.js';
-import {aliases, evaluateAliases, pack} from '../src/aliases.js';
+import {aliases, evaluateAliases, evaluateVerifiedAliases, pack} from '../src/aliases.js';
 import {controls, installToken} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0008_guard.sql', '0009_knowledge.sql', '0010_aliases.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0008_guard.sql', '0009_knowledge.sql', '0010_aliases.sql', '0014_intelligence.sql', '0016_intel_signals.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -93,4 +93,18 @@ test('button texts of pages with no known Apply button are targets of their own;
   // A button alias is served to installs like any other, and never mistaken for a profile field by the filler's matcher.
   await owner(e, 'PUT', {status: 'verified', items: [{key: 'apply_button', phrase: 'Bewerbung starten'}]});
   assert.ok((await (await serve(e, 'install-alias-0009')).json()).aliases.some(a => a.key === 'apply_button' && a.phrase === 'bewerbung starten'));
+});
+
+test('changed-answer wordings become review targets only when enough people and fills back them; the pack carries the scoring hints; a failing verified alias is rolled back', async () => {
+  const e = env();
+  const put = (label, filled, corrected, installs) => e.STATS.db.prepare("INSERT INTO intel_fixes (label, filled, corrected, installs, last_day) VALUES (?, ?, ?, ?, '2026-10-01')").run(label, filled, corrected, JSON.stringify(installs));
+  put('notice period', 20, 10, ['a', 'b', 'c']); put('only mine', 50, 50, ['a']); put('first name', 40, 2, ['a', 'b', 'c']); put('few fills', 5, 5, ['a', 'b', 'c']);
+  const res = await (await owner(e, 'GET', null, '?targets=fixes')).json();
+  assert.deepEqual(res.targets.map(t => [t.label, t.corrected, t.current]), [['notice period', 10, '']]);
+  e.STATS.db.prepare("INSERT INTO intel_dismiss (day, reason, bucket, n) VALUES ('2026-10-01', 'seniority', '60-79', 60)").run();
+  const served = await (await serve(e, 'install-aaaa-1111')).json();
+  assert.deepEqual(served.hints, [{reason: 'seniority', share: 1}]);
+  await owner(e, 'PUT', {status: 'verified', items: [{key: 'email', phrase: 'Courriel'}]});
+  e.STATS.db.prepare("INSERT INTO alias_outcomes (day, phrase, ok, failed) VALUES ('2026-10-01', 'courriel', 10, 30)").run();
+  assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'rolled back']]);
 });

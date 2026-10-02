@@ -7,7 +7,7 @@ import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
 import {guard} from './guard.js';
 import {view as intelligenceView} from './intelligence.js';
-import {aliases, evaluateAliases, pack as aliasPack} from './aliases.js';
+import {aliases, evaluateAliases, evaluateVerifiedAliases, pack as aliasPack} from './aliases.js';
 import {tidy as tidyIntelligence} from './intelligence.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
 import {playbook} from './playbook.js';
@@ -110,6 +110,8 @@ export default {
     ctx.waitUntil(pool.purge(env).catch(error => console.error(`pool purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })
       .catch(error => console.error(`recipe canary: ${error.message}`)));
+    ctx.waitUntil((env.STATS ? Promise.all([recipeLibrary.evaluateVerified(env.STATS), evaluateVerifiedAliases(env.STATS)]).then(done => done.flat()) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`rolled back: ${JSON.stringify(actions)}`); })
+      .catch(error => console.error(`verified watch: ${error.message}`)));
     ctx.waitUntil(telemetry.daily(env, dispatch).catch(error => console.error(`telemetry triage: ${error.message}`)));
     ctx.waitUntil((env.STATS ? evaluateAliases(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`aliases: ${JSON.stringify(actions)}`); })
       .catch(error => console.error(`alias canary: ${error.message}`)));

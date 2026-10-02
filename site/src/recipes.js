@@ -328,6 +328,23 @@ export async function evaluateCanary(db, now = new Date()) {
   return actions;
 }
 
+// A verified recipe keeps being judged over the last week of real use: if its failure rate climbs past the halt line it is switched off
+// (the operators' built-in behaviour takes over) and the proposer is free to try again.
+export async function evaluateVerified(db, now = new Date()) {
+  const from = day(new Date(now.getTime() - 6 * 86400000));
+  const actions = [];
+  for (const recipe of (await db.prepare("SELECT fingerprint, version FROM recipes WHERE status = 'verified'").all()).results || []) {
+    const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM control_outcomes WHERE fingerprint = ? AND recipe = ? AND day >= ?').bind(recipe.fingerprint, recipe.version, from).first();
+    const ok = sums?.ok || 0, failed = sums?.failed || 0, attempts = ok + failed, rate = attempts ? failed / attempts : 0;
+    if (attempts >= MIN_FAIL_CHECK && rate > HALT_ABOVE) {
+      await db.prepare("UPDATE recipes SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE fingerprint = ? AND version = ?")
+        .bind(`auto-rolled back: ${failed} of ${attempts} failed in a week`, now.toISOString(), recipe.fingerprint, recipe.version).run();
+      actions.push({recipe: `${recipe.fingerprint} v${recipe.version}`, action: 'rolled back', attempts, rate});
+    }
+  }
+  return actions;
+}
+
 // The owner's view: the controls that fail most, with what is being done about them.
 export async function controlStats(db, days = 7, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));

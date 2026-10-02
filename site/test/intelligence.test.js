@@ -110,3 +110,17 @@ test('tidy drops a corrected-answer label that fewer than 3 installs reported on
   assert.deepEqual(await tidy(e.STATS, now), {dropped: 0});
   assert.deepEqual(await tidy(e.STATS, new Date('2026-10-20T00:00:00Z')), {dropped: 1});
 });
+
+test('hints need 50 dismissals and a reason at 30%+; the calibration says whether the score predicts replies', async () => {
+  const {hints, calibration} = await import('../src/intelligence.js');
+  const e = env();
+  await store(e, {dismissals: [{reason: 'seniority', bucket: '60-79', n: 20}, {reason: 'other', bucket: '60-79', n: 20}]}, now);
+  assert.deepEqual(await hints(e.STATS, now), []);   // 40 dismissals: not enough
+  await store(e, {dismissals: [{reason: 'tech', bucket: '60-79', n: 15}, {reason: 'location', bucket: '40-59', n: 5}]}, now);
+  assert.deepEqual(await hints(e.STATS, now), [{reason: 'seniority', share: 0.33}]);   // 20 of 60; tech is 25% and "other" is never a hint
+  const rows = rate => [{bucket: '80-100', rate: rate[0]}, {bucket: '60-79', rate: rate[1]}];
+  assert.equal(calibration(rows([0.5, 0.2])).status, 'ok');
+  assert.equal(calibration(rows([0.22, 0.2])).status, 'flat');
+  assert.equal(calibration(rows([0.1, 0.2])).status, 'inverted');
+  assert.equal(calibration(rows([null, 0.2])).status, 'thin');
+});

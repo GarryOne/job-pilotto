@@ -5,6 +5,7 @@
 //   PUT  /api/aliases         the owner (the private proposer): add or change aliases, or record {reviewed: [{label}]} wordings that mean nothing. Sensitive fields (birth date, address ...)
 //                             only go live when the owner passes approved: true.
 // evaluateAliases (daily) grows a canary that works and halts one that fails, like the recipes' canary; sensitive ones are only ever halted.
+import {hints} from './intelligence.js';
 import {BUTTON_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias} from '../../extension/alias-schema.js';
 import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, flag} from './guard.js';
@@ -38,7 +39,22 @@ export async function pack(request, env, now = new Date()) {
     const rollout = row.status === 'verified' ? 100 : row.rollout;
     if (checked.ok && appliesTo({rollout}, install)) out.push({...checked.alias, rollout});
   }
-  return json({ok: true, aliases: out});
+  return json({ok: true, aliases: out, hints: await hints(env.STATS, now).catch(() => [])});
+}
+
+// Daily: a verified alias keeps being judged over the last week; if it starts failing it is switched off like a canary would be.
+export async function evaluateVerifiedAliases(db, now = new Date()) {
+  const from = day(new Date(now.getTime() - 6 * 86400000));
+  const actions = [];
+  for (const item of (await db.prepare("SELECT phrase FROM aliases WHERE status = 'verified'").all()).results || []) {
+    const sums = await db.prepare('SELECT SUM(ok) AS ok, SUM(failed) AS failed FROM alias_outcomes WHERE phrase = ? AND day >= ?').bind(item.phrase, from).first();
+    const ok = sums?.ok || 0, failed = sums?.failed || 0, attempts = ok + failed, rate = attempts ? failed / attempts : 0;
+    if (attempts >= MIN_FAIL_CHECK && rate > HALT_ABOVE) {
+      await db.prepare("UPDATE aliases SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE phrase = ?").bind(`auto-rolled back: ${failed} of ${attempts} failed in a week`, now.toISOString(), item.phrase).run();
+      actions.push({alias: item.phrase, action: 'rolled back', attempts, rate});
+    }
+  }
+  return actions;
 }
 
 // GET / PUT /api/aliases (owner)
@@ -49,6 +65,16 @@ export async function aliases(request, env, now = new Date()) {
   if (request.method === 'GET') {
     const all = (await env.STATS.prepare('SELECT key, phrase, status, rollout, source, note FROM aliases ORDER BY phrase').all()).results || [];
     const mode = url.searchParams.get('targets');
+    if (mode === 'fixes') {
+      // Questions the filler answers that people then change by hand (3+ installs, 10+ fills, 30%+ changed): the mapping or the profile field may be wrong.
+      const known = all.map(row => ({key: row.key, phrase: row.phrase}));
+      const since = day(new Date(now.getTime() - REVIEW_DAYS * 86400000));
+      const reviewed = new Set(((await env.STATS.prepare('SELECT label FROM label_reviews WHERE day >= ?').bind(since).all().catch(() => ({results: []}))).results || []).map(row => row.label));
+      const found = ((await env.STATS.prepare('SELECT label, filled, corrected, installs FROM intel_fixes WHERE filled >= 10 AND CAST(corrected AS REAL) / filled >= 0.3 ORDER BY corrected DESC LIMIT 50').all().catch(() => ({results: []}))).results || [])
+        .filter(row => { try { return JSON.parse(row.installs).length >= 3; } catch { return false; } }).filter(row => !reviewed.has(row.label))
+        .map(row => ({label: row.label, n: row.filled, kind: 'fix', corrected: row.corrected, current: aliasKey(row.label, known) || ''}));
+      return json({ok: true, targets: found, keys: KEYS, sensitive: SENSITIVE});
+    }
     if (mode === '1' || mode === 'buttons') {
       // Wordings several installs report that no alias places yet and that were not looked at lately: questions, or button texts of pages where no Apply button was found.
       const known = all.map(row => ({key: row.key, phrase: row.phrase}));

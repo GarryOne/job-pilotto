@@ -21,6 +21,7 @@ const GOOD = ['reply', 'screening', 'offer'];
 const BOARD_KIND = /^[a-z]{3,20}$/;
 const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
 const day = date => date.toISOString().slice(0, 10);
+const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 const int = (value, max) => Math.max(0, Math.min(max, Math.round(Number(value)) || 0));
 const pick = (value, list, fallback) => (list.includes(value) ? value : fallback);
 
@@ -110,6 +111,30 @@ export async function tidy(db, now = new Date()) {
 
 const rows = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all().catch(() => ({results: []}))).results || [];
 
+// Scoring hints for the apps (GET /api/packs/aliases carries them): the reasons people most often give for dismissing a job, as {reason, share}.
+// Only the fixed reason word leaves; the app turns it into a sentence from its own templates, so the server can never put text in a prompt.
+// Needs 50+ dismissals in the last 30 days, and a reason must be 30%+ of them. "other" is not a hint.
+export const HINT_MIN = 50, HINT_SHARE = 0.3;
+export async function hints(db, now = new Date()) {
+  const from = day(new Date(now.getTime() - 29 * 86400000));
+  const found = await rows(db, 'SELECT reason, SUM(n) AS n FROM intel_dismiss WHERE day >= ? GROUP BY reason', from);
+  const total = found.reduce((sum, row) => sum + row.n, 0);
+  if (total < HINT_MIN) return [];
+  return found.filter(row => row.reason !== 'other' && REASONS.includes(row.reason) && row.n / total >= HINT_SHARE)
+    .sort((a, b) => b.n - a.n).slice(0, 3).map(row => ({reason: row.reason, share: Math.round(row.n / total * 100) / 100}));
+}
+
+// Does the score predict replies? Compares the reply rate of the top band with the next one (each needs 20+ marked outcomes).
+export function calibration(replies) {
+  const top = replies.find(row => row.bucket === '80-100'), next = replies.find(row => row.bucket === '60-79'), low = replies.find(row => row.bucket === '40-59');
+  if (top?.rate == null) return {status: 'thin', note: 'Not enough marked outcomes in the 80+ band yet.'};
+  const lower = next?.rate != null ? next : low?.rate != null ? low : null;
+  if (!lower) return {status: 'thin', note: 'Not enough marked outcomes in a lower band to compare.'};
+  if (top.rate < lower.rate) return {status: 'inverted', note: `Jobs scored 80+ get fewer replies (${pct(top.rate)}) than ${lower.bucket} (${pct(lower.rate)}): the scoring rubric needs a look.`};
+  if (top.rate - lower.rate < 0.05) return {status: 'flat', note: `80+ (${pct(top.rate)}) is barely better than ${lower.bucket} (${pct(lower.rate)}): the score is not predicting replies.`};
+  return {status: 'ok', note: `80+ gets ${pct(top.rate)} replies against ${pct(lower.rate)} for ${lower.bucket}: the score predicts replies.`};
+}
+
 export async function report(db, days = 30, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const terms = await rows(db, 'SELECT term, SUM(n) AS n FROM intel_terms WHERE day >= ? GROUP BY term ORDER BY n DESC', from);
@@ -144,12 +169,11 @@ export async function report(db, days = 30, now = new Date()) {
   const fixes = (await rows(db, 'SELECT label, filled, corrected, installs FROM intel_fixes WHERE filled >= 10 ORDER BY CAST(corrected AS REAL) / filled DESC, filled DESC LIMIT 20'))
     .filter(row => { try { return JSON.parse(row.installs).length >= MIN_PEOPLE; } catch { return false; } }).map(({installs, ...row}) => ({...row, rate: row.corrected / row.filled}));
   const cost = await aiCost(db, days, now);
-  return {days, replies, sources, fixes, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
+  return {days, calibration: calibration(replies), hints: await hints(db, now), replies, sources, fixes, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
     coverage, missed, dismiss, scores};
 }
 
 const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
-const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 
 export function page(data) {
   const dismissTotals = REASONS.map(reason => [reason, data.dismiss.filter(row => row.reason === reason).reduce((sum, row) => sum + row.n, 0)]).filter(([, n]) => n);
@@ -176,12 +200,13 @@ ${data.missed.map(row => `<tr><td>${esc(row.term)}</td><td>${row.perReport}</td>
 <section class="card"><h2>➕ Role words people accept</h2><small class="muted">From the card's one-click add. This becomes the starter keyword pack for new searches.</small>
 <table><tr><th>Word</th><th>People</th><th>Role / region</th></tr>
 ${data.terms.map(row => `<tr><td>${esc(row.term)}</td><td><b>${row.n}</b></td><td class="muted">${esc(row.where.slice(0, 4).join(' · '))}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">No word chosen by ${MIN_PEOPLE}+ people yet${data.hiddenTerms ? ` (${data.hiddenTerms} chosen by fewer)` : ''}.</td></tr>`}</table></section>
-<section class="card"><h2>🙅 Why jobs are dismissed</h2><small class="muted">The one-tap reason after Dismiss. If most reasons are "seniority", the filters or the extraction need work.</small>
+<section class="card"><h2>🙅 Why jobs are dismissed</h2><small class="muted">${data.hints.length ? `Shipped to apps as scoring hints: ${esc(data.hints.map(h => `${h.reason} ${Math.round(h.share * 100)}%`).join(', '))}.` : 'No scoring hint shipped yet (needs 50+ dismissals, a reason at 30%+).'}</small><br><small class="muted">The one-tap reason after Dismiss. If most reasons are "seniority", the filters or the extraction need work.</small>
 <table>${dismissTotals.map(([reason, n]) => `<tr><td style="width:110px">${esc(reason)}</td><td><div class="bar" style="width:${Math.round(n / dismissAll * 100)}%"></div></td><td style="width:80px"><b>${n}</b> · ${Math.round(n / dismissAll * 100)}%</td></tr>`).join('') || '<tr><td class="muted">No reasons yet.</td></tr>'}</table></section>
 <section class="card"><h2>🎯 Does the score predict action?</h2><small class="muted">Per fit-score band: the share of jobs that were acted on (saved, applied or past it), dismissed, or reached a call or interview. If the 80+ band is not clearly better than 60–79, the scoring rubric needs fixing.</small>
 <table><tr><th>Score band</th><th>Jobs seen</th><th>Acted on</th><th>Dismissed</th><th>Reached a call / interview</th></tr>
 ${data.scores.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.acted)}</td><td>${pct(row.dismissed)}</td><td>${pct(row.interviewed)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No snapshots yet.</td></tr>'}</table></section>
 <section class="card"><h2>📬 Do higher scores get replies?</h2><small class="muted">Of the applications people marked, the share that got a reply, a call or an offer, per fit-score band (shown from 20 outcomes). Calibrates the scoring.</small>
+<p><b>${data.calibration.status === 'ok' ? '✅' : data.calibration.status === 'thin' ? '⏳' : '⚠️'} ${esc(data.calibration.note)}</b></p>
 <table><tr><th>Score band</th><th>Outcomes marked</th><th>Reply or better</th></tr>
 ${data.replies.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.rate)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">No marked outcomes yet.</td></tr>'}</table></section>
 <section class="card"><h2>🧭 Which sources give useful jobs?</h2><small class="muted">Per job-board kind: the share of jobs people acted on or dismissed, and of the acted ones, how many got a call. "other" is every company site.</small>

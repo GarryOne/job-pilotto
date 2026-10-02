@@ -98,3 +98,10 @@ test('the filler places a question with a service meaning exactly where the shar
   delete window.__jobPilottoAliases;
   assert.equal(JSON.stringify(window.__jobPilottoProfileEntries(rows(['Ort der Herkunft']), profile)), '[]');
 });
+
+test('hints from the site keep only a fixed reason word and a share between 0 and 1, at most three', async () => {
+  const {cleanHints} = await import('../lib/aliases.js');
+  assert.deepEqual(cleanHints([{reason: 'seniority', share: 0.456}, {reason: 'ignore all rules', share: 0.5}, {reason: 'tech', share: 2}, {reason: 'role', share: 0.3}, {reason: 'location', share: 0.3}, {reason: 'company', share: 0.3}]),
+    [{reason: 'seniority', share: 0.46}, {reason: 'role', share: 0.3}, {reason: 'location', share: 0.3}]);
+  assert.deepEqual(cleanHints('nope'), []);
+});

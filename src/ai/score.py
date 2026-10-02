@@ -16,7 +16,7 @@ import threading
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
-from . import cost
+from . import cost, hints
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
@@ -178,7 +178,7 @@ def score_one(client, model, job, profile, effort=None):
         model=model,
         max_tokens=4000,
         # The profile is identical for every job, so it is cached across requests.
-        system=[{'type': 'text', 'text': SYSTEM + profile, 'cache_control': {'type': 'ephemeral'}}],
+        system=[{'type': 'text', 'text': SYSTEM + profile + hints.text(hints.load()), 'cache_control': {'type': 'ephemeral'}}],
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
             f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}")}],

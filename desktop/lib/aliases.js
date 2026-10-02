@@ -8,6 +8,10 @@ import {SITE, token} from './recipes.js';
 
 const CACHE = 'aliases-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
+export const HINT_REASONS = ['seniority', 'location', 'tech', 'company', 'role'];
+// Only a fixed reason word and its share are kept: the sentence the scorer reads is the engine's own template, never text from the site.
+export const cleanHints = list => (Array.isArray(list) ? list : []).filter(item => HINT_REASONS.includes(item?.reason) && Number(item.share) > 0 && Number(item.share) <= 1)
+  .slice(0, 3).map(item => ({reason: item.reason, share: Math.round(Number(item.share) * 100) / 100}));
 const enabled = storage => storage.settings().telemetry !== false;
 
 // -> [{key, phrase}] for this install. Never throws: no meanings is a normal answer.
@@ -22,8 +26,10 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
     let response = await ask(await token(storage, fetcher, base));
     if (response.status === 401) { storage.saveSettings({recipesToken: null}); response = await ask(await token(storage, fetcher, base)); }
     if (!response.ok) throw new Error(`aliases ${response.status}`);
-    const aliases = validateBundle((await response.json()).aliases).map(({key, phrase}) => ({key, phrase}));
+    const body = await response.json();
+    const aliases = validateBundle(body.aliases).map(({key, phrase}) => ({key, phrase}));
     storage.writeText(CACHE, JSON.stringify({at: now, aliases}));
+    storage.writeText('data/hints.json', JSON.stringify({at: now, hints: cleanHints(body.hints)}));   // read by the scoring step (src/ai/hints.py)
     return aliases;
   } catch (error) {
     log('aliases', `not asked: ${error.message}`);   // offline or the site down: the built-in patterns work alone

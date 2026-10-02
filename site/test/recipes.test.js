@@ -250,3 +250,15 @@ test('the guard never blocks a real user when its tables are missing', async () 
   const token = await mintFor(e, 'install-nogd-001', 'recipes');
   assert.equal((await lookupAs(e, 'install-nogd-001', token, ['abc12345'])).status, 200);
 });
+
+test('a verified recipe that starts failing in real use is rolled back; a healthy one is left alone', async () => {
+  const {evaluateVerified} = await import('../src/recipes.js');
+  const e = env();
+  const add = (fp, version, status) => e.STATS.db.prepare("INSERT INTO recipes (fingerprint, version, status, rollout, body, source, note, created_at, updated_at) VALUES (?, ?, ?, 100, '{}', 'test', '', 'x', 'x')").run(fp, version, status);
+  add('badfp0001', 1, 'verified'); add('goodfp0001', 1, 'verified');
+  const out = (fp, ok, failed) => e.STATS.db.prepare('INSERT INTO control_outcomes (day, fingerprint, recipe, ok, failed) VALUES (?, ?, 1, ?, ?)').run('2026-10-01', fp, ok, failed);
+  out('badfp0001', 20, 20); out('goodfp0001', 60, 2);
+  const actions = await evaluateVerified(e.STATS, new Date('2026-10-02T12:00:00Z'));
+  assert.deepEqual(actions.map(a => [a.recipe, a.action]), [['badfp0001 v1', 'rolled back']]);
+  assert.deepEqual(e.STATS.db.prepare('SELECT fingerprint, status FROM recipes ORDER BY fingerprint').all().map(r => [r.fingerprint, r.status]), [['badfp0001', 'disabled'], ['goodfp0001', 'verified']]);
+});
