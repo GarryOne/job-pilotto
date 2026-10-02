@@ -3,6 +3,7 @@
 // SDKs here (ANTHROPIC_BASE_URL) and sends the owner-signed license key (JP1.…) as its API key. Only license
 // holders: install ids can be faked, signed keys can't. $1 per key and a monthly total cap (wrangler.toml vars),
 // counted in KV from each response's token usage. Nothing is stored: not the request, not the answer.
+import {record as recordCost} from './aicost.js';
 import {verifyLicense} from './license.js';
 
 const ANTHROPIC = 'https://api.anthropic.com';
@@ -49,6 +50,8 @@ export async function trial(request, env, fetcher = fetch, now = new Date()) {
     let data = {};
     try { data = JSON.parse(text); } catch {}
     const spent = Math.ceil(costUsd(data.model, data.usage) * 100 * 100) / 100;  // cents, rounded up to 1/100 cent
+    // What each AI step costs us (src/aicost.js): counts and money per step, the license holder only as a digest.
+    await recordCost(env, license.id, request.headers.get('x-jp-action'), data.model, data.usage, costUsd(data.model, data.usage), now);
     await Promise.all([env.WAITLIST.put(`trial:key:${license.id}`, String(state.used + spent)),
       env.WAITLIST.put(`trial:month:${month(now)}`, String(state.total + spent), {expirationTtl: 60 * 86400})]);
   }

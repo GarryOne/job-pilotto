@@ -145,7 +145,7 @@ class DailyAddTests(unittest.TestCase):
         argv = ['daily', '--mode', 'add', '--action', 'talking', '--target', 'new', '--note', EMAIL_PITCH]
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.object(inbox, 'read', read), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
-                mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda: None)}), \
+                mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
                 mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             self.assertEqual(daily.main(), 0)
         self.assertEqual(seen['text'], EMAIL_PITCH)
@@ -161,7 +161,7 @@ class DailyAddTests(unittest.TestCase):
         argv = ['daily', '--mode', 'add', '--log-run', '--note', 'A LinkedIn chat with the recruiter, long enough to read.', *extra]
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.object(inbox, 'read', lambda *a, **k: answer), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
-                mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda: None)}), \
+                mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
                 mock.patch.object(daily.cron_runs, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
                 mock.patch.dict(daily.cron_runs._auto, {}), mock.patch.dict(daily.cron_runs._open, {}), \
                 mock.patch.object(daily, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:

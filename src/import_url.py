@@ -64,7 +64,7 @@ def run(db, tracker, url, *, client=None, stats=None, now=None):
             raise ValueError('Add your profile first. The fit score is read against it.')
     if client is None and (job_id not in fits or not facts):
         from .ai import engine
-        client = engine.client()
+        client = engine.client(action='import')
     db.executescript(enrich.ENRICHMENT_TABLE)
     db.executescript(score.SCORES_TABLE)
     if not facts:

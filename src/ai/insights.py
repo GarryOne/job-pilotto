@@ -378,7 +378,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
             'learning': learning.evidence(tracker, now)}
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='insight')
     response = client.messages.create(
         model=model, max_tokens=MAX_TOKENS,
         system=[{'type': 'text', 'text': WEEKLY_SYSTEM.format(min_group=MIN_GROUP) + profile}],
@@ -471,7 +471,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
             'learning': learning.evidence(tracker, now)}
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='insight')
     insight, usage = generate(client, model, profile, data)
     insight['issues'] = learning.validate(insight.get('issues') or [], data['learning'])
     cost.add(stats, model, usage)

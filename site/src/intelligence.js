@@ -6,6 +6,7 @@
 //   3 why a job was dismissed (a one-tap reason), by the job's fit-score band
 //   4 a daily snapshot of score band vs what became of the job (new, saved, applied, replied ...): does the score predict action?
 // store() takes the `intel` part of POST /api/controls; view() is the owner's /intelligence page.
+import {report as aiCost} from './aicost.js';
 import {REGIONS, ROLES} from './pool.js';
 import {allowed} from './stats.js';
 
@@ -86,7 +87,8 @@ export async function report(db, days = 30, now = new Date()) {
   const heard = reached(['screening', 'interviewing', 'offer']);
   const scores = BUCKETS.filter(bucket => byBucket[bucket]).map(bucket => ({bucket, total: byBucket[bucket].total, states: byBucket[bucket].states,
     acted: acted(bucket), interviewed: heard(bucket), dismissed: reached(['dismissed'])(bucket)}));
-  return {days, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
+  const cost = await aiCost(db, days, now);
+  return {days, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
     coverage, missed, dismiss, scores};
 }
 
@@ -123,6 +125,11 @@ ${data.terms.map(row => `<tr><td>${esc(row.term)}</td><td><b>${row.n}</b></td><t
 <section class="card"><h2>🎯 Does the score predict action?</h2><small class="muted">Per fit-score band: the share of jobs that were acted on (saved, applied or past it), dismissed, or reached a call or interview. If the 80+ band is not clearly better than 60–79, the scoring rubric needs fixing.</small>
 <table><tr><th>Score band</th><th>Jobs seen</th><th>Acted on</th><th>Dismissed</th><th>Reached a call / interview</th></tr>
 ${data.scores.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.acted)}</td><td>${pct(row.dismissed)}</td><td>${pct(row.interviewed)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No snapshots yet.</td></tr>'}</table></section>
+<section class="card"><h2>💸 What the AI costs us</h2><small class="muted">Included AI through the relay (founder and friend keys today, Pro later): money per step and per user per active day. This is what a pass price and a credit budget must cover.</small>
+<table><tr><th>Users</th><th>Total</th><th>Per user per active day</th><th>Median · 95th · max</th><th>Per user per month</th></tr>
+<tr><td>${data.cost.users}</td><td>$${data.cost.total.toFixed(2)}</td><td>$${data.cost.perUserDay.mean.toFixed(3)}</td><td>$${data.cost.perUserDay.median.toFixed(3)} · $${data.cost.perUserDay.p95.toFixed(3)} · $${data.cost.perUserDay.max.toFixed(3)}</td><td><b>$${data.cost.monthPerActiveUser.toFixed(2)}</b></td></tr></table>
+<table><tr><th>Step</th><th>Calls</th><th>Cost</th><th>Per call</th></tr>
+${data.cost.steps.map(row => `<tr><td>${esc(row.action)}</td><td>${row.calls}</td><td>$${row.usd.toFixed(3)}</td><td>$${row.perCall.toFixed(4)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No relay calls yet. Steps are labelled by the app, so an older app shows as "other".</td></tr>'}</table></section>
 </main></body></html>`;
 }
 

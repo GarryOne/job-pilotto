@@ -249,7 +249,7 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
         return '0 kit(s) auto-drafted', []
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='kit')
     profile, answers = tracker.page_text(), standard_answers(tracker)
     drafted_jobs, failures = [], 0
     for job in pending:

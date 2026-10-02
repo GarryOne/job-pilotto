@@ -989,7 +989,7 @@ def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None,
     index = _events_index(tracker)
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='mail')
     rejected = []
     lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected,
                              None if dry_run else on_new)

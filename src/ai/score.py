@@ -254,7 +254,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
             raise
         transient = permanent = ()
     from . import engine
-    client = client or engine.client()
+    client = client or engine.client(action='score')
     scored = failures = 0
     usage_totals = {'input': 0, 'output': 0, 'cache_read': 0}
     stop = threading.Event()  # the spend limit was hit: jobs still queued don't call the API

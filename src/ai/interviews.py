@@ -582,7 +582,7 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
         apps = [chosen] + apps
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='interview')
     result, usage, model = analyse(client, model, tracker.page_text(), apps, caption, transcript)
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)

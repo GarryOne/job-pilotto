@@ -271,7 +271,7 @@ def add_from_text(tracker, text, *, client=None, model=DEFAULT_MODEL, source='Ma
         from . import engine
         if not engine.ready():
             raise ValueError('Reading a recruiter message needs AI: choose Claude Code or add an API key (Settings → AI).')
-        client = engine.client()
+        client = engine.client(action='opportunity')
     lead = extract(client, model, text, stats=stats)
     if not lead.get('is_opportunity'):
         raise ValueError("That doesn't read like a recruiter pitching a role, so nothing was added.")

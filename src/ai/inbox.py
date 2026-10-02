@@ -448,7 +448,7 @@ def _client(client):
     from . import engine
     if not engine.ready():
         raise ValueError('Reading a message needs AI: choose Claude Code or add an API key (Settings → AI).')
-    return engine.client()
+    return engine.client(action='inbox')
 
 
 def _as_written(text):

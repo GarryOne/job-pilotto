@@ -307,7 +307,7 @@ def build(tracker, row, client=None, model=DEFAULT_MODEL, stats=None, now=None, 
         return _ask()
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='prep')
     if about_role(role) < MIN_ROLE:
         # Screenshots you logged on the job (e.g. a LinkedIn chat, before the Log box kept its text) say what the
         # role is: read them, keep that as the job's description, and go on instead of asking you again.

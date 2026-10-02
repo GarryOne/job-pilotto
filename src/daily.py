@@ -195,7 +195,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     profile, answers = tracker.page_text(), kit.standard_answers(tracker)
     if client is None:
         from .ai import engine
-        client = engine.client()
+        client = engine.client(action='kit')
     drafted, usage = kit.draft(client, model, job, profile, answers, questions)
     cost.add(stats, model, usage)
     if stats is not None:

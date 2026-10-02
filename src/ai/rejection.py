@@ -190,7 +190,7 @@ def review(tracker, row, *, email_text='', client=None, model=DEFAULT_MODEL, sta
     """Review one rejected application and write the result on it. Returns (result, one-line summary)."""
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='review')
     profile = tracker.page_text() if profile is None else profile
     result, _ = analyse(client, model, profile, material(tracker, row, email_text), stats)
     if result['verdict'] not in VERDICTS:

@@ -66,17 +66,22 @@ def missing_text(env=None):
             'This needs your Anthropic API key (Settings → AI), or choose Claude Code there.')
 
 
-def _api():
+ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import')
+
+
+def _api(action=''):
+    """The SDK client. `action` names the AI step (one of ACTIONS) in a header the free-credit relay reads, so what each step costs can be
+    told apart there (site/src/trial.js); Anthropic itself ignores it. Nothing about the job or the user is in it."""
     import anthropic
-    return anthropic.Anthropic()
+    return anthropic.Anthropic(default_headers={'x-jp-action': action}) if action in ACTIONS else anthropic.Anthropic()
 
 
-def client(env=None):
+def client(env=None, action=''):
     """The AI client for this run, as the user chose it."""
     env = os.environ if env is None else env
     if choice(env) == 'cli':
-        return CliClient(binary=find_binary(env), fallback=_api if fallback_allowed(env) else None)
-    return _api()
+        return CliClient(binary=find_binary(env), fallback=(lambda: _api(action) if action else _api()) if fallback_allowed(env) else None)
+    return _api(action) if action else _api()
 
 
 def label(usage_or_stats):

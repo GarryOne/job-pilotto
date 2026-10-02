@@ -463,7 +463,7 @@ def _update(tracker, *, client, model_, stats, now, force, budget_status):
     model_ = model_ or model()
     if client is None:
         from . import engine
-        client = engine.client()
+        client = engine.client(action='interview')
     result, usage, model_ = generate(client, model_, items)
     cost.add(stats, model_, usage)
     usd = cost.usd(model_, usage)
