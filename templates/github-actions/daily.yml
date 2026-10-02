@@ -1,7 +1,7 @@
 # Job Pilotto — your scheduled job search, in YOUR private repo (the Desktop App puts it there).
 # It runs the public engine (GarryOne/job-pilotto) with this repo's secrets and variables, so your
 # logs, job database and results stay private. Schedules are in UTC.
-name: Daily job discovery
+name: Job Pilotto
 run-name: ${{ inputs.mode || 'scheduled' }}${{ inputs.job && format(' {0}', inputs.job) || '' }}
 
 on:
@@ -27,7 +27,7 @@ permissions:
   actions: write   # an applied job starts the mail check 5 minutes later
 
 jobs:
-  daily:
+  engine:
     uses: GarryOne/job-pilotto/.github/workflows/daily.yml@main
     with:
       mode: ${{ inputs.mode || 'scheduled' }}

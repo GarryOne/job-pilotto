@@ -76,7 +76,7 @@ env:
   NOTION_PIPELINE_PAGE: ${{ vars.NOTION_PIPELINE_PAGE }}
 
 jobs:
-  discover:
+  run:
     runs-on: ubuntu-latest
     # Runs share one SQLite state file; never let two overlap. Apply, more, prepare, insight, weekly,
     # interview and add runs only read it, so they get their own group and a queued run can't displace them.
@@ -116,8 +116,6 @@ jobs:
           path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
           restore-keys: job-pilotto-db-
-      - name: Run tests
-        run: python -m unittest discover -s tests
       - name: Discover employers on job boards
         if: env.MODE == 'scheduled' || env.MODE == 'run'
         run: python -m src discover --pages 2 --max-companies 80

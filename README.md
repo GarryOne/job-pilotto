@@ -994,7 +994,7 @@ pipeline; skip any step whose feature you don't want, and `doctor` shows that fe
 4. Set the GitHub secrets and variables listed above.
 5. Deploy the Worker: `cd worker && ./setup.sh` (creates Worker secrets, sets the Telegram webhook
    and command menu — needs a Cloudflare account logged in via `wrangler`).
-6. Trigger a first run by hand: Actions tab → `Daily job discovery` → Run workflow → mode `run`, or
+6. Trigger a first run by hand: Actions tab → `Job Pilotto` → Run workflow → mode `run`, or
    send `/run` to your bot once the webhook is live.
 7. For the local apply tooling (macOS): copy `.env.example` to `.env` and set `JOB_PILOTTO_CV_PATH`
    (and `NOTION_TOKEN` if you don't use the Keychain).
