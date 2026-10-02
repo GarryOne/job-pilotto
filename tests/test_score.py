@@ -36,6 +36,65 @@ def seed_jobs(db, count, old=True):
         db.execute("UPDATE jobs SET last_seen_at = '2099-01-01T00:00:00+00:00'")
 
 
+class ModelClient:
+    """Answers by model: each model has its own score per job title, so a cheap first pass and the main model can disagree."""
+    def __init__(self, by_model):
+        self.by_model, self.requests = by_model, []
+        self.messages = self
+
+    def create(self, **params):
+        self.requests.append(params)
+        title = params['messages'][0]['content'].split('\n', 1)[0]
+        value = self.by_model[params['model']](title)
+        return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(fit(value)))],
+                               usage=SimpleNamespace(input_tokens=100, output_tokens=40, cache_read_input_tokens=0))
+
+
+class CascadeTests(unittest.TestCase):
+    def test_effort_is_set_for_sonnet_and_left_out_for_haiku(self):
+        client = FakeClient()
+        job = {'title': 'SRE', 'company': 'X', 'description': 'd'}
+        score.score_one(client, 'claude-sonnet-5', job, 'p', effort='low')
+        score.score_one(client, 'claude-haiku-4-5', job, 'p', effort='low')
+        self.assertEqual(client.requests[0]['output_config']['effort'], 'low')
+        self.assertNotIn('effort', client.requests[1]['output_config'])
+        score.score_one(client, 'claude-sonnet-5', job, 'p')
+        self.assertEqual(client.requests[2]['output_config']['effort'], score.EFFORT)
+
+    def test_only_jobs_the_cheap_pass_likes_reach_the_main_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                seed_jobs(db, 4)
+                candidates, _ = digest.eligible_jobs(db)
+                # the cheap model gives 20, 30, 60, 90 to SRE 0..3; the main model rescoring the two it liked gives 55 and 95
+                cheap = lambda title: {'SRE 0': 20, 'SRE 1': 30, 'SRE 2': 60, 'SRE 3': 90}[title.split(': ')[1]]
+                main = lambda title: {'SRE 2': 55, 'SRE 3': 95}[title.split(': ')[1]]
+                client = ModelClient({'cheap': cheap, 'main': main})
+                stats = {}
+                summary = score.run(db, candidates, 'Profile', 'main', 10, client=client, stats=stats, first_pass='cheap', escalate_min=50)
+                self.assertIn('first pass cheap', summary)
+                self.assertEqual([r['model'] for r in client.requests].count('cheap'), 4)
+                self.assertEqual([r['model'] for r in client.requests].count('main'), 2)
+                self.assertEqual(stats['cascade'], {'first_pass': 4, 'escalated': 2})
+                rows = {r['job_id']: (r['model'], json.loads(r['data_json'])) for r in db.execute('SELECT job_id, model, data_json FROM scores')}
+                by_title = {j['title']: rows[j['id']] for j in candidates}
+                self.assertEqual({t: (m, d['score'], d.get('first_pass', False)) for t, (m, d) in by_title.items()},
+                                 {'SRE 0': ('cheap', 20, True), 'SRE 1': ('cheap', 30, True), 'SRE 2': ('main', 55, False), 'SRE 3': ('main', 95, False)})
+                # nothing is pending afterwards: the quick scores count as scored until the job or profile changes
+                self.assertIn('0 job(s)', score.run(db, candidates, 'Profile', 'main', 10, client=client, first_pass='cheap', escalate_min=50))
+
+    def test_no_first_pass_model_means_the_main_model_scores_everything_as_before(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                seed_jobs(db, 3)
+                candidates, _ = digest.eligible_jobs(db)
+                client = FakeClient()
+                self.assertIn('Scored 3 of 3 job(s) with m;', score.run(db, candidates, 'P', 'm', 10, client=client, first_pass=''))
+                self.assertEqual(len(client.requests), 3)
+                # a first pass named like the main model is no cascade either
+                self.assertIn('0 job(s)', score.run(db, candidates, 'P', 'm', 10, client=client, first_pass='m'))
+
+
 class ScoreTests(unittest.TestCase):
     def test_rescores_only_when_job_or_profile_changes(self):
         with tempfile.TemporaryDirectory() as tmp:

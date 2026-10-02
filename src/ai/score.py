@@ -21,6 +21,12 @@ from . import cost
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_SCORE_MODEL', 'claude-sonnet-5')
+# How hard the scorer thinks (medium by default; Haiku has no such setting and ignores it).
+EFFORT = os.getenv('JOB_PILOTTO_SCORE_EFFORT', 'medium')
+# A cheaper first pass (e.g. claude-haiku-4-5): every pending job gets it, and only jobs whose first-pass score reaches
+# ESCALATE_MIN are scored again by the main model. Off when empty. Measured with tools/score_eval.py before it is turned on.
+FIRST_PASS_MODEL = os.getenv('JOB_PILOTTO_SCORE_FIRST_PASS_MODEL', '')
+ESCALATE_MIN = int(os.getenv('JOB_PILOTTO_SCORE_ESCALATE_MIN', '40') or 40)
 
 SCORES_TABLE = """
 CREATE TABLE IF NOT EXISTS scores (
@@ -135,7 +141,7 @@ def pending_jobs(db, candidates, profile, limit, full_profile=None):
     return sorted(pending, key=lambda j: j['first_seen_at'], reverse=True)[:limit]
 
 
-def score_one(client, model, job, profile):
+def score_one(client, model, job, profile, effort=None):
     facts = json.dumps(job.get('ai') or {}, ensure_ascii=False)
     params = dict(
         model=model,
@@ -145,8 +151,10 @@ def score_one(client, model, job, profile):
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
             f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}")}],
-        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'},
+        output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}},
     )
+    if not model.startswith('claude-haiku'):
+        params['output_config']['effort'] = effort or EFFORT
     response = client.messages.create(**params)
     if response.stop_reason != 'end_turn':
         raise RuntimeError(f'stopped with {response.stop_reason}')
@@ -195,9 +203,13 @@ def stale_count(db, candidates, profile):
     return len(pending_jobs(db, candidates, scoring_profile(profile), 10**9, full_profile=profile))
 
 
-def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None):
+def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=None, first_pass=None, escalate_min=None):
     """Score up to max_jobs pending candidates; returns a one-line summary. profile: the whole Profile text (the
-    scoring part is taken here)."""
+    scoring part is taken here). With a first_pass model (default: JOB_PILOTTO_SCORE_FIRST_PASS_MODEL) every job gets the
+    cheap model first and only those scoring at least escalate_min are scored again by `model`; the rest keep the quick score."""
+    first_pass = FIRST_PASS_MODEL if first_pass is None else first_pass
+    escalate_min = ESCALATE_MIN if escalate_min is None else escalate_min
+    cascade = bool(first_pass) and first_pass != model
     full, profile = profile, scoring_profile(profile)
     jobs = pending_jobs(db, candidates, profile, max_jobs, full_profile=full)
     if not jobs:
@@ -216,49 +228,72 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     usage_totals = {'input': 0, 'output': 0, 'cache_read': 0}
     stop = threading.Event()  # the spend limit was hit: jobs still queued don't call the API
 
-    def one(job):
-        if stop.is_set():
-            return None
-        try:
-            return score_one(client, model, job, profile)
-        except Exception as error:
-            if cost.limit_reached(error):
-                stop.set()
-            raise
+    def batch(todo, used_model, keep=None):
+        """Score `todo` with `used_model`; a result is saved unless keep(data) says it needs the main model. -> (escalate, halted)."""
+        nonlocal scored, failures
+        escalate, halted = [], False
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(one, job): job for job in jobs}
-        for future in as_completed(futures):
-            job = futures[future]
+        def one(job):
+            if stop.is_set():
+                return None
             try:
-                result = future.result()
-                if result is None:  # skipped: the spend limit was reached
-                    continue
-                data, usage = result
-            except transient as error:
-                print(f'Stopping early, API unavailable: {type(error).__name__}')
-                for pending in futures:
-                    pending.cancel()
-                break
-            except (*permanent, RuntimeError, json.JSONDecodeError, StopIteration, KeyError, ValueError) as error:
+                return score_one(client, used_model, job, profile)
+            except Exception as error:
                 if cost.limit_reached(error):
-                    # The account's spend limit: every other call would fail the same way. Stop; the next run continues.
-                    if stats is not None:
-                        stats['limit'] = 'cli' if cost.cli_limit(error) else True
-                    print(f'AI limit reached: {cost.limit_reason(error)}, {len(jobs) - scored - failures} job(s) left for the next check')
+                    stop.set()
+                raise
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(one, job): job for job in todo}
+            for future in as_completed(futures):
+                job = futures[future]
+                try:
+                    result = future.result()
+                    if result is None:  # skipped: the spend limit was reached
+                        continue
+                    data, usage = result
+                except transient as error:
+                    print(f'Stopping early, API unavailable: {type(error).__name__}')
                     for pending in futures:
                         pending.cancel()
+                    halted = True
                     break
-                failures += 1
-                print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
-                continue
-            save(db, job, model, data, profile)
-            scored += 1
-            usage_totals['input'] += usage.input_tokens
-            usage_totals['output'] += usage.output_tokens
-            usage_totals['cache_read'] += getattr(usage, 'cache_read_input_tokens', 0) or 0
-            cost.add(stats, model, usage)
+                except (*permanent, RuntimeError, json.JSONDecodeError, StopIteration, KeyError, ValueError) as error:
+                    if cost.limit_reached(error):
+                        # The account's spend limit: every other call would fail the same way. Stop; the next run continues.
+                        if stats is not None:
+                            stats['limit'] = 'cli' if cost.cli_limit(error) else True
+                        print(f'AI limit reached: {cost.limit_reason(error)}, {len(jobs) - scored - failures} job(s) left for the next check')
+                        for pending in futures:
+                            pending.cancel()
+                        halted = True
+                        break
+                    failures += 1
+                    print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
+                    continue
+                usage_totals['input'] += usage.input_tokens
+                usage_totals['output'] += usage.output_tokens
+                usage_totals['cache_read'] += getattr(usage, 'cache_read_input_tokens', 0) or 0
+                cost.add(stats, used_model, usage)
+                if keep is not None and keep(data):
+                    escalate.append(job)   # worth the main model: scored again below, this quick score is not kept
+                    continue
+                if keep is not None:
+                    data['first_pass'] = True   # a quick score by the cheap model, below the bar for a second look
+                save(db, job, used_model, data, profile)
+                scored += 1
+        return escalate, halted
+
+    if cascade:
+        escalate, halted = batch(jobs, first_pass, keep=lambda data: data['score'] >= escalate_min)
+        if not halted and escalate:
+            batch(escalate, model)
+        if stats is not None:
+            stats['cascade'] = {'first_pass': len(jobs), 'escalated': len(escalate)}
+    else:
+        batch(jobs, model)
     if stats is not None:
         stats.update(pending=len(jobs), done=scored, failed=failures)
-    return (f'Scored {scored} of {len(jobs)} job(s) with {model}; {failures} failed; tokens in '
+    return (f'Scored {scored} of {len(jobs)} job(s) with {model}{f" (first pass {first_pass})" if cascade else ""}; {failures} failed; tokens in '
             f"{usage_totals['input']} (+{usage_totals['cache_read']} cached), out {usage_totals['output']}")
+
