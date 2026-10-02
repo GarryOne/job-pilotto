@@ -81,7 +81,9 @@ a location penalty by itself (the candidate may be open to sponsored roles); the
 separately, from the candidate's citizenship and work rights in the profile. Do not state commute times or \
 distances. A role that needs the office several days a week in another city than the home base is a location \
 gap, never "close" or "no relocation".
-- Every figure, place and requirement you write must appear in the posting, the extracted facts or the profile.
+- Every figure, place and requirement you write must appear in the posting, the extracted facts or the profile. \
+Credit the candidate only with skills, tools and experience the profile names: a related tool is not the same tool, \
+and never say a posting's level matches a level the profile does not state.
 - Compensation: compare only an advertised salary with the target. If no salary is stated, give 50 \
 and list it as a gap. Never invent a figure or a net amount. The profile's minimum and the target are different \
 figures: say which one you compare with. Do not compute percentages or convert currencies; say "below your \
