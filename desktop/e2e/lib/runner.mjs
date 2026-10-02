@@ -14,6 +14,7 @@ export function createRunner(getSession) {
       console.log(`✓ ${name} (${seconds}s)`);
     } catch (error) {
       await getSession()?.shot(`failed-${name.replace(/\W+/g, '-').slice(0, 60)}`);
+      await getSession()?.keepLogs();   // the app's and the engine's own logs: a screenshot says "nothing new", the log says why
       results.push({name, status: 'failed', note: error.message});
       console.log(`✗ ${name}: ${error.message}`);
       throw error;

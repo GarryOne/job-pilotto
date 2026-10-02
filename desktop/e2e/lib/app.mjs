@@ -28,7 +28,17 @@ export async function launch({env = {}, executablePath, args} = {}) {
   page.on('pageerror', error => console.log(`  ! page error: ${error.message}`));
   await confirmQuiet(profile);
   const shot = name => page.screenshot({path: path.join(ARTIFACTS, `${name}.png`)}).catch(() => {});
-  return {app, page, profile, shot, close: () => closeApp(app)};
+  // Copy the app's own logs next to the screenshots (the test profile holds only fictional data, and the logs never contain keys), and print the engine's last lines.
+  const keepLogs = async () => {
+    const from = path.join(profile, 'logs'), to = path.join(ARTIFACTS, 'logs');
+    try {
+      fs.mkdirSync(to, {recursive: true});
+      for (const name of fs.existsSync(from) ? fs.readdirSync(from) : []) fs.copyFileSync(path.join(from, name), path.join(to, name));
+      const engine = path.join(from, 'engine.log');
+      if (fs.existsSync(engine)) console.log(`  --- the engine's last lines ---\n${fs.readFileSync(engine, 'utf8').split('\n').slice(-40).join('\n')}`);
+    } catch { /* logs are a help, never a reason to fail */ }
+  };
+  return {app, page, profile, shot, keepLogs, close: async () => { await keepLogs().catch(() => {}); await closeApp(app); }};
 }
 
 // Which wizard step is showing.
