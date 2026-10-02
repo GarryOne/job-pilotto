@@ -14,7 +14,13 @@ export function inspect({view, limits}) {
   const snippet = el => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const root = document.querySelector(`.view[data-view="${view}"]`) || document.body;
   if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 2) {
-    found.push({view, severity: 'severe', kind: 'page-overflow', detail: `the page scrolls sideways (${document.documentElement.scrollWidth}px wide in a ${document.documentElement.clientWidth}px window)`});
+    // Name what sticks out (the outermost few), so the finding says where to look.
+    const edge = document.documentElement.clientWidth + 2;
+    const wide = [...document.body.querySelectorAll('*')].filter(el => visible(el) && el.getBoundingClientRect().right > edge)
+      .filter(el => ![...el.children].some(child => visible(child) && child.getBoundingClientRect().right > edge))
+      .sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right).slice(0, 3)
+      .map(el => `${label(el)} (right edge ${Math.round(el.getBoundingClientRect().right)}px)`);
+    found.push({view, severity: 'severe', kind: 'page-overflow', detail: `the page scrolls sideways (${document.documentElement.scrollWidth}px wide in a ${document.documentElement.clientWidth}px window)${wide.length ? `; sticking out: ${wide.join(', ')}` : ''}`});
   }
   for (const el of root.querySelectorAll('.job-row, tr, li, .card, .place, [class*="cell"]')) {
     if (!visible(el)) continue;
