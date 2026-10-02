@@ -48,3 +48,7 @@ export function hostStats(jobs) {
   }
   return [...hosts.values()];
 }
+
+// A snapshot says something only when at least one job has a score or has been acted on. A list read before the scores and stages came
+// through (all "unscored · new") is not worth a day: 2 Oct 2026 it filled the day with 105 such jobs and hid the real picture.
+export const informative = list => (Array.isArray(list) ? list : []).some(item => item?.bucket !== 'unscored' || item?.state !== 'new');

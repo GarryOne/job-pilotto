@@ -78,6 +78,7 @@ import {fileURLToPath} from 'node:url';
 import * as telegramCloud from './lib/telegram-cloud.js';
 import * as licenseLib from './lib/license.js';
 import * as demo from './lib/demo.js';
+import * as intelLib from './renderer/intel.js';
 
 // Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
 // GitHub that haven't opened their row yet.
@@ -766,7 +767,10 @@ function handlers() {
   ipcMain.handle('intelSnapshot', (_, list, hosts) => {
     const today = new Date().toISOString().slice(0, 10);
     if (DEMO || storage.settings().intelSnapshotDay === today) return {ok: true, skipped: true};
-    storage.saveSettings({intelSnapshotDay: today});
+    // A list without any score or stage (read before Notion's rows came through) is sent, since the site keeps the latest, but does not use up the day.
+    const useful = intelLib.informative(list);
+    if (useful) storage.saveSettings({intelSnapshotDay: today});
+    appLog('intel', `snapshot ${useful ? 'sent' : 'sent, but only unscored/new jobs, so the day stays open'}`, {bands: Array.isArray(list) ? list.length : 0});
     recipeReporterRef?.snapshot(list);
     recipeReporterRef?.sources(applicationOutcomes.sourceStats(hosts, controlEvents.boardName));
     return {ok: true};

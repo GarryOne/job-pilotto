@@ -39,3 +39,11 @@ test('hostStats counts jobs per host: seen, acted on, dismissed, heard back', as
   assert.deepEqual(out.find(h => h.host === 'boards.greenhouse.io'), {host: 'boards.greenhouse.io', seen: 3, acted: 2, dismissed: 1, heard: 1});
   assert.deepEqual(out.find(h => h.host === 'x.com'), {host: 'x.com', seen: 1, acted: 0, dismissed: 0, heard: 0});
 });
+
+test('a snapshot of only unscored, untouched jobs is not informative', async () => {
+  const {informative} = await import('../renderer/intel.js');
+  assert.equal(informative([{bucket: 'unscored', state: 'new', n: 105}]), false);
+  assert.equal(informative([]), false);
+  assert.equal(informative([{bucket: 'unscored', state: 'new', n: 5}, {bucket: '60-79', state: 'new', n: 2}]), true);
+  assert.equal(informative([{bucket: 'unscored', state: 'applied', n: 1}]), true);
+});

@@ -28,3 +28,8 @@ test('the wording matches the whole phrase or stands on word boundaries, first a
   assert.equal(aliasKey('Heimatort', undefined), '');
   assert.equal(cleanLabel('Mail me at jane@example.com'), '');
 });
+
+test('a generated field id is not a question wording', () => {
+  for (const id of ['radio-999', 'menu-940', 'question_12', 'field 7']) assert.equal(cleanLabel(id), '', id);
+  assert.equal(cleanLabel('Why do you want to work here?'), 'why do you want to work here');
+});

@@ -17,6 +17,7 @@ export function cleanLabel(label) {
   let text = String(label ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
   text = text.replace(/\*+/g, '').replace(/\((optional|required|erforderlich|obligatoire)\)/g, '').replace(/^\s*\d+[.)]\s+/, '').replace(/[\s:;,.?!-]+$/g, '').trim();
   if (text.length < 3 || text.length > 100) return '';
+  if (/^[a-z]+([-_ ][a-z]+)?[-_ ]\d+$/.test(text)) return '';   // a generated field id ("radio-999", "menu-940"), not a question
   if (/@|https?:|www\./.test(text) || /\d{4,}/.test(text) || (text.match(/\d/g) || []).length > 3 || /[<>{}\[\]\\|]/.test(text) || !/\p{L}{3}/u.test(text)) return '';
   return text;
 }
