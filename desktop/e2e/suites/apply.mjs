@@ -52,6 +52,12 @@ export async function run(ctx) {
     await ctx.browser.serviceWorker();
   }, {needs: ctx.needs});
 
+  // What the extension itself holds: which tabs it armed, whose job each follows, who opened whom and when its worker booted (a cause is in here, not in the page).
+  async function dumpExtension() {
+    const inside = await (await ctx.browser.serviceWorker()).evaluate(async () => ({session: await chrome.storage.session.get(null),
+      tabs: (await chrome.tabs.query({})).map(item => ({id: item.id, status: item.status, opener: item.openerTabId ?? null, url: String(item.url).split('#')[0].slice(0, 70)}))})).catch(error => ({error: String(error)}));
+    console.log(`  extension state at the failure: ${JSON.stringify(inside)}`);
+  }
   // The person's click on a job's Apply button; the form opens in the browser with the extension, which fills it by itself. -> the tab, once the fill is over.
   async function apply(form) {
     const opened = ctx.browser.opened.length;
@@ -68,6 +74,7 @@ export async function run(ctx) {
       if (state?.state === 'done' || state?.state === 'error') return {tab, state};
       await pause(500);
     }
+    await dumpExtension();
     throw new Error(`the extension never finished filling ${form.title} (state: ${JSON.stringify(await fillState(tab).catch(() => null))})`);
   }
   // The panel opens by itself while a fill runs; open it only when it is closed (a click on the pill toggles).
@@ -160,12 +167,7 @@ export async function run(ctx) {
       tab = pages.find(item => item.url().startsWith(CHAIN.formUrl)) || null;
       await pause(1000);
     }
-    if (!tab) {
-      // What the extension itself holds: which tabs it armed, whose job each follows, and who opened whom (the cause is in here, not in the page).
-      const inside = await (await ctx.browser.serviceWorker()).evaluate(async () => ({session: await chrome.storage.session.get(null),
-        tabs: (await chrome.tabs.query({})).map(item => ({id: item.id, opener: item.openerTabId ?? null, url: String(item.url).split('#')[0].slice(0, 70)}))})).catch(error => ({error: String(error)}));
-      console.log(`  extension state at the failure: ${JSON.stringify(inside)}`);
-    }
+    if (!tab) await dumpExtension();
     if (!tab) throw new Error(`the journey never reached the form. Tabs open: ${seen.join(' | ')}. ${seen.some(url => url.startsWith(CHAIN.stepUrl)) ? 'The new tab opened but "To apply" was not followed.' : 'Apply did not open the second tab.'}`);
     let state = null;
     for (let waited = 0; waited < 90000; waited += 500) {
