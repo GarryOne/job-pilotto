@@ -270,6 +270,14 @@ export async function removeJobsByUrl(token, urls) {
   return count;
 }
 
+// The Stage of the Job Tracker row whose Job URL is `url` ('' when there is none): what a person would read in Notion.
+export async function stageOf(token, url) {
+  const db = await findDatabase(token, 'Job Tracker');
+  if (!db) return '';
+  const found = await call(token, 'POST', `databases/${db.id}/query`, {filter: {property: 'Job URL', url: {equals: url}}, page_size: 5});
+  return found.results.find(row => !row.archived)?.properties?.Stage?.select?.name || '';
+}
+
 // Every live page next to `siblingId` (same parent) with this title, ignoring the leading emoji (the app keeps it as the page icon): a duplicate shows up
 // as a second one. Read from the parent's blocks, not from search, which lags behind a page that was just made.
 const plain = text => String(text || '').replace(/^[\p{Extended_Pictographic}\uFE0F\s]+/u, '').trim().toLowerCase();

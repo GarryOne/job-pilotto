@@ -62,6 +62,14 @@ export const CHAIN = {
 CHAIN.url = `https://${CHAIN.host}${CHAIN.path}`;
 CHAIN.stepUrl = `https://${CHAIN.stepHost}${CHAIN.stepPath}`;
 CHAIN.formUrl = `https://${CHAIN.stepHost}${CHAIN.formPath}`;
+// A form the TEST (playing the person) really submits: its Submit POSTs and the same address answers with the site's own "submitted" banner (like OK Job,
+// api.easytemp.ch), so the extension must see the Submit press, the page change, and send that page to the AI. Never reported to `fired`: it is the one
+// form allowed to be submitted, and only by the person (the test), never by the extension.
+FORMS.submitter = {
+  title: 'Platform Engineer (Submit test)', company: 'E2E Submit Co', host: 'e2e.recruitee.com', path: '/o/submit-form',
+  kit: [{field: 'question_4001', question: 'Years of experience with Linux', answer: '9', needs_review: false}],
+  legal: [], submits: true,
+};
 for (const form of Object.values(FORMS)) form.url = `https://${form.host}${form.path}`;
 
 const esc = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -75,14 +83,14 @@ const resume = `<div class="field"><label for="resume">Resume/CV *</label><input
 const consent = (id, text) => `<div class="field"><label><input id="${id}" name="${id}" type="checkbox" required> ${esc(text)} *</label></div>`;
 
 // Every form reports a click on Submit and a submit event to the server (which keeps them for the test), and never really submits.
-const page = (form, body, script = '') => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(form.title)} at ${esc(form.company)}</title>
+const page = (form, body, script = '', {realSubmit = false} = {}) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(form.title)} at ${esc(form.company)}</title>
 <style>body{font:15px/1.4 system-ui,sans-serif;max-width:640px;margin:24px auto;padding:0 16px}.field{margin:14px 0}label{display:block;margin-bottom:4px}input[type=text],input[type=email],input[type=tel],input[type=url],select,textarea{width:100%;padding:6px;box-sizing:border-box}</style></head>
 <body><h1>${esc(form.title)}</h1><p>${esc(form.company)} · Zurich, Switzerland</p>
 ${body}
 <script>
 const fired = kind => fetch('/__fired?kind=' + kind + '&form=' + encodeURIComponent(location.pathname), {method: 'POST', keepalive: true});
-document.addEventListener('click', event => { if (event.target.closest('[type=submit]')) fired('click'); }, true);
-document.addEventListener('submit', event => { event.preventDefault(); fired('submit'); }, true);
+${realSubmit ? '' : "document.addEventListener('click', event => { if (event.target.closest('[type=submit]')) fired('click'); }, true);"}
+${realSubmit ? '' : "document.addEventListener('submit', event => { event.preventDefault(); fired('submit'); }, true);"}
 ${script}
 </script></body></html>`;
 
@@ -128,6 +136,9 @@ const PAGES = {
   ${consent('consent_data', 'I agree to the processing of my personal data (privacy policy)')}
   ${submit}</section></form>`,
   `document.getElementById('next_step').addEventListener('click', () => { document.getElementById('step1').hidden = true; document.getElementById('step2').hidden = false; });`),
+  submitter: (form, done = false) => page(form, `${done ? '<p id="done" style="padding:8px;background:#e6f4ea">Your application has been successfully submitted. Thank you, we have received your application.</p>' : ''}<form id="application_form" method="post" action="${form.path}">
+  ${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'Email', {type: 'email', required: true})}${resume}
+  ${field('question_4001', 'Years of experience with Linux', {required: true})}${submit}</form>`, '', {realSubmit: true}),
   // A required control the form reader has no operator for: a custom slider (a div with role=slider).
   unknown: form => page(form, `<form id="application_form">
   ${field('first_name', 'First Name', {required: true})}${field('last_name', 'Last Name', {required: true})}${field('email', 'Email', {type: 'email', required: true})}${resume}
@@ -142,12 +153,23 @@ export async function startForms() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-cert-'));
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '2', '-subj', '/CN=jp-e2e', '-keyout', path.join(dir, 'key.pem'), '-out', path.join(dir, 'cert.pem')], {stdio: 'ignore'});
   const fired = [];
+  const posts = [];   // the real Submit of FORMS.submitter (done by the test as the person)
   const hits = [];
   const server = https.createServer({key: fs.readFileSync(path.join(dir, 'key.pem')), cert: fs.readFileSync(path.join(dir, 'cert.pem'))}, (req, res) => {
     const url = new URL(req.url, 'https://x');
     const host = String(req.headers.host || '').split(':')[0];
     hits.push(`${host}${url.pathname}`);
     if (req.method === 'POST' && url.pathname === '/__fired') { fired.push({kind: url.searchParams.get('kind'), form: url.searchParams.get('form')}); res.writeHead(204).end(); return; }
+    if (req.method === 'POST' && host === FORMS.submitter.host && url.pathname === FORMS.submitter.path) {
+      posts.push({host, path: url.pathname});
+      req.resume();
+      req.on('end', () => { res.writeHead(303, {location: `${FORMS.submitter.path}?sent=1`}).end(); });   // post, redirect, get: the way most sites answer a form
+      return;
+    }
+    if (host === FORMS.submitter.host && url.pathname === FORMS.submitter.path && url.searchParams.get('sent')) {
+      res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(PAGES.submitter(FORMS.submitter, true));
+      return;
+    }
     const chain = host === CHAIN.host && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.path ? 'posting' : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.stepPath ? 'step'
       : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.formPath ? 'form' : '';
     if (chain) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(CHAIN_PAGES[chain]()); return; }
@@ -158,7 +180,7 @@ export async function startForms() {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
-  return {port, fired, hits, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => PAGES[name](FORMS[name])};
+  return {port, fired, posts, hits, forms: FORMS, close: () => new Promise(resolve => { server.close(resolve); server.closeAllConnections?.(); }), html: name => PAGES[name](FORMS[name])};
 }
 
 // Chromium flags that send the job-site host names to the fixture server and make every other name unresolvable (no employer is ever contacted).

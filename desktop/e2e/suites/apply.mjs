@@ -7,7 +7,7 @@ import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
-import {addKitJob, removeJobsByUrl} from '../lib/notion.mjs';
+import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 12;
@@ -35,6 +35,9 @@ export async function run(ctx) {
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
+      // The page after a Submit (lib/confirmation.js): the stand-in answers like a model that reads the words, so the suite proves the chain around it.
+      const text = typeof content === 'string' ? content : (content || []).map(part => part.text || '').join('');
+      if (/^URL path:/m.test(text) && /^Page:/m.test(text)) return JSON.stringify({confirmation: /successfully submitted|received your application/i.test(text) && !/must be completed|required/i.test(text)});
       const asked = /<form_fields>\n([\s\S]*?)\n<\/form_fields>/.exec(typeof content === 'string' ? content : (content || []).map(part => part.text || '').join(''));
       if (!asked) return null;
       const answers = JSON.parse(asked[1]).filter(item => item.field === 'why').map(item => ({field: item.field, value: OPEN_ANSWER, confidence: 'medium', note: 'inferred from the profile'}));
@@ -185,6 +188,40 @@ export async function run(ctx) {
     // The panel offers "Take over with Claude" on this tab (the person's click starts a Claude session: not pressed here, a test must never launch one).
     const offered = await tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden && /take over with claude/i.test(button.textContent); });
     if (!offered) throw new Error('the panel does not offer "Take over with Claude" on an armed form tab');
+  }, {needs: ctx.needs});
+
+  const sessionsOf = url => page.evaluate(target => window.pilot.sessions().then(list => list.filter(item => String(item.url || '').replace(/\/$/, '') === target.replace(/\/$/, '')).map(item => `${item.kind}:${item.id}`)), url);
+  const logTail = () => { try { return fs.readFileSync(path.join(ctx.profile, 'logs', 'app.log'), 'utf8').split('\n').filter(line => /\[extension\]|\[applied\]/.test(line)).slice(-6).map(line => line.slice(0, 220)).join('\n    '); } catch { return '(no log)'; } };
+  async function until(what, check, ms = 60000) {
+    for (let waited = 0; waited < ms; waited += 1000) { if (await check()) return; await pause(1000); }
+    throw new Error(`${what}. The app's last extension lines:\n    ${logTail()}`);
+  }
+
+  // Found by the owner on a real form (OK Job, 3 Oct 2026): the person submitted, the page said "successfully submitted", and the app stayed on "Ready to submit".
+  // The test is the person here: it presses Submit. The extension must see the press and the page change, send that page to the AI (answered by the proxy), and
+  // the app must mark the job Applied in Notion and take its session off the list. Nothing but the person's click ever submits.
+  await ctx.run('the person submits a form: the page after Submit is read, the job becomes Applied, its session leaves the list', async () => {
+    const form = FORMS.submitter;
+    const {tab, state} = await apply(form);
+    if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
+    fail(fillProblems({expected: {first_name: CONTACT.first_name, last_name: CONTACT.last_name, email: CONTACT.email, question_4001: '9'}, actual: await readForm(tab)}));
+    if (!(await sessionsOf(form.url)).length) throw new Error('the Apply click left no session for this job (nothing to take off the list)');
+    if ((await stageOf(NOTION, form.url)) === 'Applied') throw new Error('the job was Applied before anyone submitted');
+    const asked = proxy.stats.canned;
+    await tab.click('#submit_app');   // the person's click
+    await until('the job never became Applied after the person submitted', async () => (await stageOf(NOTION, form.url)) === 'Applied', 90000);
+    if (forms.posts.length !== 1) throw new Error(`expected the person's one Submit, the server saw ${forms.posts.length}`);
+    if (proxy.stats.canned - asked < 1) throw new Error('the page after Submit was never sent to the AI');
+    await until('the job is Applied but its session is still on the list', async () => !(await sessionsOf(form.url)).length, 30000);
+  }, {needs: ctx.needs});
+
+  // "I submitted it" (the session card's button; the app missed the submit): the job becomes Applied AND its sessions end, not only the Notion row (3 Oct 2026).
+  await ctx.run('"I submitted it" marks the job Applied and takes its session off the list', async () => {
+    if (!(await sessionsOf(CHAIN.url)).length) throw new Error('the journey left no session for this job (nothing to take off the list)');
+    const result = await page.evaluate(url => window.pilot.setStatus(url, 'applied'), CHAIN.url);
+    if (!result?.ok) throw new Error(`the app refused: ${result?.error}`);
+    await until('"I submitted it" left the job\'s session on the list', async () => !(await sessionsOf(CHAIN.url)).length, 30000);
+    if ((await stageOf(NOTION, CHAIN.url)) !== 'Applied') throw new Error('the Notion row is not Applied');
   }, {needs: ctx.needs});
 
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
