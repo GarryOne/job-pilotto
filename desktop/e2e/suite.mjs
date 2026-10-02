@@ -17,7 +17,7 @@ if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
 try {
-  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env});
+  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env, browser: !!suite.browser});
   if (ctx.skipAll) {
     console.log(`The ${name} suite is skipped: ${ctx.needs.filter(item => !item.value).map(item => item.name).join(' and ')} not set.`);
     process.exit(0);

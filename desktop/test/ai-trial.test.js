@@ -25,3 +25,14 @@ test('stop (own key saved) and apply at start-up restore Anthropic directly', ()
   apply({aiTrial: true}, env);
   assert.equal(env.ANTHROPIC_BASE_URL, TRIAL_BASE);
 });
+
+test('the end-to-end journey sends the app\'s own AI calls to its test proxy, and only the journey does', () => {
+  const env = {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_AI_BASE_URL: 'http://127.0.0.1:9'};
+  apply({}, env);
+  assert.equal(env.ANTHROPIC_BASE_URL, 'http://127.0.0.1:9');
+  apply({aiTrial: true}, env);
+  assert.equal(env.ANTHROPIC_BASE_URL, 'http://127.0.0.1:9');   // the proxy wins over the free credit in a test run
+  const real = {JOB_PILOTTO_E2E_AI_BASE_URL: 'http://127.0.0.1:9'};   // the variable alone (no JOB_PILOTTO_E2E) changes nothing
+  apply({}, real);
+  assert.equal(real.ANTHROPIC_BASE_URL, undefined);
+});

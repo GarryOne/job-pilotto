@@ -12,6 +12,7 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 | `personas` | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
 | `employers` | a set-up install, its own employer rows and runs reset | Find new employers on a candidate list of every kind (good board, empty, wrong roles, dead feed, duplicate, excluded, manual watch): statuses, quality order, Employers & Sources rows, the run row's counts, a second run, the crawl's source list, a Sonnet judge | ~1 min |
 | `focus` | a set-up install + dummy applications in every stage written to Notion | Up next order and buttons, every number checked against the Notion rows (`lib/focus-data.mjs`), Edit target, Done/Skip, Insight, a fresh account | ~3 min |
+| `apply` | a set-up install + 4 kit jobs it writes | the real **Chrome extension** on fixture forms: Apply click → fill from the kit, CV, legal boxes left, AI answers highlighted, late field, multi-step, unknown widget, Submit never touched | ~3 min |
 
 ```
 cd desktop/e2e && npm install
@@ -72,3 +73,13 @@ Both live in GitHub (Settings → Secrets → Actions) and, for local runs, in t
 `launch()` sets `JOB_PILOTTO_E2E=1`, and refuses to run unless the app says in its own log `reporting is off: the end-to-end journey`. The last
 journey step checks that nothing was queued to send. (2 Oct 2026: before this, test profiles passed `JOB_PILOTTO_TELEMETRY=0`, which the app read as
 "on", and nine test runs counted as machines on `/telemetry`.)
+
+## The apply suite (the real extension, fixture forms)
+- **Browser:** Playwright's Chromium loads a *copy* of `extension/` whose built-in app address (`127.0.0.1:47111`) is rewritten to a free port (`lib/extension.mjs`
+  `copyExtension`); the app under test listens there (`JOB_PILOTTO_PORT`). So it runs next to your own Job Pilotto and can never pair with it. CI: `npx playwright-core install chromium`.
+- **Forms:** `lib/forms.mjs` serves them over HTTPS; Chromium maps `boards.greenhouse.io`, `jobs.lever.co`, `e2e.recruitee.com` to that server and every other host name
+  is unresolvable (the suite asserts no other host was asked for). Each form logs a click or submit event on Submit; any is a failure.
+- **Apply click:** the app runs `open -a "Google Chrome" <url>`; a stand-in `open` first on the app's PATH hands the URL to that Chromium. macOS only.
+- **AI:** the app's own AI calls go to the test proxy (`JOB_PILOTTO_E2E_AI_BASE_URL`, honoured by `lib/ai-trial.js` in a test run), which answers the one open question with a fixed text: no cost.
+- **Judgements** are pure functions (`lib/applycheck.mjs`), each tested against a wrong input (`test/applycheck.test.mjs`). `E2E_LATE_MS=40000` renders the Lever field too late: that step must fail.
+- **Known product gap the last step reports:** the panel counts native fields only, so a required custom widget it cannot read leaves "Ready to submit" on screen.

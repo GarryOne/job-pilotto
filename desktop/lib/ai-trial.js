@@ -10,6 +10,8 @@ export const isTrialKey = key => String(key || '').startsWith('JP1.');
 export function apply(settings, env = process.env) {
   if (settings?.aiTrial) env.ANTHROPIC_BASE_URL = TRIAL_BASE;
   else delete env.ANTHROPIC_BASE_URL;
+  // The end-to-end journey (desktop/e2e) sends the app's own AI calls through its test proxy, as lib/pipeline.js does for the engine.
+  if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = env.JOB_PILOTTO_E2E_AI_BASE_URL;
 }
 
 // Turn the credit on with the app's license key. -> {ok, error?}

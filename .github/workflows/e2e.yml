@@ -1,7 +1,7 @@
 name: CI · End-to-end journey
 
-# Four suites run at the same time, each from its own state in its own Notion test page (desktop/e2e/README.md): wizard (the first-run path from nothing),
-# jobs (Actions, Recent activity, jobs check, slow AI), interviews, settings. The last three start from a set-up install in seconds, not through the wizard.
+# Five suites run at the same time, each from its own state in its own Notion test page (desktop/e2e/README.md): wizard (the first-run path from nothing),
+# jobs (Actions, Recent activity, jobs check, slow AI), interviews, settings, apply (the real Chrome extension on fixture forms). The last four start from a set-up install in seconds, not through the wizard.
 # Before: one journey, ~4 minutes, all in one Notion page.
 # Playwright drives the real Electron app on a macOS runner (desktop/e2e/README.md). Runs by hand, every 4 hours on main, and
 # before a build is promoted to stable (tools/release-stable.sh asks for a green run of the same commit).
@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'desktop/e2e/**'
+      - 'extension/**'
       - '.github/workflows/e2e.yml'
 
 permissions:
@@ -58,6 +59,7 @@ jobs:
       E2E_NOTION_TOKEN_EMPLOYERS: ${{ secrets.E2E_NOTION_TOKEN_EMPLOYERS }}
       E2E_NOTION_TOKEN_CALENDAR: ${{ secrets.E2E_NOTION_TOKEN_CALENDAR }}
       E2E_NOTION_TOKEN_FOCUS: ${{ secrets.E2E_NOTION_TOKEN_FOCUS }}
+      E2E_NOTION_TOKEN_APPLY: ${{ secrets.E2E_NOTION_TOKEN_APPLY }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +75,10 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
+      - name: Chromium for the extension (the apply suite loads the real Chrome extension in it)
+        if: matrix.suite == 'apply'
+        working-directory: desktop/e2e
+        run: npx playwright-core install chromium
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
       - name: Run the ${{ matrix.suite }} suite

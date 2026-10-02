@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {startAiProxy} from './ai-proxy.mjs';
+import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
+import {startForms} from './forms.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
@@ -22,7 +24,8 @@ export function notionToken(suite) {
   return process.env.CI ? '' : process.env.E2E_NOTION_TOKEN || '';
 }
 
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}} = {}) {
+// browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false} = {}) {
   const key = KEY(), token = notionToken(suite);
   let session = null;
   const runner = createRunner(() => session);
@@ -35,10 +38,19 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}} = {
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
   ctx.proxy = await startAiProxy({delayMs: 0});
-  const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...suiteEnv};
+  const browserEnv = {};
+  if (browser) {
+    // The app and the extension copy share a free port, so the test never meets the user's own app on 47111.
+    ctx.appPort = await freePort();
+    ctx.extensionDir = copyExtension(ctx.appPort);
+    ctx.forms = await startForms();
+    ctx.shim = makeOpenShim();
+    Object.assign(browserEnv, {PATH: `${ctx.shim.bin}:${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: ctx.shim.spool, JOB_PILOTTO_PORT: String(ctx.appPort)});
+  }
+  const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...browserEnv, ...suiteEnv};
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
   adopt(await launch({env}));
-  ctx.close = async () => { await session?.shot('last'); await session?.close(); await ctx.proxy?.close(); };
+  ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close(); await ctx.proxy?.close(); await ctx.forms?.close(); };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment.
   ctx.relaunch = async (extra = {}) => { const profile = session.profile; await session.close(); adopt(await launch({env: {...env, ...extra}, profile})); };
   ctx.expectStep = async (name, timeout = 20000) => {

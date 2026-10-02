@@ -23,7 +23,11 @@ import {log} from './log.js';
 import * as reports from './reports.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 
-export const PORT = 47111;
+export const DEFAULT_PORT = 47111;
+// The port is fixed because the extension has it built in (extension/flow.js). JOB_PILOTTO_PORT moves it for a test app that runs next to the user's
+// own (the end-to-end suites copy the extension with the same port, desktop/e2e/lib/extension.mjs); anything but a whole port number is ignored.
+export const portFrom = (env = process.env) => (/^\d+$/.test(env.JOB_PILOTTO_PORT || '') && Number(env.JOB_PILOTTO_PORT) > 0 && Number(env.JOB_PILOTTO_PORT) < 65536 ? Number(env.JOB_PILOTTO_PORT) : DEFAULT_PORT);
+export const PORT = portFrom();
 // The extension's fixed ID (from the public "key" in extension/manifest.json). /extension/pair hands the
 // connection token only to a request from this extension; web pages can't send its Origin.
 export const EXTENSION_ID = 'gpffoneapcfceflfmfgedkcfbommgcfk';
