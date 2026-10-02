@@ -6,7 +6,7 @@ each event itself, so only the fields below leave the computer.
 | | Sentry (crashes) | PostHog (steps) |
 |---|---|---|
 | Code | `desktop/lib/sentry.js`, engine: `src/crash_reporting.py` | `desktop/lib/analytics.js` |
-| Where | `config/analytics.json` → `sentry_dsn` (US region) | `posthog_key`, `posthog_host` (EU) |
+| Where | `config/analytics.json` → `sentry_dsn` (EU region, `de.sentry.io`) | `posthog_key`, `posthog_host` (EU) |
 | Sends | error type, scrubbed message, frames (file, function, line), version, platform, install id, run id; native crashes as minidumps | event name from a fixed list + flags/numbers/short words; install id; no person profile, no IP location |
 | Never | local variables, request data, breadcrumbs, CV, answers, mail, jobs, companies, paths | text a person wrote, screen, keystrokes, autocapture |
 | Off when | dev copy (`npm start`), demo, CI, Technical reports off, no DSN/key | same |

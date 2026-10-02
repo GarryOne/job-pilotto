@@ -1,0 +1,111 @@
+name: CI · Sentry fixer
+
+# THE SENTRY FIXER, once a day. It reads the unresolved issues of the app's Sentry project (org job-pilotto, project job-pilotto-app, EU region), keeps only what is REAL and
+# FRESH, picks the most critical (people affected, then events) and lets Claude Code fix it and open ONE pull request for the owner to review. Never merges anything.
+# Left out, and said so in the run summary: reports of end-to-end runs (environment e2e), warnings (the app telling the user something, e.g. a spend limit), issues not seen for
+# 7 days (stale), one-offs (one event, one person, unless fatal), issues in Sentry already resolved or ignored, and issues that already have a pull request (open, or merged/closed within 14 days).
+# Claude only edits files (no git, no gh, no network). The last step checks the paths (tools/sentry-fixer/lib.mjs: the app's code and the engine and their tests, never reporting, secrets or
+# workflows), requires a test, runs both test suites, and only then pushes `sentry-fix/<short id>` and opens the PR. At most 3 automatic Sentry PRs may be open at once.
+# The run log is public: it names issues by short id and reason only; no event content, no transcript artifact.
+# Needs: SENTRY_AUTH_TOKEN (read-only internal integration "sentry-fixer", Keychain job-pilotto.sentry.auth_token) and ANTHROPIC_API_KEY.
+on:
+  schedule:
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sentry-fix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
+      BASE: ${{ github.ref_name }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pick the most critical real, fresh issue
+        id: pick
+        run: |
+          mkdir -p .heal
+          node tools/sentry-fixer/pick.mjs --out .heal
+      - name: Not too many open automatic fixes
+        id: capacity
+        if: steps.pick.outputs.candidate != 'none'
+        run: |
+          open=$(gh pr list --repo "$REPO" --state open --label auto-sentry-fix --json number --jq length)
+          echo "Open automatic Sentry fixes: $open"
+          if [ "$open" -ge 3 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Three automatic Sentry fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/setup-python@v5
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        with:
+          python-version: '3.12'
+      - name: Install the dependencies (for the tests)
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        run: |
+          (cd desktop && npm ci)
+          pip install --quiet -r requirements.txt
+      - name: Claude Code fixes the problem (files only)
+        id: claude
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          # Least privilege: read and edit files, run the tests, read-only git. No push, no gh, no network.
+          claude_args: >-
+            --model claude-sonnet-5-5 --max-turns 50
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(python -m unittest:*),Bash(python3 -m unittest:*),Bash(git diff:*),Bash(git status:*)"
+          prompt: Read .heal/prompt.md and follow it exactly.
+      - name: Check the change, run the tests, open the pull request
+        if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          SHORT_ID: ${{ steps.pick.outputs.candidate }}
+        run: |
+          set -euo pipefail
+          # Claude did not run (no credit, a bad key, an outage): that says nothing about the issue.
+          if [ "$CLAUDE_OUTCOME" != success ]; then
+            echo "Claude Code did not run ($CLAUDE_OUTCOME); nothing was changed." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v -E '^\.heal/' || true)
+          if [ -z "$changed" ]; then
+            echo "No change for $SHORT_ID: $(head -1 .heal/verdict.md 2>/dev/null || echo 'Claude made no change')." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! echo "$changed" | node tools/sentry-fixer/check-change.mjs; then
+            echo "The change for $SHORT_ID was refused by the guard; no pull request. $RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          (cd desktop && npm test)
+          python -m unittest discover -s tests
+          title=$(head -1 .heal/pr-body.md 2>/dev/null || echo "Fix Sentry issue $SHORT_ID")
+          { sed -n '2,$p' .heal/pr-body.md 2>/dev/null || true; echo
+            echo "Sentry issue: $SHORT_ID (org job-pilotto, project job-pilotto-app)."; echo
+            echo "Opened by the Sentry fixer (once a day) for the most critical real, fresh issue. Review it like any change; it never merges itself. After it ships, resolve the issue in Sentry; if it comes back the fixer will see it again after 14 days."; } > .heal/body.md
+          branch="sentry-fix/$(echo "$SHORT_ID" | tr '[:upper:]' '[:lower:]')"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$branch"
+          echo "$changed" | xargs git add --
+          git commit -q -m "$title" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+          git push -q origin "$branch"
+          gh label create auto-sentry-fix --repo "$REPO" --force --color 5319E7 --description 'A fix proposed by the Sentry fixer'
+          extra=""
+          if [ "$BASE" != main ]; then gh label create dry-run --repo "$REPO" --force --color FBCA04 --description 'A dry run: close it'; extra="--label dry-run"; fi
+          # shellcheck disable=SC2086
+          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/body.md --label auto-sentry-fix $extra)
+          echo "Pull request opened: $url" >> "$GITHUB_STEP_SUMMARY"
