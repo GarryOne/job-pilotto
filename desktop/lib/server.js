@@ -497,6 +497,7 @@ export function start(storage, onError = () => {}) {
           const {jobs} = await pipeline.jobs(storage).catch(() => ({jobs: []}));
           const job = jobs.find(j => pageKey(j.url) === pageKey(event.url));
           if (event.type === 'stuck') stuckHandler(event);
+          if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
           if (event.type === 'fill-started') notify('Filling the application…', `${jobName(job)}. Check every field before you submit.`);
           if (event.type === 'fill-done') {
             notify(event.left ? 'Form filled: a few things left for you' : 'Form filled ✓',

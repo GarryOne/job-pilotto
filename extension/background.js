@@ -420,6 +420,14 @@ async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = fal
     reportControls(config, tab, result?.operated, result?.trace);
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
+    // Claude could not answer the form's own questions (not answering, a limit, no key): the fill went on without them and the panel said
+    // "Ready to submit" with the free-text questions empty (a friend's Ashby form, 2 Oct 2026). Say so on the page, in the log, and to the app.
+    if (result?.aiError) {
+      const why = String(result.aiError).slice(0, 160);
+      decide('fill', 'Claude did not answer the questions', {error: why});
+      await note(tab.id, `✈️ Claude couldn't answer the questions this form asks (${why}). Answer them yourself, or press Fill again.`, page);
+      api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'ai-failed', url, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), why})}).catch(() => {});
+    }
     await progress(tab.id, '', page);
     if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note);
     decide('fill', result.ineligible ? `did not fill: ${result.note || 'ineligible'}` : 'filled the form',

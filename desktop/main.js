@@ -1587,6 +1587,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
         cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' ')), tail: tail.slice(-5)});
     });
     server.setFormIssueHandler(fields => {
+      // Claude not answering a form's questions is the AI step failing, not one unfilled field: a warning with its reason.
+      if (fields.type === 'ai') { telemetry.record('run_warning', {job: 'extension fill', warning: `Claude did not answer: ${fields.reason}`, site: fields.site}); return; }
       telemetry.record('form_issue', fields);
       // A stale extension is not a filled field: it is the cause of the fields that failed, so the app's own log
       // says it too (once per version pair — the extension reports every field of every form).
