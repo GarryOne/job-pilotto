@@ -27,6 +27,10 @@ EFFORT = os.getenv('JOB_PILOTTO_SCORE_EFFORT', 'medium')
 # ESCALATE_MIN are scored again by the main model. Off when empty. Measured with tools/score_eval.py before it is turned on.
 FIRST_PASS_MODEL = os.getenv('JOB_PILOTTO_SCORE_FIRST_PASS_MODEL', '')
 ESCALATE_MIN = int(os.getenv('JOB_PILOTTO_SCORE_ESCALATE_MIN', '40') or 40)
+# After a Profile edit only jobs that scored at least this (the digest's own bar) are re-scored on their own; the rest keep their score,
+# marked "Previous scoring method", until the user asks (Strategy → Re-score them now). Spending on jobs that were never going to show
+# is what a Profile tweak used to cost (28 Sep: 60 re-scores, no new job, about $0.6).
+RESCORE_MIN = int(os.getenv('JOB_PILOTTO_RESCORE_MIN', '50') or 50)
 
 SCORES_TABLE = """
 CREATE TABLE IF NOT EXISTS scores (
@@ -87,6 +91,12 @@ Candidate profile:
 """
 
 
+def job_hash(job, facts):
+    """The job's own part of the input (its text and the facts read from it), apart from the Profile."""
+    blob = json.dumps({'title': job['title'], 'description': job.get('description') or '', 'facts': facts}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
 def input_hash(job, facts, profile):
     blob = json.dumps({'title': job['title'], 'description': job.get('description') or '',
                        'facts': facts, 'profile': profile}, sort_keys=True, ensure_ascii=False)
@@ -117,11 +127,13 @@ def scoring_profile(profile):
 
 
 def pending_jobs(db, candidates, profile, limit, full_profile=None):
-    """Candidates whose score is missing or out of date (job, facts or the scoring part of the profile changed).
-    full_profile: the whole Profile text, for scores made before scoring_profile existed: if one matches it, the
-    score is still current (only form sections were in it) and its hash is updated instead of scoring again."""
+    """Candidates whose score is missing or out of date (job, facts or the scoring part of the profile changed), most worth scoring first:
+    new jobs, then changed jobs, then jobs whose only reason is a Profile edit, best previous score first. A job whose previous score is
+    under RESCORE_MIN and whose only reason is a Profile edit is not scored: it keeps its score, marked as the previous method (the
+    user can re-score those on request). full_profile: the whole Profile text, for scores made before scoring_profile existed: if one
+    matches it, the score is still current (only form sections were in it) and its hash is updated instead of scoring again."""
     db.executescript(SCORES_TABLE)
-    done = {row['job_id']: row for row in db.execute('SELECT job_id, scorer_version, input_hash FROM scores')}
+    done = {row['job_id']: row for row in db.execute('SELECT job_id, scorer_version, input_hash, data_json FROM scores')}
     pending = []
     for job in candidates:
         if not job.get('description'):
@@ -132,13 +144,30 @@ def pending_jobs(db, candidates, profile, limit, full_profile=None):
             continue
         if row and full_profile and row['scorer_version'] == SCORER_VERSION and row['input_hash'] == input_hash(job, job.get('ai'), full_profile):
             # Kept without an AI call, and labelled: scored from the whole Profile (the previous method), not this one.
-            data = json.loads(db.execute('SELECT data_json FROM scores WHERE job_id=?', (job['id'],)).fetchone()['data_json'])
+            data = json.loads(row['data_json'])
             data['method'] = PREVIOUS_METHOD
             db.execute('UPDATE scores SET input_hash=?, data_json=? WHERE job_id=?', (current, json.dumps(data, ensure_ascii=False), job['id']))
             continue
-        pending.append(job)
+        if not row:
+            pending.append(((0, 0), job))   # a new job: always worth reading
+            continue
+        try:
+            data = json.loads(row['data_json'])
+        except ValueError:
+            data = {}
+        asked = row['input_hash'] == ''   # the user asked for it (Strategy → Re-score them now): no shortcut
+        profile_only = row['scorer_version'] == SCORER_VERSION and not asked and data.get('job_hash', job_hash(job, job.get('ai'))) == job_hash(job, job.get('ai'))
+        previous = int(data.get('score') or 0)
+        if profile_only and previous < RESCORE_MIN:
+            # Only the Profile changed and this job was never going to show: keep its score, say so, spend nothing.
+            data.update(method=PREVIOUS_METHOD, job_hash=job_hash(job, job.get('ai')))
+            db.execute('UPDATE scores SET input_hash=?, data_json=? WHERE job_id=?', (current, json.dumps(data, ensure_ascii=False), job['id']))
+            continue
+        pending.append(((2, -previous) if profile_only else (1, 0), job))
     db.commit()
-    return sorted(pending, key=lambda j: j['first_seen_at'], reverse=True)[:limit]
+    ordered = sorted(pending, key=lambda item: item[1].get('first_seen_at') or '', reverse=True)   # newest first within a group
+    ordered.sort(key=lambda item: item[0])                                                         # then by group (stable)
+    return [job for _, job in ordered][:limit]
 
 
 def score_one(client, model, job, profile, effort=None):
@@ -175,7 +204,7 @@ def save(db, job, model, data, profile):
                (job['id'], SCORER_VERSION, input_hash(job, job.get('ai'), profile), model,
                 datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 json.dumps({**data, 'method': CURRENT_METHOD, 'scorer_version': SCORER_VERSION,
-                            'inputs': input_hash(job, job.get('ai'), profile)[:12]}, ensure_ascii=False)))
+                            'inputs': input_hash(job, job.get('ai'), profile)[:12], 'job_hash': job_hash(job, job.get('ai'))}, ensure_ascii=False)))
     db.commit()
 
 

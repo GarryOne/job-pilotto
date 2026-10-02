@@ -50,6 +50,74 @@ class ModelClient:
                                usage=SimpleNamespace(input_tokens=100, output_tokens=40, cache_read_input_tokens=0))
 
 
+class RescoreTests(unittest.TestCase):
+    """Editing the Profile used to re-score every open job (28 Sep: 60 re-scores, no new job, about $0.6). Now only jobs that matter are."""
+    FIRST = {'SRE 0': 90, 'SRE 1': 60, 'SRE 2': 40, 'SRE 3': 10}
+
+    def scored_db(self, tmp):
+        db = job_store.connect(Path(tmp) / 'jobs.sqlite').__enter__()
+        seed_jobs(db, 4)
+        candidates, _ = digest.eligible_jobs(db)
+        client = ModelClient({'m': lambda title: self.FIRST[title.split(': ')[1]]})
+        score.run(db, candidates, 'Profile v1', 'm', 10, client=client)
+        return db, candidates
+
+    def titles(self, jobs):
+        return [job['title'] for job in jobs]
+
+    def test_after_a_profile_edit_only_jobs_that_scored_well_are_scored_again_best_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db, candidates = self.scored_db(tmp)
+            self.assertEqual(self.titles(score.pending_jobs(db, candidates, 'Profile v2', 10)), ['SRE 0', 'SRE 1'])   # best first; 40 and 10 rest
+            rows = {r['job_id']: json.loads(r['data_json']) for r in db.execute('SELECT job_id, data_json FROM scores')}
+            by_title = {job['title']: rows[job['id']] for job in candidates}
+            self.assertEqual({t: (d['score'], d['method']) for t, d in by_title.items()},
+                             {'SRE 0': (90, 'Current'), 'SRE 1': (60, 'Current'), 'SRE 2': (40, score.PREVIOUS_METHOD), 'SRE 3': (10, score.PREVIOUS_METHOD)})
+            # the kept ones are settled for this Profile: asking again finds the same two, nothing new to spend on
+            self.assertEqual(self.titles(score.pending_jobs(db, candidates, 'Profile v2', 10)), ['SRE 0', 'SRE 1'])
+
+    def test_the_run_spends_on_those_two_only_and_the_kept_scores_stay_visible(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db, candidates = self.scored_db(tmp)
+            client = FakeClient(value=70)
+            self.assertIn('Scored 2 of 2', score.run(db, candidates, 'Profile v2', 'm', 10, client=client))
+            self.assertEqual(len(client.requests), 2)
+            self.assertEqual(sorted(score.load(db)[job['id']]['score'] for job in candidates), [10, 40, 70, 70])
+            self.assertEqual(len(score.previous_method(db)), 2)
+            self.assertIn('0 job(s)', score.run(db, candidates, 'Profile v2', 'm', 10, client=client))
+
+    def test_asking_to_re_score_them_scores_the_kept_ones_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db, candidates = self.scored_db(tmp)
+            score.pending_jobs(db, candidates, 'Profile v2', 10)
+            self.assertEqual(score.rescore_previous(db), 2)
+            self.assertEqual(sorted(self.titles(score.pending_jobs(db, candidates, 'Profile v2', 10))), ['SRE 0', 'SRE 1', 'SRE 2', 'SRE 3'])
+
+    def test_a_job_whose_text_changed_is_scored_again_whatever_it_scored_before(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db, candidates = self.scored_db(tmp)
+            edited = [dict(job, description=job['description'] + ' Now also Go.') if job['title'] == 'SRE 3' else job for job in candidates]
+            self.assertEqual(self.titles(score.pending_jobs(db, edited, 'Profile v1', 10)), ['SRE 3'])
+
+    def test_new_jobs_come_first_then_changed_ones_then_profile_edits_by_score(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db, candidates = self.scored_db(tmp)
+            fresh = dict(candidates[0], id=999, title='SRE NEW', first_seen_at='2099-01-01T00:00:00+00:00')
+            changed = [dict(job, description='rewritten') if job['title'] == 'SRE 2' else job for job in candidates]
+            order = self.titles(score.pending_jobs(db, changed + [fresh], 'Profile v2', 10))
+            self.assertEqual(order, ['SRE NEW', 'SRE 2', 'SRE 0', 'SRE 1'])
+            self.assertEqual(self.titles(score.pending_jobs(db, changed + [fresh], 'Profile v2', 1)), ['SRE NEW'])   # a cap spends on the new one first
+
+    def test_scores_made_before_this_change_are_treated_as_a_profile_edit_not_a_changed_job(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db, candidates = self.scored_db(tmp)
+            for row in db.execute('SELECT job_id, data_json FROM scores').fetchall():   # older rows have no job_hash
+                data = json.loads(row['data_json']); data.pop('job_hash', None)
+                db.execute('UPDATE scores SET data_json=? WHERE job_id=?', (json.dumps(data), row['job_id']))
+            db.commit()
+            self.assertEqual(self.titles(score.pending_jobs(db, candidates, 'Profile v2', 10)), ['SRE 0', 'SRE 1'])
+
+
 class CascadeTests(unittest.TestCase):
     def test_effort_is_set_for_sonnet_and_left_out_for_haiku(self):
         client = FakeClient()
