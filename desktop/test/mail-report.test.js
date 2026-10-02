@@ -144,3 +144,14 @@ test('a "which job?" line reads as answered once Focus no longer holds the quest
   assert.equal(settleQuestion('Blockdaemon — which job?', null), 'Blockdaemon — which job?');   // Focus not loaded: no judgement
   assert.equal(settleQuestion('Canonical — SRE', []), 'Canonical — SRE');
 });
+
+test('a "which job?" is a question, not a change: "What changed" keeps only what was written', async () => {
+  const report = parseMailReport('', 'Gmail check: 2 new email(s) read, 2 update(s) recorded', [
+    'Gmail check: 2 new email(s) read, 2 update(s) recorded',
+    '📬 Application received · Canonical — SRE · Stage Applied → Confirmation received',
+    '❓ Interview scheduled · Blockdaemon — which job?',
+    'Meeting invitation · Cal.com · 02 Oct 21:30 — [needs you] · Blockdaemon']);
+  assert.deepEqual(report.updates.map(update => update.job), ['Canonical — SRE']);
+  assert.deepEqual(report.asked.map(update => update.job), ['Blockdaemon — which job?']);
+  assert.equal(report.emails[0].action, 'needs you');
+});

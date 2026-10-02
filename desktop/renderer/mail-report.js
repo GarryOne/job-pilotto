@@ -132,6 +132,11 @@ export function parseMailReport(message, result = '', fromRow = []) {
     report.notes.push({icon: head ? head[1] : '', text: head ? line.slice(head[0].length) : line, fromRow: fromRow_});
     reading = '';
   }
+  // "What changed" is what this check wrote to your applications. A "which job?" is a question, not a change: it moves
+  // to report.asked and the card draws it as its own section, with the email that raised it and your answer.
+  report.asked = report.updates.filter(update => /which job\?$/.test(update.job));
+  report.updates = report.updates.filter(update => !report.asked.includes(update));
+  report.notes = report.notes.filter(note => !/which job\?.*Answer in Job Pilotto/.test(note.text));
   const empty = !report.interview && !report.topics.length && !report.nextSteps.length && !report.consent && !report.notes.length;
   return empty && !report.status.sentence ? null : report;
 }

@@ -83,6 +83,31 @@ def _role(row):
     return titles.row_role(row) if row else ''
 
 
+ASKED_TITLE = '❓ Which job? · '  # src/ai/mail.py ask(): the question's event is titled with the email's subject
+
+
+def _asked_subject(event):
+    title = plain((event.get('properties') or {}).get('Event')) or ''
+    return title[len(ASKED_TITLE):] if title.startswith(ASKED_TITLE) else ''
+
+
+def answered_questions(rows, events):
+    """The "which job?" questions you have answered, newest first: the email's subject and the job it went to ('' = not
+    about a job). The Gmail check's run page shows the question next to its answer from this."""
+    by_id = {r['id']: r for r in rows}
+    out = []
+    for event in events:
+        props = event.get('properties', {})
+        subject = _asked_subject(event)
+        if not subject or (props.get('Needs you') or {}).get('checkbox'):
+            continue
+        relation = (props.get('Application') or {}).get('relation') or []
+        row = by_id.get(relation[0]['id']) if relation else None
+        job = f"{_field(row, 'Company') or _field(row, 'Via') or '?'} — {_role(row)[:60]}" if row else ''
+        out.append({'subject': subject, 'job': job, 'at': ((props.get('At') or {}).get('date') or {}).get('start') or ''})
+    return sorted(out, key=lambda a: a['at'], reverse=True)[:60]
+
+
 def _gmail(source_id):
     """The Gmail link of a message id. Only Gmail's own ids: a calendar event ("cal:") and a chat or screenshot you logged
     ("paste:", "chat:") are not emails, so a LinkedIn conversation never gets an "Open email" button."""
@@ -336,6 +361,7 @@ def questions(rows, events):
         title = f'Is this email about {label}?' if suggested else 'Which job is this email about?'
         detail = f"{kind}{f', {at.astimezone(TZ):%a %d %b %H:%M}' if at else ''}: {note[:220]}"
         asked.append(_item(1, 'which_job', '❓', title, detail, suggested, event_id=event['id'], event_kind=kind, note=note,
+                           subject=_asked_subject(event),
                            suggested_url=_field(suggested, 'Job URL') if suggested else '', suggested_label=label))
     return asked
 
@@ -530,6 +556,7 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
     return {'items': items, 'today': {'applied': done_today, 'target': target, 'kits_ready': len(kits),
                                       'history': _applied_by_day(rows, by_app, today)},
             'insight': insight, 'summary': summary(items), 'funnel': funnel(rows, events),
+            'answered_questions': answered_questions(rows, events),
             'generated_at': now.isoformat(timespec='seconds')}
 
 

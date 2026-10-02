@@ -284,6 +284,8 @@ let lastFocus = null;
 export const pendingMailQuestions = () => (lastFocus?.items || []).filter(item => item.kind === 'which_job');
 // null until Focus has loaded: nothing can be called answered before then.
 export const lastQuestions = () => (lastFocus ? pendingMailQuestions() : null);
+// The questions you have answered (subject + the job it went to), or null until Focus has loaded.
+export const lastAnswered = () => (lastFocus ? lastFocus.answered_questions || [] : null);
 export function markPrep(pageId, state) {
   const item = lastFocus?.items?.find(one => one.kind === 'prepare' && one.page_id === pageId);
   if (!item) return;

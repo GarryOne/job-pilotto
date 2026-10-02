@@ -460,3 +460,17 @@ class HistoryInterviewTest(unittest.TestCase):
             items = focus.history(Tracker())
         self.assertEqual([i['title'] for i in items], ['Reviewed the interview: Unframe · Recruiter screen'])
         self.assertEqual(items[0]['note'], 'Outcome: Neutral')
+
+
+class AnsweredQuestionsTest(unittest.TestCase):
+    def test_the_answer_sits_next_to_the_email_that_asked(self):
+        row = {'id': 'job1', 'properties': {'Company': {'title': [{'plain_text': 'Blockdaemon'}]}}}
+        asked = lambda needs, relation: {'id': 'e', 'properties': {
+            'Event': {'title': [{'plain_text': '❓ Which job? · Meeting invitation: Igor and Blockdaemon DM'}]},
+            'Needs you': {'checkbox': needs}, 'Application': {'relation': relation},
+            'At': {'date': {'start': '2026-10-02T21:30:00+02:00'}}}}
+        self.assertEqual(focus.answered_questions([row], [asked(True, [])]), [])   # still open: Focus asks it
+        done = focus.answered_questions([row], [asked(False, [{'id': 'job1'}])])
+        self.assertEqual(done[0]['subject'], 'Meeting invitation: Igor and Blockdaemon DM')
+        self.assertTrue(done[0]['job'].startswith('Blockdaemon'))
+        self.assertEqual(focus.answered_questions([row], [asked(False, [])])[0]['job'], '')   # "not about a job"

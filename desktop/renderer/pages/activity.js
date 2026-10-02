@@ -16,7 +16,7 @@ import {showScheduleState} from './connections.js';
 import {answer} from './actions.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
-import {lastQuestions, loadFocus, pendingMailQuestions} from './focus.js';
+import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions} from './focus.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openView} from './nav.js';
 import {renderSessionPage} from './session-log.js';
@@ -223,6 +223,8 @@ let kindFilter = '';        // the header's filter: one kind of run at a time ('
 let foldedWarnings = '';    // the run whose warnings card is folded away, by id
 let detailRunId = '';       // the run the detail pane is showing (the fold button needs to know)
 const readingPages = new Set();  // run pages being read from Notion right now: their card shows as skeleton bars
+// An answer given on Focus (or the card itself) reaches the open check's card as soon as Focus is read again.
+window.addEventListener('focus-updated', () => { if (lastActivity) renderActivity(lastActivity); });
 export function renderActivity(fresh) {
   const data = withKept(fresh);
   renderActionsPage(data);
@@ -442,9 +444,7 @@ export function renderActivity(fresh) {
   if (card) renderRunCard(card, run);
   else if (mail) {
     const latestMail = runs.find(item => kindOf(item) === 'mail');
-    const questions = latestMail && run?.id === latestMail.id ? pendingMailQuestions() : [];
-    settleMail(mail, lastQuestions());
-    renderMailCard(mail, questions);
+    renderMailCard(mail, pendingMailQuestions(), lastAnswered(), !!latestMail && run?.id === latestMail.id);
   }
   else if (insight) renderInsightCard(insight);
   else if (weekly) renderWeeklyCard(weekly);
@@ -677,44 +677,71 @@ function mailSections(box, report) {
 
 // A Gmail check's card: what the check did, the interview it is about, what to prepare, the recruiter's next step and
 // the consent line — the message's own content, in the shape the owner reads it (the mockup, 30 Sep).
-// A Gmail check that was not sure which job an email belongs to. The question already lives on Focus
-// (Needs you). The same answer sits on this check, so you don't have to leave the run to confirm it.
-function mailConfirm(questions) {
-  const section = el('section', 'mail-confirm');
-  section.append(el('h4', '', 'Which job is this email about?'));
-  section.append(el('p', 'mail-sub', 'This check was not sure, so nothing was moved. Your answer places the email.'));
-  for (const item of questions) {
-    const row = el('div', 'mail-confirm-row');
-    const words = el('div', 'mail-confirm-words');
-    words.append(el('b', '', item.headline || item.title));
-    if (item.detail) words.append(el('p', '', item.detail));
-    const actions = el('div', 'mail-confirm-actions');
-    const press = (label, tone, run) => {
-      const button = el('button', tone, label);
-      button.type = 'button';
-      button.addEventListener('click', run);
-      return button;
-    };
-    if (item.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
-      event.currentTarget.disabled = true;
-      await moveEmail(item.event_id, item.suggested_url, item);
-    }));
-    actions.append(press(item.suggested_url ? 'Other job…' : 'Pick the job', item.suggested_url ? 'secondary' : 'primary', () => whichJob(item)));
-    row.append(words, actions);
+// A Gmail check that was not sure which job an email belongs to: one block per question, with the email that raised it
+// and what became of it. Still open, it carries the buttons (the same question lives on Focus); answered, it says which
+// job you picked; the email's row under "Emails read" repeats that answer, so the two are never read apart.
+const subjectKey = text => String(text || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 100);
+function questionState(email, pending, answered) {
+  const key = subjectKey(email.subject);
+  const open = key && pending.find(item => subjectKey(item.subject) === key);
+  if (open) return {open};
+  const done = key && (answered || []).find(item => subjectKey(item.subject) === key);
+  if (done) return {answer: done.job ? `You answered: ${done.job}` : 'You said: not about a job'};
+  return answered ? {answer: 'Answered in Focus'} : {};
+}
+function mailQuestions(report, pending, answered, latest) {
+  const asked = report.emails.filter(email => email.action === 'asked');
+  const rows = asked.length ? asked : report.asked.map(update => ({subject: update.job.replace(/\s*—\s*which job\?$/, ''), sender: '', time: ''}));
+  const matched = new Set();
+  const entries = rows.map(email => {
+    const state = questionState(email, pending, answered);
+    if (state.open) matched.add(state.open);
+    return {email, ...state};
+  });
+  // The newest check also lists what no check above explains (an older check's question, still open).
+  if (latest) pending.filter(item => !matched.has(item)).forEach(item => entries.push({email: {subject: item.subject || item.headline || item.title, sender: '', time: ''}, open: item}));
+  if (!entries.length) return null;
+  const section = el('section', 'mail-block mail-questions');
+  const head = el('div', 'mail-block-head');
+  head.append(el('h4', '', entries.length === 1 ? 'Question' : 'Questions'), pill(String(entries.length), 'neutral'));
+  section.append(head);
+  for (const entry of entries) {
+    const {email, open, answer} = entry;
+    const row = el('div', 'mail-question');
+    const mail = el('div', 'mail-question-email');
+    mail.append(icon('mail'), el('b', '', email.subject || 'An email'),
+      el('span', 'mail-read-meta', [email.sender, email.time].filter(Boolean).join(' · ')));
+    row.append(mail);
+    const ask = el('div', 'mail-question-ask');
+    ask.append(el('span', 'mail-question-mark', '?'), el('span', '', open?.title || 'Which job is this email about?'));
+    row.append(ask);
+    if (open) {
+      if (open.detail) row.append(el('p', 'mail-sub', open.detail));
+      const actions = el('div', 'mail-confirm-actions');
+      const press = (label, tone, run) => {
+        const button = el('button', tone, label);
+        button.type = 'button';
+        button.addEventListener('click', run);
+        return button;
+      };
+      if (open.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
+        event.currentTarget.disabled = true;
+        await moveEmail(open.event_id, open.suggested_url, open);
+      }));
+      actions.append(press(open.suggested_url ? 'Other job…' : 'Pick the job', open.suggested_url ? 'secondary' : 'primary', () => whichJob(open)));
+      row.append(actions);
+    } else {
+      const done = el('div', 'mail-question-answer');
+      done.append(icon('check-circle'), el('span', '', answer || 'Answer pending: open Focus'));
+      row.append(done);
+      entry.email.by = answer || '';
+    }
     section.append(row);
   }
   return section;
 }
-// Answered questions stop asking: the update row and the note say "answered in Focus" instead of "which job?".
-function settleMail(report, asked) {
-  for (const update of report.updates) {
-    if (settleQuestion(update.job, asked) !== update.job) update.changes = 'Answered in Focus';   // the question stays, the answer sits beside it
-  }
-  for (const note of report.notes) note.text = settleQuestion(note.text, asked);
-}
-function renderMailCard(report, questions = []) {
+function renderMailCard(report, pending = [], answered = null, latest = false) {
   const box = el('div', 'mail-card');
-  if (questions.length) box.append(mailConfirm(questions));
   const status = el('div', 'mail-status');
   const tick = el('span', 'mail-tick');
   tick.append(icon('check-circle'));
@@ -727,6 +754,8 @@ function renderMailCard(report, questions = []) {
   stats.append(stat(report.emails.length, report.emails.length === 1 ? 'email read' : 'emails read'),
                stat(report.updates.length, report.updates.length === 1 ? 'update' : 'updates'));
   if (report.emails.length || report.updates.length) box.append(stats);
+  const questions = mailQuestions(report, pending, answered, latest);
+  if (questions) box.append(questions);
   mailSections(box, report);
   const {interview} = report;
   if (interview) {
