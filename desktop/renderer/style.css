@@ -877,20 +877,19 @@ main { min-width: 0; }
 .stat > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .iv-lib-wrap { overflow-x: auto; }
 
-/* Under 1180 px the sidebar is an icon rail: labels become tooltips (title), the footer notes are hidden. */
-@media (max-width: 1179px) {
-  .app { grid-template-columns: 72px minmax(0, 1fr); }
-  .sidebar { padding: 20px 8px; align-items: center; }
-  .sidebar .brand { font-size: 0; gap: 0; padding-left: 0; }
-  .nav, .notion-link { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 10px 0; }
-  .nav-badge { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; margin: 0; font-size: var(--fs-xs); }
-  .nav .icon { width: 20px; height: 20px; }
-  .notion-link .icon { width: 18px; height: 18px; }
-  .notion-links { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .notion-links[hidden] { display: none; }
-  .nav-group { font-size: 0; margin: 12px 0 6px; border-top: 1px solid var(--navy-hover); width: 32px; }
-  .sidebar-foot, .app-version { display: none; }
-}
+/* The sidebar as an icon rail (class .app.rail, set by sidebar-rail.js: under 1180 px, or when the menu was collapsed with its button):
+   labels become tooltips (title), the footer notes are hidden. */
+.app.rail { grid-template-columns: 72px minmax(0, 1fr); }
+.app.rail .sidebar { padding: 20px 8px; align-items: center; }
+.app.rail .sidebar .brand { font-size: 0; gap: 0; padding-left: 0; }
+.app.rail .nav, .app.rail .notion-link { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 10px 0; }
+.app.rail .nav-badge { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; margin: 0; font-size: var(--fs-xs); }
+.app.rail .nav .icon { width: 20px; height: 20px; }
+.app.rail .notion-link .icon { width: 18px; height: 18px; }
+.app.rail .notion-links { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.app.rail .notion-links[hidden] { display: none; }
+.app.rail .nav-group { font-size: 0; margin: 12px 0 6px; border-top: 1px solid var(--navy-hover); width: 32px; }
+.app.rail .sidebar-foot, .app.rail .app-version { display: none; }
 
 /* ---------- ⌘K command palette ---------- */
 .palette { width: min(600px, 90vw); padding: 0; margin: 12vh auto auto; border-radius: var(--r-lg); background: var(--surface); color: var(--ink);
@@ -908,7 +907,7 @@ main { min-width: 0; }
 .palette-hint { -webkit-app-region: no-drag; margin-top: 10px; background: transparent; border: 1px solid var(--navy-hover); color: var(--on-navy-3);
   font-size: var(--fs-xs); padding: 6px 10px; border-radius: var(--r-md); text-align: left; }
 .palette-hint:hover { color: var(--on-accent); }
-@media (max-width: 1179px) { .palette-hint { display: none; } }
+.app.rail .palette-hint { display: none; }
 
 /* The free-allowance counter in the sidebar: a line of text and a thin bar; warn tone when the free period is ending or over. */
 .allowance-chip { -webkit-app-region: no-drag; display: block; width: 100%; margin-top: 10px; padding: 8px 10px; text-align: left; background: transparent;
@@ -920,7 +919,7 @@ main { min-width: 0; }
 .allowance-chip-bar { display: block; height: 4px; border-radius: var(--r-pill); background: var(--navy-hover); overflow: hidden; }
 .allowance-chip-bar i { display: block; height: 100%; width: 0; border-radius: var(--r-pill); background: var(--info); }
 .allowance-chip[data-tone="warn"] .allowance-chip-bar i { background: var(--warn-bright); }
-@media (max-width: 1179px) { .allowance-chip { display: none; } }
+.app.rail .allowance-chip { display: none; }
 
 /* A one-off job's result (insight, today's list, report) in Recent activity, when Telegram didn't get it */
 .activity-message { white-space: pre-wrap; font: inherit; font-size: var(--fs-sm); background: var(--surface); border: 1px solid var(--line);
@@ -1634,18 +1633,16 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .nav-sessions.tone-info .nav-sessions-dot { background: var(--info); }
 .nav-sessions.tone-good .nav-sessions-dot { background: var(--good-bright); }
 .notion-links { display: none; }
-@media (max-width: 1179px) {
-  .app { grid-template-columns: 72px minmax(0, 1fr); }
-  .sidebar .nav-group { display: none; }
-  .sidebar .brand { border-bottom: 0; padding-bottom: 0; }
-  .sidebar .mark { width: 36px; height: 36px; }
-  .sidebar .nav { padding: 10px 0; }
-  .sidebar-bottom { align-items: center; width: 100%; }
-  .nav-sessions { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
-  .nav-sessions .icon { display: none; }
-  .theme-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
-  .nav-count { position: absolute; top: 2px; right: 2px; }
-}
+.app.rail { grid-template-columns: 72px minmax(0, 1fr); }
+.app.rail .sidebar .nav-group { display: none; }
+.app.rail .sidebar .brand { border-bottom: 0; padding-bottom: 0; }
+.app.rail .sidebar .mark { width: 36px; height: 36px; }
+.app.rail .sidebar .nav { padding: 10px 0; }
+.app.rail .sidebar-bottom { align-items: center; width: 100%; }
+.app.rail .nav-sessions { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
+.app.rail .nav-sessions .icon { display: none; }
+.app.rail .theme-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
+.app.rail .nav-count { position: absolute; top: 2px; right: 2px; }
 
 /* Jobs: what the list is filtered to (a counter or a Focus funnel step); ✕ shows every job. */
 .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-sm);
@@ -1738,7 +1735,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .nav-update[hidden] { display: none; }
 .nav-update:hover:not(:disabled) { background: rgb(var(--amber-rgb) / .22); }
 .nav-update .icon { width: 16px; height: 16px; }
-@media (max-width: 1179px) { .nav-update { font-size: 0; gap: 0; justify-content: center; width: 48px; } }
+.app.rail .nav-update { font-size: 0; gap: 0; justify-content: center; width: 48px; }
 /* Settings → Advanced → Technical reports: the switch, and what's sent. */
 #setting-telemetry .switch-row { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
 #setting-telemetry .switch-row input { width: auto; margin: 0; }
@@ -1926,3 +1923,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .mail-changed-line svg { flex: none; margin-top: 3px; }
 .mail-changed-sub { margin: 0; padding-left: calc(16px + var(--sp-2)); color: var(--muted); }
 .mail-changed-sentence { margin: 0; }
+
+/* Collapse/expand button at the foot of the menu; the rail has no room for it under 1180 px (sidebar-rail.js hides it there). */
+.rail-toggle[hidden] { display: none; }
+.app.rail .rail-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
+.app.rail .dev-tag { display: none; }
