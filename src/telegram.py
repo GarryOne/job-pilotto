@@ -57,7 +57,7 @@ def send(text, token, chat_id, reply_markup=None):
 
 def keychain_token():
     """Read the optional local macOS Keychain token without printing it."""
-    if os.uname().sysname != 'Darwin':
+    if os.uname().sysname != 'Darwin' or os.getenv('JOB_PILOTTO_E2E'):  # the end-to-end journey never reaches the owner's real bot
         return None
     try:
         result = subprocess.run(

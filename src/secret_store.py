@@ -22,7 +22,14 @@ def _keyring():
     return keyring
 
 
+def isolated():
+    """True in the end-to-end journey (the app sets JOB_PILOTTO_E2E): it runs on the owner's own Mac, whose store holds their real Google sign-in and Telegram bot, so it sees none."""
+    return bool(os.getenv('JOB_PILOTTO_E2E'))
+
+
 def get(service, user=None):
+    if isolated():
+        return None
     user = account() if user is None else user
     if sys.platform == 'darwin':
         result = subprocess.run(['security', 'find-generic-password', '-a', user, '-s', service, '-w'],

@@ -1,3 +1,4 @@
+import os
 import sys
 import unittest
 from unittest import mock
@@ -56,6 +57,35 @@ class SecretStoreTest(unittest.TestCase):
             google.store('id', 'secret', 'refresh', production=False, github=False)
             self.assertEqual(google.credentials(), ('id', 'secret', 'refresh'))
         self.assertIn(('job-pilotto.google.auth-at', 'igor'), store.items)
+
+
+class EndToEndIsolationTest(unittest.TestCase):
+    """The end-to-end test app runs on the owner's own Mac: the Keychain there holds the owner's real Google sign-in and Telegram bot (2 Oct 2026: a test
+    "Gmail check" read the owner's real mail). With JOB_PILOTTO_E2E set the engine sees no Keychain at all."""
+
+    def _keychain_answers(self):
+        return mock.patch.object(secret_store.subprocess, 'run', return_value=mock.Mock(returncode=0, stdout='real-secret\n'))
+
+    def test_the_keychain_is_not_read(self):
+        with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, mock.patch.dict('os.environ', {'JOB_PILOTTO_E2E': '1'}):
+            self.assertIsNone(secret_store.get('job-pilotto.google.refresh-token', 'igor'))
+        asked.assert_not_called()
+
+    def test_without_the_flag_the_keychain_is_read_as_before(self):
+        with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers(), mock.patch.dict('os.environ'):
+            os.environ.pop('JOB_PILOTTO_E2E', None)
+            self.assertEqual(secret_store.get('job-pilotto.google.refresh-token', 'igor'), 'real-secret')
+
+    def test_google_is_not_connected_and_telegram_has_no_token(self):
+        from src import telegram
+        env = {'JOB_PILOTTO_E2E': '1'}
+        with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers(), mock.patch.dict('os.environ', env), \
+                mock.patch('src.sources.google.os.getenv', side_effect=lambda name, default=None: {'JOB_PILOTTO_E2E': '1'}.get(name, default)):
+            self.assertIsNone(google.credentials())
+        with mock.patch.object(telegram.os, 'uname', return_value=mock.Mock(sysname='Darwin')), mock.patch.object(telegram.subprocess, 'run',
+                return_value=mock.Mock(stdout='123456:real-bot-token\n')) as asked, mock.patch.dict('os.environ', env):
+            self.assertIsNone(telegram.keychain_token())
+        asked.assert_not_called()
 
 
 class PasswordsTest(unittest.TestCase):
