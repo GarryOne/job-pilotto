@@ -306,8 +306,16 @@ export async function findPageBeside(token, besideId, title, fetcher) {
   const beside = await call(token, 'GET', `pages/${besideId}`, null, fetcher);
   const parentId = beside.parent?.page_id;
   if (!parentId) return null;
-  const [, pages] = liveOnly([], await searchAll(token, 'page', fetcher));
   const want = normalise(title), same = id => String(id || '').replace(/-/g, '') === parentId.replace(/-/g, '');
+  // The parent's own child list first: Notion's search lags behind a page made a moment ago, and a reconnect in that window made a second copy.
+  let cursor;
+  do {
+    const listed = await call(token, 'GET', `blocks/${parentId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+    const hit = (listed.results || []).find(block => block.type === 'child_page' && normalise(block.child_page?.title || '') === want);
+    if (hit) return hit.id.replace(/-/g, '');
+    cursor = listed.has_more ? listed.next_cursor : null;
+  } while (cursor);
+  const [, pages] = liveOnly([], await searchAll(token, 'page', fetcher));
   const found = pages.find(item => same(item.parent?.page_id) && normalise(titleOf(item)) === want);
   return found ? found.id.replace(/-/g, '') : null;
 }

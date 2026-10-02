@@ -283,6 +283,11 @@ export async function addRoles(storage, terms, {run, ensurePage, writePage}) {
   storage.writeText('config/search.json', JSON.stringify({...search, role_keywords: [...(search.role_keywords || []), ...added.map(escapeRegex)]}, null, 2) + '\n');
   try {
     await publishSearchSettings(storage, {run, ensurePage, writePage});
+    // The page is rendered from the cached file: if a search rewrote that file from an older copy of the page in between, the terms are gone from both
+    // and the call would still say it worked (seen twice in the strategy e2e suite). Say so instead.
+    const kept = new Set((JSON.parse(storage.readText('config/search.json') || '{}').role_keywords || []).map(entry => String(entry).toLowerCase()));
+    const lost = added.filter(term => !kept.has(escapeRegex(term)));
+    if (lost.length) throw new Error(`A search changed your settings while they were being saved (${lost.join(', ')} did not stay). Try again.`);
   } catch (error) {
     storage.writeText('config/search.json', before);
     throw error;

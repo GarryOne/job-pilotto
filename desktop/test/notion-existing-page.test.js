@@ -23,7 +23,7 @@ function notionWith(pages) {
     if (route === 'pages/profile') return reply({...page('profile', 'Profile — CV and Preferences')});
     if (route === 'search') return reply({results: pages, has_more: false});
     if (route === 'pages' && init.method === 'POST') { log.push('create'); return reply({id: 'new-page-id'}); }
-    if (route.startsWith('blocks/')) { log.push(`write ${route}`); return reply({results: [], has_more: false});}
+    if (route.startsWith('blocks/')) { if (init.method && init.method !== 'GET') log.push(`write ${route}`); return reply({results: [], has_more: false});}
     return reply({});
   };
   return {fetcher, log};
@@ -53,4 +53,16 @@ test('connecting a workspace that already has Search settings links it and never
   assert.equal(await step.run(storage, there.fetcher), true);
   assert.equal(storage.settings().notionIds.NOTION_SEARCH_SETTINGS_PAGE, 'bbbbbbbb000000000000000000000002');
   assert.deepEqual(there.log, [], 'no page created, nothing written over the person\'s settings');
+});
+
+test('a page the parent lists is found even when search has not indexed it yet', async () => {
+  const fetcher = async url => {
+    const route = url.replace('https://api.notion.com/v1/', '').split('?')[0];
+    const reply = body => ({ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body)});
+    if (route === 'pages/profile') return reply(page('profile', 'Profile — CV and Preferences'));
+    if (route === `blocks/${PARENT}/children`) return reply({results: [{id: 'dddddddd-0000-0000-0000-000000000004', type: 'child_page', child_page: {title: 'Search settings'}}], has_more: false});
+    if (route === 'search') return reply({results: [], has_more: false});   // the index is behind
+    return reply({});
+  };
+  assert.equal(await findPageBeside('ntn_x', 'profile', '⚙️ Search settings', fetcher), 'dddddddd000000000000000000000004');
 });

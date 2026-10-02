@@ -46,3 +46,10 @@ test('without Notion connected the change stays in the local settings', async ()
   assert.deepEqual(roles(t.files), ['\\bsre\\b', 'devops', 'backend']);
   assert.equal(t.calls.filter(c => c[0] === 'publish').length, 0);
 });
+
+test('a search that rewrites the settings meanwhile is reported, not silently accepted', async () => {
+  const t = setup();
+  const original = t.deps.writePage;
+  t.deps.writePage = async (...args) => { t.files['config/search.json'] = JSON.stringify({role_keywords: ['\\bsre\\b', 'devops']}); return original(...args); };
+  await assert.rejects(addRoles(t.storage, ['backend'], t.deps), /did not stay/);
+});
