@@ -24,14 +24,16 @@ export function searchSelect(select, {placeholder = 'Search company or job…'} 
   if (!select || select.dataset.searchSelect) return;
   select.dataset.searchSelect = '1';
   const id = `search-select-${++counter}`;
-  const wrap = Object.assign(document.createElement('div'), {className: 'select-search lead-job-search'});
+  const wrap = Object.assign(document.createElement('div'), {className: 'search-select'});
   const input = Object.assign(document.createElement('input'), {type: 'search', autocomplete: 'off', placeholder, id: `${id}-input`});
   const list = Object.assign(document.createElement('div'), {id: `${id}-options`, className: 'lead-job-options', hidden: true});
   Object.entries({role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': list.id}).forEach(([k, v]) => input.setAttribute(k, v));
   list.setAttribute('role', 'listbox');
   if (select.id) document.querySelector(`label[for="${select.id}"]`)?.setAttribute('for', input.id);
   select.before(wrap);
-  wrap.append(icon('search'), input, list, select);
+  const field = Object.assign(document.createElement('div'), {className: 'select-search'});  // icon + box: the icon centres on the box, not on the list below
+  field.append(icon('search'), input);
+  wrap.append(field, list, select);
   select.hidden = true;
   select.style.display = 'none';
 

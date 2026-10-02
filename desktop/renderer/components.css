@@ -120,6 +120,7 @@ button.ui-tag.is-action:hover { border-color: var(--signal); }
   color: var(--muted); pointer-events: none; }
 .select-search select { width: 100%; padding-left: calc(var(--sp-4) * 2 + 18px); }
 .lead-job-search { margin-top: var(--sp-1); }
+.search-select > .select-search input { width: 100%; padding-left: calc(var(--sp-4) * 2 + 18px); }
 .lead-job-search > svg { top: calc(var(--sp-3) + var(--sp-4)); }
 .lead-job-search input { width: 100%; padding-left: calc(var(--sp-4) * 2 + 18px); }
 .lead-job-options { max-height: 180px; overflow-y: auto; margin-top: var(--sp-1);
