@@ -431,12 +431,12 @@
     <div class="view" data-view="sessions" hidden>
       <header class="view-head">
         <div class="ss-title">
-          <h1 id="ss-title">Application sessions</h1>
-          <div class="ss-subtitle"><span class="muted" id="ss-role"></span><span id="ss-status"></span><span class="muted small" id="ss-refreshing" hidden>Updating…</span></div>
+          <div class="ss-title-row"><h1 id="ss-title">Application sessions</h1><span id="ss-status"></span><span class="muted small" id="ss-refreshing" hidden>Updating…</span></div>
+          <div class="ss-subtitle"><span class="muted" id="ss-role"></span></div>
         </div>
-        <div class="ss-tips" id="ss-tips" hidden aria-label="Tips while you apply"></div>
         <div class="head-actions"><span id="ss-more"></span></div>
       </header>
+      <div class="ss-tips" id="ss-tips" hidden aria-label="Tips while you apply"></div>
       <!-- Until the app answers, a spinner: the two-pane shell (message box, session log) used to paint first and
            sat there for seconds before the state was known (1 Oct 2026). -->
       <section class="card list-loading" id="ss-loading">

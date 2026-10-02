@@ -1083,6 +1083,7 @@ main { min-width: 0; }
 
 /* The session page: sessions on the left; the job, Claude's question, the live terminal and the message box */
 .ss-title h1 { margin: 0; }
+.ss-title-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .ss-subtitle { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-1); font-size: var(--fs-base); }
 .ss-empty { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-6) var(--sp-4); }
 .ss-empty-glyph { display: grid; place-items: center; width: 44px; height: 44px;
@@ -1866,10 +1867,10 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .cal-status.bad { color: var(--bad); }
 
 /* Tip ticker on the Application sessions page: a fixed frame, the line scrolls right to left like a station board. */
-.ss-tips { flex: 0 1 460px; min-width: 0; align-self: center; margin: 0 auto; display: flex; align-items: center; gap: var(--sp-2);
-  padding: 4px 6px 4px 10px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface); }
+.ss-tips { min-width: 0; margin: 0 0 var(--sp-3); display: flex; align-items: center; gap: var(--sp-3);
+  padding: 8px 12px 8px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .ss-tips[hidden] { display: none; }
-.ss-tips.is-hidden { border-color: transparent; background: none; justify-content: center; }
+.ss-tips.is-hidden { border-color: transparent; background: none; justify-content: flex-end; padding-block: 0; }
 .ss-tip-chip { flex: none; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--signal-ink); }
 .ss-tip-frame { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-size: var(--fs-sm);
   -webkit-mask-image: linear-gradient(90deg, transparent, var(--ink) 6%, var(--ink) 94%, transparent); mask-image: linear-gradient(90deg, transparent, var(--ink) 6%, var(--ink) 94%, transparent); }
