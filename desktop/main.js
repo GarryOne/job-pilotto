@@ -1154,6 +1154,7 @@ function handlers() {
       const direct = await openFormTab({url, company}, shell.openExternal, {confident: true, ...hints}).catch(() => 'none');
       if (direct !== 'tab') {
         appLog('review', `show ${key}: no tab is this job's form; nothing queued`, {went: direct});
+        review.forget(key);
         return {taken: false, went: 'none', found: null};
       }
       if (!name) { appLog('review', `show ${key}: went straight to the form tab`, {went: direct}); return {taken: true, went: direct, found: null}; }

@@ -165,6 +165,9 @@ export function report(sessions, payload, now = Date.now()) {
   return {matched: session.id, session: about, watch: watches.get(session.id) || [],
     commands: due.map(({focus, close, reload}) => (close ? {close: true} : reload ? {reload: true} : {focus}))};
 }
+// The form's tab is gone and the page can't report (the extension can't reach the app): its cached "18 of 18, ready"
+// describes a form that no longer exists. Forget it, here and on disk.
+export function forget(id) { last.delete(id); bound.delete(id); save(); }
 // Every form's last state, for a window that just loaded (⌘R) and missed them: they're passed on only when they change.
 export const allStates = () => [...last.values()];
 export const _reset = () => { keptFile = ''; watches.clear(); commands.clear(); bound.clear(); openIds = null; bootId = ''; last.clear(); waiting.clear(); focusAnswers.clear(); focusWaiters.clear(); reporter = () => {}; };  // tests

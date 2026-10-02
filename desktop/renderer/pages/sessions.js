@@ -322,6 +322,8 @@ export function renderNextStep(item) {
         return;
       }
       if (result?.went === 'none') {   // no tab to bring forward: open the form again, as Reopen form does
+        reviewStates.delete(item.id);   // its "18 of 18, ready" was the closed tab's; the main process forgot it too
+        renderSessionPage();
         const reopened = await opening(event.currentTarget, () => window.pilot.applyOne(item.url));
         toastMessage(reopened?.ok === false ? 'Could not open the form' : 'The form tab was closed',
           reopened?.ok === false ? reopened.error || 'Try again.' : 'Opened the form again in Chrome.');
