@@ -79,6 +79,7 @@ import * as telegramCloud from './lib/telegram-cloud.js';
 import * as licenseLib from './lib/license.js';
 import * as demo from './lib/demo.js';
 import * as intelLib from './renderer/intel.js';
+import * as sharedLog from './lib/shared-log.js';
 
 // Recent activity: Notion ⏱️ Search runs rows (run-history.js), refreshed every 15 s, and the jobs just sent to
 // GitHub that haven't opened their row yet.
@@ -1240,7 +1241,7 @@ function handlers() {
     return true;
   });
   // The switch shows the saved choice (on unless turned off), also in a build that doesn't send (the reporter is null there).
-  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || [], alpha: app.getVersion().includes('alpha'), alphaLogs: storage.settings().alphaLogs === true}));
+  ipcMain.handle('telemetryShown', () => ({on: storage.settings().telemetry !== false, events: telemetry?.shown() || [], shared: sharedLog.list(storage), alpha: app.getVersion().includes('alpha'), alphaLogs: storage.settings().alphaLogs === true}));
   ipcMain.handle('alphaLogsSet', (_, on) => { storage.saveSettings({alphaLogs: !!on}); appLog('telemetry', `alpha run logs ${on ? 'on' : 'off'}`); return {on: !!on}; });
   // "Help the pool grow" (opt-in, lib/pool-share.js): the switch, and exactly what would be sent (python -m src contribute --show).
   ipcMain.handle('poolShareGet', () => ({on: poolShare.on(storage)}));
@@ -1693,7 +1694,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
-  const recipeReporter = recipeLibrary.createReporter(storage);
+  const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   recipeReporterRef = recipeReporter;
   server.setProposalReporter(items => recipeReporter.proposal(items));
   // After a search: how much of the market the role keywords caught (data/coverage.json, src/coverage.py), as anonymous counts, once per crawl.
@@ -1706,8 +1707,10 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       recipeReporter.coverage(summary);
     } catch { /* a number for the product is never worth a failed run */ }
   });
-  server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints));
-  server.setAliasesHandler(() => aliasLibrary.lookup(storage));
+  const shared = (what, sent) => sharedLog.add(storage, what, sent);
+  server.setSharedLogger(shared);
+  server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints, {onSent: shared}));
+  server.setAliasesHandler(() => aliasLibrary.lookup(storage, {onSent: shared}));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with
   server.setMissesHandler(payload => misses.record(storage, payload, Date.now(), prints => {
     for (const item of controlEvents.fromMisses(payload, prints, {owner: owner()})) telemetry?.record('control', item);

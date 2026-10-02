@@ -36,7 +36,7 @@ export function build(run, reported = {}) {
   return fields.length ? {site, version: run.debug?.version || '', fields} : null;
 }
 
-export async function send(storage, run, fetcher = globalThis.fetch) {
+export async function send(storage, run, fetcher = globalThis.fetch, onSent = null) {
   const settings = storage.settings();
   if (settings.telemetry === false) return null;
   const report = build(run, settings.reportedFailures || {});
@@ -45,6 +45,7 @@ export async function send(storage, run, fetcher = globalThis.fetch) {
   const response = await fetcher(ENDPOINT, {method: 'POST', body: JSON.stringify(report),
     headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})}});
   if (!response.ok) throw new Error(`report not sent: ${response.status}`);
+  onSent?.('fill report → /report/fill-failure', report);
   const reported = settings.reportedFailures || {};
   storage.saveSettings({reportedFailures: {...reported, [report.site]: [...new Set([...(reported[report.site] || []), ...report.fields.flatMap(f => [key(f.label), ...(f.snapshot ? [`${key(f.label)} ${SNAPPED}`] : [])])])]}});
   return report;

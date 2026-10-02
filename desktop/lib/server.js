@@ -133,7 +133,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       });
       if (added) notify('New question to answer once', `${added} question${added > 1 ? 's' : ''} from ${job?.company || 'a form'} had no standard answer. Answer in Job Pilotto → Jobs.`);
       learnFromRun(storage, run, job).catch(error => console.error('Form knowledge:', error.message));
-      reports.send(storage, run).then(report => {  // each field also shows in the app reports (/telemetry)
+      reports.send(storage, run, undefined, sharedLogger).then(report => {  // each field also shows in the app reports (/telemetry)
         // A fill that failed while Chrome ran an older copy than this app ships is explained first, as its own
         // report: otherwise the fields read as "the extension can't fill these", and the cause stays invisible
         // (1 Oct 2026: a Claude session hit exactly that and filled the whole form by hand).
@@ -331,6 +331,8 @@ export function checkTicket(ticket, job, now = Date.now()) {
 
 // In-app Claude sessions (terminals.js) report their state here: the Claude Code hooks (JSON on stdin, with a
 // "message" for Notification) and tools/notify.sh (form field "message"). Local programs only, as for tickets.
+let sharedLogger = null;   // lib/shared-log.js: a copy of what is sent to the service, for Settings → "See what's sent"
+export function setSharedLogger(fn) { sharedLogger = fn; }
 let proposalReporter = () => {};
 export function setProposalReporter(fn) { proposalReporter = fn; }
 let sessionReporter = () => {};

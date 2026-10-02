@@ -16,7 +16,7 @@ export const cleanHints = list => (Array.isArray(list) ? list : []).filter(item 
 const enabled = storage => storage.settings().telemetry !== false;
 
 // -> [{key, phrase}] for this install. Never throws: no meanings is a normal answer.
-export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, now = Date.now()} = {}) {
+export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, now = Date.now(), onSent = null} = {}) {
   if (!enabled(storage)) return [];
   let kept = null;
   try { kept = JSON.parse(storage.readText(CACHE) || 'null'); } catch { kept = null; }
@@ -27,6 +27,7 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
     let response = await ask(await token(storage, fetcher, base));
     if (response.status === 401) { storage.saveSettings({recipesToken: null}); response = await ask(await token(storage, fetcher, base)); }
     if (!response.ok) throw new Error(`aliases ${response.status}`);
+    onSent?.('label meanings request → /api/packs/aliases', {install: id});
     const body = await response.json();
     const aliases = validateBundle(body.aliases).map(({key, phrase}) => ({key, phrase}));
     storage.writeText(CACHE, JSON.stringify({at: now, aliases}));

@@ -38,7 +38,7 @@ export async function token(storage, fetcher, base) {
 
 // -> {fingerprint: recipe} for the fingerprints that have a running recipe for this install. Never throws: no recipes is a
 // normal answer.
-export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch, base = SITE, now = Date.now()} = {}) {
+export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch, base = SITE, now = Date.now(), onSent = null} = {}) {
   if (!enabled(storage)) return {};
   const wanted = [...new Set((Array.isArray(fingerprints) ? fingerprints : []).map(String).filter(fp => /^[a-z0-9]{6,16}$/.test(fp)))].slice(0, 30);
   const cache = readCache(storage), found = {};
@@ -56,6 +56,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
           body: JSON.stringify({install: id, fingerprints: ask})});
       }
       if (!response.ok) throw new Error(`lookup ${response.status}`);
+      onSent?.('shape lookup → /api/recipes/lookup', {install: id, fingerprints: ask});
       const body = await response.json();
       const given = new Map((Array.isArray(body.recipes) ? body.recipes : []).map(item => [String(item?.fingerprint), validateRecipe(item)]));
       for (const fp of ask) {
@@ -72,7 +73,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 }
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
-export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
+export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout, onSent = null} = {}) {
   let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), unfilled = new Map(), intel = emptyIntel(), timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
@@ -257,6 +258,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
+      onSent?.('shared counts → /api/controls', body);
       return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.unfilled.length + (body.intel ? 1 : 0)};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
