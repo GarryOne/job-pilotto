@@ -150,21 +150,40 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
 // After a fill that left fields: learn reusable notes from its record (one small Claude call), keep them for
 // the extension and mirror them to the user's 🧠 Form knowledge page in Notion (kits read that page).
 async function learnFromRun(storage, run, job) {
+  if (!storage.secret('NOTION_TOKEN')) return;  // the notes live in Notion
+  const known = await judgeNotes(storage, run, await knowledge.notes(storage));
   const apiKey = storage.secret('ANTHROPIC_API_KEY'), client = claudeCode.client(storage);  // Claude Code when the user chose it
   if (!apiKey && !client) return;
-  const settings = storage.settings(), token = storage.secret('NOTION_TOKEN'), ids = settings.notionIds || {};
-  const studied = settings.formKnowledgeStudied || {};
-  const known = await knowledge.notes(storage);
+  const version = latestExtension(), settings = storage.settings();
+  const studied = learn.studiedFor(settings, version);
   const fresh = learn.newFields(run, studied, known);
   if (!fresh.length) return;  // this site's fields were already studied: no AI call
   const {profile, answers} = await strategy.profileTexts(storage).catch(() => ({profile: '', answers: ''}));
   const {notes, usd} = await learn.learn({run, profile, answers, contact: await contactOf(storage), known, studied, apiKey, client});
   const site = learn.siteOf(run.url);
   // Remember what was studied, learned or not (a cache on the Mac: a missing personal fact isn't retried; it's in Answer once).
-  storage.saveSettings({formKnowledgeStudied: {...studied, [site]: [...new Set([...(studied[site] || []), ...fresh.map(f => learn.labelKey(f.label))])]}});
+  storage.saveSettings({formKnowledgeVersion: version, formKnowledgeStudied: {...studied, [site]: [...new Set([...(studied[site] || []), ...fresh.map(f => learn.labelKey(f.label))])]}});
   if (!notes.length) return;
   await knowledge.add(storage, notes);
   notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} for next time (${job?.company || 'this form'}, $${usd.toFixed(3)}).`);
+}
+
+// A note that has left its field empty three fills in a row is not working: drop it from the Notion page and let the field be studied again.
+// Logged by site and field wording only, never the note's value.
+async function judgeNotes(storage, run, known) {
+  const verdict = learn.judge(run, known, storage.settings().formKnowledgeStats || {});
+  if (verdict.changed) storage.saveSettings({formKnowledgeStats: verdict.stats});
+  if (!verdict.drop.length) return known;
+  const token = storage.secret('NOTION_TOKEN'), studied = {...(storage.settings().formKnowledgeStudied || {})};
+  const gone = new Set();
+  for (const {note, misses, site} of verdict.drop) {
+    try { await notion.deleteBlock(token, note.block.id); } catch (error) { appLog('knowledge', `could not drop a note: ${error.message}`, {site, field: note.field}); continue; }
+    gone.add(note);
+    studied[site] = (studied[site] || []).filter(key => key !== learn.labelKey(note.field));
+    appLog('knowledge', `dropped a note: its field stayed empty ${misses} fills in a row`, {site, scope: note.scope, field: note.field, kind: note.kind});
+  }
+  storage.saveSettings({formKnowledgeStudied: studied});
+  return known.filter(note => !gone.has(note));
 }
 
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);

@@ -43,6 +43,27 @@ export function newFields(run, studied = {}, known = []) {
   return (run.trace || []).filter(f => f.outcome !== 'filled' && !/legal|consent/i.test(f.reason || '') && !seen.has(labelKey(f.label)));
 }
 
+// The studied-fields cache is only good for the extension that filled the form: a newer one may operate what the old one could not, so a
+// new version starts the studying over (a field with a note or a known answer is still skipped).
+export const studiedFor = (settings, version) => (!version || settings.formKnowledgeVersion === version ? settings.formKnowledgeStudied || {} : {});
+
+// Did each answer/option note do its job? stats {key: {hit, miss}}; a fill that left the note's field empty three times in a row drops it.
+export const NOTE_MISSES = 3;
+export function judge(run, known, stats = {}) {
+  const site = siteOf(run.url), byLabel = new Map((run.trace || []).map(f => [labelKey(f.label), f]));
+  const next = {...stats}, drop = [];
+  for (const note of known) {
+    if (!note.value || !['answer', 'option'].includes(note.kind) || !(note.scope === 'any' || site.includes(note.scope))) continue;
+    const field = byLabel.get(labelKey(note.field));
+    if (!field || /legal|consent/i.test(field.reason || '')) continue;  // not on this form, or not the filler's to fill
+    const key = knowledgeKey(note), entry = next[key] || {hit: 0, miss: 0};
+    if (field.outcome === 'filled') next[key] = {hit: entry.hit + 1, miss: 0};
+    else if (entry.miss + 1 >= NOTE_MISSES) { drop.push({note, misses: entry.miss + 1, site}); delete next[key]; }
+    else next[key] = {hit: entry.hit, miss: entry.miss + 1};
+  }
+  return {stats: next, drop, changed: JSON.stringify(next) !== JSON.stringify(stats)};
+}
+
 export const knowledgeKey = note => `${note.scope}|${note.field}`.toLowerCase().replace(/\s+/g, ' ').trim();
 
 // Merge new notes into the stored list (a newer note for the same scope + field replaces the older one).
