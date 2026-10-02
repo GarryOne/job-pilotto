@@ -334,8 +334,9 @@ export function renderActivity(fresh) {
   const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
   $('activity-schedule').replaceChildren(...items.map(([name, , at, none]) => {
     const item = el('span', `ap-item${at && at === soonest ? ' is-next' : ''}${at ? '' : ' is-off'}`);
-    if (at && at === soonest) item.append(el('span', 'ap-next', 'Next:'));
     item.append(el('span', 'muted', name), ' ', el('b', '', at ? (at <= Date.now() ? 'Due now' : `${day(at)} ${hhmm(at)}`) : none));
+    // A pill after the time, not a "Next:" before the name: that read as "Next Jobs" from a distance.
+    if (at && at === soonest) item.append(' ', el('span', 'ap-next', 'Next'));
     return item;
   }));
   // Check Gmail now: with a selected Gmail check, not in the schedule strip.

@@ -1686,7 +1686,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
   color: var(--muted); font-size: var(--fs-sm); flex: 1; min-width: 0; }
 .ap-item { white-space: nowrap; }
 .ap-item:not(:last-child)::after { content: '·'; margin-left: var(--sp-2); color: var(--line-strong); }
-.ap-next { color: var(--muted); margin-right: var(--sp-1); }
+.ap-next { color: var(--signal-ink); background: var(--signal-soft); border-radius: var(--r-pill); padding: 1px 8px;
+  font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; vertical-align: 1px; }
 .ap-item b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .ap-item.is-off b { color: var(--muted); font-weight: 400; }
 .ap-strip-manage { margin-left: auto; flex: none; color: var(--signal); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap;
