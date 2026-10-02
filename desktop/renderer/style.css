@@ -1920,7 +1920,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .mail-question-answer { font-weight: 700; color: var(--ink); }
 .mail-question-go svg { margin-left: var(--sp-1); }
 .mail-question-original { color: var(--muted); font-size: var(--fs-sm); }
-.mail-question-original summary { cursor: pointer; }
+.mail-question-toggle { all: unset; cursor: pointer; font-weight: 600; }
+.mail-question-toggle:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
 .mail-changed-line { display: flex; align-items: flex-start; gap: var(--sp-2); }
 .mail-changed-line svg { flex: none; margin-top: 3px; }
 .mail-changed-sub { margin: 0; padding-left: calc(16px + var(--sp-2)); color: var(--muted); }

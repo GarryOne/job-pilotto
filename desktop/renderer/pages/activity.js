@@ -729,10 +729,20 @@ function questionBlock(state, key) {
   head.append(icon('check-circle'), el('b', '', 'Answered by you'));
   block.append(head, el('p', 'mail-question-answer', state.job ? state.role : 'Not about a job, or the job was not recorded'),
     el('p', 'mail-question-text', state.job ? 'Role confirmed for this email.' : 'Nothing was moved for this email.'));
-  const original = el('details', 'mail-question-original');
-  original.open = openQuestions.has(key);
-  original.addEventListener('toggle', () => { if (original.open) openQuestions.add(key); else openQuestions.delete(key); });
-  original.append(el('summary', '', 'Original question'), el('p', '', `${QUESTION} ${QUESTION_WHY}`));
+  // A button and a set, not <details>: the card is drawn again on every refresh, and the set is read by each drawing.
+  const original = el('div', 'mail-question-original');
+  const toggle = el('button', 'mail-question-toggle');
+  toggle.type = 'button';
+  const text = el('p', '', `${QUESTION} ${QUESTION_WHY}`);
+  const show = () => {
+    const open = openQuestions.has(key);
+    toggle.textContent = `${open ? '▾' : '▸'} Original question`;
+    toggle.setAttribute('aria-expanded', String(open));
+    text.hidden = !open;
+  };
+  toggle.addEventListener('click', () => { if (openQuestions.has(key)) openQuestions.delete(key); else openQuestions.add(key); show(); });
+  show();
+  original.append(toggle, text);
   block.append(original);
   return block;
 }
