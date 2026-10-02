@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /stats
+Disallow: /telemetry
+Disallow: /intelligence
+Disallow: /feedback
+Disallow: /friends
+Disallow: /install
+
+Sitemap: https://www.jobpilotto.workers.dev/sitemap.xml
