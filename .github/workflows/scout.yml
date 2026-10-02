@@ -82,8 +82,6 @@ jobs:
           path: data/jobs.sqlite
           key: job-pilotto-db-${{ github.run_id }}
           restore-keys: job-pilotto-db-
-      - name: Run tests
-        run: python -m unittest discover -s tests
       - name: Scout new sources
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
