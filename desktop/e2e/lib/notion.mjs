@@ -56,3 +56,33 @@ export async function findPage(token, title) {
   const found = await call(token, 'POST', 'search', {query: title, filter: {property: 'object', value: 'page'}, page_size: 20});
   return found.results.find(page => !page.archived && titleOf(page).trim() === title) || null;
 }
+
+// A database of the test workspace by its title, or null. Read-only.
+export async function findDatabase(token, title) {
+  const found = await call(token, 'POST', 'search', {query: title, filter: {property: 'object', value: 'database'}, page_size: 20});
+  return found.results.find(db => !db.archived && (db.title || []).map(part => part.plain_text).join('').includes(title)) || null;
+}
+
+// Is the Job Pilotto workspace already built in this page? (A suite then seeds the app in seconds instead of going through the wizard.)
+export async function workspaceReady(token) {
+  const [profile, matches] = await Promise.all([findPage(token, 'Profile — CV and Preferences'), findDatabase(token, 'Job Matches — AI Scored')]);
+  return !!(profile && matches);
+}
+
+// Every row of one database to the trash (a suite resets only its own data, never the whole workspace). Returns how many.
+export async function emptyDatabase(token, title) {
+  const db = await findDatabase(token, title);
+  if (!db) return 0;
+  let count = 0, cursor;
+  do {
+    const rows = await call(token, 'POST', `databases/${db.id}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    for (const row of rows.results) {
+      if (row.archived) continue;
+      await call(token, 'PATCH', `pages/${row.id}`, {archived: true}).catch(() => {});
+      count++;
+      await sleep(350);
+    }
+    cursor = rows.has_more ? rows.next_cursor : null;
+  } while (cursor);
+  return count;
+}

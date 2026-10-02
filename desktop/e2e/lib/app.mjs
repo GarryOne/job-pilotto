@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window, getComputedStyle */
 // Launch the real Job Pilotto app (Electron) with a throwaway profile, like a first-time user, and drive it through Playwright.
 // Nothing here touches the real user's data: JOB_PILOTTO_USER_DATA points at a fresh temp folder and no .env is read.
 import {_electron as electron} from 'playwright-core';
@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 export const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DESKTOP = path.resolve(E2E, '..');
-export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts');
+export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts', process.env.E2E_SUITE || 'default');
 
 // -> {app, page, profile, shot(name), close()}. `env` adds to the app's environment (models, test hooks).
 export async function launch({env = {}, executablePath, args} = {}) {
@@ -79,3 +79,22 @@ export function assertNothingQueued(profile) {
     if (fs.existsSync(file) && fs.readFileSync(file, 'utf8').replace(/\s/g, '').length > 2) throw new Error(`${name} has events waiting to be sent`);
   }
 }
+
+// What the app itself knows right now, in a few safe words: given to the screenshot review so it can tell a page that contradicts the app's state
+// (an engine card says one thing, the panel below another) from one that is simply fine. No values of secrets, only whether they exist.
+export const facts = page => page.evaluate(() => {
+  const state = window.__jp?.shared?.state || {};
+  const settings = state.settings || {};
+  const visible = document.querySelector('.view:not([hidden])')?.dataset.view || '';
+  return {
+    page: visible,
+    settingsSection: visible === 'settings' ? (document.querySelector('.settings-nav .is-active')?.dataset.settingsGo || '') : '',
+    aiEngineChosen: settings.aiEngine || '(none chosen)',
+    anthropicKeySaved: !!state.secrets?.ANTHROPIC_API_KEY,
+    claudeCodeInstalled: !!settings.claudeCode?.path,
+    notionConnected: !!state.notion,
+    setupDone: !!settings.setupDone,
+    jobsInList: (window.__jp?.shared?.allJobs || []).length,
+    jobsUnscored: (window.__jp?.shared?.allJobs || []).filter(job => job.fit == null || job.fit === '').length,
+  };
+});

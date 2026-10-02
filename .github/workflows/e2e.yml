@@ -1,6 +1,8 @@
 name: CI · End-to-end journey
 
-# A new user goes through the real app: the setup wizard (AI key, Notion, CV, strategy), then a jobs check and the scores.
+# Four suites run at the same time, each from its own state in its own Notion test page (desktop/e2e/README.md): wizard (the first-run path from nothing),
+# jobs (Actions, Recent activity, jobs check, slow AI), interviews, settings. The last three start from a set-up install in seconds, not through the wizard.
+# Before: one journey, ~4 minutes, all in one Notion page.
 # Playwright drives the real Electron app on a macOS runner (desktop/e2e/README.md). Runs by hand, nightly on main, and
 # before a build is promoted to stable (tools/release-stable.sh asks for a green run of the same commit).
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY (a key with a small spend cap), E2E_NOTION_TOKEN (a Notion
@@ -18,18 +20,29 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: e2e
-  cancel-in-progress: false   # one journey at a time: they share one Notion test page
-
 jobs:
-  journey:
+  suite:
+    name: ${{ matrix.suite }}
     runs-on: macos-latest   # the Mac app is the product: real Keychain, no virtual display (on Linux Electron has no keyring to save the key in)
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false      # one suite failing must not hide what the others found
+      matrix:
+        include:
+          - {suite: wizard, minutes: 20}
+          - {suite: jobs, minutes: 30}
+          - {suite: interviews, minutes: 15}
+          - {suite: settings, minutes: 15}
+    concurrency:
+      group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
+      cancel-in-progress: false
     env:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
-      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
+      E2E_NOTION_TOKEN_JOBS: ${{ secrets.E2E_NOTION_TOKEN_JOBS }}
+      E2E_NOTION_TOKEN_INTERVIEWS: ${{ secrets.E2E_NOTION_TOKEN_INTERVIEWS }}
+      E2E_NOTION_TOKEN_SETTINGS: ${{ secrets.E2E_NOTION_TOKEN_SETTINGS }}
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,28 +54,28 @@ jobs:
       - name: Install the app
         working-directory: desktop
         run: npm ci
-      - name: Install the journey
+      - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
       - name: Python packages the engine needs
         run: pip install --quiet -r requirements.txt
-      - name: Run the journey
+      - name: Run the ${{ matrix.suite }} suite
         working-directory: desktop/e2e
-        timeout-minutes: 15   # a hung journey stops here, not after the job's limit
-        run: node journey.mjs
+        timeout-minutes: 25   # a hung suite stops here, not after the job's limit
+        run: node suite.mjs ${{ matrix.suite }}
       - name: AI review of the screenshots
         if: always() && env.E2E_ANTHROPIC_KEY != ''
         working-directory: desktop/e2e
         timeout-minutes: 10
         run: node review-ui.mjs
-      - name: The journey's own tests (layout check, review parser)
-        if: always()
+      - name: The tests' own tests (layout check, review parser, triage rules)
+        if: always() && matrix.suite == 'wizard'
         working-directory: desktop/e2e
         run: npm test
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-artifacts
-          path: e2e-artifacts
+          name: e2e-artifacts-${{ matrix.suite }}
+          path: e2e-artifacts/${{ matrix.suite }}
           if-no-files-found: ignore

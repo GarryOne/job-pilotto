@@ -8,11 +8,22 @@ import {pathToFileURL} from 'node:url';
 import {LABEL, issueBody, issueTitle, labelFor, normalize, pickCandidate} from './lib/triage.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
+// The findings files below a folder, whatever the suite folders are called.
+export function filesNamed(folder) {
+  const out = {'ui-findings.json': [], 'ai-findings.json': []};
+  const walk = dir => { for (const entry of fs.existsSync(dir) ? fs.readdirSync(dir, {withFileTypes: true}) : []) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(full); else if (out[entry.name]) out[entry.name].push(full);
+  } };
+  walk(folder);
+  return out;
+}
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 // -> {filed, again, candidate}. `gh` is injected so the rules can be tested without GitHub.
 export function triage({artifacts, runUrl, gh = realGh}) {
-  const findings = normalize({ui: read(path.join(artifacts, 'ui-findings.json')) || [], ai: (read(path.join(artifacts, 'ai-findings.json')) || {}).findings || []});
+  const found = filesNamed(artifacts);   // every suite's folder (e2e-artifacts/e2e-artifacts-<suite>/…), or one flat folder
+  const findings = normalize({ui: found['ui-findings.json'].flatMap(file => read(file) || []), ai: found['ai-findings.json'].flatMap(file => (read(file) || {}).findings || [])});
   const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title']));
   let issues = list();
   const out = {filed: [], again: [], candidate: null};

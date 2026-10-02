@@ -28,3 +28,13 @@ test('the same problem has the same fingerprint, a different one does not', () =
   assert.equal(fingerprint(a), fingerprint({...a, title: 'location cell, 20 lines tall!'}));
   assert.notEqual(fingerprint(a), fingerprint({...a, view: 'settings'}));
 });
+
+test('the reviewer is given the app\'s own facts and told to look for contradictions and misleading states, on any screenshot it finds', async () => {
+  const {SYSTEM, expectedFor} = await import('../lib/vision.mjs');
+  const request = buildRequest({view: 'settings-connections-cli-chosen', pngBase64: 'AAAA', facts: {aiEngineChosen: 'cli', anthropicKeySaved: true}});
+  assert.match(request.messages[0].content[1].text, /FACTS about the app's state[\s\S]*"aiEngineChosen": "cli"[\s\S]*"anthropicKeySaved": true/);
+  assert.match(SYSTEM, /CONTRADICTS the facts|CONTRADICT/);
+  assert.match(SYSTEM, /MISLEAD/);
+  assert.match(expectedFor('settings-connections-cli-chosen'), /"connections-cli-chosen" part of Settings/);
+  assert.equal(buildRequest({view: 'jobs', pngBase64: 'AAAA'}).messages[0].content[1].text.includes('FACTS'), false, 'no facts, no facts block');
+});

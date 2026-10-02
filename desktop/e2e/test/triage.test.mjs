@@ -72,3 +72,16 @@ test('the CLI files new findings, comments on repeats once per run, and returns 
   const repeat = triage({artifacts: dir, runUrl: 'https://x/runs/2', gh});
   assert.equal(repeat.again.length, 0);   // the same run never counts twice
 });
+
+test('findings of every suite are read, whatever its folder is called', async () => {
+  const {filesNamed} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suites-'));
+  for (const suite of ['e2e-artifacts-jobs', 'e2e-artifacts-settings']) { fs.mkdirSync(path.join(dir, suite)); fs.writeFileSync(path.join(dir, suite, 'ui-findings.json'), '[]'); }
+  fs.mkdirSync(path.join(dir, 'e2e-artifacts-wizard')); fs.writeFileSync(path.join(dir, 'e2e-artifacts-wizard', 'ai-findings.json'), '{"findings":[]}');
+  fs.writeFileSync(path.join(dir, 'ui-findings.json'), '[]');   // a planted dry-run finding sits at the top
+  const found = filesNamed(dir);
+  assert.equal(found['ui-findings.json'].length, 3);
+  assert.equal(found['ai-findings.json'].length, 1);
+  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': []});
+});

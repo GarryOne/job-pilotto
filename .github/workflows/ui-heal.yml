@@ -55,7 +55,7 @@ jobs:
             printf '%s' "$PLANT" > e2e-artifacts/ui-findings.json
             echo "DRY RUN on $BASE: triaging a planted finding." >> "$GITHUB_STEP_SUMMARY"
           elif [ -n "$RUN_ID" ]; then
-            gh run download "$RUN_ID" --repo "$REPO" --name e2e-artifacts --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"
+            gh run download "$RUN_ID" --repo "$REPO" --pattern 'e2e-artifacts-*' --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"   # one folder per suite
           fi
       - name: File the findings, pick one that is ready
         id: triage
@@ -72,8 +72,9 @@ jobs:
       - name: Put the screenshot next to the finding
         if: steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         run: |
-          view=$(jq -r '.title' .heal/candidate.json | sed -E 's/^\[auto-ui\] ([a-z]+):.*/\1/')
-          [ -f "e2e-artifacts/ui-$view.png" ] && cp "e2e-artifacts/ui-$view.png" .heal/screenshot.png || echo "no screenshot for $view"
+          view=$(jq -r '.title' .heal/candidate.json | sed -E 's/^\[auto-ui\] ([a-z0-9-]+):.*/\1/')
+          shot=$(find e2e-artifacts -name "ui-$view.png" | head -1)
+          if [ -n "$shot" ]; then cp "$shot" .heal/screenshot.png; else echo "no screenshot for $view"; fi
       - name: Install the app's dependencies (for its tests)
         if: steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         working-directory: desktop

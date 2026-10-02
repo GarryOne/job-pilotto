@@ -17,21 +17,28 @@ export const EXPECTED = {
   settings: 'Setting rows: title, a one-line explanation and a control, in sections.',
 };
 
+// settings-<section> and settings-connections-<engine>-chosen pages have no entry of their own: they are parts of the Settings page.
+export const expectedFor = view => EXPECTED[view] || (view.startsWith('settings-') ? `${EXPECTED.settings} This is the "${view.replace('settings-', '')}" part of Settings.` : 'its normal content');
+
 export const SYSTEM = `You review one screenshot of the Job Pilotto desktop app (a job-search tool) as a careful QA engineer and product designer.
 Report only real problems a user would notice, each with evidence you can SEE in the picture: a row or cell far taller than its neighbours, text
 clipped, overlapping or running out of its box, a raw error or technical text shown to the user, an empty screen where the page should have data,
 misaligned columns, inconsistent spacing or button styles, unreadable contrast, a control that looks broken.
+You are also given FACTS the app holds about its own state (for example which AI engine the person chose and whether a key is saved). Check the page against them:
+report a place where what the page shows CONTRADICTS the facts, or would MISLEAD a person who knows those facts (a status like "Connected" or "Active" for something that is
+not in use in the chosen mode, a selected option whose own panel talks about another option, a count that does not match, a button that offers what the state makes impossible).
+Say which fact and which element disagree. These are the findings that matter most; a person cannot see them without knowing the state.
 Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
 Be concrete and short. If the page looks fine, return an empty list. Never invent a problem to have something to say.
 Reply with ONE JSON object and nothing else:
 {"findings":[{"severity":"high|medium|low","kind":"layout|text|error-shown|empty-state|consistency|functionality","title":"<8 words>","detail":"<what you see and where>","suggestion":"<the smallest fix, in plain words>"}]}`;
 
-export function buildRequest({view, pngBase64, rules = '', model = MODEL}) {
+export function buildRequest({view, pngBase64, rules = '', facts = null, model = MODEL}) {
   return {
     model, max_tokens: 1200, temperature: 0, system: SYSTEM,
     messages: [{role: 'user', content: [
       {type: 'image', source: {type: 'base64', media_type: 'image/png', data: pngBase64}},
-      {type: 'text', text: `Page: ${view}\nExpected to show: ${EXPECTED[view] || 'its normal content'}\n\nThe app's design rules (excerpt):\n${rules.slice(0, 3000)}\n\nReview this screenshot.`},
+      {type: 'text', text: `Page: ${view}\nExpected to show: ${expectedFor(view)}\n${facts ? `\nFACTS about the app's state when this was taken:\n${JSON.stringify(facts, null, 1)}\n` : ''}\nThe app's design rules (excerpt):\n${rules.slice(0, 3000)}\n\nReview this screenshot.`},
     ]}],
   };
 }
