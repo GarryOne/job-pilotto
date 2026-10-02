@@ -284,7 +284,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                         continue
                     data, usage = result
                 except transient as error:
-                    print(f'Stopping early, API unavailable: {type(error).__name__}')
+                    print(f'Warning: API unavailable ({type(error).__name__}), {len(todo) - scored - failures} job(s) left for the next check')
                     for pending in futures:
                         pending.cancel()
                     halted = True

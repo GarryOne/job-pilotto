@@ -127,5 +127,46 @@ class SalaryTests(unittest.TestCase):
         self.assertIsNone(digest._salary('Team of 12 engineers, founded 2019'))
 
 
+class ApiOutageTests(unittest.TestCase):
+    """2 Oct 2026 (the activity e2e suite): the API answered 429 / 500 to every call. The run printed "Stopping early, API unavailable: RateLimitError", the app
+    read no warning in it and showed the run as plain "Completed" while the jobs stayed unread."""
+
+    def outage(self, error):
+        class Failing:
+            def __init__(self):
+                self.messages = self
+
+            def create(self, **params):
+                raise error
+        return Failing()
+
+    def run_enrich(self, error):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                seed(db, [{'title': f'SRE {i}'} for i in range(3)])
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    enrich.run(db, 'claude-haiku-4-5', 50, client=self.outage(error), workers=1)
+                return out.getvalue().splitlines()
+
+    def test_an_api_outage_leaves_a_warning_line_the_app_can_show(self):
+        try:
+            import anthropic
+        except ImportError:
+            self.skipTest('the anthropic package is not installed')
+
+        def response(status):  # what the SDK reads of an HTTP answer
+            return SimpleNamespace(status_code=status, headers={}, request=SimpleNamespace(), json=lambda: {})
+        for error in (anthropic.RateLimitError('slow down', response=response(429), body=None),
+                      anthropic.InternalServerError('boom', response=response(500), body=None)):
+            lines = self.run_enrich(error)
+            warning = [line for line in lines if line.startswith('Warning:')]
+            self.assertEqual(len(warning), 1, lines)
+            self.assertIn(type(error).__name__, warning[0])
+            self.assertIn('job(s) left for the next check', warning[0])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -201,7 +201,8 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None):
                 data, usage = future.result()
             except transient as error:
                 # Transient after the SDK's own retries: stop and let the next run continue.
-                print(f'Stopping early, API unavailable: {type(error).__name__}')
+                # A line starting "Warning:": it is how the app and the run row know the run did not fully work (a plain line left it "Completed").
+                print(f'Warning: API unavailable ({type(error).__name__}), {len(jobs) - enriched - failures} job(s) left for the next check')
                 for pending in futures:
                     pending.cancel()
                 break
