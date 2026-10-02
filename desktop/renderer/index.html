@@ -310,10 +310,12 @@
     <div class="view" data-view="jobs">
       <header class="view-head jobs-head">
         <div><h1>Job matches</h1><p class="muted subtitle" id="jobs-stats">Loading…</p></div>
+        <div class="jobs-head-right">
         <div class="head-actions">
-          <button class="last-search" id="search-status" title="Open the progress and history of your jobs checks"><span class="dot"></span><div><b>No jobs check yet</b><small></small></div></button>
           <button class="secondary with-icon" id="refresh" title="Crawls the job boards and employer career pages for jobs you haven't seen yet, then reads and scores the new ones with AI (a few cents each; up to 60 per search). Your current matches stay."><i data-icon="refresh"></i><span>Check for new jobs</span></button>
           <button class="primary with-icon" id="apply-open"><i data-icon="send"></i><span>Apply to jobs…</span></button>
+        </div>
+        <button class="last-search" id="search-status" title="Open the progress and history of your jobs checks"><span class="dot"></span><b>No jobs check yet</b><small></small></button>
         </div>
       </header>
       <div class="stat-cards">

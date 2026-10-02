@@ -41,8 +41,11 @@ export async function showSearchStatus() {
   if (searching) { title.textContent = 'Checking for new jobs →'; detail.textContent = searchPhase(running.step) || 'Starting…'; return; }
   if (!lastSearchAt) { title.textContent = 'No check yet'; detail.textContent = ''; return; }
   const last = runs.find(run => (run.kind || 'search') === 'search');
-  title.textContent = last && !last.ok ? 'Last check had problems →' : `Check complete${last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : ''}`;
-  detail.textContent = `${clockTime(lastSearchAt)}${billingLabel(last || {}) ? ` · ${billingLabel(last)}` : last?.usd ? ` · $${last.usd.toFixed(2)}` : ''}`;
+  const found = last?.new != null ? ` · ${last.new} new match${last.new === 1 ? '' : 'es'}` : '';
+  const cost = billingLabel(last || {}) ? ` · ${billingLabel(last)}` : last?.usd ? ` · $${last.usd.toFixed(2)}` : '';
+  if (last && !last.ok) { title.textContent = 'Last check had problems →'; detail.textContent = clockTime(lastSearchAt); return; }
+  title.textContent = `Checked ${clockTime(lastSearchAt)}${found}${cost}`;
+  detail.textContent = '';
 }
 
 // ---------- activity bar (bottom of every screen) ----------

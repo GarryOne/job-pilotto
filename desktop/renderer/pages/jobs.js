@@ -799,7 +799,7 @@ function showJobsData(data) {
     // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
     const matched = matchesOnly(shared.allJobs);
     const count = stats(matched, data.total == null ? undefined : data.total - (shared.allJobs.length - matched.length));
-    $('jobs-stats').textContent = `${count.total} opportunities matched to your profile` +
+    $('jobs-stats').textContent = `${count.total} matches` +
       (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
       (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
