@@ -1,4 +1,4 @@
-// Evidence for a finding (the screenshot of the page) is kept in the repository itself, on the `pr-assets` branch, so an issue or a pull request can show it with a plain image link.
+// Evidence for a finding (the screenshot of the page) is kept in the repository itself, at a tag, so an issue or a pull request can show it with a plain image link.
 // Tested against a local bare repository: no network.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
@@ -26,33 +26,35 @@ function bareRemote(withBranch) {
 }
 const png = dir => { const file = path.join(dir, 'shot.png'); fs.writeFileSync(file, Buffer.from([137, 80, 78, 71])); return file; };
 
-test('the raw address of a file on the branch is a plain image link for an issue or a pull request', () => {
-  assert.equal(rawUrl('o/r', 'pr-assets', 'ui-loop/a b/c.png'), 'https://raw.githubusercontent.com/o/r/pr-assets/ui-loop/a%20b/c.png');
+test('the raw address of a file at a tag is a plain image link for an issue or a pull request', () => {
+  assert.equal(rawUrl('o/r', 'ui-evidence-7', 'ui-loop/a b/c.png'), 'https://raw.githubusercontent.com/o/r/ui-evidence-7/ui-loop/a%20b/c.png');
 });
 
-test('files are added to the branch (created when it is missing) and each one comes back with its link', () => {
-  for (const withBranch of [false, true]) {
-    const {dir, bare} = bareRemote(withBranch);
-    const urls = publishFiles({repo: 'o/r', remote: bare, files: [{from: png(dir), to: 'ui-loop/fp1/run1-focus.png'}], message: 'Evidence of run 1'});
-    assert.equal(urls['ui-loop/fp1/run1-focus.png'], 'https://raw.githubusercontent.com/o/r/pr-assets/ui-loop/fp1/run1-focus.png');
-    const check = path.join(dir, 'check');
-    git(dir, 'clone', '--branch', 'pr-assets', bare, check);
-    assert.ok(fs.existsSync(path.join(check, 'ui-loop/fp1/run1-focus.png')));
-    if (withBranch) assert.ok(fs.existsSync(path.join(check, 'old.txt')), 'what was on the branch is kept');
-  }
-});
-
-test('a second publish keeps the first one', () => {
-  const {dir, bare} = bareRemote(false);
-  publishFiles({repo: 'o/r', remote: bare, files: [{from: png(dir), to: 'a/1.png'}], message: 'one'});
-  publishFiles({repo: 'o/r', remote: bare, files: [{from: png(dir), to: 'b/2.png'}], message: 'two'});
+test('a batch of files is published as a tag of its own, no branch, and each file comes back with its link', () => {
+  const {dir, bare} = bareRemote(true);
+  const urls = publishFiles({repo: 'o/r', remote: bare, tag: 'ui-evidence-777', files: [{from: png(dir), to: 'ui-loop/fp1/777-focus.png'}], message: 'Evidence of run 777'});
+  assert.equal(urls['ui-loop/fp1/777-focus.png'], 'https://raw.githubusercontent.com/o/r/ui-evidence-777/ui-loop/fp1/777-focus.png');
+  assert.match(git(dir, 'ls-remote', '--tags', bare), /refs\/tags\/ui-evidence-777/);
+  assert.doesNotMatch(git(dir, 'ls-remote', '--heads', bare), /ui-evidence|evidence/, 'no branch is created or touched: GitHub shows a "recent pushes" banner for branches');
   const check = path.join(dir, 'check');
-  git(dir, 'clone', '--branch', 'pr-assets', bare, check);
-  assert.ok(fs.existsSync(path.join(check, 'a/1.png')) && fs.existsSync(path.join(check, 'b/2.png')));
+  git(dir, 'clone', '--branch', 'ui-evidence-777', bare, check);
+  assert.ok(fs.existsSync(path.join(check, 'ui-loop/fp1/777-focus.png')));
+});
+
+test('publishing again under the same tag name makes a new tag: nothing is moved or forced', () => {
+  const {dir, bare} = bareRemote(false);
+  const one = publishFiles({repo: 'o/r', remote: bare, tag: 'ui-evidence-1', files: [{from: png(dir), to: 'a/1.png'}], message: 'one'});
+  const two = publishFiles({repo: 'o/r', remote: bare, tag: 'ui-evidence-1', files: [{from: png(dir), to: 'b/2.png'}], message: 'two'});
+  assert.match(one['a/1.png'], /\/ui-evidence-1\//);
+  assert.match(two['b/2.png'], /\/ui-evidence-1-2\//);
+  const tags = git(dir, 'ls-remote', '--tags', bare);
+  assert.match(tags, /refs\/tags\/ui-evidence-1\b/);
+  assert.match(tags, /refs\/tags\/ui-evidence-1-2\b/);
 });
 
 test('a file that is not there is skipped, not an error: a finding without a screenshot still gets its issue', () => {
   const {dir, bare} = bareRemote(false);
-  const urls = publishFiles({repo: 'o/r', remote: bare, files: [{from: path.join(dir, 'missing.png'), to: 'x/y.png'}], message: 'none'});
+  const urls = publishFiles({repo: 'o/r', remote: bare, tag: 'ui-evidence-9', files: [{from: path.join(dir, 'missing.png'), to: 'x/y.png'}], message: 'none'});
   assert.deepEqual(urls, {});
+  assert.equal(git(dir, 'ls-remote', '--tags', bare).trim(), '');
 });

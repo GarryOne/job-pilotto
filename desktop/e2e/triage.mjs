@@ -81,7 +81,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   for (const {issue, view, dir} of gone) { const from = dir && path.join(dir, `ui-${view}.png`); const id = /fp:(\S+)/.exec((issue.labels || []).map(item => item.name || item).join(' '))?.[1] || `issue-${issue.number}`;
     if (from && fs.existsSync(from)) uploads.push({from, to: `ui-loop/${id}/${runId}-${view}-clear.png`}); }
   let urls = {};
-  if (uploads.length && repo) { try { urls = publish({repo, files: uploads, message: `Evidence of run ${runId}`}); } catch (error) { console.error(`screenshots not uploaded: ${error.message}`); } }
+  if (uploads.length && repo) { try { urls = publish({repo, files: uploads, message: `Evidence of run ${runId}`, tag: `ui-evidence-${runId}`}); } catch (error) { console.error(`screenshots not uploaded: ${error.message}`); } }
 
   gh(['label', 'create', LABEL, '--force', '--color', 'C2E0C6', '--description', 'Found by the nightly UI loop']);
   for (const {finding, existing} of plan) {

@@ -124,7 +124,7 @@ the app's history poll (`JOB_PILOTTO_E2E_HISTORY_MS`), its resume wait (`JOB_PIL
 ## What the UI loop's issues carry
 `desktop/e2e/triage.mjs` (the step of `ui-findings.yml`, the producer, after every e2e run) reads every suite's artifacts and files one issue per problem. An issue has:
 - **Severity, kind, view, suite and source as labels** (`severity:high`, `kind:layout`, `view:focus`, `suite:activity`, `source:ai-review`), so the issue list can be filtered.
-- **The screenshot** (uploaded to the `pr-assets` branch under `ui-loop/<fingerprint>/`, an image link that outlives the Actions artifact), **the app's state** at that moment as a table, **where to look**
+- **The screenshot** (uploaded to a tag `ui-evidence-<run>` under `ui-loop/<fingerprint>/`, an image link that outlives the Actions artifact; a tag, not a branch, so GitHub shows no "recent pushes" banner), **the app's state** at that moment as a table, **where to look**
   in the code, **how to reproduce** (`node suite.mjs <suite>`), and, for a failed step, the step's message, its failure screenshot and the last lines of the app's and the engine's logs.
 - **Repeats are recognised even when the AI words them differently** (same view and kind, alike words): the issue gets a "Seen again in run …" comment with that run's screenshot.
 - **"Not seen in run …"** when the page was photographed and reviewed again and the finding did not come back, with the new screenshot (also on the open fix pull request: its "after"), and the label `not-seen-latest`.
