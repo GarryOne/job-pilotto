@@ -27,7 +27,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     await new Promise(resolve => setTimeout(resolve, stats.delayMs));
     if (stats.mode === 'hang') return;   // never answers; the connection closes with the proxy
     const failure = failureFor(stats.mode);
-    if (failure) { res.writeHead(failure.status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(failure.body)}); res.end(failure.body); return; }
+    if (failure) { res.writeHead(failure.status, {'content-type': 'application/json', 'content-length': Buffer.byteLength(failure.body), 'retry-after-ms': '10'}); res.end(failure.body); return; }   // retry-after-ms: the SDK retries a 429 / 500 after what the answer says, not after seconds of backoff
     if (canned) {
       const text = canned(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
       if (text != null) {

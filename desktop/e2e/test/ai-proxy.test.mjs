@@ -54,3 +54,14 @@ test('hang never answers', async () => {
     assert.equal(outcome, 'waiting');
   } finally { await proxy.close(); }
 });
+
+test('a refusal asks for an almost immediate retry, so the SDK does not back off for seconds in a test', async () => {
+  const proxy = await startAiProxy();
+  try {
+    for (const mode of ['rate-limit', 'server-error']) {
+      proxy.setMode(mode);
+      const answer = await post(proxy.url);
+      assert.equal(answer.headers.get('retry-after-ms'), '10', mode);
+    }
+  } finally { await proxy.close(); }
+});
