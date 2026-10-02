@@ -11,6 +11,11 @@ bug is in how a page wires things, with a source-level check that reads the page
 
 WRITE .heal/pr-body.md AS SOON AS YOU KNOW THE ROOT CAUSE (first line the title, then root cause with file:line) and refine it at the end. If you run out of turns, the pull request still needs it.
 
+Findings of the interaction probe (kinds `dead-control`, `no-loading-state`, `expand-broken`, found by pressing the control, not from a picture): the control is named in the finding.
+`dead-control`: its click handler is missing, throws early or is never attached (look for the id/class in desktop/renderer/pages/*.js and index.html). `no-loading-state`: the page waits for an
+app call (`window.pilot.*`) for 0.5 s or more and shows nothing meanwhile: set a loading line or the spinner/`aria-busy` state before the call, as the neighbouring pages do ("Loading from Notion…").
+`expand-broken`: `aria-expanded`/`<details>` is not toggled by the click. Test the wiring with a source-level check of the page file.
+
 Rules (a script checks them afterwards and refuses the change if you break one):
 1. Read CLAUDE.md, then .claude/skills/ui-look-and-feel/SKILL.md. Use only var(--…) tokens and the shared components; desktop/test/design.test.js fails on raw colours, sizes or fonts.
 2. Find the ROOT CAUSE in the code that renders the problem; do not paper over it. Name it (file:line) in the pull request text.
