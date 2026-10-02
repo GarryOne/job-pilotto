@@ -2,14 +2,18 @@
 // Care taken against stale or false work: end-to-end runs report to Sentry too (environment `e2e`) and never count; a warning is the app telling the user something (a spend limit), not a bug;
 // an issue not seen for a week is stale; one that already has a pull request (open, or closed/merged in the last 14 days) is left alone.
 
-export const NOT_REAL_ENVIRONMENTS = ['e2e', 'test', 'dev', 'development', 'ci'];
+export const NOT_REAL_ENVIRONMENTS = ['test', 'dev', 'development', 'ci'];
 export const FRESH_DAYS = 7;
 export const COOLDOWN_DAYS = 14;
 const DAY = 86400000;
 
 // issue: Sentry's issue JSON ({shortId, level, status, count (a string), userCount, firstSeen, lastSeen, ...}); environment: its latest event's environment tag.
-export function judge(issue, environment, now = Date.now()) {
-  if (NOT_REAL_ENVIRONMENTS.includes(String(environment || '').toLowerCase())) return {ok: false, why: `reported by an ${environment} run, not a user`};
+// An end-to-end run (environment e2e) is synthetic monitoring: its report counts only when it is tagged `expected: no` (a suite that does not break things on purpose, tagged by lib/sentry.js);
+// an untagged one (older than the tag) or `expected: yes` is the test's own doing.
+export function judge(issue, environment, now = Date.now(), tags = {}) {
+  const env = String(environment || '').toLowerCase();
+  if (NOT_REAL_ENVIRONMENTS.includes(env)) return {ok: false, why: `reported by a ${environment} run, not a user`};
+  if (env === 'e2e' && tags.expected !== 'no') return {ok: false, why: tags.expected === 'yes' ? 'caused on purpose by an end-to-end suite' : 'an end-to-end report without the expected tag'};
   if (issue.status && issue.status !== 'unresolved') return {ok: false, why: `already ${issue.status} in Sentry`};
   if (!['error', 'fatal'].includes(issue.level)) return {ok: false, why: `a ${issue.level}: the app telling the user something, not a bug`};
   const seen = Date.parse(issue.lastSeen);
@@ -28,11 +32,11 @@ export function handled(shortId, prs, now = Date.now()) {
   return prs.some(pr => pr.headRefName === branch && (pr.state === 'OPEN' || now - Date.parse(pr.mergedAt || pr.closedAt || 0) < COOLDOWN_DAYS * DAY));
 }
 
-// candidates: [{issue, environment}] -> the first fixable one, and why each other was left out.
+// candidates: [{issue, environment, tags}] -> the first fixable one, and why each other was left out.
 export function choose(candidates, prs = [], now = Date.now()) {
   const left = [];
-  const ready = candidates.filter(({issue, environment}) => {
-    const verdict = judge(issue, environment, now);
+  const ready = candidates.filter(({issue, environment, tags}) => {
+    const verdict = judge(issue, environment, now, tags);
     if (!verdict.ok) { left.push({shortId: issue.shortId, why: verdict.why}); return false; }
     if (handled(issue.shortId, prs, now)) { left.push({shortId: issue.shortId, why: 'already has a pull request'}); return false; }
     return true;

@@ -1630,7 +1630,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const keys = analyticsConfig.load(pipeline.REPO);
     const identity = {installId: sentryOnly ? 'e2e' : telemetryInstallId(storage), version: app.getVersion(), os: os.release()};
     const sentryClient = sentryLib.create({dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId, os: identity.os,
-      ...(sentryOnly ? {environment: 'e2e', enabled: () => true} : {enabled: telemetry.enabled})});
+      ...(sentryOnly ? {environment: 'e2e', tags: sentryLib.e2eTags(), enabled: () => true} : {enabled: telemetry.enabled})});
     if (sentryClient.active) {
       const record = telemetry.record.bind(telemetry);
       trail = sentryClient.note;

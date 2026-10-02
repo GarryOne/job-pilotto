@@ -8,7 +8,10 @@ const issue = (shortId, extra = {}) => ({shortId, level: 'error', status: 'unres
 
 test('an end-to-end run, a warning, a stale or one-off issue is never picked', () => {
   assert.equal(judge(issue('A'), 'alpha', NOW).ok, true);
-  assert.match(judge(issue('A'), 'e2e', NOW).why, /e2e run/);
+  assert.match(judge(issue('A'), 'e2e', NOW).why, /without the expected tag/, 'an e2e report from before the tag');
+  assert.match(judge(issue('A'), 'e2e', NOW, {expected: 'yes'}).why, /on purpose/);
+  assert.equal(judge(issue('A'), 'e2e', NOW, {expected: 'no'}).ok, true, 'a surprise in a suite that breaks nothing on purpose is a real finding');
+  assert.match(judge(issue('A'), 'ci', NOW).why, /not a user/);
   assert.match(judge(issue('A', {level: 'warning'}), 'alpha', NOW).why, /warning/);
   assert.match(judge(issue('A', {lastSeen: '2026-09-20T00:00:00Z'}), 'alpha', NOW).why, /stale/);
   assert.match(judge(issue('A', {count: '1', userCount: 1}), 'alpha', NOW).why, /one-off/);

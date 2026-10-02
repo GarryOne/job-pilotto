@@ -18,6 +18,7 @@ if (name === '--list') {
   console.log(JSON.stringify({include}));
   process.exit(0);
 }
+process.env.JOB_PILOTTO_E2E_SUITE = name;   // the app tags its Sentry reports with it (lib/sentry.js e2eTags)
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 const {assertNothingQueued} = await import('./lib/app.mjs');
 const {SUITES, openContext} = await import('./lib/context.mjs');

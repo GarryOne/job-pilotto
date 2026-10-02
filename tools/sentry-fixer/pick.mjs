@@ -20,7 +20,8 @@ const issues = await api(`projects/${ORG}/${PROJECT}/issues/?statsPeriod=14d&que
 const candidates = [];
 for (const issue of issues) {
   const event = await api(`organizations/${ORG}/issues/${issue.id}/events/latest/`).catch(() => null);
-  candidates.push({issue, event, environment: (event?.tags || []).find(tag => tag.key === 'environment')?.value || ''});
+  const tags = Object.fromEntries((event?.tags || []).map(tag => [tag.key, tag.value]));
+  candidates.push({issue, event, environment: tags.environment || '', tags});
 }
 const prs = JSON.parse(execFileSync('gh', ['pr', 'list', '--state', 'all', '--search', 'head:sentry-fix/', '--json', 'headRefName,state,closedAt,mergedAt', '--limit', '100'], {encoding: 'utf8'}) || '[]');
 const {pick, left} = choose(candidates, prs);

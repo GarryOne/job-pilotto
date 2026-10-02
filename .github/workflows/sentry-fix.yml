@@ -2,7 +2,7 @@ name: CI · Sentry fixer
 
 # THE SENTRY FIXER, once a day. It reads the unresolved issues of the app's Sentry project (org job-pilotto, project job-pilotto-app, EU region), keeps only what is REAL and
 # FRESH, picks the most critical (people affected, then events) and lets Claude Code fix it and open ONE pull request for the owner to review. Never merges anything.
-# Left out, and said so in the run summary: reports of end-to-end runs (environment e2e), warnings (the app telling the user something, e.g. a spend limit), issues not seen for
+# Left out, and said so in the run summary: reports of end-to-end runs (environment e2e) unless tagged expected:no (a surprise in a suite that breaks nothing on purpose = synthetic monitoring), warnings (the app telling the user something, e.g. a spend limit), issues not seen for
 # 7 days (stale), one-offs (one event, one person, unless fatal), issues in Sentry already resolved or ignored, and issues that already have a pull request (open, or merged/closed within 14 days).
 # Claude only edits files (no git, no gh, no network). The last step checks the paths (tools/sentry-fixer/lib.mjs: the app's code and the engine and their tests, never reporting, secrets or
 # workflows), requires a test, runs both test suites, and only then pushes `sentry-fix/<short id>` and opens the PR. At most 3 automatic Sentry PRs may be open at once.

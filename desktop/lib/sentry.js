@@ -39,13 +39,17 @@ export const CAPTURED = Object.keys(LEVEL);
 // What makes two reports one problem: the kind and the part of the message that is not a number or an id.
 const normal = text => String(text ?? '').replace(/0x[0-9a-f]+|\b[0-9a-f]{8,}\b|[0-9a-f-]{36}/gi, '<id>').replace(/\d+/g, '#').slice(0, 120);
 
-export function buildEvent(kind, fields = {}, {release = '', environment = 'alpha', installId = '', platform = process.platform, os = '', now = Date.now(), trail = []} = {}) {
+// An end-to-end run (environment e2e) is synthetic monitoring: its reports say which suite made them and whether that suite makes failures on purpose (the spend limit, a hung task),
+// so an alert or a fixer can tell the expected from a surprise. Empty for a user's install.
+export const e2eTags = (env = process.env) => (env.JOB_PILOTTO_E2E_SUITE ? {suite: env.JOB_PILOTTO_E2E_SUITE, expected: env.JOB_PILOTTO_E2E_EXPECTS_FAILURES ? 'yes' : 'no'} : {});
+
+export function buildEvent(kind, fields = {}, {release = '', environment = 'alpha', installId = '', platform = process.platform, os = '', now = Date.now(), trail = [], tags = {}} = {}) {
   const message = scrub(fields.message ?? fields.error ?? fields.warning ?? fields.action ?? kind, 300);
   const event = {
     event_id: crypto.randomBytes(16).toString('hex'), timestamp: now / 1000, platform: 'javascript', level: LEVEL[kind] || 'error',
     release, environment, user: {id: installId}, server_name: undefined,
     tags: {kind, platform, os: String(os).slice(0, 20), ...(fields.job ? {job: scrub(fields.job, 60)} : {}), ...(fields.where ? {where: scrub(fields.where, 40)} : {}),
-      ...(fields.timedOut ? {timedOut: 'yes'} : {})},
+      ...(fields.timedOut ? {timedOut: 'yes'} : {}), ...tags},
     fingerprint: [kind, normal(fields.job || fields.where || ''), normal(message)],
     contexts: {runtime: {name: 'electron'}},
     ...(trail.length ? {breadcrumbs: {values: trail.map(item => ({timestamp: item.at / 1000, category: 'step', message: item.message, level: 'info'}))}} : {}),
@@ -76,7 +80,7 @@ export function envelope(event, dsn, attachment = null) {
 }
 
 // capture(kind, fields): fire and forget, never throws. At most one report per problem every 10 minutes and 30 an hour.
-export function create({dsn, release, environment = 'alpha', installId, platform = process.platform, os = '', enabled = () => true,
+export function create({dsn, release, environment = 'alpha', installId, platform = process.platform, os = '', tags = {}, enabled = () => true,
   fetcher = globalThis.fetch, now = () => Date.now()} = {}) {
   const target = parseDsn(dsn);
   const seen = new Map(), hour = [], trail = [];
@@ -91,7 +95,7 @@ export function create({dsn, release, environment = 'alpha', installId, platform
     capture(kind, fields = {}) {
       try {
         if (!target || !enabled() || !CAPTURED.includes(kind)) return false;
-        const event = buildEvent(kind, fields, {release, environment, installId, platform, os, now: now(), trail});
+        const event = buildEvent(kind, fields, {release, environment, installId, platform, os, now: now(), trail, tags});
         const key = event.fingerprint.join('|');
         const t = now();
         while (hour.length && t - hour[0] > 3600_000) hour.shift();

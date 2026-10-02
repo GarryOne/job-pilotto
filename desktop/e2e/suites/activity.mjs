@@ -11,7 +11,7 @@ import {LABEL, appReady, chooseMenu, noRowStaysRunning, openPanel, openRun, own,
 export const minutes = 15;
 export const name = 'activity';
 // The app reads Notion's run history every 15 s and picks up the jobs of the last session 20 s after launch: both shortened for the journey (never for a user).
-export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_MS: '3000'};
+export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_MS: '3000', JOB_PILOTTO_E2E_EXPECTS_FAILURES: '1'};   // this suite breaks things on purpose: its Sentry reports are tagged expected
 export async function run(ctx) {
   const page = await prepare(ctx);
   // ---------- (1) every task card ----------

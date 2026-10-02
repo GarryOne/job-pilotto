@@ -86,3 +86,11 @@ test('the trail keeps the last 25 step names and rides on the next report; a run
   client.capture('stuck', {action: 'wait'});
   assert.equal(sent[1][1].body.includes('"type":"attachment"'), false, 'no log lines given: no attachment');
 });
+
+test('an end-to-end report names its suite and says whether that suite makes failures on purpose', async () => {
+  const {e2eTags, buildEvent} = await import('../lib/sentry.js');
+  assert.deepEqual(e2eTags({JOB_PILOTTO_E2E_SUITE: 'jobs'}), {suite: 'jobs', expected: 'no'});
+  assert.deepEqual(e2eTags({JOB_PILOTTO_E2E_SUITE: 'activity', JOB_PILOTTO_E2E_EXPECTS_FAILURES: '1'}), {suite: 'activity', expected: 'yes'});
+  assert.deepEqual(e2eTags({}), {}, 'a user install adds nothing');
+  assert.equal(buildEvent('run_failed', {message: 'x'}, {tags: {suite: 'jobs', expected: 'no'}}).tags.expected, 'no');
+});
