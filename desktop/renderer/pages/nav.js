@@ -93,6 +93,9 @@ export async function init() {
   document.querySelectorAll('.nav').forEach(nav => {
     nav.title = nav.textContent.trim();  // the label, when the narrow window shows the sidebar as icons only
     nav.addEventListener('click', () => {
+      // A button of the menu that is not a page ("Send feedback" opens its own dialog; the wizard's "Stuck? Tell us"): it has no view to open.
+      // Opening "no view" hid every page and left the window blank behind the dialog (a friend's first feedback, 2 Oct 2026).
+      if (!nav.dataset.view) return;
       // Applying opens the session that needs you most (else the latest), not just the page.
       if (nav.dataset.view === 'sessions' && bestSession()) return openSession(bestSession().id);
       openView(nav.dataset.view);

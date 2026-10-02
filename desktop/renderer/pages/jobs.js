@@ -157,6 +157,11 @@ export function renderJobs() {
     .filter(job => (!counted || anyStatus || inStatus(job, filter)) && matches(job, text)),
   filter === 'inbound' && !counted && by === 'best' ? 'activity' : by);
   renderTalking(!!counted || filter === 'inbound' || filter === 'everything' || !!text);
+  // Jobs found but never scored: the AI step did not run (it is not answering, a limit, no engine). Say so, once, above the list: the
+  // rows show "Not scored" and a friend took that for a bug (2 Oct 2026, a search whose AI calls had stalled).
+  const unscored = shared.allJobs.filter(job => job.fit == null && job.status === 'unreviewed').length;
+  show($('jobs-unscored'), unscored >= 5);
+  $('jobs-unscored-text').textContent = `${unscored} jobs are not scored yet. The AI scores new jobs during each check; if this stays, open Recent activity to see why (Claude Code not answering, a usage limit), or Settings → Connections → AI.`;
   const body = $('jobs-body');
   body.replaceChildren();
   for (const job of rows.slice(0, 300)) {
@@ -1060,6 +1065,7 @@ export async function init() {
     }
   });
 
+  $('jobs-unscored-go').addEventListener('click', () => $('refresh').click());
   $('apply-open').addEventListener('click', () => {
     message('apply-message', '');
     document.querySelector(`input[name="apply-mode"][value="${claudeReady ? 'agents' : 'chrome'}"]`).checked = true;

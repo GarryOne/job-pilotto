@@ -1888,3 +1888,6 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .why-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
 .why-chip { border: 1px solid var(--navy-line); background: transparent; color: var(--on-navy); border-radius: var(--r-pill); padding: 4px 10px; font-size: var(--fs-xs); cursor: pointer; }
 .why-chip:hover { background: var(--navy-hover); color: var(--on-accent); }
+
+.callout.tone-warn { background: var(--warn-soft); color: var(--warn); }
+#jobs-unscored { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }

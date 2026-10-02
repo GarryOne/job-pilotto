@@ -35,6 +35,19 @@ export const DRAFT_SCHEMA = object({
   contact: object(Object.fromEntries(CONTACT_FIELDS.map(field => [field, {type: 'string'}]))),
 });
 
+// Remote jobs open only to other parts of the world are not for this user (a friend in Romania was shown "Remote (United States | Canada)"
+// roles, 2 Oct 2026, because the drafted list was short). Whatever the AI proposes, these regions are skipped unless the user's own places
+// are in them. Regex fragments, as in config/search.json.
+export const DEFAULT_REMOTE_EXCLUDED = ['\\busa?\\b', '\\bunited\\ states\\b', 'u\\.s\\.', '\\bcanada\\b', '\\bnorth\\ america\\b', '\\blatam\\b',
+  '\\blatin\\ america\\b', '\\bapac\\b', '\\basia\\b', '\\bindia\\b', '\\baustralia\\b', '\\bbrazil\\b', '\\bmexico\\b', '\\bamericas\\b'];
+export function withRemoteDefaults(search = {}) {
+  const places = Object.values(search.locations || {}).flat().map(String).join(' | ');
+  const mine = fragment => { try { return new RegExp(fragment, 'i').test(places); } catch { return false; } };
+  const have = new Set((search.remote_excluded_regions || []).map(String));
+  const added = DEFAULT_REMOTE_EXCLUDED.filter(fragment => !have.has(fragment) && !mine(fragment));
+  return added.length ? {...search, remote_excluded_regions: [...(search.remote_excluded_regions || []), ...added]} : search;
+}
+
 export function userNote(answers = {}) {
   const note = String(answers.anything_else || '').trim();
   return note ? `<note_from_user>\n${note}\n</note_from_user>\n\n` : '<note_from_user>(none: propose everything from the CV)</note_from_user>\n\n';
@@ -183,6 +196,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   const text = response.content.find(block => block.type === 'text').text;
   const result = JSON.parse(text);
   if (typeof result.profile_markdown === 'string') result.profile_markdown = withNote(result.profile_markdown, answers);
+  if (result.search) result.search = withRemoteDefaults(result.search);
   storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
   result.usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
