@@ -269,7 +269,22 @@ export async function appendAnswer(token, pageId, question, answer, fetcher) {
 }
 
 // The 🧠 Form knowledge page: created once next to the Profile page (same parent), then reused.
+// The page with this title that already sits beside `besideId` (same parent folder), or null. Emoji and case do not matter. A workspace that is connected
+// again (a reinstall, a second Mac, a reset) already has these pages: finding them keeps the person's own content and never makes a duplicate.
+export async function findPageBeside(token, besideId, title, fetcher) {
+  const beside = await call(token, 'GET', `pages/${besideId}`, null, fetcher);
+  const parentId = beside.parent?.page_id;
+  if (!parentId) return null;
+  const [, pages] = liveOnly([], await searchAll(token, 'page', fetcher));
+  const want = normalise(title), same = id => String(id || '').replace(/-/g, '') === parentId.replace(/-/g, '');
+  const found = pages.find(item => same(item.parent?.page_id) && normalise(titleOf(item)) === want);
+  return found ? found.id.replace(/-/g, '') : null;
+}
+
+// Creates the page beside `besideId` only when there is none yet.
 export async function ensurePage(token, besideId, title, intro, fetcher) {
+  const existing = await findPageBeside(token, besideId, title, fetcher);
+  if (existing) return existing;
   const beside = await call(token, 'GET', `pages/${besideId}`, null, fetcher);
   const parent = beside.parent?.page_id ? {page_id: beside.parent.page_id} : null;
   if (!parent) throw new Error('The Profile page has no parent page to put Form knowledge next to');

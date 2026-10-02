@@ -53,8 +53,12 @@ export const STEPS = [
     return true;
   }},
   // Search settings -> a readable ⚙️ Search settings page (the local files stay, as its cache).
-  {name: 'search settings', run: async storage => {
-    if (storage.settings().notionIds?.NOTION_SEARCH_SETTINGS_PAGE) return false;
+  {name: 'search settings', run: async (storage, fetcher) => {
+    const ids = storage.settings().notionIds || {};
+    if (ids.NOTION_SEARCH_SETTINGS_PAGE) return false;
+    // A workspace connected again already has its page, and Notion is the source of truth: link it, never write this Mac's example file over it.
+    const there = ids.NOTION_PROFILE_PAGE_ID && await notion.findPageBeside(storage.secret('NOTION_TOKEN'), ids.NOTION_PROFILE_PAGE_ID, strategy.SEARCH_SETTINGS_TITLE, fetcher);
+    if (there) { storage.saveSettings({notionIds: {...ids, NOTION_SEARCH_SETTINGS_PAGE: there}}); return true; }
     return !!await strategy.publishSearchSettings(storage, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
   }},
   // A Search settings page in the first format (plain entry = whole word) -> the exact format; untouched
