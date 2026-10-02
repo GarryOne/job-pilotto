@@ -1,0 +1,225 @@
+/* global document, window, MutationObserver */
+// Focus: what a person sees on the first page they open each day. Dummy applications in every stage are written to Notion, then the page is
+// judged as a person would: the Up next rows in the right order with the right buttons, every number against the Notion rows, the target, finishing
+// an action, the Insight card, a fresh account. Starts from a set-up install; resets only this suite's own rows (never the workspace).
+import {expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, idsFromApp, queryAll, readTargetLine, resetFocusData, scenario} from '../lib/focus-data.mjs';
+import {finish, snap} from '../lib/layout.mjs';
+import {ensureSetUp} from '../lib/seed.mjs';
+
+export const minutes = 15;
+export const name = 'focus';
+
+const ERROR_WORDS = /\b(undefined|null|NaN|\[object|TypeError|Traceback|ENOENT|ECONN|could not load|stack)\b/i;
+
+export async function run(ctx) {
+  const {page, app, token: NOTION} = ctx;
+  ctx.findings = [];
+  const now = new Date();
+  let ids, rows, events, target = 5;
+
+  const focusReady = () => page.waitForFunction(() => /^Updated/.test(document.querySelector('#focus-status')?.textContent || '')
+    && !document.querySelector('.view[data-view="focus"] .skeleton, .view[data-view="focus"] .spinner'), null, {timeout: 60000});
+  const refresh = async () => { await page.click('#focus-refresh'); await page.waitForTimeout(300); await focusReady(); };
+  const goFocus = async () => { await page.click('.nav[data-view="focus"]'); await page.waitForSelector('.view[data-view="focus"]:not([hidden])'); };
+  const upNext = () => page.evaluate(() => [...document.querySelectorAll('#focus-list .focus-item')].map(li => ({
+    headline: li.querySelector('.focus-headline')?.textContent.trim() || '', badge: li.querySelector('.ui-pill')?.textContent.trim() || '',
+    meta: li.querySelector('.focus-meta')?.textContent.trim() || '',
+    buttons: [...li.querySelectorAll('.focus-actions > button:not(.ui-more)')].map(button => button.textContent.trim()),
+    hasMore: !!li.querySelector('.focus-actions .ui-more')})));
+  const shownNumbers = () => page.evaluate(() => {
+    const steps = list => [...document.querySelectorAll(`${list} .funnel-step`)].map(li => ({name: li.querySelector('.funnel-name')?.textContent.trim(),
+      count: li.querySelector('.funnel-count')?.textContent.trim(), share: li.querySelector('.muted.small')?.textContent.trim()}));
+    return {count: document.querySelector('#focus-count').textContent.trim(), of: document.querySelector('#focus-of').textContent.trim(),
+      pct: document.querySelector('#focus-pct').textContent.trim(), bar: document.querySelector('#focus-bar').style.width,
+      chartSum: document.querySelector('#focus-chart-sum').textContent.trim(), funnel: steps('#funnel-steps'),
+      inbound: document.querySelector('#focus-inbound').hidden ? [] : steps('#inbound-steps'),
+      actions: document.querySelector('#focus-count-note').textContent.trim()};
+  });
+  const readNotion = async () => { rows = await queryAll(NOTION, ids.tracker); events = await queryAll(NOTION, ids.events); };
+  // The helper every count goes through: what Focus shows against what Notion says (an independent oracle, lib/focus-data.mjs).
+  const numbersMatchSource = async label => {
+    await readNotion();
+    const diffs = compareNumbers(await shownNumbers(), expectedNumbers(rows, events, {now, target}));
+    if (diffs.length) throw new Error(`${label}: ${diffs.join('; ')}`);
+  };
+  // The events of one kind on one application (found by who it is for), for up to 30 s: Notion shows a write a moment after it returns.
+  const eventsOf = async (kind, who) => {
+    let found = [];
+    for (let i = 0; i < 10 && !found.length; i++) {
+      const row = (await queryAll(NOTION, ids.tracker)).find(item => ['Company', 'Via'].some(field => (item.properties[field]?.rich_text || []).map(part => part.plain_text).join('') === who));
+      found = row ? (await queryAll(NOTION, ids.events)).filter(item => item.properties.Kind.select?.name === kind && item.properties.Application.relation.some(link => link.id === row.id)) : [];
+      if (!found.length) await page.waitForTimeout(3000);
+    }
+    return found;
+  };
+
+  await ensureSetUp(ctx);
+  await app.evaluate(({shell}) => { globalThis.__opened = []; shell.openExternal = async url => { globalThis.__opened.push(String(url)); }; });
+  const urlsOpened = () => app.evaluate(() => globalThis.__opened.slice());
+
+  await ctx.run('a search with applications in every stage is written to Notion (dummy employers, target 5)', async () => {
+    ids = idsFromApp(await page.evaluate(async () => (await window.pilot.state()).settings.notionIds || {}));
+    await resetFocusData(NOTION, ids, {data: scenario(now), target});
+    await readNotion();
+    if (rows.length !== 10 || events.length !== 14) throw new Error(`expected 10 applications and 14 events in Notion, found ${rows.length} and ${events.length}`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('Focus finishes loading within 20 seconds, with no error text', async () => {
+    const started = Date.now();
+    await goFocus();
+    await focusReady();
+    const seconds = (Date.now() - started) / 1000;
+    if (seconds > 20) throw new Error(`Focus took ${seconds.toFixed(1)} s to finish loading (limit 20 s)`);
+    const text = await page.evaluate(() => document.querySelector('.view[data-view="focus"]').innerText);
+    const bad = text.match(ERROR_WORDS);
+    if (bad) throw new Error(`Focus shows error-like text "${bad[0]}"`);
+    console.log(`  loaded in ${seconds.toFixed(1)} s`);
+    await snap(ctx, 'focus', {situation: 'a search with applications in every stage'});
+  }, {needs: ctx.needs});
+
+  await ctx.run('"Up next" lists the right actions in the right order, each with the right buttons', async () => {
+    const items = await upNext();
+    const lines = items.map(item => `${item.headline} [${item.badge}] (${item.buttons.join(', ') || 'no button'})`);
+    if (items.length !== EXPECTED_UP_NEXT.length) throw new Error(`expected ${EXPECTED_UP_NEXT.length} actions, Focus lists ${items.length}:\n    ${lines.join('\n    ')}`);
+    EXPECTED_UP_NEXT.forEach((want, i) => {
+      const got = items[i];
+      if (!got.headline.includes(want.who)) throw new Error(`row ${i + 1} should be about "${want.who}", it is "${got.headline}". Order: ${lines.join(' | ')}`);
+      const badgeOk = want.badge instanceof RegExp ? want.badge.test(got.badge) : got.badge === want.badge;
+      if (!badgeOk) throw new Error(`row ${i + 1} (${want.who}) has the badge "${got.badge}", expected ${want.badge}`);
+      if (JSON.stringify(got.buttons) !== JSON.stringify(want.buttons)) throw new Error(`row ${i + 1} (${want.who}) has the buttons [${got.buttons.join(', ')}], expected [${want.buttons.join(', ')}]`);
+    });
+    const note = (await page.textContent('#focus-count-note')).trim();
+    if (note !== '6 actions') throw new Error(`the Up next header should count "6 actions", it says "${note}"`);
+    const summary = (await page.textContent('#focus-summary')).trim();
+    if (summary !== 'Reply to recruiters first, then prepare for your interview.') throw new Error(`the focus summary should lead with the reply, then the interview; it says "${summary}"`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('every number on Focus matches the Notion rows (today, target, 14-day chart, funnel, inbound funnel)', async () => {
+    await numbersMatchSource('first load');
+    const shown = await shownNumbers();
+    // The oracle is itself checked against hand-counted numbers, so a wrong oracle cannot pass a wrong page.
+    if (shown.count !== '2' || shown.funnel.map(step => step.count).join() !== '8,6,2,2,0' || shown.inbound.map(step => step.count).join() !== '2,1,1,0') {
+      throw new Error(`the hand-counted numbers are 2 applied today, funnel 8,6,2,2,0 and inbound 2,1,1,0; Focus shows ${shown.count}, ${shown.funnel.map(step => step.count)} and ${shown.inbound.map(step => step.count)}`);
+    }
+    const hint = await page.evaluate(() => ({greyed: document.querySelector('#focus-funnel').classList.contains('is-empty'), shown: !document.querySelector('#funnel-empty').hidden}));
+    if (hint.greyed || hint.shown) throw new Error('the "fills in later" hint is showing although the funnel has data');
+    const chartDays = await page.evaluate(() => document.querySelectorAll('#focus-chart .focus-chart-col').length);
+    if (chartDays !== 14) throw new Error(`the progress chart draws ${chartDays} days, expected 14`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('the Insight card shows the latest rejection lesson, with a button to review it', async () => {
+    const card = await page.evaluate(() => ({hidden: document.querySelector('#focus-insight-card').hidden, text: document.querySelector('#focus-insight').innerText,
+      button: document.querySelector('#focus-insight button')?.textContent.trim()}));
+    if (card.hidden) throw new Error('the Insight card is hidden although a rejection with a lesson was saved today');
+    if (!/Seniority mismatch/.test(card.text) || !/Hard skills/.test(card.text) || !/Gale Robotics/.test(card.text)) throw new Error(`the Insight card does not show the saved lesson: "${card.text}"`);
+    if (ERROR_WORDS.test(card.text)) throw new Error(`the Insight card shows error-like text: "${card.text}"`);
+    if (card.button !== 'Review rejection') throw new Error(`the Insight button says "${card.button}", expected "Review rejection"`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('clicking an Up next row opens the right place: the mail, Jobs, the feedback box', async () => {
+    const row = headline => page.locator('#focus-list .focus-item', {has: page.locator('.focus-headline', {hasText: headline})});
+    await row('Huxley Partners').getByRole('button', {name: 'Open email'}).click();
+    await page.waitForTimeout(500);
+    const mail = (await urlsOpened()).filter(url => /mail\.google\.com.*e2e-lead-1/.test(url));
+    if (mail.length !== 1) throw new Error(`"Open email" should open the lead's own message (e2e-lead-1), the app opened: ${(await urlsOpened()).join(', ') || 'nothing'}`);
+    await row('Fjord Networks').getByRole('button', {name: 'Add feedback'}).click();
+    await page.waitForSelector('#feedback-dialog[open]', {timeout: 5000});
+    const context = await page.textContent('#feedback-context');
+    if (!/Fjord Networks/.test(context) || !/Cloud Engineer/.test(context)) throw new Error(`the feedback box is about "${context}", expected Fjord Networks · Cloud Engineer`);
+    await page.evaluate(() => document.querySelector('#feedback-dialog').close());
+    await row('Apply to').getByRole('button', {name: 'Browse jobs'}).click();
+    await page.waitForSelector('.view[data-view="jobs"]:not([hidden])', {timeout: 5000});
+    await goFocus();
+  }, {needs: ctx.needs});
+
+  await ctx.run('"Edit target" saves to Notion, survives a reload and changes the progress ratio', async () => {
+    await page.evaluate(() => { window.__toasts = []; new MutationObserver(() => document.querySelectorAll('#toasts .toast').forEach(toast => { if (!window.__toasts.includes(toast.textContent)) window.__toasts.push(toast.textContent); })).observe(document.querySelector('#toasts'), {childList: true}); });
+    await page.click('#focus-edit-target');
+    await page.fill('#focus-target', '3');
+    await page.press('#focus-target', 'Tab');
+    await page.waitForFunction(() => document.querySelector('#focus-of').textContent.includes('/ 3 '), null, {timeout: 60000})
+      .catch(async () => { throw new Error(`the page never showed the new target. Messages the app showed: ${JSON.stringify(await page.evaluate(() => window.__toasts))}`); });
+    await focusReady();
+    target = 3;
+    await numbersMatchSource('after the target changed to 3');
+    const shown = await shownNumbers();
+    if (shown.pct !== '67%') throw new Error(`2 of 3 should read 67%, Focus shows ${shown.pct}`);
+    const apply = (await upNext()).find(item => item.headline.startsWith('Apply to'));
+    if (!apply || !/1 more/.test(apply.headline) || !/2 of 3 today/.test(apply.meta)) throw new Error(`the Apply row should ask for 1 more and say "2 of 3 today", it says: ${apply?.headline} / ${apply?.meta}`);
+    const written = await page.evaluate(async () => (await window.pilot.state()).settings.notionIds?.NOTION_SEARCH_SETTINGS_PAGE || '');
+    if (!written) throw new Error('changing the target did not save a Search settings page id in the app');
+    let line = NaN, last = '';
+    for (let i = 0; i < 10 && line !== 3; i++) {   // Notion shows a rewritten page a moment after the write returns
+      try { line = await readTargetLine(NOTION, written); } catch (error) { last = error.message; }
+      if (line !== 3) await page.waitForTimeout(3000);
+    }
+    if (line !== 3 && last) throw new Error(`the target was not saved to Notion within 30 s: ${last}`);
+    if (line !== 3) throw new Error(`Notion's "Daily applications target" is ${line}, expected 3`);
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    await goFocus();
+    await focusReady();
+    await numbersMatchSource('after a reload');
+    if ((await shownNumbers()).of !== '/ 3 applications today') throw new Error('the target did not survive a reload');
+  }, {needs: ctx.needs});
+
+  await ctx.run('marking an action Done removes it, writes it to Notion and updates the counts', async () => {
+    const before = await upNext();
+    await page.locator('#focus-list .focus-item', {has: page.locator('.focus-headline', {hasText: 'Huxley Partners'})}).getByRole('button', {name: 'Done'}).click();
+    await page.waitForFunction(() => ![...document.querySelectorAll('#focus-list .focus-headline')].some(node => node.textContent.includes('Huxley')), null, {timeout: 5000});
+    const after = await upNext();
+    if (after.length !== before.length - 1) throw new Error(`Done should remove exactly one row: ${before.length} before, ${after.length} after`);
+    if (!/^5 actions?/.test((await shownNumbers()).actions)) throw new Error(`the Up next header should now count 5 actions, it says "${(await shownNumbers()).actions}"`);
+    await focusReady();
+    if ((await upNext()).some(item => item.headline.includes('Huxley'))) throw new Error('the answered recruiter came back after Focus was read from Notion again');
+    const written = await eventsOf('Replied', 'Huxley Partners');
+    if (written.length !== 1) throw new Error(`Done should write one "Replied" event to Notion, found ${written.length}`);
+    await numbersMatchSource('after Done');
+  }, {needs: ctx.needs});
+
+  await ctx.run('Skip dismisses "Add details" for good: it leaves, Notion records it, a refresh does not bring it back', async () => {
+    await page.locator('#focus-list .focus-item', {has: page.locator('.focus-headline', {hasText: 'Kestrel'})}).getByRole('button', {name: 'Skip'}).click();
+    await page.waitForFunction(() => ![...document.querySelectorAll('#focus-list .focus-headline')].some(node => node.textContent.includes('Kestrel')), null, {timeout: 5000});
+    await focusReady();
+    await refresh();
+    const left = await upNext();
+    if (left.some(item => item.headline.includes('Kestrel'))) throw new Error('the skipped employer question came back after a refresh');
+    if (left.length !== 4) throw new Error(`4 actions should remain (prepare, apply, add feedback, waiting), Focus lists ${left.length}: ${left.map(item => item.headline).join(' | ')}`);
+    if ((await eventsOf('Details skipped', 'Kestrel Agency')).length !== 1) throw new Error('Skip should write one "Details skipped" event to Notion');
+    await numbersMatchSource('after Skip');
+  }, {needs: ctx.needs});
+
+  await ctx.run('a fresh account gets a helpful Focus: one next step, zeros, a funnel that says it fills in later, no insight, no raw errors', async () => {
+    await resetFocusData(NOTION, ids, {target: 5});   // every row to the trash: a new user's workspace
+    target = 5;
+    await page.evaluate(() => window.pilot.setDailyTarget(5));   // the app's own cache of the target, as a new install has it
+    // Notion still lists a trashed row for a few seconds: refresh until Focus has caught up, and say how long that took (it must catch up).
+    let tries = 0;
+    for (; tries < 8; tries++) {
+      await refresh();
+      if ((await shownNumbers()).funnel.length === 0 && (await upNext()).length === 1) break;
+      await page.waitForTimeout(5000);
+    }
+    if (tries) console.log(`  Focus caught up with the emptied workspace after ${tries} refresh(es)`);
+    const items = await upNext();
+    if (items.length !== 1 || !items[0].headline.startsWith('Apply to your next role')) throw new Error(`a fresh account should see exactly one next step ("Apply to your next role"), it sees: ${items.map(item => item.headline).join(' | ') || 'nothing'}`);
+    if (!/Prepare kits from your best matches/.test(items[0].meta) || !items[0].buttons.includes('Browse jobs')) throw new Error(`the first step does not say what to do: "${items[0].meta}" ${items[0].buttons}`);
+    const page$ = await page.evaluate(() => ({text: document.querySelector('.view[data-view="focus"]').innerText, funnel: !document.querySelector('#focus-funnel').hidden,
+      inbound: !document.querySelector('#focus-inbound').hidden, funnelEmpty: document.querySelector('#focus-funnel').classList.contains('is-empty'),
+      funnelHint: document.querySelector('#funnel-empty').hidden ? '' : document.querySelector('#funnel-empty').textContent.trim(), insight: !document.querySelector('#focus-insight-card').hidden,
+      skeleton: !!document.querySelector('.view[data-view="focus"] .skeleton'), empty: !document.querySelector('#focus-empty').hidden, summary: document.querySelector('#focus-summary').textContent.trim()}));
+    if (page$.skeleton) throw new Error('a skeleton is still showing on a fresh account');
+    if (page$.inbound) throw new Error('an Inbound funnel is drawn although nothing found this account');
+    if (!page$.funnel || !page$.funnelEmpty || page$.funnelHint !== 'Fills in as you prepare and send applications.') {
+      throw new Error(`a fresh account's funnel should be greyed with the line "Fills in as you prepare and send applications."; it shows card=${page$.funnel}, greyed=${page$.funnelEmpty}, hint="${page$.funnelHint}"`);
+    }
+    if (page$.insight) throw new Error('the Insight card is showing with nothing to say');
+    if (page$.empty) throw new Error('"Nothing waits for you" is shown next to the next step');
+    if (ERROR_WORDS.test(page$.text)) throw new Error(`error-like text on a fresh Focus: ${page$.text.match(ERROR_WORDS)[0]}`);
+    if (!page$.summary) throw new Error('the focus summary is empty on a fresh account');
+    await numbersMatchSource('fresh account');
+    await snap(ctx, 'focus-fresh', {view: 'focus', situation: 'a new account with no applications'});
+  }, {needs: ctx.needs});
+
+  await ctx.run('Focus renders without layout problems, with data and without', async () => { finish(ctx); }, {needs: ctx.needs});
+}

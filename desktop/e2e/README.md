@@ -11,16 +11,17 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 | `settings` | a set-up install | every Settings section, the AI engine panel with each engine chosen | ~30 s |
 | `personas` | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
 | `employers` | a set-up install, its own employer rows and runs reset | Find new employers on a candidate list of every kind (good board, empty, wrong roles, dead feed, duplicate, excluded, manual watch): statuses, quality order, Employers & Sources rows, the run row's counts, a second run, the crawl's source list, a Sonnet judge | ~1 min |
+| `focus` | a set-up install + dummy applications in every stage written to Notion | Up next order and buttons, every number checked against the Notion rows (`lib/focus-data.mjs`), Edit target, Done/Skip, Insight, a fresh account | ~3 min |
 
 ```
 cd desktop/e2e && npm install
 node suite.mjs settings            # one suite, about half a minute (npm run settings)
-node suite.mjs wizard              # or jobs, interviews
+node suite.mjs wizard              # or jobs, interviews, focus
 E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 ```
 
 ## How a suite gets its state
-- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_CALENDAR`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_EMPLOYERS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
+- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_CALENDAR`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_FOCUS`, `E2E_NOTION_TOKEN_EMPLOYERS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
 - **The workspace is built once and kept.** The wizard suite empties its page and builds it from scratch every run. The others find their page already built and **seed the app in about 5 seconds** with the app's own calls (`saveSecret`, `notionConnect`, `saveSettings`), not the wizard. A suite whose page is empty builds it once with the real wizard path (`lib/wizard.mjs`).
 - **A suite resets only its own data** (the jobs suite empties its job rows and run rows), never the workspace.
 - Dummy data without an AI call: `lib/notion.mjs` (`createRow`, `rows`, `pageBlocks`) and `lib/interview-data.mjs` (row builders and the pure checks, tested in `test/`). `lib/steps.mjs`: independent steps (one failure never hides the others), captured external links, answered `confirm()`. A suite can export `env` (e.g. `TZ`) for its app, and the AI proxy has `setMode(...)` for a failing AI (`no-credit`, `server-error`, …).

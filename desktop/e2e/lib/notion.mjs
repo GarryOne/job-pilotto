@@ -4,8 +4,8 @@
 const API = 'https://api.notion.com/v1';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function call(token, method, path, body) {
-  for (let attempt = 0; attempt < 5; attempt++) {
+export async function call(token, method, path, body) {
+  for (let attempt = 0; attempt < 8; attempt++) {   // several sessions can share one integration: be patient with a 429
     const response = await fetch(`${API}/${path}`, {method, headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'},
       body: body ? JSON.stringify(body) : undefined});
     if (response.status === 429) { await sleep(1500 * (attempt + 1)); continue; }
@@ -220,3 +220,17 @@ export const plainOf = property => {
 };
 
 export {text as richText, paragraph};
+// Every live row of one database (raw API pages). Read-only.
+export async function queryAll(token, databaseId) {
+  const rows = [];
+  let cursor;
+  do {
+    const found = await call(token, 'POST', `databases/${databaseId}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    rows.push(...found.results.filter(row => !row.archived));
+    cursor = found.has_more ? found.next_cursor : null;
+  } while (cursor);
+  return rows;
+}
+
+// One row in a database of the test workspace; returns the API page.
+export const createRowIn = (token, databaseId, properties) => call(token, 'POST', 'pages', {parent: {database_id: databaseId}, properties});
