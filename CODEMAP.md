@@ -270,7 +270,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
 - `src/service.py` — The Job Pilotto service as the engine sees it: a random local install id, the token the website gives that id, and the private
 - `src/sources/ats.py` — Public job feeds of common applicant-tracking systems, normalised to one shape.
-- `src/sources/boards.py` — Discover Swiss software employers from public listings, then follow career links."""
+- `src/sources/boards.py` — Discover employers from the Swiss job boards (jobs.ch, SwissDevJobs, TechTree), then follow career links. Runs only when the
 - `src/sources/describe.py` — Descriptions for jobs that arrived without one.
 - `src/sources/feeds.py` — Small, dependency-free job watcher. Python 3.10+."""
 - `src/sources/google_jobs.py` — Google Jobs through SerpApi's paid API (engine=google_jobs). Python 3.10+, no dependencies.

@@ -114,7 +114,7 @@ jobs:
           restore-keys: job-pilotto-db-
       - name: Run tests
         run: python -m unittest discover -s tests
-      - name: Discover Swiss software employers
+      - name: Discover employers on job boards
         if: env.MODE == 'scheduled' || env.MODE == 'run'
         run: python -m src discover --pages 2 --max-companies 80
       # A voice note or recording sent to the bot is transcribed here, with speakers (src/ai/transcribe.py:

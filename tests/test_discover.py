@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from src.sources.boards import parse_jobs, city, mode, platform, useful_links, parse_tree
+from src.sources.boards import parse_jobs, city, mode, platform, useful_links, parse_tree, swiss_places
 
 class DiscoveryTests(unittest.TestCase):
     def test_swiss_jobs_and_expiry(self):
@@ -27,5 +27,11 @@ class DiscoveryTests(unittest.TestCase):
         block='<a href="/job/1"><h3>Software Engineer</h3><p>Example</p><span class="truncate text-foreground">{}</span></a>'
         self.assertEqual(parse_tree(block.format('Remote')),[])
         self.assertEqual(len(parse_tree(block.format('Zürich'))),1)
+
+    def test_board_discovery_only_for_swiss_places(self):
+        self.assertTrue(swiss_places({'locations':{'top_tier':['zürich'],'country_wide':[],'abroad':[]}}))
+        self.assertTrue(swiss_places({'locations':{'top_tier':['berlin'],'country_wide':['switzerland']}}))
+        self.assertFalse(swiss_places({'locations':{'top_tier':['amsterdam','berlin'],'country_wide':['netherlands','germany'],'abroad':[]}}))
+        self.assertFalse(swiss_places({}))
 
 if __name__=='__main__':unittest.main()

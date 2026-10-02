@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Discover Swiss software employers from public listings, then follow career links."""
+"""Discover employers from the Swiss job boards (jobs.ch, SwissDevJobs, TechTree), then follow career links. Runs only when the
+user's places include Switzerland: those boards list nothing elsewhere."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -21,6 +22,15 @@ ROLE = keyword_regex(_SEARCH['board_discovery_keywords'])
 CAREER = re.compile(r'career|karriere|carrière|carriere|stellen|vacanc|recruit|join.?us|offene.?jobs|work.with.us|/jobs(?:/|$)', re.I)
 ATS = {'greenhouse.io':'Greenhouse','lever.co':'Lever','ashbyhq.com':'Ashby','smartrecruiters.com':'SmartRecruiters','myworkdayjobs.com':'Workday','successfactors.com':'SAP SuccessFactors','successfactors.eu':'SAP SuccessFactors','teamtailor.com':'Teamtailor','personio.de':'Personio','personio.com':'Personio','recruitee.com':'Recruitee','apply.workable.com':'Workable','hr4you.com':'HR4YOU'}
 CITIES = {'zurich':['zürich','zurich','zuerich'], 'geneva':['genève','geneva','genf'], 'lausanne':['lausanne'], 'basel':['basel','bâle'], 'bern':['bern','berne'], 'zug':['zug'], 'winterthur':['winterthur'], 'lucerne':['luzern','lucerne'], 'st. gallen':['st. gallen','st.gallen'], 'lugano':['lugano']}
+
+
+SWISS_PLACE = re.compile(r'switzerland|swiss|schweiz|suisse|svizzera|z[uü]e?rich|gen[eè]v|basel|b[aâ]le|bern|lausanne|\bzug\b|lugano|winterthur|luzern|lucerne|st\.? gallen', re.I)
+
+
+def swiss_places(config):
+    """True when the places the user searches in (config/search.json locations) include Switzerland."""
+    places = config.get('locations') or {}
+    return any(SWISS_PLACE.search(str(p)) for key in ('top_tier', 'country_wide', 'abroad') for p in places.get(key) or [])
 
 
 def text(s):
@@ -202,6 +212,8 @@ def main():
         print('jobs.ch/TechTree discovery is off (JOB_PILOTTO_DISABLE includes discover).');return 0
     if os.getenv('JOB_PILOTTO_FIXTURE_DIR'):   # the end-to-end journey (desktop/e2e): only its fixture feeds, no live crawl
         print('jobs.ch/TechTree discovery is off (fixture feeds only).');return 0
+    if not swiss_places(_SEARCH):   # these boards list Swiss employers only: nothing to find for places elsewhere
+        print('jobs.ch/TechTree discovery is skipped: those boards list Swiss employers only and your places are elsewhere.');return 0
     client=Client(args.refresh);jobs=[];sources=[]
     for query in _SEARCH['jobs_board_search_queries']:
         for page in range(1,args.pages+1):
