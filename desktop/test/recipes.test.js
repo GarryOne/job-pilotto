@@ -163,3 +163,54 @@ test('how an application went is batched by board, outcome and days; anything el
   await off.flush();
   assert.equal(calls.length, 0);
 });
+
+test('what the installs teach about a job search is batched as counts by fixed tags, refused when off the lists, and sent only with reports on', async () => {
+  const storage = tempStorage(), calls = [];
+  const fetcher = async (url, init = {}) => {
+    if (new URL(url).pathname === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+    calls.push(JSON.parse(init.body));
+    return {ok: true, status: 200, json: async () => ({ok: true})};
+  };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  reporter.termAccepted('Backend', ['sre_devops'], ['europe']);
+  reporter.termAccepted('<script>', ['sre_devops'], ['europe']);                     // not a role word
+  reporter.termAccepted('storage', [], []);                                          // no tags: generalised
+  reporter.coverage({at: 'x', in_places: 3142, matched: 164, roles: ['sre_devops', 'data'], regions: ['europe'],
+    suggestions: [{term: 'backend', count: 49, examples: ['Senior Backend Engineer']}, {term: 'bad!', count: 9}]});
+  reporter.dismissal('seniority', '60-79'); reporter.dismissal('seniority', '60-79');
+  reporter.dismissal('my boss', '60-79'); reporter.dismissal('tech', '999');        // off the fixed lists
+  reporter.snapshot([{bucket: '80-100', state: 'applied', n: 4}, {bucket: '80-100', state: 'banana', n: 4}, {bucket: 'nope', state: 'new', n: 1}, {bucket: 'unscored', state: 'new', n: 0}]);
+  await reporter.flush();
+  const intel = calls[0].intel;
+  assert.deepEqual(intel.terms, [{term: 'backend', role: 'sre_devops', region: 'europe'}, {term: 'storage', role: 'other', region: 'none'}]);
+  assert.deepEqual(intel.coverage, {role: 'sre_devops', region: 'europe', in_places: 3142, matched: 164, missed: [{term: 'backend', count: 49}]});   // examples never leave
+  assert.deepEqual(intel.dismissals, [{reason: 'seniority', bucket: '60-79', n: 2}]);
+  assert.deepEqual(intel.snapshot, [{bucket: '80-100', state: 'applied', n: 4}]);
+  assert.equal(JSON.stringify(calls[0]).includes('Senior Backend'), false);
+  storage.saveSettings({telemetry: false});
+  const off = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  off.termAccepted('backend', ['sre_devops'], ['europe']); off.dismissal('tech', '40-59'); off.snapshot([{bucket: '80-100', state: 'applied', n: 1}]);
+  calls.length = 0;
+  await off.flush();
+  assert.equal(calls.length, 0);
+});
+
+test('a failed send keeps the intelligence counts for the next try and does not double a snapshot taken meanwhile', async () => {
+  const storage = tempStorage();
+  let status = 500;
+  const calls = [];
+  const fetcher = async (url, init = {}) => {
+    if (new URL(url).pathname === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+    calls.push(JSON.parse(init.body));
+    return {ok: status < 400, status, json: async () => ({ok: true})};
+  };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  reporter.dismissal('location', '40-59');
+  reporter.snapshot([{bucket: '60-79', state: 'saved', n: 3}]);
+  assert.equal((await reporter.flush()).sent, 0);
+  reporter.dismissal('location', '40-59');
+  status = 200;
+  await reporter.flush();
+  assert.deepEqual(calls[1].intel.dismissals, [{reason: 'location', bucket: '40-59', n: 2}]);
+  assert.deepEqual(calls[1].intel.snapshot, [{bucket: '60-79', state: 'saved', n: 3}]);
+});

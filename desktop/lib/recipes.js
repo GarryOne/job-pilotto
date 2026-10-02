@@ -13,6 +13,11 @@ export const SITE = 'https://www.jobpilotto.workers.dev';
 const CACHE = 'recipes-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 const FLUSH_MS = 5 * 60 * 1000;
+const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
+const tag = list => { const first = Array.isArray(list) ? String(list[0] || '') : String(list || ''); return /^[a-z_]{2,20}$/.test(first) ? first : ''; };
+export const DISMISS_REASONS = ['seniority', 'location', 'tech', 'company', 'role', 'other'];
+export const SCORE_BANDS = ['0-39', '40-59', '60-79', '80-100', 'unscored'];
+const JOB_STATES = ['new', 'saved', 'dismissed', 'applying', 'applied', 'screening', 'interviewing', 'offer', 'rejected', 'no_response', 'withdrawn'];
 const OUTCOME_IDS = ['reply', 'screening', 'offer', 'rejected', 'no_response'];
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
 
@@ -67,7 +72,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), intel = {terms: [], coverage: null, dismissals: new Map(), snapshot: null}, timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -117,6 +122,37 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       applications.set(key, {board: item.board, outcome: item.outcome, days: item.days || '', n: (applications.get(key)?.n || 0) + 1});
       schedule();
     },
+    // What the installs teach about the job search itself (site/src/intelligence.js): counts by coarse fixed-list tags, never a title or a company.
+    // A role word the user chose from the "too narrow" card, with the coarse role and region of their search.
+    termAccepted(term, roles, regions) {
+      const word = String(term || '').toLowerCase().trim();
+      if (!enabled(storage) || !TERM.test(word) || intel.terms.length >= 5) return;
+      intel.terms.push({term: word, role: tag(roles) || 'other', region: tag(regions) || 'none'});
+      schedule();
+    },
+    // One crawl's coverage (data/coverage.json): postings in the wanted places, how many the keywords caught, which fixed role words they missed.
+    coverage(summary) {
+      if (!enabled(storage) || !summary || !(Number(summary.in_places) > 0)) return;
+      intel.coverage = {role: tag(summary.roles) || 'other', region: tag(summary.regions) || 'none', in_places: Number(summary.in_places) || 0,
+        matched: Math.min(Number(summary.matched) || 0, Number(summary.in_places) || 0),
+        missed: (Array.isArray(summary.suggestions) ? summary.suggestions : []).filter(item => TERM.test(String(item?.term || ''))).slice(0, 21)
+          .map(item => ({term: String(item.term), count: Number(item.count) || 0}))};
+      schedule();
+    },
+    // The one-tap "why?" after Dismiss: the reason (fixed list) and the job's score band.
+    dismissal(reason, bucket) {
+      if (!enabled(storage) || !DISMISS_REASONS.includes(reason) || !SCORE_BANDS.includes(bucket)) return;
+      const key = `${reason}|${bucket}`;
+      intel.dismissals.set(key, {reason, bucket, n: (intel.dismissals.get(key)?.n || 0) + 1});
+      schedule();
+    },
+    // A daily snapshot of score band vs state (renderer/intel.js snapshot): the latest replaces the earlier one.
+    snapshot(list) {
+      if (!enabled(storage) || !Array.isArray(list)) return;
+      intel.snapshot = list.filter(item => SCORE_BANDS.includes(item?.bucket) && JOB_STATES.includes(item?.state) && Number(item.n) > 0).slice(0, 60)
+        .map(item => ({bucket: item.bucket, state: item.state, n: Math.min(5000, Math.round(Number(item.n)))}));
+      schedule();
+    },
     // What happened on one page of an application (lib/question-labels.js flowState), counted per board.
     flow(board, state) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || '')) || !FLOW_STATES.includes(state)) return;
@@ -135,12 +171,24 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     },
     async flush() { return flush(); },
   };
+  function hasIntel() { return !!(intel.terms.length || intel.coverage || intel.dismissals.size || intel.snapshot); }   // a function declaration: used above the return
+  function takeIntel() {
+    const out = {terms: intel.terms, coverage: intel.coverage, dismissals: [...intel.dismissals.values()], snapshot: intel.snapshot || []};
+    intel = {terms: [], coverage: null, dismissals: new Map(), snapshot: null};
+    return out;
+  }
+  function putBackIntel(sent) {   // the send failed: keep what was not replaced meanwhile
+    intel.terms = [...sent.terms, ...intel.terms].slice(0, 5);
+    intel.coverage = intel.coverage || sent.coverage;
+    for (const item of sent.dismissals) { const key = `${item.reason}|${item.bucket}`; intel.dismissals.set(key, {...item, n: item.n + (intel.dismissals.get(key)?.n || 0)}); }
+    intel.snapshot = intel.snapshot || (sent.snapshot.length ? sent.snapshot : null);
+  }
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size)) return {sent: 0};
+    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !hasIntel())) return {sent: 0};
     const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
-      applications: [...applications.values()].slice(0, 20)};
-    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse, applications};
+      applications: [...applications.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
+    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse, applications, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
@@ -151,7 +199,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
-      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + (body.intel ? 1 : 0)};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try
@@ -163,6 +211,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       for (const [board, n] of taken.fills) fills.set(board, (fills.get(board) || 0) + n);
       for (const [key, entry] of taken.questions) questions.set(key, entry);
       for (const [key, entry] of taken.flows) flows.set(key, {...entry, n: entry.n + (flows.get(key)?.n || 0)});
+      if (taken.intel) putBackIntel(taken.intel);
       for (const [key, entry] of taken.applications) applications.set(key, {...entry, n: entry.n + (applications.get(key)?.n || 0)});
       for (const [key, entry] of taken.aliasUse) { const again = aliasUse.get(key) || {phrase: key, ok: 0, failed: 0}; again.ok += entry.ok; again.failed += entry.failed; aliasUse.set(key, again); }
       return {sent: 0};

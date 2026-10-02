@@ -561,7 +561,10 @@ def main():
                 run['warnings'].append(f'Employer index not downloaded ({employer_index.problem}): this check crawled {len(feed_list)} feeds, not the full list')
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
                 report = feeds.scan(feed_list, feed_db)
-                coverage.save(report.get('funnel'))   # how much of the market the role keywords catch (Strategy page)
+                funnel = report.get('funnel')
+                if funnel:   # the same fixed-list tags the pool uses (src/contribute.py): all that ever describes this search to the product
+                    funnel['roles'], funnel['regions'] = contribute.tags()
+                coverage.save(funnel)   # how much of the market the role keywords catch (Strategy page, and anonymous counts if reports are on)
                 # Paid per search, so only full crawls use it; off without SERPAPI_API_KEY.
                 if args.mode in ('scheduled', 'run') and google_jobs.api_key():
                     google = google_jobs.scan(feed_db, google_jobs.api_key(),

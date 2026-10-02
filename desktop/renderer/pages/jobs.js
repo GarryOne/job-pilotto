@@ -14,6 +14,8 @@ import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, se
 import {toastMessage} from './startup.js';
 import {openFeedback} from './feedback.js';
 import {outcomeChoices} from '../outcome-tap.js';
+import {snapshot} from '../intel.js';
+import {askWhy} from './dismiss-reason.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
@@ -245,6 +247,7 @@ export function renderJobs() {
       job.status = next;
       if (next === 'applied' && job.stage === 'Applying') job.stage = 'Applied';
       renderJobs();
+      if (next === 'dismissed') askWhy(job);   // one optional tap: why (counted with the score band only)
     };
     // Chrome opens the job's form and the extension fills it at once from the kit.
     const fillInChrome = async button => {
@@ -762,7 +765,11 @@ export async function loadJobs() {
   }
   jobsLoading = false;
   renderJobs();
-  if (freshJobs) askAboutLeftOpen();
+  if (freshJobs) {
+    askAboutLeftOpen();
+    // How the fit score relates to what became of each job, as counts per band and state (once a day; the app drops it if reports are off).
+    if (shared.allJobs.length) window.pilot.intelSnapshot(snapshot(shared.allJobs)).catch(() => {});
+  }
 }
 // Once per launch, on fresh data: sessions left open by the last run whose jobs are still Applying. Keep them, go
 // through them one by one (the "Did you submit?" question), or reset them all to Kit ready. A session whose job is

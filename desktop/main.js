@@ -769,6 +769,15 @@ function handlers() {
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
   // "Your search may be too narrow" (src/coverage.py): how much of the market the role keywords catch, and what adding a term would add.
+  // The one-tap "why?" after Dismiss and the daily score snapshot (renderer/intel.js): counts for the product, on the Technical reports switch.
+  ipcMain.handle('dismissReason', (_, input) => { recipeReporterRef?.dismissal(String(input?.reason || ''), String(input?.bucket || '')); return {ok: true}; });
+  ipcMain.handle('intelSnapshot', (_, list) => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (DEMO || storage.settings().intelSnapshotDay === today) return {ok: true, skipped: true};
+    storage.saveSettings({intelSnapshotDay: today});
+    recipeReporterRef?.snapshot(list);
+    return {ok: true};
+  });
   ipcMain.handle('searchCoverage', async () => {
     if (DEMO) return {ok: true, coverage: null};
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
@@ -780,6 +789,12 @@ function handlers() {
     try {
       const result = await strategy.addRoles(storage, terms, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
       appLog('search', `role terms added: ${result.added.join(', ') || 'none'}`);
+      // Counted for the starter keyword pack: only words the card itself offered (a fixed vocabulary), with the search's coarse role and region.
+      try {
+        const summary = JSON.parse(storage.readText('data/coverage.json') || 'null');
+        const offered = new Set((summary?.suggestions || []).map(item => String(item.term).toLowerCase()));
+        for (const term of result.added) if (offered.has(term)) recipeReporterRef?.termAccepted(term, summary.roles, summary.regions);
+      } catch { /* ignore */ }
       return {ok: true, ...result};
     } catch (error) { return {ok: false, error: error.message}; }
   });
@@ -1633,6 +1648,16 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
   const recipeReporter = recipeLibrary.createReporter(storage);
   recipeReporterRef = recipeReporter;
+  // After a search: how much of the market the role keywords caught (data/coverage.json, src/coverage.py), as anonymous counts, once per crawl.
+  pipeline.onRunEnd(({args, code}) => {
+    if (code !== 0 || args[1] !== 'daily') return;
+    try {
+      const summary = JSON.parse(storage.readText('data/coverage.json') || 'null');
+      if (!summary?.at || storage.settings().intelCoverageAt === summary.at) return;
+      storage.saveSettings({intelCoverageAt: summary.at});
+      recipeReporter.coverage(summary);
+    } catch { /* a number for the product is never worth a failed run */ }
+  });
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints));
   server.setAliasesHandler(() => aliasLibrary.lookup(storage));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with

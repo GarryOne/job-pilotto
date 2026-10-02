@@ -1882,3 +1882,9 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
   font-size: var(--fs-sm); cursor: pointer; }
 .coverage-chip:hover { border-color: var(--signal); color: var(--signal-ink); }
 .coverage-chip:disabled { opacity: .5; cursor: default; }
+
+/* The one-tap "why?" after Dismiss: chips inside a toast. */
+.why-toast { cursor: default; }
+.why-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.why-chip { border: 1px solid var(--navy-line); background: transparent; color: var(--on-navy); border-radius: var(--r-pill); padding: 4px 10px; font-size: var(--fs-xs); cursor: pointer; }
+.why-chip:hover { background: var(--navy-hover); color: var(--on-accent); }

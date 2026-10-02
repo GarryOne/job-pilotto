@@ -6,6 +6,7 @@ import * as notion from './notion.js';
 import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
 import {guard} from './guard.js';
+import {view as intelligenceView} from './intelligence.js';
 import {aliases, evaluateAliases, pack as aliasPack} from './aliases.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
 import {playbook} from './playbook.js';
@@ -75,6 +76,7 @@ export default {
     if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/telemetry') return telemetry.view(request, env);
+    if (pathname === '/intelligence') return intelligenceView(request, env);
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
