@@ -139,11 +139,13 @@ export async function funnel(db, days, now = new Date()) {
 
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
 
+const OS_NAMES = {darwin: 'macOS', win32: 'Windows', linux: 'Linux'};
+
 function page(data) {
   const {rows, installs} = data;
   const count = kind => rows.filter(row => row.kind === kind).reduce((sum, row) => sum + row.n, 0);
   const range = [1, 7, 30].map(n => n === data.days ? `<b>${n === 1 ? 'today' : `${n} days`}</b>` : `<a href="?days=${n}">${n === 1 ? 'today' : `${n} days`}</a>`).join(' · ');
-  const tiles = [['🖥️ Machines reporting', data.unique, `${data.everSeen} ever seen` + (data.platforms.length ? ' · ' + data.platforms.map(p => `${p.n} ${esc(p.platform)}`).join(', ') : '')], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
+  const tiles = [['🖥️ Machines reporting', data.unique, `${data.everSeen} ever seen` + (data.platforms.length ? ' · ' + data.platforms.map(p => `${p.n} ${esc(OS_NAMES[p.platform] || p.platform)}`).join(', ') : '')], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
   const table = rows.map(row => `<tr><td><span class="kind ${row.kind}">${esc(row.kind.replace('_', ' '))}</span></td>
     <td><details><summary>${esc(row.summary)}</summary><pre>${esc(JSON.stringify(JSON.parse(row.sample || '{}'), null, 1))}</pre></details></td>
     <td><b>${row.users}</b></td><td>${row.n}</td><td class="muted">${esc(row.versions)}</td><td class="muted">${esc(String(row.last).slice(0, 16).replace('T', ' '))}</td></tr>`).join('');
@@ -158,13 +160,15 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}.tile b{display:block;font-size:32px;margin-top:4px}
 table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px 4px}
 td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}summary{cursor:pointer}
+.machines td,.machines th{white-space:nowrap}.machines td.vs{white-space:normal;line-height:2}.machines .v{display:inline-block;white-space:nowrap;margin-right:4px;padding:0 8px;border-radius:99px;background:var(--line);font-size:12px}.machines .v.now{background:var(--amber);color:#000;font-weight:700}
 pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--line);white-space:nowrap}
 .kind.crash{color:var(--red)}.kind.run_failed{color:var(--amber)}.kind.form_issue{color:var(--teal)}
 </style></head><body><main>
 <header><h1>✈ Job Pilotto · app reports</h1><span class="muted">${range} · <a href="/feedback">Live feedback →</a> · <a href="/intelligence">Intelligence →</a> · <a href="/stats">Website stats →</a></span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${value}</b>${note ? `<small class="muted">${note}</small>` : ''}</div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>🖥️ Machines</h2><small class="muted">one row per install: the version it runs now, and every version it has run (id shown as a short prefix)</small>
-<table><tr><th>Install</th><th>OS</th><th>Now</th><th>First seen</th><th>Last seen</th><th>Versions</th></tr>${data.machines.map(m => `<tr><td>${esc(String(m.install).slice(0, 6))}</td><td>${esc(m.platform)}</td><td><b>${esc(m.current)}</b></td><td class="muted">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="muted">${m.versions.map(esc).join(' → ')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No machine has reported yet.</td></tr>'}</table></section>
+<div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Now</th><th>First seen</th><th>Last seen</th><th>Version history</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td><b>${esc(m.current)}</b></td><td class="muted">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.map(v => `<span class="v${v === m.current ? ' now' : ''}">${esc(v)}</span>`).join('')}</td></tr>`).join('')
+  || '<tr><td colspan="6" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
 <section class="card" style="margin-bottom:12px"><h2>How it helped</h2><small class="muted">all ${data.reporting} installs reporting, their latest totals</small>
 <div class="tiles" style="margin:10px 0 0">${[['🎯 Jobs matched', 'matches'], ['⭐ Good fits (70+)', 'goodFits'], ['🧩 Forms filled', 'formsFilled'],
   ['📨 Applications', 'applied'], ['💬 Human replies', 'replies'], ['📞 Screenings', 'screenings'], ['🧑‍💻 Interviews', 'interviews'], ['🏆 Offers', 'offers']]

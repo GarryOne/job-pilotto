@@ -200,7 +200,7 @@ test('Machines reporting counts each install once, however many versions it ran'
   const ev = (install, version, platform) => ({kind: 'health', install, version, platform, at: '2026-09-29T08:00:00Z'});
   await send(e, [ev('install-aaaa', '0.4.0', 'darwin'), ev('install-aaaa', '0.4.1', 'darwin'), ev('install-aaaa', '0.4.2', 'darwin'), ev('install-bbbb', '0.4.2', 'win32')]);
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
-  assert.match(html, /Machines reporting<\/span><b>2<\/b><small class="muted">2 ever seen · 1 (darwin|win32), 1 (darwin|win32)/);
+  assert.match(html, /Machines reporting<\/span><b>2<\/b><small class="muted">2 ever seen · 1 (macOS|Windows), 1 (macOS|Windows)/);
 });
 
 test('Machines table: the version each install runs now, and the versions it has run', async () => {
@@ -209,5 +209,5 @@ test('Machines table: the version each install runs now, and the versions it has
   await send(e, [ev('0.4.0', '2026-09-28T08:00:00Z'), ev('0.4.2', '2026-09-30T08:00:00Z'), ev('0.4.1', '2026-09-29T08:00:00Z')]);
   const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
   assert.match(html, /<td><b>0\.4\.2<\/b><\/td>/);
-  assert.match(html, /0\.4\.0 → 0\.4\.1 → 0\.4\.2/);
+  assert.match(html, /<span class="v">0\.4\.0<\/span><span class="v">0\.4\.1<\/span><span class="v now">0\.4\.2<\/span>/);
 });
