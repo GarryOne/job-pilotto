@@ -1,26 +1,16 @@
 name: Release · Desktop app
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
-# GitHub Release, only when something that goes into the app changed on main. The release starts as a
+# GitHub Release: nightly (only when something that goes into the app changed on main since the last release) or on
+# demand (gh workflow run desktop.yml, always builds). The release starts as a
 # draft; the Windows job adds the x64 installer (.exe, unsigned: SmartScreen asks "Run anyway") and then
 # publishes it as a pre-release (alpha). Friends' apps and the website follow the latest *stable* release: one
 # promoted with tools/release-stable.sh (then its .exe and .dmg are what "latest" serves).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'desktop/**'
-      - 'src/**'
-      - 'config/**'
-      - 'templates/**'
-      - 'tools/**'
-      - 'extension/**'
-      - 'worker/src/**'
-      - 'requirements.txt'
-      - 'requirements-transcribe.txt'
-      - 'docs/notion-profile-template.md'
-      - 'docs/job-pilotto-guide.md'
-      - '.github/workflows/desktop.yml'
+  # Nightly, and by hand (gh workflow run desktop.yml). Not on every push: with several pushes an hour, a release per push
+  # was mostly noise and a macOS + Windows build each (2 Oct 2026). A night with nothing new for the app builds nothing.
+  schedule:
+    - cron: '30 2 * * *'   # 02:30 UTC, 04:30 in Zurich
   workflow_dispatch:
 
 permissions:
@@ -30,13 +20,42 @@ permissions:
   actions: write       # start a fresh build of main when this one can't be released (see Release)
 
 # A release runs to the end (Mac, then the Windows installer), so the latest release always has both
-# downloads the website links to; newer pushes wait, and only the newest waiting one runs.
+# downloads the website links to; a newer run waits, and only the newest waiting one runs.
 concurrency:
   group: desktop-release
   cancel-in-progress: false
 
 jobs:
+  # Nightly runs only: did anything that goes into the app change since the newest release? (A manual run always builds.)
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.diff.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Anything new for the app?
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != schedule ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          tag=$(gh release list -L 1 --exclude-drafts --json tagName -q '.[0].tagName' || true)
+          sha=$([ -n "$tag" ] && git rev-list -n 1 "$tag" 2>/dev/null || true)
+          paths=(desktop src config templates tools extension worker/src requirements.txt requirements-transcribe.txt
+                 docs/notion-profile-template.md docs/job-pilotto-guide.md .github/workflows/desktop.yml)
+          if [ -n "$sha" ] && git diff --quiet "$sha" HEAD -- "${paths[@]}"; then
+            echo "Nothing new for the app since ${tag}: no build tonight."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changes since ${tag:-the start}: building."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: macos-14   # Apple Silicon
     timeout-minutes: 30
     outputs:

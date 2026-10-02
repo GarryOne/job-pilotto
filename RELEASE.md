@@ -1,13 +1,13 @@
 # Releasing Job Pilotto
 
-> **In short:** every push builds a **pre-release**. When one is good, run **`tools/release-stable.sh`**:
+> **In short:** a **pre-release** is built **every night** (when the app changed) and **on demand** (`gh workflow run desktop.yml`). When one is good, run **`tools/release-stable.sh`**:
 > friends' apps offer it, the website serves it, and their Notion and GitHub runs follow by themselves.
 
 ## 1 · Channels
 
 | Channel | Who gets it | How it's made |
 |---|---|---|
-| 🧪 **Pre-release** (alpha) | you | automatically, by every push to `main` that touches the app (`.github/workflows/desktop.yml`) |
+| 🧪 **Pre-release** (alpha) | you | nightly at 02:30 UTC if anything the app bundles changed since the last release, or on demand: `gh workflow run desktop.yml` (always builds). Not per push (`.github/workflows/desktop.yml`) |
 | ✅ **Stable** ("Latest" on GitHub) | friends' apps + the website's Download buttons | you promote one pre-release: `tools/release-stable.sh` |
 
 Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); each build gets the next number
