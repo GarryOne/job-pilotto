@@ -59,7 +59,6 @@ import * as learnedAnswers from './lib/learned.js';
 import * as misses from './lib/misses.js';
 import * as controlEvents from './lib/control-events.js';
 import * as recipeLibrary from './lib/recipes.js';
-import * as extensionPack from './lib/extension-pack.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -1387,16 +1386,14 @@ function handlers() {
     if (app.getApplicationNameForProtocol('notion://')) return shell.openExternal(url.replace(/^https:\/\//, 'notion://'));
     return shell.openExternal(url);
   });
-  ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? extensionFolder() : storage.dir));
+  ipcMain.handle('showFolder', (_, name) => shell.openPath(name === 'extension' ? path.join(pipeline.REPO, 'extension') : storage.dir));
   ipcMain.handle('extensionInfo', () => ({url: `http://127.0.0.1:${server.PORT}`, token: server.extensionToken(storage)}));
   // A windowless Chrome left behind by an automation holds macOS's one Apple Event connection to Chrome, so this app
   // cannot reach the user's own window. Reported so the card can offer to quit it; only ever an orphaned one
   // (lib/background-chrome.js), never a running automation's.
   ipcMain.handle('strayChrome', () => backgroundChrome.stray());
   ipcMain.handle('quitStrayChrome', (_, pid) => backgroundChrome.quit(Number(pid)));
-  // The extension: the copy downloaded from the site (lib/extension-pack.js) when there is one, else the one in the app's files.
-  const extensionFolder = () => (extensionPack.status(storage).present ? extensionPack.folder(storage) : path.join(pipeline.REPO, 'extension'));
-  server.setExtensionDir(extensionFolder);
+  const extensionFolder = () => path.join(pipeline.REPO, 'extension');
   // The Chrome extension from the browsers' own records: is it installed, is it on, is that browser up, and which
   // copy is loaded. A file read answers in milliseconds — Settings no longer shows "Checking…" for a minute and then
   // calls it "not connected" (1 Oct 2026).
@@ -1597,13 +1594,6 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
-  // The extension comes from the site (lib/extension-pack.js): checked shortly after start and every 6 hours; a newer one lands in the
-  // data folder and the loaded extension reloads itself. Offline, or a closed trial, leaves what is installed.
-  if (!DEMO && !process.env.JOB_PILOTTO_SMOKE) {
-    const syncExtension = () => extensionPack.sync(storage).then(result => { if (result.updated) toWindow('extension-updated', {version: result.version}); }).catch(() => {});
-    setTimeout(syncExtension, 8000).unref?.();
-    setInterval(syncExtension, 6 * 3600 * 1000).unref?.();
-  }
   const recipeReporter = recipeLibrary.createReporter(storage);
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with

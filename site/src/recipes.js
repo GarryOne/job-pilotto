@@ -62,12 +62,12 @@ export async function recipes(request, env, now = new Date()) {
 
 // ---- access: a token per install, and lookups by fingerprint ----
 const MINTS_PER_ADDRESS_PER_DAY = 10, LOOKUPS_PER_INSTALL_PER_DAY = 2000, MAX_LOOKUP = 30;
-export async function tokenFor(install, env) {
+async function tokenFor(install, env) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STATS_SALT || env.STATS_KEY || 'dev'), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`recipes:${install}`)));
   return [...sig.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
-export const equal = (a, b) => { if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; };
+const equal = (a, b) => { if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; };
 
 // POST /api/install-token {install}: the app's token. New tokens are limited per network address, so minting installs to
 // raise the lookup quota is slow; the quota is per install.
