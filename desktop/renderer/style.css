@@ -1802,6 +1802,8 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 
 /* Interview library: the Job column (company, then the role). */
 .iv-job { min-width: 180px; max-width: 260px; }
+/* A button's text is centred by default: a job name that wraps (no company, a long title) lined up in the middle of its cell. */
+.iv-who button.link { text-align: left; }
 
 /* The AI engine chooser (pages/ai-engine.js): wizard AI step and Settings → Connections → AI. */
 .engine { display: flex; flex-direction: column; gap: var(--sp-4); }
