@@ -1,10 +1,11 @@
 // Label meanings served to installs (format extension/alias-schema.js; plan in Notion "Knowledge as data: build plan").
 //   GET  /api/packs/aliases   an install with a token: the aliases running for it (canary share by install bucket, then everyone).
-//   GET  /api/aliases         the owner: all of them (?status=candidate) and the questions still without a meaning (?targets=1).
-//   PUT  /api/aliases         the owner (the private proposer): add or change aliases. Sensitive fields (birth date, address ...)
+//   GET  /api/aliases         the owner: all of them (?status=candidate), the questions still without a meaning (?targets=1) and the button
+//                             texts of pages where no Apply button was recognised (?targets=buttons).
+//   PUT  /api/aliases         the owner (the private proposer): add or change aliases, or record {reviewed: [{label}]} wordings that mean nothing. Sensitive fields (birth date, address ...)
 //                             only go live when the owner passes approved: true.
 // evaluateAliases (daily) grows a canary that works and halts one that fails, like the recipes' canary; sensitive ones are only ever halted.
-import {KEYS, SENSITIVE, aliasKey, validateAlias} from '../../extension/alias-schema.js';
+import {BUTTON_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias} from '../../extension/alias-schema.js';
 import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, flag} from './guard.js';
 import {report} from './knowledge.js';
@@ -12,6 +13,7 @@ import {allowed} from './stats.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];
+const REVIEW_DAYS = 30;
 const PER_INSTALL_PER_DAY = 24, MIN_FAIL_CHECK = 20, HALT_ABOVE = 0.25, MIN_PROMOTE = 50, PROMOTE_BELOW = 0.05;
 const day = date => date.toISOString().slice(0, 10);
 const json = (body, status = 200) => Response.json(body, {status, headers: {'Cache-Control': 'private, no-store'}});
@@ -46,11 +48,16 @@ export async function aliases(request, env, now = new Date()) {
   const url = new URL(request.url);
   if (request.method === 'GET') {
     const all = (await env.STATS.prepare('SELECT key, phrase, status, rollout, source, note FROM aliases ORDER BY phrase').all()).results || [];
-    if (url.searchParams.get('targets') === '1') {
-      // Questions several installs report that no alias placed yet and that were not refused before.
+    const mode = url.searchParams.get('targets');
+    if (mode === '1' || mode === 'buttons') {
+      // Wordings several installs report that no alias places yet and that were not looked at lately: questions, or button texts of pages where no Apply button was found.
       const known = all.map(row => ({key: row.key, phrase: row.phrase}));
-      const questions = (await report(env.STATS, 30, now, 200)).questions.filter(row => !aliasKey(row.label, known));
-      return json({ok: true, targets: questions.slice(0, 50), keys: KEYS, sensitive: SENSITIVE});
+      const since = day(new Date(now.getTime() - REVIEW_DAYS * 86400000));
+      const reviewed = new Set(((await env.STATS.prepare('SELECT label FROM label_reviews WHERE day >= ?').bind(since).all().catch(() => ({results: []}))).results || []).map(row => row.label));
+      const wanted = mode === 'buttons';
+      const rows = (await report(env.STATS, 30, now, 400)).questions.filter(row => (row.kind === 'button') === wanted && !reviewed.has(row.label)
+        && (wanted ? !known.some(item => item.key === 'apply_button' && item.phrase === row.label) : !aliasKey(row.label, known)));
+      return json({ok: true, targets: rows.slice(0, 50), keys: wanted ? BUTTON_KEYS : KEYS, sensitive: SENSITIVE});
     }
     const wanted = url.searchParams.get('status');
     return json({ok: true, aliases: STATUSES.includes(wanted) ? all.filter(row => row.status === wanted) : all});
@@ -59,6 +66,10 @@ export async function aliases(request, env, now = new Date()) {
   const body = await request.json().catch(() => ({}));
   const status = STATUSES.includes(body.status) ? body.status : 'candidate';
   const rollout = status === 'verified' ? 100 : status === 'canary' ? Math.max(1, Math.min(100, Math.round(Number(body.rollout)) || STEPS[0])) : 0;
+  for (const item of (Array.isArray(body.reviewed) ? body.reviewed : []).slice(0, 100)) {
+    const label = cleanLabel(item?.label);
+    if (label) await env.STATS.prepare('INSERT OR REPLACE INTO label_reviews (label, verdict, day) VALUES (?, ?, ?)').bind(label, 'none', day(now)).run();
+  }
   const stored = [], refused = [];
   for (const item of (Array.isArray(body.items) ? body.items : []).slice(0, 100)) {
     const checked = validateAlias(item);

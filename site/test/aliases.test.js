@@ -78,3 +78,19 @@ test('how aliases fared is counted, and the canary grows what works, halts what 
   const status = Object.fromEntries(e.STATS.db.prepare('SELECT phrase, status, rollout FROM aliases').all().map(r => [r.phrase, `${r.status} ${r.rollout}`]));
   assert.deepEqual(status, {courriel: 'canary 25', 'ville de résidence': 'disabled 0', 'jour de naissance': 'canary 5'});
 });
+
+test('button texts of pages with no known Apply button are targets of their own; reviewed wordings rest; a button alias must look like an apply button', async () => {
+  const e = {...env(), STATS: (() => { const x = d1(); x.db.exec(readFileSync(new URL('../migrations/0011_label_reviews.sql', import.meta.url), 'utf8')); return x; })()};
+  const send = (install, label, kind) => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install, questions: [{label, kind, board: 'h:0123456789'}]})}), e, now);
+  for (const install of ['install-aaaa-1111', 'install-bbbb-2222', 'install-cccc-3333']) { await send(install, 'Bewerbung starten', 'button'); await send(install, 'Search jobs', 'button'); await send(install, 'Ort der Herkunft', 'text'); }
+  const buttons = await (await owner(e, 'GET', undefined, '?targets=buttons')).json();
+  assert.deepEqual(buttons.targets.map(t => t.label).sort(), ['bewerbung starten', 'search jobs']);
+  assert.deepEqual((await (await owner(e, 'GET', undefined, '?targets=1')).json()).targets.map(t => t.label), ['ort der herkunft']);   // questions only
+  const stored = await (await owner(e, 'PUT', {reviewed: [{label: 'Search jobs'}, {label: 'Ort der Herkunft'}], items: [{key: 'apply_button', phrase: 'Bewerbung starten'}, {key: 'apply_button', phrase: 'Sign in to apply'}, {key: 'apply_button', phrase: 'sehr lange bewerbung jetzt hier starten'}]})).json();
+  assert.deepEqual([stored.stored, stored.refused], [1, ['not a start-applying button', 'too long for a button']]);
+  assert.deepEqual((await (await owner(e, 'GET', undefined, '?targets=buttons')).json()).targets.map(t => t.label), []);   // placed, or reviewed
+  assert.deepEqual((await (await owner(e, 'GET', undefined, '?targets=1')).json()).targets.map(t => t.label), []);          // reviewed
+  // A button alias is served to installs like any other, and never mistaken for a profile field by the filler's matcher.
+  await owner(e, 'PUT', {status: 'verified', items: [{key: 'apply_button', phrase: 'Bewerbung starten'}]});
+  assert.ok((await (await serve(e, 'install-alias-0009')).json()).aliases.some(a => a.key === 'apply_button' && a.phrase === 'bewerbung starten'));
+});

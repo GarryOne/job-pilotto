@@ -119,9 +119,28 @@ function applyCandidates(tabId) {
       disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true', href: el.getAttribute('href') || ''};
   }), args: [PAGE_BUTTONS]}).then(rows => rows?.[0]?.result || []).catch(() => []);
 }
-async function pressApply(tabId) {
-  const pick = pickApplyButton(await applyCandidates(tabId));
-  if (!pick) return null;
+// The start-applying phrases the service has learned (extension/alias-schema.js, key apply_button), asked of the app which asks the site and
+// remembers: added to the built-in words, never replacing them. None, and the built-in words work alone.
+let phrasesAt = 0, phrasesKept = [];
+async function applyPhrases() {
+  if (Date.now() - phrasesAt < 5 * 60 * 1000) return phrasesKept;
+  try {
+    const found = await api(await settings(), '/extension/aliases', {method: 'POST', body: '{}'});
+    phrasesKept = (Array.isArray(found?.aliases) ? found.aliases : []).filter(item => item && item.key === 'apply_button').slice(0, 500);
+    phrasesAt = Date.now();
+  } catch { /* the built-in words are enough */ }
+  return phrasesKept;
+}
+// -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
+// when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
+async function pressApply(tabId, phrases = []) {
+  const candidates = await applyCandidates(tabId);
+  const pick = pickApplyButton(candidates, phrases);
+  if (!pick) {
+    const seen = [...new Set(candidates.filter(item => item.visible && !item.disabled).sort((a, b) => b.area - a.area).map(item => String(item.text || '').replace(/\s+/g, ' ').trim())
+      .filter(text => text && text.length <= 40))].slice(0, 25);
+    return {pressed: null, via: '', buttons: seen};
+  }
   const done = await chrome.scripting.executeScript({target: {tabId}, func: (selector, index) => {
     const el = document.querySelectorAll(selector)[index];
     if (!el) return false;
@@ -129,7 +148,7 @@ async function pressApply(tabId) {
     el.click();
     return true;
   }, args: [PAGE_BUTTONS, pick.index]}).then(rows => !!rows?.[0]?.result).catch(() => false);
-  return done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null;
+  return {pressed: done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null, via: done ? pick.viaPhrase || '' : '', buttons: []};
 }
 // After the press: the form shows up on this page (a single-page site), or the tab goes to another page (its own load runs the
 // whole decision again). null when neither happens in time.
@@ -166,14 +185,17 @@ async function consider(tab, jobUrl) {
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
-  let pressed = false;
+  let pressed = false, buttonsSeen = [];
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
-    const label = await pressApply(tab.id);
+    const attempt = await pressApply(tab.id, await applyPhrases());
+    const label = attempt.pressed;
+    buttonsSeen = attempt.buttons;
     if (label) {
       pressed = true;
       decide('fill', 'pressed the Apply button', {host, label});
       const after = await formAfterPress(tab.id, tab.url);
+      if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
       if (after) role = 'form';
     }
@@ -182,7 +204,7 @@ async function consider(tab, jobUrl) {
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
     stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form');   // tier 3: the app offers Apply with Claude
-    reportFlow(tab, {role, pressed});
+    reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }
   await writeState(tab.id, {state: 'running'});
@@ -366,13 +388,13 @@ function reportControls(config, tab, operated, trace) {
   api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse})}).catch(() => {});
 }
 // Where an application got to on this page (a form, a page with no form, an account wall): counted per board, nothing else.
-async function reportFlow(tab, flow) {
+async function reportFlow(tab, flow, extra = {}) {
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
     let host = '';
     try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-    await api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: [], flow})});
+    await api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: [], ...(flow ? {flow} : {}), ...extra})});
   } catch { /* the app is closed */ }
 }
 const NO_ANSWER = 'no answer in the kit, Profile or your details';

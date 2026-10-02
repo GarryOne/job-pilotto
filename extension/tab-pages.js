@@ -5,6 +5,8 @@
 //
 // Kept free of chrome.* so the decisions can be tested (like report-alarm.js): the callers pass URLs.
 
+import {buttonPhrase} from './alias-schema.js';
+
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
 
 // The panel and the fill run only on a tab the desktop app opened (#jobpilotto-fill) or has already armed.
@@ -32,14 +34,16 @@ export const neverForm = url => {
 // → the candidate, or null. Tested in desktop/test/extension-tab-pages.test.js.
 const APPLY_PHRASE = /^(apply( now| here| online| today)?( for (this|the) (job|role|position|opening))?|apply to this (job|role|position)|i['\u2019]?m interested|start (your |the )?application|jetzt bewerben|online bewerben|bewerben|zur bewerbung|bewerbung starten|postuler( maintenant| en ligne)?|candidater|postuler [a\u00e0] (ce|cette) (poste|offre)|candidati( ora)?|invia candidatura|inscribirme|aplicar( ahora)?)[\s!.\u2192>\u203a]*$/i;
 const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|save|share|alert|easy apply|apply with |already applied|follow|subscribe/i;
-export function pickApplyButton(candidates = []) {
+export function pickApplyButton(candidates = [], phrases = []) {
   let best = null, bestScore = -1;
   for (const item of candidates) {
     const text = String(item?.text || '').replace(/\s+/g, ' ').trim();
-    if (!item?.visible || item.disabled || !text || text.length > 40 || !APPLY_PHRASE.test(text) || NOT_APPLY.test(text)) continue;
+    // The built-in words, or a phrase the service learned (extension/alias-schema.js, validated against the same not-a-button list).
+    const learned = buttonPhrase(text, phrases);
+    if (!item?.visible || item.disabled || !text || text.length > 40 || !(APPLY_PHRASE.test(text) || learned) || NOT_APPLY.test(text)) continue;
     if (/^(mailto|tel|javascript):/i.test(String(item.href || ''))) continue;
     const score = 100 - text.length + (item.tag === 'button' ? 5 : 0) + Math.min(20, Math.log10(Math.max(1, Number(item.area) || 1)) * 4);
-    if (score > bestScore) { best = item; bestScore = score; }
+    if (score > bestScore) { best = learned && !APPLY_PHRASE.test(text) ? {...item, viaPhrase: learned} : item; bestScore = score; }
   }
   return best;
 }

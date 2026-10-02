@@ -182,3 +182,16 @@ test('a fill that used shared fixes says so: only controls that worked with a re
   assert.equal(sharedFixNote(sharedFixes([{kind: 'date', recipe: 0, ok: true}])), '');   // nothing from the service: nothing said
   assert.deepEqual(sharedFixes(undefined), {count: 0, kinds: []});
 });
+
+test('a start-applying phrase learned by the service is added to the built-in words, and never beats the not-a-button rules', async () => {
+  const {pickApplyButton} = await import('../../extension/tab-pages.js');
+  const candidate = (text, extra = {}) => ({index: 0, text, tag: 'button', area: 5000, visible: true, disabled: false, href: '', ...extra});
+  const phrases = [{key: 'apply_button', phrase: 'ich möchte mich bewerben'}, {key: 'email', phrase: 'courriel'}, {key: 'apply_button', phrase: 'sign in'}];
+  assert.equal(pickApplyButton([candidate('Ich möchte mich bewerben')]), null);                                     // not a built-in word
+  assert.equal(pickApplyButton([candidate('Ich möchte mich bewerben *')], phrases)?.viaPhrase, 'ich möchte mich bewerben'); // learned, cleaned like the schema does
+  assert.equal(pickApplyButton([candidate('Apply now')], phrases)?.viaPhrase, undefined);                      // a built-in word: not credited to the service
+  assert.equal(pickApplyButton([candidate('Courriel')], phrases), null);                                       // a profile meaning is not a button phrase
+  assert.equal(pickApplyButton([candidate('Sign in')], phrases), null);                                        // the not-a-button list wins, even over a bad phrase
+  assert.equal(pickApplyButton([candidate('Ich möchte mich bewerben', {href: 'mailto:x@y.z'})], phrases), null);
+  assert.equal(pickApplyButton([candidate('Ich möchte mich bewerben', {visible: false})], phrases), null);
+});
