@@ -1910,8 +1910,18 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .callout.tone-warn { background: var(--warn-soft); color: var(--warn); }
 #jobs-unscored { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
 
-.mail-question { grid-column: 1 / -1; display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
-.mail-question-ask { display: flex; align-items: center; gap: var(--sp-2); padding-left: var(--sp-3); border-left: 2px solid var(--warn-line); }
-.mail-question-mark { font-weight: 700; color: var(--warn); }
-.mail-question-answer { display: flex; align-items: center; gap: var(--sp-2); padding-left: var(--sp-3); border-left: 2px solid var(--line); color: var(--ink-2); font-weight: 600; }
+.mail-question { grid-column: 1 / -1; display: grid; gap: var(--sp-2); justify-items: start; margin-top: var(--sp-2); padding: var(--sp-4);
+  border: 1px solid var(--warn-line); border-radius: var(--r-md); background: var(--warn-soft); }
+.mail-question.is-answered { border-color: var(--good-soft); background: var(--good-soft); }
+.mail-question-head { display: flex; align-items: center; gap: var(--sp-2); }
+.mail-question.is-answered .mail-question-head { color: var(--good); font-size: var(--fs-sm); }
+.mail-question p { margin: 0; }
+.mail-question-text { color: var(--ink-2); }
+.mail-question-answer { font-weight: 700; color: var(--ink); }
+.mail-question-go svg { margin-left: var(--sp-1); }
+.mail-question-original { color: var(--muted); font-size: var(--fs-sm); }
+.mail-question-original summary { cursor: pointer; }
+.mail-changed-line { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.mail-changed-line svg { flex: none; margin-top: 3px; }
+.mail-changed-sub { margin: 0; padding-left: calc(16px + var(--sp-2)); color: var(--muted); }
 .mail-changed-sentence { margin: 0; }

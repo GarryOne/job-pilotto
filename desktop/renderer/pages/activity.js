@@ -17,7 +17,6 @@ import {answer} from './actions.js';
 import {$, aiReady, show} from './core.js';
 import {fullKey, loadJobs, renderJobs, showJobsIn} from './jobs.js';
 import {lastAnswered, lastQuestions, loadFocus, pendingMailQuestions} from './focus.js';
-import {moveEmail, whichJob} from './reassign.js';
 import {openView} from './nav.js';
 import {renderSessionPage} from './session-log.js';
 import {renderActionsPage} from './runs-page.js';
@@ -651,11 +650,15 @@ function mailSections(box, report, pending = [], answered = null) {
       const ask = /\s+—\s+which job\?$/.exec(update.job);
       const sentence = el('p', 'mail-changed-sentence');
       if (ask) {
-        // Not sure which job: the check wrote a question for you (Focus) and moved nothing.
+        // Not sure which job: the check wrote a question for you (Focus) and moved nothing, until you answer.
         const company = update.job.slice(0, ask.index);
         const state = questions.find(question => question.email.by === company) || {};
-        sentence.append('Not sure which job ', el('b', '', company), ' is about. Asked you; nothing was moved.');
-        row.append(sentence, pill(state.open ? 'Waiting for you' : 'Answered in Focus', state.open ? 'warn' : 'good'));
+        const line = el('div', 'mail-changed-line');
+        line.append(icon(state.answered ? 'check-circle' : 'help'), el('span', '', state.answered
+          ? `${company} role confirmed: ${state.job ? state.role : 'not about a job'}.`
+          : `${company} needs clarification. We couldn't match the email to a job.`));
+        row.append(line);
+        if (!state.answered) row.append(el('p', 'mail-changed-sub', '1 question awaiting your answer in Focus'));
       } else {
         if (update.summary) sentence.append(el('b', '', update.summary), '. Mapped to ');
         sentence.append(el('b', 'mail-changed-job', update.job), update.summary ? '.' : '');
@@ -679,9 +682,10 @@ function mailSections(box, report, pending = [], answered = null) {
       words.append(el('span', 'mail-read-meta', [email.sender, email.time].filter(Boolean).join(' · ')));
       row.append(words);
       const acted = email.by && email.by !== email.action;
-      row.append(pill(email.action, email.action === 'recorded' ? 'good' : NEEDS_YOU.has(email.action) ? 'warn' : 'neutral'));
+      const asked = NEEDS_YOU.has(email.action) ? questionState(email, pending, answered) : null;
+      row.append(asked?.answered ? pill('confirmed by you', 'good') : pill(email.action, email.action === 'recorded' ? 'good' : asked ? 'warn' : 'neutral'));
       if (acted) row.append(el('span', 'mail-read-by', email.by));
-      if (NEEDS_YOU.has(email.action)) row.append(questionBlock(questionState(email, pending, answered)));
+      if (asked) row.append(questionBlock(asked));
       rows.append(row);
     }
     section.append(rows);
@@ -700,34 +704,32 @@ function questionState(email, pending, answered) {
   const open = key && pending.find(item => subjectKey(item.subject) === key);
   if (open) return {open};
   const done = key && (answered || []).find(item => subjectKey(item.subject) === key);
-  if (done) return {answer: done.job ? `You answered: ${done.job}` : 'You said: not about a job'};
-  return answered ? {answer: 'Answered in Focus'} : {};
+  if (done) return {answered: true, job: done.job, role: done.job.split(/\s+—\s+/).slice(1).join(' — ') || done.job};
+  return answered ? {answered: true, job: ''} : {};   // Focus read, no record of it: answered before the app kept the job
 }
+// Before answering: one warm panel with the question and the way to Focus. After: a green panel with the answer, and the
+// original question kept one click away.
+const QUESTION = 'Which job is this email about?';
+const QUESTION_WHY = "The check couldn't tell which job this is about, so it moved nothing. Your answer places the email.";
 function questionBlock(state) {
-  const {open, answer} = state;
-  const block = el('div', 'mail-question');
-  const ask = el('div', 'mail-question-ask');
-  ask.append(el('span', 'mail-question-mark', '?'), el('span', '', open?.title || 'Which job is this email about?'));
-  block.append(ask);
-  if (!open) {
-    const done = el('div', 'mail-question-answer');
-    done.append(icon('check-circle'), el('span', '', answer || 'Waiting for your answer in Focus'));
-    block.append(done);
+  const block = el('div', state.answered ? 'mail-question is-answered' : 'mail-question');
+  const head = el('div', 'mail-question-head');
+  if (!state.answered) {
+    head.append(icon('help'), el('b', '', state.open?.title || QUESTION));
+    block.append(head, el('p', 'mail-question-text', QUESTION_WHY));
+    const go = el('button', 'primary mail-question-go', 'Answer in Focus ');
+    go.type = 'button';
+    go.append(icon('external'));
+    go.addEventListener('click', () => openView('focus'));
+    block.append(go);
     return block;
   }
-  const actions = el('div', 'mail-confirm-actions');
-  const press = (label, tone, run) => {
-    const button = el('button', tone, label);
-    button.type = 'button';
-    button.addEventListener('click', run);
-    return button;
-  };
-  if (open.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
-    event.currentTarget.disabled = true;
-    await moveEmail(open.event_id, open.suggested_url, open);
-  }));
-  actions.append(press(open.suggested_url ? 'Other job…' : 'Pick the job', open.suggested_url ? 'secondary' : 'primary', () => whichJob(open)));
-  block.append(actions);
+  head.append(icon('check-circle'), el('b', '', 'Answered by you'));
+  block.append(head, el('p', 'mail-question-answer', state.job ? state.role : 'Not about a job, or the job was not recorded'),
+    el('p', 'mail-question-text', state.job ? 'Role confirmed for this email.' : 'Nothing was moved for this email.'));
+  const original = el('details', 'mail-question-original');
+  original.append(el('summary', '', 'Original question'), el('p', '', `${QUESTION} ${QUESTION_WHY}`));
+  block.append(original);
   return block;
 }
 function renderMailCard(report, pending = [], answered = null) {
