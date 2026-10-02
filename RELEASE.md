@@ -22,6 +22,9 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
    tools/release-stable.sh                              # the newest build
    tools/release-stable.sh desktop-v0.4.0-alpha.42      # a specific one
    ```
+   It also refuses to promote while the **end-to-end journey is red, missing or over two days old** (`.github/workflows/e2e.yml`:
+   a new user through the wizard, a jobs check and the scores, on a real Mac, about 3 minutes; run it with
+   `gh workflow run e2e.yml`). `SKIP_E2E=1 tools/release-stable.sh` overrides it for a hotfix while the journey itself is broken.
    It refuses a build whose Windows installer isn't there yet — but that guard is weaker than it looks, and the
    release it promotes is the one `/releases/latest` (what `desktop/lib/updater.js` reads) points at:
    - `desktop.yml`'s Mac-only fallback copies the **generic** `Job-Pilotto-windows-x64.exe` from the last good release

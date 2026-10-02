@@ -22,5 +22,25 @@ failed and the previous release's installer was carried over. Promote a build wh
 [ "$own" = "$generic" ] || { echo "$tag's Windows installer is not the one its build made: Job-Pilotto-${version}-x64.exe
 is ${own} bytes, Job-Pilotto-windows-x64.exe is ${generic}. Promote a build whose Windows job passed." >&2; exit 1; }
 
+# The end-to-end journey (.github/workflows/e2e.yml: a new user through the wizard, a jobs check and the scores, on a real Mac) must be green.
+# Its run for this build's commit if there is one, else the latest run on main; a run older than two days no longer vouches for anything.
+# SKIP_E2E=1 promotes anyway (a hotfix while the journey itself is broken): say why in the release notes.
+if [ "${SKIP_E2E:-0}" != 1 ]; then
+  sha=$(gh api "repos/$repo/commits/$tag" -q .sha)
+  runs=$(gh run list -R "$repo" --workflow=e2e.yml --branch main --status completed -L 15 --json conclusion,headSha,createdAt)
+  verdict=$(printf '%s' "$runs" | jq -r --arg sha "$sha" '
+    (map(select(.headSha == $sha))[0] // .[0]) as $run
+    | if $run == null then "none"
+      elif $run.conclusion != "success" then "red \($run.headSha[0:7])"
+      elif (now - ($run.createdAt | fromdateiso8601)) > 172800 then "stale"
+      else "green" end')
+  case "$verdict" in
+    green) echo "End-to-end journey: green." ;;
+    none) echo "No finished end-to-end run on main yet. Run it: gh workflow run e2e.yml -R $repo (about 3 minutes), then promote. SKIP_E2E=1 overrides." >&2; exit 1 ;;
+    stale) echo "The last green end-to-end run is over two days old. Run it again: gh workflow run e2e.yml -R $repo. SKIP_E2E=1 overrides." >&2; exit 1 ;;
+    red*) echo "The end-to-end journey is RED (${verdict#red }): a new user would not get through the app. Fix it, or SKIP_E2E=1 to promote anyway." >&2; exit 1 ;;
+  esac
+fi
+
 gh release edit "$tag" -R "$repo" --prerelease=false --latest
 echo "Stable: $tag (friends' apps offer it within 10 minutes, or at their next start)"
