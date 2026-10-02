@@ -19,6 +19,33 @@ class CanonicalStoreTests(unittest.TestCase):
                 job_store.set_application_status(db, row['id'], 'saved')
                 self.assertEqual(job_store.digest_jobs(db)[0]['application_status'], 'saved')
 
+    def test_the_same_posting_under_tracking_parameters_is_one_job(self):
+        # Found by the golden-postings e2e (2 Oct 2026): a feed listing one posting twice, the second with ?utm_source=..., made two jobs, two scores, two Notion rows.
+        base = {'company': 'Example', 'title': 'Senior SRE', 'location': 'Zurich'}
+        report = {'jobs': [{**base, 'id': '1', 'url': 'https://example.test/job/1'},
+                           {**base, 'id': '2', 'url': 'https://example.test/job/1?utm_source=linkedin&utm_medium=social'},
+                           {**base, 'id': '3', 'url': 'https://EXAMPLE.test/job/1/'}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                self.assertEqual(job_store.import_watch_report(db, report), ['new', 'seen', 'seen'])
+                self.assertEqual(len(job_store.digest_jobs(db)), 1)
+                # Two real postings that differ in a parameter that identifies them stay two.
+                other = {'jobs': [{**base, 'id': '4', 'url': 'https://example.test/job?gh_jid=4'}, {**base, 'id': '5', 'url': 'https://example.test/job?gh_jid=5'}]}
+                job_store.import_watch_report(db, other)
+                self.assertEqual(len(job_store.digest_jobs(db)), 3)
+
+    def test_a_job_stored_under_its_raw_url_is_found_again_not_duplicated(self):
+        # Databases made before the key was normalized hold "url:<raw url>": the next crawl must adopt that row, not add a second one.
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                job_store.import_watch_report(db, {'jobs': [{'company': 'Example', 'id': '1', 'title': 'SRE', 'url': 'https://example.test/job/1'}]})
+                db.execute("UPDATE jobs SET canonical_key=?", ('url:https://example.test/job/1/?utm_source=old',))   # the raw form the old code stored
+                db.commit()
+                status = job_store.import_watch_report(db, {'jobs': [{'company': 'Example', 'id': '1', 'title': 'SRE', 'url': 'https://example.test/job/1/?utm_source=old'}]})
+                self.assertEqual(status, ['seen'])
+                self.assertEqual(len(job_store.digest_jobs(db)), 1)
+                self.assertEqual(db.execute('SELECT canonical_key FROM jobs').fetchone()[0], 'url:https://example.test/job/1')
+
     def test_applied_elsewhere_joins_the_jobs_list_as_applied(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

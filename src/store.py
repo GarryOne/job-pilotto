@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sqlite3
 
+from .notion.dedupe import normalize_url
 from .sources.feeds import excluded_title
 
 
@@ -99,8 +100,14 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
     db.execute("UPDATE companies SET updated_at=? WHERE id=?", (now, company_id))
     # Prefer the canonical application URL so the same job discovered through
     # a board and an employer feed can converge to one record.
-    key = f"url:{item.get('url')}" if item.get('url') else f"{source_name}:{item.get('id')}"
-    existing = db.execute("SELECT id, first_seen_at FROM jobs WHERE canonical_key=?", (key,)).fetchone()
+    # The same posting listed twice (tracking parameters, a trailing slash, the host's case) is one job: the key is the normalized URL, the same rule that
+    # keeps one Notion row per job. A row stored by an older version under its raw URL is found by that key and moved to the normalized one.
+    raw_key = f"url:{item.get('url')}" if item.get('url') else None
+    key = f"url:{normalize_url(item.get('url'))}" if item.get('url') else f"{source_name}:{item.get('id')}"
+    existing = db.execute("SELECT id, first_seen_at, canonical_key FROM jobs WHERE canonical_key IN (?, ?) ORDER BY canonical_key=? DESC",
+                          (key, raw_key or key, key)).fetchone()
+    if existing and existing['canonical_key'] != key:
+        db.execute("UPDATE jobs SET canonical_key=? WHERE id=?", (key, existing['id']))
     fields = (source_id, company_id, item.get('title', 'Untitled'), item.get('url', ''),
               item.get('location', ''), item.get('city', ''), item.get('work_mode', ''), now, now,
               item.get('classification'), item.get('confidence'),
@@ -128,7 +135,7 @@ def upsert_job(db, item, source_name, source_url='', source_kind='job board', no
 def track_applied(db, url, meta, now=None):
     """A job applied to outside Job Pilotto (/add, the app's Applied elsewhere), in the jobs list as Applied.
     A job a search already found keeps its crawled details; only its status changes. Returns the job id."""
-    row = db.execute("SELECT id FROM jobs WHERE canonical_key=? OR url=?", (f'url:{url}', url)).fetchone()
+    row = db.execute("SELECT id FROM jobs WHERE canonical_key IN (?, ?) OR url=?", (f'url:{normalize_url(url)}', f'url:{url}', url)).fetchone()
     if row:
         job_id = row['id']
     else:
