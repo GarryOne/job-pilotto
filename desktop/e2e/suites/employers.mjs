@@ -44,7 +44,9 @@ print(json.dumps({'candidates': rows('select name, status, ats, slug, quality fr
   return JSON.parse(out.toString());
 }
 
-// Click "Find new employers" on the Actions page and wait until the app shows no task running. -> the scout runs the app lists (newest first).
+const scoutStarts = ctx => fs.readFileSync(path.join(ctx.profile, 'logs', 'app.log'), 'utf8').split('\n').filter(line => /\[run\] start: python -m src scout /.test(line)).length;
+
+// Click "Find new employers" on the Actions page and wait until the app shows no task running. -> the scout runs the app lists for it (newest first).
 async function findEmployers(ctx) {
   const {page} = ctx;
   const scouts = () => page.evaluate(async () => {
@@ -52,7 +54,12 @@ async function findEmployers(ctx) {
     return {running: !!data.running || (data.queued || []).length > 0,
       runs: (data.runs || []).filter(item => item.kind === 'scout').map(item => ({ok: item.ok, trigger: item.trigger, result: item.result || item.summary || ''}))};
   });
-  const before = (await scouts()).runs.length;
+  // A fresh install starts its own catch-up checks (Gmail) a few seconds after launch: begin when the app has been quiet for a while, so only this click is counted.
+  for (let quietSince = Date.now(); Date.now() - quietSince < 25000;) {
+    if ((await scouts()).running) quietSince = Date.now();
+    await page.waitForTimeout(2000);
+  }
+  const before = (await scouts()).runs.length, startsBefore = scoutStarts(ctx);
   await page.click('.nav[data-view="actions"]');
   await page.click('[data-command="scout"]');
   const started = Date.now();
@@ -66,6 +73,8 @@ async function findEmployers(ctx) {
   await page.waitForTimeout(6000);   // a second run that was only waiting its turn would start now
   now = await scouts();
   while (now.running && Date.now() - started < 240000) { await page.waitForTimeout(2000); now = await scouts(); }
+  const engineRuns = scoutStarts(ctx) - startsBefore;
+  if (engineRuns !== 1) throw new Error(`one click started ${engineRuns} Find new employers runs (the app's own log shows ${engineRuns} engine starts)`);
   return now.runs.slice(0, now.runs.length - before);
 }
 
@@ -99,7 +108,7 @@ export async function run(ctx) {
     console.log(`  runs started by one click: ${JSON.stringify(state.runs)}`);
     const failed = state.runs.filter(item => item.ok === false);
     if (failed.length) throw new Error(`the run failed: ${failed[0].result}`);
-    if (state.runs.length !== 1) throw new Error(`one click started ${state.runs.length} Find new employers runs (triggers: ${state.runs.map(item => item.trigger).join(', ')})`);
+    if (state.runs.length !== 1) throw new Error(`the app lists ${state.runs.length} Find new employers runs for one click: ${JSON.stringify(state.runs)}`);
     state.first = engineState(ctx);
   }, {needs: ctx.needs});
 
