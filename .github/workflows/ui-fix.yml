@@ -58,6 +58,7 @@ jobs:
         working-directory: desktop
         run: npm ci
       - name: Claude Code fixes the problem (files only)
+        id: claude
         if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         uses: anthropics/claude-code-action@v1
         with:
@@ -77,8 +78,17 @@ jobs:
           if-no-files-found: ignore
       - name: Check the change, run the tests, open the pull request
         if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         run: |
           set -euo pipefail
+          # Claude did not run (the API refused: no credit, a bad key, an outage): that says nothing about the finding. Nothing is labelled or closed (2 Oct 2026: a first run that
+          # failed on "Credit balance is too low" parked the issue as needs-human, "Claude made no change").
+          if [ "$CLAUDE_OUTCOME" != success ]; then
+            echo "The fixer could not run Claude (step outcome: $CLAUDE_OUTCOME): see this run's transcript artifact. Nothing was changed on the issue." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Claude Code did not run ($CLAUDE_OUTCOME); the issue is left as it is."
+            exit 1
+          fi
           # The labels the branches below use (a first run finds none).
           gh label create needs-human --repo "$REPO" --force --color D93F0B --description 'The UI loop could not fix this by itself'
           gh label create wontfix-auto --repo "$REPO" --force --color CCCCCC --description 'A false positive of the UI loop: never retried'
