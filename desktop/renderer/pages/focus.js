@@ -9,7 +9,7 @@ import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {openFeedback, saveFeedbackAction} from './feedback.js';
-import {openHappened} from './happened.js';
+import {dismissInterview, openHappened} from './happened.js';
 import {moveEmail, whichJob} from './reassign.js';
 import {openPrep} from './prep.js';
 import {prepCard} from '../prep-card.js';
@@ -217,7 +217,9 @@ function focusCard(item) {
   }});
   if (item.notion_url) more.push({icon: 'layers', label: 'Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.job_url)});
-  if (item.kind === 'which_job') more.push({label: 'Not about a job', run: () => moveEmail(item.event_id, 'none', item)});
+  if (item.kind === 'which_job') more.push({icon: 'close', label: 'Dismiss', run: () => moveEmail(item.event_id, 'none', item)});
+  if (item.kind === 'prepare' && item.page_id) more.push({icon: 'close', label: 'Dismiss interview',
+    run: () => dismissInterview(item, {onConfirmed: () => holdItem(item), onFail: () => releaseItem(item)})});
   if (prep && item.page_id) prep.more.forEach(entry => more.push({icon: entry.icon, label: entry.label, run: prepRun(entry.run)}));
   if (item.kind === 'apply') more.push({icon: 'target', label: 'Change the daily target', run: () => editTarget()});
   if (item.detail) more.push({icon: 'info', label: 'Details', run: () => toastMessage(item.headline || item.title, item.detail)});

@@ -4,6 +4,7 @@ import {el, pill} from '../components.js';
 import * as cal from '../calendar.js';
 import {shared} from './shared.js';
 import {$, savedAgo} from './core.js';
+import {dismissInterview} from './happened.js';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const KINDS = {screening: ['Screening', 'teal'], interview: ['Interview', 'info']};
@@ -24,11 +25,31 @@ function open(m) {
   if (url) window.pilot.openExternal(url);
 }
 
+// The small ✕ on a meeting that hasn't been held: give up on it (confirmation first). It leaves the calendar at once.
+function cross(m) {
+  if (m.held || !m.job || !cal.page(m.job)) return null;
+  const button = Object.assign(el('button', 'cal-cross', '×'), {type: 'button', title: 'Dismiss this interview'});
+  button.setAttribute('aria-label', `Dismiss the ${name(m)} interview`);
+  button.onclick = event => {
+    event.stopPropagation();
+    const before = m.job.next_interview;
+    dismissInterview({page_id: cal.page(m.job), company: m.company}, {
+      onConfirmed: () => { m.job.next_interview = ''; render(); },
+      onFail: () => { m.job.next_interview = before; render(); },
+      onDone: () => loadCalendar()});
+  };
+  return button;
+}
+
 function chip(m) {
   const button = el('button', `cal-chip kind-${m.kind}${m.held ? ' held' : ''}`, `${m.held ? '✓ ' : ''}${timeOf(m)} ${name(m)}`.trim());
   button.title = `${KINDS[m.kind][0]}${m.round ? ` · ${m.round}` : ''} · ${name(m)}${m.held ? ' (held)' : ''}`;
   button.onclick = () => open(m);
-  return button;
+  const x = cross(m);
+  if (!x) return button;
+  const wrap = el('span', 'cal-chip-wrap');
+  wrap.append(button, x);
+  return wrap;
 }
 
 function row(m) {
@@ -37,7 +58,11 @@ function row(m) {
     el('b', 'cal-who', name(m)), el('span', 'muted small', [m.title !== name(m) ? m.title : '', m.round].filter(Boolean).join(' · ')),
     pill(KINDS[m.kind][0], KINDS[m.kind][1]));
   line.onclick = () => open(m);
-  return line;
+  const x = cross(m);
+  if (!x) return line;
+  const wrap = el('div', 'cal-row-wrap');
+  wrap.append(line, x);
+  return wrap;
 }
 
 const skeletons = () => [0, 1, 2].map(() => { const box = el('div', 'cal-row'); box.append(el('span', 'skeleton w-40'), el('span', 'skeleton w-80')); return box; });

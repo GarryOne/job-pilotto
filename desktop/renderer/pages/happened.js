@@ -64,6 +64,21 @@ async function save() {
   return true;
 }
 
+// Give up on an interview (Up next ⋯, or the ✕ on a calendar event): after a confirmation, an "Interview cancelled" event
+// in Notion and the Next interview cleared; the job's stage stays. onConfirmed runs as soon as the user says yes, onDone once Notion has it, onFail if it refused.
+export async function dismissInterview({page_id, company, via}, {onConfirmed = () => {}, onDone = () => {}, onFail = () => {}} = {}) {
+  const name = company || via || 'this recruiter';
+  if (!confirm(`Dismiss the interview with ${name}?\n\nIt leaves Up next and the calendar and is logged as cancelled in Notion. The job itself stays as it is.`)) return false;
+  onConfirmed();   // the row leaves the list at once; Notion takes seconds
+  const result = await window.pilot.interviewHappened(page_id, 'cancelled', {}).catch(error => ({ok: false, error: error.message}));
+  if (!result.ok) { onFail(); toastMessage('Not saved', result.error || 'Notion could not save it. Try again.'); return false; }
+  toastMessage('Dismissed ✓', `${name}: the interview is logged as cancelled.`);
+  onDone();
+  loadFocus();
+  loadJobs();
+  return true;
+}
+
 export function init() {
   $('happened-at').addEventListener('focus', () => { document.querySelector('input[name="happened-why"][value="moved"]').checked = true; });
   $('happened-save').addEventListener('click', event => { event.preventDefault(); save(); });

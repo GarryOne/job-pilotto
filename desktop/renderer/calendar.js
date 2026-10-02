@@ -4,7 +4,7 @@
 // Next interview is the same meeting, so it is shown once, as held.
 const DAY = 86400000;
 const plain = id => String(id || '').replace(/-/g, '');
-const page = job => plain((job.notion_url || '').split('/').pop().split('-').pop());
+export const page = job => plain((job.notion_url || '').split('/').pop().split('-').pop());
 
 // 'screening' for a call at the Screening stage, or a recorded "Recruiter screen"; every other meeting is an 'interview'.
 export const kindOf = (stage, round = '') => (/screen/i.test(round) || (!round && /^screening$/i.test(stage || '')) ? 'screening' : 'interview');
