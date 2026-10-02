@@ -49,7 +49,7 @@ FAKE_GH = textwrap.dedent('''\
 
 
 class PromoteGuardTests(unittest.TestCase):
-    def promote(self, assets, e2e='green', skip=False, after='green', no_start=False):
+    def promote(self, assets, e2e='green', skip=False, after='green', no_start=False, extra=None):
         """Run the real script against these (name, size) assets, with a fake gh standing in for GitHub."""
         with tempfile.TemporaryDirectory() as folder:
             binary = Path(folder) / 'gh'
@@ -58,7 +58,7 @@ class PromoteGuardTests(unittest.TestCase):
             self.log = Path(folder) / 'gh.log'
             env = {**os.environ, 'PATH': f'{folder}{os.pathsep}{os.environ["PATH"]}', 'FAKE_LOG': str(self.log), 'FAKE_STARTED': str(Path(folder) / 'started'),
                    'FAKE_ASSETS': '\n'.join(f'{name}\t{size}' for name, size in assets), 'FAKE_E2E': e2e, 'FAKE_E2E_AFTER': after, 'E2E_POLL_SECONDS': '0',
-                   **({'SKIP_E2E': '1'} if skip else {}), **({'E2E_NO_START': '1'} if no_start else {})}
+                   **({'SKIP_E2E': '1'} if skip else {}), **({'E2E_NO_START': '1'} if no_start else {}), **(extra or {})}
             done = subprocess.run(['bash', str(SCRIPT), TAG], capture_output=True, text=True, env=env, timeout=60)
             self.calls = self.log.read_text() if self.log.exists() else ''
             return done
@@ -131,6 +131,25 @@ class PromoteGuardTests(unittest.TestCase):
     def test_skip_e2e_promotes_anyway_for_a_hotfix(self):
         done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='red', skip=True)
         self.assertEqual(done.returncode, 0, done.stderr)
+
+
+    def test_the_run_that_just_passed_is_its_own_proof(self):
+        # The promote job of e2e.yml runs after every suite passed: it does not look the run up (it is still in progress, and on the build's commit, not main's).
+        done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='red', extra={'E2E_ALREADY_GREEN': '1'})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn('Stable:', done.stdout)
+        self.assertEqual(self.calls, '', 'it asked GitHub for no run and started none')
+
+    def test_the_installer_check_still_applies_to_a_run_that_just_passed(self):
+        done = self.promote([(DMG, 1), (GENERIC, 2)], extra={'E2E_ALREADY_GREEN': '1'})
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('carries no installer of its own', done.stderr)
+
+    def test_a_dry_run_says_what_it_would_do_and_promotes_nothing(self):
+        done = self.promote([(OWN, 1), (GENERIC, 1)], extra={'E2E_ALREADY_GREEN': '1', 'DRY_RUN': '1'})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn('Dry run: would make', done.stdout)
+        self.assertNotIn('Stable:', done.stdout)
 
 
 if __name__ == '__main__':

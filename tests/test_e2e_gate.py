@@ -47,5 +47,18 @@ class VerdictTests(unittest.TestCase):
         self.assertEqual(e2e_gate.verdict([], SHA, 'latest', NOW), 'none')
 
 
+
+class CiVerdictTests(unittest.TestCase):
+    """The other half of the nightly gate: build.yml (the unit suites, the app's packaging checks) must be green on the build's commit too."""
+
+    def test_green_only_when_every_run_of_the_commit_succeeded(self):
+        self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'success'}, {'conclusion': 'success'}]), 'green')
+        self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'success'}, {'conclusion': 'failure'}]), 'red')
+        self.assertEqual(e2e_gate.ci_verdict([{'conclusion': 'cancelled'}]), 'red')
+
+    def test_no_run_is_not_green(self):
+        self.assertEqual(e2e_gate.ci_verdict([]), 'none')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -27,7 +27,11 @@ is ${own} bytes, Job-Pilotto-windows-x64.exe is ${generic}. Promote a build whos
 # it (about 15 minutes), then decides by its result. E2E_NO_START=1 (the daily canary auto-promote, which cannot start a run) never starts one and accepts the newest
 # run on main instead. SKIP_E2E=1 promotes anyway (a hotfix while the journey itself is broken): say why in the release notes.
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-if [ "${SKIP_E2E:-0}" != 1 ]; then
+# E2E_ALREADY_GREEN=1: the promote job of e2e.yml, which runs after every suite of the nightly run passed on this build's commit (that run is still in progress, so it
+# cannot be looked up; it is its own proof). DRY_RUN=1 prints what would happen and changes nothing.
+if [ "${E2E_ALREADY_GREEN:-0}" = 1 ]; then
+  echo "End-to-end journey: green (the run that is promoting it)."
+elif [ "${SKIP_E2E:-0}" != 1 ]; then
   sha=$(gh api "repos/$repo/commits/$tag" -q .sha)
   mode=commit; branch=(); [ "${E2E_NO_START:-0}" = 1 ] && { mode=latest; branch=(--branch main); }
   gate() { gh run list -R "$repo" --workflow=e2e.yml ${branch[@]+"${branch[@]}"} --status completed -L 30 --json conclusion,headSha,createdAt | python3 "$here/e2e_gate.py" "$sha" "$mode"; }
@@ -56,5 +60,6 @@ if [ "${SKIP_E2E:-0}" != 1 ]; then
   esac
 fi
 
+if [ "${DRY_RUN:-0}" = 1 ]; then echo "Dry run: would make $tag stable (its Windows installer is its own, the end-to-end gate holds)."; exit 0; fi
 gh release edit "$tag" -R "$repo" --prerelease=false --latest
 echo "Stable: $tag (friends' apps offer it within 10 minutes, or at their next start)"
