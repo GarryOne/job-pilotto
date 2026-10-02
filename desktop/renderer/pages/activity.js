@@ -297,11 +297,7 @@ export function renderActivity(fresh) {
       ? `Waiting · starts after ${run.after}`
       : [capital(outcome(run)), WHERE[run.where]].filter(Boolean).join(' · ')));
     if (byYou(run)) words.lastChild.prepend(tag('By you', {title: 'You started it (not a schedule)'}), ' ');
-    // No cost here: the list is for finding a run and seeing its state; the run's own AI cost is in the detail pane.
-    if (run.live && run.where !== 'github') {
-      const tail = shared.logLines.slice(-6);
-      if (tail.length) words.append(el('pre', 'run-live', tail.join('\n')));
-    }
+    // No cost and no live log here: the list is for finding a run and seeing its state; the log and the cost are in the detail pane.
     const when = el('span', 'run-time', run.live || run.waiting ? '' : runTime(run));
     if (run.live && run.where === 'github' && run.url) {
       const link = el('span', 'run-github', 'GitHub ↗');
@@ -389,7 +385,8 @@ export function renderActivity(fresh) {
   $('activity-status').replaceChildren(...(status ? [pill(...status)] : []));
   const checkedCount = lines.filter(line => /^Checked: /.test(line)).length;
   // What it found, without repeating the task's name ("Gmail check: 4 new emails…" → "4 new emails…").
-  const said = run && !run.live ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
+  const hasCard = !!(run && !run.live && run.message && parseRunMessage(run.message));  // its card says it better than the raw text
+  const said = run && !run.live && !hasCard ? capital(String(outcome(run)).replace(new RegExp(`^${kind?.name || ''}:\\s*`, 'i'), '')) : '';
   const seconds = run?.endedAt && run.startedAt ? Math.round((Date.parse(run.endedAt) - Date.parse(run.startedAt)) / 1000) : null;
   // A run that used no AI shows no cost: "$0" on every row was noise.
   const cost = run && !run.live && (billingLabel(run) || (run.usd > 0 && `AI $${run.usd < 0.01 ? run.usd.toFixed(3) : run.usd.toFixed(2)}`));
@@ -453,6 +450,7 @@ export function renderActivity(fresh) {
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
   else if (reading) renderCardSkeleton();
+  if (card) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || reading);
   const plain = !run?.live && !card && !mail && !insight && !weekly && !review && run?.message;
   $('activity-message').textContent = plain || '';

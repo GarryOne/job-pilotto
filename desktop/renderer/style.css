@@ -1380,12 +1380,14 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
    longer label from being clipped, at the cost of that one row's alignment. */
 .activity-panel .recent-row { grid-template-columns: 28px minmax(0, 1fr) minmax(62px, auto) minmax(100px, auto); gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
-  border: 0; border-top: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-md); }
+  border: 0; border-radius: var(--r-md); font-size: var(--fs-md);
+  /* The divider is a background line, not border-top: a top border on a rounded row curves into the corners (hairline arcs). */
+  background: linear-gradient(var(--line), var(--line)) center top / calc(100% - 2 * var(--sp-3)) 1px no-repeat; }
 /* A run's badge sits in the middle of its column, so "Completed" and "With warnings" (different widths) share one axis. */
 .activity-panel .recent-row > .ui-pill { justify-self: center; }
 /* The first row under a "Today"/"Earlier" label carries no line of its own (the label separates them). */
-.activity-panel .recent-group + li > .recent-row { border-top-color: transparent; }
-.activity-panel .recent-row.current { background: var(--info-soft); box-shadow: inset 0 0 0 1px var(--info-line); border-top-color: transparent; }
+.activity-panel .recent-group + li > .recent-row { background-image: none; }
+.activity-panel .recent-row.current { background: var(--info-soft); box-shadow: inset 0 0 0 1px var(--info-line); }
 .activity-panel .recent-row[data-state="warn"] .run-status { background: var(--warn-bright); }
 .activity-panel .recent-row[data-state="warn"] .run-status::after { content: '!'; }
 .activity-panel .run-status { width: 18px; height: 18px; font-size: var(--fs-xs); }
@@ -1396,8 +1398,6 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .activity-panel .run-what { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-panel .run-github { color: var(--signal); font-weight: 600; font-size: var(--fs-sm); cursor: pointer; }
 .activity-panel .run-github:hover { text-decoration: underline; }
-.activity-panel .run-live { margin: 2px 0 0; max-height: 5.6em; overflow: auto; white-space: pre-wrap;
-  font: var(--fs-xs)/1.4 var(--font-mono); color: var(--muted); }
 /* The time is its own column ("18:06"; "Tue 12:59" for anything before today), before the status pill. */
 .activity-panel .run-time { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .activity-panel .ap-all { align-self: center; margin-top: var(--sp-3); }
@@ -1721,7 +1721,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* Recent activity: each run's AI cost, right-aligned before its status. */
 /* No per-run cost in the list: the detail pane carries it (the run's own line). The badge's place in its column is
    the panel's own rule above (centred, so every row's badge shares one axis). */
-.run-what .ui-tag { vertical-align: middle; }
+.run-what { line-height: 1.7; }
+.run-what .ui-tag { vertical-align: middle; line-height: 1.3; padding: 1px 6px; margin-right: 2px; }
 .focus-meta .is-done { color: var(--good); font-weight: 600; }
 .focus-actions button .spinner { margin-right: 6px; vertical-align: -2px; }
 /* Menu foot: a newer stable release (renderer/pages/update.js), amber like the sessions that need you. */
