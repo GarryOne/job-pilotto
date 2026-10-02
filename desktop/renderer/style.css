@@ -1637,12 +1637,13 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .notion-links { display: none; }
 .app.rail { grid-template-columns: 72px minmax(0, 1fr); }
 .app.rail .sidebar .nav-group { display: none; }
-.app.rail .sidebar .brand { border-bottom: 0; padding-bottom: 0; }
+.app.rail .sidebar .brand { border-bottom: 0; padding: 2px 0 0; }   /* 6px right padding only shifted the logo 3px left of the icons */
 .app.rail .sidebar .mark { width: 36px; height: 36px; }
 .app.rail .sidebar .nav { padding: 10px 0; }
 .app.rail .sidebar-bottom { align-items: center; width: 100%; }
 .app.rail .nav-sessions { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
 .app.rail .nav-sessions .icon { display: none; }
+.app.rail .nav-sessions > span:nth-child(2) { display: none; }   /* its empty text span has flex:1 and pushed the dot off the rail's axis */
 .app.rail .theme-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
 .app.rail .nav-count { position: absolute; top: 2px; right: 2px; }
 
