@@ -71,6 +71,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
 - `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log (5 MB, then
 - `desktop/lib/reset.js` — Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
+- `desktop/lib/resume-queue.js` — Jobs you had started when the app last quit (pipeline queue.json) start again a little after launch. The queue is taken at LAUNCH and started later: read at
 - `desktop/lib/review.js` — The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
 - `desktop/lib/root.js` — Where the pipeline, config, tools and extension live: the repo when developing, the app's
 - `desktop/lib/run-history.js` — Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
