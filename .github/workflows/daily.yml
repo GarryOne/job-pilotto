@@ -72,6 +72,7 @@ env:
   # that was pushed when Always on was last updated, and a change made in Notion never reached GitHub.
   NOTION_SEARCH_SETTINGS_PAGE: ${{ vars.NOTION_SEARCH_SETTINGS_PAGE }}
   NOTION_ANSWERS_PAGE_ID: ${{ vars.NOTION_ANSWERS_PAGE_ID }}
+  NOTION_KNOWLEDGE_PAGE: ${{ vars.NOTION_KNOWLEDGE_PAGE }}
   NOTION_PIPELINE_PAGE: ${{ vars.NOTION_PIPELINE_PAGE }}
 
 jobs:
