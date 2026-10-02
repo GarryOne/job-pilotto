@@ -4,7 +4,7 @@ import {isInbound} from '../origin.js';
 import * as confirmStep from '../lead-confirm.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, sorted, statClick, statPressed, stats, statusPill, tags, toReview, workMode} from '../jobs-view.js';
+import {ago, applicationStats, avatar, band, byFilter, byStat, inConversation, inboundCount, inProcess, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statClick, statPressed, stats, statusPill, tags, toReview, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity, refreshActivity, showJob, showSearchStatus} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
@@ -226,7 +226,12 @@ export function renderJobs() {
     company.append(badge, el('span', 'name', job.company));
 
     const place = el('div', 'place');
-    if (job.location) { const line = el('div', 'place-line'); line.append(icon('pin'), el('span', '', job.location)); place.append(line); }
+    if (job.location) {
+      const here = shortPlace(job.location);
+      const line = Object.assign(el('div', 'place-line'), here.full ? {title: here.full} : {});
+      line.append(icon('pin'), el('span', '', here.text));
+      place.append(line);
+    }
     if (job.work_mode) {
       const line = el('div', 'place-line');
       const mode = workMode(job.work_mode);
