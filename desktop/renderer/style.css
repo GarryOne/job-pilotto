@@ -1792,12 +1792,15 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .steps-foot .nav[hidden] { display: none; }
 .steps-foot .nav:hover { background: var(--rail-hover); color: var(--on-rail); }
 .steps-foot .nav .icon { width: 18px; height: 18px; color: var(--on-rail-3); }
-.steps-privacy { display: flex; gap: var(--sp-2); align-items: flex-start; margin: var(--sp-3) 12px 0; font-size: var(--fs-xs); line-height: 1.45; color: var(--on-rail-3); }
-.steps-privacy .icon { flex: none; width: 14px; height: 14px; margin-top: 1px; }
-.steps-foot .app-version { margin: var(--sp-2) 12px 0; }
+/* One left edge for the whole foot: nav rows are 12px padding + 3px border = 15px in, so the note and the version start there too,
+   and the note's text sits in the same column as the row label (18px icon + 10px gap). */
+.steps-privacy { display: grid; grid-template-columns: 18px 1fr; column-gap: 10px; align-items: start; margin: var(--sp-3) 12px 0 15px; padding-top: var(--sp-3);
+  border-top: 1px solid var(--rail-line); font-size: var(--fs-xs); line-height: 1.5; color: var(--on-rail-3); }
+.steps-privacy .icon { width: 16px; height: 16px; justify-self: center; margin-top: 1px; }
+.steps-foot .wizard-stuck { font-weight: 500; }
 
 /* The version under the setup sidebar: one quiet line, cut with … if long (the full text on hover). */
-.steps-foot .app-version { margin: var(--sp-2) 12px 0; padding: 0; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+.steps-foot .app-version { margin: var(--sp-2) 12px 0 15px; padding: 0; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
 
 /* Strategy review: the summary reads as a short paragraph, not a full-width wall of text. */
 #draft-summary { max-width: 75ch; }
