@@ -1763,6 +1763,11 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .dev-tag { padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--bad); color: var(--on-accent); font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; }
 .brand:has(.dev-tag) { white-space: nowrap; gap: var(--sp-2); font-size: var(--fs-md); }
 .dev-tag { padding: 1px 6px; letter-spacing: .06em; }
+/* Icon rail (under 1180 px): no room for the name or the tag. */
+@media (max-width: 1179px) {
+  .sidebar .brand:has(.dev-tag) { font-size: 0; gap: 0; }
+  .sidebar .dev-tag { display: none; }
+}
 
 /* ---------- Setup wizard sidebar: the same "mission control" rail as the app's menu (owner, 30 Sep 2026) ---------- */
 .wizard { grid-template-columns: 224px 1fr; }
