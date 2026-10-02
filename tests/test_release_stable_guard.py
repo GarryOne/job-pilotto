@@ -26,11 +26,19 @@ FAKE_GH = textwrap.dedent('''\
     if [ "$1" = release ] && [ "$2" = view ]; then printf '%s\\n' "${FAKE_ASSETS:-}"; exit 0; fi
     if [ "$1" = release ] && [ "$2" = edit ]; then echo "edited $3"; exit 0; fi
     if [ "$1" = api ]; then echo abc1234def5678; exit 0; fi
+    if [ "$1" = workflow ] && [ "$2" = run ]; then echo "$*" >> "$FAKE_LOG"; touch "$FAKE_STARTED"; exit 0; fi
+    if [ "$1" = run ] && [ "$2" = watch ]; then echo "watched $3" >> "$FAKE_LOG"; exit 0; fi
     if [ "$1" = run ] && [ "$2" = list ]; then
       now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-      case "${FAKE_E2E:-green}" in
+      case "$*" in
+        *--event*) echo 4242; exit 0 ;;   # "which run did I just start" (the script's -q picks the id)
+      esac
+      state="${FAKE_E2E:-green}"
+      [ -e "$FAKE_STARTED" ] && state="${FAKE_E2E_AFTER:-green}"
+      case "$state" in
         green) printf '[{"conclusion":"success","headSha":"abc1234def5678","createdAt":"%s"}]' "$now" ;;
         red) printf '[{"conclusion":"failure","headSha":"abc1234def5678","createdAt":"%s"}]' "$now" ;;
+        other) printf '[{"conclusion":"success","headSha":"fff0000aaaa","createdAt":"%s"}]' "$now" ;;
         stale) echo '[{"conclusion":"success","headSha":"abc1234def5678","createdAt":"2020-01-01T00:00:00Z"}]' ;;
         none) echo '[]' ;;
       esac
@@ -41,15 +49,19 @@ FAKE_GH = textwrap.dedent('''\
 
 
 class PromoteGuardTests(unittest.TestCase):
-    def promote(self, assets, e2e='green', skip=False):
+    def promote(self, assets, e2e='green', skip=False, after='green', no_start=False):
         """Run the real script against these (name, size) assets, with a fake gh standing in for GitHub."""
         with tempfile.TemporaryDirectory() as folder:
             binary = Path(folder) / 'gh'
             binary.write_text(FAKE_GH)
             binary.chmod(0o755)
-            env = {**os.environ, 'PATH': f'{folder}{os.pathsep}{os.environ["PATH"]}',
-                   'FAKE_ASSETS': '\n'.join(f'{name}\t{size}' for name, size in assets), 'FAKE_E2E': e2e, **({'SKIP_E2E': '1'} if skip else {})}
-            return subprocess.run(['bash', str(SCRIPT), TAG], capture_output=True, text=True, env=env, timeout=60)
+            self.log = Path(folder) / 'gh.log'
+            env = {**os.environ, 'PATH': f'{folder}{os.pathsep}{os.environ["PATH"]}', 'FAKE_LOG': str(self.log), 'FAKE_STARTED': str(Path(folder) / 'started'),
+                   'FAKE_ASSETS': '\n'.join(f'{name}\t{size}' for name, size in assets), 'FAKE_E2E': e2e, 'FAKE_E2E_AFTER': after, 'E2E_POLL_SECONDS': '0',
+                   **({'SKIP_E2E': '1'} if skip else {}), **({'E2E_NO_START': '1'} if no_start else {})}
+            done = subprocess.run(['bash', str(SCRIPT), TAG], capture_output=True, text=True, env=env, timeout=60)
+            self.calls = self.log.read_text() if self.log.exists() else ''
+            return done
 
     def test_its_own_installer_at_the_same_size_promotes(self):
         done = self.promote([(OWN, 191850045), (GENERIC, 191850045)])
@@ -84,11 +96,37 @@ class PromoteGuardTests(unittest.TestCase):
         self.assertIn('is RED', done.stderr)
         self.assertNotIn('Stable:', done.stdout)
 
-    def test_no_run_or_an_old_one_stops_it_too(self):
+    def test_without_the_right_to_start_a_run_none_or_an_old_one_stops_it(self):
+        # The canary auto-promote (E2E_NO_START=1) cannot start a run: it waits for the schedule's.
         for state, words in (('none', 'No finished end-to-end run'), ('stale', 'over two days old')):
-            done = self.promote([(OWN, 1), (GENERIC, 1)], e2e=state)
+            done = self.promote([(OWN, 1), (GENERIC, 1)], e2e=state, no_start=True)
             self.assertEqual(done.returncode, 1, state)
             self.assertIn(words, done.stderr)
+            self.assertEqual(self.calls, '', 'it started nothing')
+
+    def test_a_run_of_another_commit_does_not_vouch_for_this_build(self):
+        # A human promotion needs THIS build's commit tested: the script starts a run on the tag, waits, and decides by it.
+        done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='other', after='green')
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn('--ref ' + TAG, self.calls)
+        self.assertIn('watched 4242', self.calls)
+        self.assertIn('End-to-end journey: green', done.stdout)
+
+    def test_the_run_it_started_decides_and_a_red_one_stops_the_promotion(self):
+        done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='stale', after='red')
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('is RED', done.stderr)
+        self.assertNotIn('Stable:', done.stdout)
+
+    def test_a_green_run_of_the_commit_starts_nothing(self):
+        done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='green')
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.calls, '')
+
+    def test_no_start_accepts_the_latest_run_on_main_as_before(self):
+        done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='other', no_start=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.calls, '')
 
     def test_skip_e2e_promotes_anyway_for_a_hotfix(self):
         done = self.promote([(OWN, 1), (GENERIC, 1)], e2e='red', skip=True)

@@ -22,21 +22,35 @@ failed and the previous release's installer was carried over. Promote a build wh
 [ "$own" = "$generic" ] || { echo "$tag's Windows installer is not the one its build made: Job-Pilotto-${version}-x64.exe
 is ${own} bytes, Job-Pilotto-windows-x64.exe is ${generic}. Promote a build whose Windows job passed." >&2; exit 1; }
 
-# The end-to-end journey (.github/workflows/e2e.yml: a new user through the wizard, a jobs check and the scores, on a real Mac) must be green.
-# Its run for this build's commit if there is one, else the latest run on main; a run older than two days no longer vouches for anything.
-# SKIP_E2E=1 promotes anyway (a hotfix while the journey itself is broken): say why in the release notes.
+# The end-to-end journey (.github/workflows/e2e.yml: a new user through the wizard and every page, on a real Mac) must be green for THIS build's commit: it is the one
+# gate on a release, and it runs here, not on every push. No usable run for the commit (none, or older than two days): this script starts one on the tag and waits for
+# it (about 15 minutes), then decides by its result. E2E_NO_START=1 (the daily canary auto-promote, which cannot start a run) never starts one and accepts the newest
+# run on main instead. SKIP_E2E=1 promotes anyway (a hotfix while the journey itself is broken): say why in the release notes.
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 if [ "${SKIP_E2E:-0}" != 1 ]; then
   sha=$(gh api "repos/$repo/commits/$tag" -q .sha)
-  runs=$(gh run list -R "$repo" --workflow=e2e.yml --branch main --status completed -L 15 --json conclusion,headSha,createdAt)
-  verdict=$(printf '%s' "$runs" | jq -r --arg sha "$sha" '
-    (map(select(.headSha == $sha))[0] // .[0]) as $run
-    | if $run == null then "none"
-      elif $run.conclusion != "success" then "red \($run.headSha[0:7])"
-      elif (now - ($run.createdAt | fromdateiso8601)) > 172800 then "stale"
-      else "green" end')
+  mode=commit; branch=(); [ "${E2E_NO_START:-0}" = 1 ] && { mode=latest; branch=(--branch main); }
+  gate() { gh run list -R "$repo" --workflow=e2e.yml ${branch[@]+"${branch[@]}"} --status completed -L 30 --json conclusion,headSha,createdAt | python3 "$here/e2e_gate.py" "$sha" "$mode"; }
+  verdict=$(gate)
+  if { [ "$verdict" = none ] || [ "$verdict" = stale ]; } && [ "${E2E_NO_START:-0}" != 1 ]; then
+    echo "No fresh end-to-end run for $tag's commit (${sha:0:7}): starting one on the tag and waiting for it (about 15 minutes)..."
+    started=$(date -u +%s)
+    gh workflow run e2e.yml -R "$repo" --ref "$tag"
+    id=""
+    for _ in $(seq 1 40); do
+      id=$(gh run list -R "$repo" --workflow=e2e.yml --event workflow_dispatch --commit "$sha" -L 5 --json databaseId,createdAt \
+        -q "[.[] | select((.createdAt | fromdateiso8601) >= $((started - 5)))][0].databaseId // empty")
+      [ -n "$id" ] && break
+      sleep "${E2E_POLL_SECONDS:-5}"
+    done
+    [ -n "$id" ] || { echo "The end-to-end run did not appear on GitHub: look at gh run list --workflow=e2e.yml -R $repo, then run this again." >&2; exit 1; }
+    echo "Watching run $id: https://github.com/$repo/actions/runs/$id"
+    gh run watch "$id" -R "$repo" --exit-status > /dev/null || true   # its result is read back below, by the same rule as any other run
+    verdict=$(gate)
+  fi
   case "$verdict" in
     green) echo "End-to-end journey: green." ;;
-    none) echo "No finished end-to-end run on main yet. Run it: gh workflow run e2e.yml -R $repo (about 3 minutes), then promote. SKIP_E2E=1 overrides." >&2; exit 1 ;;
+    none) echo "No finished end-to-end run for this build yet. Run it: gh workflow run e2e.yml -R $repo --ref $tag (about 15 minutes), then promote. SKIP_E2E=1 overrides." >&2; exit 1 ;;
     stale) echo "The last green end-to-end run is over two days old. Run it again: gh workflow run e2e.yml -R $repo. SKIP_E2E=1 overrides." >&2; exit 1 ;;
     red*) echo "The end-to-end journey is RED (${verdict#red }): a new user would not get through the app. Fix it, or SKIP_E2E=1 to promote anyway." >&2; exit 1 ;;
   esac

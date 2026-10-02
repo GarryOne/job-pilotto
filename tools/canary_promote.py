@@ -319,7 +319,7 @@ def main(argv=None):
         if args.dry_run:
             print(f"Dry run: would run tools/release-stable.sh {result['tag']}")
         else:
-            subprocess.run([str(ROOT / 'tools' / 'release-stable.sh'), result['tag']], check=True)
+            subprocess.run([str(ROOT / 'tools' / 'release-stable.sh'), result['tag']], check=True, env={**os.environ, 'E2E_NO_START': '1'})   # it cannot start a run, nor wait 15 minutes for one
     elif result.get('blocked'):
         if args.dry_run:
             print(f"Dry run: would drop the canary {result['tag']} (gh release delete, tag kept)")

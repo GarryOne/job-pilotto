@@ -202,5 +202,18 @@ class CanaryFloorParityTest(unittest.TestCase):
         self.assertIn(f"export const CANARY_FLOOR = '{canary.CANARY_FLOOR}';", js)
 
 
+
+class PromotesWithoutStartingARun(unittest.TestCase):
+    def test_the_promotion_may_not_start_an_end_to_end_run(self):
+        # release-stable.sh starts one by default and waits ~15 minutes; this job has 10 minutes and cannot start workflows.
+        from unittest import mock
+        decision = {'promote': True, 'tag': 'desktop-v0.4.0-alpha.9', 'stable': 'desktop-v0.4.0-alpha.8', 'reasons': []}
+        with mock.patch.object(canary, 'GitHub'), mock.patch.object(canary, 'decide', return_value=decision), \
+                mock.patch.object(canary.subprocess, 'run') as ran, mock.patch('builtins.print'):
+            canary.main([])
+        self.assertEqual(ran.call_args.kwargs['env']['E2E_NO_START'], '1')
+        self.assertEqual(ran.call_args.args[0][1], 'desktop-v0.4.0-alpha.9')
+
+
 if __name__ == '__main__':
     unittest.main()
