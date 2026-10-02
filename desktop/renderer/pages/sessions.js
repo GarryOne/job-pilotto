@@ -321,7 +321,12 @@ export function renderNextStep(item) {
         if (panelDead.delete(item.id)) renderSessionPage();
         return;
       }
-      if (result?.went === 'none') { toastMessage('The form tab is closed', 'No open Chrome tab is this job\'s form. Press Reopen form.'); return; }   // nothing to repair: there is no tab
+      if (result?.went === 'none') {   // no tab to bring forward: open the form again, as Reopen form does
+        const reopened = await opening(event.currentTarget, () => window.pilot.applyOne(item.url));
+        toastMessage(reopened?.ok === false ? 'Could not open the form' : 'The form tab was closed',
+          reopened?.ok === false ? reopened.error || 'Try again.' : 'Opened the form again in Chrome.');
+        return;
+      }
       panelDead.add(item.id);
       renderSessionPage();
       toastMessage('Form tab not found', osText('The form\'s page didn\'t answer, so the extension isn\'t attached to it. '
