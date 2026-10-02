@@ -20,15 +20,14 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # so Notion's consent page offers "Use a template provided by the developer" and the token carries duplicated_template_id.
 [vars]
 GITHUB_REPO = "GarryOne/job-pilotto"
-INDEX_GATE = "soft"
 # The free AI credit for invited testers (src/trial.js; secret ANTHROPIC_TRIAL_KEY): per license key and per month.
 TRIAL_PER_KEY_USD = "1"
 TRIAL_MONTH_USD = "20"
 LICENSE_PUBLIC_KEY = "cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40"   # the owner's public key (desktop/lib/license.js)   # form reports that recur are queued for the private triage (secrets REPORT_TOKEN)
 NOTION_CLIENT_ID = "3e9d872b-594c-8104-bce6-0037f95cea29"  # public; the secret is a Worker secret
 
-# INDEX_GATE: "soft" lets installs without an index token keep downloading (and counts them as index-open on /telemetry) while older
-# app versions update; remove the variable to enforce the token.
+# INDEX_GATE: removed on 2 Oct 2026, so the token is enforced. During the rollout, INDEX_GATE = "soft" let installs without an index token keep
+# downloading (counted as index-open on /telemetry); set it back to "soft" only to re-open the list temporarily.
 # The central employer index (src/employers.js): GET /api/index for every app, PUT from the private central scout
 # (GarryOne/job-pilotto-internal) with the Worker secret INDEX_PUBLISH_KEY (Keychain job-pilotto.site.index_publish_key). Stored in WAITLIST as "index:employers".
 
