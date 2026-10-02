@@ -1,8 +1,9 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
-import {app, BrowserWindow, clipboard, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {smallCopy} from './lib/shots.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import * as apply from './lib/apply.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
@@ -59,6 +60,10 @@ import * as learnedAnswers from './lib/learned.js';
 import * as misses from './lib/misses.js';
 import * as controlEvents from './lib/control-events.js';
 import * as recipeLibrary from './lib/recipes.js';
+import * as analyticsConfig from './lib/analytics-config.js';
+import * as analyticsLib from './lib/analytics.js';
+import * as sentryLib from './lib/sentry.js';
+import {installId as telemetryInstallId} from './lib/app-feedback.js';
 import * as applicationOutcomes from './lib/outcomes.js';
 import * as aliasLibrary from './lib/aliases.js';
 import {flowState, unplaced} from './lib/question-labels.js';
@@ -75,6 +80,8 @@ let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
+let analytics = null;  // usage events (lib/analytics.js, PostHog); crash reports (lib/sentry.js) have the same gate and switch as telemetry
+const track = (event, props) => analytics?.track(event, props);
 let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
 const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
@@ -183,6 +190,7 @@ function trackSetup(patch, before) {
   if (!event) return;
   if (event.step !== 'done') storage.saveSettings({setupFurthest: event.step});
   if (telemetry) { telemetry.record('setup', event); telemetry.flush(); }
+  track('setup_step', {step: event.step, minutes: event.minutes});
 }
 
 async function installUpdate() {
@@ -643,6 +651,8 @@ function handlers() {
     })().catch(error => ({ok: false, error: `Couldn't write to Notion: ${error.message}`})).finally(() => { saving = null; });
     return saving;
   });
+  // The page the person opened (a name from a fixed list, nothing else): where people go, in order.
+  ipcMain.handle('pageView', (_, name) => { if (analyticsLib.PAGES.includes(String(name))) track('page_view', {page: String(name)}); return true; });
   ipcMain.handle('runs', () => activity());
   ipcMain.handle('runDetail', (_, pageId) => runHistory.detail(storage, pageId).catch(error => ({message: null, log: [`Not read from Notion: ${error.message}`]})));
 
@@ -1037,6 +1047,7 @@ function handlers() {
     appLog('applied', `asked from the app (you): ${job}`);
     const result = await pipeline.setStatus(storage, job, status).catch(error => ({ok: false, error: error.message}));
     appLog('applied', `asked from the app (you): ${job} -> ${result?.ok ? 'marked applied' : result?.error || 'failed'}`);
+    if (result?.ok) track('applied', {how: 'manual'});
     return result;
   });
   // Focus: what to do next (Notion, no AI); Done on a reply logs a "Replied" event.
@@ -1094,12 +1105,18 @@ function handlers() {
   });
   ipcMain.handle('apply', async (_, options) => allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options)));
-  ipcMain.handle('applyOne', (_, url, details) => allowanceBlock() || (DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {})));
+  ipcMain.handle('applyOne', async (_, url, details) => {
+    const blocked = allowanceBlock();
+    if (blocked) return blocked;
+    const result = await (DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {}));
+    if (result?.ok) track('apply_started', {how: 'extension'});
+    return result;
+  });
   // Checked session workflows share the production registration with the offline app scenario tests.
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
     DEMO, apply, pipeline, review, server, notion, claudeConsent});
   ipcMain.handle('applyWithClaude', async (_, url, details = null) => allowanceBlock() || (await claudeConsent())
-    ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) terminals.dropForm(String(url).split('#')[0]); return result; })
+    ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => { if (result?.ok) track('apply_started', {how: 'claude'}); terminals.dropForm(String(url).split('#')[0]); return result; })
     : {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'});
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   ipcMain.handle('reviewStates', () => (DEMO ? JSON.parse(fs.readFileSync(path.join(here, 'demo', 'review.json'), 'utf8')) : review.allStates()));
@@ -1254,7 +1271,7 @@ function handlers() {
   });
   // Send feedback… (lib/app-feedback.js): to the owner, through the website. Demo mode sends nothing.
   ipcMain.handle('sendFeedback', (_, text, contact) => DEMO ? {ok: true}
-    : appFeedback.send({text, contact}, {storage, version: app.getVersion()}));
+    : appFeedback.send({text, contact}, {storage, version: app.getVersion()}).then(result => { if (result?.ok) track('feedback_sent', {}); return result; }));
   // latest + note: the pages show one wording for a stale copy (server.staleExtension), the same sentence the app
   // records with a failed fill.
   ipcMain.handle('extensionSeen', () => {
@@ -1291,6 +1308,7 @@ function handlers() {
     const ineligible = lines.map(line => line.replace(/<[^>]+>/g, '')).find(line => line.includes('Not eligible:'));
     if (exit !== 0) notify('Kit not prepared', `${name}: ${lines.filter(Boolean).slice(-1)[0] || 'something went wrong'}`);
     else notify('Application kit ready ✓', ineligible ? `${name}. ${ineligible.trim()}` : `${name}. Press Apply to fill the form.`);
+    if (exit === 0) track('kit_prepared', {});
     return {ok: exit === 0, ineligible: ineligible || ''};
   });
   // Tailored CV for one job: base CV (imported from the CV PDF the first time) + the posting -> Claude ->
@@ -1571,8 +1589,31 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   telemetry = DEMO || smokeRun || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
+    // Crash reports (Sentry) and usage events (PostHog): only an installed build, only with Technical reports on, only when
+    // config/analytics.json (or env) names where. Every problem the app records for itself goes to Sentry too; native crashes go through
+    // Electron's own reporter. Nothing a person wrote or read is part of any of it (lib/sentry.js, lib/analytics.js).
+    const keys = analyticsConfig.load(pipeline.REPO);
+    const identity = {installId: telemetryInstallId(storage), version: app.getVersion(), os: os.release()};
+    const sentryClient = sentryLib.create({dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId, os: identity.os, enabled: telemetry.enabled});
+    if (sentryClient.active) {
+      const record = telemetry.record.bind(telemetry);
+      telemetry.record = (kind, fields) => { record(kind, fields); sentryClient.capture(kind, fields); };
+      if (telemetry.enabled()) sentryLib.startNativeCrashes(crashReporter, {dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId});
+      pipeline.setCrashReports({dsn: keys.sentryDsn, version: identity.version, installId: identity.installId, enabled: telemetry.enabled});
+    }
+    analytics = analyticsLib.create({key: keys.posthogKey, host: keys.posthogHost, installId: identity.installId, version: identity.version, os: identity.os, enabled: telemetry.enabled});
+    track('app_start', {});
+    server.setAppliedHook(info => track('applied', info));
+    app.on('before-quit', () => { void analytics?.flush(); });
     pipeline.onRunEnd(({args, code, seconds, tail, timedOut, result}) => {
       telemetry.countRun(code === 0);  // the health line's runsOk / runsFailed (release check evidence)
+      if (args[0] === 'src' && ['daily', 'check'].includes(args[1])) {
+        const searched = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : '';
+        if (['run', 'scheduled'].includes(searched)) {
+          track('search_done', {ok: code === 0, seconds: Math.round(seconds / 10) * 10, mode: searched, timed_out: !!timedOut});
+          if (code === 0 && !storage.settings().firstSearchTracked) { storage.saveSettings({firstSearchTracked: true}); track('first_search_done', {seconds: Math.round(seconds / 10) * 10}); }
+        }
+      }
       const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : /^[a-z_]+$/.test(args[1] || '') ? args[1] : '';
       const job = `${args[0]}${mode ? ` ${mode}` : ''}`;
       if (code === 0) {

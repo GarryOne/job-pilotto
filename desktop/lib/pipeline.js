@@ -46,6 +46,10 @@ export function ensureConfig(storage) {
 const SYSTEM = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'SSL_CERT_FILE',
   'SystemRoot', 'SYSTEMROOT', 'windir', 'USERPROFILE', 'USERNAME', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'ComSpec', 'PATHEXT'];
 
+// Crash reports from the engine: the app sets this (main.js) only for an installed build with Technical reports on; the engine reports
+// unhandled errors to it (src/crash_reporting.py). The install id and version ride along as tags.
+let crashReports = null;
+export const setCrashReports = value => { crashReports = value; };
 export function pipelineEnv(storage, parent = process.env) {
   const settings = storage.settings();
   const env = {
@@ -58,6 +62,7 @@ export function pipelineEnv(storage, parent = process.env) {
     JOB_PILOTTO_DATA_DIR: storage.path('data'),
     JOB_PILOTTO_CV_PATH: storage.path('cv.pdf'),
     ...(requestLog.logPath() ? {JOB_PILOTTO_NOTION_LOG: requestLog.logPath()} : {}),  // Python's Notion requests: same file
+    ...(crashReports?.enabled() ? {JOB_PILOTTO_SENTRY_DSN: crashReports.dsn, JOB_PILOTTO_APP_VERSION: crashReports.version, JOB_PILOTTO_INSTALL_ID: crashReports.installId} : {}),
   };
   // The Profile and standard answers are read from Notion (Notion is required).
   for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY']) {

@@ -106,6 +106,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // form is over too, not left in Application sessions as if Claude were still on it. The "I submitted it"
       // button's own end, without pressing anything.
       submitted(job.url);
+      appliedHook({how: 'extension'});
       notify('Marked Applied ✓', `${jobName(job)}. Saved in your Notion.`);
       return {ok: true, message: 'Marked Applied in your Notion.'};
     },
@@ -233,6 +234,8 @@ const jobName = job => job ? `${job.title} · ${job.company}` : 'this job';
 // Job pages open in Chrome right now, as reported by the extension (POST /extension/tabs), without #hash.
 let tabs = new Set();
 let tabsHandler = () => {};
+let appliedHook = () => {};   // the app counts an application the extension saw submitted (lib/analytics.js)
+export function setAppliedHook(fn) { appliedHook = fn; }
 export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot}): which Chrome tabs exist (lib/review.js binds sessions to them)
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;

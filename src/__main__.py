@@ -14,6 +14,8 @@ import sys
 
 
 def main():
+    from . import crash_reporting
+    crash_reporting.install()  # unhandled errors to Sentry, only when the app turned reports on (JOB_PILOTTO_SENTRY_DSN)
     commands = {
         'check': 'src.daily', 'daily': 'src.daily', 'scout': 'src.scout', 'discover': 'src.sources.boards',
         'feeds': 'src.sources.feeds', 'enrich': 'src.ai.enrich', 'doctor': 'src.doctor', 'contribute': 'src.contribute',

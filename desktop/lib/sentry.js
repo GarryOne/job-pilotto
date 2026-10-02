@@ -1,0 +1,101 @@
+// Crash reports to Sentry, without Sentry's SDK: the SDK instruments HTTP and console by default and drags in 58 MB, which is the wrong
+// default for an app that promises not to look at your CV, mail or answers. This builds the event itself, so exactly these fields are sent:
+// the error's type, scrubbed message and stack frames (file names without folders above the app, function, line), the app version, the
+// platform, a random install id, and short scrubbed tags. No local variables, no request data, no breadcrumbs, no IP-derived user.
+// Native crashes (renderer, GPU, main) go through Electron's own crashReporter to Sentry's minidump endpoint (see startNativeCrashes).
+import crypto from 'node:crypto';
+import {scrub} from './telemetry.js';
+
+// https://<key>@<host>/<project> -> where to send.
+export function parseDsn(dsn) {
+  try {
+    const url = new URL(String(dsn));
+    const project = url.pathname.replace(/^\/+|\/+$/g, '');
+    if (!url.username || !project || !/^\d+$/.test(project.split('/').pop())) return null;
+    const id = project.split('/').pop(), base = `${url.protocol}//${url.host}/api/${id}`;
+    return {key: url.username, project: id, envelope: `${base}/envelope/`, minidump: `${base}/minidump/?sentry_key=${url.username}`,
+      auth: `Sentry sentry_version=7, sentry_key=${url.username}, sentry_client=job-pilotto/1`};
+  } catch { return null; }
+}
+
+// "    at fn (/Users/x/app/lib/a.js:12:3)" / "at /path/a.js:1:2" -> Sentry frames, oldest first. Folders above the app are dropped.
+export function frames(stack) {
+  const out = [];
+  for (const line of String(stack || '').split('\n')) {
+    const match = /^\s*at (?:(.+?) \()?(.+?):(\d+)(?::(\d+))?\)?\s*$/.exec(line);
+    if (!match) continue;
+    const file = match[2].replace(/^file:\/\//, '');
+    const short = file.replace(/^.*?\/(desktop|renderer|lib|pages|src|app\.asar)\//, '$1/').split('/').slice(-4).join('/');
+    out.push({function: scrub(match[1] || '?', 80), filename: scrub(short, 120), lineno: Number(match[3]), colno: Number(match[4] || 0),
+      in_app: !/node_modules|node:internal/.test(file)});
+  }
+  return out.reverse().slice(-40);
+}
+
+const LEVEL = {crash: 'fatal', run_failed: 'error', stuck: 'error', run_warning: 'warning'};
+export const CAPTURED = Object.keys(LEVEL);
+// What makes two reports one problem: the kind and the part of the message that is not a number or an id.
+const normal = text => String(text ?? '').replace(/0x[0-9a-f]+|\b[0-9a-f]{8,}\b|[0-9a-f-]{36}/gi, '<id>').replace(/\d+/g, '#').slice(0, 120);
+
+export function buildEvent(kind, fields = {}, {release = '', environment = 'alpha', installId = '', platform = process.platform, os = '', now = Date.now()} = {}) {
+  const message = scrub(fields.message ?? fields.error ?? fields.warning ?? fields.action ?? kind, 300);
+  const event = {
+    event_id: crypto.randomBytes(16).toString('hex'), timestamp: now / 1000, platform: 'javascript', level: LEVEL[kind] || 'error',
+    release, environment, user: {id: installId}, server_name: undefined,
+    tags: {kind, platform, os: String(os).slice(0, 20), ...(fields.job ? {job: scrub(fields.job, 60)} : {}), ...(fields.where ? {where: scrub(fields.where, 40)} : {}),
+      ...(fields.timedOut ? {timedOut: 'yes'} : {})},
+    fingerprint: [kind, normal(fields.job || fields.where || ''), normal(message)],
+    contexts: {runtime: {name: 'electron'}},
+  };
+  const stack = frames(fields.stack);
+  if (kind === 'crash' && stack.length) {
+    event.exception = {values: [{type: scrub(fields.type || 'Error', 60), value: message, stacktrace: {frames: stack}}]};
+  } else {
+    event.message = `${kind}${fields.job ? ` · ${scrub(fields.job, 60)}` : ''}: ${message}`;
+    // The last few lines the run printed (already scrubbed by the telemetry module's rules): what it was doing when it stopped.
+    if (Array.isArray(fields.tail) && fields.tail.length) event.extra = {tail: fields.tail.slice(-5).map(line => scrub(line, 200))};
+  }
+  return event;
+}
+
+export function envelope(event, dsn) {
+  const sent = new Date().toISOString();
+  return `${JSON.stringify({event_id: event.event_id, sent_at: sent, dsn})}\n${JSON.stringify({type: 'event'})}\n${JSON.stringify(event)}\n`;
+}
+
+// capture(kind, fields): fire and forget, never throws. At most one report per problem every 10 minutes and 30 an hour.
+export function create({dsn, release, environment = 'alpha', installId, platform = process.platform, os = '', enabled = () => true,
+  fetcher = globalThis.fetch, now = () => Date.now()} = {}) {
+  const target = parseDsn(dsn);
+  const seen = new Map(), hour = [];
+  return {
+    active: !!target,
+    capture(kind, fields = {}) {
+      try {
+        if (!target || !enabled() || !CAPTURED.includes(kind)) return false;
+        const event = buildEvent(kind, fields, {release, environment, installId, platform, os, now: now()});
+        const key = event.fingerprint.join('|');
+        const t = now();
+        while (hour.length && t - hour[0] > 3600_000) hour.shift();
+        if (hour.length >= 30 || (seen.get(key) && t - seen.get(key) < 600_000)) return false;
+        seen.set(key, t);
+        hour.push(t);
+        void Promise.resolve(fetcher(target.envelope, {method: 'POST', headers: {'Content-Type': 'application/x-sentry-envelope', 'X-Sentry-Auth': target.auth},
+          body: envelope(event, dsn)})).catch(() => {});
+        return true;
+      } catch { return false; }
+    },
+  };
+}
+
+// Electron's built-in crash reporter, pointed at Sentry's minidump endpoint: native crashes (a renderer that dies, the GPU process, the
+// main process) that no JavaScript handler can see. Only the app version and platform ride along; no folder paths (compress, no PII).
+export function startNativeCrashes(crashReporter, {dsn, release, installId}) {
+  const target = parseDsn(dsn);
+  if (!target) return false;
+  try {
+    crashReporter.start({submitURL: target.minidump, uploadToServer: true, compress: true, extra: {release: String(release || ''), install: String(installId || '')},
+      globalExtra: {}, rateLimit: true});
+    return true;
+  } catch { return false; }
+}

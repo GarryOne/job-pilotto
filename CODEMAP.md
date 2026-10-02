@@ -14,6 +14,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 - `desktop/lib/ai-trial.js` — The free AI credit for invited testers ($1, lib site/src/trial.js on the website): instead of their own Anthropic
 - `desktop/lib/aliases.js` — The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
+- `desktop/lib/analytics-config.js` — Where crash reports and usage events go (config/analytics.json, overridden by env). Everything empty = nothing is sent. The DSN and the
+- `desktop/lib/analytics.js` — Product analytics (PostHog, EU cloud) without PostHog's SDK: which steps people take and where they stop (setup, first search, kit,
 - `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
@@ -73,6 +75,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/schedule.js` — Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
 - `desktop/lib/secrets.js` — Pasted keys and tokens: drop what copying adds (spaces, line breaks, invisible characters) and
+- `desktop/lib/sentry.js` — Crash reports to Sentry, without Sentry's SDK: the SDK instruments HTTP and console by default and drags in 58 MB, which is the wrong
 - `desktop/lib/server.js` — The Chrome extension talks to the app on this computer (127.0.0.1) instead of a Cloudflare Worker.
 - `desktop/lib/session-contracts.js` — Runtime contracts for session IPC requests, responses and public session views; errors never contain values.
 - `desktop/lib/session-handlers.js` — Register the real session IPC flows with injected app services, so scenarios exercise the same handlers as Electron.
@@ -236,6 +239,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).
 - `src/contribute.py` — Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
 - `src/coverage.py` — How much of the market does the search catch? The funnel of one crawl, and the near misses.
+- `src/crash_reporting.py` — Crash reports from the engine to Sentry, without Sentry's SDK (see desktop/lib/sentry.js for why): only the exception type, a scrubbed
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""

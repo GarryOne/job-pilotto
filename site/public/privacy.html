@@ -41,6 +41,14 @@
       names, email addresses, phone numbers, keys, file paths and the query part of links. We keep reports for 90 days, use them only
       to improve Job Pilotto and to publish overall numbers (never about one person), and never sell them. <b>Settings → Advanced →
       Technical reports</b> shows exactly what was sent, and turns them off.</p>
+    <h2>Crash reports and usage steps (Sentry and PostHog)</h2>
+    <p>While Technical reports are on, an installed Job Pilotto also uses two services, with the same rules. <b>Sentry</b> (hosted in the
+      United States) receives crash and error reports: the kind of error, a cleaned-up message, which parts of the app's code it passed
+      through, the app version, your operating system and the random install number. <b>PostHog</b> (hosted in the EU) receives which steps
+      people take, so we can see where setup or applying gets stuck: for example "setup step: CV", "search finished", "kit prepared",
+      "application started", "marked applied", and which page was opened (Jobs, Settings…), never what is on it. Neither service
+      receives your answers, CV, cover letters, emails, jobs, companies, names, keys or file paths, and neither records your screen, keystrokes
+      or IP-based location. Both are off in a copy run from source and when Technical reports is off.</p>
     <h2>Shared fixes from our service</h2>
     <p>Forms differ, so Job Pilotto learns from everyone's failed fills. While Technical reports are on, the app and the Chrome
       extension ask our website for <em>shared fixes</em> for the special controls on the form in front of you. The request holds

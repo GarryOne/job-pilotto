@@ -24,6 +24,7 @@ let history = viewHistory.start(null);
 export function openView(name, {fromHistory = false} = {}) {
   if (!fromHistory) history = viewHistory.visit(history, name);
   remembered('view', name);
+  window.pilot.pageView?.(name).catch?.(() => {});   // the page's name only (a fixed list on the other side), for the usage funnel
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
