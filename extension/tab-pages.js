@@ -194,3 +194,8 @@ export const sharedFixNote = ({count, kinds}) => (count
   ? `Used ${count} shared fix${count === 1 ? '' : 'es'} from Job Pilotto's service for ${kinds.join(' and ')}. Only the control's shape is shared, never your answers. Turn it off in the app: Settings → Technical reports.`
   : '');
 
+
+// A page the app opened with the fill mark: does it start its own job, or is it the page this tab already holds a job for loading again
+// (the result of a form's own Submit, a reload)? Only a different page starts a job: keeping the job across a reload is what lets the
+// confirmation after Submit be marked (3 Oct 2026: a job lost on the result page was never marked Applied).
+export const startsOwnJob = (prior, url) => !prior || pageKey(prior) !== pageKey(url);

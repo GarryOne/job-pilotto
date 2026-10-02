@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {kitStance, pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
+import {startsOwnJob, kitStance, pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -195,4 +195,10 @@ test('a start-applying phrase learned by the service is added to the built-in wo
   assert.equal(pickApplyButton([candidate('Sign in')], phrases), null);                                        // the not-a-button list wins, even over a bad phrase
   assert.equal(pickApplyButton([candidate('Ich möchte mich bewerben', {href: 'mailto:x@y.z'})], phrases), null);
   assert.equal(pickApplyButton([candidate('Ich möchte mich bewerben', {visible: false})], phrases), null);
+});
+
+test('a page the app opens starts its own job; the same page loading again (a form\'s result after Submit) keeps the job it has', () => {
+  assert.equal(startsOwnJob(undefined, 'https://api.easytemp.ch/live/bew/1-FR.php#jobpilotto-fill'), true);
+  assert.equal(startsOwnJob('https://boards.greenhouse.io/a/jobs/1', 'https://jobs.lever.co/b/2/apply#jobpilotto-fill'), true);
+  assert.equal(startsOwnJob('https://api.easytemp.ch/live/bew/1-FR.php', 'https://api.easytemp.ch/live/bew/1-FR.php#jobpilotto-fill'), false);
 });

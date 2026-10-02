@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {JOB_SITES, NOT_CONNECTED, NO_APP, api, fillTab, forgetAI, pair, settings} from './flow.js';
 import {ensureAlarm} from './report-alarm.js';
-import {pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
+import {startsOwnJob, pickApplyButton, confirmationOf, missedConfirmation, pageFingerprint, pageKey, pageRole, sameSite, submissionOutcome, SUBMIT_WAIT_MS, LATE_CONFIRMATION_MS, forJob, navigationKind, neverForm, reportedIds, sharedFixNote, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -84,10 +84,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // `from` is the job this tab was opened for. A mark the extension carried onto the next page (markPage) does not change it:
   // the posting that led to an agency's form stays the job, whichever site the form is on.
   const carried = (await chrome.storage.session.get(`carried:${tabId}`))[`carried:${tabId}`];
-  // A page the app opened starts its own job: nothing a tab that happened to open it handed over (followOpener) stays.
+  // A page the app opened starts its own job: nothing a tab that happened to open it handed over (followOpener) stays. The same page
+  // loading again (a form's own result after Submit) is not a new start: its job must stay, or the confirmation has no job to mark.
   if (carried !== tab.url) {
-    await chrome.storage.session.remove(`job:${tabId}`);
-    await chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+    const prior = (await chrome.storage.session.get(`from:${tabId}`))[`from:${tabId}`];
+    if (!startsOwnJob(prior, tab.url)) { /* same page again: keep its job */ } else {
+      await chrome.storage.session.remove(`job:${tabId}`);
+      await chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+    }
   }
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
   if (info.status !== 'complete') return;
