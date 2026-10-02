@@ -34,4 +34,19 @@ class DiscoveryTests(unittest.TestCase):
         self.assertFalse(swiss_places({'locations':{'top_tier':['amsterdam','berlin'],'country_wide':['netherlands','germany'],'abroad':[]}}))
         self.assertFalse(swiss_places({}))
 
+    def test_company_site_searches_follow_the_strategy(self):
+        from unittest import mock
+        from src.sources import ats
+        config={'role_keywords':['data analyst','\\bbi\\b','/odd.*regex/','a','b','c'],
+                'locations':{'top_tier':['amsterdam'],'country_wide':['netherlands'],'abroad':['berlin']}}
+        with mock.patch('src.paths.load_search_config',return_value=config):
+            self.assertEqual(ats.search_roles(),('data analyst','bi','a','b'))
+            self.assertEqual(ats.search_places(),('Berlin','Netherlands'))
+        with mock.patch('src.paths.load_search_config',return_value={'role_keywords':[],'locations':{'top_tier':['z[uü]rich']}}):
+            self.assertEqual(ats.search_roles(),());self.assertEqual(ats.search_places(),('Zürich',))
+    def test_cloud_runs_read_the_search_settings_page(self):
+        root=Path(__file__).resolve().parents[1]/'.github'/'workflows'
+        for name in ('daily.yml','scout.yml'):
+            self.assertIn('NOTION_SEARCH_SETTINGS_PAGE: ${{ vars.NOTION_SEARCH_SETTINGS_PAGE }}',(root/name).read_text(),name)
+
 if __name__=='__main__':unittest.main()

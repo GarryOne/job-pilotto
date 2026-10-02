@@ -326,7 +326,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
 
     if page == 1:
         swiss_total = sum(is_swiss(j) for j in everything)
-        stats = [f"{len(everything)} open", f"{swiss_total} 🇨🇭"]
+        stats = [f"{len(everything)} open", f"{swiss_total} 📍"]
         if hidden_urls:
             stats.append(f"{len(hidden_urls)} applied")
         if blocked:
@@ -347,9 +347,9 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
             section, abroad_heading = kind, False
             blocks.append({'new': '🆕 <b>New since last run</b>', 'best': '🎯 <b>Best matches</b>',
                            'older': '🎲 <b>More to explore</b>'}[kind])
-        # Ranking puts Swiss jobs first; mark where the rest begins instead of flagging every job.
+        # Ranking puts jobs in the user's places first; mark where the rest begins instead of flagging every job.
         if not is_swiss(job) and not abroad_heading:
-            blocks.append('🌍 <i>Outside Switzerland</i>')
+            blocks.append('🌍 <i>Outside your places</i>')
             abroad_heading = True
         blocks.append(_job_block(index, job))
         if shown_ids is not None:

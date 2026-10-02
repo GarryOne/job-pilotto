@@ -154,15 +154,34 @@ def personio(slug):
 
 # Company career sites with a public JSON search (no standard ATS). Queried per role and place,
 # because they list tens of thousands of jobs.
-SEARCH_ROLES = ('site reliability', 'devops', 'platform engineer', 'infrastructure engineer')
-SEARCH_PLACES = ('Switzerland', 'Berlin', 'London', 'Dubai')
+# What to search for and where comes from the user's Strategy (config/search.json: roles, and the places they target),
+# not from one example profile: change the roles or places in Notion and the next crawl asks for those.
+MAX_ROLES, MAX_PLACES = 4, 6   # each role x place is one request to a site that lists tens of thousands of jobs
+
+
+def _strategy_terms():
+    from ..notion.search_settings import terms
+    from ..paths import load_search_config
+    config = load_search_config()
+    places = config.get('locations') or {}
+    # Places abroad and whole countries first, a city only when there is nothing wider (a country's search covers its cities).
+    where = terms([*(places.get('abroad') or []), *(places.get('country_wide') or [])]) or terms(places.get('top_tier'))
+    return tuple(terms(config.get('role_keywords')))[:MAX_ROLES], tuple(p.title() for p in where)[:MAX_PLACES]
+
+
+def search_roles():
+    return _strategy_terms()[0]
+
+
+def search_places():
+    return _strategy_terms()[1]
 
 
 def amazon(slug='amazon'):
     from datetime import datetime
     seen, jobs = set(), []
-    for role in SEARCH_ROLES:
-        for place in SEARCH_PLACES:
+    for role in search_roles():
+        for place in search_places():
             query = urllib.parse.urlencode({'base_query': role, 'loc_query': place, 'result_limit': 100})
             for j in _json(f'https://www.amazon.jobs/en/search.json?{query}').get('jobs', []):
                 if j['id_icims'] in seen:
@@ -182,7 +201,7 @@ def amazon(slug='amazon'):
 def netflix(slug='netflix'):
     from datetime import datetime, timezone
     seen, jobs = set(), []
-    for role in SEARCH_ROLES + ('reliability',):
+    for role in search_roles():
         query = urllib.parse.urlencode({'domain': 'netflix.com', 'query': role, 'num': 100})
         for j in _json(f'https://explore.jobs.netflix.net/api/apply/v2/jobs?{query}').get('positions', []):
             if j['id'] in seen:

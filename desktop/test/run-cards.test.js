@@ -47,3 +47,8 @@ test('a jobs check from GitHub: no brand name, jobs without a fit (an AI limit r
   assert.deepEqual(card.items.map(item => [item.title, item.company, item.fit, item.url]),
     [['DevOps Engineer', 'Consult & Pepper', null, 'https://jobs.ch/1'], ['Site Reliability Engineer / Software Engineer', 'Intelliact', 71, '']]);
 });
+
+test('a digest counts the jobs in your places with 📍 (older digests used 🇨🇭)', () => {
+  const card = parseRunMessage('✈️ Job Pilotto · 🆕 1 new · top 10 of 24\n24 open · 7 📍 · 2 applied\n🆕 New since last run\n1. Data Analyst (https://x.example/1)\n   Acme · Amsterdam');
+  assert.equal(card.local, 7);
+});

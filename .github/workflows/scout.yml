@@ -39,6 +39,9 @@ env:
   NOTION_AGENT_RUNS_DB: ${{ vars.NOTION_AGENT_RUNS_DB }}
   NOTION_CRON_RUNS_DB: ${{ vars.NOTION_CRON_RUNS_DB }}
   NOTION_PROFILE_PAGE_ID: ${{ vars.NOTION_PROFILE_PAGE_ID }}
+  # The Strategy (roles, places, skills) is read from this page before each crawl; without it a cloud run keeps the copy
+  # that was pushed when Always on was last updated, and a change made in Notion never reached GitHub.
+  NOTION_SEARCH_SETTINGS_PAGE: ${{ vars.NOTION_SEARCH_SETTINGS_PAGE }}
   NOTION_ANSWERS_PAGE_ID: ${{ vars.NOTION_ANSWERS_PAGE_ID }}
   NOTION_PIPELINE_PAGE: ${{ vars.NOTION_PIPELINE_PAGE }}
   # Companies scout never suggests (e.g. your current employer), comma-separated.

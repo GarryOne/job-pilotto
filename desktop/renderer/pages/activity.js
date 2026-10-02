@@ -533,13 +533,13 @@ export function refreshActivity() {
 let expandedCard = '';  // the employers card showing all its rows (by its companies)
 // A run's message as a card: a row of counts, then one line per item (the full text: Open in Notion).
 function renderRunCard(card, run = null, target = $('activity-card')) {
-  // One light line of counts ("37 open · 2 in Switzerland · 18 applied"), then one line per item.
+  // One light line of counts ("37 open · 2 in your places · 18 applied"), then one line per item.
   const stat = (value, label) => { const cell = el('span', 'run-card-stat'); cell.append(el('b', '', String(value ?? '–')), ` ${label}`); return cell; };
   const stats = el('div', 'run-card-stats');
   const rows = el('ol', 'run-card-rows');
   let heading, more = null;
   if (card.kind === 'digest') {
-    stats.append(stat(card.open, 'open'), stat(card.local, 'in Switzerland'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run'));
+    stats.append(stat(card.open, 'open'), stat(card.local, 'in your places'), stat(card.applied, 'already applied (hidden)'), stat(card.fresh, 'new this run'));
     heading = 'Top matches';
     rows.append(...card.items.slice(0, 3).map(item => {
       const row = el('li', 'run-card-row');

@@ -77,6 +77,17 @@ def readable(fragment):
     return entry if fragment_of(entry) == fragment else f'/{fragment}/'
 
 
+def terms(fragments):
+    """The plain words of a list of regex fragments, for sites that search by text ("site reliability", "zürich"):
+    entries shown as /regex/ have no plain form and are left out."""
+    out = []
+    for fragment in fragments or []:
+        entry = readable(fragment).strip('"')
+        if not entry.startswith('/') and entry not in out:
+            out.append(entry)
+    return out
+
+
 def fragment_of(entry):
     """Page entry -> regex fragment: plain = anywhere; "quoted" = whole word; /…/ = as written."""
     entry = entry.strip()

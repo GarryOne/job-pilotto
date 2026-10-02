@@ -446,7 +446,7 @@ def write_notion(tracker, candidate, outcome):
         props.update({'Cities': _text(', '.join(stats['places'])), 'Relevant roles': {'number': stats['relevant']},
                       'In preferred places': {'number': stats['preferred']},
                       'Notes': _text(f"{stats['jobs']} postings; {stats['relevant']} SRE-type; {stats['preferred']} in "
-                                     f"preferred places ({stats['swiss']} in Switzerland); stack overlap "
+                                     f"preferred places ({stats['swiss']} in your countries or cities); stack overlap "
                                      f"{int(stats['stack_share'] * 100)}%"
                                      + ('; salaries published' if stats['salary_published'] else ''))})
     if status == 'found':
@@ -517,7 +517,7 @@ def telegram_summary(summary, results):
     for i, (c, o) in enumerate(found, 1):
         s = o['stats']
         tier = ' · ⭐ Tier 1' if c['tier'] == 'Tier 1' else ''
-        where = f" ({s['swiss']} 🇨🇭)" if s['swiss'] else ''
+        where = f" ({s['swiss']} 📍)" if s['swiss'] else ''
         places = ', '.join(s['places'][:3])
         lines.append(f"\n{i}. <b>{escape(c['name'])}</b> · {o['ats'].capitalize()} · quality <b>{o['quality']}</b>{tier}\n"
                      f"   {s['relevant']} SRE-type roles · {s['preferred']} in your places{where}"

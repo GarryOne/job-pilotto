@@ -24,7 +24,7 @@ export function parseDigest(text) {
     }
   });
   return {kind: 'digest', fresh: num(lines[0], /🆕\s*(\d+) new/), open: num(lines[1], /(\d+) open/),
-    local: num(lines[1], /·\s*(\d+)\s*🇨🇭/), applied: num(lines[1], /(\d+) applied/), items};
+    local: num(lines[1], /·\s*(\d+)\s*(?:🇨🇭|📍)/), applied: num(lines[1], /(\d+) applied/), items};
 }
 
 export function parseScout(text) {
