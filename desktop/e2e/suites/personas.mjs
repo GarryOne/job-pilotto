@@ -30,11 +30,11 @@ function engine(ctx, code, args = []) {
 }
 const DIGEST_CODE = `
 import json, sys
-from src import digest, score, store
+from src import digest, store
 from src.paths import JOBS_DB, load_search_config
 from src.sources import google_jobs
 db = store.connect(JOBS_DB)
-fits = score.load(db)
+fits = digest.score.load(db)
 # the digest leaves out jobs scored below digest_min_score (build_digest does the same): only the jobs it can show are under test
 jobs = [j for j in digest.eligible_jobs(db)[0] if not (fits.get(j['id']) and fits[j['id']]['score'] < digest.MIN_DIGEST_SCORE)]
 search = load_search_config()
