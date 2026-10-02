@@ -6,7 +6,7 @@
 // Read README.md for the secrets, the cost and what is faked.
 import fs from 'node:fs';
 import path from 'node:path';
-import {ARTIFACTS, E2E, launch, pickFile, step} from './lib/app.mjs';
+import {ARTIFACTS, E2E, launch, pickFile, settle, step} from './lib/app.mjs';
 import {clearRoot, testRoot} from './lib/notion.mjs';
 import {LIMITS, VIEWS, inspect} from './lib/uicheck.mjs';
 
@@ -119,7 +119,8 @@ try {
     const findings = [];
     for (const view of VIEWS) {
       await page.click(`.nav[data-view="${view}"]`);
-      await page.waitForTimeout(1500);
+      const settled = await settle(page);
+      if (!settled) findings.push({view, severity: 'warning', kind: 'stuck-loading', detail: 'the page still shows its loading state (skeleton or spinner) after 20 seconds'});
       await session.shot(`ui-${view}`);
       findings.push(...await page.evaluate(inspect, {view, limits: LIMITS}));
     }

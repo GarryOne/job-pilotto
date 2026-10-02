@@ -47,3 +47,14 @@ async function closeApp(app) {
     if (child.exitCode === null) child.kill('SIGKILL');
   } catch { /* the app is already gone */ }
 }
+
+// Wait until the visible page has stopped loading (no skeleton bars or spinners), up to `seconds`; returns whether it settled. A screenshot taken
+// while a page still shows its loading state makes the AI review report skeletons as bugs, and a slow CI machine shows them for longer.
+export async function settle(page, seconds = 20) {
+  try {
+    await page.waitForFunction(() => ![...document.querySelectorAll('.view:not([hidden]) .skeleton, .view:not([hidden]) .spinner')].some(el => el.offsetParent !== null),
+      null, {timeout: seconds * 1000});
+    await page.waitForTimeout(400);
+    return true;
+  } catch { return false; }
+}
