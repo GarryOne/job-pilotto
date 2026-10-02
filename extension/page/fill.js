@@ -398,6 +398,15 @@
       if (key && armCombo(row.field, String(profile[key]))) { armed.push(row.label); answers.push({field: row.field, value: profile[key], source: 'your details'}); }
     }
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);
+    // Controls the form reader above does not set (pressable Yes/No groups, custom dropdowns, date pickers): the generic
+    // operators (page/controls.js) get the same answers, act only on a control an answer was matched to, and verify each.
+    if (window.__jobPilottoControls) {
+      const operated = await window.__jobPilottoControls.fill(answers, {skip: question => LEGAL.test(question)}).catch(() => []);
+      for (const result of operated) {
+        if (result.ok) filled += 1; else todo.push(`Pick "${result.value}" for: ${result.question}${result.why ? ` (${result.why})` : ''}`);
+      }
+      window.__jobPilottoOperated = operated.map(({question, kind, ok, why}) => ({question, kind, ok, why: why || ''}));
+    }
     const resumeAttached = resume?.data ? attachResume(resume) : false;
     const letterFileAttached = resume?.coverLetterFile ? attachCoverLetter(resume.coverLetterFile) : false;
     if (letterFileAttached) filled += 1;
