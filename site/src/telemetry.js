@@ -139,6 +139,7 @@ export async function funnel(db, days, now = new Date()) {
 
 export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'replies', 'screenings', 'interviews', 'offers'];
 
+const STEP_LABELS = {ai: 'AI', cv: 'CV'};
 const OS_NAMES = {darwin: 'macOS', win32: 'Windows', linux: 'Linux'};
 
 function page(data) {
@@ -160,6 +161,7 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}.tile b{display:block;font-size:32px;margin-top:4px}
 table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:6px 4px}
 td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}summary{cursor:pointer}
+.funnel td{vertical-align:middle;padding:7px 14px 7px 0;white-space:nowrap}.funnel td.step{width:120px}.funnel td.bar{width:100%;white-space:normal}.funnel td.bar div{background:var(--amber);height:12px;border-radius:6px}.funnel td.n{text-align:right;font-variant-numeric:tabular-nums}.funnel tr:last-child td.bar div{background:var(--teal)}
 .machines{font-size:14px}.machines td,.machines th{white-space:nowrap;padding:10px 18px 10px 0;vertical-align:middle}.machines td.vs{white-space:normal;line-height:2}.machines .v{display:inline-block;white-space:nowrap;margin:0 4px 0 0;padding:0 8px;border-radius:99px;background:var(--line);color:var(--muted);font-size:12px}.machines .v.now{background:var(--amber);color:#000;font-weight:700;font-size:13px}.machines td.num{font-variant-numeric:tabular-nums}
 pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--line);white-space:nowrap}
 .kind.crash{color:var(--red)}.kind.run_failed{color:var(--amber)}.kind.form_issue{color:var(--teal)}
@@ -177,9 +179,12 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
       ? `<small class="muted">${n} of ${data.reporting} installs</small>` : ''}</div>`; }).join('')}</div>
 ${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">No counts yet: they arrive with each install\'s next daily report.</small>'}</section>
 <section class="card" style="margin-bottom:12px"><h2>🚦 Setup funnel</h2><small class="muted">installs that reached each step (last ${data.days < 30 ? 30 : data.days} days)${data.funnel?.medianMinutes != null ? ` · median time to finish: ${data.funnel.medianMinutes} min` : ''}${data.funnel?.trial ? ` · ${data.funnel.trial} used the free AI credit` : ''}</small>
-${data.funnel?.started ? `<table style="margin-top:8px">${data.funnel.reached.map(({step, n}, i, all) => `<tr><td style="width:110px">${esc(step)}</td>
-  <td><div style="background:var(--amber);height:10px;border-radius:5px;width:${Math.round(n / all[0].n * 100)}%"></div></td>
-  <td style="width:60px"><b>${n}</b></td><td class="muted" style="width:90px">${i && all[i - 1].n ? `${Math.round(n / all[i - 1].n * 100)}% of prev` : ''}</td></tr>`).join('')}</table>`
+${data.funnel?.started ? `<table class="funnel">${data.funnel.reached.map(({step, n}, i, all) => {
+  const lost = i ? all[i - 1].n - n : 0;
+  return `<tr><td class="step"><span class="muted">${i + 1}</span> ${esc(STEP_LABELS[step] || step.charAt(0).toUpperCase() + step.slice(1))}</td>
+  <td class="bar"><div style="width:${Math.max(2, Math.round(n / all[0].n * 100))}%"></div></td>
+  <td class="n"><b>${n}</b></td><td class="muted n">${Math.round(n / all[0].n * 100)}%</td><td class="n" style="color:var(--red)">${lost ? `−${lost}` : ''}</td></tr>`;
+}).join('')}</table><small class="muted" style="display:block;margin-top:6px">% of the ${data.funnel.reached[0].n} installs that started · red: lost since the step before</small>`
   : '<p class="muted">No setups reported yet.</p>'}
 ${Object.keys(data.funnel?.stopped || {}).length ? `<h2 style="margin-top:14px">Why they stopped</h2><table>${Object.entries(data.funnel.stopped)
   .map(([at, reasons]) => `<tr><td style="width:110px">${esc(at)}</td><td>${Object.entries(reasons).sort((a, b) => b[1] - a[1])
