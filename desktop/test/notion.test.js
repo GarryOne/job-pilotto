@@ -191,3 +191,24 @@ test('a block that stays in the page\'s list but is gone does not stop the rewri
   await notion.writePage('ntn_x', 'page', '# Title', fetcher);
   assert.ok(methods.includes('PATCH'), 'the new content is written');
 });
+
+// 2 Oct 2026 (found by the Focus e2e): Notion listed a page's blocks from before its previous rewrite, so the rewrite deleted nothing, appended
+// its blocks beside the old ones, and "Daily applications target" held "5" above the new "3": the engine read the first one and the change was lost.
+test('a rewrite that was given a stale block list removes the old blocks afterwards', async () => {
+  const notion = await import('../lib/notion.js');
+  let content = ['old1', 'old2'];
+  let reads = 0;
+  const fetcher = async (url, {method, body}) => {
+    const reply = (status, data) => ({ok: status < 300, status, json: async () => data});
+    if (method === 'GET') { reads++; return reply(200, {results: (reads === 1 ? [] : content).map(id => ({id})), has_more: false}); }   // the first listing is stale: empty
+    if (method === 'DELETE') { content = content.filter(id => !url.endsWith(`/${id}`)); return reply(200, {}); }
+    if (method === 'PATCH') {
+      const added = JSON.parse(body).children.map((_, i) => `new${i}`);
+      content.push(...added);
+      return reply(200, {results: added.map(id => ({id}))});
+    }
+    return reply(200, {});
+  };
+  await notion.writePage('t', 'page', '# Daily applications target\n- 3', fetcher);
+  assert.deepEqual(content, ['new0', 'new1'], 'only the new blocks are left');
+});

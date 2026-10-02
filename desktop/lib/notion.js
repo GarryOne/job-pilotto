@@ -285,11 +285,34 @@ async function writePageNow(token, pageId, markdown, fetcher, onProgress = () =>
     }
     if (old.length) await new Promise(resolve => setTimeout(resolve, rewriteTuning.waitMs * pass));
   }
+  const added = new Set();
   for (let i = 0; i < blocks.length; i += 100) {
-    await call(token, 'PATCH', `blocks/${pageId}/children`, {children: blocks.slice(i, i + 100)}, fetcher);
+    const reply = await call(token, 'PATCH', `blocks/${pageId}/children`, {children: blocks.slice(i, i + 100)}, fetcher);
+    for (const block of reply?.results || []) added.add(block.id);
     onProgress(++done, total);
   }
+  await sweepLeftovers(token, pageId, added, fetcher);
   return blocks.length;
+}
+// Notion can list a page's blocks from before its previous rewrite: the first read missed blocks, nothing of them was deleted and the
+// new content landed beside the old (a setting then read "5" above the new "3"). Once the new blocks are in, list again and delete
+// whatever is not one of them; a few rounds, because the second listing can lag too. (Skipped when Notion did not return the new ids.)
+async function sweepLeftovers(token, pageId, added, fetcher) {
+  if (!added.size) return;
+  for (let round = 0; round < 4; round++) {
+    const stale = [];
+    let cursor;
+    do {
+      const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
+      stale.push(...page.results.filter(block => !added.has(block.id)));
+      cursor = page.has_more ? page.next_cursor : null;
+    } while (cursor);
+    if (!stale.length) return;
+    for (const block of stale) {
+      try { await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher); }
+      catch (error) { if (!(error.status === 404 || /archived/i.test(error.message))) throw error; }
+    }
+  }
 }
 
 // One "Question — Answer" line at the end of a page (the standard answers).
