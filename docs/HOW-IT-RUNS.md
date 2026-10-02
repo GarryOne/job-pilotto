@@ -14,10 +14,9 @@ money on AI; every manual fix becomes an app step (CLAUDE.md → Working rules).
 ```mermaid
 flowchart LR
   apps[Users' apps] -- scrubbed reports --> tel[/telemetry + /api/signals/]
-  apps -- form structure --> intake[fill-failure-intake]
-  tel -- daily top problems --> triage[telemetry-triage] --> issues[(GitHub issues)]
-  intake --> issues
-  issues --> fix[fix-issues: Claude PR] -- owner merges --> main[(main)]
+  apps -- form structure --> lab[form lab: private repo] -- recipes --> apps
+  tel -- recurring problems --> triage[triage: private repo] --> issues[(private issues)]
+  issues -- owner fixes by hand or PR --> main[(main)]
   main --> ci[build: tests] & desktop[desktop: pre-release] & site[site: deploy]
   desktop --> canary[canary-promote: 48 h healthy] --> stable[stable release] --> apps
   main -. weekly facts .-> review[weekly-self-review: rules PR]
@@ -33,9 +32,6 @@ flowchart LR
 | `windows-smoke.yml` · CI · Windows smoke | weekly (Mondays 06:17 UTC) | builds the Windows app from main and installs it on a fresh runner, with no release: runner or bundled-native drift shows up in a quiet week | main | screenshots (artifact) | — |
 | `canary-promote.yml` · Canary | daily 09:17 UTC | promotes a pre-release 48 h old, green, used and healthy | the Latest release | stable → apps offer "Update to …" | variable `JOB_PILOTTO_AUTO_PROMOTE=on` |
 | `site.yml` · Release · Website | push touching `site/` | deploys the website worker | the live site | jobpilotto.workers.dev | — |
-| `telemetry-triage.yml` · App reports | website cron, daily | one issue per reported problem; Claude (Haiku) adds a likely cause | issues | `telemetry` issues | — |
-| `fill-failure-intake.yml` · Form fills | app report → website | one issue per site + field, with a scrubbed snapshot | issues | `fill-failure` issues | — |
-| `fix-issues.yml` · Fix automatically | daily 06:00 UTC | oldest open telemetry / fill-failure issue → Claude (Haiku) → tested fix | a branch + PR only | `autofix/issue-<n>` PR | merge the PR |
 | Form lab · private repo `GarryOne/job-pilotto-internal` (`form-lab.yml`, daily 04:17 UTC) | headless browser on public application forms with a test applicant (never submits), aimed by the site's plan → success per board and control; tries candidate recipes | the site's recipe and lab tables (`/api/lab`, `/api/recipes`) | a recipe gets a 5% canary when it works on enough pages | disable any recipe on the site |
 | Triage · private repo `GarryOne/job-pilotto-internal` (`triage.yml`, daily 05:47 UTC) | pulls recurring problems from the site's queue (several installs, or very often) → one issue per problem in the private repo | issues (private) | `telemetry` / `fill-failure` issues there | act on the issue |
 | `weekly-self-review.yml` | Sunday 18:00 UTC | reads the week's rework → ≤ 3 rule/skill edits | CLAUDE.md, AGENTS.md, skills (PR) | `self-review/<date>` PR | merge the PR |

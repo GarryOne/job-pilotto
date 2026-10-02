@@ -228,7 +228,7 @@ export async function evidence(request, env) {
 }
 
 // Daily (Worker cron): drop reports older than 90 days, then send the top problems of the last day to the triage
-// workflow, which files or updates one GitHub issue per problem (.github/workflows/telemetry-triage.yml).
+// queue, which the private repo's triage pulls and files as one issue per problem.
 export async function daily(env, dispatch, now = new Date()) {
   if (!env.STATS) return 0;
   await env.STATS.prepare('DELETE FROM telemetry WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_DAYS * 86400000))).run();

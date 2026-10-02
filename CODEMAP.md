@@ -277,7 +277,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/check.sh` — Every agent uses this entry point; select a supported Python, then let check.py select Node and run CI checks.
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
-- `tools/fix_issues.py` — No-AI steps of the daily self-fix run (fix-issues.yml): stale close, snapshot-only issue pick, Claude log summary.
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links
