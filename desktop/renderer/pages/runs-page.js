@@ -55,6 +55,7 @@ export function renderActionsPage(data) {
     const kind = kindOf(run);
     const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
     const li = el('li', 'runs-row');
+    li.dataset.runId = run.id;   // which run this row is (the end-to-end suite opens a run by it)
     const tile = el('span', 'task-tile small');
     tile.append(icon(TASK_ICON[kind] || 'pulse'));
     li.append(tile, el('b', '', KIND[kind]?.name || 'Task'), pill(label, tone), el('span', 'muted', runWhen(run.endedAt || run.startedAt)),
