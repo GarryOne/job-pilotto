@@ -1,15 +1,10 @@
 // The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
-// (Job Pilotto menu, under About); on Windows it sits in Help. Under it, once settings are loaded (testBuilds not
-// undefined): "Get Test Builds" (pre-releases, trialled one canary build at a time: lib/canary.js) and, when on, the
-// escape hatch "Update to the Newest Test Build Now".
+// (Job Pilotto menu, under About); on Windows it sits in Help. Only stable releases are offered.
 // Help → Send Feedback… on both platforms (lib/app-feedback.js). Edit → Find… (⌘F), Find Next (⌘G), Find Previous
 // (⇧⌘G): find(what) tells the window ('open' | 'next' | 'previous'; renderer/pages/find.js).
-export function template({name, mac, checkForUpdates, testBuilds, setTestBuilds, updateToNewest, sendFeedback = () => {}, find = () => {}}) {
+export function template({name, mac, checkForUpdates, sendFeedback = () => {}, find = () => {}}) {
   const feedback = {label: 'Send Feedback…', click: sendFeedback};
-  const check = [{label: 'Check for Updates…', click: checkForUpdates},
-    ...(testBuilds === undefined ? [] : [
-      {label: 'Get Test Builds', type: 'checkbox', checked: !!testBuilds, click: item => setTestBuilds(item.checked)},
-      ...(testBuilds ? [{label: 'Update to the Newest Test Build Now…', click: updateToNewest}] : [])])];
+  const check = [{label: 'Check for Updates…', click: checkForUpdates}];
   return [
     ...(mac ? [{label: name, submenu: [{role: 'about'}, ...check, {type: 'separator'}, {role: 'services'}, {type: 'separator'},
       {role: 'hide'}, {role: 'hideOthers'}, {role: 'unhide'}, {type: 'separator'}, {role: 'quit'}]}] : []),
@@ -29,7 +24,7 @@ export function answer(result, current) {
   if (result?.fromSource) return {type: 'info', message: 'Running from source (npm start)', detail: 'Updates are for the installed app. Here, update with git pull and restart.', buttons: ['OK']};
   if (!result?.ok) return {type: 'warning', message: 'Couldn\'t check for updates', detail: result?.text || 'Try again later.', buttons: ['OK']};
   if (!result.offer) return {type: 'info', message: 'You\'re up to date', buttons: ['OK'],
-    detail: result.trial ? `${result.trial}. Newer test builds wait until this trial ends.` : `Job Pilotto ${current} is the latest version.`};
+    detail: `Job Pilotto ${current} is the latest version.`};
   return {type: 'info', message: `Job Pilotto ${result.offer.version} is available`, install: true,
     detail: `You have ${current}. Updating takes about 30 seconds: the app closes, updates and opens again.`,
     buttons: ['Update now', 'Later']};

@@ -13,7 +13,6 @@ import * as cvlib from './lib/cv.js';
 import * as letters from './lib/cover-letter.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
-import * as canary from './lib/canary.js';
 import * as telemetryLib from './lib/telemetry.js';
 import * as poolShare from './lib/pool-share.js';
 import {shouldNotify} from './lib/needs-you.js';
@@ -134,59 +133,23 @@ function outcomes(settings) {
 let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
 let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
 let staleWarned = '';  // the extension version already reported as stale in the log (once per version)
-let testBuild = null;  // Get Test Builds on: the canary trial (lib/canary.js): {state, canary, line, newestOffer, newestIsCanary}
 // Running from source (npm start): never offer or install an update. It would quit the dev app and open the
 // downloaded one in its place. From source, updating is `git pull` + restart.
 const FROM_SOURCE = !app.isPackaged;
 async function checkForUpdate(asked = false) {
   if (FROM_SOURCE) return asked ? {ok: true, offer: null, current: app.getVersion(), fromSource: true} : null;
   try {
-    const settings = storage?.settings() || {};
-    if (settings.testBuilds) {
-      testBuild = await canary.check(app.getVersion(), {skip: settings.skipCanary || '', since: settings.versionSince?.at || ''});
-      updateOffer = testBuild.offer;
-    } else {
-      testBuild = null;
-      updateOffer = await updater.check(app.getVersion());
-    }
+    updateOffer = await updater.check(app.getVersion());
     updateCheckedAt = new Date().toISOString();
     if (updateOffer) { appLog('update', `available: ${updateOffer.version}`); toWindow('update', updateOffer); }
-    return {ok: true, offer: updateOffer, current: app.getVersion(), trial: testBuild?.line || ''};
+    return {ok: true, offer: updateOffer, current: app.getVersion()};
   } catch (error) {
     return {ok: false, text: `Couldn't check for updates: ${error.message}`, current: app.getVersion()};
   }
 }
-// The escape hatch (menu → Update to the Newest Test Build Now): skips the canary's trial for this build and installs
-// the newest test build; only when that build is the canary itself does its trial go on.
-async function updateToNewestTestBuild() {
-  const parent = window && !window.isDestroyed() ? window : undefined;
-  if (FROM_SOURCE) { dialog.showMessageBox(parent, {type: 'info', message: 'Running from source', detail: 'Update with git pull, then restart npm start.', buttons: ['OK']}); return; }
-  const checked = await checkForUpdate(true);
-  const newest = testBuild?.newestOffer;
-  if (!checked?.ok || !newest) {
-    dialog.showMessageBox(parent, {type: checked?.ok ? 'info' : 'warning', buttons: ['OK'],
-      message: checked?.ok ? 'You have the newest test build' : 'Couldn\'t check for updates', detail: checked?.ok ? checked.trial || '' : checked?.text});
-    return;
-  }
-  const leaves = testBuild.canary && !testBuild.newestIsCanary;
-  const {response} = await dialog.showMessageBox(parent, {type: 'question', buttons: ['Update now', 'Cancel'], defaultId: 0, cancelId: 1,
-    message: `Update to the newest test build, ${newest.version}?`,
-    detail: leaves ? `This leaves the 2-day trial of ${testBuild.canary.replace(/^desktop-v/, '')}: no auto-promotion evidence from this Mac for it.` : ''});
-  if (response !== 0) return;
-  storage.saveSettings({skipCanary: leaves ? testBuild.canary : ''});
-  updateOffer = newest;
-  const result = await installUpdate();
-  if (!result.ok) dialog.showMessageBox(parent, {type: 'warning', message: 'The update didn\'t install', detail: result.text, buttons: ['OK']});
-}
-function setTestBuilds(on) {
-  storage.saveSettings({testBuilds: !!on, skipCanary: ''});
-  buildMenu();
-  checkForUpdate(true);
-}
 function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin',
-    checkForUpdates: checkForUpdatesNow, testBuilds: storage ? !!storage.settings().testBuilds : undefined,
-    setTestBuilds, updateToNewest: updateToNewestTestBuild,
+    checkForUpdates: checkForUpdatesNow,
     sendFeedback: () => { if (window && !window.isDestroyed()) { window.show(); toWindow('openFeedback'); } },
     find: what => toWindow('find', what)})));
 }
@@ -1289,7 +1252,7 @@ function handlers() {
   ipcMain.handle('telemetrySet', (_, on) => { storage.saveSettings({telemetry: !!on}); if (!on) telemetry?.flush(); return {on: !!on}; });
   ipcMain.handle('updateState', () => updateOffer);
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
-  ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, trial: testBuild?.line || '', fromSource: FROM_SOURCE}));
+  ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: updateOffer, checkedAt: updateCheckedAt, fromSource: FROM_SOURCE}));
   ipcMain.handle('updateInstall', () => installUpdate());
   // Why setup stopped (the quit question or "Stuck? Tell us"): a setup report; typed words also reach the owner.
   ipcMain.handle('leaveReason', async (_, answer = {}) => {
@@ -1603,9 +1566,6 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   engineLog.setFile(path.join(app.getPath('userData'), 'logs', 'engine.log'));  // everything a run printed, in full
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
   aiTrial.apply(storage.settings());  // the free AI credit, if on: this process's Anthropic SDK goes to our website
-  // When this version started running here: a test build's trial day (lib/canary.js) counts from it.
-  if (storage.settings().versionSince?.version !== app.getVersion()) storage.saveSettings({versionSince: {version: app.getVersion(), at: new Date().toISOString()}});
-  buildMenu();  // again, now with the Get Test Builds setting
   // Technical reports (lib/telemetry.js): on by default, off in Settings → Advanced; never in demo mode, and never
   // from a source checkout (npm start): its crashes are work in progress, not users' problems, and would open triage issues.
   license = licenseLib.create(storage, {appliedNow: () => viewCache.recall(storage, 'focus')?.result?.focus?.funnel?.steps

@@ -25,7 +25,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/benchmarks.js` — What applications typically get on a job board, from the website's counts of how people's applications went (site/src/knowledge.js benchmarks).
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
-- `desktop/lib/canary.js` — Test builds (menu → Get Test Builds): the app stays on one canary build for its 48 h trial, not the newest build.
 - `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
 - `desktop/lib/confirmation.js` — A submit press, then a change: a redirect, or new content on the same page. This file turns that page into

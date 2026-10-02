@@ -19,13 +19,10 @@ test('Windows: no app menu; Check for Updates… in Help', () => {
   assert.ok(menu.at(-1).submenu.some(item => item.label === 'Check for Updates…'));
 });
 
-test('Get Test Builds: a checkbox once settings are loaded; the escape hatch only when it is on', () => {
-  const noop = () => {};
-  const items = on => template({name: 'Job Pilotto', mac: true, checkForUpdates: noop, testBuilds: on, setTestBuilds: noop, updateToNewest: noop})[0].submenu;
-  assert.ok(!items(undefined).some(item => item.label === 'Get Test Builds'));
-  assert.equal(items(false).find(item => item.label === 'Get Test Builds').checked, false);
-  assert.ok(!items(false).some(item => /Newest Test Build/.test(item.label || '')));
-  assert.ok(items(true).some(item => /Newest Test Build/.test(item.label || '')));
+test('there is no test-build opt-in: the app only offers the stable release', () => {
+  const labels = template({name: 'Job Pilotto', mac: true, checkForUpdates: () => {}})[0].submenu.map(item => item.label || '');
+  assert.ok(labels.includes('Check for Updates…'));
+  assert.ok(!labels.some(label => /Test Build/.test(label)));
 });
 
 test('the answer: up to date, an update to install, or why the check failed', () => {
@@ -33,7 +30,6 @@ test('the answer: up to date, an update to install, or why the check failed', ()
   const offer = answer({ok: true, offer: {version: '0.4.0-alpha.66'}}, '0.4.0-alpha.65');
   assert.equal(offer.install, true);
   assert.deepEqual(offer.buttons, ['Update now', 'Later']);
-  assert.match(answer({ok: true, offer: null, trial: 'Test build alpha.66 — trial 1 of 2 days'}, 'x').detail, /trial 1 of 2 days/);
   assert.match(answer({ok: false, text: 'offline'}, 'x').detail, /offline/);
 });
 

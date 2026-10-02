@@ -196,13 +196,6 @@ class CanaryPromoteTests(unittest.TestCase):
         self.assertGreater(key('0.5.0-alpha.1'), key('0.4.0'))
 
 
-class CanaryFloorParityTest(unittest.TestCase):
-    def test_python_and_app_use_the_same_floor(self):
-        js = (Path(__file__).resolve().parents[1] / 'desktop' / 'lib' / 'canary.js').read_text()
-        self.assertIn(f"export const CANARY_FLOOR = '{canary.CANARY_FLOOR}';", js)
-
-
-
 class PromotesWithoutStartingARun(unittest.TestCase):
     def test_the_promotion_may_not_start_an_end_to_end_run(self):
         # release-stable.sh starts one by default and waits ~15 minutes; this job has 10 minutes and cannot start workflows.
