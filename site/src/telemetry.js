@@ -80,6 +80,19 @@ export async function problems(db, days, now = new Date(), limit = 50) {
     FROM telemetry WHERE day >= ? AND kind NOT IN ('health', 'setup') GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
   const installs = (await db.prepare(`SELECT version, platform, COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ?
     GROUP BY version, platform ORDER BY n DESC`).bind(from).all()).results || [];
+  // Machines, not (version, platform) rows: one install that updated twice reports under three versions but is one machine.
+  const unique = (await db.prepare('SELECT COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ?').bind(from).first())?.n || 0;
+  const everSeen = (await db.prepare('SELECT COUNT(DISTINCT install) AS n FROM telemetry').first())?.n || 0;
+  // Each machine once: the version it last reported (what is installed now), when it first and last reported, and every version it has run.
+  const machines = (await db.prepare(`SELECT install, platform, version AS current, MAX(at) AS last FROM telemetry
+    GROUP BY install ORDER BY last DESC LIMIT 50`).all()).results || [];
+  const history = (await db.prepare('SELECT install, version, MIN(at) AS at FROM telemetry GROUP BY install, version ORDER BY at').all()).results || [];
+  for (const m of machines) {
+    const own = history.filter(h => h.install === m.install);
+    m.versions = own.map(h => h.version);
+    m.first = own[0]?.at;
+  }
+  const platforms = (await db.prepare('SELECT platform, COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ? GROUP BY platform ORDER BY n DESC').bind(from).all()).results || [];
   // How it helped: each install's latest daily health line, summed (anonymous counts; "ever reached" for the funnel).
   const health = (await db.prepare(`SELECT t.data FROM telemetry t WHERE t.kind = 'health' AND t.day >= ?
     AND t.at = (SELECT MAX(at) FROM telemetry WHERE install = t.install AND kind = 'health')`).bind(from).all()).results || [];
@@ -91,7 +104,7 @@ export async function problems(db, days, now = new Date(), limit = 50) {
     for (const name of OUTCOMES) if (typeof data[name] === 'number') { outcomes[name] = (outcomes[name] || 0) + data[name]; counted[name] = (counted[name] || 0) + 1; }
   }
   outcomes.counted = counted;
-  return {from, days, rows, installs, outcomes, reporting: health.length};
+  return {from, days, rows, installs, unique, everSeen, platforms, machines, outcomes, reporting: health.length};
 }
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
 export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
@@ -128,10 +141,9 @@ export const OUTCOMES = ['matches', 'goodFits', 'formsFilled', 'applied', 'repli
 
 function page(data) {
   const {rows, installs} = data;
-  const total = installs.reduce((sum, row) => sum + row.n, 0);
   const count = kind => rows.filter(row => row.kind === kind).reduce((sum, row) => sum + row.n, 0);
   const range = [1, 7, 30].map(n => n === data.days ? `<b>${n === 1 ? 'today' : `${n} days`}</b>` : `<a href="?days=${n}">${n === 1 ? 'today' : `${n} days`}</a>`).join(' · ');
-  const tiles = [['🖥️ Installs reporting', total], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
+  const tiles = [['🖥️ Machines reporting', data.unique, `${data.everSeen} ever seen` + (data.platforms.length ? ' · ' + data.platforms.map(p => `${p.n} ${esc(p.platform)}`).join(', ') : '')], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
   const table = rows.map(row => `<tr><td><span class="kind ${row.kind}">${esc(row.kind.replace('_', ' '))}</span></td>
     <td><details><summary>${esc(row.summary)}</summary><pre>${esc(JSON.stringify(JSON.parse(row.sample || '{}'), null, 1))}</pre></details></td>
     <td><b>${row.users}</b></td><td>${row.n}</td><td class="muted">${esc(row.versions)}</td><td class="muted">${esc(String(row.last).slice(0, 16).replace('T', ' '))}</td></tr>`).join('');
@@ -150,7 +162,9 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 .kind.crash{color:var(--red)}.kind.run_failed{color:var(--amber)}.kind.form_issue{color:var(--teal)}
 </style></head><body><main>
 <header><h1>✈ Job Pilotto · app reports</h1><span class="muted">${range} · <a href="/feedback">Live feedback →</a> · <a href="/intelligence">Intelligence →</a> · <a href="/stats">Website stats →</a></span></header>
-<div class="tiles">${tiles.map(([label, value]) => `<div class="card tile"><span class="muted">${label}</span><b>${value}</b></div>`).join('')}</div>
+<div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${value}</b>${note ? `<small class="muted">${note}</small>` : ''}</div>`).join('')}</div>
+<section class="card" style="margin-bottom:12px"><h2>🖥️ Machines</h2><small class="muted">one row per install: the version it runs now, and every version it has run (id shown as a short prefix)</small>
+<table><tr><th>Install</th><th>OS</th><th>Now</th><th>First seen</th><th>Last seen</th><th>Versions</th></tr>${data.machines.map(m => `<tr><td>${esc(String(m.install).slice(0, 6))}</td><td>${esc(m.platform)}</td><td><b>${esc(m.current)}</b></td><td class="muted">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="muted">${m.versions.map(esc).join(' → ')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No machine has reported yet.</td></tr>'}</table></section>
 <section class="card" style="margin-bottom:12px"><h2>How it helped</h2><small class="muted">all ${data.reporting} installs reporting, their latest totals</small>
 <div class="tiles" style="margin:10px 0 0">${[['🎯 Jobs matched', 'matches'], ['⭐ Good fits (70+)', 'goodFits'], ['🧩 Forms filled', 'formsFilled'],
   ['📨 Applications', 'applied'], ['💬 Human replies', 'replies'], ['📞 Screenings', 'screenings'], ['🧑‍💻 Interviews', 'interviews'], ['🏆 Offers', 'offers']]
