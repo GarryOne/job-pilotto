@@ -17,11 +17,11 @@ Jobs that break these are filtered out before any AI scoring.
 
 | Constraint | Value |
 |---|---|
-| Countries | ❓ e.g. "Switzerland (anywhere), plus Berlin, London, or remote roles" |
+| Countries | ❓ e.g. "My country (anywhere), plus one or two cities abroad, or remote roles" |
 | Home base | ❓ your current city; open to relocating? |
 | Acceptable cities / commute | ❓ |
 | Work mode | ❓ on-site / hybrid / remote acceptable? |
-| Work permit / visa | ❓ your status, and whether you need sponsorship anywhere you're applying |
+| Work permit / visa | ❓ your citizenship and status, and whether you need sponsorship anywhere you're applying (the digest's "visa sponsorship needed" flag follows ⚙️ Search settings → "Where you can work without a visa") |
 | Languages I can work in | ❓ |
 | Languages that disqualify a job if required | ❓ |
 | Minimum seniority | ❓ e.g. "Senior or higher" |

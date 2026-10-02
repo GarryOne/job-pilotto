@@ -32,7 +32,7 @@ import sys
 import urllib.error
 from zoneinfo import ZoneInfo
 
-from .. import telegram
+from .. import telegram, tz
 from ..notion import client as notion, cron_runs, ledger
 from ..notion import origin as origin_rule, titles
 from ..notion.funnel import PREPARED_STAGES
@@ -43,7 +43,7 @@ from . import cost, opportunity
 from .. import feedback as employer_feedback
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_MAIL_MODEL', 'claude-haiku-4-5')
-TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
+TZ = tz.local_zone()
 STATE_FILE = DATA / 'mail-state.json'
 # Senders that only write about applications: ATSs, recruiter platforms, schedulers.
 SENDER_DOMAINS = ('greenhouse.io', 'greenhouse-mail.io', 'lever.co', 'ashbyhq.com', 'workable.com', 'smartrecruiters.com',
@@ -117,7 +117,7 @@ message, or LinkedIn's notification of one); a follow-up about a role already in
 nudges, transcripts or recordings of a call, security codes, logistics.
 - role: the role title exactly as the item writes it, including any location part; "" when it names none. An item \
 naming a role that differs from every listed role at that company (e.g. another country) gets application -1.
-- interview_at: only when a specific time is stated; ISO 8601 with offset (assume Europe/Zurich if none is given).
+- interview_at: only when a specific time is stated; ISO 8601 with offset (assume the user's own time zone if none is given).
 - summary: factual, short, no email addresses or phone numbers.
 Answer for every item index."""
 

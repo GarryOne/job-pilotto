@@ -1,0 +1,57 @@
+{
+ "name": "Jordan Rivera (data analyst, Austin, US citizen)",
+ "citizenship": "United States",
+ "work_rights": [
+  "united states"
+ ],
+ "places": {
+  "top_tier": [
+   "austin"
+  ],
+  "country_wide": [
+   "united states",
+   "texas",
+   "dallas",
+   "houston"
+  ],
+  "abroad": [
+   "portugal"
+  ]
+ },
+ "languages": [
+  "English"
+ ],
+ "currency": "$",
+ "remote": true,
+ "timezone": "America/Chicago",
+ "roles": [
+  "data analyst",
+  "business intelligence",
+  "\\bbi\\b",
+  "analytics engineer"
+ ],
+ "expect": {
+  "noSponsorship": [
+   "Austin",
+   "Dallas",
+   "Remote"
+  ],
+  "sponsorship": [
+   "Lisbon"
+  ],
+  "currency": "$95,000"
+ },
+ "google": {
+  "queries": [
+   "data analyst"
+  ],
+  "country": "us",
+  "locations": [
+   {
+    "location": "Austin,Texas,United States",
+    "language": "en"
+   }
+  ]
+ },
+ "board": "data analyst"
+}

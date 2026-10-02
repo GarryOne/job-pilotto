@@ -112,10 +112,10 @@ def in_profile(tech, profile_text):
 
 def region(job):
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
-    if digest.ZURICH_AREA.search(where):
-        return 'Zurich area'
-    if digest.is_swiss(job):
-        return 'Switzerland (other)'
+    if digest.BEST_PLACES.search(where):
+        return 'Best places'
+    if digest.in_places(job):
+        return 'Your country'
     match = digest.PREFERRED_ABROAD.search(where)
     if match:
         return match.group(0).title()

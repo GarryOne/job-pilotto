@@ -6,5 +6,8 @@
     "Italian"
   ],
   "excluded_companies": [],
-  "digest_min_score": 50
+  "digest_min_score": 50,
+  "work_rights": [
+    "\\beu\\b"
+  ]
 }

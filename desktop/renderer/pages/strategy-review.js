@@ -21,11 +21,16 @@ const LISTS = {
   abroad: [['search', 'locations', 'abroad'], readable, escapeFragment],
   queries: [['search', 'jobs_board_search_queries'], text => text, text => text.trim()],
   languages: [['preferences', 'disqualifying_languages'], text => text, text => text.trim()],
+  rights: [['preferences', 'work_rights'], readable, escapeFragment],   // citizenship / work rights: where no visa is needed
 };
-const listOf = name => LISTS[name][0].reduce((node, key) => node?.[key], shared.draft) || [];
+// The list at its draft path; a draft saved before a list existed gets it, so an added entry is kept.
+const listOf = name => {
+  const path = LISTS[name][0], parent = path.slice(0, -1).reduce((node, key) => node?.[key], shared.draft);
+  return parent ? (parent[path.at(-1)] ||= []) : [];
+};
 // Each word capitalised (accents too: "zürich" -> "Zürich"), known acronyms in capitals.
 export const titleCase = text => String(text).replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_, gap, letter) => gap + letter.toUpperCase())
-  .replace(/\b(Aws|Gcp|Sre|Eks|Ecs|Slo|Ci|Cd)\b/g, w => w.toUpperCase());
+  .replace(/\b(Aws|Gcp|Sre|Eks|Ecs|Slo|Ci|Cd|Eu|Eea|Uk|Usa?)\b/g, w => w.toUpperCase());
 let draftSavedTimer, editsTimer;
 function draftChanged(fields) {
   clearTimeout(editsTimer);
@@ -59,7 +64,7 @@ function renderList(name, {limit = 0} = {}) {
 }
 function renderLists() {
   renderList('roles', {limit: 10}); renderList('places', {limit: 6}); renderList('country', {limit: 4});
-  renderList('abroad'); renderList('queries', {limit: 8}); renderList('languages');
+  renderList('abroad'); renderList('queries', {limit: 8}); renderList('languages'); renderList('rights');
 }
 
 // Markdown (headings, tables, bullets, paragraphs, **bold**) as read-only HTML for the Detailed strategy.
@@ -399,7 +404,7 @@ export async function init() {
     let input = card.querySelector('input.add');
     if (input) { input.remove(); return; }
     const name = card.dataset.list;
-    input = Object.assign(document.createElement('input'), {className: 'add', placeholder: name === 'places' ? 'Add a place, then Enter' : 'Add, then Enter'});
+    input = Object.assign(document.createElement('input'), {className: 'add', placeholder: name === 'places' ? 'Add a place, then Enter' : name === 'rights' ? 'Add a country or EU, then Enter' : 'Add, then Enter'});
     input.addEventListener('keydown', event => {
       if (event.key === 'Escape') input.remove();
       if (event.key !== 'Enter' || !input.value.trim()) return;

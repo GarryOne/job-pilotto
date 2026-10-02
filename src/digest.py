@@ -17,14 +17,14 @@ TELEGRAM_LIMIT = 4096
 CHUNK_LIMIT = TELEGRAM_LIMIT - 200
 PAGE_SIZE = 10  # Jobs per digest message; '➕ Next' loads the following page.
 _SEARCH = load_search_config()
-SWISS = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
+HOME = keyword_regex([*_SEARCH['locations']['top_tier'], *_SEARCH['locations']['country_wide']])
 RELEVANT = keyword_regex(_SEARCH['role_keywords'])
 PREFERENCES = json.loads((CONFIG / 'preferences.json').read_text())
 MIN_DIGEST_SCORE = PREFERENCES.get('digest_min_score', 50)
 # The tool's own name is "Job Pilotto" (generic, any fork); this is your own digest's display name.
 # `or`: a workflow passes an unset repository variable as '' ("✈️ · 🆕 173 new" on GitHub, 29 Sep 2026).
 BRAND_NAME = os.getenv('DIGEST_BRAND_NAME') or 'Job Pilotto'
-LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'English': '🇬🇧', 'Other': '🌐'}
+LANGUAGE_FLAGS = {'German': '🇩🇪', 'French': '🇫🇷', 'Italian': '🇮🇹', 'Spanish': '🇪🇸', 'Portuguese': '🇵🇹', 'Dutch': '🇳🇱', 'English': '🇬🇧', 'Other': '🌐'}
 SENIORITY_LABELS = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
                     'lead_manager': 'Lead/Manager'}
 
@@ -41,22 +41,42 @@ def _work_mode_badge(value):
     return None
 
 
-def is_swiss(job):
-    return bool(job.get('city')) or bool(SWISS.search(job.get('location') or ''))
+def in_places(job):
+    """True when the job is in one of your places (config/search.json: best places, anywhere in the country)."""
+    return bool(job.get('city')) or bool(HOME.search(job.get('location') or ''))
 
 
-ZURICH_AREA = keyword_regex(_SEARCH['locations']['top_tier'])
+BEST_PLACES = keyword_regex(_SEARCH['locations']['top_tier'])
 PREFERRED_ABROAD = keyword_regex(_SEARCH['locations']['abroad'])
-# Listed "abroad" locations outside the EU/CH, where the owner (EU citizen) needs visa sponsorship.
-NON_EU_ABROAD = keyword_regex([loc for loc in _SEARCH['locations']['abroad'] if loc not in ('berlin',)])
+# Where the user may work without a visa beyond their own places (citizenship / work rights): ⚙️ Search settings → "Where you
+# can work without a visa", e.g. "EU" for an EU citizen. "EU" stands for every EU member state.
+EU_PLACES = ['austria', 'belgium', 'bulgaria', 'croatia', 'cyprus', 'czech', 'denmark', 'estonia', 'finland', 'france', 'germany', 'greece',
+             'hungary', 'ireland', 'italy', 'latvia', 'lithuania', 'luxembourg', 'malta', 'netherlands', 'poland', 'portugal', 'romania',
+             'slovakia', 'slovenia', 'spain', 'sweden', 'berlin', 'munich', 'hamburg', 'frankfurt', 'amsterdam', 'paris', 'dublin',
+             'madrid', 'barcelona', 'lisbon', 'vienna', 'brussels', 'copenhagen', 'stockholm', 'warsaw', 'prague', 'milan', 'rome']
+_EU_FRAGMENT = re.compile(r'(?:\\b)?(?:eu|european\\ union|european union)(?:\\b)?', re.I)
+
+
+def work_rights_regex(fragments):
+    """Regex for the places the user may work without sponsorship (None when none are given)."""
+    parts = []
+    for fragment in fragments or []:
+        parts += [rf'\b{place}\b' for place in EU_PLACES] if _EU_FRAGMENT.fullmatch(fragment) else [fragment]
+    return keyword_regex(parts) if parts else None
+
+
+WORK_RIGHTS = work_rights_regex(PREFERENCES.get('work_rights'))
 
 
 def needs_sponsorship(job):
-    """True when the job's location is outside the EU/Switzerland, so the owner would need visa sponsorship."""
-    if is_swiss(job):
+    """True when the job is in one of your places abroad and your citizenship / work rights do not cover it, so you would need a
+    visa. Your own places never do; with no work rights set, every place abroad does."""
+    if in_places(job):
         return False
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
-    return bool(NON_EU_ABROAD.search(where))
+    if WORK_RIGHTS and WORK_RIGHTS.search(where):
+        return False
+    return bool(PREFERRED_ABROAD.search(where))
 
 
 def location_points(job):
@@ -64,9 +84,9 @@ def location_points(job):
     where = f"{job.get('location') or ''} {job.get('city') or ''}"
     remote = ((job.get('ai') or {}).get('work_mode', {}).get('value') == 'remote'
               or (job.get('work_mode') or '').startswith('Remote'))
-    if ZURICH_AREA.search(where):
+    if BEST_PLACES.search(where):
         return 5
-    if is_swiss(job):
+    if in_places(job):
         return 4
     if PREFERRED_ABROAD.search(where) or remote:
         return 3
@@ -124,7 +144,7 @@ def hard_filtered(job):
     return language_blocked(job) or company_excluded(job)
 
 
-_CUR = r"(?:CHF|EUR|USD|GBP|SEK|NOK|DKK|PLN|[£$€])"
+_CUR = r"(?:CHF|EUR|USD|GBP|SEK|NOK|DKK|PLN|BRL|CAD|AUD|MXN|INR|JPY|R\$|US\$|C\$|A\$|[£$€])"
 _NUM = r"\d[\d'’,. ]*\d(?:\s?[kK])?|\d(?:\s?[kK])?"
 SALARY_FIGURE = re.compile(rf"(?:{_CUR}\s?)?(?:{_NUM})(?:\s?{_CUR})?(?:\s?(?:-|–|to)\s?(?:{_CUR}\s?)?(?:{_NUM})(?:\s?{_CUR})?)?")
 
@@ -325,8 +345,8 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
     shown = ranked[first:first + PAGE_SIZE]
 
     if page == 1:
-        swiss_total = sum(is_swiss(j) for j in everything)
-        stats = [f"{len(everything)} open", f"{swiss_total} 📍"]
+        places_total = sum(in_places(j) for j in everything)
+        stats = [f"{len(everything)} open", f"{places_total} 📍"]
         if hidden_urls:
             stats.append(f"{len(hidden_urls)} applied")
         if blocked:
@@ -348,7 +368,7 @@ def build_digest(db, limit=50, rng=None, hidden_urls=frozenset(), page=1, seed=N
             blocks.append({'new': '🆕 <b>New since last run</b>', 'best': '🎯 <b>Best matches</b>',
                            'older': '🎲 <b>More to explore</b>'}[kind])
         # Ranking puts jobs in the user's places first; mark where the rest begins instead of flagging every job.
-        if not is_swiss(job) and not abroad_heading:
+        if not in_places(job) and not abroad_heading:
             blocks.append('🌍 <i>Outside your places</i>')
             abroad_heading = True
         blocks.append(_job_block(index, job))

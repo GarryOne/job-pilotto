@@ -34,14 +34,14 @@ import re
 import sys
 from zoneinfo import ZoneInfo
 
-from . import telegram
+from . import telegram, tz
 from . import feedback
 from .features import disabled
 from .notion import client as notion, titles
 from .notion import funnel as funnel_steps
 from .notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, add_event, plain
 
-TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
+TZ = tz.local_zone()
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
 DEFAULT_TARGET = 5  # fewer, better applications: a handful of good-fit ones a day

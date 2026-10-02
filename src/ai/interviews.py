@@ -131,9 +131,9 @@ was wrong; say what a stronger answer would add, using the candidate's real expe
 say less when the input is thin.
 - Interviewers by role only; never names.
 - facts: only what someone actually said in this call, never guesses or the posting. salary = the employer's \
-range or offer, with currency and period (e.g. "CHF 150-170k/year gross"); salary_ask = what the candidate asked \
+range or offer, with currency and period (e.g. "150-170k/year gross", in the currency said); salary_ask = what the candidate asked \
 for, same format; contract = exactly "Employee", "B2B / contractor" or "Employee or B2B"; work_mode = exactly \
-"On-site", "Hybrid" or "Remote"; location = a SHORT summary, at most about five words (e.g. "Zurich, 2 days in office", "Remote, Europe"), \
+"On-site", "Hybrid" or "Remote"; location = a SHORT summary, at most about five words (e.g. "Hybrid, 2 days in office", "Remote, one region"), \
 never conditions: who can be employed where, through which setup, or relocation terms belong in relocation; relocation, \
 team_size, company_size, visa (work permit/sponsorship), start_date = short, as said.
 

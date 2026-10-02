@@ -1,0 +1,44 @@
+{
+ "jobs": [
+  {
+   "id": 3001,
+   "title": "Gerente de Marketing",
+   "location": {
+    "name": "São Paulo, Brazil"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3001",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Lidere campanhas de performance e CRM. Google Ads, Meta Ads, HubSpot. Híbrido em São Paulo. Português fluente. Salário: R$ 14.000 - R$ 18.000 por mês.</p>"
+  },
+  {
+   "id": 3002,
+   "title": "Marketing Manager",
+   "location": {
+    "name": "Lisbon, Portugal"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3002",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Own growth marketing for a Lisbon start-up: paid, SEO and CRM. Hybrid in Lisbon. English working language.</p>"
+  },
+  {
+   "id": 3003,
+   "title": "Sales Executive",
+   "location": {
+    "name": "São Paulo, Brazil"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3003",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Vendas externas, meta mensal.</p>"
+  },
+  {
+   "id": 3004,
+   "title": "Marketing Intern",
+   "location": {
+    "name": "São Paulo, Brazil"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3004",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Estágio de marketing para estudantes.</p>"
+  }
+ ]
+}

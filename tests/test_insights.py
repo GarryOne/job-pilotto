@@ -115,7 +115,7 @@ class MarketTests(unittest.TestCase):
         self.assertTrue(techs['kubernetes']['in_profile'])
         self.assertTrue(techs['aws']['in_profile'])
         self.assertEqual(stats['good_fit (score>=60)'], 2)
-        self.assertEqual(stats['by_region']['Switzerland (other)']['language_blocked'], 1)
+        self.assertEqual(stats['by_region']['Your country']['language_blocked'], 1)
         self.assertEqual(stats['new_last_7_days'], 3)
         self.assertEqual(stats['salary_stated'], '1/3 (33%)')
         self.assertEqual(stats['fit_components_avg_near_miss']['compensation'], 40)
@@ -138,7 +138,7 @@ class ApplicationTests(unittest.TestCase):
         self.assertEqual(stats['interview_rate_of_decided'], '1/2 (50%)')
         self.assertEqual(stats['applied_last_7_days'], 1)
         self.assertEqual(stats['days_since_last_application'], 2)
-        self.assertTrue(stats['by_group']['Region']['Zurich area']['too_small'])
+        self.assertTrue(stats['by_group']['Region']['Best places']['too_small'])
         self.assertEqual(stats['by_group']['Days to apply']['<=3']['waiting'], 1)
 
     def test_replies_channels_and_time_to_first_reply(self):

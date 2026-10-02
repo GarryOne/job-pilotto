@@ -1,0 +1,5 @@
+{
+ "/boards/e2e-acme/jobs": "acme.json",
+ "/boards/e2e-beta/jobs": "beta.json",
+ "/boards/e2e-gamma/jobs": "gamma.json"
+}

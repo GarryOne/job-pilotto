@@ -15,7 +15,7 @@ import os
 import re
 import sys
 
-from .. import run_result
+from .. import run_result, tz
 
 CRON_RUNS_DATABASE_ID = os.getenv('NOTION_CRON_RUNS_DB', '')
 # (run key, the old per-step column (retired: each step's cost is on the run's page now), its label).
@@ -212,7 +212,7 @@ CRAWL_MODES = {'scheduled', 'run', 'today'}
 KINDS = {'scheduled': 'Jobs check', 'run': 'Jobs check', 'today': 'Jobs check', 'mail': 'Gmail check', 'scout': 'Find employers',
          'add': 'Log activity', 'interview': 'Interview review', 'prepare': 'Application kit', 'prep': 'Interview prep',
          'rejection': 'Rejection review', 'insight': 'Insight', 'weekly': 'Weekly report', 'import': 'Add a job'}
-TZ = ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich'))
+TZ = tz.local_zone()
 SUBJECT_MAX = 60
 
 

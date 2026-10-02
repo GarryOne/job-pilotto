@@ -216,6 +216,8 @@
             <div class="chips" id="chips-queries"></div></section>
           <section class="card" data-list="languages"><div class="card-head"><h3><i data-icon="alert"></i>Excluded requirements</h3><button class="icon-button" data-edit title="Add a language" aria-label="Add a language"><i data-icon="edit"></i></button></div>
             <p class="sub">Hide jobs that require these languages.</p><div class="chips bad" id="chips-languages"></div></section>
+          <section class="card" data-list="rights"><div class="card-head"><h3><i data-icon="shield"></i>Citizenship / work rights</h3><button class="icon-button" data-edit title="Add a country" aria-label="Add a country"><i data-icon="edit"></i></button></div>
+            <p class="sub">Where you can work without a visa. Jobs elsewhere in your places abroad are flagged "visa sponsorship needed".</p><div class="chips" id="chips-rights"></div></section>
         </div>
         <section class="card questions-card" id="open-questions" hidden>
           <div class="card-head"><div><h3><span class="bang">!</span> <span id="open-count"></span></h3>
@@ -632,8 +634,8 @@
       </section>
       <section class="consent-card" id="iv-consent-box">
         <span class="consent-icon"><i data-icon="shield"></i></span>
-        <div title="Recording a conversation without everyone's consent is against the law in Switzerland (Art. 179ter of the Criminal Code) and many other places. The same goes for recordings you add. If anyone says no, take notes instead.">
-          <b>Recording consent required</b><span>Ask everyone before recording. Swiss law requires their consent (Art. 179<sup>ter</sup>); ticked again for every call.</span></div>
+        <div title="Recording a conversation without everyone's consent is against the law in many places. The same goes for recordings you add. If anyone says no, take notes instead.">
+          <b>Recording consent required</b><span>Ask everyone before recording. Many places require everyone's consent; ticked again for every call.</span></div>
         <label class="consent-check"><input type="checkbox" id="iv-consent"> Everyone agreed</label>
       </section>
       <label class="iv-remind"><input type="checkbox" id="iv-remind"><span>Remind me 10 and 1 minute before an interview (from your calendar and emails), so I can start the recording</span></label>
@@ -832,7 +834,7 @@
               <label>Last name<input data-contact="last_name" type="text"></label>
               <label>Email<input data-contact="email" type="email"></label>
               <label>Phone<input data-contact="phone" type="tel"></label>
-              <label class="span-all">Location<input data-contact="location" type="text" placeholder="e.g. Geneva, Switzerland"></label>
+              <label class="span-all">Location<input data-contact="location" type="text" placeholder="e.g. Austin, Texas"></label>
               <label class="span-all">Street<input data-contact="street" type="text"></label>
               <label>Postal code<input data-contact="postal_code" type="text"></label>
               <label>Place of origin<input data-contact="place_of_origin" type="text"></label>
@@ -1568,7 +1570,7 @@
     <div id="happened-yes">
       <label for="happened-notes">What did you learn? Salary, next steps, people, questions asked
         <span class="muted">(optional)</span></label>
-      <textarea id="happened-notes" rows="8" placeholder="e.g. 30 min with the recruiter. Band CHF 160–180k, B2B possible. They asked about on-call and Kafka. Next: a call with the CTO next week."></textarea>
+      <textarea id="happened-notes" rows="8" placeholder="e.g. 30 min with the recruiter. Band 90–110k, contract possible. They asked about on-call and Kafka. Next: a call with the CTO next week."></textarea>
       <p class="muted small">Saved to 🎤 Interviews in Notion and the job moves on to Interviewing. With a few lines, Claude reviews them
         like a recording: the next step, and salary, contract or place filled in on the job.</p>
     </div>

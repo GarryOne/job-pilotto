@@ -77,8 +77,8 @@ Rules:
 - Role fit compares the posting's responsibilities and required skills with the candidate's real \
 experience. Name concrete matches (e.g. "Datadog + Terraform monitoring"), not generic praise.
 - Location covers commute from the home base, remote policy and workload. Needing visa sponsorship is not \
-a location penalty by itself (the candidate is EU-eligible and open to sponsored roles); the digest already \
-flags it separately.
+a location penalty by itself (the candidate may be open to sponsored roles); the digest already flags it \
+separately, from the candidate's citizenship and work rights in the profile.
 - Compensation: compare only an advertised salary with the target. If no salary is stated, give 50 \
 and list it as a gap. Never invent a figure or a net amount.
 - Growth covers scope, technical depth and seniority relative to the candidate's level.

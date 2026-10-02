@@ -36,6 +36,7 @@ from pathlib import Path
 from . import client as notion
 from . import origin as origin_rule
 from ..ai import kit as kit_module
+from .. import tz
 from ..sources import ats
 
 EVENTS_DATABASE_ID = os.getenv('NOTION_EVENTS_DB', '')
@@ -554,7 +555,7 @@ def moment(value):
     except ValueError:
         return datetime.min.replace(tzinfo=timezone.utc)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=ZoneInfo(os.getenv('JOB_PILOTTO_TZ', 'Europe/Zurich')))
+        parsed = parsed.replace(tzinfo=tz.local_zone())
     return parsed.astimezone(timezone.utc)
 
 

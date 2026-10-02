@@ -1,0 +1,14 @@
+{
+ "jobs": [
+  {
+   "id": 3201,
+   "title": "Marketing Manager",
+   "location": {
+    "name": "São Paulo, Brazil"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3201",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Lidere o marketing de uma marca em São Paulo: performance, CRM, marca.</p>"
+  }
+ ]
+}

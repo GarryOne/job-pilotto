@@ -1,0 +1,14 @@
+{
+ "excluded": [],
+ "tier1_known": [
+  {
+   "name": "E2E Gamma",
+   "ats": "greenhouse",
+   "slug": "e2e-gamma"
+  }
+ ],
+ "tier1": [],
+ "manual_watch": [],
+ "regional": {},
+ "boards": []
+}

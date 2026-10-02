@@ -1,0 +1,14 @@
+{
+ "jobs": [
+  {
+   "id": 2201,
+   "title": "Data Analyst",
+   "location": {
+    "name": "Austin, TX"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2201",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Join our analytics team in Austin: SQL, Looker, Snowflake.</p>"
+  }
+ ]
+}

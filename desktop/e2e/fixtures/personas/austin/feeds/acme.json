@@ -1,0 +1,44 @@
+{
+ "jobs": [
+  {
+   "id": 2001,
+   "title": "Senior Data Analyst",
+   "location": {
+    "name": "Austin, TX"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2001",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Own self-serve analytics in Looker and dbt on Snowflake. SQL and Python. Hybrid in Austin, English. Salary $95,000 - $120,000 a year.</p>"
+  },
+  {
+   "id": 2002,
+   "title": "Analytics Engineer",
+   "location": {
+    "name": "Lisbon, Portugal"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2002",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Build dbt models on Snowflake for a European fintech. SQL, Python, Looker. Hybrid in Lisbon. English working language.</p>"
+  },
+  {
+   "id": 2003,
+   "title": "Account Executive",
+   "location": {
+    "name": "Austin, TX"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2003",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Quota-carrying enterprise sales role.</p>"
+  },
+  {
+   "id": 2004,
+   "title": "Data Analyst Intern",
+   "location": {
+    "name": "Austin, TX"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2004",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Summer internship for students.</p>"
+  }
+ ]
+}

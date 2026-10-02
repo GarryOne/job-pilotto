@@ -73,27 +73,27 @@
   "manual_watch": [
     {
       "name": "Google",
-      "careers": "https://www.google.com/about/careers/applications/jobs/results/?q=site%20reliability%20engineer&location=Zurich%2C%20Switzerland"
+      "careers": "https://www.google.com/about/careers/applications/jobs/results/"
     },
     {
       "name": "Meta",
-      "careers": "https://www.metacareers.com/jobs/?q=production%20engineer&offices[0]=London%2C%20UK"
+      "careers": "https://www.metacareers.com/jobs/"
     },
     {
       "name": "Apple",
-      "careers": "https://jobs.apple.com/en-us/search?search=site%20reliability&location=zurich-ZURCH"
+      "careers": "https://jobs.apple.com/en-us/search"
     },
     {
       "name": "Microsoft",
-      "careers": "https://jobs.careers.microsoft.com/global/en/search?q=site%20reliability&lc=Zurich%2C%20Switzerland"
+      "careers": "https://jobs.careers.microsoft.com/global/en/search"
     },
     {
       "name": "TikTok / ByteDance",
-      "careers": "https://lifeattiktok.com/search?keyword=site%20reliability&location=CT_75"
+      "careers": "https://lifeattiktok.com/search"
     },
     {
       "name": "Revolut",
-      "careers": "https://www.revolut.com/careers/?query=site%20reliability"
+      "careers": "https://www.revolut.com/careers/"
     }
   ],
   "regional": {},

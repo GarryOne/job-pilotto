@@ -175,7 +175,7 @@ WINDOWS_ZONES = {'W. Europe Standard Time': 'Europe/Zurich', 'Romance Standard T
                  'Arabian Standard Time': 'Asia/Dubai', 'India Standard Time': 'Asia/Kolkata'}
 
 
-def invite_start(ics, default_zone='Europe/Zurich'):
+def invite_start(ics, default_zone=None):
     """The invitation's start as ISO 8601 with offset, from its DTSTART (UTC "Z", a TZID, or floating), else None."""
     from zoneinfo import ZoneInfo
     unfolded = re.sub(r'\r?\n[ \t]', '', ics)
@@ -187,6 +187,8 @@ def invite_start(ics, default_zone='Europe/Zurich'):
     moment = datetime.strptime(stamp, '%Y%m%dT%H%M%S')
     if utc:
         return moment.replace(tzinfo=timezone.utc).isoformat()
+    from ..tz import zone_name
+    default_zone = default_zone or zone_name()
     zone = (re.search(r'TZID="?([^";]+)"?', params or '') or [None, ''])[1]
     try:
         tz = ZoneInfo(WINDOWS_ZONES.get(zone, zone) or default_zone)

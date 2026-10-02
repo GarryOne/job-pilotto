@@ -1,0 +1,62 @@
+{
+ "name": "Camila Souza (marketing manager, Sao Paulo, Brazilian)",
+ "citizenship": "Brazil",
+ "work_rights": [
+  "brazil"
+ ],
+ "places": {
+  "top_tier": [
+   "s[aã]o paulo"
+  ],
+  "country_wide": [
+   "brazil",
+   "brasil",
+   "rio de janeiro",
+   "curitiba"
+  ],
+  "abroad": [
+   "portugal",
+   "lisbon",
+   "spain",
+   "madrid"
+  ]
+ },
+ "languages": [
+  "Portuguese",
+  "English",
+  "Spanish"
+ ],
+ "currency": "R$",
+ "remote": true,
+ "timezone": "America/Sao_Paulo",
+ "roles": [
+  "marketing manager",
+  "gerente de marketing",
+  "growth marketing",
+  "performance marketing"
+ ],
+ "expect": {
+  "noSponsorship": [
+   "São Paulo",
+   "Remote"
+  ],
+  "sponsorship": [
+   "Lisbon",
+   "Madrid"
+  ],
+  "currency": "R$ 14.000"
+ },
+ "google": {
+  "queries": [
+   "gerente de marketing"
+  ],
+  "country": "br",
+  "locations": [
+   {
+    "location": "Sao Paulo,State of Sao Paulo,Brazil",
+    "language": "pt"
+   }
+  ]
+ },
+ "board": "marketing"
+}

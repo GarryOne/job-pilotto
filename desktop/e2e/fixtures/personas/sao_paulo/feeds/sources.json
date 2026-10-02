@@ -1,0 +1,12 @@
+[
+ {
+  "company": "E2E Acme",
+  "ats": "greenhouse",
+  "slug": "e2e-acme"
+ },
+ {
+  "company": "E2E Beta",
+  "ats": "greenhouse",
+  "slug": "e2e-beta"
+ }
+]

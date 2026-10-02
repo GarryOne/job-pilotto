@@ -1,6 +1,6 @@
 # End-to-end tests
 
-The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in four suites that each start from their own state and can run at the same time.
+The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in five suites that each start from their own state and can run at the same time.
 
 | Suite | Starts from | Covers | Time |
 |---|---|---|---|
@@ -8,6 +8,7 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in fo
 | `jobs` | a set-up install, its own jobs and runs reset | Actions, Recent activity, jobs check on fixture feeds, scoring, a **slow AI** (live log, no silence), Find employers, Focus/Jobs/Actions layout | ~4 min |
 | `interviews` | a set-up install | Interviews and Calendar pages | ~30 s |
 | `settings` | a set-up install | every Settings section, the AI engine panel with each engine chosen | ~30 s |
+| `personas` | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
 
 ```
 cd desktop/e2e && npm install
@@ -17,7 +18,7 @@ E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 ```
 
 ## How a suite gets its state
-- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_SETTINGS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
+- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
 - **The workspace is built once and kept.** The wizard suite empties its page and builds it from scratch every run. The others find their page already built and **seed the app in about 5 seconds** with the app's own calls (`saveSecret`, `notionConnect`, `saveSettings`), not the wizard. A suite whose page is empty builds it once with the real wizard path (`lib/wizard.mjs`).
 - **A suite resets only its own data** (the jobs suite empties its job rows and run rows), never the workspace.
 - Files: `suite.mjs` the runner · `suites/*.mjs` the steps · `lib/context.mjs` secrets, Notion guard, feeds, proxy, launch · `lib/seed.mjs` the fast seed · `lib/wizard.mjs` the real first-run path · `lib/layout.mjs` screenshots + checks · `lib/activity.mjs` + `lib/ai-proxy.mjs` the slow-AI scenario.

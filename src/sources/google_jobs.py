@@ -29,9 +29,9 @@ SOURCE = 'Google Jobs'
 AGGREGATORS = re.compile(r'linkedin\.|glassdoor\.|indeed\.|ziprecruiter\.|jooble\.|talent\.com|'
                          r'simplyhired\.|adzuna\.|jobrapido\.|careerjet\.|bebee\.|jobleads\.', re.I)
 
-DEFAULTS = {'queries': ['site reliability engineer'], 'country': 'ch',
-            'locations': [{'location': 'Zurich,Zurich,Switzerland', 'language': 'de'}],
-            'searches_per_run': 1, 'min_searches_left': 20}
+# No default place or country: a search in somewhere the user never chose would spend a credit on someone else's market
+# (an install without ⚙️ Search settings → "Google Jobs places" used to search Zurich). No places, no searches.
+DEFAULTS = {'queries': [], 'country': '', 'locations': [], 'searches_per_run': 1, 'min_searches_left': 20}
 
 
 def places(config):
@@ -94,6 +94,9 @@ def scan(db, api_key, config, opener=urllib.request.urlopen, now=None):
     now = now or datetime.now(timezone.utc).isoformat(timespec='seconds')
     report = {'jobs': [], 'sources': []}
     languages = places(config)
+    if not languages or not config['queries']:
+        print('Google Jobs skipped: no Google Jobs searches or places are set in your Search settings')
+        return report
     pairs = [(q, loc) for q in config['queries'] for loc in languages]
     try:
         left = searches_left(api_key, opener)
@@ -108,9 +111,10 @@ def scan(db, api_key, config, opener=urllib.request.urlopen, now=None):
     for query, location in next_searches(db, pairs, budget):
         name = f'{SOURCE}: {query} / {location}'
         try:
-            data = _get(SEARCH_URL, {'engine': 'google_jobs', 'q': query, 'location': location,
-                                     'gl': config['country'], 'hl': languages[location],
-                                     'api_key': api_key}, opener)
+            params = {'engine': 'google_jobs', 'q': query, 'location': location, 'hl': languages[location], 'api_key': api_key}
+            if config['country']:
+                params['gl'] = config['country']
+            data = _get(SEARCH_URL, params, opener)
             if data.get('error') and 'hasn\'t returned any results' not in data['error']:
                 raise RuntimeError(data['error'])
             results = [normalise(r) for r in data.get('jobs_results', [])]

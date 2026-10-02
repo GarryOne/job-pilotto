@@ -97,3 +97,54 @@ export async function runRows(token, title, {size = 30} = {}) {
     title: titleOf(row), status: row.properties.Status?.select?.name || '', mode: row.properties.Mode?.select?.name || '', trigger: row.properties.Trigger?.select?.name || '',
     summary: plain(row.properties.Summary), started: row.properties.Started?.date?.start || row.created_time}));
 }
+
+// All the text a database holds, row by row (every property as plain text), for a suite that greps what a feature stored. Read-only.
+export async function databaseText(token, title) {
+  const db = await findDatabase(token, title);
+  if (!db) return '';
+  const lines = [];
+  let cursor;
+  do {
+    const rows = await call(token, 'POST', `databases/${db.id}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    for (const row of rows.results) {
+      if (row.archived) continue;
+      lines.push(Object.entries(row.properties || {}).map(([name, value]) => `${name}: ${propertyText(value)}`).join(' | '));
+    }
+    cursor = rows.has_more ? rows.next_cursor : null;
+  } while (cursor);
+  return lines.join('\n');
+}
+function propertyText(value) {
+  const rich = list => (list || []).map(part => part.plain_text).join('');
+  switch (value.type) {
+    case 'title': case 'rich_text': return rich(value[value.type]);
+    case 'select': case 'status': return value[value.type]?.name || '';
+    case 'multi_select': return (value.multi_select || []).map(item => item.name).join(', ');
+    case 'number': return value.number ?? '';
+    case 'url': case 'email': case 'phone_number': return value[value.type] || '';
+    case 'checkbox': return String(value.checkbox);
+    case 'date': return value.date?.start || '';
+    default: return '';
+  }
+}
+
+// The text of a page of the workspace by its title, with the pages and blocks nested inside it. Read-only.
+export async function pageText(token, title) {
+  const page = await findPage(token, title);
+  if (!page) return '';
+  const out = [];
+  const walk = async (id, depth) => {
+    let cursor;
+    do {
+      const children = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`);
+      for (const block of children.results) {
+        const content = block[block.type] || {};
+        out.push([...(content.rich_text || []), ...(content.title ? [{plain_text: content.title}] : [])].map(part => part.plain_text).join(''));
+        if (block.has_children && depth < 3 && block.type !== 'child_database') await walk(block.id, depth + 1);
+      }
+      cursor = children.has_more ? children.next_cursor : null;
+    } while (cursor);
+  };
+  await walk(page.id, 0);
+  return out.join('\n');
+}

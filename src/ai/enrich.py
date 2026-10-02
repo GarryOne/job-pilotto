@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS enrichments (
 );
 """
 
-LANGUAGES = ['English', 'German', 'French', 'Italian', 'Other']
+LANGUAGES = ['English', 'German', 'French', 'Italian', 'Spanish', 'Portuguese', 'Dutch', 'Other']
 _evidence = {'type': 'string', 'description': 'Short verbatim quote from the posting, or "" if none'}
 SCHEMA = {
     'type': 'object',
@@ -68,7 +68,7 @@ SCHEMA = {
             'type': 'object', 'additionalProperties': False, 'required': ['value', 'remote_scope', 'evidence'],
             'properties': {
                 'value': {'type': 'string', 'enum': ['onsite', 'hybrid', 'remote', 'unknown']},
-                'remote_scope': {'type': 'string', 'description': 'Where remote work is allowed, e.g. "Switzerland", "EMEA", "worldwide", or ""'},
+                'remote_scope': {'type': 'string', 'description': 'Where remote work is allowed, e.g. "one country", "EMEA", "worldwide", or ""'},
                 'evidence': _evidence,
             },
         },
@@ -99,14 +99,14 @@ SCHEMA = {
     },
 }
 
-SYSTEM = """You extract facts from Swiss job postings for a job-search tool. Report only what the \
+SYSTEM = """You extract facts from job postings for a job-search tool. Report only what the \
 posting says. When a fact is not stated, answer "unknown" (or an empty list/string) rather than \
 guessing from the company name or job title. Evidence must be a short verbatim quote from the posting.
 
-Languages: German may appear as "Deutsch", "fliessend", "verhandlungssicher"; French as "français", \
-"maîtrise". Mark a language "required" only when the posting demands it; "nice_to_have" for "a plus", \
-"von Vorteil", "un atout". A posting written in German or French does not by itself make that language \
-required, but note it in english_is_enough.
+Languages: a language may be named in its own words ("Deutsch", "français", "português", "espanhol", \
+"fliessend", "maîtrise", "fluente"). Mark a language "required" only when the posting demands it; "nice_to_have" for "a plus", \
+"von Vorteil", "un atout", "diferencial". A posting written in another language does not by itself make \
+that language required, but note it in english_is_enough.
 
 employer_type is "recruiter" when the advertiser hires on behalf of an unnamed or different client \
 (staffing agency, "our client"), otherwise "direct_employer".

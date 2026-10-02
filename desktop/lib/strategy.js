@@ -31,7 +31,7 @@ export const DRAFT_SCHEMA = object({
       locations: {type: 'array', items: object({location: {type: 'string'}, language: {type: 'string'}})},
     }),
   }),
-  preferences: object({disqualifying_languages: list, excluded_companies: list}),
+  preferences: object({disqualifying_languages: list, excluded_companies: list, work_rights: list}),
   contact: object(Object.fromEntries(CONTACT_FIELDS.map(field => [field, {type: 'string'}]))),
 });
 
@@ -42,7 +42,16 @@ export const DEFAULT_REMOTE_EXCLUDED = ['\\busa?\\b', '\\bunited\\ states\\b', '
   '\\blatin\\ america\\b', '\\bapac\\b', '\\basia\\b', '\\bindia\\b', '\\baustralia\\b', '\\bbrazil\\b', '\\bmexico\\b', '\\bamericas\\b'];
 export function withRemoteDefaults(search = {}) {
   const places = Object.values(search.locations || {}).flat().map(String).join(' | ');
-  const mine = fragment => { try { return new RegExp(fragment, 'i').test(places); } catch { return false; } };
+  // A region is the user's own when their places are in it: "latam" for someone in Brazil, "north america" for someone in the US.
+  const IN_REGION = {latam: /brazil|mexico|argentina|chile|colombia|peru|uruguay/, 'latin america': /brazil|mexico|argentina|chile|colombia|peru|uruguay/,
+    'north america': /united states|usa|\bus\b|canada|mexico/, americas: /united states|usa|\bus\b|canada|mexico|brazil|argentina|chile|colombia/,
+    apac: /australia|india|japan|singapore|new zealand/, asia: /india|japan|singapore/,
+    'usa?': /united states|\busa?\b/, 'u.s.': /united states|\busa?\b/, 'united states': /united states|\busa?\b/};
+  const mine = fragment => {
+    const words = fragment.replace(/\\b|\\/g, '').toLowerCase();
+    if (IN_REGION[words]?.test(places.toLowerCase())) return true;
+    try { return new RegExp(fragment, 'i').test(places); } catch { return false; }
+  };
   const have = new Set((search.remote_excluded_regions || []).map(String));
   const added = DEFAULT_REMOTE_EXCLUDED.filter(fragment => !have.has(fragment) && !mine(fragment));
   return added.length ? {...search, remote_excluded_regions: [...(search.remote_excluded_regions || []), ...added]} : search;
@@ -93,7 +102,7 @@ Write:
 1. profile_markdown: the user's Profile, following the "Profile — CV and Preferences" template's headings. Facts only from the CV and the note, plus the goals above (keep the template's row names "Work mode", "Languages I can work in", "Minimum seniority" and the Compensation line "Minimum acceptable:", so the user's corrections land in the right place). Mark anything else unknown (work permit, notice period…) with ❓ (the app treats ❓ as "ask the user", never as a fact).
 2. answers_markdown: their standard application answers, following the "Application Answers" template, same rule for ❓. Include a short "Cover letter style" section inferred from how the CV is written.
 3. search: what the job crawler looks for. Values in role_keywords, title_exclude_keywords, board_discovery_keywords, quality_stack_keywords, locations and remote_excluded_regions are case-insensitive regex fragments in the style of the example (e.g. "z[uü]rich", "\\\\bsre\\\\b", "platform engineer"). jobs_board_search_queries and google_jobs.queries are plain search phrases (3 to 6). locations.top_tier holds the cities they want most, country_wide the rest of that country, abroad other cities they'd move to. remote_excluded_regions lists regions whose "remote" jobs exclude them. google_jobs.locations uses SerpApi canonical names ("Zurich,Zurich,Switzerland") with the place's own language code ("de" for Zurich, "fr" for Geneva, "en" for London).
-4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies to skip (their current employer, and any the note names).
+4. preferences.disqualifying_languages: languages a job may require that the user doesn't speak well enough to work in. excluded_companies: companies to skip (their current employer, and any the note names). work_rights: where they can work without a visa, from their citizenship or permits in the CV or note: their own country (a country name, lower case), and \"eu\" when they are an EU citizen; [] when the CV does not say. Never assume it from where they live now.
 5. summary: at most 2 short sentences to the user, addressing them as "you" (never by name, never "I've set up"), saying what you'll search for and what they should check. open_questions: what they should still answer, short.
 6. contact: the user's contact details exactly as written in the CV (city for location; full URLs for LinkedIn, GitHub and website). Empty string for anything the CV doesn't show; never guess.`;
 
@@ -341,7 +350,8 @@ export function rebuildGroups({search = {}, preferences = {}, profile = '', answ
     ...listChanges('Tech stack', search.quality_stack_keywords, next.quality_stack_keywords)];
   const prefs = draft.preferences || {};
   const filterChanges = [...listChanges('Languages you don\'t work in', preferences.disqualifying_languages, prefs.disqualifying_languages),
-    ...listChanges('Excluded companies', preferences.excluded_companies, prefs.excluded_companies)];
+    ...listChanges('Excluded companies', preferences.excluded_companies, prefs.excluded_companies),
+    ...listChanges('Work without a visa in', preferences.work_rights, prefs.work_rights)];
   const profileChanges = sectionChanges(profile, draft.profile_markdown, true);
   const answerChanges = sectionChanges(answers, draft.answers_markdown, false);
   const searches = Math.max(1, Math.ceil(scored / SCORES_PER_SEARCH));

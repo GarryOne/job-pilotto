@@ -1,0 +1,34 @@
+{
+ "jobs": [
+  {
+   "id": 2101,
+   "title": "Business Intelligence Analyst",
+   "location": {
+    "name": "Remote, United States"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2101",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Remote across the US: Power BI, Tableau and SQL for a logistics team. Pay range $88,000 - $105,000.</p>"
+  },
+  {
+   "id": 2102,
+   "title": "Data Analyst",
+   "location": {
+    "name": "Dallas, Texas"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2102",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>SQL, Python, dbt for an energy marketer. Hybrid in Dallas.</p>"
+  },
+  {
+   "id": 2103,
+   "title": "Product Designer",
+   "location": {
+    "name": "Austin, TX"
+   },
+   "absolute_url": "https://boards.e2e.test/job/2103",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Design the product UI.</p>"
+  }
+ ]
+}
