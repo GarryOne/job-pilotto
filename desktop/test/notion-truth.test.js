@@ -120,3 +120,25 @@ test('replacing a strategy keeps the current Profile, answers and search setting
   assert.deepEqual(types, ['heading_1', 'heading_2', 'table', 'heading_1', 'bulleted_list_item', 'heading_1', 'paragraph']);
   assert.deepEqual(made[0].blocks[2].table.children[1].table_row.cells.map(c => c[0].text.content), ['Countries', 'Switzerland']);
 });
+
+// 2 Oct 2026: the Profile's list showed a table that was already gone; copying its rows answered 404 "Could not find block" and the whole save failed.
+test('a block the list still shows but Notion no longer has is left out of the "Previous strategy" copy, not fatal', async () => {
+  const {snapshotStrategy} = await import('../lib/notion.js');
+  const rich = text => [{plain_text: text, annotations: {}}];
+  const made = [];
+  const reply = (status, data) => ({ok: status < 300, status, json: async () => data});
+  const fetcher = async (url, init = {}) => {
+    const route = url.replace('https://api.notion.com/v1/', '').split('?')[0];
+    const body = init.body ? JSON.parse(init.body) : {};
+    if (init.method === 'GET' && route === 'pages/profile') return reply(200, {parent: {page_id: 'root'}});
+    if (init.method === 'POST' && route === 'pages') { made.push([]); return reply(200, {id: 'snap-1'}); }
+    if (init.method === 'PATCH') { made[0].push(...body.children); return reply(200, {}); }
+    if (route === 'blocks/profile/children') return reply(200, {has_more: false, results: [
+      {id: 'ghost-table', type: 'table', table: {table_width: 2}, has_children: true},
+      {id: 'live', type: 'paragraph', paragraph: {rich_text: rich('Home base: Austin')}, has_children: false}]});
+    if (route === 'blocks/ghost-table/children') return reply(404, {code: 'object_not_found', message: 'Could not find block with ID: ghost-table.'});
+    return reply(200, {results: [], has_more: false});
+  };
+  await snapshotStrategy('ntn_x', {NOTION_PROFILE_PAGE_ID: 'profile'}, 'now', fetcher);
+  assert.deepEqual(made[0].map(b => b.type), ["heading_1", "paragraph"]);
+});

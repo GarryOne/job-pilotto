@@ -175,3 +175,19 @@ test('two rewrites of the same page never interleave, so a page is never left wi
   assert.deepEqual(log, ['read', 'read', 'append', 'read', 'read', 'append']);   // the second read waits for the first append; each write checks that its delete took
   assert.equal(content.filter(id => id.startsWith('new')).length, 2);   // one write's blocks only: the second replaced the first's
 });
+
+test('a block that stays in the page\'s list but is gone does not stop the rewrite', async () => {
+  const notion = await import('../lib/notion.js');
+  notion.rewriteTuning.waitMs = 0;
+  const methods = [];
+  const fetcher = async (url, {method}) => {
+    methods.push(method);
+    const reply = (status, body) => ({ok: status < 300, status, json: async () => body});
+    if (method === 'GET' && url.includes('/children')) return reply(200, {results: [{id: 'ghost'}], has_more: false});
+    if (method === 'GET') return reply(200, {id: 'ghost', archived: true});   // asked about by itself: it is gone
+    if (method === 'DELETE') return reply(400, {message: "Can't edit block that is archived."});
+    return reply(200, {});
+  };
+  await notion.writePage('ntn_x', 'page', '# Title', fetcher);
+  assert.ok(methods.includes('PATCH'), 'the new content is written');
+});

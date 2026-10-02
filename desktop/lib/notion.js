@@ -248,6 +248,15 @@ const listBlocks = async (token, pageId, fetcher) => {
 // blocks, the rest deleted fine), so an old copy survived and the new one was appended beside it: every Search settings section twice, and the
 // two copies merged into one setting list. So a delete is never trusted: the page is read again, and what is still there is deleted again
 // (a few passes) before anything is appended.
+const isAlive = async (token, id, fetcher) => {
+  try {
+    const block = await call(token, 'GET', `blocks/${id}`, null, fetcher);
+    return !block.archived && !block.in_trash;
+  } catch (error) {
+    if (error.status === 404 || /archived|could not find/i.test(error.message)) return false;
+    throw error;
+  }
+};
 const DELETE_PASSES = 4;
 export const rewriteTuning = {waitMs: 1500};   // between delete passes (a test sets 0)
 async function writePageNow(token, pageId, markdown, fetcher, onProgress = () => {}) {
@@ -266,7 +275,14 @@ async function writePageNow(token, pageId, markdown, fetcher, onProgress = () =>
       onProgress(Math.min(++done, total - batches), total);
     }
     old = await listBlocks(token, pageId, fetcher);
-    if (old.length && pass >= DELETE_PASSES) throw new Error(`Notion kept ${old.length} old block(s) of the page after ${pass} deletes; the page was not rewritten`);
+    if (old.length && pass >= DELETE_PASSES) {
+      // A block can stay in a page's list after it is gone (Notion's list lags, and a deleted block answers "archived"): only a block that
+      // is still alive means the page was not emptied.
+      const alive = [];
+      for (const block of old) if (await isAlive(token, block.id, fetcher)) alive.push(block);
+      if (alive.length) throw new Error(`Notion kept ${alive.length} old block(s) of the page after ${pass} deletes; the page was not rewritten`);
+      old = [];
+    }
     if (old.length) await new Promise(resolve => setTimeout(resolve, rewriteTuning.waitMs * pass));
   }
   for (let i = 0; i < blocks.length; i += 100) {
@@ -423,6 +439,8 @@ async function childrenOf(token, id, fetcher) {
   } while (cursor);
   return found;
 }
+// A block the page's list still shows although it is gone (2 Oct 2026: a table of the Profile, 404 "Could not find block"): skipped, never fatal.
+const isGone = error => error.status === 404 || /could not find block|archived/i.test(error.message);
 // A page's blocks as blocks that can be created elsewhere (text, lists, tables, dividers; nested ones included).
 async function copyable(token, id, fetcher, depth = 0) {
   const out = [];
@@ -431,12 +449,16 @@ async function copyable(token, id, fetcher, depth = 0) {
     if (TEXT_TYPES.has(block.type)) {
       const copy = {rich_text: plainRich(body.rich_text)};
       for (const key of ['checked', 'language', 'is_toggleable']) if (key in body) copy[key] = body[key];
-      if (block.has_children && depth < 2) copy.children = await copyable(token, block.id, fetcher, depth + 1);
+      if (block.has_children && depth < 2) {
+        try { copy.children = await copyable(token, block.id, fetcher, depth + 1); } catch (error) { if (!isGone(error)) throw error; continue; }
+      }
       out.push({object: 'block', type: block.type, [block.type]: copy});
     } else if (block.type === 'divider') {
       out.push({object: 'block', type: 'divider', divider: {}});
     } else if (block.type === 'table') {
-      const rows = (await childrenOf(token, block.id, fetcher)).map(row => ({object: 'block', type: 'table_row',
+      let kids;
+      try { kids = await childrenOf(token, block.id, fetcher); } catch (error) { if (!isGone(error)) throw error; continue; }
+      const rows = kids.map(row => ({object: 'block', type: 'table_row',
         table_row: {cells: row.table_row.cells.map(plainRich)}}));
       out.push({object: 'block', type: 'table', table: {table_width: body.table_width, has_column_header: body.has_column_header,
         has_row_header: body.has_row_header, children: rows}});
