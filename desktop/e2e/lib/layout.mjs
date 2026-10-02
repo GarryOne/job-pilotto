@@ -8,9 +8,10 @@ import {writeFindings} from './artifacts.mjs';
 import {LIMITS, inspect} from './uicheck.mjs';
 
 // Look at one thing on screen that is already showing: screenshot `name`, facts, checks. `view` names the page for the checks.
-export async function snap(ctx, name, {view, situation = 'default'} = {}) {
+// `busy`: a task is running on purpose, so its spinner is not a page stuck loading.
+export async function snap(ctx, name, {view, situation = 'default', busy = false} = {}) {
   const {page, session, ARTIFACTS} = ctx;
-  const settled = await settle(page);
+  const settled = busy ? true : await settle(page);
   if (!settled) ctx.findings.push({view: name, severity: 'warning', kind: 'stuck-loading', detail: `${name} still shows its loading state (skeleton or spinner) after 20 seconds`});
   await session.shot(`ui-${name}`);
   fs.writeFileSync(path.join(ARTIFACTS, `ui-${name}.json`), JSON.stringify({...await facts(page), situation}, null, 2));

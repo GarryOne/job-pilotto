@@ -65,7 +65,7 @@ async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
 }
 
 // Opens a run from the Actions page's Recent runs (the newest row of that kind) and reads what the panel shows a person; then closes it.
-async function openRun(ctx, label, {inPanel = false, id} = {}) {
+async function openRun(ctx, label, {inPanel = false, id, snapAs, situation} = {}) {
   const {page} = ctx;
   await page.click('.nav[data-view="actions"]');
   if (inPanel) {   // an older run: the Actions page lists only the newest five, so find it through the panel's filter
@@ -84,6 +84,8 @@ async function openRun(ctx, label, {inPanel = false, id} = {}) {
     return {title: text('activity-selected'), status: text('activity-status'), warningsTitle: text('activity-warnings-title'), warnings: text('activity-warnings-summary'),
       warningList: text('activity-warnings-list'), result: text('activity-result'), message: text('activity-message'), card: text('activity-card'), log: document.getElementById('log')?.textContent || ''};
   });
+  // The nightly UI loop looks at these screenshots (layout checks and the AI review): the states where a UI goes wrong are the failure ones.
+  if (snapAs) await snap(ctx, snapAs, {view: 'actions', situation});
   await page.click('#activity-close');
   return seen;
 }
@@ -267,7 +269,7 @@ export async function run(ctx) {
         const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
         const mine = shown.find(row => row.id === String(fresh[0].id));
         const run = fresh[0];
-        const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id});
+        const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id, ...(failure.mode === 'rate-limit' ? {snapAs: 'activity-run-warned', situation: 'A Jobs check that finished with warnings because the AI answered 429 (rate limit): its detail pane in the Recent activity panel'} : {})});
         console.log(`  ${failure.mode}: ${seconds}s, ${proxy.stats.calls - callsBefore} AI call(s); ok=${run.ok} warned=${run.warned}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warningsTitle} | ${opened.warnings.slice(0, 160)}`);
         const problems = [];
         if (fresh.length !== 1) problems.push(`${fresh.length} Recent runs rows for one click`);
@@ -292,7 +294,7 @@ export async function run(ctx) {
     try {
       const {fresh, shown} = await runTask(ctx, 'insight', {maxMs: 240000, kind: 'insight'});
       const mine = shown.find(row => row.id === String(fresh[0].id));
-      const opened = await openRun(ctx, LABEL.insight, {id: fresh[0].id});
+      const opened = await openRun(ctx, LABEL.insight, {id: fresh[0].id, snapAs: 'activity-limit-paused', situation: 'An insight paused because the Anthropic spending limit was reached: With warnings, naming the limit, in the Recent activity panel'});
       const words = `${opened.warnings} ${opened.warningList} ${mine?.result}`;
       console.log(`  insight at the limit: list "${mine?.result}" [${mine?.pill}]; panel [${opened.status}] ${opened.warnings.slice(0, 120)}`);
       const problems = [];
@@ -321,7 +323,7 @@ export async function run(ctx) {
     try {
       const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 180000, kind: 'search'});
       const mine = shown.find(row => row.id === String(fresh[0].id));
-      const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id});
+      const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id, snapAs: 'activity-run-failed', situation: 'A Jobs check stopped by Job Pilotto after the AI went silent: Failed, with its reason, in the Recent activity panel'});
       console.log(`  silence: ${seconds}s; ok=${fresh[0].ok}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warnings.slice(0, 160)}`);
       const problems = [];
       if (fresh.length !== 1) problems.push(`${fresh.length} rows for one click: ${fresh.map(run => `[${run.id} ${run.trigger} ${run.where} ok=${run.ok} start=${run.startedAt} notion=${run.notionUrl.slice(-6)} result="${run.result.slice(0, 50)}" log=${run.log.length}]`).join(' ')}`);
@@ -375,7 +377,13 @@ export async function run(ctx) {
         const s = await sample(page);
         const rows = await page.evaluate(() => [...document.querySelectorAll('#activity-recent .recent-row')].map(row => ({kind: row.querySelector('.run-kind')?.textContent || '', state: row.dataset.state, what: row.querySelector('.run-what')?.textContent || ''})));
         const waiting = rows.find(row => row.state === 'queued');
-        if (!sawQueued && s.queued && waiting) sawQueued = waiting;
+        if (!sawQueued && s.queued && waiting) {
+          sawQueued = waiting;
+          await page.click('#runs-all');   // pressing Run closed the panel: open it so the picture shows the Queued row
+          await sleep(page, 800);
+          await snap(ctx, 'activity-queued', {view: 'actions', busy: true, situation: 'A Gmail check waiting behind a running Jobs check: its row says Queued and what it waits for, in the Recent activity panel (the search is still running, so its spinner is expected)'});
+          await page.click('#activity-close');
+        }
         if (!s.running && !s.queued) { ended = s; break; }
       }
       if (!ended) throw new Error('the search and the Gmail check were still not finished after 4 minutes');
