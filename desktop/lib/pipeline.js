@@ -302,7 +302,7 @@ export function runs(storage) { try { return JSON.parse(storage.readText('runs.j
 let current = null;
 export const running = () => current;
 // Tracked tasks waiting behind the running one (oldest first), so Recent activity lists them at once.
-let waiting = [], nextTicket = 0;
+let waiting = [], nextTicket = 0, runningTicket = null;
 export const queued = () => waiting.map(({id, kind, trigger, queuedAt}) => ({id, kind, trigger, queuedAt}));
 
 // The queue survives quitting the app: queue.json holds the running job and the waiting ones with how to start
@@ -421,14 +421,16 @@ export const isProgressStep = line => !/^\s|^Warning|^Cronjob run logged/.test(l
 // One tracked task (a search or a Gmail check): `running()` shows it while it runs, and it's kept in
 // runs.json afterwards (kind, trigger, times, ok, log and what summarize() adds) for the activity bar.
 function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
-  // The same task already waiting: a second click joins it instead of queueing it twice.
-  const twin = waiting.find(ticket => ticket.kind === kind);
+  // The same task already waiting, or already running: a second click joins it instead of queueing it again (a second search seconds after the first, with nothing
+  // new to find, was run in full; 2 Oct 2026). Another task still waits its turn.
+  const twin = waiting.find(ticket => ticket.kind === kind) || (runningTicket?.kind === kind ? runningTicket : null);
   if (twin) return twin.done;
   const ticket = {id: `q${++nextTicket}`, kind, trigger, queuedAt: new Date().toISOString(), resume};
   waiting.push(ticket);
   saveQueue(storage);
   ticket.done = serial(async () => {
     waiting = waiting.filter(other => other !== ticket);
+    runningTicket = ticket;
     const log = [];
     const record = {id: Date.now(), kind, trigger, startedAt: new Date().toISOString()};
     current = {...record, step: 'Starting', resume};
@@ -456,6 +458,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
         log: log.slice(-400), ...summarize(record, log)});
       storage.writeText('runs.json', JSON.stringify([record, ...runs(storage)].slice(0, RUN_HISTORY)));
       current = null;
+      runningTicket = null;
       saveQueue(storage);
     }
     return {ok, run: record};
