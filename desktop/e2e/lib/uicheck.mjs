@@ -40,7 +40,8 @@ export function inspect({view, limits}) {
   for (const el of clipped.slice(0, 5)) found.push({view, severity: 'warning', kind: 'clipped-text', detail: `${label(el)} cuts its text off: "${snippet(el)}"`});
   for (const el of root.querySelectorAll('*')) {
     if (!visible(el) || !el.childNodes.length || ![...el.childNodes].some(node => node.nodeType === 3 && node.textContent.trim())) continue;
-    if (parseFloat(getComputedStyle(el).fontSize) < limits.minFont) { found.push({view, severity: 'warning', kind: 'tiny-text', detail: `${label(el)} text is under ${limits.minFont}px: "${snippet(el)}"`}); break; }
+    const size = parseFloat(getComputedStyle(el).fontSize);   // size 0 hides a label on purpose (the nav buttons of the icon rail): not tiny text
+    if (size > 0 && size < limits.minFont) { found.push({view, severity: 'warning', kind: 'tiny-text', detail: `${label(el)} text is under ${limits.minFont}px: "${snippet(el)}"`}); break; }
   }
   for (const img of root.querySelectorAll('img')) {
     if (visible(img) && img.complete && img.naturalWidth === 0) found.push({view, severity: 'severe', kind: 'broken-image', detail: `${label(img)} does not load`});

@@ -65,3 +65,16 @@ test('a long status in the activity bar never widens the window (2 Oct 2026: the
     assert.ok(scroll <= client, `the page is ${scroll}px wide in a ${client}px window (columns ${columns}); sticking out: ${out.join(', ')}`);
   } finally { await browser.close(); }
 });
+
+// 2 Oct 2026 (issue #36): in the icon rail (window under 1180 px) every nav label is set to font-size 0 on purpose; the check reported "text is under 10px: Focus" on every page.
+test('text that is hidden on purpose with font-size 0 is not tiny; real tiny text still is', async () => {
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1280, height: 800}});
+    const page_ = markup => findings(page, `<section class="view" data-view="jobs">${markup}</section>`);
+    const hidden = await page_('<button class="nav" style="font-size:0;width:48px;padding:10px 0"><svg width="20" height="20"></svg>Focus</button>')   // the icon gives the button its size, the label is a bare text node;
+    assert.deepEqual(hidden.filter(item => item.kind === 'tiny-text'), [], JSON.stringify(hidden));
+    const tiny = await page_('<p style="font-size:8px">Tiny but shown</p>');
+    assert.ok(tiny.some(item => item.kind === 'tiny-text'), `real tiny text was not flagged: ${JSON.stringify(tiny)}`);
+  } finally { await browser.close(); }
+});
