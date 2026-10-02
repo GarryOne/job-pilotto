@@ -72,6 +72,7 @@ export default {
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
+    if (pathname === '/api/lab') return recipeLibrary.lab(request, env);
     if (pathname === '/api/contribute') return pool.contribute(request, env);
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);

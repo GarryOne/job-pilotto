@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
-import {cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lookup, recipes} from '../src/recipes.js';
+import {cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labReport, lookup, recipes} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -136,4 +136,21 @@ test('minting tokens is limited per network address; lookups are limited per ins
   let last = 200;
   for (let i = 0; i < 70 && last === 200; i++) last = (await ask(many)).status;
   assert.equal(last, 429);
+});
+
+test('only the owner posts what the lab saw; candidates can be fetched by the owner to try; the report sums per site and kind', async () => {
+  const e = env();
+  const post = (body, key = 'secret') => lab(new Request('https://x/api/lab', {method: 'POST', headers: {Authorization: `Bearer ${key}`}, body: JSON.stringify(body)}), e, now);
+  assert.equal((await post({}, 'wrong')).status, 404);
+  const skeleton = {t: 'div', a: {role: 'radiogroup'}, c: ['yesno'], text: 'nope', k: []};
+  const result = await (await post({runs: [
+    {site: 'Ashby', fingerprint: '1d2pcapx18', kind: 'toggle-group', ok: true}, {site: 'ashby', fingerprint: '1d2pcapx18', kind: 'toggle-group', ok: false, why: 'x'},
+    {site: 'lever', fingerprint: 'bad fp', ok: true}], samples: [{fingerprint: '1d2pcapx18', kind: 'toggle-group', skeleton, question: 'Remote?'}]})).json();
+  assert.deepEqual([result.runs, result.samples], [2, 1]);
+  assert.doesNotMatch(e.STATS.db.prepare('SELECT skeleton FROM control_samples').get().skeleton, /nope/);
+  const report = await labReport(e.STATS, 7, now);
+  assert.deepEqual(report.map(r => [r.site, r.kind, r.ok, r.failed]), [['ashby', 'toggle-group', 1, 1]]);
+  await put(e, {recipe: recipe({fingerprint: 'cand0001'}), status: 'candidate'});
+  const candidates = await (await recipes(new Request('https://x/api/recipes?status=candidate', {headers: {Authorization: 'Bearer secret'}}), e)).json();
+  assert.deepEqual(candidates.recipes.map(r => [r.fingerprint, r.status]), [['cand0001', 'candidate']]);
 });

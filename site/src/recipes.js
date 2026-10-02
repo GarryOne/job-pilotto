@@ -29,14 +29,15 @@ export async function recipes(request, env, now = new Date()) {
   if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
   if (request.method === 'GET') {
     if (!allowed(request, env)) return new Response('Not found', {status: 404});
-    const rows = (await env.STATS.prepare(`SELECT fingerprint, version, status, rollout, body FROM recipes WHERE status IN ('canary', 'verified')
-      ORDER BY fingerprint, version DESC`).all()).results || [];
+    const wanted = new URL(request.url).searchParams.get('status') === 'candidate' ? ['candidate'] : ['canary', 'verified'];
+    const rows = (await env.STATS.prepare(`SELECT fingerprint, version, status, rollout, body FROM recipes WHERE status IN (${wanted.map(() => '?').join(', ')})
+      ORDER BY fingerprint, version DESC`).bind(...wanted).all()).results || [];
     const seen = new Set(), out = [];
     for (const row of rows) {
       if (seen.has(row.fingerprint)) continue;   // the newest running version only
       seen.add(row.fingerprint);
       const checked = validateRecipe(JSON.parse(row.body));
-      if (checked.ok) out.push({...checked.recipe, rollout: row.status === 'verified' ? 100 : row.rollout});
+      if (checked.ok) out.push({...checked.recipe, status: row.status, rollout: row.status === 'verified' ? 100 : row.rollout});
     }
     const body = JSON.stringify({recipes: out});
     const tag = `"${await digest(body)}"`;
@@ -166,6 +167,40 @@ export async function controls(request, env, now = new Date()) {
     storedOutcomes++;
   }
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes});
+}
+
+// ---- POST /api/lab (owner): what the form lab saw on public forms ----
+// {runs: [{site, fingerprint, kind, recipe, ok, why}], samples: [{fingerprint, kind, skeleton, question}]}
+export async function lab(request, env, now = new Date()) {
+  if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
+  if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+  const body = await request.json().catch(() => ({}));
+  let runs = 0, samples = 0;
+  for (const item of (Array.isArray(body.runs) ? body.runs : []).slice(0, 500)) {
+    const fingerprint = String(item?.fingerprint || '');
+    if (!/^[a-z0-9]{6,16}$/.test(fingerprint)) continue;
+    await env.STATS.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(day(now), text(item.site, 60).toLowerCase(), fingerprint, text(item.kind, 24), Math.min(9999, Math.max(0, Math.round(Number(item.recipe)) || 0)), item.ok ? 1 : 0, text(item.why, 80)).run();
+    runs++;
+  }
+  for (const item of (Array.isArray(body.samples) ? body.samples : []).slice(0, 50)) {
+    const fingerprint = String(item?.fingerprint || ''), skeleton = cleanSkeleton(item?.skeleton);
+    if (!/^[a-z0-9]{6,16}$/.test(fingerprint) || !skeleton) continue;
+    const json = JSON.stringify(skeleton);
+    const have = (await env.STATS.prepare('SELECT COUNT(*) AS n FROM control_samples WHERE fingerprint = ?').bind(fingerprint).first())?.n || 0;
+    if (json.length > MAX_SKELETON || have >= SAMPLES_PER_FINGERPRINT) continue;
+    await env.STATS.prepare('INSERT INTO control_samples (fingerprint, kind, skeleton, question, seen_at) VALUES (?, ?, ?, ?, ?)')
+      .bind(fingerprint, text(item.kind, 24), json, text(item.question, 120), now.toISOString()).run();
+    samples++;
+  }
+  return Response.json({ok: true, runs, samples});
+}
+
+// How the lab fared per control kind and site over the last days: the success rate before any user hits a failure.
+export async function labReport(db, days = 7, now = new Date()) {
+  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
+  return (await db.prepare(`SELECT site, kind, fingerprint, SUM(ok) AS ok, COUNT(*) - SUM(ok) AS failed, COUNT(DISTINCT day) AS days
+    FROM lab_runs WHERE day >= ? GROUP BY site, kind, fingerprint ORDER BY failed DESC, ok DESC LIMIT 60`).bind(from).all()).results || [];
 }
 
 // ---- the canary, judged daily ----
