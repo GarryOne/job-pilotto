@@ -94,6 +94,8 @@ def email_lines(run):
     check's "N update(s) recorded": before, a run's page said how many, never which, and never what changed."""
     lines = []
     for email in run.get('emails') or []:
+        if email.get('action') == 'skipped':  # not about your applications: runs before 2 Oct 2026 listed these; they are noise
+            continue
         head = f"{email.get('subject') or '(no subject)'} · {_sender(email.get('from'))} · {_clock(email.get('at'))}"
         what = EMAIL_ACTION.get(email.get('action'), email.get('action') or '')
         parts = [f"[{what}]"]

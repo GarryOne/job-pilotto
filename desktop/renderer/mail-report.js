@@ -77,6 +77,7 @@ export function parseMailLines(fromRow = []) {
     const line = String(raw || '').trim();
     const action = EMAIL_ACTION.exec(line);
     if (action) {  // one email read: head — [action] · by · changed what
+      if (action[1].trim() === 'not about your applications') continue;  // noise, not a finding (older runs listed these)
       const [, head] = EMAIL_HEAD.exec(line) || [];
       const tail = line.slice(action.index + action[0].length);
       const changed = EMAIL_TAIL.exec(tail);

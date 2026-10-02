@@ -540,8 +540,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             continue
         state['seen'].append(email['id'])
         if not result.get('relevant'):
-            note(email, 'skipped', 'not about your applications')
-            continue
+            continue  # not about your applications: marked seen, never listed (a receipt or newsletter is not a finding)
         if row:
             note(email, 'reviewed', _label(row), link='')  # an outcome below replaces this: it says what was done
         if row and result.get('relevant') and re.search(r'transcript|recording', email['subject'], re.I):
@@ -707,15 +706,21 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
             and words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     if same:
         return same[0]
-    # A recruiter's lead with the employer hidden (Company empty, Via = the agency): the email that names the employer is the
-    # same opportunity, not a second one (2 Oct 2026: "AG Talent — Senior DevOps Engineer" and "Blinq — DevOps Engineer").
+    # A recruiter's lead with the employer hidden (Company empty, Via = the agency): an email that names the employer may be
+    # the same opportunity (2 Oct 2026: "AG Talent — Senior DevOps Engineer" and a twin "Blinq — DevOps Engineer").
+    # Merged only when sure: the same person (the lead's contact email or name is in the email) and the same role.
+    # Anything weaker (only the agency matches, another role, several leads) is asked about, never guessed
+    # and never a new row: the caller asks in Focus and on the check's card.
     text = f"{email.get('from', '')} {email.get('subject', '')} {email.get('body', '')}"
-    hidden = [r for r in apps if not _field(r, 'Company') and words(_role(r)) and _matches(r, text)
-              and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
-    if len(hidden) == 1 and company:
-        tracker.update_page(hidden[0]['id'], {'Company': {'rich_text': [{'text': {'content': company[:200]}}]}})
-        hidden[0]['properties']['Company'] = {'type': 'rich_text', 'rich_text': [{'plain_text': company}]}
-        return hidden[0]
+    leads = [r for r in apps if not _field(r, 'Company') and _matches(r, text)]
+    sure = [r for r in leads if _same_person(r, text) and words(_role(r))
+            and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
+    if len(sure) == 1 and company:
+        tracker.update_page(sure[0]['id'], {'Company': {'rich_text': [{'text': {'content': company[:200]}}]}})
+        sure[0]['properties']['Company'] = {'type': 'rich_text', 'rich_text': [{'plain_text': company}]}
+        return sure[0]
+    if leads:
+        return None
     applied = (email['date'] or '')[:10]
     # The role may be on the list before it was applied to (Saved, Kit ready…) and applied to without marking it:
     # that row becomes the application, so the job keeps its posting, kit and fit instead of getting a twin.
@@ -893,6 +898,12 @@ def _matches(row, text):
     emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())
     return (any(re.search(rf'(?<![\w]){re.escape(n)}(?![\w])', text) for n in names) or any(e in text for e in emails)
             or _names_person(row, text))
+
+
+def _same_person(row, text):
+    """True if the text carries a contact's email address of this application, or names one of its contacts."""
+    emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())
+    return any(e in text.lower() for e in emails) or _names_person(row, text)
 
 
 def _by_mention(apps, text):

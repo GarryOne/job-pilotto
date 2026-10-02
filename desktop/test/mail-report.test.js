@@ -126,3 +126,11 @@ test('one update change becomes a movement and a flag', () => {
     [{from: 'Next interview Thu 01 Oct 12:30', to: 'Fri 02 Oct 09:00'}]);
   assert.deepEqual(mailChanges(''), []);
 });
+
+test('an email that is not about the applications is not listed, older runs included', async () => {
+  const {parseMailLines} = await import('../renderer/mail-report.js');
+  const record = parseMailLines(['summary',
+    'Your receipt from Anthropic Ireland, Limited #2695-4622 · Anthropic Ireland, Limited · 02 Oct 02:31 — [not about your applications]',
+    'Thank you for applying · us.greenhouse-mail.io · 01 Oct 02:56 — [recorded] · Canonical — SRE · changed Stage Applied → Confirmation received']);
+  assert.deepEqual(record.emails.map(email => email.action), ['recorded']);
+});

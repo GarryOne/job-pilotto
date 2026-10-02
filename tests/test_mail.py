@@ -183,13 +183,11 @@ class MailTests(unittest.TestCase):
         with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
             mail.run(tracker, google, client=client, days=2, send=None, calendar=False, now=NOW, state_path=self.state,
                      stats=stats)
-        read, newsletter = stats['emails']
+        [read] = stats['emails']  # the newsletter is not about the applications: read, marked seen, never listed
         self.assertEqual(read['action'], 'recorded')
         self.assertEqual(read['link'], 'https://mail.google.com/mail/u/0/#all/m1')
         self.assertEqual(read['subject'], 'Thank you for applying to Canonical')
         self.assertEqual(read['changes'], 'Stage Applied → Confirmation received; Confirmation email set')
-        self.assertEqual((newsletter['action'], newsletter['label'], newsletter['changes']),
-                         ('skipped', 'not about your applications', ''))
         self.assertEqual(stats['updates'],
                          ['📬 Application received · Canonical — Site Reliability Engineer'
                           ' · Stage Applied → Confirmation received; Confirmation email set'])
@@ -367,6 +365,18 @@ class MailTests(unittest.TestCase):
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual([p for p in tracker.created if 'Stage' in p], [])  # no twin row
         self.assertIn(('p1', {'Company': {'rich_text': [{'text': {'content': 'Blinq'}}]}}), tracker.updates)  # the lead learns its employer
+
+    def test_an_email_that_only_shares_the_agency_with_a_lead_is_asked_about_not_merged_or_duplicated(self):
+        lead = app('p1', '', 'Platform Engineer', stage='Screening', via='AG Talent', contact='Sam · sam@agtalent.com')
+        tracker, sent = FakeTracker([lead]), []
+        google = FakeGoogle([email('m1', 'Blinq - DevOps Engineer', sender='Pat <pat@other.example>',
+                                   body='Hello, this is about AG Talent and a DevOps Engineer role at Blinq.')])
+        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+            mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
+                     days=2, send=sent.append, calendar=False, now=NOW, state_path=self.state, stats={})
+        self.assertEqual([p for p in tracker.created if 'Stage' in p and 'Job' in p], [])  # no new row
+        self.assertNotIn('Company', dict(tracker.updates).get('p1', {}))                  # no silent merge
+        self.assertTrue(any(p.get('Needs you', {}).get('checkbox') for p in tracker.created))  # asked, in Focus
 
     def test_a_placeholder_plain_part_falls_back_to_the_html(self):
         encode = lambda text: base64.urlsafe_b64encode(text.encode()).decode()

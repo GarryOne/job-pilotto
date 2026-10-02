@@ -316,10 +316,9 @@ class EmailSectionTest(unittest.TestCase):
                                                   '01 Oct 02:56 — [recorded] · Canonical — Site Reliability Engineer · '
                                                   'changed Stage Applied → Confirmation received; Confirmation email set')
         self.assertEqual(rich['text']['link']['url'], 'https://mail.google.com/mail/u/0/#all/1a0f4f6224933d5c')
-        self.assertTrue(any('A newsletter · example.test · 01 Oct 02:40 — [not about your applications]' ==
-                            block['bulleted_list_item']['rich_text'][0]['text']['content']
-                            for block in children if block['type'] == 'bulleted_list_item'),
-                        'the skipped email is listed too, and its words are not repeated')
+        self.assertFalse(any('A newsletter' in block['bulleted_list_item']['rich_text'][0]['text']['content']
+                             for block in children if block['type'] == 'bulleted_list_item'),
+                         'an email that is not about the applications is not listed (2 Oct 2026)')
 
     def test_a_check_without_details_still_logs_its_summary(self):
         run = {'mode': 'mail', 'started_at': '2026-10-01T01:18:00+00:00', 'warnings': [], 'mail': {'done': 1}, 'updates': []}
