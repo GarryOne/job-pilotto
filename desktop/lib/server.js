@@ -238,8 +238,10 @@ export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot}): whic
 let seen = null;
 export const extensionSeen = () => seen;
 // The extension version in the app's folder (the one Chrome loads unpacked): an older one in Chrome reloads itself.
+let extensionDir = () => `${pipeline.REPO}/extension`;   // main.js points it at the downloaded copy (lib/extension-pack.js)
+export function setExtensionDir(fn) { extensionDir = fn; }
 export function latestExtension(read = fs.readFileSync) {
-  try { return JSON.parse(read(`${pipeline.REPO}/extension/manifest.json`, 'utf8')).version || ''; } catch { return ''; }
+  try { return JSON.parse(read(`${extensionDir()}/manifest.json`, 'utf8')).version || ''; } catch { return ''; }
 }
 
 // The sentence a stale copy deserves, or '' when the two agree (or either is unknown). One wording for the two

@@ -10,6 +10,7 @@ import {signals} from './signals.js';
 import {feedback, view as feedbackView} from './feedback.js';
 import * as recipeLibrary from './recipes.js';
 import {trial} from './trial.js';
+import * as extensionPack from './extension-pack.js';
 import {brain} from './brain.js';
 import {index as employerIndex} from './employers.js';
 import * as pool from './pool.js';
@@ -70,6 +71,8 @@ export default {
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
+    if (pathname === '/api/extension/publish') return extensionPack.publish(request, env);
+    if (pathname === '/api/extension/latest' || pathname === '/api/extension/download') return extensionPack.pack(request, env);
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
     if (pathname === '/api/lab') return recipeLibrary.lab(request, env);

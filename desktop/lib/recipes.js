@@ -15,7 +15,7 @@ const FLUSH_MS = 5 * 60 * 1000;
 const enabled = storage => storage.settings().telemetry !== false;
 const readCache = storage => { try { return JSON.parse(storage.readText(CACHE) || '{}'); } catch { return {}; } };
 
-async function token(storage, fetcher, base) {
+export async function token(storage, fetcher, base) {
   const id = installId(storage);
   const kept = storage.settings().recipesToken;
   if (kept?.install === id && kept.value) return kept.value;
