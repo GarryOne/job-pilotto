@@ -101,3 +101,39 @@ test('each filled form counts for its board and goes in the same batch; nothing 
   reporter.fill('ashby');
   assert.deepEqual(await reporter.flush(), {sent: 0});
 });
+
+test('question wording and where an application got to are batched per board, cleaned, and follow the privacy switch', async () => {
+  const storage = tempStorage(), net = site();
+  const reporter = createReporter(storage, {fetcher: net.fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  reporter.question([{label: 'Heimatort *', kind: 'text'}, {label: 'Mail me at jane@example.com', kind: 'text'}, {label: 'Heimatort', kind: 'text'}], 'greenhouse');
+  reporter.question([{label: 'Notice period', kind: 'select'}], 'bad board!');   // not a board name: ignored
+  reporter.flow('ashby', 'no-form'); reporter.flow('ashby', 'no-form'); reporter.flow('ashby', 'filled'); reporter.flow('ashby', 'made-up');
+  await reporter.flush();
+  const body = net.calls.find(call => call[0] === '/api/controls')[1];
+  assert.deepEqual(body.questions, [{label: 'heimatort', kind: 'text', board: 'greenhouse'}]);   // cleaned, deduplicated, the address dropped
+  assert.deepEqual(body.flows, [{board: 'ashby', state: 'no-form', n: 2}, {board: 'ashby', state: 'filled', n: 1}]);
+  storage.saveSettings({telemetry: false});
+  const quiet = site();
+  const off = createReporter(storage, {fetcher: quiet.fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  off.question([{label: 'Heimatort', kind: 'text'}], 'greenhouse'); off.flow('ashby', 'filled');
+  await off.flush();
+  assert.equal(quiet.calls.length, 0);   // reports off: nothing leaves this Mac
+});
+
+test('a failed send keeps the questions and flow counts for the next try', async () => {
+  const storage = tempStorage();
+  let status = 500;
+  const calls = [];
+  const fetcher = async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    if (path === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+    calls.push(JSON.parse(init.body));
+    return {ok: status < 400, status, json: async () => ({ok: true})};
+  };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  reporter.question([{label: 'Heimatort', kind: 'text'}], 'lever'); reporter.flow('lever', 'account');
+  assert.equal((await reporter.flush()).sent, 0);
+  status = 200;
+  assert.equal((await reporter.flush()).sent, 2);
+  assert.deepEqual([calls[1].questions.length, calls[1].flows], [1, [{board: 'lever', state: 'account', n: 1}]]);
+});

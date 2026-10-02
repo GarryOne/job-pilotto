@@ -166,10 +166,12 @@ async function consider(tab, jobUrl) {
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   // Tier 2: the posting before its form. Press its "Apply" button once (by rule), then wait for the form.
+  let pressed = false;
   if (role === 'no-form' && !triedApply.has(key)) {
     triedApply.add(key);
     const label = await pressApply(tab.id);
     if (label) {
+      pressed = true;
       decide('fill', 'pressed the Apply button', {host, label});
       const after = await formAfterPress(tab.id, tab.url);
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
@@ -180,12 +182,14 @@ async function consider(tab, jobUrl) {
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : 'no form on this page', {host, role});
     stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form');   // tier 3: the app offers Apply with Claude
+    reportFlow(tab, {role, pressed});
     return;
   }
   await writeState(tab.id, {state: 'running'});
   const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
+  reportFlow(tab, {role: 'form', ok: !result?.error});
 }
 async function jobOf(tab) {
   const stored = await chrome.storage.session.get([`from:${tab.id}`, `job:${tab.id}`]);
@@ -349,13 +353,27 @@ function prefetch(config, url) {
 
 // How the generic operators fared on this form (kind, fingerprint, worked or not, why): the app turns the failures into
 // reports that help everyone. No questions, no answers.
-function reportControls(config, tab, operated) {
+// `trace` carries only the rows no answer matched (the form's own wording: the app cleans it and drops what could be personal).
+function reportControls(config, tab, operated, trace) {
   // Every fill counts for the board it was on, even when the operators had nothing to do there.
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20)})}).catch(() => {});
+  const unplaced = (Array.isArray(trace) ? trace : []).filter(row => row && row.reason === NO_ANSWER && row.type !== 'file').slice(0, 25)
+    .map(row => ({label: String(row.label || '').slice(0, 100), type: String(row.type || '').slice(0, 20), required: !!row.required, reason: NO_ANSWER}));
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced})}).catch(() => {});
 }
+// Where an application got to on this page (a form, a page with no form, an account wall): counted per board, nothing else.
+async function reportFlow(tab, flow) {
+  try {
+    const config = await settings();
+    if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
+    let host = '';
+    try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+    await api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: [], flow})});
+  } catch { /* the app is closed */ }
+}
+const NO_ANSWER = 'no answer in the kit, Profile or your details';
 
 // fast: the page is already there (the panel's Fill): no wait for it to render.
 async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = false} = {}) {
@@ -375,7 +393,7 @@ async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = fal
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});
-    reportControls(config, tab, result?.operated);
+    reportControls(config, tab, result?.operated, result?.trace);
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
     await progress(tab.id, '', page);

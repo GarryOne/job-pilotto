@@ -4,6 +4,7 @@
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
 import {feedbackList} from './feedback.js';
 import {flags} from './guard.js';
+import {report as knowledgeReport} from './knowledge.js';
 import {labPlan, labReport} from './recipes.js';
 import {allowed, esc, remember} from './stats.js';
 
@@ -168,6 +169,14 @@ ${(data.plan?.head || []).map(item => `<tr><td><code>${esc(item.fingerprint)}</c
   <td>${item.labRate == null ? `untested (${item.labRuns})` : Math.round(item.labRate * 100) + '%'}</td><td>${item.recipe ? 'running' : item.candidate ? 'candidate' : '–'}</td></tr>`).join('')
   || '<tr><td colspan="5" class="muted">Nothing failing or unproven: nothing to chase.</td></tr>'}</table>
 <small class="muted">Lab by board (last 7 days): ${(data.lab || []).slice(0, 8).map(row => `${esc(row.site)} ${esc(row.kind)} ${row.ok}/${row.ok + row.failed}`).join(' · ') || 'no runs yet'}</small></section>
+<section class="card" style="margin-top:12px"><h2>🧬 What installs ask and where they stall</h2>
+<small class="muted">Questions no answer matched, reported by ${3} or more installs (the form's own wording), and where applications got to per board (last 7 days).</small>
+<table style="margin-top:8px"><tr><th>Question</th><th>Kind</th><th>Times</th><th>Installs</th><th>Boards</th></tr>
+${(data.knowledge?.questions || []).slice(0, 15).map(row => `<tr><td>${esc(row.label)}</td><td>${esc(row.kind)}</td><td>${row.n}</td><td>${row.installs}</td><td class="muted">${esc((row.boards || []).slice(0, 3).join(', '))}</td></tr>`).join('')
+  || '<tr><td colspan="5" class="muted">No question has reached 3 installs yet.</td></tr>'}</table>
+<table style="margin-top:8px"><tr><th>Board</th><th>Where applications got to</th></tr>
+${Object.entries((data.knowledge?.flows || []).reduce((all, row) => { (all[row.board] ||= []).push(`${esc(row.state)} <b>×${row.n}</b>`); return all; }, {})).slice(0, 12)
+  .map(([board, parts]) => `<tr><td>${esc(board)}</td><td>${parts.join(' · ')}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">No flow outcomes yet.</td></tr>'}</table></section>
 <section class="card" style="margin-top:12px"><h2>🛡️ Access guard</h2>
 <small class="muted">Who hit a limit or touched a decoy (last 7 days; installs are shown only as a short digest). ${data.guard ? data.guard.honeypots : 0} honeypot fingerprints planted.</small>
 <table style="margin-top:8px"><tr><th>What</th><th>Who</th><th>Times</th></tr>
@@ -192,8 +201,8 @@ export async function view(request, env, now = new Date()) {
   try {
     const [data, feedback, setup] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
       funnel(env.STATS, Math.max(days, 30), now).catch(() => null)]);
-    const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []), guardData = await flags(env.STATS, 7, now).catch(() => null);
-    return new Response(page({...data, feedback, funnel: setup, plan, lab, guard: guardData}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []), guardData = await flags(env.STATS, 7, now).catch(() => null), learned = await knowledgeReport(env.STATS, 7, now).catch(() => null);
+    return new Response(page({...data, feedback, funnel: setup, plan, lab, guard: guardData, knowledge: learned}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

@@ -1,16 +1,19 @@
 // The app's side of the shared recipe library (site/src/recipes.js; design in Notion "Self-improving form filling").
 // The extension never talks to the site: it asks the app for recipes by fingerprint, the app asks the site, remembers the answer
 // (also "none") for a while, and passes on only what extension/recipe-schema.js accepts. It also sends back, in batches, how
-// the operators fared (counts) and the structure of controls it could not read (no text). All of it follows the Technical
+// the operators fared (counts), the structure of controls it could not read (no text), the wording of form questions no answer matched
+// (the form's own words, never what the user typed) and what happened on each page of an application (counts per board). All of it follows the Technical
 // reports switch: off means no fingerprint ever leaves this Mac.
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
 import {log} from './log.js';
+import {cleanLabel} from './question-labels.js';
 
 export const SITE = 'https://www.jobpilotto.workers.dev';
 const CACHE = 'recipes-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 const FLUSH_MS = 5 * 60 * 1000;
+export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
 
 const enabled = storage => storage.settings().telemetry !== false;
 const readCache = storage => { try { return JSON.parse(storage.readText(CACHE) || '{}'); } catch { return {}; } };
@@ -63,7 +66,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -84,6 +87,22 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       fills.set(board, (fills.get(board) || 0) + 1);
       schedule();
     },
+    // Questions of one fill that no answer matched (lib/question-labels.js unplaced): the form's own wording, counted per board.
+    question(items, board) {
+      if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;
+      for (const item of Array.isArray(items) ? items.slice(0, 20) : []) {
+        const label = cleanLabel(item?.label);
+        if (label) questions.set(`${board}|${label}`, {label, kind: String(item.kind || '').slice(0, 20), board});
+      }
+      schedule();
+    },
+    // What happened on one page of an application (lib/question-labels.js flowState), counted per board.
+    flow(board, state) {
+      if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || '')) || !FLOW_STATES.includes(state)) return;
+      const key = `${board}|${state}`;
+      flows.set(key, {board, state, n: (flows.get(key)?.n || 0) + 1});
+      schedule();
+    },
     // items [{fingerprint, kind, skeleton, question}] new to this Mac (lib/misses.js).
     sample(items) {
       if (!enabled(storage)) return;
@@ -96,16 +115,19 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     async flush() { return flush(); },
   };
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size)) return {sent: 0};
-    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n}))};
-    const taken = {samples: samples.slice(0, 10), outcomes, fills};
+    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size)) return {sent: 0};
+    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n})),
+      questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20)};
+    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
+    questions = new Map();
+    flows = new Map();
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
-      return {sent: body.samples.length + body.outcomes.length + body.exposure.length};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try
@@ -115,6 +137,8 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
         outcomes.set(key, again);
       }
       for (const [board, n] of taken.fills) fills.set(board, (fills.get(board) || 0) + n);
+      for (const [key, entry] of taken.questions) questions.set(key, entry);
+      for (const [key, entry] of taken.flows) flows.set(key, {...entry, n: entry.n + (flows.get(key)?.n || 0)});
       return {sent: 0};
     }
   }

@@ -59,6 +59,7 @@ import * as learnedAnswers from './lib/learned.js';
 import * as misses from './lib/misses.js';
 import * as controlEvents from './lib/control-events.js';
 import * as recipeLibrary from './lib/recipes.js';
+import {flowState, unplaced} from './lib/question-labels.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -1604,7 +1605,10 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setControlsHandler(payload => {
     for (const item of controlEvents.fromOperators(payload, {owner: owner()})) telemetry?.record('control', item);
     recipeReporter.outcome(payload.items);   // counts per fingerprint and recipe: the canary's evidence
-    recipeReporter.fill(controlEvents.boardName(payload.host));   // one more form on this board
+    const board = controlEvents.boardName(payload.host);
+    if (!payload.flow) recipeReporter.fill(board);   // one more form on this board (a flow event is a page, not a fill)
+    recipeReporter.question(unplaced(payload.trace), board);   // the form's own wording for questions no answer matched
+    if (payload.flow) recipeReporter.flow(board, flowState(payload.flow));   // where an application got to on this board
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
   server.setTabsHandler(report => review.noteTabs(report));
