@@ -23,4 +23,4 @@ failed and the previous release's installer was carried over. Promote a build wh
 is ${own} bytes, Job-Pilotto-windows-x64.exe is ${generic}. Promote a build whose Windows job passed." >&2; exit 1; }
 
 gh release edit "$tag" -R "$repo" --prerelease=false --latest
-echo "Stable: $tag (friends' apps offer it within 6 hours, or at their next start)"
+echo "Stable: $tag (friends' apps offer it within an hour, or at their next start)"

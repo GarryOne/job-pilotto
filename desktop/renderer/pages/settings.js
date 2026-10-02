@@ -249,7 +249,7 @@ function renderDiagnostics({on, detail, checking}) {
   $('diag-ext').replaceChildren(stateLine(on.extension, detail.extension, checking?.extension));
   $('diag-search').textContent = $('last-search').textContent;
 }
-// Updates: this version, and whether it's the latest (the app checks at start and every 6 hours; Check now asks GitHub).
+// Updates: this version, and whether it's the latest (the app checks at start and every hour; Check now asks GitHub).
 async function renderUpdate() {
   const status = await window.pilot.updateStatus().catch(() => ({}));
   const {latest, text} = updateText(status);
