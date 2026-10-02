@@ -62,5 +62,6 @@ try {
   await session?.close();
   const failed = results.filter(result => result.status === 'failed').length;
   console.log(`\n${results.filter(r => r.status === 'passed').length} passed, ${failed} failed, ${results.filter(r => r.status === 'skipped').length} skipped`);
-  process.exitCode = failed ? 1 : 0;
+  // The app and Playwright can leave handles open (the app keeps helper processes running): exit explicitly, never hang a CI job.
+  process.exit(failed ? 1 : 0);
 }

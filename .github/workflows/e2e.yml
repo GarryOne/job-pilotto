@@ -50,7 +50,7 @@ jobs:
         working-directory: desktop/e2e
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libnss3 libgbm1 libasound2t64 libgtk-3-0t64 >/dev/null
-          xvfb-run --auto-servernum node journey.mjs
+          timeout 900 xvfb-run --auto-servernum node journey.mjs   # a hung journey stops here, not after 40 minutes
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v4
