@@ -8,6 +8,7 @@ import {TRANSCRIPT, addDays, interviewProps, newestFirst, trackerProps, transcri
 import {createRow, emptyDatabase, pageBlocks, plainOf, rows} from '../lib/notion.mjs';
 import {paragraph} from '../lib/notion.mjs';
 import {finish, snap} from '../lib/layout.mjs';
+import {pickJob} from '../lib/picker.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {answerConfirms, captureExternal, ids, independent} from '../lib/steps.mjs';
 
@@ -162,7 +163,7 @@ export async function run(ctx) {
     await page.click('#iv-add');
     await page.locator('#iv-ready').waitFor({state: 'visible', timeout: 90000});
     if (!(await page.inputValue('#iv-text')).includes('Terraform at scale')) throw new Error('the imported transcript is not in the editor');
-    await page.selectOption('#iv-job', seed.gamma.url);
+    await pickJob(page.locator('#iv-job'), seed.gamma.url);
     proxy.setMode('no-credit');
     const callsBefore = proxy.stats.calls;
     try {
@@ -196,7 +197,7 @@ export async function run(ctx) {
     await openInterviews();
     await page.click('#iv-add');
     await page.locator('#iv-ready').waitFor({state: 'visible', timeout: 90000});
-    await page.selectOption('#iv-job', seed.gamma.url);
+    await pickJob(page.locator('#iv-job'), seed.gamma.url);
     const calls = proxy.stats.calls;
     await page.click('#iv-save-review');
     await page.waitForFunction(() => /The review is on the Notion page|failed|Could not|error/i.test(document.getElementById('iv-message').textContent) && !/reviewing the interview/.test(document.getElementById('iv-message').textContent),
