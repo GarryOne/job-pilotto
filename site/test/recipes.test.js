@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
-import {cleanSkeleton, controlStats, controls, evaluateCanary, recipes} from '../src/recipes.js';
+import {cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lookup, recipes} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -16,7 +16,8 @@ function d1() {
 const env = () => ({STATS: d1(), STATS_KEY: 'secret'});
 const recipe = (extra = {}) => ({fingerprint: '1d2pcapx18', version: 1, operator: 'toggle', params: {onAttr: 'aria-pressed', onValue: 'true'}, ...extra});
 const put = (e, body, key = 'secret') => recipes(new Request('https://x/api/recipes', {method: 'PUT', headers: {Authorization: `Bearer ${key}`}, body: JSON.stringify(body)}), e);
-const get = (e, headers = {}) => recipes(new Request('https://x/api/recipes', {headers}), e);
+const get = (e, headers = {Authorization: 'Bearer secret'}) => recipes(new Request('https://x/api/recipes', {headers}), e);
+const kvStore = () => { const map = new Map(); return {get: async key => map.get(key) ?? null, put: async (key, value) => { map.set(key, value); }}; };
 const now = new Date('2026-10-02T12:00:00Z');
 
 test('a recipe is data in a fixed shape; anything else is refused', () => {
@@ -42,8 +43,9 @@ test('the highest version of a fingerprint wins in a bundle; rollout is a share 
   assert.equal(installs.some(id => appliesTo({rollout: 0}, id)), false);
 });
 
-test('only the owner adds recipes; GET serves running ones with their rollout, cacheable, newest version only', async () => {
+test('only the owner adds recipes or reads the whole set; GET shows running ones with their rollout, newest version only', async () => {
   const e = env();
+  assert.equal((await get(e, {})).status, 404);   // the whole library is not public
   assert.equal((await put(e, {recipe: recipe()}, 'wrong')).status, 404);
   assert.equal((await put(e, {recipe: recipe({operator: 'x'})})).status, 400);
   await put(e, {recipe: recipe(), status: 'candidate'});
@@ -53,7 +55,7 @@ test('only the owner adds recipes; GET serves running ones with their rollout, c
   const response = await get(e);
   const served = (await response.json()).recipes;
   assert.deepEqual(served.map(r => [r.fingerprint, r.version, r.rollout]), [['1d2pcapx18', 2, 100]]);
-  assert.equal((await get(e, {'If-None-Match': response.headers.get('ETag')})).status, 304);
+  assert.equal((await get(e, {Authorization: 'Bearer secret', 'If-None-Match': response.headers.get('ETag')})).status, 304);
 });
 
 test('a control report keeps only structure, a few samples per fingerprint, and sums outcomes', async () => {
@@ -95,4 +97,43 @@ test('a canary that works grows and finally becomes verified; one that fails is 
   assert.deepEqual(later.map(a => a.action), ['verified']);
   assert.deepEqual({...status('1d2pcapx18')}, {status: 'verified', rollout: 100});
   assert.deepEqual((await controlStats(e.STATS, 7, now)).map(r => r.fingerprint).sort(), ['1d2pcapx18', 'bad0001', 'new0001']);
+});
+
+test('an app gets a token, then recipes only for the fingerprints it presents, at its own canary share', async () => {
+  const e = {...env(), WAITLIST: kvStore()};
+  await put(e, {recipe: recipe(), status: 'verified'});
+  await put(e, {recipe: recipe({fingerprint: 'other0001'}), status: 'verified'});
+  await put(e, {recipe: recipe({fingerprint: 'draft0001'}), status: 'candidate'});
+  await put(e, {recipe: recipe({fingerprint: 'tiny0001'}), status: 'canary', rollout: 1});
+  const mint = install => installToken(new Request('https://x/api/install-token', {method: 'POST', headers: {'CF-Connecting-IP': '203.0.113.7'}, body: JSON.stringify({install})}), e, now);
+  const ask = (install, token, fingerprints) => lookup(new Request('https://x/api/recipes/lookup', {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: JSON.stringify({install, fingerprints})}), e, now);
+  const {token} = await (await mint('install-aaaa1111')).json();
+  assert.match(token, /^[0-9a-f]{32}$/);
+  assert.equal((await ask('install-aaaa1111', 'wrong', ['1d2pcapx18'])).status, 401);
+  assert.equal((await ask('install-bbbb2222', token, ['1d2pcapx18'])).status, 401);   // a token is for its own install
+  const served = (await (await ask('install-aaaa1111', token, ['1d2pcapx18', 'draft0001', 'nothing999', 'NOT VALID'])).json()).recipes;
+  assert.deepEqual(served.map(r => r.fingerprint), ['1d2pcapx18']);   // only what it presented, only what is running
+  // a 1% canary reaches a fraction of installs only
+  const reached = [];
+  for (let i = 0; i < 200; i++) {
+    const id = `install-${String(i).padStart(8, '0')}`;
+    const {token: t} = await (await installToken(new Request('https://x/api/install-token', {method: 'POST', body: JSON.stringify({install: id})}), {...e, WAITLIST: undefined}, now)).json();
+    const got = (await (await ask(id, t, ['tiny0001'])).json()).recipes;
+    if (got.length) reached.push(id);
+  }
+  assert.ok(reached.length > 0 && reached.length < 20, `about 1% of 200, got ${reached.length}`);
+});
+
+test('minting tokens is limited per network address; lookups are limited per install', async () => {
+  const e = {...env(), WAITLIST: kvStore()};
+  const mint = n => installToken(new Request('https://x/api/install-token', {method: 'POST', headers: {'CF-Connecting-IP': '198.51.100.9'}, body: JSON.stringify({install: `install-${n}-xxxxxxx`})}), e, now);
+  const statuses = [];
+  for (let i = 0; i < 12; i++) statuses.push((await mint(i)).status);
+  assert.deepEqual([statuses.filter(s => s === 200).length, statuses.filter(s => s === 429).length], [10, 2]);
+  const {token} = await (await installToken(new Request('https://x/api/install-token', {method: 'POST', headers: {'CF-Connecting-IP': '198.51.100.10'}, body: JSON.stringify({install: 'install-quota-1'})}), e, now)).json();
+  const ask = fingerprints => lookup(new Request('https://x/api/recipes/lookup', {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: JSON.stringify({install: 'install-quota-1', fingerprints})}), e, now);
+  const many = Array.from({length: 30}, (_, i) => `fp${String(i).padStart(5, '0')}`);
+  let last = 200;
+  for (let i = 0; i < 70 && last === 200; i++) last = (await ask(many)).status;
+  assert.equal(last, 429);
 });

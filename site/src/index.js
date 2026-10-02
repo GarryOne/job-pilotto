@@ -69,6 +69,8 @@ export default {
     if (pathname === '/telemetry') return telemetry.view(request, env);
     if (pathname === '/api/index') return employerIndex(request, env);
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
+    if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
+    if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
     if (pathname === '/api/contribute') return pool.contribute(request, env);
     if (pathname === '/api/contributions') return pool.aggregate(request, env);

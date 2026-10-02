@@ -1,11 +1,14 @@
 // The shared recipe library for the self-improving form filler (Notion: "Self-improving form filling: design & plan").
-//   GET  /api/recipes   public, cacheable: recipes that are running (canary or verified) with the share of installs that use them.
-//                       Every app downloads it at most daily (desktop/lib/recipes.js), like the employer index.
+//   POST /api/install-token   an app asks for its token (an HMAC of its install id); limited per network address per day.
+//   POST /api/recipes/lookup  the app lists the fingerprints of the controls on the form in front of it and gets back only the
+//                       recipes for those (running ones, honouring the canary share). Nobody can download the library whole: a
+//                       recipe can only be asked for by presenting the structure it fits, and the hash space cannot be walked.
+//   GET  /api/recipes   the owner's key only: the whole running set, for the lab and the dashboard.
 //   PUT  /api/recipes   the owner's key (same as /stats): the form lab or the owner adds a recipe, or changes its status.
 //   POST /api/controls  from apps: scrubbed control structures (to propose recipes from) and how the operators fared (the canary's
 //                       evidence). Product data only: no user data, no text, no answers.
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
-import {validateRecipe} from '../../extension/recipe-schema.js';
+import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
 import {allowed} from './stats.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
@@ -25,6 +28,7 @@ async function digest(value) {
 export async function recipes(request, env, now = new Date()) {
   if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
   if (request.method === 'GET') {
+    if (!allowed(request, env)) return new Response('Not found', {status: 404});
     const rows = (await env.STATS.prepare(`SELECT fingerprint, version, status, rollout, body FROM recipes WHERE status IN ('canary', 'verified')
       ORDER BY fingerprint, version DESC`).all()).results || [];
     const seen = new Set(), out = [];
@@ -36,7 +40,7 @@ export async function recipes(request, env, now = new Date()) {
     }
     const body = JSON.stringify({recipes: out});
     const tag = `"${await digest(body)}"`;
-    const headers = {'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=600', ETag: tag};
+    const headers = {'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', ETag: tag};
     if (request.headers.get('If-None-Match') === tag) return new Response(null, {status: 304, headers});
     return new Response(JSON.stringify({generated: now.toISOString(), recipes: out}), {headers});
   }
@@ -53,6 +57,58 @@ export async function recipes(request, env, now = new Date()) {
     body = excluded.body, note = excluded.note, updated_at = excluded.updated_at`)
     .bind(checked.recipe.fingerprint, checked.recipe.version, status, rollout, JSON.stringify(checked.recipe), text(input.source || 'owner', 20), text(input.note, 200), when, when).run();
   return Response.json({ok: true, status, rollout});
+}
+
+// ---- access: a token per install, and lookups by fingerprint ----
+const MINTS_PER_ADDRESS_PER_DAY = 10, LOOKUPS_PER_INSTALL_PER_DAY = 2000, MAX_LOOKUP = 30;
+async function tokenFor(install, env) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STATS_SALT || env.STATS_KEY || 'dev'), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`recipes:${install}`)));
+  return [...sig.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const equal = (a, b) => { if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; };
+
+// POST /api/install-token {install}: the app's token. New tokens are limited per network address, so minting installs to
+// raise the lookup quota is slow; the quota is per install.
+export async function installToken(request, env, now = new Date()) {
+  if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
+  const body = await request.json().catch(() => ({}));
+  const install = String(body.install || '');
+  if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
+  const kv = env.WAITLIST;
+  if (kv) {
+    const address = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const key = `recipes-mint:${await digest(address)}:${day(now)}`;
+    const used = Number(await kv.get(key)) || 0;
+    if (used >= MINTS_PER_ADDRESS_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
+    await kv.put(key, String(used + 1), {expirationTtl: 2 * 86400});
+  }
+  return Response.json({ok: true, token: await tokenFor(install, env)});
+}
+
+// POST /api/recipes/lookup {install, fingerprints: [...]} with Authorization: Bearer <token>.
+export async function lookup(request, env, now = new Date()) {
+  if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
+  if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
+  const body = await request.json().catch(() => ({}));
+  const install = String(body.install || '');
+  const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!/^[\w-]{8,64}$/.test(install) || !equal(bearer, await tokenFor(install, env))) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
+  const asked = [...new Set((Array.isArray(body.fingerprints) ? body.fingerprints : []).map(String).filter(fp => /^[a-z0-9]{6,16}$/.test(fp)))].slice(0, MAX_LOOKUP);
+  const kv = env.WAITLIST, key = `recipes-lookup:${install}:${day(now)}`;
+  const used = kv ? Number(await kv.get(key)) || 0 : 0;
+  if (used + asked.length > LOOKUPS_PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
+  if (kv && asked.length) await kv.put(key, String(used + asked.length), {expirationTtl: 2 * 86400});
+  const out = [];
+  for (const fingerprint of asked) {
+    const row = await env.STATS.prepare(`SELECT version, status, rollout, body FROM recipes WHERE fingerprint = ? AND status IN ('canary', 'verified')
+      ORDER BY version DESC LIMIT 1`).bind(fingerprint).first();
+    if (!row) continue;
+    const checked = validateRecipe(JSON.parse(row.body));
+    const rollout = row.status === 'verified' ? 100 : row.rollout;
+    if (checked.ok && appliesTo({rollout}, install)) out.push({...checked.recipe, rollout});
+  }
+  return Response.json({ok: true, recipes: out}, {headers: {'Cache-Control': 'private, no-store'}});
 }
 
 // ---- POST /api/controls ----
