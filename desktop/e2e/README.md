@@ -6,7 +6,8 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 |---|---|---|---|
 | `wizard` | an emptied Notion page | the first-run path: key, Notion workspace, CV, strategy, finish | ~2.5 min |
 | `jobs` | a set-up install, its own jobs and runs reset | Actions, Recent activity, jobs check on fixture feeds, scoring, a **slow AI** (live log, no silence), Find employers, Focus/Jobs/Actions layout | ~4 min |
-| `interviews` | a set-up install | Interviews and Calendar pages | ~30 s |
+| `interviews` | a set-up install, its own interview and job rows reset | the library on dummy Notion rows (order, outcomes, search, filter, open, link/unlink, delete), the recorder's consent rule, a transcript **imported through the page and reviewed for real**, a **failing AI** (clear message, no half-written row), review again (guard and replace), insights | ~4 min |
+| `calendar` | a set-up install, its own job and interview rows reset | meetings from the Job Tracker and from recordings on the month grid, a busy day, the agenda, month arrows, opening a job, **two time zones** (Tokyo, Honolulu) | ~3 min |
 | `settings` | a set-up install | every Settings section, the AI engine panel with each engine chosen | ~30 s |
 | `personas` | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
 | `employers` | a set-up install, its own employer rows and runs reset | Find new employers on a candidate list of every kind (good board, empty, wrong roles, dead feed, duplicate, excluded, manual watch): statuses, quality order, Employers & Sources rows, the run row's counts, a second run, the crawl's source list, a Sonnet judge | ~1 min |
@@ -19,9 +20,10 @@ E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 ```
 
 ## How a suite gets its state
-- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_EMPLOYERS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
+- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_CALENDAR`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_EMPLOYERS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
 - **The workspace is built once and kept.** The wizard suite empties its page and builds it from scratch every run. The others find their page already built and **seed the app in about 5 seconds** with the app's own calls (`saveSecret`, `notionConnect`, `saveSettings`), not the wizard. A suite whose page is empty builds it once with the real wizard path (`lib/wizard.mjs`).
 - **A suite resets only its own data** (the jobs suite empties its job rows and run rows), never the workspace.
+- Dummy data without an AI call: `lib/notion.mjs` (`createRow`, `rows`, `pageBlocks`) and `lib/interview-data.mjs` (row builders and the pure checks, tested in `test/`). `lib/steps.mjs`: independent steps (one failure never hides the others), captured external links, answered `confirm()`. A suite can export `env` (e.g. `TZ`) for its app, and the AI proxy has `setMode(...)` for a failing AI (`no-credit`, `server-error`, …).
 - Files: `suite.mjs` the runner · `suites/*.mjs` the steps · `lib/context.mjs` secrets, Notion guard, feeds, proxy, launch · `lib/seed.mjs` the fast seed · `lib/wizard.mjs` the real first-run path · `lib/layout.mjs` screenshots + checks · `lib/activity.mjs` + `lib/ai-proxy.mjs` the slow-AI scenario.
 
 ## Adding a suite (a file, nothing else to edit)

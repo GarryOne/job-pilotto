@@ -173,3 +173,50 @@ export function flatten(row) {
   }
   return out;
 }
+
+// ---- Rows written straight through the Notion API: dummy data without an AI call. Every helper refuses to run outside the test workspace's own databases
+// (they are found by title in the page the token sees), and `rows` is read-only.
+const text = value => ({rich_text: [{text: {content: String(value).slice(0, 2000)}}]});
+const paragraph = content => ({object: 'block', type: 'paragraph', paragraph: {rich_text: [{type: 'text', text: {content: content.slice(0, 1900)}}]}});
+
+// A new row in the database called `title`. `properties` are Notion property values; `children` plain-text paragraphs are optional.
+export async function createRow(token, title, properties, children = []) {
+  const db = await findDatabase(token, title);
+  if (!db) throw new Error(`the test workspace has no "${title}" database`);
+  return call(token, 'POST', 'pages', {parent: {database_id: db.id}, properties, ...(children.length ? {children} : {})});
+}
+
+// Every live row of a database as {id, url, properties}.
+export async function rows(token, title) {
+  const db = await findDatabase(token, title);
+  if (!db) return [];
+  const out = [];
+  let cursor;
+  do {
+    const found = await call(token, 'POST', `databases/${db.id}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    out.push(...found.results.filter(row => !row.archived));
+    cursor = found.has_more ? found.next_cursor : null;
+  } while (cursor);
+  return out;
+}
+
+// The text blocks of a page (and of its toggles), flattened: [{type, text}].
+export async function pageBlocks(token, id) {
+  const out = [];
+  const children = await call(token, 'GET', `blocks/${id}/children?page_size=100`);
+  for (const block of children.results) {
+    const rich = block[block.type]?.rich_text || [];
+    out.push({type: block.type, text: rich.map(part => part.plain_text).join('')});
+    if (block.has_children) out.push(...await pageBlocks(token, block.id));
+  }
+  return out;
+}
+
+export const plainOf = property => {
+  if (!property) return '';
+  const parts = property.title || property.rich_text;
+  if (parts) return parts.map(part => part.plain_text).join('');
+  return property.select?.name || property.date?.start || (property.number ?? '') + '';
+};
+
+export {text as richText, paragraph};
