@@ -165,6 +165,14 @@ def write_one(db, tracker, job):
 def sync(db, tracker, scored_jobs, applied_urls=frozenset(), open_urls=None, dismissed_urls=frozenset()):
     """Write changed rows; returns a one-line summary. Stops quietly on the first API error."""
     db.executescript(SYNC_TABLE)
+    # Copies of one job (the same URL up to tracking parameters, a slash or the host's case) are one row: the best scored copy is written. Without this both
+    # copies are new in the same run and each gets a row, because the loop below only sees rows that existed when it started.
+    best = {}
+    for job in scored_jobs:
+        key = normalize_url(job['url'])
+        if key not in best or job['fit']['score'] > best[key]['fit']['score']:
+            best[key] = job
+    scored_jobs = list(best.values())
     known = {row['url']: row for row in db.execute('SELECT url, page_id, data_hash FROM notion_matches')}
     keys = {normalize_url(url) for url in known}
     in_notion = {}  # url -> the row's current values in Notion, for rows this SQLite didn't know

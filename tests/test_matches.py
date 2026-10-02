@@ -57,6 +57,19 @@ class MatchesSyncTests(unittest.TestCase):
                 self.assertIn('0 created, 0 updated', matches.sync(db, tracker, [job(1), job(2)],
                                                                   open_urls={'https://x.test/1', 'https://x.test/2'}))
 
+    def test_two_stored_copies_of_one_job_make_one_row_not_two(self):
+        # A database that already holds the same posting under two URL forms (found by the golden-postings e2e, 2 Oct 2026): one Notion row, the better score,
+        # and a second sync changes nothing.
+        clean, tracked = job(1, 75), {**job(2, 65), 'url': 'https://x.test/1?utm_source=linkedin&utm_medium=social'}
+        with tempfile.TemporaryDirectory() as tmp:
+            with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                tracker = FakeTracker()
+                summary = matches.sync(db, tracker, [clean, tracked], open_urls={clean['url'], tracked['url']})
+                self.assertIn('1 created, 0 updated', summary)
+                self.assertEqual([call[1]['Score']['number'] for call in tracker.calls], [75])
+                self.assertIn('0 created, 0 updated', matches.sync(db, tracker, [tracked, clean], open_urls={clean['url'], tracked['url']}))
+                self.assertEqual(len(tracker.calls), 1)
+
     def test_reset_cache_adopts_existing_rows_instead_of_duplicating(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
