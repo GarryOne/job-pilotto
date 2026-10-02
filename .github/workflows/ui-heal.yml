@@ -14,7 +14,10 @@ on:
     inputs:
       run_id:
         description: 'An e2e run id whose artifacts to triage'
-        required: true
+        required: false
+      plant:
+        description: 'DRY RUN, only on a branch other than main: a ui-findings.json array to triage instead of a real run (see desktop/e2e/README.md)'
+        required: false
 
 permissions:
   contents: write
@@ -36,14 +39,24 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
-      RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.run_id) }}
+      RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.run_id || github.run_id) }}
+      PLANT: ${{ inputs.plant }}
+      BASE: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Download the night's screenshots and findings
-        run: gh run download "$RUN_ID" --repo "$REPO" --name e2e-artifacts --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"
+      - name: Download the night's screenshots and findings (or plant one, for a dry run)
+        run: |
+          mkdir -p e2e-artifacts
+          if [ -n "$PLANT" ]; then
+            if [ "$GITHUB_REF" = refs/heads/main ]; then echo "A planted finding is only allowed off main." >&2; exit 1; fi
+            printf '%s' "$PLANT" > e2e-artifacts/ui-findings.json
+            echo "DRY RUN on $BASE: triaging a planted finding." >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --repo "$REPO" --name e2e-artifacts --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"
+          fi
       - name: File the findings, pick one that is ready
         id: triage
         run: |
@@ -118,5 +131,8 @@ jobs:
           git commit -q -m "$title" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
           git push -q origin "$branch"
           gh label create auto-ui-fix --repo "$REPO" --force --color 0E8A16 --description 'A fix proposed by the nightly UI loop'
-          url=$(gh pr create --repo "$REPO" --base main --head "$branch" --title "$title" --body-file .heal/body.md --label auto-ui-fix)
+          extra=""
+          if [ "$BASE" != main ]; then gh label create dry-run --repo "$REPO" --force --color FBCA04 --description 'A dry run of the UI loop: close it'; extra="--label dry-run"; fi
+          # shellcheck disable=SC2086
+          url=$(gh pr create --repo "$REPO" --base "$BASE" --head "$branch" --title "$title" --body-file .heal/body.md --label auto-ui-fix $extra)
           echo "Pull request opened: $url" >> "$GITHUB_STEP_SUMMARY"
