@@ -19,6 +19,9 @@ E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node journey.mjs   # the w
 | Gmail | skipped (a mock of the Google endpoints may come later) |
 | Apply | the real extension on a local fixture form; Submit must never be clicked |
 
+## Using your own CV locally
+`E2E_CV=/path/to/cv.pdf node journey.mjs` uses a real CV for a local run. It is only read from that path and sent to the test Anthropic key and the test Notion page; it is never copied into the repo (public). CI always uses `fixtures/cv.pdf`.
+
 ## Secrets
 - `E2E_ANTHROPIC_KEY`: a dedicated Anthropic key with a small monthly spend limit.
 - `E2E_NOTION_TOKEN`: the test connection's token. Never use your own Notion.

@@ -8,7 +8,8 @@ import path from 'node:path';
 import {E2E, launch, pickFile, step} from './lib/app.mjs';
 
 const KEY = process.env.E2E_ANTHROPIC_KEY || '', NOTION = process.env.E2E_NOTION_TOKEN || '';
-const CV = path.join(E2E, 'fixtures', 'cv.pdf');
+// A local run may point E2E_CV at a real CV on this Mac (never copied into the repo, which is public); CI uses the fictional one.
+const CV = process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf');
 const results = [];
 let session;
 
