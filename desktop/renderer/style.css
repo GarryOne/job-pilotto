@@ -481,7 +481,6 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .place { display: grid; gap: 5px; padding-top: 4px; font-size: var(--fs-sm); }
 .place-line { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
 .place-line .icon { width: 14px; height: 14px; color: var(--muted); margin-top: 1px; }
-.place-line span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }   /* a single very long place never makes a tall row */
 .status-cell { padding-top: 4px; display: grid; justify-items: start; gap: 5px; }
 .row-actions { flex-wrap: nowrap; gap: 6px; padding-top: 2px; justify-content: flex-end; align-items: center; }
 /* Wide enough for the longest label ("Apply with Claude"); every row shares it so the rows line up. */
