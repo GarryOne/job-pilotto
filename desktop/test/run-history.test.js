@@ -113,3 +113,15 @@ test('an interview-insights run is named for what it is, not the daily "Insight"
     summary: 'Software-titled jobs convert at 3%'}), NOW);
   assert.equal(daily.kind, 'insight');
 });
+
+test('merge: a run is the same run when its Notion page was renamed (the title slug in the URL changes, the page id does not)', () => {
+  // The engine prints the page's address when it creates the row ("… Jobs check"); the row is renamed when the run ends ("… Jobs check, 3 new jobs"),
+  // so Notion's address for the same page carries another slug. 2 Oct 2026: one check showed as two runs, with two "Jobs check done" pop-ups.
+  const id = '3ed699c9deff8118b540e16c8bc7c54e';
+  const found = history.fromRow(row(id, {started: '2026-10-02T12:49:00Z', mode: 'run', status: 'OK', trigger: 'Mac (you)', seconds: 20, fresh: 3, summary: '3 new job(s).'},
+    {url: `https://app.notion.com/p/2026-10-02-14-49-Jobs-check-3-new-jobs-${id}`}), NOW);
+  const local = [{id: Date.parse('2026-10-02T12:49:41Z'), kind: 'search', notionUrl: `https://app.notion.com/p/2026-10-02-14-49-Jobs-check-${id}`, log: ['x'], ok: true}];
+  const {runs} = history.merge([found], local, []);
+  assert.equal(runs.length, 1);
+  assert.deepEqual(runs[0].log, ['x']);   // the local record is the one merged into the row
+});

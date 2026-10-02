@@ -92,11 +92,17 @@ export async function detail(storage, pageId, {fetcher} = {}) {
 // The activity list: Notion's rows, with this Mac's own record where it's the same run (it has the full log and
 // the live lines) and this Mac's records Notion doesn't have yet. `pending`: jobs just sent to GitHub that
 // haven't opened their row yet ("Starting on GitHub…").
+// The page a Notion address points to: its 32-character id, which survives a rename (the title slug in front of it changes when a run's
+// row is renamed at the end: "… Jobs check" -> "… Jobs check, 3 new jobs"). Addresses with no id (or a test's short one) compare as written.
+const pageKey = url => {
+  const clean = String(url || '').replace(/[?#].*/, '');
+  return (/([0-9a-f]{32})$/i.exec(clean.replace(/-/g, ''))?.[1] || clean).toLowerCase();
+};
 export function merge(notionRuns, localRuns, pending = []) {
-  const byUrl = new Map(localRuns.filter(run => run.notionUrl).map(run => [run.notionUrl.replace(/[?#].*/, ''), run]));
+  const byUrl = new Map(localRuns.filter(run => run.notionUrl).map(run => [pageKey(run.notionUrl), run]));
   const used = new Set();
   const merged = notionRuns.map(row => {
-    const local = byUrl.get(String(row.notionUrl || '').replace(/[?#].*/, ''));
+    const local = byUrl.get(pageKey(row.notionUrl));
     if (!local) return row;
     used.add(local);
     return row.live ? {...row, id: local.id} : {...row, ...local, pageId: row.pageId, url: row.url, where: 'mac', result: row.result};
