@@ -91,12 +91,12 @@ export function similar(a, b) {
 }
 
 // The open issue this finding already is: the same fingerprint, else the same view and kind with alike words.
-export function matchExisting(finding, issues, threshold = 0.3) {
+export function matchExisting(finding, issues, threshold = 0.3, state = 'OPEN') {
   const label = labelFor(finding.id);
-  const named = issues.find(issue => issue.state === 'OPEN' && (issue.labels || []).some(item => (item.name || item) === label));
+  const named = issues.find(issue => issue.state === state && (issue.labels || []).some(item => (item.name || item) === label));
   if (named) return named;
   const text = `${finding.title} ${finding.detail}`;
-  return issues.filter(issue => issue.state === 'OPEN' && new RegExp(`^\\[auto-ui\\] ${finding.view}:`).test(issue.title || '')
+  return issues.filter(issue => issue.state === state && new RegExp(`^\\[auto-ui\\] ${finding.view}:`).test(issue.title || '')
       && (/·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '') === finding.kind)
     .map(issue => ({issue, score: similar(text, `${(issue.title || '').replace(/^\[auto-ui\] [^:]+:/, '')} ${String(issue.body || '').split('\n').slice(1, 4).join(' ')}`)}))
     .filter(item => item.score >= threshold).sort((a, b) => b.score - a.score)[0]?.issue || null;
@@ -142,3 +142,6 @@ export function checkChange(files) {
   if (!files.some(file => /^desktop\/test\//.test(file))) return {ok: false, why: 'a fix must come with a test'};
   return {ok: true, why: ''};
 }
+
+// A finding that a person closed as a false positive (`wontfix-auto`) stays closed: the same fingerprint, or the same view and kind with alike words, however the AI words it now.
+export const suppressedBy = (finding, issues) => matchExisting(finding, issues.filter(issue => (issue.labels || []).some(item => (item.name || item) === FALSE_POSITIVE)), 0.3, 'CLOSED');

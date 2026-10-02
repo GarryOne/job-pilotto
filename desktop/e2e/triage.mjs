@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, matchExisting, normalize, notSeenComment, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, matchExisting, normalize, notSeenComment, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -46,7 +46,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const runId = String(runUrl).split('/').pop() || 'run';
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
-  const plan = findings.map(finding => ({finding, existing: matchExisting(finding, issues)}));
+  const plan = findings.map(finding => ({finding, existing: matchExisting(finding, issues)})).filter(({finding, existing}) => existing || !suppressedBy(finding, issues));   // a closed false positive stays closed
   const matched = new Set(plan.filter(item => item.existing).map(item => item.existing.number));
   const needsPicture = plan.filter(({existing}) => !existing || (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))));
 

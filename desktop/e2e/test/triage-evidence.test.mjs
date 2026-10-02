@@ -151,3 +151,23 @@ test('matchExisting finds the issue by fingerprint first, then by the same view,
   assert.equal(matchExisting({...aiFinding, id: 'zzz'}, issues)?.number, 2);
   assert.equal(matchExisting({...aiFinding, kind: 'text', id: 'zzz'}, issues), null);
 });
+
+// A false positive is closed with wontfix-auto "so it never comes back": the richer matching must not forget that for a finding worded differently, nor reopen it for the same one.
+const closedFalsePositive = (number, title, kind, detail) => ({...openIssue(number, title, kind, ['wontfix-auto'], [], detail), state: 'CLOSED'});
+
+test('a finding that was closed as a false positive is not filed again, even worded differently', () => {
+  const closed = closedFalsePositive(41, '[auto-ui] focus: Side column missing from two-column layout', 'layout', 'The page shows one column; the side column is not there.');
+  for (const finding of [{...aiFinding, title: 'Side column missing from two-column layout', detail: 'The side column is not there on the page.'}]) {
+    const {gh, state} = stub([closed]);
+    const out = triage({artifacts: artifacts({ai: [finding]}), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+    assert.deepEqual([out.filed.length, out.again.length, state.created.length], [0, 0, 0]);
+  }
+});
+
+test('a finding closed because it was fixed comes back as a new issue when it returns', () => {
+  const fixed = {...openIssue(30, '[auto-ui] focus: DEV badge covers the title', 'layout'), state: 'CLOSED'};
+  const {gh, state} = stub([fixed]);
+  const out = triage({artifacts: artifacts({ai: [aiFinding]}), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(out.filed.length, 1);
+  assert.equal(state.created.length, 1);
+});
