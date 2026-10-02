@@ -87,6 +87,17 @@ class EndToEndIsolationTest(unittest.TestCase):
             self.assertIsNone(telegram.keychain_token())
         asked.assert_not_called()
 
+    def test_the_admin_key_and_the_notion_fallback_do_not_read_the_keychain_either(self):
+        from src.ai import apply_run, budget
+        env = {'JOB_PILOTTO_E2E': '1'}
+        with mock.patch.object(sys, 'platform', 'darwin'), mock.patch.dict('os.environ', env), mock.patch.object(budget.subprocess, 'run') as budget_asked, \
+                mock.patch.object(apply_run.subprocess, 'run') as apply_asked, mock.patch.object(apply_run.Tracker, 'from_env', return_value=None):
+            os.environ.pop('ANTHROPIC_ADMIN_KEY', None)
+            self.assertIsNone(budget.admin_key())
+            self.assertIsNone(apply_run._tracker())
+        budget_asked.assert_not_called()
+        apply_asked.assert_not_called()
+
 
 class PasswordsTest(unittest.TestCase):
     def test_generated_passwords_have_every_class_or_none_of_the_refused_symbols(self):

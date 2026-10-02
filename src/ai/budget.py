@@ -19,6 +19,7 @@ import sys
 import urllib.parse
 import urllib.request
 
+from .. import secret_store
 from ..notion import cron_runs
 from ..notion.ledger import plain
 
@@ -37,7 +38,7 @@ def monthly_budget():
 
 def admin_key():
     key = os.getenv('ANTHROPIC_ADMIN_KEY')
-    if key or sys.platform != 'darwin':
+    if key or sys.platform != 'darwin' or secret_store.isolated():  # the end-to-end journey never reaches the owner's Anthropic organisation
         return key
     found = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
                             '-s', 'job-pilotto.anthropic.admin-key', '-w'], capture_output=True, text=True)

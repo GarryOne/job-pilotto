@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from .kit import KIT_HEADING
 from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
 from ..notion import runs
-from .. import service
+from .. import secret_store, service
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / 'tools' / 'apply-run-result.schema.json'
@@ -250,7 +250,7 @@ def _tracker():
     tracker = Tracker.from_env()
     if tracker:
         return tracker
-    if sys.platform != 'darwin':
+    if sys.platform != 'darwin' or secret_store.isolated():  # the end-to-end journey never reaches the owner's own Notion
         return None
     secret = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
                              '-s', 'job-pilotto.notion.token', '-w'], capture_output=True,
