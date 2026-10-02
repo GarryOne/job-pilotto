@@ -13,7 +13,8 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 | `employers` | a set-up install, its own employer rows and runs reset | Find new employers on a candidate list of every kind (good board, empty, wrong roles, dead feed, duplicate, excluded, manual watch): statuses, quality order, Employers & Sources rows, the run row's counts, a second run, the crawl's source list, a Sonnet judge | ~1 min |
 | `focus` | a set-up install + dummy applications in every stage written to Notion | Up next order and buttons, every number checked against the Notion rows (`lib/focus-data.mjs`), Edit target, Done/Skip, Insight, a fresh account | ~3 min |
 | `apply` | a set-up install + 4 kit jobs it writes | the real **Chrome extension** on fixture forms: Apply click → fill from the kit, CV, legal boxes left, AI answers highlighted, late field, multi-step, unknown widget, Submit never touched | ~3 min |
-| `activity` | a set-up install, its own run rows reset, schedule off | what goes **wrong** on Actions + Recent activity: every task card (one row, an end, plain words, a log without keys/emails/paths, no Notion row left Running); the AI answering **429, 500, 401, no credit** and **never answering** (`lib/ai-proxy.mjs` modes); a double click, a Gmail check queued behind a search, **quitting mid-run**; the panel's filter, result card and a run read only from Notion | ~8 min |
+| `activity` | a set-up install, its own run rows reset, schedule off | every task on Actions (one row, an end, plain words, a log without keys/emails/paths, no Notion row left Running) and the Recent activity screen: the filter, "View all activity", a finished run's result card, a run read only from Notion | ~4 min |
+| `activityfailures` | the same, on its own Notion page, in parallel | what goes **wrong**: the AI answering **429, 500, 401, no credit** and **never answering** (`lib/ai-proxy.mjs` modes), a spend-limit pause, a double click, a Gmail check queued behind a search, **quitting mid-run**. Shared steps: `lib/activity-steps.mjs` | ~5 min |
 | `quality` | a set-up install, a known compensation target written into its Profile | whether the Jobs check's output is *right*: 11 golden postings with a known truth (`fixtures/golden/`): facts exact, a duplicate collapsed, ranking, scores stable (±8, one job in nine may stray), no `undefined`/raw JSON in any text, no job text in the logs, and a Sonnet judge (`lib/factjudge.mjs`) for invented facts in the score reasons (one text in nine may slip: model noise has an allowance, facts, duplicates, ranking and leaks have none) | ~3 min, ~$0.3 (the app runs on Sonnet; `E2E_APP_MODEL=claude-haiku-4-5` for a cheap run) |
 
 ```
@@ -100,3 +101,8 @@ journey step checks that nothing was queued to send. (2 Oct 2026: before this, t
   (`lib/`, `suite.mjs`, fixtures, `e2e.yml`) runs `settings` as an AI-free smoke test; the tests' own unit tests (`npm test`) and docs run no suite. The plan job runs
   `npm test` every time (no secrets, no AI).
 - The UI-heal loop only follows scheduled and manual runs, never a push.
+
+## Why `activity` is two suites
+One suite took about 10 minutes, the slowest by far (the others 1 to 4). It is split into two that run at the same time, each on its own Notion page, and the waits were cut:
+the app's history poll (`JOB_PILOTTO_E2E_HISTORY_MS`), its resume wait (`JOB_PILOTTO_E2E_RESUME_MS`) and the watchdog's silence limit (`JOB_PILOTTO_E2E_IDLE_MS`) are shortened in the journey only
+(`desktop/lib/e2e-timing.js`), and the AI proxy's refusals ask for an immediate retry.

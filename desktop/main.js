@@ -26,6 +26,7 @@ import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
 import {cloudNextAt, nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
+import {e2eMs} from './lib/e2e-timing.js';
 import {resumeDelay, scheduleResume} from './lib/resume-queue.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
@@ -1789,7 +1790,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       try { notionRuns = await runHistory.list(storage); } catch (error) { busy = error.status === 429; appLog('run', `history not read: ${error.message}`, {status: error.status || 0}); log(`Run history not read from Notion: ${error.message}`); }
       // While a GitHub run is only a placeholder, read Notion again in 5 s so its row replaces "Running"
       // as soon as it exists. Otherwise every 15 s. Notion busy: step back for a minute.
-      notionTimer = setTimeout(readRuns, busy ? 60000 : pendingCloud.length ? 5000 : 15000);
+      notionTimer = setTimeout(readRuns, busy ? 60000 : pendingCloud.length ? 5000 : e2eMs('HISTORY_MS', 15000));
     };
     readRuns();
     // A job sent to GitHub: "Starting on GitHub…" until its row appears (it's read again sooner than usual).
