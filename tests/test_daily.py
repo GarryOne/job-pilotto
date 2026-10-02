@@ -86,5 +86,14 @@ class DigestFormatTests(unittest.TestCase):
         self.assertEqual(digest._work_mode_badge('Remote mentioned; verify conditions'), '🌍 Remote?')
 
 
+class DigestNoteTests(unittest.TestCase):
+    def test_the_app_is_not_told_to_use_a_terminal(self):
+        # 2 Oct 2026 (activity e2e suite): "Send today's matches" without Telegram showed "(terminal: set TELEGRAM_BOT_TOKEN…" in the app's Recent activity.
+        app = daily.digest_note(3, 1, terminal=False)
+        self.assertEqual(app, "Digest ready: 3 jobs, 1 new. Telegram isn't connected, so nothing was sent.")
+        self.assertNotIn('terminal', app)
+        self.assertIn('--send', daily.digest_note(3, 1, terminal=True))
+
+
 if __name__ == '__main__':
     unittest.main()

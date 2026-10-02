@@ -222,6 +222,12 @@ def apply_switches(args):
         args.send = False
 
 
+def digest_note(shown, new, terminal):
+    """The line after a digest nobody was sent: the app's users are not told to use a terminal."""
+    note = f"Digest ready: {plural(shown, 'job')}, {new} new. Telegram isn't connected, so nothing was sent"
+    return note + (' (terminal: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send).' if terminal else '.')
+
+
 def plural(n, word):
     return f"{n} {word}{'' if n == 1 else 's'}"
 
@@ -674,8 +680,7 @@ def main():
     if not args.send:
         if not sys.stdout.isatty():
             telegram.to_app(text)  # the desktop app shows the list itself
-        print(f"\nDigest ready: {plural(len(shown_ids), 'job')}, {new_count} new. Telegram isn't connected, so nothing "
-              'was sent (terminal: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, then rerun with --send).')
+        print('\n' + digest_note(len(shown_ids), new_count, terminal=sys.stdout.isatty()))
         if args.mode in ('scheduled', 'run', 'today'):
             save_run(run)  # the desktop app's activity bar shows its counts
             if tracker and args.log_run:
