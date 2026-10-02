@@ -13,6 +13,10 @@ let recordings = [];     // saved interview rows
 // What is on screen: 'loading' (nothing to show yet), 'updating' (a saved copy shown while Notion is read), 'ready', 'failed'.
 let phase = 'loading', savedAt = '', failure = '';
 let visit = 0, moved = false;   // moved: the user picked a month, so a reload never jumps           // a newer visit makes an older read's answer stale
+// A meeting you just dismissed stays off the calendar until a read of Notion no longer has it (a read already under way,
+// or Notion's own delay, would otherwise bring it back for a few seconds); never longer than a minute.
+const gone = new Map();   // meeting id → until (ms)
+const visible = list => list.filter(m => !(gone.get(m.id) > Date.now()));
 const jobsLoaded = () => Array.isArray(shared.allJobs) && shared.allJobs.length > 0;
 
 const monthName = ({year, month: m}) => new Date(Date.UTC(year, m, 1)).toLocaleDateString(undefined, {month: 'long', year: 'numeric', timeZone: 'UTC'});
@@ -34,8 +38,8 @@ function cross(m) {
     event.stopPropagation();
     const before = m.job.next_interview;
     dismissInterview({page_id: cal.page(m.job), company: m.company}, {
-      onConfirmed: () => { m.job.next_interview = ''; render(); },
-      onFail: () => { m.job.next_interview = before; render(); },
+      onConfirmed: () => { gone.set(m.id, Date.now() + 60000); m.job.next_interview = ''; render(); },
+      onFail: () => { gone.delete(m.id); m.job.next_interview = before; render(); },
       onDone: () => loadCalendar()});
   };
   return button;
@@ -80,7 +84,7 @@ function status() {
 export function render() {
   status();
   const jobs = Array.isArray(shared.allJobs) ? shared.allJobs : [];
-  const list = cal.meetings(jobs, recordings, {zone: ZONE});
+  const list = visible(cal.meetings(jobs, recordings, {zone: ZONE}));
   const today = cal.dayKey(new Date(), ZONE);
   $('cal-title').textContent = monthName(month);
   const weeks = cal.monthGrid(month.year, month.month, list, today);
@@ -101,7 +105,7 @@ export function render() {
 // A month with nothing in it, and a meeting coming later: open on that one (until the user picks a month themselves).
 function openOnNext() {
   if (moved) return;
-  const list = cal.meetings(Array.isArray(shared.allJobs) ? shared.allJobs : [], recordings, {zone: ZONE});
+  const list = visible(cal.meetings(Array.isArray(shared.allJobs) ? shared.allJobs : [], recordings, {zone: ZONE}));
   const inMonth = list.some(m => m.day.startsWith(`${month.year}-${String(month.month + 1).padStart(2, '0')}`));
   const next = cal.agenda(list, Date.now(), ZONE).upcoming[0];
   if (!inMonth && next) month = {year: Number(next.day.slice(0, 4)), month: Number(next.day.slice(5, 7)) - 1};
@@ -129,6 +133,7 @@ export async function loadCalendar() {
   const ok = Array.isArray(fresh?.jobs) && !fresh.stale && Array.isArray(saved?.interviews);
   failure = ok ? '' : String(saved?.error || fresh?.error || 'Try again in a moment; the reason is in the app log.');
   phase = ok ? 'ready' : 'failed';
+  if (ok) { const still = new Set(cal.meetings(shared.allJobs, recordings, {zone: ZONE}).map(m => m.id)); for (const id of [...gone.keys()]) if (!still.has(id)) gone.delete(id); }
   if (ok) savedAt = '';
   openOnNext();
   render();
