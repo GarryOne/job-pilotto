@@ -4,7 +4,13 @@ import {FALSE_POSITIVE, FIX_KINDS, LABEL, NEEDS_HUMAN, SIGHTINGS_NEEDED, sightin
 
 const SMOKE = 'settings';   // AI-free, about 30 s: proof that the shared test code still launches the app and drives a page
 
-export function suitesFor(files, all) {
+// A suite's cadence (its `cadence` export): 'always' (default) runs on every automatic run, 'nightly' only in the nightly release gate and on a push that touches
+// its own files or `watches`, 'manual' never by itself (a person names it). cadence: {suite: 'nightly'}; watches: {suite: ['src/ai/score.py', 'dir/']}.
+export function autoSuites(all, cadence = {}, alwaysOnly = false) {
+  return all.filter(suite => { const when = cadence[suite] || 'always'; return alwaysOnly ? when === 'always' : when !== 'manual'; });
+}
+
+export function suitesFor(files, all, {watches = {}, cadence = {}} = {}) {
   const chosen = new Set();
   for (const file of files.map(name => String(name).trim()).filter(Boolean)) {
     const suite = /^desktop\/e2e\/suites\/([^/]+)\.mjs$/.exec(file)?.[1];
@@ -13,7 +19,10 @@ export function suitesFor(files, all) {
     if (/^desktop\/e2e\/test\//.test(file) || /\.md$/.test(file)) continue;   // unit tests run on their own; docs run nothing
     if (/^desktop\/e2e\//.test(file) || file === '.github/workflows/e2e.yml') chosen.add(SMOKE);
   }
-  return all.filter(suite => chosen.has(suite));
+  for (const file of files.map(name => String(name).trim()).filter(Boolean)) {   // files a suite watches (the scoring prompt, a model id): that suite runs too
+    for (const [suite, paths] of Object.entries(watches)) if (all.includes(suite) && paths.some(path => file === path || (path.endsWith('/') && file.startsWith(path)))) chosen.add(suite);
+  }
+  return all.filter(suite => chosen.has(suite) && (cadence[suite] || 'always') !== 'manual');   // a manual suite is never chosen by a push
 }
 
 // A manual run's `suite` input: "" = all, else a comma-separated list.

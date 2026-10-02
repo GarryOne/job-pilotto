@@ -9,13 +9,26 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 | `interviews` | a set-up install, its own interview and job rows reset | the library on dummy Notion rows (order, outcomes, search, filter, open, link/unlink, delete), the recorder's consent rule, a transcript **imported through the page and reviewed for real**, a **failing AI** (clear message, no half-written row), review again (guard and replace), insights | ~4 min |
 | `calendar` | a set-up install, its own job and interview rows reset | meetings from the Job Tracker and from recordings on the month grid, a busy day, the agenda, month arrows, opening a job, **two time zones** (Tokyo, Honolulu) | ~3 min |
 | `settings` | a set-up install | every Settings section, the AI engine panel with each engine chosen | ~30 s |
-| `personas` | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
+| `personas` (**manual**) | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
 | `employers` | a set-up install, its own employer rows and runs reset | Find new employers on a candidate list of every kind (good board, empty, wrong roles, dead feed, duplicate, excluded, manual watch): statuses, quality order, Employers & Sources rows, the run row's counts, a second run, the crawl's source list, a Sonnet judge | ~1 min |
 | `focus` | a set-up install + dummy applications in every stage written to Notion | Up next order and buttons, every number checked against the Notion rows (`lib/focus-data.mjs`), Edit target, Done/Skip, Insight, a fresh account | ~3 min |
 | `apply` | a set-up install + 4 kit jobs it writes | the real **Chrome extension** on fixture forms: Apply click → fill from the kit, CV, legal boxes left, AI answers highlighted, late field, multi-step, unknown widget, Submit never touched | ~3 min |
 | `activity` | a set-up install, its own run rows reset, schedule off | every task on Actions (one row, an end, plain words, a log without keys/emails/paths, no Notion row left Running) and the Recent activity screen: the filter, "View all activity", a finished run's result card, a run read only from Notion | ~4 min |
 | `activityfailures` | the same, on its own Notion page, in parallel | what goes **wrong**: the AI answering **429, 500, 401, no credit** and **never answering** (`lib/ai-proxy.mjs` modes), a spend-limit pause, a double click, a Gmail check queued behind a search, **quitting mid-run**. Shared steps: `lib/activity-steps.mjs` | ~5 min |
-| `quality` | a set-up install, a known compensation target written into its Profile | whether the Jobs check's output is *right*: 11 golden postings with a known truth (`fixtures/golden/`): facts exact, a duplicate collapsed, ranking, scores stable (±8, one job in nine may stray), no `undefined`/raw JSON in any text, no job text in the logs, and a Sonnet judge (`lib/factjudge.mjs`) for invented facts in the score reasons (one text in nine may slip: model noise has an allowance, facts, duplicates, ranking and leaks have none) | ~3 min, ~$0.3 (the app runs on Sonnet; `E2E_APP_MODEL=claude-haiku-4-5` for a cheap run) |
+| `quality` (**nightly**) | a set-up install, a known compensation target written into its Profile | whether the Jobs check's output is *right*: 11 golden postings with a known truth (`fixtures/golden/`): facts exact, a duplicate collapsed, ranking, scores stable (±8, one job in nine may stray), no `undefined`/raw JSON in any text, no job text in the logs, and a Sonnet judge (`lib/factjudge.mjs`) for invented facts in the score reasons (one text in nine may slip: model noise has an allowance, facts, duplicates, ranking and leaks have none) | ~3 min, ~$0.3 (the app runs on Sonnet; `E2E_APP_MODEL=claude-haiku-4-5` for a cheap run) |
+
+## When each suite runs (cadence)
+A suite exports `cadence` (`lib/plan.mjs` decides, `plan-run.mjs` plans the CI run):
+- `always` (the default): every automatic run, including the three-a-day schedule.
+- `nightly`: the nightly release gate, and a push that touches the suite's files or its `watches` (the paths it judges). `quality` is this: it costs about $0.3 a run.
+- `manual`: never by itself; a person names it (`gh workflow run e2e.yml -f suite=personas`, `npm run all -- --only personas`). `personas` is this: kept, not deleted.
+
+The paid AI-judge steps (`employers`) also run only in the nightly gate and in manual runs (`E2E_FULL=1`); on a Mac they always run.
+
+## Running them all on this Mac
+`npm run all` runs every suite that is not manual, one after the other, and prints one table. `-- --only jobs,quality` runs exactly those (even a manual one), `-- --skip wizard` leaves some out,
+`-- --manual` adds the manual ones, `-- --parallel 3` runs three at a time (each suite then needs its own Notion token). Secrets come from the environment, else from the Keychain
+(`job-pilotto.e2e.anthropic_key`, `.notion_token`, `.notion_token_<suite>`).
 
 ```
 cd desktop/e2e && npm install

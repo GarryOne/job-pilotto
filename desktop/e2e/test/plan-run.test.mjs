@@ -89,3 +89,24 @@ test('a nightly with nothing to build, or a failed build, starts no run', async 
   const failed = await plan({EVENT: 'workflow_run', SHA: OLD, RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'failure', RUN_EVENT: 'schedule'}, {releases: [['desktop-v1.2', HEAD]]});
   assert.equal(failed.count, '0');
 });
+
+test('cadence: always runs on every schedule, nightly only in the nightly gate, manual never by itself', async () => {
+  const cadence = {settings: 'always', jobs: 'always', apply: 'nightly', activity: 'manual'};
+  const run = (env, stub) => planRun({env: {REPO: 'o/r', ...env}, gh: gh(stub), all: ALL, cadence, minutes: () => 15});
+  const names = out => JSON.parse(out.matrix).include.map(item => item.suite);
+  const scheduled = await run({EVENT: 'schedule', SHA: HEAD}, {runs: [{event: 'schedule', headSha: OLD, conclusion: 'success'}], files: ['desktop/lib/x.js']});
+  assert.deepEqual(names(scheduled), ['jobs', 'settings'], 'the three-a-day schedule: only the always suites');
+  const empty = await run({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: ''}, {});
+  assert.deepEqual(names(empty), ['apply', 'jobs', 'settings'], 'a manual run with no names: everything that is not manual');
+  const named = await run({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: 'activity'}, {});
+  assert.deepEqual(names(named), ['activity'], 'a person can still name a manual suite');
+  const pushed = await run({EVENT: 'push', SHA: HEAD, BEFORE: OLD}, {files: ['desktop/e2e/suites/activity.mjs'], runs: [{event: 'push', headSha: OLD, conclusion: 'success'}]});
+  assert.equal(pushed.count, '0', 'a push that only touches a manual suite runs nothing');
+});
+
+test('cadence: the nightly release gate runs the always and nightly suites, not the manual ones', async () => {
+  const cadence = {settings: 'always', jobs: 'always', apply: 'nightly', activity: 'manual'};
+  const out = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_run', RUN_HEAD_SHA: HEAD, RUN_CONCLUSION: 'success', RUN_EVENT: 'schedule'},
+    gh: gh({releases: [['desktop-v1', HEAD]]}), all: ALL, cadence, minutes: () => 15});
+  assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['apply', 'jobs', 'settings']);
+});

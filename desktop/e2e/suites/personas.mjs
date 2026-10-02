@@ -13,6 +13,10 @@ import {databaseText, emptyDatabase, findPage, pageText} from '../lib/notion.mjs
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 40;
+// MANUAL (2 Oct 2026, kept, not deleted): It proves nothing is hard-coded to the owner (Swiss/EU wording, visa flag, currencies): one-time hygiene that costs 15 minutes and two
+// full AI runs each time. No schedule, push or release gate runs it (cadence 'manual', lib/plan.mjs); run it by hand when a change could bring owner-specific text back:
+//   gh workflow run e2e.yml -f suite=personas        or        node suite.mjs personas
+export const cadence = 'manual';
 export const name = 'personas';
 
 // Words that belong to the first user, not to the product. Anywhere in what a persona sees or what is stored for them, each is a bug.

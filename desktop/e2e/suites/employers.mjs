@@ -193,6 +193,8 @@ export async function run(ctx) {
     if (!line || line.checked !== 0 || line.added !== 0) throw new Error(`the second run says "${state.second[0].result}": everything was checked, so it should say checked 0 and no new sources`);
   }, {needs: ctx.needs});
 
+  // The AI judge is paid for in the nightly release gate and in a manual run (E2E_FULL=1 in CI), not on the three-a-day schedule: what it judges is tuned once. On a Mac it always runs.
+  const FULL = {name: 'the nightly or a manual run (E2E_FULL=1)', value: process.env.CI ? process.env.E2E_FULL : '1'};
   await ctx.run('a Sonnet judge finds each added employer sensible for the candidate', async () => {
     const added = state.rows.filter(row => row.Active === true);
     const items = added.map(row => ({name: row.Company, board: row.ATS, quality: row.Quality, cities: row.Cities, why: row.Notes, relevantRoles: row['Relevant roles'], inPreferredPlaces: row['In preferred places']}));
@@ -201,7 +203,7 @@ export async function run(ctx) {
     console.log(`  judge: ${verdicts.map(item => `${item.name}: ${item.makes_sense ? 'yes' : 'NO'} (${item.reason})`).join(' | ')}`);
     const problems = judgeProblems(items.map(item => item.name), verdicts);
     if (problems.length) throw new Error(problems.join('; '));
-  }, {needs: ctx.needs});
+  }, {needs: [...ctx.needs, FULL]});
 
   await ctx.run('the Actions page renders without layout problems after the runs', async () => {
     await visit(ctx, ['actions']);

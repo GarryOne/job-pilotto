@@ -99,6 +99,7 @@ jobs:
       E2E_NOTION_TOKEN_STRATEGY: ${{ secrets.E2E_NOTION_TOKEN_STRATEGY }}
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
+      E2E_FULL: ${{ (github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch') && '1' || '' }}   # the paid AI judge steps: the nightly gate and manual runs only
     steps:
       - uses: actions/checkout@v4
         with:

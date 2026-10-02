@@ -2,7 +2,7 @@
 // Schedules and manual runs still run everything.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {suitesFor, suitesNamed} from '../lib/plan.mjs';
+import {autoSuites, suitesFor, suitesNamed} from '../lib/plan.mjs';
 
 const ALL = ['activity', 'apply', 'calendar', 'employers', 'focus', 'interviews', 'jobs', 'personas', 'settings', 'strategy', 'wizard'];
 
@@ -34,4 +34,20 @@ test('a manual run can name its suites; no name means all; an unknown name is re
   assert.deepEqual(suitesNamed('', ALL), ALL);
   assert.deepEqual(suitesNamed('jobs, activity', ALL), ['activity', 'jobs']);
   assert.throws(() => suitesNamed('jobs,nope', ALL), /nope/);
+});
+
+test('watched files run a suite on a push, and a manual suite is never chosen by a push', () => {
+  const watches = {quality: ['src/ai/score.py', 'desktop/e2e/fixtures/golden/'], personas: ['src/ai/hints.py']};
+  const all = ['jobs', 'personas', 'quality', 'settings'], cadence = {personas: 'manual', quality: 'nightly'};
+  assert.deepEqual(suitesFor(['src/ai/score.py'], all, {watches, cadence}), ['quality']);
+  assert.deepEqual(suitesFor(['desktop/e2e/fixtures/golden/truth.json'], all, {watches, cadence}), ['quality', 'settings'], 'plus the settings smoke: any change under desktop/e2e runs it');
+  assert.deepEqual(suitesFor(['src/ai/hints.py'], all, {watches, cadence}), [], 'a manual suite is not run by a push, watched or not');
+  assert.deepEqual(suitesFor(['src/store.py'], all, {watches, cadence}), []);
+});
+
+test('autoSuites: the schedule takes the always suites, anything else everything that is not manual', () => {
+  const all = ['a', 'b', 'c', 'd'], cadence = {b: 'nightly', c: 'manual'};
+  assert.deepEqual(autoSuites(all, cadence, true), ['a', 'd']);
+  assert.deepEqual(autoSuites(all, cadence, false), ['a', 'b', 'd']);
+  assert.deepEqual(autoSuites(all, {}, true), all, 'no cadence means always');
 });
