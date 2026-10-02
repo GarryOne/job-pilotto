@@ -3,7 +3,7 @@ name: Weekly self-review
 # churn, fill-failure/telemetry issues, failed CI on main, auto-fixer PRs); Claude Code (Sonnet 5, 20 turns max,
 # ~$0.40 at most) reads them with CLAUDE.md, AGENTS.md and the skills, and proposes at most 3 small rule/skill edits.
 # Claude only edits files (no git, no gh); the last step checks the paths and opens ONE PR for the owner to merge.
-# Prompt: private (GarryOne/job-pilotto-ops/prompts/self-review.md, synced into the secret SELF_REVIEW_PROMPT).
+# Prompt: private (GarryOne/job-pilotto-internal/prompts/self-review.md, synced into the secret SELF_REVIEW_PROMPT).
 on:
   schedule:
     - cron: '0 18 * * 0'  # Sunday 18:00 UTC = 20:00 Zurich in summer, 19:00 in winter

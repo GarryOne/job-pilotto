@@ -13,7 +13,7 @@ class HowItRunsTest(unittest.TestCase):
 
     def test_central_scout_and_employer_index_are_documented(self):
         page = (ROOT / 'docs' / 'HOW-IT-RUNS.md').read_text(encoding='utf-8')
-        for needle in ('`central-scout.yml`', 'GarryOne/job-pilotto-ops', '/api/index', 'INDEX_PUBLISH_KEY'):
+        for needle in ('`central-scout.yml`', 'GarryOne/job-pilotto-internal', '/api/index', 'INDEX_PUBLISH_KEY'):
             self.assertIn(needle, page)
         row = next(line for line in page.splitlines() if line.startswith('| `scout.yml`'))
         self.assertIn('optional', row)   # a user's own scout is optional now

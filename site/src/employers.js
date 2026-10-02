@@ -1,5 +1,5 @@
 // The central employer index: GET /api/index (public, cacheable) is what every app and Always-on run downloads;
-// PUT /api/index (Bearer INDEX_PUBLISH_KEY) is the private central scout (repo GarryOne/job-pilotto-ops) publishing it.
+// PUT /api/index (Bearer INDEX_PUBLISH_KEY) is the private central scout (repo GarryOne/job-pilotto-internal) publishing it.
 // Product data only: feeds, quality, last verified. Nothing about any user. Stored as one KV value (binding WAITLIST).
 import {REGIONS, ROLES} from './pool.js';
 const KEY = 'index:employers';

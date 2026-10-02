@@ -4,7 +4,7 @@ Read this once at the start of a session. Then open `CODEMAP.md` for the file th
 
 Job Pilotto is a personal job-search system: it finds jobs, scores them, tracks them in Notion, and can fill application forms. It never clicks Submit.
 
-The public repo at `~/job-pilotto` is the engine plus the Mac/Windows app. A user's private GitHub repo only holds schedules and secrets, and calls this engine. Prompts and the product brain live in the private sibling `~/job-pilotto-ops`.
+The public repo at `~/job-pilotto` is the engine plus the Mac/Windows app. A user's private GitHub repo only holds schedules and secrets, and calls this engine. Prompts and the product brain live in the private sibling `~/job-pilotto-internal`.
 
 ## How a job moves
 

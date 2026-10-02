@@ -51,6 +51,6 @@ test('with BRAIN_REPO and BRAIN_GITHUB_TOKEN, the tap starts the workflow in the
   const seen = [];
   const f = fakes();
   await brain(tap(`pb:x:${id}`), {...env, GITHUB_REPO: 'GarryOne/job-pilotto', GITHUB_TOKEN: 'public',
-    BRAIN_REPO: 'GarryOne/job-pilotto-ops', BRAIN_GITHUB_TOKEN: 'ops'}, async (e) => seen.push([e.GITHUB_REPO, e.GITHUB_TOKEN]), f.fetcher);
-  assert.deepEqual(seen, [['GarryOne/job-pilotto-ops', 'ops']]);
+    BRAIN_REPO: 'GarryOne/job-pilotto-internal', BRAIN_GITHUB_TOKEN: 'ops'}, async (e) => seen.push([e.GITHUB_REPO, e.GITHUB_TOKEN]), f.fetcher);
+  assert.deepEqual(seen, [['GarryOne/job-pilotto-internal', 'ops']]);
 });

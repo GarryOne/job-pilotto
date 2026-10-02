@@ -172,7 +172,7 @@ def load_search_config():
     jobs_board_search_queries/quality_stack_keywords/locations.{top_tier,country_wide,abroad}/
     remote_excluded_regions. See README.md's Configuration section."""
     config = json.loads((CONFIG / 'search.json').read_text())
-    # The central scout (private repo job-pilotto-ops) judges feeds for everyone in engineering and IT, worldwide, not
+    # The central scout (private repo job-pilotto-internal) judges feeds for everyone in engineering and IT, worldwide, not
     # by one user's example profile: a file named in JOB_PILOTTO_LOCATIONS_FILE replaces those parts of this config.
     override = os.getenv('JOB_PILOTTO_LOCATIONS_FILE')
     if override:
