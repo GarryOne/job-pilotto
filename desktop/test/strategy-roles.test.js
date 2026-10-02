@@ -8,7 +8,7 @@ function setup({keywords = ['\\bsre\\b', 'devops'], notion = true, writeFails = 
   const calls = [];
   const storage = {readText: name => files[name] || '', writeText: (name, text) => { files[name] = text; calls.push(['write', name]); },
     secret: name => (name === 'NOTION_TOKEN' && notion ? 'tok' : ''), settings: () => ({notionIds: notion ? {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_SEARCH_SETTINGS_PAGE: 'settings'} : {}}), saveSettings() {}};
-  const deps = {run: async (_, args) => { calls.push(['run', args.slice(-1)[0]]); return {code: 0, stdout: '## Roles to look for\n- sre\n'}; }, ensurePage: async () => 'settings',
+  const deps = {wait: async () => {}, run: async (_, args) => { calls.push(['run', args.slice(-1)[0]]); return {code: 0, stdout: '## Roles to look for\n- sre\n'}; }, ensurePage: async () => 'settings',
     writePage: async (token, page, text) => { calls.push(['publish', page]); if (writeFails) throw new Error('Notion said no'); }};
   return {files, calls, storage, deps};
 }
@@ -52,4 +52,16 @@ test('a search that rewrites the settings meanwhile is reported, not silently ac
   const original = t.deps.writePage;
   t.deps.writePage = async (...args) => { t.files['config/search.json'] = JSON.stringify({role_keywords: ['\\bsre\\b', 'devops']}); return original(...args); };
   await assert.rejects(addRoles(t.storage, ['backend'], t.deps), /did not stay/);
+});
+
+test('a search that put the old settings back once is retried, and the terms then stay', async () => {
+  const t = setup();
+  const original = t.deps.writePage;
+  let clobbered = false;
+  t.deps.writePage = async (...args) => {
+    if (!clobbered) { clobbered = true; t.files['config/search.json'] = JSON.stringify({role_keywords: ['\\bsre\\b', 'devops']}); }
+    return original(...args);
+  };
+  assert.deepEqual((await addRoles(t.storage, ['backend'], t.deps)).added, ['backend']);
+  assert.ok(roles(t.files).includes('backend'));
 });

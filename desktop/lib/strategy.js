@@ -271,29 +271,37 @@ export async function setDailyTarget(storage, value, {run, ensurePage, writePage
 // Notion refuses, the cache is put back so the two never disagree.
 export const ROLE_TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/i;
 const escapeRegex = term => term.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
-export async function addRoles(storage, terms, {run, ensurePage, writePage}) {
+export async function addRoles(storage, terms, {run, ensurePage, writePage, wait = ms => new Promise(resolve => setTimeout(resolve, ms))}) {
   const wanted = [...new Set((Array.isArray(terms) ? terms : []).map(term => String(term).trim().toLowerCase()).filter(term => ROLE_TERM.test(term)))].slice(0, 10);
   if (!wanted.length) return {added: []};
-  await run(storage, ['src.notion.search_settings', 'sync']);
-  const before = storage.readText('config/search.json') || '{}';
-  const search = JSON.parse(before);
-  const have = new Set((search.role_keywords || []).map(entry => String(entry).toLowerCase()));
-  const added = wanted.filter(term => !have.has(escapeRegex(term)));
-  if (!added.length) return {added: []};
-  storage.writeText('config/search.json', JSON.stringify({...search, role_keywords: [...(search.role_keywords || []), ...added.map(escapeRegex)]}, null, 2) + '\n');
-  try {
-    await publishSearchSettings(storage, {run, ensurePage, writePage});
-    // The page is rendered from the cached file: if a search rewrote that file from an older copy of the page in between, the terms are gone from both
-    // and the call would still say it worked (seen twice in the strategy e2e suite). Say so instead.
-    const kept = new Set((JSON.parse(storage.readText('config/search.json') || '{}').role_keywords || []).map(entry => String(entry).toLowerCase()));
-    const lost = added.filter(term => !kept.has(escapeRegex(term)));
-    if (lost.length) throw new Error(`A search changed your settings while they were being saved (${lost.join(', ')} did not stay). Try again.`);
-  } catch (error) {
-    storage.writeText('config/search.json', before);
-    throw error;
+  // A search (Focus refresh, the daily run) syncs the page into the cache first; right after our write Notion can still list the old blocks, so
+  // that sync puts the old settings back. The page is right a moment later: read it again and redo the change, a few times, before giving up.
+  let lost = [], first = null;
+  for (let attempt = 0; attempt < ADD_ROLES_ATTEMPTS; attempt++) {
+    if (attempt) await wait(2000 * attempt);
+    await run(storage, ['src.notion.search_settings', 'sync']);
+    const before = storage.readText('config/search.json') || '{}';
+    const search = JSON.parse(before);
+    const have = new Set((search.role_keywords || []).map(entry => String(entry).toLowerCase()));
+    const added = wanted.filter(term => !have.has(escapeRegex(term)));
+    if (!added.length) return {added: first || []};
+    first ||= added;
+    storage.writeText('config/search.json', JSON.stringify({...search, role_keywords: [...(search.role_keywords || []), ...added.map(escapeRegex)]}, null, 2) + '\n');
+    try {
+      await publishSearchSettings(storage, {run, ensurePage, writePage});
+      // The page is rendered from the cached file: if a search rewrote that file from an older copy of the page in between, the terms are gone from both
+      // and the call would still say it worked (seen in the strategy e2e suite). Check, and try again.
+      const kept = new Set((JSON.parse(storage.readText('config/search.json') || '{}').role_keywords || []).map(entry => String(entry).toLowerCase()));
+      lost = added.filter(term => !kept.has(escapeRegex(term)));
+      if (!lost.length) return {added: first};
+    } catch (error) {
+      storage.writeText('config/search.json', before);
+      throw error;
+    }
   }
-  return {added};
+  throw new Error(`A search changed your settings while they were being saved (${lost.join(', ')} did not stay). Try again.`);
 }
+const ADD_ROLES_ATTEMPTS = 3;
 
 export function save(storage, accepted) {
   // The Profile, standard answers and contact details go to Notion (main.js saveStrategy); here only the
