@@ -34,12 +34,12 @@
   const two = n => String(n).padStart(2, '0');
   // How this field wants the date: from its type, or its placeholder (dd.mm.yyyy, mm/dd/yyyy, yyyy-mm-dd); else month first
   // (the US-style pickers that say only "Pick date...").
-  function formatDate(date, input) {
+  function formatDate(date, input, params = {}) {
     if (input.type === 'date') return `${date.y}-${two(date.m)}-${two(date.d)}`;
     const hint = String(input.placeholder || '').toLowerCase();
-    const sep = (/[dmy]{2,4}([^a-z\s])[dmy]{2,4}/.exec(hint) || [])[1] || '/';   // the separator between format letters, not a trailing "..."
-    const order = hint.indexOf('yyyy') === 0 ? 'ymd'
-      : hint.indexOf('dd') >= 0 && hint.indexOf('mm') >= 0 ? (hint.indexOf('dd') < hint.indexOf('mm') ? 'dmy' : 'mdy') : 'mdy';
+    const sep = params.sep || (/[dmy]{2,4}([^a-z\s])[dmy]{2,4}/.exec(hint) || [])[1] || '/';   // the separator between format letters, not a trailing "..."
+    const order = params.order || (hint.indexOf('yyyy') === 0 ? 'ymd'
+      : hint.indexOf('dd') >= 0 && hint.indexOf('mm') >= 0 ? (hint.indexOf('dd') < hint.indexOf('mm') ? 'dmy' : 'mdy') : 'mdy');
     const parts = {d: two(date.d), m: two(date.m), y: String(date.y)};
     return order.split('').map(letter => parts[letter]).join(sep);
   }
@@ -71,22 +71,34 @@
   }
 
   // ---- operators: each returns {ok, why} after re-reading the control ----
+  // `params` are a recipe's few options (extension/recipe-schema.js): which elements are the options, which attribute says
+  // "selected", which date shape. Nothing else of a recipe reaches here. An operator never presses anything that looks like a
+  // submit control, whatever a recipe says.
+  const OPTION = 'button[aria-pressed], [role=radio], button[aria-checked]';
+  const SUBMITTY = /submit|send application|apply now|absenden|bewerbung senden|envoyer ma candidature/i;
+  // By the words on it and an explicit type="submit"; a button with no type attribute reports "submit" in a browser, so the
+  // property is not what is looked at.
+  const refuses = el => ['submit', 'image'].includes(String(el.getAttribute?.('type') || '').toLowerCase())
+    || SUBMITTY.test(`${el.textContent || ''} ${el.getAttribute?.('aria-label') || ''}`);
+  const REFUSED = {ok: false, why: 'refused: looks like a submit control'};
   // A group of pressable buttons (Yes/No, Male/Female): press the one whose text is the answer.
-  async function setToggleGroup(box, value) {
-    const buttons = [...box.querySelectorAll('button[aria-pressed], [role=radio], button[aria-checked]')];
+  async function setToggleGroup(box, value, params = {}) {
+    const buttons = [...box.querySelectorAll(params.option || OPTION)];
     const wanted = yesNo(value) || norm(value);
     const target = buttons.find(button => (yesNo(button.textContent) || norm(button.textContent)) === wanted);
     if (!target) return {ok: false, why: `no "${clean(value)}" option`};
-    const on = button => button.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-checked') === 'true';
+    if (refuses(target)) return REFUSED;
+    const on = button => (params.onAttr ? button.getAttribute(params.onAttr) === (params.onValue ?? 'true')
+      : button.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-checked') === 'true');
     if (!on(target)) target.click();
     await wait(120);
     return on(target) ? {ok: true} : {ok: false, why: 'the option did not stay selected'};
   }
   // A text/date input: set like typing, then confirm the page kept it.
-  async function setDate(input, value) {
+  async function setDate(input, value, params = {}) {
     const date = parseDate(value);
     if (!date) return {ok: false, why: `"${clean(value)}" is not a date`};
-    const text = formatDate(date, input);
+    const text = formatDate(date, input, params);
     const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set;
     input.focus?.();
     if (setter) setter.call(input, text); else input.value = text;
@@ -95,25 +107,44 @@
     return input.value === text ? {ok: true, text} : {ok: false, why: 'the field did not keep the date'};
   }
   // A custom dropdown (a button or role=combobox that opens a list): open it, pick the option by its text, confirm the value shown.
-  async function setCustomSelect(trigger, value, doc = document) {
+  async function setCustomSelect(trigger, value, doc = document, params = {}) {
     const wanted = norm(value);
-    trigger.click();
+    const opener = (params.trigger && trigger.querySelector?.(params.trigger)) || trigger;
+    if (refuses(opener)) return REFUSED;
+    opener.click();
     let options = [];
     for (let i = 0; i < 8 && !options.length; i++) {
       await wait(100);
-      options = [...doc.querySelectorAll('[role=option], [role=listbox] li, [class*=option]')]
+      options = [...doc.querySelectorAll(params.option || '[role=option], [role=listbox] li, [class*=option]')]
         .filter(option => option.getClientRects().length && !option.children?.length && clean(option.textContent));
     }
     const pick = options.find(option => norm(option.textContent) === wanted) || options.find(option => norm(option.textContent).startsWith(wanted));
-    if (!pick) { trigger.click(); return {ok: false, why: options.length ? `no option "${clean(value)}"` : 'the list did not open'}; }
+    if (pick && refuses(pick)) return REFUSED;
+    if (!pick) { opener.click(); return {ok: false, why: options.length ? `no option "${clean(value)}"` : 'the list did not open'}; }
     pick.click();
     await wait(150);
     return norm(trigger.textContent || trigger.value).includes(norm(pick.textContent)) ? {ok: true} : {ok: false, why: 'the choice did not show'};
   }
 
+  // The operator a recipe may configure for each kind of control found here.
+  const OPERATOR_OF = {'toggle-group': 'toggle', 'custom-select': 'select', date: 'date'};
+  function fingerprintOf(el, kit) { try { return kit ? kit.fingerprint(kit.skeleton(el)) : ''; } catch { return ''; } }
+  const looksLikeDate = input => input.type === 'date' || /date/i.test(`${input.placeholder || ''} ${input.className || ''}`);
+
+  // The fingerprints of the controls here that the operators handle: what the app is asked recipes for.
+  function fingerprints({doc = document, kit = window.__jobPilottoSkeleton} = {}) {
+    const visible = el => !!el.getClientRects().length;
+    const found = new Set();
+    for (const {el, kind} of kit ? kit.widgets(doc, visible) : []) if (OPERATOR_OF[kind]) found.add(fingerprintOf(el, kit));
+    for (const input of doc.querySelectorAll('input')) if (looksLikeDate(input) && visible(input)) found.add(fingerprintOf(input, kit));
+    found.delete('');
+    return [...found].slice(0, 30);
+  }
+
   // Offer every control the normal fill left to the operators, with the same answers. Returns what happened per control.
-  // `skip(question)` says a question is off limits (consent, terms): such controls are never touched.
-  async function fill(answers, {skip = () => false, doc = document, kit = window.__jobPilottoSkeleton} = {}) {
+  // `skip(question)` says a question is off limits (consent, terms): such controls are never touched. `recipes` (by
+  // fingerprint, from the app) configure an operator for the controls they fit; the result says which version was used.
+  async function fill(answers, {skip = () => false, doc = document, kit = window.__jobPilottoSkeleton, recipes = window.__jobPilottoRecipes || {}} = {}) {
     const results = [];
     const open = (answers || []).filter(answer => answer && answer.value !== undefined && answer.value !== '');
     const visible = el => !!(el.getClientRects().length && (typeof getComputedStyle !== 'function' || getComputedStyle(el).visibility !== 'hidden'));
@@ -124,23 +155,22 @@
       const answer = matchAnswer(open.filter(a => !used.has(a)), {ids: idsOf(el), question});
       if (!answer) return;
       used.add(answer);
-      const result = await run(answer.value).catch(error => ({ok: false, why: error.message}));
-      let fp = '';
-      try { fp = kit ? kit.fingerprint(kit.skeleton(el)) : ''; } catch { /* a page that hides its own nodes */ }
-      results.push({question, kind, fp, value: answer.value, ...result});
+      const fp = fingerprintOf(el, kit);
+      const recipe = recipes[fp] && recipes[fp].operator === OPERATOR_OF[kind] ? recipes[fp] : null;
+      const result = await run(answer.value, recipe?.params || {}).catch(error => ({ok: false, why: error.message}));
+      results.push({question, kind, fp, recipe: recipe ? recipe.version : 0, value: answer.value, ...result});
     };
     for (const {el, kind} of kit ? kit.widgets(doc, visible) : []) {
-      if (kind === 'toggle-group' && !el.querySelector('[aria-pressed="true"], [aria-checked="true"]')) await attempt(el, kind, value => setToggleGroup(el, value));
-      if (kind === 'custom-select') await attempt(el, kind, value => setCustomSelect(el, value, doc));
+      if (kind === 'toggle-group' && !el.querySelector('[aria-pressed="true"], [aria-checked="true"]')) await attempt(el, kind, (value, params) => setToggleGroup(el, value, params));
+      if (kind === 'custom-select') await attempt(el, kind, (value, params) => setCustomSelect(el, value, doc, params));
     }
     for (const input of doc.querySelectorAll('input')) {
-      const looksLikeDate = input.type === 'date' || /date/i.test(`${input.placeholder || ''} ${input.className || ''}`);
-      if (!looksLikeDate || input.value || !visible(input)) continue;
-      await attempt(input, 'date', value => setDate(input, value));
+      if (!looksLikeDate(input) || input.value || !visible(input)) continue;
+      await attempt(input, 'date', (value, params) => setDate(input, value, params));
     }
     return results;
   }
 
-  const api = {yesNo, parseDate, formatDate, matchAnswer, titleOf, idsOf, setToggleGroup, setDate, setCustomSelect, fill, norm};
+  const api = {yesNo, parseDate, formatDate, matchAnswer, titleOf, idsOf, setToggleGroup, setDate, setCustomSelect, fill, fingerprints, norm};
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else window.__jobPilottoControls = api;
 })();

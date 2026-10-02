@@ -58,6 +58,7 @@ import * as contactDetails from './lib/contact.js';
 import * as learnedAnswers from './lib/learned.js';
 import * as misses from './lib/misses.js';
 import * as controlEvents from './lib/control-events.js';
+import * as recipeLibrary from './lib/recipes.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
 import {fileURLToPath} from 'node:url';
@@ -1593,11 +1594,17 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   createWindow();
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
+  const recipeReporter = recipeLibrary.createReporter(storage);
+  server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with
   server.setMissesHandler(payload => misses.record(storage, payload, Date.now(), prints => {
     for (const item of controlEvents.fromMisses(payload, prints, {owner: owner()})) telemetry?.record('control', item);
+    recipeReporter.sample((payload.items || []).filter(item => prints.has(item.fingerprint)));   // the structure of a new kind of control, no text
   }));
-  server.setControlsHandler(payload => { for (const item of controlEvents.fromOperators(payload, {owner: owner()})) telemetry?.record('control', item); });
+  server.setControlsHandler(payload => {
+    for (const item of controlEvents.fromOperators(payload, {owner: owner()})) telemetry?.record('control', item);
+    recipeReporter.outcome(payload.items);   // counts per fingerprint and recipe: the canary's evidence
+  });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
   server.setTabsHandler(report => review.noteTabs(report));
   server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));

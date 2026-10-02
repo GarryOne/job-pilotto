@@ -97,3 +97,52 @@ test('fill offers only matched, permitted controls to the operators and reports 
   assert.equal(consent.buttons.some(b => b.getAttribute('aria-pressed') === 'true'), false);   // consent never touched
   assert.equal(stranger.buttons.some(b => b.getAttribute('aria-pressed') === 'true'), false);  // no answer, no action
 });
+
+test('a recipe configures the toggle operator: its own option selector and its own "selected" attribute', async () => {
+  const state = {'data-state': 'off'};
+  const make = text => {
+    const own = {'data-state': 'off'};
+    const button = {textContent: text, getAttribute: name => own[name] ?? null, getClientRects: () => [1], click() { for (const b of buttons) b.own['data-state'] = 'off'; own['data-state'] = 'on'; }, own};
+    return button;
+  };
+  const buttons = [make('Yes'), make('No')];
+  const seen = [];
+  const box = {querySelectorAll: selector => { seen.push(selector); return buttons; }};
+  assert.equal((await ops.setToggleGroup(box, 'No', {option: '.choice', onAttr: 'data-state', onValue: 'on'})).ok, true);
+  assert.deepEqual(seen, ['.choice']);
+  assert.equal(buttons[1].own['data-state'], 'on');
+  assert.equal(state['data-state'], 'off');
+});
+
+test('a recipe can set a date field\'s shape, and fill uses the recipe for a control with that fingerprint and says which version', async () => {
+  const input = {type: 'text', placeholder: 'Pick date...', value: '', focus: noop, dispatchEvent: noop};
+  assert.deepEqual(await ops.setDate(input, '2026-11-01', {order: 'dmy', sep: '.'}), {ok: true, text: '01.11.2026'});
+  const box = toggleBox();
+  const el = entry('Do you need a visa?', box);
+  const kit = {widgets: () => [{el, kind: 'toggle-group'}], skeleton: () => ({}), fingerprint: () => 'fp1d2pcap'};
+  const results = await ops.fill([{question: 'Do you need a visa?', value: 'No'}], {doc: {querySelectorAll: () => []}, kit,
+    recipes: {fp1d2pcap: {operator: 'toggle', version: 3, params: {}}}});
+  assert.deepEqual(results.map(r => [r.fp, r.recipe, r.ok]), [['fp1d2pcap', 3, true]]);
+  const other = await ops.fill([{question: 'Do you need a visa?', value: 'No'}], {doc: {querySelectorAll: () => []}, kit: {...kit, widgets: () => [{el: entry('Do you need a visa?', toggleBox()), kind: 'toggle-group'}]},
+    recipes: {fp1d2pcap: {operator: 'select', version: 9, params: {}}}});
+  assert.equal(other[0].recipe, 0);   // a recipe for another operator is not applied
+});
+
+test('whatever a recipe says, an operator never presses something that looks like a submit control', async () => {
+  const submit = {textContent: 'Submit application', getAttribute: () => null, getClientRects: () => [1], click() { throw new Error('pressed'); }};
+  const box = {querySelectorAll: () => [submit]};
+  assert.deepEqual(await ops.setToggleGroup(box, 'Submit application', {option: 'button'}), {ok: false, why: 'refused: looks like a submit control'});
+  const trigger = {textContent: 'Send application', click() { throw new Error('pressed'); }};
+  assert.equal((await ops.setCustomSelect(trigger, 'x', {querySelectorAll: () => []})).ok, false);
+  const typed = {textContent: 'Continue', getAttribute: name => (name === 'type' ? 'submit' : null), getClientRects: () => [1], click() { throw new Error('pressed'); }};
+  assert.equal((await ops.setToggleGroup({querySelectorAll: () => [typed]}, 'Continue', {})).ok, false);   // an explicit submit type
+  // a plain button reports type "submit" in a browser without having the attribute: that is not a reason to refuse it
+  const plain = {textContent: 'Yes', type: 'submit', getAttribute: name => (name === 'aria-pressed' ? 'false' : null), getClientRects: () => [1], click() { this.getAttribute = () => 'true'; }};
+  assert.equal((await ops.setToggleGroup({querySelectorAll: () => [plain]}, 'Yes', {})).ok, true);
+});
+
+test('the fingerprints a form shows are listed for the app to ask recipes for', () => {
+  const kit = {widgets: () => [{el: {}, kind: 'toggle-group'}, {el: {}, kind: 'slider'}, {el: {}, kind: 'custom-select'}], skeleton: () => ({}), fingerprint: (() => { let n = 0; return () => `fp${++n}aaaa`; })()};
+  const doc = {querySelectorAll: () => []};
+  assert.deepEqual(ops.fingerprints({doc, kit}), ['fp1aaaa', 'fp2aaaa']);   // a slider has no operator here, so no recipe is asked for
+});

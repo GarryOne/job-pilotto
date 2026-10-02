@@ -1,5 +1,5 @@
 // Build staging.
-//   node scripts/stage.mjs          copy worker/src into shared/worker (the app imports it; also run by
+//   node scripts/stage.mjs          copy worker/src into shared/worker and the recipe format into shared/ (the app imports them; also run by
 //                                   npm start and npm test, so dev and packaged use the same files)
 //   node scripts/stage.mjs --app    also stage build/pilot: what a packaged app runs (the Python
 //                                   pipeline, config, tools, docs, the Chrome extension, requirements)
@@ -15,6 +15,8 @@ const copy = (from, to) => fs.cpSync(path.join(repo, from), to, {recursive: true
 
 fs.rmSync(path.join(desktop, 'shared'), {recursive: true, force: true});
 copy('worker/src', path.join(desktop, 'shared', 'worker'));
+// The recipe format, one source for the site, the extension and the app (extension/recipe-schema.js).
+fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(desktop, 'shared', 'recipe-schema.js'));
 // The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
 // Cloudflare account for "Telegram buttons, always on" (lib/telegram-cloud.js).
 await (await import('esbuild')).build({entryPoints: [path.join(repo, 'worker', 'src', 'index.js')], bundle: true,

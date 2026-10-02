@@ -59,6 +59,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/pool-share.js` — "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): on by default for new installs, off for
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
+- `desktop/lib/recipes.js` — The app's side of the shared recipe library (site/src/recipes.js; design in Notion "Self-improving form filling").
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
 - `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log (5 MB, then
 - `desktop/lib/reset.js` — Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).

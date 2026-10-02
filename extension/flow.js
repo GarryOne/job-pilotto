@@ -143,6 +143,16 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN',
     files: ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js', 'page/fill.js']});
+  // Recipes for the kinds of control on this form, asked of the app by fingerprint (it asks the site, and remembers). A recipe
+  // only configures a generic operator; no recipe, or no answer, and the operators work with their own defaults.
+  try {
+    const prints = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => window.__jobPilottoControls?.fingerprints?.() || []})
+      .then(rows => rows?.[0]?.result || []);
+    if (prints.length) {
+      const found = await api(config, '/extension/recipes', {method: 'POST', body: JSON.stringify({fingerprints: prints})});
+      await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [found?.recipes || {}], func: recipes => { window.__jobPilottoRecipes = recipes; }});
+    }
+  } catch { /* recipes are a bonus: the operators work without them */ }
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null, later = [];

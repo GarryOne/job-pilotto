@@ -406,7 +406,7 @@
         if (result.ok) filled += 1; else todo.push(`Pick "${result.value}" for: ${result.question}${result.why ? ` (${result.why})` : ''}`);
       }
       // Which kind of control and fingerprint worked or not: no question, no answer.
-      window.__jobPilottoOperated = operated.map(({kind, fp, ok, why}) => ({kind, fp, ok, why: why || ''}));
+      window.__jobPilottoOperated = operated.map(({kind, fp, recipe, ok, why}) => ({kind, fp, recipe: recipe || 0, ok, why: why || ''}));
     }
     const resumeAttached = resume?.data ? attachResume(resume) : false;
     const letterFileAttached = resume?.coverLetterFile ? attachCoverLetter(resume.coverLetterFile) : false;
