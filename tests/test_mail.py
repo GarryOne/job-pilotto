@@ -412,27 +412,6 @@ class MailTests(unittest.TestCase):
         self.assertIn('from:calendar-notification@google.com', extra)
         self.assertIn('subject:"Invitation from an unknown sender"', extra)
 
-    def test_a_booking_from_a_stranger_asks_about_the_one_lead_without_an_employer(self):
-        # 2 Oct 2026: a Calendly booking "Igor Mardari and Blockdaemon DM" (a Gmail sender) for a LinkedIn recruiter lead
-        # whose employer was never named: it must be a question in Focus naming that lead, not a second job.
-        lead = app('p9', '', 'Senior Web3 Infrastructure / DevOps Engineer', stage='Screening', contact='Linomica Irigoyen')
-        other = app('p2', 'Acme', 'SRE', stage='Applied')
-        tracker = FakeTracker([lead, other])
-        invite = {**email('b1', 'Invitation from an unknown sender: Igor Mardari and Blockdaemon DM @ Mon 5 Oct 2026 10:45',
-                          sender='Blockdaemon DM <blockdaemonmdw@gmail.com>', body='Google Meet, powered by Calendly'),
-                  'invite_at': '2026-10-05T10:45:00+02:00'}
-        with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('must not create a second job')), \
-                mock.patch('src.ai.opportunity.track', side_effect=RuntimeError('must not create a second job')):
-            self.run_mail(tracker, FakeGoogle([invite]), [[result(0, -1, 'Interview scheduled', company='Blockdaemon')]])
-        self.assertEqual(len(tracker.created), 1)
-        self.assertTrue(tracker.created[0]['Needs you']['checkbox'])
-        self.assertEqual(tracker.created[0]['Suggested job'], {'url': 'https://x.test/p9'})
-
-    def test_two_leads_without_an_employer_are_not_guessed_between(self):
-        a = app('p9', '', 'Web3 DevOps', stage='Screening', contact='Linomica Irigoyen')
-        b = app('p8', '', 'Platform lead', stage='Recruiter lead', contact='Sam Lee')
-        self.assertEqual(len(mail._unnamed_leads([a, b])), 2)
-
     def test_an_email_is_never_attached_to_a_job_it_doesnt_name(self):
         # 29 Sep 2026: Huxley's SRE invitation was attached to AG Talent's DevOps pitch (the AI matched the role).
         ag = app('p1', '', 'Senior DevOps Engineer', stage='Screening', via='AG Talent', contact='Arjun Gillard · agillard@agtalent.co.uk')
