@@ -1,6 +1,6 @@
 // A Sonnet judge for the free text the app writes (a job's score reason, strengths and gaps): is it true to the posting and the candidate? Pure functions here
 // (build the request, parse and rule on the verdict); judge() makes the call. The verdict has a fixed shape, so a rambling or broken reply can never pass as "fine".
-export const JUDGE_MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5';
+export const JUDGE_MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5-5';
 const FLAGS = ['grounded', 'contradicts_posting', 'invents_facts', 'useful'];
 
 export const SYSTEM = `You are a strict fact-checker for a job-search tool. You get a job POSTING, the CANDIDATE's profile and a TEXT the tool wrote about how well the job fits the candidate.
@@ -14,7 +14,7 @@ Reply with ONE JSON object and nothing else: {"grounded":true|false,"contradicts
 export function buildRequest({posting, profile, produced, model = JUDGE_MODEL}) {
   const text = Array.isArray(produced) ? produced.filter(Boolean).join('\n') : String(produced ?? '');
   return {
-    model, max_tokens: 1000, system: SYSTEM,   // no temperature: claude-sonnet-5 rejects it
+    model, max_tokens: 1000, system: SYSTEM,   // no temperature: claude-sonnet-5-5 rejects it
     messages: [{role: 'user', content: `POSTING\nTitle: ${posting.title}\nLocation: ${posting.location}\n${posting.description}\n\nCANDIDATE\n${profile}\n\nTEXT THE TOOL WROTE\n${text}\n\nJudge the text.`}],
   };
 }

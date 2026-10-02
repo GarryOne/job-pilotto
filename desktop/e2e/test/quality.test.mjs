@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missingColumns, normalizeUrl, rankingViolations, unstable} from '../lib/quality.mjs';
+import {HARD_JUMP, allowedMisses, judgeVerdict, stabilityVerdict, checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missingColumns, normalizeUrl, rankingViolations, unstable} from '../lib/quality.mjs';
 
 const truth = JSON.parse(fs.readFileSync(new URL('../fixtures/golden/truth.json', import.meta.url), 'utf8'));
 const sre = truth.find(item => item.id === 3001);
@@ -99,4 +99,20 @@ test('leaks: a posting sentence, an email or a token in a log is found; clean lo
   assert.deepEqual(leaks('mail alex.example@example.test sent', ['alex.example@example.test']), ['alex.example@example.test']);
   assert.throws(() => leaks('anything', ['abc']), /at least 12/);
   assert.deepEqual(fingerprints('short'), []);
+});
+
+test('noise allowance: one in nine is tolerated, two is not, and a big jump never is', () => {
+  assert.deepEqual([9, 8, 17, 0].map(allowedMisses), [1, 0, 2, 0]);
+  const moved = (id, first, second) => ({id, first, second});
+  assert.ok(stabilityVerdict([], 9).ok);
+  assert.ok(stabilityVerdict([moved('a', 50, 60)], 9).ok);                                          // one of nine, 10 points
+  assert.ok(!stabilityVerdict([moved('a', 50, 60), moved('b', 40, 50)], 9).ok);                       // two of nine
+  assert.ok(!stabilityVerdict([moved('a', 50, 60)], 8).ok);                                           // eight jobs: no allowance
+  const jump = stabilityVerdict([moved('a', 50, 50 + HARD_JUMP + 1)], 9);                              // one job, but 21 points
+  assert.ok(!jump.ok && /moved 21 points/.test(jump.problems[0]));
+  assert.ok(judgeVerdict(['x'], 9).ok);
+  assert.ok(!judgeVerdict(['x', 'y'], 9).ok);
+  assert.ok(!judgeVerdict(['x'], 5).ok);                                                              // five texts: no allowance
+  assert.deepEqual(judgeVerdict(['x'], 9).tolerated, ['x']);
+  assert.deepEqual(judgeVerdict(['x', 'y'], 9).tolerated, []);
 });

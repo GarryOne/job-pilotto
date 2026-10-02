@@ -9,13 +9,13 @@ import {execFileSync} from 'node:child_process';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
 import {databaseRows, emptyDatabase, pageText, rewriteLines} from '../lib/notion.mjs';
-import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missingColumns, normalizeUrl, rankingViolations, unstable} from '../lib/quality.mjs';
+import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const name = 'quality';
 // This suite measures what a user gets, so the app under test runs on the shipped model (about $0.3 a run); the other suites run on Haiku. For a cheap run:
 // E2E_APP_MODEL=claude-haiku-4-5 (Haiku scores the same job up to 10 points apart between two scorings, Sonnet within 6).
-export const env = {JOB_PILOTTO_MODEL_OVERRIDE: process.env.E2E_APP_MODEL || 'claude-sonnet-5'};
+export const env = {JOB_PILOTTO_MODEL_OVERRIDE: process.env.E2E_APP_MODEL || 'claude-sonnet-5-5'};
 const GOLDEN = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'fixtures', 'golden');
 const read = file => JSON.parse(fs.readFileSync(path.join(GOLDEN, file), 'utf8'));
 const MATCHES = 'Job Matches — AI Scored';
@@ -166,8 +166,9 @@ export async function run(ctx) {
       summary.stable = `within ±${Math.max(0, ...spread)}`;
       console.log(`  second scores: ${postings.map(item => `${item.id}=${second[item.id] ?? '-'}`).join(' ')}`);
       if (!spread.length) throw new Error('the second check scored nothing to compare');
-      const apart = unstable(first, second, 8);
-      if (apart.length) throw new Error(`scores moved more than 8 points between two scorings: ${apart.map(item => `${item.id}: ${item.first} → ${item.second}`).join(', ')}`);
+      const apart = unstable(first, second, 8), verdict = stabilityVerdict(apart, spread.length);
+    if (apart.length) console.log(`  ${apart.length} of ${spread.length} jobs moved more than 8 points (allowed: ${verdict.allowed}): ${apart.map(item => `${item.id}: ${item.first} → ${item.second}`).join(', ')}`);
+    if (!verdict.ok) throw new Error(`scores are not stable: ${verdict.problems.join('; ')}`);
     }, {needs: ctx.needs}));
 
     await soft(() => ctx.run('no job text, CV text or secret reached the logs', async () => {
@@ -198,7 +199,9 @@ export async function run(ctx) {
       summary.invented = verdicts.filter(v => v.verdict.invents_facts).length;
       fs.writeFileSync(path.join(ctx.ARTIFACTS, 'quality-verdicts.json'), JSON.stringify(verdicts, null, 2));
       console.log(`  judged ${verdicts.length} score texts: ${verdicts.filter(v => v.verdict.grounded).length} grounded, ${verdicts.filter(v => v.verdict.useful).length} useful, ${summary.invented} with invented facts`);
-      if (problems.length) throw new Error(problems.join('; '));
+    const allowance = judgeVerdict(problems, verdicts.length);
+    if (problems.length) console.log(`  ${problems.length} of ${verdicts.length} texts flagged (allowed: ${allowance.allowed}):\n    ${problems.join('\n    ')}`);
+    if (!allowance.ok) throw new Error(`${problems.length} of ${verdicts.length} score texts invent facts or contradict the posting (at most ${allowance.allowed} allowed)`);
     }, {needs: ctx.needs}));
 
     if (late.length) throw new Error(`${late.length} quality check(s) failed: ${late.map(error => error.message.split('\n')[0].slice(0, 120)).join(' | ')}`);

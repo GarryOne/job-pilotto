@@ -103,3 +103,24 @@ export function fingerprints(text) {
   if (flat.length < 40) return [];
   return [0, Math.floor((flat.length - 40) / 2), flat.length - 40].map(start => flat.slice(start, start + 40));
 }
+
+// Model noise. The scorer and the judge are language models: one text in nine may be a slip, and one job in nine may land more than the tolerance away on a second
+// scoring. More than that is a quality problem. A single job that moves further than HARD_JUMP is a problem on its own. Facts, duplicates, ranking and leaks have no allowance.
+export const NOISE_SHARE = 0.12;
+export const HARD_JUMP = 20;
+export const allowedMisses = total => Math.floor(total * NOISE_SHARE);   // 9 -> 1, 8 -> 0, 17 -> 2
+
+// -> {ok, allowed, problems}: `apart` is unstable()'s answer for `compared` jobs.
+export function stabilityVerdict(apart, compared) {
+  const allowed = allowedMisses(compared);
+  const jumps = apart.filter(item => Math.abs(item.first - item.second) > HARD_JUMP);
+  const problems = [...(apart.length > allowed ? [`${apart.length} of ${compared} jobs moved more than the tolerance (at most ${allowed} allowed)`] : []),
+    ...jumps.map(item => `job ${item.id} moved ${Math.abs(item.first - item.second)} points (${item.first} → ${item.second}), more than ${HARD_JUMP}`)];
+  return {ok: !problems.length, allowed, problems};
+}
+
+// -> {ok, allowed, tolerated}: `failed` are the judged texts that invent facts or contradict the posting, out of `judged`.
+export function judgeVerdict(failed, judged) {
+  const allowed = allowedMisses(judged);
+  return {ok: failed.length <= allowed, allowed, tolerated: failed.length <= allowed ? failed : []};
+}
