@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, matchExisting, normalize, notSeenComment, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -22,7 +22,7 @@ export function filesNamed(folder) {
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 const suiteOf = dir => path.basename(dir || '').replace(/^e2e-artifacts-/, '');
-const tail = (file, lines = 25) => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-lines).join('\n').slice(-3500); } catch { return ''; } };
+const tail = (file, lines = 25, chars = 3500) => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-lines).join('\n').slice(-chars); } catch { return ''; } };
 const slug = step => `failed-${String(step).replace(/\W+/g, '-').slice(0, 60)}`;   // the runner's name for a failed step's screenshot (lib/runner.mjs)
 const views = dir => { try { return fs.readdirSync(dir).map(name => /^ui-(.+)\.png$/.exec(name)?.[1]).filter(Boolean); } catch { return []; } };
 
@@ -38,11 +38,21 @@ const urlOf = (urls, to) => (to && urls[to]) || '';
 export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || ''}) {
   const found = filesNamed(artifacts);   // every suite's folder (e2e-artifacts/e2e-artifacts-<suite>/…), or one flat folder
   const withDir = (file, items) => items.map(item => ({...item, _dir: path.dirname(file)}));
+  // A suite's failed steps: only the first is a finding (the later ones are its consequences), and none when the AI had no credit (not a product problem).
+  const skipped = [], suiteFailures = [];
+  for (const file of found['suite-failures.json']) {
+    const items = withDir(file, read(file) || []);
+    if (!items.length) continue;
+    const dir = path.dirname(file), suite = items[0].suite;
+    const logs = `${tail(path.join(dir, 'logs', 'engine.log'), 400, 40000)}\n${tail(path.join(dir, 'logs', 'app.log'), 400, 40000)}`;
+    if (items.some(item => NO_CREDIT.test(item.message || '')) || (!LIMIT_TESTED.includes(suite) && NO_CREDIT.test(logs))) { skipped.push({suite, why: 'the AI had no credit'}); continue; }
+    suiteFailures.push({...items[0], also: items.slice(1).map(item => item.step)});
+  }
   const findings = normalize({ui: found['ui-findings.json'].flatMap(file => withDir(file, read(file) || [])), ai: found['ai-findings.json'].flatMap(file => withDir(file, (read(file) || {}).findings || [])),
-    suite: found['suite-failures.json'].flatMap(file => withDir(file, read(file) || []))});
+    suite: suiteFailures});
   const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
   let issues = list();
-  const out = {filed: [], again: [], gone: [], candidate: null};
+  const out = {filed: [], again: [], gone: [], skipped, candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
@@ -132,7 +142,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const outDir = option('out') || '.heal';
   fs.mkdirSync(outDir, {recursive: true});
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url')});
-  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more.`];
+  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, once a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
     const candidate = result.candidate;

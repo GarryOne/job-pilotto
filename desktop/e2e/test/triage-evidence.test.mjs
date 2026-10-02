@@ -171,3 +171,33 @@ test('a finding closed because it was fixed comes back as a new issue when it re
   assert.equal(out.filed.length, 1);
   assert.equal(state.created.length, 1);
 });
+
+// 2 Oct 2026: a run on an empty AI credit filed seven "step failed" issues: four were one cascade, the rest the AI saying "Credit balance is too low".
+test('only the first failed step of a suite is filed; the later ones are listed as what failed after it', () => {
+  const {gh, state} = stub();
+  const root = artifacts({failures: [{suite: 'focus', step: 'first step', message: 'boom'}, {suite: 'focus', step: 'second step', message: 'needs the first'}, {suite: 'focus', step: 'third step', message: 'needs the first'}]});
+  const out = triage({artifacts: root, runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(out.filed.length, 1);
+  assert.match(state.created[0].title, /first step/);
+  assert.match(state.created[0].body, /Failed after it[\s\S]*second step[\s\S]*third step/);
+});
+
+test('failures that come from the AI having no credit are not filed: the suite says so in its message or its logs', () => {
+  for (const options of [
+    {failures: [{suite: 'focus', step: 'a', message: 'timeout'}, {suite: 'focus', step: 'b', message: 'Review failed: The Anthropic API spend limit is reached, so the review is paused'}]},
+    {failures: [{suite: 'focus', step: 'a', message: 'timeout'}], logs: {'engine.log': 'x\nBadRequestError: Your credit balance is too low to access the Anthropic API.\ny'}}]) {
+    const {gh, state} = stub();
+    const out = triage({artifacts: artifacts(options), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+    assert.equal(state.created.length, 0, JSON.stringify(options).slice(0, 60));
+    assert.equal(out.skipped.length, 1, 'it says what it skipped');
+  }
+});
+
+test('a suite that tests the spend-limit message on purpose is not read as having no credit from its logs', () => {
+  const {gh, state} = stub();
+  const root = artifacts({failures: [{suite: 'activityfailures', step: 'the AI never answers', message: 'timeout'}], logs: {'engine.log': 'Your credit balance is too low to access the Anthropic API.'}});
+  const dir = path.join(root, 'e2e-artifacts-focus'), moved = path.join(root, 'e2e-artifacts-activityfailures');
+  fs.renameSync(dir, moved);
+  triage({artifacts: root, runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(state.created.length, 1);
+});
