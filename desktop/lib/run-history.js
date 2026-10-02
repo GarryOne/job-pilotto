@@ -69,6 +69,18 @@ export async function list(storage, {fetcher, size = 25} = {}) {
   return results.map(page => fromRow(page));
 }
 
+// A run the watchdog stopped (a silent AI) was killed, and a killed Python cannot close its own row: it would stay "Running" and the app would show the task as running
+// until the row goes stale (3 h). The app closes it: Failed, with why. Returns whether it changed the row (a row the run closed itself on SIGTERM is left alone).
+export async function closeStopped(storage, url, reason, {fetcher} = {}) {
+  const token = storage.secret('NOTION_TOKEN');
+  const id = /([0-9a-f]{32})(?:[?#].*)?$/i.exec(String(url || '').replace(/-/g, ''))?.[1];
+  if (!token || !id) return false;
+  const page = await call(token, 'GET', `pages/${id}`, null, fetcher);
+  if (page.properties?.Status?.select?.name !== 'Running') return false;
+  await call(token, 'PATCH', `pages/${id}`, {properties: {Status: {select: {name: 'Failed'}}, Summary: {rich_text: [{text: {content: String(reason).slice(0, 1900)}}]}}}, fetcher);
+  return true;
+}
+
 // A run's page: what it produced (under "Result") and its technical log (the toggle's code blocks).
 export async function detail(storage, pageId, {fetcher} = {}) {
   const token = storage.secret('NOTION_TOKEN');

@@ -145,7 +145,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       JOB_PILOTTO_RUN_ID: runId, JOB_PILOTTO_RESULT_FILE: resultFile}});
     children.add(child);
     child.on('exit', () => children.delete(child));
-    let stdout = '', buffer = '', lastOutputAt = Date.now(), timedOut = '', killTimer = null;
+    let stdout = '', buffer = '', lastOutputAt = Date.now(), timedOut = '', killTimer = null, rowUrl = '';
     const watch = (args[0] === 'src' || LIMITS.watchAll) ? setInterval(() => {
       if (timedOut) return;
       const quiet = Date.now() - lastOutputAt, total = Date.now() - started;
@@ -160,12 +160,12 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       buffer += chunk;
       const parts = buffer.split(/\r?\n/);  // Windows ends lines with \r\n
       buffer = parts.pop();
-      parts.filter(Boolean).forEach(raw => { engineLog.line(raw); onLine(readable(raw)); });
+      parts.filter(Boolean).forEach(raw => { engineLog.line(raw); onLine(readable(raw)); rowUrl = /^Cronjob run logged: (\S+)/.exec(raw)?.[1] || rowUrl; });
     };
     child.stdout.on('data', data => { lastOutputAt = Date.now(); stdout += data; lines(String(data)); });
     child.stderr.on('data', data => { lastOutputAt = Date.now(); lines(String(data)); });
     child.on('error', reject);
-    child.on('close', exitCode => {
+    child.on('close', async exitCode => {
       clearInterval(watch);
       clearTimeout(killTimer);
       const code = timedOut ? (exitCode || 124) : exitCode;   // a killed run is a failed run, whatever status the signal gave
@@ -177,6 +177,10 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       engineLog.end({code, seconds, runId});
       appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
       for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId, timedOut, result}); } catch {} }
+      if (timedOut && rowUrl) {   // killed, so it could not close its own row
+        const closed = await (await import('./run-history.js')).closeStopped(storage, rowUrl, `Stopped by Job Pilotto: ${timedOut}`).catch(() => false);
+        appLog('run', `its Notion row ${closed ? 'was closed as Failed' : 'was already closed'}`, {run_id: runId});
+      }
       resolve({code, stdout, result, runId, timedOut});
     });
   });
