@@ -86,3 +86,14 @@ export async function emptyDatabase(token, title) {
   } while (cursor);
   return count;
 }
+
+// The rows of one database, newest first, as plain {id, title, status, mode, trigger, summary, started}: what a run row says in Notion. Read-only.
+export async function runRows(token, title, {size = 30} = {}) {
+  const db = await findDatabase(token, title);
+  if (!db) return [];
+  const plain = prop => (prop?.rich_text || prop?.title || []).map(part => part.plain_text).join('');
+  const rows = await call(token, 'POST', `databases/${db.id}/query`, {page_size: size, sorts: [{timestamp: 'created_time', direction: 'descending'}]});
+  return rows.results.filter(row => !row.archived).map(row => ({id: row.id, url: row.url, created: row.created_time,
+    title: titleOf(row), status: row.properties.Status?.select?.name || '', mode: row.properties.Mode?.select?.name || '', trigger: row.properties.Trigger?.select?.name || '',
+    summary: plain(row.properties.Summary), started: row.properties.Started?.date?.start || row.created_time}));
+}

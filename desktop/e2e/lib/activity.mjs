@@ -49,3 +49,30 @@ export function longestSilence(samples) {
   if (running.length) longest = Math.max(longest, running.at(-1).at - since);
   return longest;
 }
+
+// ---------- what a run may show a person ----------
+// A summary line that says nothing, or says it in the machine's words: empty, "undefined", "[object Object]", or a JSON dump. -> a reason, or ''.
+export function badSummary(text) {
+  const line = String(text ?? '').trim();
+  if (!line) return 'it is empty';
+  if (/\b(undefined|null|NaN)\b|\[object Object\]/.test(line)) return `it shows a programming value ("${line.slice(0, 60)}")`;
+  if (/^[{[]/.test(line)) { try { JSON.parse(line); return `it is raw JSON ("${line.slice(0, 60)}")`; } catch { /* not JSON */ } }
+  if (/^\s*(Traceback \(most recent call last\)|\w*Error: |\w+\.\w+Error)/.test(line)) return `it is a stack trace ("${line.slice(0, 60)}")`;
+  return '';
+}
+
+// What must never be in a log a person can read or share: a key, a token, an email address, or a path on this computer. `secrets` are the exact values to look for
+// (the test's own keys); `dirs` the folders of this machine (the profile). -> the list of things found, each named without repeating the secret.
+export function leaks(text, {secrets = [], dirs = []} = {}) {
+  const found = [];
+  const body = String(text ?? '');
+  for (const secret of secrets.filter(value => value && value.length >= 8)) if (body.includes(secret)) found.push(`a saved secret (${secret.slice(0, 4)}…)`);
+  if (/sk-ant-[\w-]{8,}/.test(body)) found.push('an Anthropic key');
+  if (/\b(?:ntn_|secret_)[A-Za-z0-9]{12,}/.test(body)) found.push('a Notion token');
+  if (/\b\d{6,}:[A-Za-z0-9_-]{30,}\b/.test(body)) found.push('a Telegram bot token');
+  const email = body.match(/[\w.+-]+@(?!example\.(?:com|org)\b)[\w-]+\.[\w.-]+/);
+  if (email) found.push(`an email address (${email[0].replace(/^[^@]*/, '…')})`);
+  if (/(?:\/Users\/|\/home\/)[^\s/]+\/|[A-Z]:\\Users\\/.test(body)) found.push('a path in a home folder');
+  for (const dir of dirs.filter(Boolean)) if (body.includes(dir)) found.push(`a path on this computer (${dir.split(/[\\/]/).slice(0, 3).join('/')}/…)`);
+  return found;
+}

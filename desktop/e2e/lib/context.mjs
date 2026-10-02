@@ -35,9 +35,12 @@ export async function openContext(suite, {fresh = false} = {}) {
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
   ctx.proxy = await startAiProxy({delayMs: 0});
-  session = await launch({env: {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url}});
-  ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile;
+  const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url};
+  const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
+  adopt(await launch({env}));
   ctx.close = async () => { await session?.shot('last'); await session?.close(); await ctx.proxy?.close(); };
+  // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment.
+  ctx.relaunch = async (extra = {}) => { const profile = session.profile; await session.close(); adopt(await launch({env: {...env, ...extra}, profile})); };
   ctx.expectStep = async (name, timeout = 20000) => {
     await ctx.page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout})
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });

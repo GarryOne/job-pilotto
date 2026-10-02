@@ -12,11 +12,11 @@ export const DESKTOP = path.resolve(E2E, '..');
 export const ARTIFACTS = process.env.E2E_ARTIFACTS || path.join(E2E, 'artifacts', process.env.E2E_SUITE || 'default');
 
 // -> {app, page, profile, shot(name), close()}. `env` adds to the app's environment (models, test hooks).
-export async function launch({env = {}, executablePath, args} = {}) {
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));
+export async function launch({env = {}, executablePath, args, profile: again} = {}) {
+  const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
-  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
+  if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
   const app = await electron.launch({
     executablePath: executablePath || path.join(DESKTOP, 'node_modules', '.bin', 'electron'),
     args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],

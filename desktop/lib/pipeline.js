@@ -125,7 +125,9 @@ export const setDemo = on => { demoMode = !!on; };
 // A run of the engine (`python -m src …`) that stops talking, or lasts far too long, is stopped, said so in the log and reported (technical
 // reports: run_failed with timedOut). 2 Oct 2026: a friend's search sat "Running" for 40 minutes (every AI call waiting on a Claude Code that
 // did not answer) and nothing, not the row in Notion, not a report, said it was stuck. SIGTERM lets the engine close its Notion row.
-export const LIMITS = {idleMs: 15 * 60 * 1000, totalMs: 45 * 60 * 1000, checkMs: 5000, killAfterMs: 8000, watchAll: false};   // watchAll: tests watch any module, not only `src …`
+// The end-to-end journey shortens the silence limit (JOB_PILOTTO_E2E_IDLE_MS) so a hung AI can be tested in under a minute; never set for a user.
+const E2E_IDLE = process.env.JOB_PILOTTO_E2E ? Number(process.env.JOB_PILOTTO_E2E_IDLE_MS) || 0 : 0;
+export const LIMITS = {idleMs: E2E_IDLE || 15 * 60 * 1000, totalMs: 45 * 60 * 1000, checkMs: 5000, killAfterMs: 8000, watchAll: false};   // watchAll: tests watch any module, not only `src …`
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
