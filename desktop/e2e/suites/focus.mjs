@@ -201,9 +201,9 @@ export async function run(ctx) {
     await resetFocusData(NOTION, ids, {target: 5});   // every row to the trash: a new user's workspace
     target = 5;
     await page.evaluate(() => window.pilot.setDailyTarget(5));   // the app's own cache of the target, as a new install has it
-    // Notion still lists a trashed row for a few seconds: refresh until Focus has caught up, and say how long that took (it must catch up).
+    // Notion still lists a trashed row for up to a few minutes: refresh until Focus has caught up, and say how long that took (it must catch up).
     let tries = 0;
-    for (; tries < 14; tries++) {
+    for (; tries < 24; tries++) {   // trashed rows leave the engine's results one by one, over a minute or more on a CI runner
       await refresh();
       const [first, ...rest] = await upNext();   // caught up: the one next step says there are no kits yet (a trashed kit row is listed for a while)
       if (first && !rest.length && /Prepare kits from your best matches/.test(first.meta) && (await shownNumbers()).funnel.every(step => step.count === '0')) break;
