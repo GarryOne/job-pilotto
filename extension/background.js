@@ -308,6 +308,13 @@ chrome.tabs.onCreated.addListener(async tab => {
   let host = '';
   try { host = new URL(tab.pendingUrl || tab.url || '').hostname; } catch { /* the address is not ready yet */ }
   decide('panel', 'following a tab this session opened', {host, why: 'child'});
+  // A page that loads faster than the lines above finish (a local or cached one) completed before this tab was armed, and the load listener above
+  // let it go: nothing looks at it again. Look now, if it is already loaded; `consider` runs a page only once, so a page still loading is not doubled.
+  const live = await chrome.tabs.get(tab.id).catch(() => null);
+  if (live?.status !== 'complete' || !/^https:/.test(live.url || '') || live.url.includes(`#${FILL_MARK}`) || neverForm(live.url)) return;
+  await markPage(live.id, live.url);
+  await arm(live.id, 'next page');
+  await consider(live, await jobOf(live));
 });
 
 // A progress panel on the page while a tab fills itself (the popup is closed then). `url`: the page being filled —
