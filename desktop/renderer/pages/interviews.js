@@ -6,6 +6,7 @@ import {avatar, interviewJob, placeAndMode} from '../jobs-view.js';
 import {insightCard, insightSkeleton, insightView} from '../interview-insight.js';
 import * as practice from '../practice-session.js';
 import {afterLoad} from '../interview-library.js';
+import {humanError} from '../run-warnings.js';
 import {showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
 import {shared} from './shared.js';
@@ -414,7 +415,7 @@ async function refreshInsights() {
     insightNote = result.status === 'unchanged' ? 'Up to date' : '';
     message('iv-message', result.status === 'unchanged' ? 'Insights are up to date: no review changed since the last update (no AI cost).' : result.text, 'ok');
   } else {
-    message('iv-message', result.error || 'Could not refresh the insights', 'error');
+    message('iv-message', humanError(result.error || 'Could not refresh the insights'), 'error');
   }
   renderInsight();
 }
@@ -543,7 +544,7 @@ async function reviewRow(pageId, why = 'Review') {
   const result = await iv.review(pageId, why);
   if (result.ok && result.cloud) pendingReviews.add(pageId);  // GitHub reviews it: keep "Reviewing…" until it lands
   else reviewing.delete(pageId);
-  message('iv-message', result.ok ? `${result.summary}. The review is on the Notion page.` : result.error, result.ok ? 'ok' : 'error');
+  message('iv-message', result.ok ? (result.already ? result.summary : `${result.summary}. The review is on the Notion page.`) : humanError(result.error), result.ok ? 'ok' : 'error');
   readAgain();
 }
 

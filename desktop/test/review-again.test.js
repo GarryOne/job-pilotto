@@ -35,6 +35,27 @@ test('every outcome has a message: done here, on GitHub, failed', () => {
   assert.equal(doneMessage(undefined)[1], 'error');
 });
 
+test('a provider error is a sentence, not the API dump; a refused duplicate does not claim a review was replaced', () => {
+  const dump = "anthropic.BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'This model does not support the effort parameter.'}}";
+  const [text, tone] = doneMessage({ok: false, error: dump});
+  assert.equal(tone, 'error');
+  assert.doesNotMatch(text, /BadRequestError|Error code|\{'type'/);
+  assert.match(text, /does not support the effort parameter.*not changed/);
+  // main.js answers a second press inside the 2-minute window with {ok, already, summary} and runs nothing
+  const [again, againTone] = doneMessage({ok: true, already: true, summary: 'Already reviewing this interview — it shows in Recent activity'});
+  assert.equal(againTone, 'ok');
+  assert.doesNotMatch(again, /was replaced/);
+  assert.match(again, /Already reviewing/);
+});
+
+test('the first review and the insights refresh say a provider error as a sentence too', () => {
+  const page = fs.readFileSync(new URL('../renderer/pages/interviews.js', import.meta.url), 'utf8');
+  assert.ok(page.includes("import {humanError} from '../run-warnings.js'"));
+  assert.ok(page.includes(": humanError(result.error), result.ok ? 'ok' : 'error')"));
+  assert.ok(page.includes("humanError(result.error || 'Could not refresh the insights')"));
+  assert.ok(page.includes('result.already ? result.summary'));   // a refused duplicate review is not "on the Notion page"
+});
+
 test('the page wires it into the row menu through the same review IPC; demo mode writes nothing', () => {
   const page = fs.readFileSync(new URL('../renderer/pages/interviews.js', import.meta.url), 'utf8');
   assert.match(page, /row\.overall \? \[\{again: true, run: \(\) => reviewAgainRow\(row\.id\)\}\]/);

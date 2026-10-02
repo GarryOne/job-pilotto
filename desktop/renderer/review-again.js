@@ -2,6 +2,8 @@
 // The same review as the first one (window.pilot.interviews.review), re-run on the transcript saved in Notion: it
 // replaces the review and fills only the job's empty fields (src/ai/interviews.py review_again). One AI call, so the
 // menu press is the ask; it never runs by itself.
+import {humanError} from './run-warnings.js';
+
 export const LABEL = 'Review again · updates the job (about $0.25)';
 export const BUSY = 'Reviewing again…';
 export const TITLE = 'Claude reviews the saved transcript again (one Claude Opus call, about $0.20-0.30): the review is replaced and the '
@@ -17,7 +19,8 @@ export const START = 'Claude is reviewing the interview again (about a minute)�
 
 // [text, tone] for the page's message line after the call returns.
 export function doneMessage(result) {
-  if (!result?.ok) return [`Review again failed: ${result?.error || 'no answer'}. The job was not changed.`, 'error'];
+  if (!result?.ok) return [`Review again failed: ${result?.error ? humanError(result.error) : 'no answer'}. The job was not changed.`, 'error'];
+  if (result.already) return [result.summary, 'ok'];   // a second press inside the guard window runs nothing: say that, not "replaced"
   if (result.cloud) return ['Reviewing again on GitHub: the new review replaces the old one on the Notion page in a few minutes.', 'ok'];
   return [`${result.summary}. The review on the Notion page was replaced.`, 'ok'];
 }
