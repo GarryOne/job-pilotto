@@ -19,6 +19,7 @@ import {shouldNotify} from './lib/needs-you.js';
 import * as reminders from './lib/interview-reminders.js';
 import * as engineLog from './lib/engine-log.js';
 import * as requestLog from './lib/request-log.js';
+import * as notifyWatch from './lib/notify-watch.js';
 import {googleSecrets} from './lib/google-keys.js';
 import * as runHistory from './lib/run-history.js';
 import * as interviews from './lib/interviews.js';
@@ -391,14 +392,22 @@ function openTailoredCv(code) {
 // A macOS notification; clicking it brings the app to the front.
 // If macOS blocks notifications (common for an app run with npm start: "Electron" is off in System
 // Settings), the same message shows as a toast inside the window, with a one-time hint how to allow them.
-let notificationsBlocked = false;
+let notificationsBlocked = false, hintedMissing = false;
 function notify(title, body, onClick = null) {
   if (process.env.JOB_PILOTTO_SMOKE) return;
   const toast = hint => toWindow('toast', {title, body, hint});
-  if (!Notification.isSupported() || notificationsBlocked) { toast(false); return; }
+  if (!Notification.isSupported() || notificationsBlocked) { appLog('notify', 'window toast only', {title, blocked: notificationsBlocked}); toast(false); return; }
   const note = new Notification({title, body, silent: false});
   note.on('click', () => { window?.show(); window?.focus(); onClick?.(); });
-  note.on('failed', () => { const first = !notificationsBlocked; notificationsBlocked = true; toast(first); });
+  // Titles only in the log, never the body (it can name an employer or an interview).
+  notifyWatch.watch(note, {
+    onShown: () => appLog('notify', 'shown by macOS', {title}),
+    onFailed: () => { const first = !notificationsBlocked; notificationsBlocked = true; appLog('notify', 'macOS refused it: window toast instead', {title}); toast(first); },
+    onMissing: () => {
+      appLog('notify', 'macOS never showed it (notifications not allowed for this app?): window toast and Dock bounce instead', {title, dev: !app.isPackaged});
+      toast(!hintedMissing); hintedMissing = true;
+      if (!window?.isFocused()) app.dock?.bounce('informational');
+    }});
   note.show();
 }
 
@@ -1883,6 +1892,7 @@ async function focusReminder(now = new Date()) {
   if (settings.lastFocusReminder === key) return;
   storage.saveSettings({lastFocusReminder: key});
   const text = await pipeline.focusReminder(storage, true);
+  appLog('focus', `reminder ${key}: ${text ? 'sent' : 'nothing worth saying'}`, {chars: text.length});
   if (text) notify('Focus: what to do next', text);
 }
 
