@@ -1,7 +1,7 @@
 // A session's state on the session page: ready for review, asking you, working, and how long it took.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {SESSION_STATE, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
+import {SESSION_STATE, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
 
 test('a filled form waiting for you is "ready for review"; a message ending on your question is not', () => {
   const report = 'The N26 form is filled and open in Chrome. Nothing was submitted.\n\n**Left for you:**\n' +
@@ -88,4 +88,14 @@ test('a waiting session whose form is complete is ready for review, whatever Cla
   assert.equal(sessionReview(asked, true), true);  // every required field filled: it is moot
   assert.deepEqual(sessionState(asked, true), ['Ready to submit', 'good']);
   assert.deepEqual(sessionState(asked, false), ['Question for you', 'warn']);
+});
+
+test('the dock counts and orders sessions like the list: closed forms are not active, and sort after the open one', () => {
+  const form = (id, status = 'done') => ({id, kind: 'form', status, live: false, endedAt: '2026-10-02T03:00:00Z', note: 'Form open in Chrome'});
+  const items = [form('openai-1'), form('openai-2'), form('amazon'), {id: 'ue', kind: 'claude', status: 'input', live: true, question: 'Which visa?'}];
+  const gone = item => ['openai-1', 'openai-2'].includes(item.id);
+  assert.deepEqual(dockCounts(items, gone), {active: 1, waiting: 1});          // the open Amazon form; the question
+  assert.deepEqual(dockCounts(items), {active: 3, waiting: 1});                // without the tab report: all three forms look open
+  const shown = [...items].sort((a, b) => dockOrder(a, gone) - dockOrder(b, gone)).map(item => item.id);
+  assert.deepEqual(shown, ['ue', 'amazon', 'openai-1', 'openai-2']);
 });

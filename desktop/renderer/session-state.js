@@ -25,6 +25,16 @@ export const sessionState = (item, formReady = false) => (item?.outcome === 'sub
   : item.kind === 'form' && !formReady && sessionReview(item, formReady) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
   : sessionReview(item, formReady) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
     : SESSION_STATE[item.status] || SESSION_STATE.ended);
+// The dock's two pills and its card order, from the same state the sessions list shows: a form whose Chrome tab was closed
+// (`gone`) is neither active nor waiting, and sorts last, so an open form is never hidden behind closed ones (2 Oct 2026:
+// the dock said "Form open" for two closed forms and left out the one that was open).
+const WORKING = ['Applying', 'Form open', 'Ready to submit'];
+export const dockCounts = (items, gone = () => false) => ({
+  active: items.filter(item => !gone(item) && WORKING.includes(sessionState(item)[0])).length,
+  waiting: items.filter(item => !gone(item) && item.status === 'input').length,
+});
+const DOCK_ORDER = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
+export const dockOrder = (item, gone = () => false) => gone(item) ? 9 : (DOCK_ORDER[item.status] ?? 5);
 // Did the form page's panel answer the app (what "Open filled form" returns)? Only when it didn't is the "Reload the
 // tab" repair offered: reloading a form page loses what was typed in it since the last save, so it must not be a
 // button to press by habit next to Open filled form (1 Oct 2026).

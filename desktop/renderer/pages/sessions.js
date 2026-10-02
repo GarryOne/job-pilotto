@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {asksYou, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
+import {asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
@@ -15,7 +15,8 @@ import {toastMessage} from './startup.js';
 
 // Other pages import these from here.
 // The state other pages show uses the form page's state too: ready to submit once the form says so.
-const sessionStatus = item => sessionState(item, formReady(item));
+const closedForm = item => item.kind === 'form' && formGone(item);  // its Chrome tab was closed
+const sessionStatus = item => (closedForm(item) ? ['Form closed', 'neutral'] : sessionState(item, formReady(item)));
 export {firstLine, isLive, sessionDuration, sessionReview, sessionStatus as sessionState};
 export const SESSION_PILL = {running: {label: 'Applying', tone: 'info'}, input: {label: 'Needs input', tone: 'warn'}, done: {label: 'Form filled', tone: 'good'}};
 export let sessionList = [], logChoice = {};
@@ -94,13 +95,12 @@ export function renderDock() {
   const onSessionsPage = !document.querySelector('.view[data-view="sessions"]')?.hidden;
   show($('sessions-dock'), sessionList.length > 0 && !onSessionsPage);
   if (!sessionList.length) return;
-  const running = sessionList.filter(isLive).length, waiting = sessionList.filter(item => item.status === 'input').length;
+  const {active: running, waiting} = dockCounts(sessionList, closedForm);
   // Two pills: how many are active (blue), how many wait for you (amber).
   $('sd-summary').replaceChildren(pill(`${running} active`, 'info'), ...(waiting ? [pill(`${waiting} need${waiting === 1 ? 's' : ''} input`, 'warn')] : []));
   $('sd-toggle').setAttribute('aria-expanded', shared.dockOpen);
   $('sessions-dock').classList.toggle('is-closed', !shared.dockOpen);
-  const order = {input: 0, running: 1, done: 2, failed: 3, ended: 4};
-  const shown = [...(live.length ? live : sessionList)].sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5)).slice(0, 3);
+  const shown = [...(live.length ? live : sessionList)].sort((a, b) => dockOrder(a, closedForm) - dockOrder(b, closedForm)).slice(0, 3);
   $('sd-cards').replaceChildren(...shown.map(item => {
     const [label, tone] = sessionStatus(item);
     const card = el('div', `sd-card tone-${tone}`);
