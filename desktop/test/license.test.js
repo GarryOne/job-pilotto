@@ -34,14 +34,15 @@ test('a key is checked for kind, end date and withdrawal, with words the user ca
   assert.match(check('hello', {now: NOW, publicKey}).error, /JP1/);
 });
 
-test('free for 30 applications OR 60 days, whichever lasts longer', () => {
+test('free for the allowance OR 60 days, whichever lasts longer', () => {
   const at = (applied, ago) => allowance({applied, firstRunAt: days(ago), now: NOW, publicKey});
   assert.equal(at(12, 19).ended, false);
   assert.equal(at(12, 19).daysLeft, 41);
-  assert.equal(at(30, 10).ended, false, '30 used but still in the first 60 days');
-  assert.equal(at(5, 90).ended, false, '60 days passed but fewer than 30 applications');
-  assert.equal(at(30, 60).ended, true);
-  assert.equal(at(45, 200).ended, true);
+  assert.equal(FREE_APPLICATIONS, 40, 'the allowance to test: 40 applications');
+  assert.equal(at(FREE_APPLICATIONS, 10).ended, false, 'the allowance used but still in the first 60 days');
+  assert.equal(at(5, 90).ended, false, '60 days passed but fewer applications than the allowance');
+  assert.equal(at(FREE_APPLICATIONS, 60).ended, true);
+  assert.equal(at(FREE_APPLICATIONS + 15, 200).ended, true);
 });
 
 test('a valid key lifts the limit; a bad one leaves it and says why', () => {
@@ -54,9 +55,9 @@ test('a valid key lifts the limit; a bad one leaves it and says why', () => {
 });
 
 test('the words: counters while free, the end, and who holds the key', () => {
-  assert.equal(text({licensed: false, ended: false, used: 12, limit: 30, daysLeft: 41}), '12 of 30 free applications · 41 days left');
-  assert.equal(text({licensed: false, ended: false, used: 12, limit: 30, daysLeft: 1}), '12 of 30 free applications · 1 day left');
-  assert.match(text({licensed: false, ended: true, used: 31, limit: 30, daysLeft: 0}), /free period over/);
+  assert.equal(text({licensed: false, ended: false, used: 12, limit: 40, daysLeft: 41}), '12 of 40 free applications · 41 days left');
+  assert.equal(text({licensed: false, ended: false, used: 12, limit: 40, daysLeft: 1}), '12 of 40 free applications · 1 day left');
+  assert.match(text({licensed: false, ended: true, used: 41, limit: 40, daysLeft: 0}), /free period over/);
   assert.equal(text({licensed: true, license: {name: 'Ana', kind: 'founder', until: null}}), 'Licensed to Ana · founder key');
 });
 

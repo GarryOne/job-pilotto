@@ -174,6 +174,9 @@ ${(data.plan?.head || []).map(item => `<tr><td><code>${esc(item.fingerprint)}</c
 <table style="margin-top:8px"><tr><th>Question</th><th>Kind</th><th>Times</th><th>Installs</th><th>Boards</th></tr>
 ${(data.knowledge?.questions || []).slice(0, 15).map(row => `<tr><td>${esc(row.label)}</td><td>${esc(row.kind)}</td><td>${row.n}</td><td>${row.installs}</td><td class="muted">${esc((row.boards || []).slice(0, 3).join(', '))}</td></tr>`).join('')
   || '<tr><td colspan="5" class="muted">No question has reached 3 installs yet.</td></tr>'}</table>
+<table style="margin-top:8px"><tr><th>Board</th><th>How applications went (told by users, last 7 days)</th></tr>
+${Object.entries((data.knowledge?.outcomes || []).reduce((all, row) => { (all[row.board] ||= []).push(`${esc(row.outcome)} <b>×${row.n}</b>`); return all; }, {})).slice(0, 12)
+  .map(([board, parts]) => `<tr><td>${esc(board)}</td><td>${parts.join(' · ')}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">No outcomes told yet.</td></tr>'}</table>
 <table style="margin-top:8px"><tr><th>Board</th><th>Where applications got to</th></tr>
 ${Object.entries((data.knowledge?.flows || []).reduce((all, row) => { (all[row.board] ||= []).push(`${esc(row.state)} <b>×${row.n}</b>`); return all; }, {})).slice(0, 12)
   .map(([board, parts]) => `<tr><td>${esc(board)}</td><td>${parts.join(' · ')}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">No flow outcomes yet.</td></tr>'}</table></section>

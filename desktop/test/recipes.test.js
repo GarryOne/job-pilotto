@@ -137,3 +137,29 @@ test('a failed send keeps the questions and flow counts for the next try', async
   assert.equal((await reporter.flush()).sent, 2);
   assert.deepEqual([calls[1].questions.length, calls[1].flows], [1, [{board: 'lever', state: 'account', n: 1}]]);
 });
+
+test('how an application went is batched by board, outcome and days; anything else is refused; off with the privacy switch', async () => {
+  const storage = tempStorage(), calls = [];
+  const fetcher = async (url, init = {}) => {
+    if (new URL(url).pathname === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+    calls.push(JSON.parse(init.body));
+    return {ok: true, status: 200, json: async () => ({ok: true})};
+  };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  reporter.application({board: 'greenhouse', outcome: 'reply', days: '8-14'});
+  reporter.application({board: 'greenhouse', outcome: 'reply', days: '8-14', company: 'Grafana', url: 'https://x.test'});
+  reporter.application({board: 'h:0123456789', outcome: 'rejected', days: ''});
+  reporter.application({board: 'greenhouse', outcome: 'hired', days: '8-14'});     // not an outcome
+  reporter.application({board: 'greenhouse', outcome: 'reply', days: 'a week'});   // not a bucket
+  reporter.application({board: 'bad board!', outcome: 'reply', days: ''});
+  reporter.application(null);
+  await reporter.flush();
+  assert.deepEqual(calls[0].applications, [{board: 'greenhouse', outcome: 'reply', days: '8-14', n: 2}, {board: 'h:0123456789', outcome: 'rejected', days: '', n: 1}]);
+  assert.equal(JSON.stringify(calls[0]).includes('Grafana'), false);
+  storage.saveSettings({telemetry: false});
+  const off = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  off.application({board: 'greenhouse', outcome: 'reply', days: '8-14'});
+  calls.length = 0;
+  await off.flush();
+  assert.equal(calls.length, 0);
+});

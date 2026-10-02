@@ -507,6 +507,12 @@ export async function notSubmitted(storage, url) {
   const {stdout} = await run(storage, ['src.desktop', 'not-submitted', url]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{"ok":false}');
 }
+// The user said how an application went (desktop/lib/outcomes.js): the same stage event the Gmail check writes, in Notion.
+export async function markOutcome(storage, url, stage) {
+  const {code, stdout} = await run(storage, ['src.notion.ledger', 'event', url, stage, '--note', 'Marked in Job Pilotto', '--source', 'CLI']);
+  const last = stdout.trim().split('\n').filter(Boolean).pop() || '';
+  return code === 0 ? {ok: true, stage} : {ok: false, error: last || 'Notion did not take it'};
+}
 export async function setStatus(storage, url, status) {
   const {stdout} = await run(storage, ['src.desktop', 'status', url, status]);
   return JSON.parse(stdout.trim().split('\n').pop() || '{}');

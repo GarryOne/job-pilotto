@@ -1,11 +1,25 @@
-// Settings → License: the free allowance ("12 of 30 free applications · 41 days left"), pasting a key (checked on this
+// Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 // Mac, lib/license.js), and the friendly dialog when the allowance ends (main asks for it, 'allowance' event).
 import {$, message} from './core.js';
 import {openSetting} from './settings.js';
+import {chip} from '../license-chip.js';
 
 const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass'};
 
+// The sidebar counter: "28 free applications left" with a thin bar; a click opens Settings → License. Hidden for a licensed install.
+function showChip(state) {
+  const shown = chip(state);
+  const button = $('allowance-chip');
+  button.hidden = !shown;
+  if (!shown) return;
+  $('allowance-chip-text').textContent = shown.text;
+  button.title = shown.title;
+  button.dataset.tone = shown.tone;
+  $('allowance-chip-fill').style.width = `${shown.percent}%`;
+}
+
 export function showLicense(state) {
+  showChip(state);
   const {licensed, ended} = state;
   $('license-pill').textContent = licensed ? `${KIND[state.license.kind]} key` : ended ? 'Free period over' : 'Free';
   $('license-pill').className = `ui-pill tone-${licensed ? 'good' : ended ? 'warn' : 'info'}`;
@@ -16,7 +30,7 @@ export function showLicense(state) {
   $('license-bar').firstElementChild.style.width = `${Math.max(2, Math.min(100, state.used / state.limit * 100))}%`;
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
     : ended ? 'New applications, kits and searches are paused. Tracking, Notion, export and your data keep working.'
-      : 'Free until you reach 30 applications and 60 days have passed, whichever comes later.';
+      : `Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later.`;
   $('license-paste').hidden = licensed;
   $('license-held').hidden = !licensed;
   $('license-holder').textContent = licensed ? `${state.license.name} · ${KIND[state.license.kind]} key${state.license.until ? ` · until ${state.license.until}` : ''}` : '';
@@ -36,6 +50,10 @@ async function unlock(input, messageId) {
 export async function init() {
   const refresh = async () => showLicense(await window.pilot.license());
   await refresh();
+  $('allowance-chip').addEventListener('click', () => openSetting('license'));
+  // The count moves as applications are sent: look again now and then, and when the window comes back to the front.
+  setInterval(() => refresh().catch(() => {}), 10 * 60 * 1000);
+  window.addEventListener('focus', () => refresh().catch(() => {}));
   document.querySelector('[data-settings-go="license"]').addEventListener('click', refresh);
   $('license-save').addEventListener('click', () => unlock($('license-input'), 'license-message'));
   $('license-input').addEventListener('keydown', event => { if (event.key === 'Enter') unlock($('license-input'), 'license-message'); });

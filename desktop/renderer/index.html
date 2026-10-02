@@ -295,6 +295,7 @@
     <div class="notion-links" id="notion-links" hidden></div>
     <div class="sidebar-bottom">
       <button class="nav" data-view="settings"><i data-icon="settings"></i>Settings</button>
+      <button class="allowance-chip" id="allowance-chip" hidden aria-live="polite"><span class="allowance-chip-text" id="allowance-chip-text"></span><span class="allowance-chip-bar"><i id="allowance-chip-fill"></i></span></button>
       <button class="nav" id="nav-feedback" title="Tell the maker what works and what doesn't"><i data-icon="chat"></i>Send feedback</button>
       <button class="theme-toggle" id="theme-toggle" title="Switch theme"><i data-icon="moon"></i><span id="theme-toggle-label">Dark theme</span></button>
       <button class="palette-hint" id="palette-hint" title="Search every command"><kbd>⌘K</kbd><span>Search &amp; commands</span></button>
@@ -1131,7 +1132,7 @@
           </div>
         </div>
         <div class="settings-page" data-settings-page="license" hidden>
-          <div class="settings-page-head"><h2>License</h2><p class="muted">Free for your first 30 applications or 60 days. A key from Igor lifts the limit.</p></div>
+          <div class="settings-page-head"><h2>License</h2><p class="muted">Free for your first 40 applications or 60 days. A key from Igor lifts the limit.</p></div>
           <div class="setting panel" id="setting-license">
             <div class="panel-top"><div class="summary-head"><i data-icon="zap"></i><h3>Your allowance</h3><span class="ui-pill" id="license-pill"></span></div></div>
             <div class="fact-row"><div><span class="muted">Applications</span><b id="license-used"></b></div>
@@ -1174,7 +1175,7 @@
               (matches, forms filled, replies, interviews, offers), so it gets better for everyone. Never your answers, CV, emails,
               names, companies or keys: removed on this Mac before anything is sent. With this on, Job Pilotto also asks our service
               for shared fixes to controls it struggles with (it sends only the control's anonymous shape, never its text) and tells
-              you in the form panel when it used one. Off: no reports and no shared fixes; everything else works as before.</p>
+              you in the form panel when it used one. If you tell Job Pilotto how an application went (a reply, an interview, an offer, a rejection), it is counted by job board and days only, never the company or the role. Off: no reports and no shared fixes; everything else works as before.</p>
             <details class="telemetry-shown"><summary>See what's sent</summary><pre class="log" id="telemetry-events">Nothing sent yet.</pre></details>
           </div>
           <div class="setting panel" id="setting-pool">
@@ -1453,7 +1454,7 @@
 <dialog id="allowance-dialog" class="panel-dialog">
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="zap"></i></span>
-      <h2>Free for your first 30 applications</h2>
+      <h2>Free for your first 40 applications</h2>
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
     <p class="dialog-lead" id="allowance-lead">You have used your free allowance. Ask Igor for a founder key to keep starting new applications.

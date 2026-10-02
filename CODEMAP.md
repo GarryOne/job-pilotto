@@ -45,7 +45,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
-- `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 30 applications
+- `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 40 applications
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log (1 MB, then app.log.1), and the console.
 - `desktop/lib/migrate.js` — One-time moves of user data from this Mac to Notion, the source of truth (the Mac keeps only keys, large
@@ -55,6 +55,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/notion-pace.js` — One Notion pace for every process on this computer that uses the same Notion connection: the app, the Python
 - `desktop/lib/notion-workspace.js` — Connecting to the user's Notion with a token (pasted, or from "Connect with Notion"): find their Job Pilotto
 - `desktop/lib/notion.js` — The user's Notion is their Job Pilotto interface. This module connects the app to their copy of the
+- `desktop/lib/outcomes.js` — "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
 - `desktop/lib/pool-share.js` — "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): on by default for new installs, off for
@@ -109,7 +110,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 - `desktop/renderer/pages/interviews.js` — Interviews page.
 - `desktop/renderer/pages/jobs.js` — Jobs: the list, adding jobs and messages, questions to answer once.
-- `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 30 free applications · 41 days left"), pasting a key (checked on this
+- `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
@@ -152,10 +153,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
+- `desktop/renderer/license-chip.js` — The small counter in the sidebar ("28 free applications left"): where the user stands, at a glance (the numbers come from lib/license.js).
 - `desktop/renderer/mail-report.js` — A Gmail check's message as the parts of it the owner reads. src/ai/mail.py writes the lines (prep_message and the
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back
 - `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents. Order matters: the
+- `desktop/renderer/outcome-tap.js` — The "How did it go?" choices on a job's menu: which outcomes make sense for the stage it is at (desktop/lib/outcomes.js writes them).
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/practice-session.js` — Interviews → Insights → "Start practice session": rehearse the "Practice next" steps out loud, one at a time, with a
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item

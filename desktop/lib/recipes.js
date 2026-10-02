@@ -13,6 +13,7 @@ export const SITE = 'https://www.jobpilotto.workers.dev';
 const CACHE = 'recipes-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 const FLUSH_MS = 5 * 60 * 1000;
+const OUTCOME_IDS = ['reply', 'screening', 'offer', 'rejected', 'no_response'];
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
 
 const enabled = storage => storage.settings().telemetry !== false;
@@ -66,7 +67,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -108,6 +109,14 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       }
       schedule();
     },
+    // How an application went (lib/outcomes.js anonymous): counted by board, outcome and coarse days. No company, no role, no address.
+    application(item) {
+      if (!enabled(storage) || !item || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(item.board || ''))
+        || !OUTCOME_IDS.includes(item.outcome) || !['', '0-3', '4-7', '8-14', '15-30', '31+'].includes(item.days || '')) return;
+      const key = `${item.board}|${item.outcome}|${item.days || ''}`;
+      applications.set(key, {board: item.board, outcome: item.outcome, days: item.days || '', n: (applications.get(key)?.n || 0) + 1});
+      schedule();
+    },
     // What happened on one page of an application (lib/question-labels.js flowState), counted per board.
     flow(board, state) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || '')) || !FLOW_STATES.includes(state)) return;
@@ -127,20 +136,22 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     async flush() { return flush(); },
   };
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size)) return {sent: 0};
+    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size)) return {sent: 0};
     const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n})),
-      questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20)};
-    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse};
+      questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
+      applications: [...applications.values()].slice(0, 20)};
+    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse, applications};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
     questions = new Map();
     flows = new Map();
     aliasUse = new Map();
+    applications = new Map();
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
-      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try
@@ -152,6 +163,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       for (const [board, n] of taken.fills) fills.set(board, (fills.get(board) || 0) + n);
       for (const [key, entry] of taken.questions) questions.set(key, entry);
       for (const [key, entry] of taken.flows) flows.set(key, {...entry, n: entry.n + (flows.get(key)?.n || 0)});
+      for (const [key, entry] of taken.applications) applications.set(key, {...entry, n: entry.n + (applications.get(key)?.n || 0)});
       for (const [key, entry] of taken.aliasUse) { const again = aliasUse.get(key) || {phrase: key, ok: 0, failed: 0}; again.ok += entry.ok; again.failed += entry.failed; aliasUse.set(key, again); }
       return {sent: 0};
     }

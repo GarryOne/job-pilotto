@@ -67,3 +67,15 @@ test('only the owner reads the knowledge; the daily limit counts questions and f
   for (let i = 0; i < 20 && last === 200; i++) last = (await send(e, 'install-limit-0001', {questions: many})).status;
   assert.equal(last, 429);
 });
+
+test('application outcomes add up per board, outcome and days; nothing else is stored; unknown values are refused', async () => {
+  const e = env();
+  e.STATS.db.exec(readFileSync(new URL('../migrations/0013_application_outcomes.sql', import.meta.url), 'utf8'));
+  await send(e, 'install-aaaa-1111', {applications: [{board: 'greenhouse', outcome: 'reply', days: '8-14', n: 1}, {board: 'greenhouse', outcome: 'reply', days: '8-14', n: 2},
+    {board: 'ashby', outcome: 'rejected', days: '', n: 1}, {board: 'ashby', outcome: 'hired', days: '4-7', n: 1}, {board: 'bad board', outcome: 'offer', days: '4-7', n: 1},
+    {board: 'lever', outcome: 'offer', days: '99 days', n: 1}, {company: 'Grafana', board: 'lever', outcome: 'offer', days: '0-3', n: 1}]});
+  const rows = e.STATS.db.prepare('SELECT board, outcome, days, n FROM application_outcomes ORDER BY board, outcome').all().map(r => ({...r}));
+  assert.deepEqual(rows, [{board: 'ashby', outcome: 'rejected', days: '', n: 1}, {board: 'greenhouse', outcome: 'reply', days: '8-14', n: 3}, {board: 'lever', outcome: 'offer', days: '0-3', n: 1}]);
+  assert.deepEqual(e.STATS.db.prepare('PRAGMA table_info(application_outcomes)').all().map(c => c.name), ['day', 'board', 'outcome', 'days', 'n']);   // no company, role, url or install
+  assert.deepEqual((await report(e.STATS, 7, day(2))).outcomes.map(o => [o.board, o.outcome, o.n]), [['ashby', 'rejected', 1], ['greenhouse', 'reply', 3], ['lever', 'offer', 1]]);
+});

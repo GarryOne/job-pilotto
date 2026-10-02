@@ -59,6 +59,7 @@ import * as learnedAnswers from './lib/learned.js';
 import * as misses from './lib/misses.js';
 import * as controlEvents from './lib/control-events.js';
 import * as recipeLibrary from './lib/recipes.js';
+import * as applicationOutcomes from './lib/outcomes.js';
 import * as aliasLibrary from './lib/aliases.js';
 import {flowState, unplaced} from './lib/question-labels.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
@@ -74,10 +75,11 @@ let notionRuns = null;
 let pendingCloud = [];
 const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
+let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
 const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
 // Where the user stands (demo mode: a fixed fictional state for screenshots).
-const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 30, daysLeft: 41, ended: false} : license.state());
+const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 40, daysLeft: 41, ended: false} : license.state());
 // Guard for what starts NEW work (Prepare kit, Fill in Chrome / Apply with Claude, manual searches): once the free allowance
 // is over and there is no key, the window says so and the action answers with why. Never used for what is already under way.
 function allowanceBlock() {
@@ -1130,6 +1132,17 @@ function handlers() {
       return result;
     });
   });
+  // "How did it go?" on a job: written to Notion like a stage the Gmail check found, then counted anonymously (lib/outcomes.js) if reports are on.
+  ipcMain.handle('markOutcome', async (_, input) => {
+    const outcome = String(input?.outcome || ''), url = String(input?.url || '');
+    const stage = applicationOutcomes.STAGES[outcome];
+    if (!stage || !url) return {ok: false, error: 'Unknown outcome.'};
+    if (DEMO) return {ok: true, stage};
+    appLog('outcome', `marked ${outcome} (${stage})`, {board: applicationOutcomes.anonymous({url, outcome})?.board || ''});
+    const result = await pipeline.markOutcome(storage, url, stage);
+    if (result.ok) recipeReporterRef?.application(applicationOutcomes.anonymous({url, outcome, appliedOn: input?.appliedOn}));
+    return result;
+  });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.
@@ -1597,6 +1610,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   terminals.onChange((event, payload) => toWindow('session', event, payload));
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
   const recipeReporter = recipeLibrary.createReporter(storage);
+  recipeReporterRef = recipeReporter;
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints));
   server.setAliasesHandler(() => aliasLibrary.lookup(storage));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with

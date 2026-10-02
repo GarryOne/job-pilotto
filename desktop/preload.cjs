@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('pilot', {
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
   onLeadStep: callback => ipcRenderer.on('leadStep', (_, step) => callback(step)),
   onPrepStep: callback => ipcRenderer.on('prepStep', (_, step) => callback(step)),
+  markOutcome: call('markOutcome'),
   license: call('license'), licenseSet: call('licenseSet'), licenseRemove: call('licenseRemove'),
   onAllowance: callback => ipcRenderer.on('allowance', (_, state) => callback(state)),
   telemetryRecord: call('telemetryRecord'), telemetryShown: call('telemetryShown'), telemetrySet: call('telemetrySet'),

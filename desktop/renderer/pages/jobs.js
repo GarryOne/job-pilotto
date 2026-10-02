@@ -13,6 +13,7 @@ import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, sessionList, sessionsLoaded} from './sessions.js';
 import {toastMessage} from './startup.js';
 import {openFeedback} from './feedback.js';
+import {outcomeChoices} from '../outcome-tap.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
 let leftOpenAsked = false;  // the start-up question about sessions left open was asked (once per launch)
@@ -353,6 +354,22 @@ export function renderJobs() {
           const result = await window.pilot.tailorCv(job.code, `${job.title} · ${job.company}`);
           if (result.ok) job.tailored = true; else toastMessage('Tailoring failed', result.error || 'Try again.');
         })});
+    }
+    // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,
+    // by job board and days only, when Technical reports are on. It is how Job Pilotto learns which applications get answers.
+    const choices = job.url ? outcomeChoices(job.stage) : [];
+    if (choices.length) {
+      menu.push('-');
+      for (const choice of choices) {
+        menu.push({icon: choice.icon, label: choice.label, title: choice.title, run: async () => {
+          const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on}).catch(error => ({ok: false, error: error.message}));
+          if (!result.ok) { toastMessage('Not saved', result.error || 'Try again.'); return; }
+          if (choice.outcome !== 'reply') job.stage = result.stage;   // a reply is an event only: the stage stays where it is
+          toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in Notion.`);
+          renderJobs();
+          loadJobs();
+        }});
+      }
     }
     // Actions read as verbs (the Status column shows where a job stands).
     menu.push('-');

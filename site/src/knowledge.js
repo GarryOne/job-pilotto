@@ -7,6 +7,7 @@ import {allowed} from './stats.js';
 
 export {cleanLabel};
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
+export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response'], DAY_BUCKETS = ['', '0-3', '4-7', '8-14', '15-30', '31+'];
 export const MIN_INSTALLS = 3, KEEP_SINGLE_DAYS = 14, KEEP_FLOW_DAYS = 180;
 const BOARD = /^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/;
 const day = date => date.toISOString().slice(0, 10);
@@ -19,7 +20,7 @@ const merge = (json, value, max) => {
 
 // -> {questions, flows} stored.
 export async function store(env, body, install, now = new Date()) {
-  let questions = 0, flows = 0;
+  let questions = 0, flows = 0, applications = 0;
   if (!env.STATS) return {questions, flows};
   const who = (await digestOf(String(install || 'anonymous'))).slice(0, 8);
   for (const item of (Array.isArray(body?.questions) ? body.questions : []).slice(0, 40)) {
@@ -44,7 +45,15 @@ export async function store(env, body, install, now = new Date()) {
       .bind(day(now), board, state, n).run();
     flows++;
   }
-  return {questions, flows};
+  for (const item of (Array.isArray(body?.applications) ? body.applications : []).slice(0, 20)) {
+    const board = String(item?.board || ''), outcome = String(item?.outcome || ''), days = String(item?.days || '');
+    const n = Math.max(0, Math.min(100, Math.round(Number(item?.n)) || 0));
+    if (!BOARD.test(board) || !OUTCOMES.includes(outcome) || !DAY_BUCKETS.includes(days) || !n) continue;
+    await env.STATS.prepare('INSERT INTO application_outcomes (day, board, outcome, days, n) VALUES (?, ?, ?, ?, ?) ON CONFLICT (day, board, outcome, days) DO UPDATE SET n = n + excluded.n')
+      .bind(day(now), board, outcome, days, n).run();
+    applications++;
+  }
+  return {questions, flows, applications};
 }
 
 // Daily: a question only one or two installs ever reported is not kept; old flow counts roll off.
@@ -57,6 +66,7 @@ export async function tidy(db, now = new Date()) {
     try { count = JSON.parse(row.installs).length; } catch { /* unreadable: drop */ }
     if (count < MIN_INSTALLS) { await db.prepare('DELETE FROM question_labels WHERE label = ?').bind(row.label).run(); dropped++; }
   }
+  await db.prepare('DELETE FROM application_outcomes WHERE day < ?').bind(day(new Date(now.getTime() - 365 * 86400000))).run().catch(() => {});
   await db.prepare('DELETE FROM flow_outcomes WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_FLOW_DAYS * 86400000))).run();
   return {dropped};
 }
@@ -68,7 +78,8 @@ export async function report(db, days = 7, now = new Date(), limit = 100) {
     boards: (() => { try { return JSON.parse(row.boards); } catch { return []; } })(), last: row.last_day})).filter(row => row.installs >= MIN_INSTALLS).slice(0, limit);
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const flows = (await db.prepare('SELECT board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ? GROUP BY board, state ORDER BY board, n DESC').bind(from).all()).results || [];
-  return {questions, flows};
+  const outcomes = (await db.prepare('SELECT board, outcome, SUM(n) AS n FROM application_outcomes WHERE day >= ? GROUP BY board, outcome ORDER BY board, n DESC').bind(from).all().catch(() => ({results: []}))).results || [];
+  return {questions, flows, outcomes};
 }
 
 // GET /api/knowledge (owner).

@@ -1,4 +1,4 @@
-// The free allowance and license keys (Stage 1: checked here, offline). Free for the first 30 applications
+// The free allowance and license keys (Stage 1: checked here, offline). Free for the first 40 applications
 // (Stage Applied or later) or the first 60 days since this app first ran, whichever lasts longer. After that only NEW
 // work pauses (Prepare kit, Fill in Chrome / Apply with Claude, manual searches); tracking, Notion, export and data
 // keep working, and nothing is cut mid-application. A key signed by the owner (Ed25519, tools/license.py in the private
@@ -7,7 +7,9 @@
 import crypto from 'node:crypto';
 
 export const PUBLIC_KEY = 'cfYdshTDuVKHsd89v28_UbZieTTEpId-sKptFb1vu40';  // the owner's public key (raw Ed25519, base64url)
-export const FREE_APPLICATIONS = 30, FREE_DAYS = 60;
+// 40 is the allowance to test (Notion: Pricing & Plans, 40-50 applications or 60 days); a reply takes 1-3 weeks, so the wall should come
+// after the first one has had time to arrive.
+export const FREE_APPLICATIONS = 40, FREE_DAYS = 60;
 export const KINDS = ['founder', 'friend', 'pass'];
 const DAY = 24 * 60 * 60 * 1000;
 // SPKI prefix for a raw Ed25519 public key, so node's crypto can load it.
