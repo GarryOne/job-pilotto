@@ -1,0 +1,153 @@
+// What an issue of the UI loop carries (a screenshot, the app's state, the logs, labels for severity and kind), how a repeat finding is recognised although the AI words it
+// differently, the human "confirmed" fast lane, and the "no longer seen" comment with the new screenshot. gh and the screenshot upload are stubs: no network.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {test} from 'node:test';
+import {triage} from '../triage.mjs';
+import {CONFIRMED, factsRows, issueBody, labelsFor, matchExisting, pickCandidate, screenshotOf, similar} from '../lib/triage.mjs';
+
+const RUN = 'https://github.com/o/r/actions/runs/777';
+const URL1 = 'https://raw.githubusercontent.com/o/r/pr-assets/ui-loop/fp/777-focus.png';
+
+function artifacts({ui = [], ai = [], failures = [], pngs = [], withAi = true, facts = null, logs = null} = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ev-'));
+  const dir = path.join(root, 'e2e-artifacts-focus');
+  fs.mkdirSync(dir, {recursive: true});
+  fs.writeFileSync(path.join(dir, 'ui-findings.json'), JSON.stringify(ui));
+  if (withAi) fs.writeFileSync(path.join(dir, 'ai-findings.json'), JSON.stringify({findings: ai}));
+  fs.writeFileSync(path.join(dir, 'suite-failures.json'), JSON.stringify(failures));
+  for (const name of pngs) fs.writeFileSync(path.join(dir, name), 'png');
+  if (facts) fs.writeFileSync(path.join(dir, 'ui-focus.json'), JSON.stringify(facts));
+  if (logs) { fs.mkdirSync(path.join(dir, 'logs')); for (const [name, text] of Object.entries(logs)) fs.writeFileSync(path.join(dir, 'logs', name), text); }
+  return root;
+}
+// A gh that remembers what it was asked: issues listed, created, commented, edited.
+function stub(initial = []) {
+  const state = {issues: initial, created: [], comments: [], edits: [], prComments: [], prs: [], labels: []};
+  const gh = args => {
+    const [a, b] = args;
+    if (a === 'issue' && b === 'list') return JSON.stringify(state.issues);
+    if (a === 'issue' && b === 'create') { state.created.push({title: args[3], body: args[5], labels: args[7]}); return ''; }
+    if (a === 'issue' && b === 'comment') { state.comments.push({number: args[2], body: args[4]}); return ''; }
+    if (a === 'issue' && b === 'edit') { state.edits.push(args.slice(2)); return ''; }
+    if (a === 'pr' && b === 'list') return JSON.stringify(state.prs);
+    if (a === 'pr' && b === 'comment') { state.prComments.push({number: args[2], body: args[4]}); return ''; }
+    if (a === 'label') { state.labels.push(args[2]); return ''; }
+    throw new Error(`unexpected gh call: ${args.join(' ')}`);
+  };
+  return {gh, state};
+}
+const publish = uploads => ({files}) => { const out = {}; for (const {from, to} of files) { uploads.push(to); out[to] = `https://raw.githubusercontent.com/o/r/pr-assets/${to}`; } return out; };
+const aiFinding = {view: 'focus', severity: 'medium', kind: 'layout', title: 'Header title overlaps DEV badge', detail: 'The DEV badge sits on top of the Focus title and covers the F.', suggestion: 'Move the badge.'};
+const openIssue = (number, title, kind, labels = [], comments = [], detail = 'The DEV badge sits on the Focus title.') => ({number, state: 'OPEN', title, body: `**MEDIUM** · ${kind} · found by the AI screenshot review\n\n${detail}`,
+  labels: [{name: 'auto-ui'}, {name: `fp:old${number}`}, ...labels.map(name => ({name}))], comments});
+
+test('an issue shows the screenshot, the app state, the severity and where to look', () => {
+  const body = issueBody({...aiFinding, id: 'fp1', source: 'ai-review'}, RUN, {suite: 'focus', screenshot: URL1, facts: {page: 'focus', aiEngineChosen: 'api', notionConnected: true, jobsInList: 0, situation: 'default'}, codeFile: 'desktop/renderer/pages/focus.js'});
+  assert.match(body, /^\*\*MEDIUM\*\* · layout · found by the AI screenshot review/);
+  assert.ok(body.includes(`![focus](${URL1})`));
+  assert.match(body, /\| Page \| focus \|/);
+  assert.match(body, /node suite\.mjs focus/);
+  assert.match(body, /desktop\/renderer\/pages\/focus\.js/);
+  assert.match(body, /e2e-artifacts-focus/);
+  assert.match(body, /fingerprint: fp1/);
+});
+
+test('the labels say severity, kind, view, suite and source, so the list can be filtered', () => {
+  assert.deepEqual(labelsFor({...aiFinding, severity: 'high', source: 'ai-review'}, 'focus'), ['severity:high', 'kind:layout', 'view:focus', 'suite:focus', 'source:ai-review']);
+});
+
+test('the app facts become table rows, empty ones left out', () => {
+  assert.deepEqual(factsRows({page: 'focus', settingsSection: '', aiEngineChosen: 'cli', notionConnected: false, jobsInList: 3, situation: 'x'}),
+    [['Page', 'focus'], ['AI engine', 'cli'], ['Notion connected', 'no'], ['Jobs in the list', '3'], ['Situation', 'x']]);
+});
+
+test('a new finding is filed with its screenshot (uploaded), facts and labels', () => {
+  const uploads = [], {gh, state} = stub();
+  const root = artifacts({ai: [aiFinding], pngs: ['ui-focus.png'], facts: {page: 'focus', jobsInList: 0}});
+  const out = triage({artifacts: root, runUrl: RUN, gh, publish: publish(uploads), repo: 'o/r'});
+  assert.equal(out.filed.length, 1);
+  assert.equal(uploads.length, 1);
+  assert.match(uploads[0], /^ui-loop\/[^/]+\/777-ui-focus\.png$/);
+  assert.match(state.created[0].body, /!\[focus\]\(https:\/\/raw\.githubusercontent\.com\/o\/r\/pr-assets\/ui-loop\//);
+  assert.match(state.created[0].body, /\| Page \| focus \|/);
+  assert.match(state.created[0].labels, /severity:medium.*kind:layout.*view:focus/);
+});
+
+test('a screenshot that cannot be uploaded does not stop the issue', () => {
+  const {gh, state} = stub();
+  const root = artifacts({ai: [aiFinding], pngs: ['ui-focus.png']});
+  triage({artifacts: root, runUrl: RUN, gh, publish: () => { throw new Error('push refused'); }, repo: 'o/r'});
+  assert.equal(state.created.length, 1);
+  assert.ok(!state.created[0].body.includes('!['));
+});
+
+test('the same problem worded differently is the same finding: a sighting is added, not a new issue', () => {
+  const {gh, state} = stub([openIssue(40, '[auto-ui] focus: DEV badge covers the page title', 'layout')]);
+  const root = artifacts({ai: [aiFinding], pngs: ['ui-focus.png']});
+  const out = triage({artifacts: root, runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.deepEqual([out.filed.length, out.again.length], [0, 1]);
+  assert.equal(state.comments[0].number, '40');
+  assert.match(state.comments[0].body, /^Seen again in run /);
+  assert.ok(state.comments[0].body.includes('!['), 'the new run\'s screenshot is in the comment');
+});
+
+test('an unrelated finding of the same page is its own issue', () => {
+  assert.equal(similar('Header title overlaps DEV badge', 'Side column missing from two-column layout') < 0.3, true);
+  const {gh, state} = stub([openIssue(40, '[auto-ui] focus: Side column missing from two-column layout', 'layout', [], [], 'The page shows one column; the side column is not there.')]);
+  const out = triage({artifacts: artifacts({ai: [aiFinding]}), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.deepEqual([out.filed.length, out.again.length], [1, 0]);
+  assert.equal(state.created.length, 1);
+});
+
+test('a human can confirm a finding: it is ready without a second sighting; a parked one is not', () => {
+  const real = openIssue(38, '[auto-ui] focus: x', 'text', [CONFIRMED]);
+  assert.equal(pickCandidate([real])?.number, 38);
+  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'text', [CONFIRMED, 'needs-human'])]), null);
+  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'functionality', [CONFIRMED])]), null, 'only kinds a UI change can fix');
+  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'text')]), null, 'unconfirmed with one sighting');
+  assert.equal(pickCandidate([openIssue(38, '[auto-ui] focus: x', 'text', [CONFIRMED, 'not-seen-latest'])]), null, 'a finding that no longer shows is not fixed');
+});
+
+test('a finding whose page was photographed and reviewed again but did not come back is marked, with the new screenshot', () => {
+  const uploads = [], {gh, state} = stub([openIssue(37, '[auto-ui] focus: Side column missing from two-column layout', 'layout')]);
+  state.prs = [{number: 99}];
+  const root = artifacts({ai: [], pngs: ['ui-focus.png']});
+  const out = triage({artifacts: root, runUrl: RUN, gh, publish: publish(uploads), repo: 'o/r'});
+  assert.equal(out.gone.length, 1);
+  assert.match(state.comments[0].body, /^Not seen in run /);
+  assert.ok(state.comments[0].body.includes('!['));
+  assert.ok(state.edits.some(edit => edit.includes('not-seen-latest')));
+  assert.equal(state.prComments[0].number, '99', 'the open fix pull request gets the same after-picture');
+});
+
+test('no review in that run means no "gone": the page was not looked at', () => {
+  const {gh, state} = stub([openIssue(37, '[auto-ui] focus: Side column missing from two-column layout', 'layout')]);
+  const out = triage({artifacts: artifacts({ai: [], pngs: ['ui-focus.png'], withAi: false}), runUrl: RUN, gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(out.gone.length, 0);
+  assert.equal(state.comments.length, 0);
+});
+
+test('a failed suite step carries the step\'s message, its screenshot and the last log lines', () => {
+  const uploads = [], {gh, state} = stub();
+  const step = 'a transcript fails to review';
+  const root = artifacts({failures: [{suite: 'focus', step, message: 'boom'}], pngs: ['failed-a-transcript-fails-to-review.png', 'last.png'], logs: {'engine.log': 'one\ntwo\nthree', 'app.log': 'app line'}});
+  triage({artifacts: root, runUrl: RUN, gh, publish: publish(uploads), repo: 'o/r'});
+  assert.match(uploads[0], /failed-a-transcript-fails-to-review|failed/);
+  assert.match(state.created[0].body, /<details>[\s\S]*three[\s\S]*<\/details>/);
+  assert.match(state.created[0].body, /boom/);
+});
+
+test('the candidate\'s screenshot is read from its issue or its latest comment', () => {
+  assert.equal(screenshotOf({body: `x ![a](${URL1}) y`, comments: []}), URL1);
+  assert.equal(screenshotOf({body: 'no image', comments: [{body: 'older ![a](https://raw.githubusercontent.com/o/r/pr-assets/a.png)'}, {body: `newer ![b](${URL1})`}]}), URL1);
+  assert.equal(screenshotOf({body: 'none', comments: []}), '');
+});
+
+test('matchExisting finds the issue by fingerprint first, then by the same view, kind and words', () => {
+  const issues = [openIssue(1, '[auto-ui] focus: Side column missing', 'layout'), openIssue(2, '[auto-ui] focus: DEV badge covers the title', 'layout')];
+  assert.equal(matchExisting({...aiFinding, id: 'zzz'}, issues)?.number, 2);
+  assert.equal(matchExisting({...aiFinding, kind: 'text', id: 'zzz'}, issues), null);
+});

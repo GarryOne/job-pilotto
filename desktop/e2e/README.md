@@ -119,3 +119,13 @@ journey step checks that nothing was queued to send. (2 Oct 2026: before this, t
 One suite took about 10 minutes, the slowest by far (the others 1 to 4). It is split into two that run at the same time, each on its own Notion page, and the waits were cut:
 the app's history poll (`JOB_PILOTTO_E2E_HISTORY_MS`), its resume wait (`JOB_PILOTTO_E2E_RESUME_MS`) and the watchdog's silence limit (`JOB_PILOTTO_E2E_IDLE_MS`) are shortened in the journey only
 (`desktop/lib/e2e-timing.js`), and the AI proxy's refusals ask for an immediate retry.
+
+## What the UI loop's issues carry
+`desktop/e2e/triage.mjs` (the first step of `ui-heal.yml`) reads every suite's artifacts and files one issue per problem. An issue has:
+- **Severity, kind, view, suite and source as labels** (`severity:high`, `kind:layout`, `view:focus`, `suite:activity`, `source:ai-review`), so the issue list can be filtered.
+- **The screenshot** (uploaded to the `pr-assets` branch under `ui-loop/<fingerprint>/`, an image link that outlives the Actions artifact), **the app's state** at that moment as a table, **where to look**
+  in the code, **how to reproduce** (`node suite.mjs <suite>`), and, for a failed step, the step's message, its failure screenshot and the last lines of the app's and the engine's logs.
+- **Repeats are recognised even when the AI words them differently** (same view and kind, alike words): the issue gets a "Seen again in run …" comment with that run's screenshot.
+- **"Not seen in run …"** when the page was photographed and reviewed again and the finding did not come back, with the new screenshot (also on the open fix pull request: its "after"), and the label `not-seen-latest`.
+- **`confirmed`** (a label a person adds): a finding that is real is ready for a fix without a second sighting. `wontfix-auto` closes a false positive for good; `needs-human` parks one.
+A fix pull request shows the finding's screenshot as "Before" and promises the "After" when a later run no longer sees it.

@@ -132,8 +132,15 @@ jobs:
             exit 1
           fi
           title=$(head -1 .heal/pr-body.md 2>/dev/null || echo "UI fix for #$number")
-          { sed -n '2,$p' .heal/pr-body.md 2>/dev/null || true; echo; echo "Fixes #$number"; echo
-            echo "Opened by the UI loop (after each scheduled end-to-end run) after the problem was seen in two end-to-end runs. Review it like any change; it never merges itself."; } > .heal/body.md
+          shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
+          { sed -n '2,$p' .heal/pr-body.md 2>/dev/null || true; echo
+            echo "## Before: the finding as the end-to-end run saw it"
+            if [ -n "$shot" ]; then echo "![before]($shot)"; echo; fi
+            echo "The issue #$number has the severity, the app's state, the logs and the run's artifacts."; echo
+            echo "## After"
+            echo "When a later end-to-end run photographs this page and the finding is gone, the loop comments here and on #$number with the new screenshot."; echo
+            echo "Fixes #$number"; echo
+            echo "Opened by the UI loop (after each scheduled end-to-end run) after the problem was seen in two end-to-end runs (or confirmed by a person with the label confirmed). Review it like any change; it never merges itself."; } > .heal/body.md
           branch="auto-fix/$id"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
