@@ -10,9 +10,24 @@ import {ensureSetUp} from '../lib/seed.mjs';
 export const minutes = 30;
 export const name = 'jobs';
 export async function run(ctx) {
-  const {page, proxy, feeds, token: NOTION, ARTIFACTS} = ctx;
+  const {proxy, feeds, token: NOTION, ARTIFACTS} = ctx;
+  let {page} = ctx;
   ctx.findings = [];
   await ensureSetUp(ctx);
+  await ctx.run("the app's next start links this workspace's Search settings page (so the check looks for this person's roles and places)", async () => {
+    // The fast seed connects Notion and marks setup done without a restart; the app links the existing Search settings page in its start-up migration (migrate.js), which is
+    // what a real person's next start does. Without it the engine keeps the example config (a data analyst in Amsterdam), drops every fixture job and the check finds "0 new jobs"
+    // (CI, 2 Oct 2026).
+    await ctx.relaunch();
+    page = ctx.page;
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    let linked = null;
+    for (let waited = 0; !linked && waited < 60000; waited += 2000) {
+      linked = await page.evaluate(async () => (await window.pilot.state()).settings?.notionIds?.NOTION_SEARCH_SETTINGS_PAGE || null);
+      if (!linked) await page.waitForTimeout(2000);
+    }
+    if (!linked) throw new Error("the app did not link this workspace's Search settings page within a minute of starting");
+  }, {needs: ctx.needs});
   await ctx.run('this suite starts with no jobs and no runs in its Notion page', async () => {
     const rows = [await emptyDatabase(NOTION, 'Job Matches — AI Scored'), await emptyDatabase(NOTION, 'Cronjob Runs')];
     console.log(`  cleared ${rows[0]} job row(s) and ${rows[1]} run row(s)`);
