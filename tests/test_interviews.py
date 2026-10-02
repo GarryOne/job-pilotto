@@ -60,7 +60,7 @@ class FakeTracker:
         return self.apps
 
     def page_text(self):
-        return 'SRE at Sonar; Kubernetes, AWS.'
+        return 'SRE at Acme; Kubernetes, AWS.'
 
     def _request(self, method, path, body):
         self.requests.append(body)
@@ -262,11 +262,11 @@ class InterviewTests(unittest.TestCase):
                        now=NOW, job_url='https://x.test/a-new')
         self.assertEqual(tracker.requests[0]['properties']['Application'], {'relation': [{'id': 'a-new'}]})
         # A job at a stage the candidate list leaves out (e.g. Saved) is looked up by its URL.
-        saved = app('s-1', 'Sonar', 'Saved', '')
+        saved = app('s-1', 'Acme', 'Saved', '')
         tracker = FakeTracker([])
         tracker.query_database = lambda database_id, filter_=None: (
             [] if database_id == ledger.EVENTS_DATABASE_ID else [saved] if filter_ and filter_.get('property') == 'Job URL' else [])
-        interviews.run(tracker, note='/interview Sonar\n' + 'Notes about the call. ' * 5, client=FakeClient(),
+        interviews.run(tracker, note='/interview Acme\n' + 'Notes about the call. ' * 5, client=FakeClient(),
                        now=NOW, job_url='https://x.test/s-1')
         self.assertEqual(tracker.requests[0]['properties']['Application'], {'relation': [{'id': 's-1'}]})
 
@@ -307,10 +307,10 @@ class InterviewTests(unittest.TestCase):
         try:
             # Owner's rule (30 Sep 2026): a recruiter screen held stays Screening (Interviewing starts with a
             # technical or hiring-manager round): no Stage change, and no second Screening event.
-            tracker = FakeTracker([app('l-1', 'Laelaps AI', 'Screening', '2026-09-23')])
+            tracker = FakeTracker([app('l-1', 'Zephyr AI', 'Screening', '2026-09-23')])
             tracker.events = [{'properties': {'Kind': {'type': 'select', 'select': {'name': 'Screening'}},
                                               'Application': {'type': 'relation', 'relation': [{'id': 'l-1'}]}}}]
-            interviews.run(tracker, note='/interview Laelaps screening\n' + 'Notes about the call. ' * 5,
+            interviews.run(tracker, note='/interview Zephyr screening\n' + 'Notes about the call. ' * 5,
                            client=FakeClient(), now=NOW)
             self.assertNotIn('Stage', tracker.updates[0][1] if tracker.updates else {})
             self.assertEqual(tracker.created, [])  # a Screening event is already logged
@@ -391,7 +391,7 @@ class InterviewTests(unittest.TestCase):
         self.assertEqual(''.join(c['paragraph']['rich_text'][0]['text']['content'] for c in toggles[0]['children']), named.strip())
 
     def test_linking_a_saved_interview_to_another_job(self):
-        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Sonar', 'Saved', '')])
+        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Acme', 'Saved', '')])
         page = interviews.save(tracker, SPOKEN, 'Call', now=NOW)
         self.assertNotIn('Application', tracker.requests[0]['properties'])
         self.assertEqual(interviews.link(tracker, page['id'], 'https://x.test/s-1'), 's-1')
@@ -408,7 +408,7 @@ class InterviewTests(unittest.TestCase):
         return ''.join(t['plain_text'] for t in rich), [t['text'].get('link') for t in rich]
 
     def test_a_job_line_tops_every_interview_page_and_follows_the_link(self):
-        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Sonar', 'Saved', '')])
+        tracker = NotionPages([app('g-1', 'Grafana Labs', 'Applied', '2026-09-20'), app('s-1', 'Acme', 'Saved', '')])
         page = interviews.save(tracker, SPOKEN, 'Call', now=NOW)
         self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 No job linked yet — link it in the Interviews page of the Job Pilotto app')
         interviews.link(tracker, page['id'], 'https://x.test/g-1')
@@ -419,7 +419,7 @@ class InterviewTests(unittest.TestCase):
         interviews.link(tracker, page['id'], 'https://x.test/s-1')  # again: idempotent
         lines = [b for b in tracker.blocks[page['id']] if b['type'] == 'paragraph' and b['paragraph']['rich_text'][0]['plain_text'].startswith('🔗')]
         self.assertEqual(len(lines), 1)
-        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 Job: Sonar · SRE')
+        self.assertEqual(self.first_line(tracker, page['id'])[0], '🔗 Job: Acme · SRE')
         interviews.link(tracker, page['id'])
         self.assertIn('No job linked yet', self.first_line(tracker, page['id'])[0])
 

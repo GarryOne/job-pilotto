@@ -20,10 +20,10 @@ class FocusHistoryTest(unittest.TestCase):
         tracker = mock.Mock()
         tracker.query_database.side_effect = lambda db, filter_=None: (
             [event('Replied', 'Northwind', '2026-09-29T10:00:00+00:00', 'You answered (marked done in Focus)'),
-             event('Feedback skipped', 'Laelaps AI', '2026-09-27T09:00:00+00:00')] if db == 'events' else [insight, unrated])
+             event('Feedback skipped', 'Zephyr AI', '2026-09-27T09:00:00+00:00')] if db == 'events' else [insight, unrated])
         with mock.patch.object(focus, 'EVENTS_DATABASE_ID', 'events'), mock.patch('src.ai.insights.INSIGHTS_DATABASE_ID', 'insights'):
             items = focus.history(tracker)
-        self.assertEqual([i['title'] for i in items], ['Replied to Northwind', 'Insight: Useful', 'Skipped asking Laelaps AI for feedback'])
+        self.assertEqual([i['title'] for i in items], ['Replied to Northwind', 'Insight: Useful', 'Skipped asking Zephyr AI for feedback'])
         self.assertEqual(items[1]['note'], 'Location limits your applications')
 
 

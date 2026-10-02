@@ -106,7 +106,7 @@ LEGAL_SUFFIXES = {'sa', 'ag', 'gmbh', 'sarl', 'sàrl', 'inc', 'ltd', 'llc', 'plc
 
 
 def company_key(name):
-    """A company name without case, punctuation or legal form: "SonarSource SA" -> "sonarsource"."""
+    """A company name without case, punctuation or legal form: "AcmeSource SA" -> "acmesource"."""
     words = re.sub(r'[^\w]+', ' ', (name or '').casefold().replace('.', '')).split()
     while len(words) > 1 and words[-1] in LEGAL_SUFFIXES:
         words.pop()
@@ -115,7 +115,7 @@ def company_key(name):
 
 def company_excluded(job):
     """True when the job's company is on config/preferences.json's excluded_companies list (the same company
-    whatever its legal form: "SonarSource SA" is "SonarSource")."""
+    whatever its legal form: "AcmeSource SA" is "AcmeSource")."""
     company = company_key(job.get('company'))
     return bool(company) and any(company == company_key(name) for name in PREFERENCES.get('excluded_companies', []))
 

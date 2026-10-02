@@ -43,7 +43,7 @@ class FocusTests(unittest.TestCase):
         self.assertEqual(today['applied'], 2)  # the same count as the chart's today
 
     def test_answers_come_first_then_interviews_then_applying(self):
-        rows = [row('a', 'Duvo.ai', 'SRE', stage='Screening'), row('b', 'Laelaps AI', 'Infra', stage='Screening'),
+        rows = [row('a', 'Duvo.ai', 'SRE', stage='Screening'), row('b', 'Zephyr AI', 'Infra', stage='Screening'),
                 row('c', 'Scale AI', 'Infra', interview='2026-09-29T09:00:00+02:00', stage='Interview scheduled'),
                 row('d', 'Grafana Labs', 'SRE UK', stage='Kit ready', applied=None, Fit_score={'type': 'number', 'number': 76})]
         events = [event('a', 'Reply received', '2026-09-27T10:00:00Z', 'Asked for times', 'gm1'),
@@ -56,7 +56,7 @@ class FocusTests(unittest.TestCase):
         self.assertEqual((reply['link'], reply['done']), ('https://mail.google.com/mail/u/0/#all/gm1', True))
         self.assertIn('yesterday', reply['detail'])
         self.assertIn('1 kit ready (Grafana Labs…)', result['items'][2]['detail'])
-        self.assertNotIn('Laelaps AI', [c for _, c in kinds])  # answered: a Replied event came after
+        self.assertNotIn('Zephyr AI', [c for _, c in kinds])  # answered: a Replied event came after
         self.assertEqual(result['summary'], 'Reply to recruiters first, then prepare for your interview.')
         self.assertEqual(result['items'][2]['meta'], ['1 application kit ready to review', '0 of 30 today'])
 

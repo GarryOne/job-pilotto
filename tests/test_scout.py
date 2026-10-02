@@ -9,9 +9,9 @@ from src.sources import ats
 from src import store as job_store
 from src import scout
 
-SEEDS = {'excluded': ['Sonar'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
+SEEDS = {'excluded': ['Acme'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
          'tier1': ['Farco'], 'manual_watch': [{'name': 'Walledco', 'careers': 'https://walled.test/jobs'}],
-         'regional': {'Zurich': ['Smallco', 'Sonar', 'Nofeed']}}
+         'regional': {'Zurich': ['Smallco', 'Acme', 'Nofeed']}}
 
 
 def posting(i, title='Site Reliability Engineer', location='Zurich, Switzerland', **extra):
@@ -53,12 +53,12 @@ class ScoutTests(unittest.TestCase):
     def test_companies_excluded_from_the_environment_are_never_harvested(self):
         seeds = dict(SEEDS, excluded=[])
         with tempfile.TemporaryDirectory() as tmp, \
-                mock.patch.dict('os.environ', {'JOB_PILOTTO_EXCLUDED_COMPANIES': ' Sonar , Other'}):
+                mock.patch.dict('os.environ', {'JOB_PILOTTO_EXCLUDED_COMPANIES': ' Acme , Other'}):
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 scout.harvest(db, seeds, sources=[lambda: scout.seed_candidates(seeds)])
                 names = {row['name'] for row in db.execute('SELECT name FROM scout_candidates')}
         self.assertIn('Smallco', names)
-        self.assertNotIn('Sonar', names)
+        self.assertNotIn('Acme', names)
 
     def test_tier1_first_found_low_none_and_exclusions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -69,7 +69,7 @@ class ScoutTests(unittest.TestCase):
                 self.assertEqual([c['name'] for c, _ in results][:3], ['Bigco', 'Farco', 'Walledco'])
                 self.assertEqual(outcome, {'Bigco': 'found', 'Farco': 'found', 'Walledco': 'manual',
                                            'Smallco': 'low', 'Nofeed': 'none'})
-                self.assertNotIn('Sonar', outcome)
+                self.assertNotIn('Acme', outcome)
                 self.assertEqual(summary['total_feeds'], 2)
                 sources = {(s['ats'], s['slug']) for s in scout.active_sources(db)}
                 self.assertEqual(sources, {('lever', 'bigco'), ('greenhouse', 'farco')})

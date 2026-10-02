@@ -36,8 +36,8 @@ test('past, rejected and time-less interviews give no reminder; a moved intervie
 });
 
 test('the notification says who, when, and to start the recording', () => {
-  const t = r.text({job: job('a', '2026-10-01T13:10:00Z', {company: 'Laelaps AI', title: 'Infrastructure Engineer'}), minutes: 10});
-  assert.equal(t.title, 'Interview with Laelaps AI starts in 10 minutes');
+  const t = r.text({job: job('a', '2026-10-01T13:10:00Z', {company: 'Zephyr AI', title: 'Infrastructure Engineer'}), minutes: 10});
+  assert.equal(t.title, 'Interview with Zephyr AI starts in 10 minutes');
   assert.match(t.body, /Infrastructure Engineer/);
   assert.match(t.body, /everyone agreed/);
   assert.equal(r.text({job: job('a', ''), minutes: 1}).title, 'Interview with Co a starts in 1 minute');

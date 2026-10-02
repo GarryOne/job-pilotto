@@ -84,7 +84,7 @@ test('strategy draft: CV as a PDF document, structured output; only the search s
       jobs_board_search_queries: ['site reliability engineer'], quality_stack_keywords: ['kubernetes'],
       locations: {top_tier: ['z[uü]rich'], country_wide: ['switzerland'], abroad: []}, remote_excluded_regions: ['\\busa?\\b'],
       google_jobs: {queries: ['sre'], country: 'ch', locations: [{location: 'Zurich,Zurich,Switzerland', language: 'de'}]}},
-    preferences: {disqualifying_languages: ['German'], excluded_companies: ['Sonar']},
+    preferences: {disqualifying_languages: ['German'], excluded_companies: ['Acme']},
   };
   const seen = [];
   const client = {messages: {create: async request => {
@@ -102,7 +102,7 @@ test('strategy draft: CV as a PDF document, structured output; only the search s
   assert.deepEqual(search.role_keywords, ['site reliability']);
   assert.equal(search.google_jobs.searches_per_run, 1);
   const preferences = JSON.parse(storage.readText('config/preferences.json'));
-  assert.deepEqual(preferences.excluded_companies, ['Sonar']);
+  assert.deepEqual(preferences.excluded_companies, ['Acme']);
   assert.equal(preferences.digest_min_score, 50);
 });
 
@@ -572,9 +572,9 @@ test('a Gmail check that exited normally but read nothing is a failure with its 
 
 test('Rebuild from CV: changes grouped by what they trigger, contact edits ignored, location changes tie search and Profile', async () => {
   const {rebuildGroups, save} = await import('../lib/strategy.js');
-  const current = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich']}}, preferences: {excluded_companies: ['Sonar']},
+  const current = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich']}}, preferences: {excluded_companies: ['Acme']},
     profile: '# Goals\n- SRE\n# Contact\n- Phone: 1', answers: '# Eligibility\n- EU citizen'};
-  const draft = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich', 'basel']}}, preferences: {excluded_companies: ['Sonar']},
+  const draft = {search: {role_keywords: ['\\bsre\\b'], locations: {top_tier: ['z[uü]rich', 'basel']}}, preferences: {excluded_companies: ['Acme']},
     profile_markdown: '# Goals\n- SRE, platform\n# Contact\n- Phone: 2', answers_markdown: '# Eligibility\n- EU citizen'};
   const groups = rebuildGroups(current, draft, {scored: 120, kits: 5});
   assert.deepEqual(groups.map(group => group.id), ['search', 'profile']);  // no filter or answer changes; contact ignored

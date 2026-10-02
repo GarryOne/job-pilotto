@@ -109,9 +109,9 @@ class MailTests(unittest.TestCase):
         return summary, sent
 
     def test_query_covers_senders_subjects_and_tracked_companies(self):
-        q = mail.query([app('a', 'Laelaps AI', 'Infra', via='TechTree')], 2)
+        q = mail.query([app('a', 'Zephyr AI', 'Infra', via='TechTree')], 2)
         self.assertTrue(q.startswith('newer_than:2d -in:chats'))
-        for part in ('from:greenhouse-mail.io', 'from:techtree.dev', 'subject:"interview"', '"Laelaps AI"', '"TechTree"'):
+        for part in ('from:greenhouse-mail.io', 'from:techtree.dev', 'subject:"interview"', '"Zephyr AI"', '"TechTree"'):
             self.assertIn(part, q)
 
     def test_rejection_moves_stage_and_is_never_logged_twice(self):
@@ -250,9 +250,9 @@ class MailTests(unittest.TestCase):
         self.assertEqual(filters, [None])  # never a filter Notion could refuse
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
-        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),
+        apps = [app('p1', 'Zephyr AI', 'Infrastructure Engineer', stage='Confirmation received', via='TechTree'),
                 app('p2', 'Acme', 'SRE', stage='Offer')]
-        google = FakeGoogle([email('m3', 'Your event has been scheduled', sender='hello@cal.com', body='Laelaps AI screening call ...'),
+        google = FakeGoogle([email('m3', 'Your event has been scheduled', sender='hello@cal.com', body='Zephyr AI screening call ...'),
                              email('m4', 'Next steps', sender='x@acme.test')])
         tracker = FakeTracker(apps)
         self.run_mail(tracker, google, [[result(0, 0, 'Interview scheduled', interview_at='2026-09-30T12:30:00+02:00'),
@@ -263,11 +263,11 @@ class MailTests(unittest.TestCase):
         self.assertNotIn('p2', changes)  # an Offer is never moved back
 
     def test_emails_are_processed_oldest_first_and_transcripts_are_flagged(self):
-        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree')]
-        laelaps = 'Your screening call with Laelaps AI ...'
-        google = FakeGoogle([email('late', 'Reminder: Screening Call', '2026-09-25T09:30:00+00:00', body=laelaps),
-                             email('early', 'Screening Call booked', '2026-09-24T18:05:00+00:00', body=laelaps),
-                             email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00', body=laelaps)])
+        apps = [app('p1', 'Zephyr AI', 'Infrastructure Engineer', via='TechTree')]
+        zephyr = 'Your screening call with Zephyr AI ...'
+        google = FakeGoogle([email('late', 'Reminder: Screening Call', '2026-09-25T09:30:00+00:00', body=zephyr),
+                             email('early', 'Screening Call booked', '2026-09-24T18:05:00+00:00', body=zephyr),
+                             email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00', body=zephyr)])
         tracker = FakeTracker(apps)
         client = FakeClient([[result(0, 0, 'Interview scheduled'), result(1, 0, 'Other'), result(2, 0, 'Other')]])
         with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
@@ -279,7 +279,7 @@ class MailTests(unittest.TestCase):
         self.assertIn('send it to me for an interview review', sent[0])
 
     def test_unmatched_mail_naming_a_contact_goes_to_that_application(self):
-        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree',
+        apps = [app('p1', 'Zephyr AI', 'Infrastructure Engineer', via='TechTree',
                     contact='Jan Keller (TechTree); screening call with Alex Morgan · alex@yupe.io'),
                 app('p2', 'Scale AI', 'SRE')]
         google = FakeGoogle([email('n1', 'Notification: Screening Call between Alex Morgan and Sam Taylor',
@@ -288,10 +288,10 @@ class MailTests(unittest.TestCase):
         _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='Unknown')]])
         self.assertEqual(tracker.created[0]['Application'], {'relation': [{'id': 'p1'}]})
         self.assertNotIn('not tracked', ' '.join(sent))
-        self.assertIn('Laelaps AI', sent[0])
+        self.assertIn('Zephyr AI', sent[0])
 
     def test_unmatched_mail_about_a_contact_domain_is_not_reported_as_new(self):
-        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', via='TechTree', contact='alex@yupe.io')]
+        apps = [app('p1', 'Zephyr AI', 'Infrastructure Engineer', via='TechTree', contact='alex@yupe.io')]
         google = FakeGoogle([email('n2', 'Your call', sender='hello@cal.com')])
         tracker = FakeTracker(apps)
         _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='YuPe (via Cal.com)')]])
@@ -501,7 +501,7 @@ class MailTests(unittest.TestCase):
                  'created': '2026-09-26T10:00:00Z', 'hangoutLink': 'https://meet.test/x',
                  'start': {'dateTime': start.isoformat()}, 'end': {'dateTime': (start + timedelta(minutes=30)).isoformat()},
                  'attendees': [{'email': 'alex@yupe.io', 'displayName': 'Alex Morgan'}, {'email': 'me@x', 'self': True}]}
-        apps = [app('p1', 'Laelaps AI', 'Infrastructure Engineer', stage='Screening', via='TechTree',
+        apps = [app('p1', 'Zephyr AI', 'Infrastructure Engineer', stage='Screening', via='TechTree',
                     contact='Jan (TechTree) · jan@techtree.dev; Alex Morgan · alex@yupe.io')]
         tracker, google = FakeTracker(apps), FakeGoogle(events=[event])
         _, sent = self.run_mail(tracker, google, [], calendar=True)
@@ -517,9 +517,9 @@ class MailTests(unittest.TestCase):
 
     def test_after_the_interview_asks_for_the_transcript(self):
         start = NOW - timedelta(hours=3)
-        event = {'id': 'e2', 'summary': 'Laelaps AI technical interview', 'start': {'dateTime': start.isoformat()},
+        event = {'id': 'e2', 'summary': 'Zephyr AI technical interview', 'start': {'dateTime': start.isoformat()},
                  'end': {'dateTime': (start + timedelta(hours=1)).isoformat()}}
-        tracker = FakeTracker([app('p1', 'Laelaps AI', 'Infrastructure Engineer')])
+        tracker = FakeTracker([app('p1', 'Zephyr AI', 'Infrastructure Engineer')])
         _, sent = self.run_mail(tracker, FakeGoogle(events=[event]), [], calendar=True)
         self.assertTrue(any('How did' in m and 'transcript' in m for m in sent))
 

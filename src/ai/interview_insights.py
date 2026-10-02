@@ -196,7 +196,7 @@ SCHEMA = {
                 'round_type': {'type': 'string', 'enum': list(ROUND_TYPES) + ['All']},
                 'title': {'type': 'string', 'description': 'The recurring behaviour in plain words, max 55 characters: what the candidate does and when ("Answers stay general when asked for a named example", "Rambles on questions about their own choices"); never a vague label like "gaps in specifics" or "soft-skill issues", and not one topic ("can\'t name IoT protocols")'},
                 'kind': {'type': 'string', 'enum': list(KINDS), 'description': 'weakness = something that costs you; strength = something that lands well; note = anything else'},
-                'pattern': {'type': 'string', 'description': 'One or two short sentences, max 200 characters, with at least two concrete instances from different interviews: what was asked and what was missing, in the reviews\' words ("IoT protocols (Laelaps), AWS certification (Huxley)")'},
+                'pattern': {'type': 'string', 'description': 'One or two short sentences, max 200 characters, with at least two concrete instances from different interviews: what was asked and what was missing, in the reviews\' words ("IoT protocols (Zephyr), AWS certification (Huxley)")'},
                 'evidence': {'type': 'array', 'items': {
                     'type': 'object', 'additionalProperties': False, 'required': ['interview', 'quote'],
                     'properties': {'interview': {'type': 'string', 'description': 'The label, e.g. "I2"'},

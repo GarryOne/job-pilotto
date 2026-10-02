@@ -25,9 +25,9 @@ class NotionListTests(unittest.TestCase):
                          [('https://a/1', 'unreviewed', 80, '2026-09-20'), ('https://a/2', 'applied', 60, '2026-09-20')])
 
     def test_gone_postings_excluded_companies_and_filtered_jobs_are_left_out(self):
-        with mock.patch.dict(desktop.digest.PREFERENCES, {'excluded_companies': ['SonarSource']}):
+        with mock.patch.dict(desktop.digest.PREFERENCES, {'excluded_companies': ['AcmeSource']}):
             result, _ = self.run_list([notion('https://a/gone', status='Not seen'), notion('https://a/applied-gone', status='Not seen', stage='Applied'),
-                                       notion('https://a/sonar', company='SonarSource SA'), notion('https://a/german')],
+                                       notion('https://a/acme', company='AcmeSource SA'), notion('https://a/german')],
                                       blocked=[{'url': 'https://a/german'}])
         self.assertEqual([r['url'] for r in result['jobs']], ['https://a/applied-gone'])  # your application stays
 

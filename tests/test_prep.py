@@ -31,7 +31,7 @@ def job(page_text):
                                       'Stage': {'type': 'select', 'select': {'name': 'Interview scheduled'}},
                                       'Next interview': {'type': 'date', 'date': {'start': '2026-09-30T08:30:00+02:00'}},
                                       'Job URL': {'type': 'url', 'url': 'https://mail.google.com/mail/u/0/#all/h1'}}}
-    tracker = SimpleNamespace(written=[], updates=[], requests=[], page_text=lambda page_id='profile': page_text if page_id == 'h1' else 'Igor: 10 years, SRE at Sonar',
+    tracker = SimpleNamespace(written=[], updates=[], requests=[], page_text=lambda page_id='profile': page_text if page_id == 'h1' else 'Igor: 10 years, SRE at Acme',
                               replace_after_heading=lambda *a: tracker.written.append(a), update_page=lambda *a: tracker.updates.append(a),
                               _children=lambda block_id: [], _request=lambda *a: tracker.requests.append(a))
     return tracker, row
@@ -42,8 +42,8 @@ def kit_written(tracker):
     return [r for r in tracker.requests if r[0] == 'PATCH'][-1][2]['children']
 
 
-KIT = {'interview_type': 'recruiter screen', 'assess': ['motivation'], 'questions': [{'question': 'Why this role?', 'answer_with': 'Sonar SRE work'}],
-       'stories': ['Incident at Sonar'], 'gaps': [], 'ask_them': ['Who is the client?'], 'plan': ['Read the description'], 'unknowns': ['salary']}
+KIT = {'interview_type': 'recruiter screen', 'assess': ['motivation'], 'questions': [{'question': 'Why this role?', 'answer_with': 'Acme SRE work'}],
+       'stories': ['Incident at Acme'], 'gaps': [], 'ask_them': ['Who is the client?'], 'plan': ['Read the description'], 'unknowns': ['salary']}
 
 
 class Client:

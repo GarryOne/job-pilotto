@@ -124,9 +124,9 @@ const RICH = {headline: 'Strong substance is being weakened by rambling delivery
   next_steps: [
     {text: 'Prepare 2-3 tight STAR examples.', title: 'Prepare three 60-second STAR stories', focus: 'Team unblocking • Manual intervention', interviews: ['iv-1'], done: false},
     {text: 'Draft a 90-second tenure answer.', title: 'Rehearse your tenure answer', focus: '', interviews: ['iv-2'], done: true}],
-  interviews: [{id: 'iv-1', title: 'Laelaps AI · Recruiter screen (via TechTree)', round_type: 'Recruiter screen'},
+  interviews: [{id: 'iv-1', title: 'Zephyr AI · Recruiter screen (via TechTree)', round_type: 'Recruiter screen'},
     {id: 'iv-2', title: 'Huxley · Recruiter screen', round_type: 'Recruiter screen'}]};
-const RICH_ROWS = [row('iv-1', 'neutral', 'Laelaps AI · Recruiter screen (via TechTree)'), row('iv-2', 'neutral', 'Huxley · Recruiter screen')];
+const RICH_ROWS = [row('iv-1', 'neutral', 'Zephyr AI · Recruiter screen (via TechTree)'), row('iv-2', 'neutral', 'Huxley · Recruiter screen')];
 
 test('the header says what was read, how sure it is, and the primary signal', () => {
   const view = insightView(RICH, RICH_ROWS, NOW);
@@ -140,8 +140,8 @@ test('the header says what was read, how sure it is, and the primary signal', ()
 test('a pattern is an icon kind, a title, a detail line and the companies it came from', () => {
   const view = insightView(RICH, RICH_ROWS, NOW);
   assert.deepEqual(view.patterns.map(p => [p.kind, p.title, p.detail, p.tag, p.companies.map(c => c.name)]), [
-    ['weakness', 'Answers become unstructured', 'Key recruiter questions take too long to reach the point.', '2 interviews', ['Laelaps AI', 'Huxley']],
-    ['strength', 'Incident-response stories land well', 'Operational ownership is a repeatable strength.', '2 interviews', ['Laelaps AI', 'Huxley']]]);
+    ['weakness', 'Answers become unstructured', 'Key recruiter questions take too long to reach the point.', '2 interviews', ['Zephyr AI', 'Huxley']],
+    ['strength', 'Incident-response stories land well', 'Operational ownership is a repeatable strength.', '2 interviews', ['Zephyr AI', 'Huxley']]]);
   // an insight written before titles existed: its sentence is the title, a plain note
   const old = insightView({...RICH, patterns: [{...RICH.patterns[0], title: undefined, kind: undefined}]}, RICH_ROWS, NOW);
   assert.deepEqual([old.patterns[0].title, old.patterns[0].detail, old.patterns[0].kind], [RICH.patterns[0].text, '', 'note']);
@@ -205,8 +205,8 @@ test('the card folds to its header and unfolds; the toggle says which state it i
 test('supporting moments: the quotes behind each pattern with the interview each came from', () => {
   const view = insightView(RICH, RICH_ROWS, NOW);
   assert.deepEqual(view.moments.map(g => [g.title, g.quotes.map(q => [q.quote, q.id, q.name])]), [
-    ['Answers become unstructured', [['a', 'iv-1', 'Laelaps AI'], ['b', 'iv-2', 'Huxley']]],
-    ['Incident-response stories land well', [['c', 'iv-1', 'Laelaps AI']]]]);
+    ['Answers become unstructured', [['a', 'iv-1', 'Zephyr AI'], ['b', 'iv-2', 'Huxley']]],
+    ['Incident-response stories land well', [['c', 'iv-1', 'Zephyr AI']]]]);
   assert.equal(view.supporting.count, 3);
   assert.equal(insightView({...RICH, patterns: [{...RICH.patterns[0], evidence: []}]}, RICH_ROWS, NOW).moments.length, 0);
 });
