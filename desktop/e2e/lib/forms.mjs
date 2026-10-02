@@ -52,6 +52,16 @@ export const FORMS = {
     widget: 'How would you rate your Terraform skill?', legal: [],
   },
 };
+// A journey over three pages and two tabs, like a job board posting that leads to an agency's own site (jobs.ch -> consultandpepper.com): the posting has
+// only an Apply link that opens a NEW tab, that page has only a "To apply" link (same tab), and the form is behind it. `kit` is for the posting's job.
+export const CHAIN = {
+  title: 'Fullstack Engineer with DevOps Mindset', company: 'E2E Chain Recruiting', host: 'boards.greenhouse.io', path: '/e2e/jobs/4001005',
+  stepHost: 'e2e.recruitee.com', stepPath: '/o/chain-step', formPath: '/o/chain-form',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '7', needs_review: false}],
+};
+CHAIN.url = `https://${CHAIN.host}${CHAIN.path}`;
+CHAIN.stepUrl = `https://${CHAIN.stepHost}${CHAIN.stepPath}`;
+CHAIN.formUrl = `https://${CHAIN.stepHost}${CHAIN.formPath}`;
 for (const form of Object.values(FORMS)) form.url = `https://${form.host}${form.path}`;
 
 const esc = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -75,6 +85,12 @@ document.addEventListener('click', event => { if (event.target.closest('[type=su
 document.addEventListener('submit', event => { event.preventDefault(); fired('submit'); }, true);
 ${script}
 </script></body></html>`;
+
+const CHAIN_PAGES = {
+  posting: () => page(CHAIN, `<p>Join the team. <a id="apply_link" href="${CHAIN.stepUrl}" target="_blank" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a></p>`),
+  step: () => page(CHAIN, `<p>Contact: a consultant looks forward to your application.</p><p><a id="to_apply" href="${CHAIN.formUrl}" style="display:inline-block;padding:12px 28px;background:#f5d98b;font-size:18px;text-decoration:none">To apply</a></p>`),
+  form: () => page(CHAIN, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${resume}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}${submit}</form>`),
+};
 
 const submit = `<div class="field"><button type="submit" id="submit_app">Submit Application</button></div>`;
 
@@ -129,6 +145,9 @@ export async function startForms() {
     const host = String(req.headers.host || '').split(':')[0];
     hits.push(`${host}${url.pathname}`);
     if (req.method === 'POST' && url.pathname === '/__fired') { fired.push({kind: url.searchParams.get('kind'), form: url.searchParams.get('form')}); res.writeHead(204).end(); return; }
+    const chain = host === CHAIN.host && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.path ? 'posting' : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.stepPath ? 'step'
+      : host === CHAIN.stepHost && url.pathname.replace(/(.)\/$/, '$1') === CHAIN.formPath ? 'form' : '';
+    if (chain) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(CHAIN_PAGES[chain]()); return; }
     const name = Object.keys(FORMS).find(key => FORMS[key].host === host && [FORMS[key].path, FORMS[key].formPath].includes(url.pathname.replace(/(.)\/$/, '$1')));
     if (!name) { res.writeHead(404, {'content-type': 'text/plain'}).end('not a fixture form'); return; }
     res.writeHead(200, {'content-type': 'text/html; charset=utf-8'});

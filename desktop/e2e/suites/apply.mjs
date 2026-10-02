@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {FORMS, HOSTS} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -25,13 +25,13 @@ export async function run(ctx) {
   const {page, token: NOTION, proxy, forms} = ctx;
   ctx.findings = [];
   await ensureSetUp(ctx);
-  const urls = Object.values(FORMS).map(form => form.url);
+  const urls = [...Object.values(FORMS).map(form => form.url), CHAIN.url];
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
   await ctx.run('the app has an applicant, four jobs with drafted kits, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), CONTACT);
     console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of Object.values(FORMS)) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}});
+    for (const form of [...Object.values(FORMS), CHAIN]) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
@@ -141,6 +141,36 @@ export async function run(ctx) {
     const log = fs.readFileSync(path.join(ctx.profile, 'logs', 'app.log'), 'utf8');
     if (!/\[misses\] \d+ new control/.test(log)) throw new Error('the app kept the miss but did not log it');
     unknownTab = tab;
+  }, {needs: ctx.needs});
+
+  // Found by asking "can the extension follow a journey from one tab to another?" (3 Oct 2026): a posting whose Apply opens a NEW tab, whose page has only a
+  // "To apply" link, and only then the form (jobs.ch -> an agency's own site). The extension must press Apply, follow the new tab as the same application, press
+  // "To apply" in it, and fill the form it reaches; Submit untouched.
+  await ctx.run('a posting whose Apply opens a new tab, then a "To apply" step, then the form: the journey is followed and the form filled', async () => {
+    const opened = ctx.browser.opened.length;
+    await page.click('.nav[data-view="jobs"]');
+    await page.locator('article.job-row').filter({hasText: CHAIN.company}).first().locator('.row-main').click();
+    for (let waited = 0; ctx.browser.opened.length === opened && waited < 30000; waited += 250) await pause(250);
+    if (ctx.browser.opened.length === opened) throw new Error('Apply did not open the posting in the browser');
+    const seen = [];
+    let tab = null;
+    for (let waited = 0; waited < 90000 && !tab; waited += 1000) {
+      const pages = ctx.browser.context.pages();
+      seen.splice(0, seen.length, ...pages.map(item => item.url().split('#')[0]));
+      tab = pages.find(item => item.url().startsWith(CHAIN.formUrl)) || null;
+      await pause(1000);
+    }
+    if (!tab) throw new Error(`the journey never reached the form. Tabs open: ${seen.join(' | ')}. ${seen.some(url => url.startsWith(CHAIN.stepUrl)) ? 'The new tab opened but "To apply" was not followed.' : 'Apply did not open the second tab.'}`);
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) {
+      state = await fillState(tab).catch(() => null);
+      if (state?.state === 'done' || state?.state === 'error') break;
+      await pause(500);
+    }
+    if (state?.state !== 'done') throw new Error(`the form was reached but not filled (state: ${JSON.stringify(state)})`);
+    const actual = await readForm(tab);
+    fail([...fillProblems({expected: {first_name: CONTACT.first_name, last_name: CONTACT.last_name, email: CONTACT.email, question_3001: '7'}, actual}), ...cvProblems(actual, cv),
+      ...submitProblems(forms.fired, CHAIN.path), ...submitProblems(forms.fired, CHAIN.formPath)]);
   }, {needs: ctx.needs});
 
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {

@@ -84,10 +84,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // `from` is the job this tab was opened for. A mark the extension carried onto the next page (markPage) does not change it:
   // the posting that led to an agency's form stays the job, whichever site the form is on.
   const carried = (await chrome.storage.session.get(`carried:${tabId}`))[`carried:${tabId}`];
-  if (carried !== tab.url) chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+  // A page the app opened starts its own job: nothing a tab that happened to open it handed over (followOpener) stays.
+  if (carried !== tab.url) {
+    await chrome.storage.session.remove(`job:${tabId}`);
+    await chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+  }
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
   if (info.status !== 'complete') return;
-  await consider(tab, tab.url.replace(`#${FILL_MARK}`, ''));
+  // The job, not this page: a page the extension carried the mark onto (an agency's form) belongs to the posting that led to it.
+  await consider(tab, await jobOf(tab));
 });
 
 // Counts only, in the page: no labels and no values. Passwords and file inputs are counted apart from the rest.
@@ -217,6 +222,7 @@ async function consider(tab, jobUrl) {
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }
+  decide('fill', 'filling', {host, job: new URL(String(jobUrl || tab.url)).pathname, page: new URL(tab.url).pathname});   // which posting's kit this page uses
   await writeState(tab.id, {state: 'running'});
   const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
