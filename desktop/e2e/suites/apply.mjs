@@ -160,6 +160,12 @@ export async function run(ctx) {
       tab = pages.find(item => item.url().startsWith(CHAIN.formUrl)) || null;
       await pause(1000);
     }
+    if (!tab) {
+      // What the extension itself holds: which tabs it armed, whose job each follows, and who opened whom (the cause is in here, not in the page).
+      const inside = await (await ctx.browser.serviceWorker()).evaluate(async () => ({session: await chrome.storage.session.get(null),
+        tabs: (await chrome.tabs.query({})).map(item => ({id: item.id, opener: item.openerTabId ?? null, url: String(item.url).split('#')[0].slice(0, 70)}))})).catch(error => ({error: String(error)}));
+      console.log(`  extension state at the failure: ${JSON.stringify(inside)}`);
+    }
     if (!tab) throw new Error(`the journey never reached the form. Tabs open: ${seen.join(' | ')}. ${seen.some(url => url.startsWith(CHAIN.stepUrl)) ? 'The new tab opened but "To apply" was not followed.' : 'Apply did not open the second tab.'}`);
     let state = null;
     for (let waited = 0; waited < 90000; waited += 500) {
