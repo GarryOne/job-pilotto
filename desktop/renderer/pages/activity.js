@@ -376,7 +376,8 @@ export function renderActivity(fresh) {
   // The log of the run shown, with what was read from its Notion page merged in (a GitHub run's log lives there).
   // A GitHub run has no local lines: the sidebar link opens the job. A local run streams shared.logLines.
   const githubLive = !!run?.live && run?.where === 'github';
-  const lines = githubLive ? (run?.log || []) : (shown ? run?.log || [] : liveLines || run?.log || []);
+  // The window's own buffer is empty after a reload (⌘R): then the app's copy of the running job's log (run.log) is what to show.
+  const lines = githubLive ? (run?.log || []) : (shown ? run?.log || [] : (liveLines?.length ? liveLines : run?.log) || []);
   const kind = run ? KIND[kindOf(run)] : null;
   const detailWarnings = runWarningLines(run);
   // The header: the run's name, its state as a pill, then one muted line — what it did, when it finished, how long it

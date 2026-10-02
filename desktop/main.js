@@ -1556,12 +1556,19 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   telemetry = DEMO || smokeRun || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
-    pipeline.onRunEnd(({args, code, seconds, tail}) => {
+    pipeline.onRunEnd(({args, code, seconds, tail, timedOut, result}) => {
       telemetry.countRun(code === 0);  // the health line's runsOk / runsFailed (release check evidence)
-      if (code === 0) return;
-      const error = [...tail].reverse().find(line => /error|exception|traceback|failed|refused/i.test(line)) || tail.at(-1) || '';
       const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : /^[a-z_]+$/.test(args[1] || '') ? args[1] : '';
-      telemetry.record('run_failed', {job: `${args[0]}${mode ? ` ${mode}` : ''}`, code, seconds, error,
+      const job = `${args[0]}${mode ? ` ${mode}` : ''}`;
+      if (code === 0) {
+        // A run that finished but said something went wrong (the AI not answering, Notion refusing a write, feeds failing) is
+        // not a crash and used to be invisible: one event with its first warning, so a user who "got nothing" is not silent.
+        const warning = result?.warnings?.[0]?.message;
+        if (warning) telemetry.record('run_warning', {job, seconds, warning, count: result.warnings.length});
+        return;
+      }
+      const error = timedOut ? `stopped by the app: ${timedOut}` : [...tail].reverse().find(line => /error|exception|traceback|failed|refused/i.test(line)) || tail.at(-1) || '';
+      telemetry.record('run_failed', {job, code, seconds, error, ...(timedOut ? {timedOut} : {}),
         cutOff: /cut off|max_tokens|Unterminated string/i.test(tail.join(' ')), tail: tail.slice(-5)});
     });
     server.setFormIssueHandler(fields => {

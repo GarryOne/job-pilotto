@@ -30,3 +30,27 @@ test('a run is written down: engine.log takes its output, app.log its two marker
   logTo(null);
   engineLog.setFile(null);
 });
+
+test('a run that stops talking is stopped, says so, and is reported as a failed run with the reason', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-watchdog-'));
+  const storage = {settings: () => ({}), secret: () => '', saveSettings: () => {}, path: (...parts) => path.join(dir, ...parts)};
+  logTo(dir);
+  engineLog.setFile(path.join(dir, 'engine.log'));
+  const saved = {...pipeline.LIMITS};
+  Object.assign(pipeline.LIMITS, {idleMs: 600, totalMs: 60000, checkMs: 100, killAfterMs: 500, watchAll: true});
+  const ended = [];
+  pipeline.onRunEnd(item => ended.push(item));
+  const lines = [];
+  // `http.server` prints one line and then waits for connections forever: a run that goes quiet.
+  const started = Date.now();
+  const {code, timedOut} = await pipeline.run(storage, ['http.server', '0', '--bind', '127.0.0.1'], line => lines.push(line));
+  Object.assign(pipeline.LIMITS, saved);
+  assert.ok(Date.now() - started < 8000, 'stopped within seconds, not left running');
+  assert.notEqual(code, 0);
+  assert.match(timedOut, /no output for/);
+  assert.ok(lines.some(line => /Stopped by Job Pilotto: no output for/.test(line)), 'the log says why');
+  assert.match(ended.at(-1).timedOut, /no output for/);                                    // the technical report gets the reason
+  assert.match(fs.readFileSync(path.join(dir, 'app.log'), 'utf8'), /\[run\] watchdog: python -m http\.server/);
+  logTo(null);
+  engineLog.setFile(null);
+});

@@ -8,8 +8,14 @@ import {report as knowledgeReport} from './knowledge.js';
 import {labPlan, labReport} from './recipes.js';
 import {allowed, esc, remember} from './stats.js';
 
-export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup', 'control'];
+export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control'];
 export const TRIAGE_MIN_USERS = 3, TRIAGE_MIN_TIMES = 20;
+// What becomes a GitHub issue: [installs, times] by kind (either is enough). Crashes, stuck runs and failed runs are rare and always
+// worth reading, from the first install; a run that ended with warnings (AI not answering, Notion refusing) must repeat (3 times) or come from 3 installs;
+// form and control reports are many, so they wait for several installs (2 Oct 2026: a friend's search hung for 40 minutes and, with
+// the old 3-installs-or-20-times rule, would never have reached an issue).
+export const TRIAGE_AT = {crash: [1, 1], stuck: [1, 1], run_failed: [1, 1], run_warning: [3, 3]};
+export const triageWorthy = row => { const [users, times] = TRIAGE_AT[row.kind] || [TRIAGE_MIN_USERS, TRIAGE_MIN_TIMES]; return row.users >= users || row.n >= times; };
 const MAX_EVENTS = 50, MAX_BYTES = 8000, PER_INSTALL_PER_DAY = 1000, KEEP_DAYS = 90;
 const day = date => date.toISOString().slice(0, 10);
 const text = (value, max = 300) => String(value ?? '').slice(0, max);
@@ -30,6 +36,7 @@ export function describe(item) {
     case 'crash': return {key: `crash|${item.where}|${item.type}|${place}|${normal(item.message)}`,
       summary: `${item.type || 'Error'}: ${text(item.message, 140)}${place ? ` (${place})` : ''}`};
     case 'run_failed': return {key: `run|${item.job}|${normal(item.error)}`, summary: `${item.job}: ${text(item.error, 150)}${item.cutOff ? ' (cut off)' : ''}`};
+    case 'run_warning': return {key: `warn|${item.job}|${normal(item.warning)}`, summary: `${item.job}: ${text(item.warning, 150)} (ended with warnings)`};
     case 'form_issue': return {key: `form|${item.site}|${normal(item.label)}|${item.reason}`, summary: `${item.site}: ${text(item.label, 80)} (${item.reason || 'not filled'})`};
     case 'control': return {key: `control|${item.fp}|${item.outcome}|${normal(item.why)}`,
       summary: `Control ${text(item.control, 24)} ${text(item.fp, 16)}: ${item.outcome}${item.why ? ` (${text(item.why, 80)})` : ''}`};
@@ -254,7 +261,7 @@ export async function daily(env, dispatch, now = new Date()) {
   const {rows: found} = await problems(env.STATS, 7, now, 50);
   // Only what recurs becomes an issue: several installs, or very many times. The rest stays counted, visible on /telemetry, and
   // waits (2 Oct 2026). A control failure that a running recipe already covers is handled there, not here.
-  const rows = found.filter(row => row.users >= TRIAGE_MIN_USERS || row.n >= TRIAGE_MIN_TIMES).slice(0, 10);
+  const rows = found.filter(triageWorthy).slice(0, 10);
   if (!rows.length) return 0;
   const brief = rows.map(row => ({fingerprint: row.fingerprint, kind: row.kind, summary: row.summary, users: row.users, times: row.n,
     versions: row.versions, sample: String(row.sample).slice(0, 2500)}));

@@ -108,6 +108,10 @@ export const onRunEnd = listener => runEnd.add(listener);
 // Demo mode (lib/demo.js): only jobs that read the demo folder run; the rest end at once, nothing sent.
 let demoMode = false;
 export const setDemo = on => { demoMode = !!on; };
+// A run of the engine (`python -m src …`) that stops talking, or lasts far too long, is stopped, said so in the log and reported (technical
+// reports: run_failed with timedOut). 2 Oct 2026: a friend's search sat "Running" for 40 minutes (every AI call waiting on a Claude Code that
+// did not answer) and nothing, not the row in Notion, not a report, said it was stuck. SIGTERM lets the engine close its Notion row.
+export const LIMITS = {idleMs: 15 * 60 * 1000, totalMs: 45 * 60 * 1000, checkMs: 5000, killAfterMs: 8000, watchAll: false};   // watchAll: tests watch any module, not only `src …`
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
@@ -124,17 +128,30 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       JOB_PILOTTO_RUN_ID: runId, JOB_PILOTTO_RESULT_FILE: resultFile}});
     children.add(child);
     child.on('exit', () => children.delete(child));
-    let stdout = '', buffer = '';
+    let stdout = '', buffer = '', lastOutputAt = Date.now(), timedOut = '', killTimer = null;
+    const watch = (args[0] === 'src' || LIMITS.watchAll) ? setInterval(() => {
+      if (timedOut) return;
+      const quiet = Date.now() - lastOutputAt, total = Date.now() - started;
+      timedOut = quiet > LIMITS.idleMs ? `no output for ${Math.round(quiet / 60000)} min` : total > LIMITS.totalMs ? `still running after ${Math.round(total / 60000)} min` : '';
+      if (!timedOut) return;
+      appLog('run', `watchdog: python -m ${args.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
+      onLine(`⚠️ Stopped by Job Pilotto: ${timedOut}. The last thing it did: ${tail.at(-1) || 'nothing yet'}`);
+      child.kill('SIGTERM');
+      killTimer = setTimeout(() => child.kill('SIGKILL'), LIMITS.killAfterMs);
+    }, LIMITS.checkMs) : null;
     const lines = chunk => {
       buffer += chunk;
       const parts = buffer.split(/\r?\n/);  // Windows ends lines with \r\n
       buffer = parts.pop();
       parts.filter(Boolean).forEach(raw => { engineLog.line(raw); onLine(readable(raw)); });
     };
-    child.stdout.on('data', data => { stdout += data; lines(String(data)); });
-    child.stderr.on('data', data => lines(String(data)));
+    child.stdout.on('data', data => { lastOutputAt = Date.now(); stdout += data; lines(String(data)); });
+    child.stderr.on('data', data => { lastOutputAt = Date.now(); lines(String(data)); });
     child.on('error', reject);
-    child.on('close', code => {
+    child.on('close', exitCode => {
+      clearInterval(watch);
+      clearTimeout(killTimer);
+      const code = timedOut ? (exitCode || 124) : exitCode;   // a killed run is a failed run, whatever status the signal gave
       if (buffer) { engineLog.line(buffer); onLine(readable(buffer)); }
       const seconds = Math.round((Date.now() - started) / 1000);
       const result = readResult(resultFile);
@@ -142,8 +159,8 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
       if (result && code !== 0) result.ok = false;
       engineLog.end({code, seconds, runId});
       appLog('run', `end: python -m ${args.join(' ')} -> exit ${code} in ${seconds}s`, {run_id: runId, tail: tail.slice(-3)});
-      for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId}); } catch {} }
-      resolve({code, stdout, result, runId});
+      for (const listener of runEnd) { try { listener({args, code, seconds: Math.round((Date.now() - started) / 1000), tail: [...tail], runId, timedOut, result}); } catch {} }
+      resolve({code, stdout, result, runId, timedOut});
     });
   });
 }
@@ -393,6 +410,7 @@ function tracked(storage, kind, trigger, onLine, work, resume, summarize) {
     let inMessage = false;  // a message for the app (appMessage) isn't a progress step
     const tee = line => {
       log.push(line);
+      current = {...current, log: log.slice(-300)};   // the window can be reloaded (⌘R) without losing what the run said so far
       if (line === '<<<message' || line === 'message>>>') inMessage = line === '<<<message';
       else if (!inMessage && !/^\s|^Warning/.test(line) && line.length < 120) current = {...current, step: line};
       onLine(line);

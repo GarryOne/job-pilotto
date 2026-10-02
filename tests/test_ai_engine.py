@@ -199,6 +199,26 @@ class CliClientTests(unittest.TestCase):
         self.assertIn('did not answer within 1 s', str(caught.exception))
         self.assertFalse(cost.limit_reached(caught.exception))
 
+    def test_two_timeouts_in_a_row_stop_the_run_instead_of_waiting_for_every_job(self):
+        # 2 Oct 2026: a friend's Claude Code did not answer; each of ~60 jobs waited the full 10 minutes (hours, "Running"
+        # forever). After two timeouts in a row Claude Code is treated like a limit: the run stops and says what to check.
+        fake = FakeClaude(self, 'sleep')
+        client = fake.client(timeout=1)
+        ask = lambda: client.messages.create(model='claude-haiku-4-5', messages=[{'role': 'user', 'content': 'x'}])
+        with self.assertRaises(engine.CliError) as first:
+            ask()
+        self.assertNotIsInstance(first.exception, engine.CliLimitError)       # one timeout is just that job
+        with self.assertRaises(engine.CliError) as second:
+            ask()
+        self.assertIsInstance(second.exception, engine.CliLimitError)         # the second stops the run
+        self.assertTrue(cost.limit_reached(second.exception))
+        self.assertIn('did not answer twice in a row', str(second.exception))
+        self.assertIn('run `claude`', str(second.exception))
+        started = time.monotonic()
+        with self.assertRaises(engine.CliLimitError):                          # and nothing waits again
+            ask()
+        self.assertLess(time.monotonic() - started, 0.5)
+
     def test_missing_binary(self):
         with self.assertRaises(engine.CliLimitError) as caught:
             engine.CliClient(binary='', log=lambda t: None).messages.create(model='claude-haiku-4-5', messages=[])

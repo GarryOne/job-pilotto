@@ -5,6 +5,7 @@ Job Matches sync, Telegram outcome, warnings) and hands it to `log_run` at the e
 written by code from those numbers, so it costs nothing; a Notion failure never fails the run.
 """
 import atexit
+import signal
 import json
 from collections import deque
 from datetime import datetime, timezone
@@ -483,6 +484,18 @@ def log_run(tracker, run, failed=False):
         run_result.publish(run, failed=True)
         print(f'Warning: cronjob run not logged to Notion: {type(error).__name__}: {error}')
         return None
+
+
+def _on_terminate(signum, frame):
+    """The desktop app's watchdog stops a stuck run with SIGTERM: leave through sys.exit so atexit runs and the row says what
+    happened (SIGTERM alone kills Python at once and the row stayed "Running" for hours, 2 Oct 2026)."""
+    sys.exit(128 + signum)
+
+
+try:
+    signal.signal(signal.SIGTERM, _on_terminate)
+except ValueError:  # not the main thread (a test): nothing to install
+    pass
 
 
 @atexit.register

@@ -31,7 +31,9 @@ ENGINES = ('api', 'cli')
 SUBSCRIPTION = 'subscription'
 # Claude Code's model aliases for our model ids (the alias follows Claude Code's own latest model of that family).
 ALIASES = (('claude-haiku', 'haiku'), ('claude-sonnet', 'sonnet'), ('claude-opus', 'opus'))
-TIMEOUT_S = 600  # a hard stop per call (the interview review reads long transcripts)
+TIMEOUT_S = 240  # a hard stop per call; a call that reads files (the interview review: long transcripts) gets at least FILES_TIMEOUT_S
+FILES_TIMEOUT_S = 600
+TIMEOUTS_BEFORE_STOP = 2  # in a row: Claude Code is not answering at all, so the run stops instead of waiting for every job
 PARALLEL = 2     # Claude Code processes at once, whatever a module's thread pool (score.py runs 5)
 # Tools a text call never needs, for a Claude Code too old for --tools.
 DENY = ('Bash', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Task', 'Glob', 'Grep', 'Read')
@@ -152,6 +154,9 @@ LIMIT_TEXT = ('Claude Code: your Claude usage window is exhausted (the plan\'s u
               'try again later, when the limit resets.')
 SIGNED_OUT_TEXT = ('Claude Code is not signed in on this computer: open Terminal, run `claude` '
                    'and sign in with your Claude account, then try again. Or switch to an API key in Settings → AI.')
+NOT_ANSWERING_TEXT = ('Claude Code did not answer twice in a row (each waited {seconds} s), so this AI step stops instead of waiting for every job. '
+                      'It may be signed out or waiting for you: open Terminal, run `claude`, check it answers, then run again. '
+                      'Or switch to an API key in Settings → AI.')
 MISSING_TEXT = ('Claude Code was not found on this computer: install it from '
                 'claude.com/claude-code and sign in, or switch to an API key in Settings → AI.')
 
@@ -297,6 +302,7 @@ class CliClient:
         self.fallback, self.run, self._api = fallback, run, None
         self.timeout = timeout or int(os.getenv('JOB_PILOTTO_CLI_TIMEOUT') or TIMEOUT_S)
         self.log = log or (lambda text: print(text, file=sys.stderr, flush=True))
+        self._timeouts = 0  # consecutive calls that timed out
         self.messages = self
 
     def create(self, **params):
@@ -339,14 +345,21 @@ class CliClient:
     def _call(self, args, prompt, folder):
         if not self.binary:
             raise CliLimitError(MISSING_TEXT)
+        if self._timeouts >= TIMEOUTS_BEFORE_STOP:  # it already failed to answer: nothing waits again in this run
+            raise CliLimitError(NOT_ANSWERING_TEXT.format(seconds=self.timeout))
+        wait = max(self.timeout, FILES_TIMEOUT_S) if '--allowedTools' in args and not os.getenv('JOB_PILOTTO_CLI_TIMEOUT') else self.timeout
         with _slots:
             try:
-                out = self.run(args, input=prompt, capture_output=True, text=True, timeout=self.timeout, cwd=folder,
+                out = self.run(args, input=prompt, capture_output=True, text=True, timeout=wait, cwd=folder,
                                env=cli_env())
             except subprocess.TimeoutExpired:
-                raise CliError(f'Claude Code did not answer within {self.timeout} s') from None
+                self._timeouts += 1
+                if self._timeouts >= TIMEOUTS_BEFORE_STOP:
+                    raise CliLimitError(NOT_ANSWERING_TEXT.format(seconds=wait)) from None
+                raise CliError(f'Claude Code did not answer within {wait} s') from None
             except OSError as error:
                 raise CliLimitError(MISSING_TEXT) from error
+        self._timeouts = 0
         try:
             data = json.loads(out.stdout)
             if isinstance(data, list):  # a stream of events: the result is the last one

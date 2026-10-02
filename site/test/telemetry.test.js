@@ -41,25 +41,41 @@ test('without the key the page does not exist; junk is refused', async () => {
   assert.equal((await send(e, [{kind: 'nonsense', install: 'x'}])).status, 400);
 });
 
-test('the daily run sends only problems that recur to triage: three installs, or many times', async () => {
+test('a crash, a stuck run or a failed run goes to triage from the first install; noisy kinds wait for three installs or many times', async () => {
   const e = env();
   const today = new Date();
-  await send(e, [crash('install-aaaa'), crash('install-bbbb')]);
-  e.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
+  const stamp = db => db.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
   const sent = [];
   const dispatch = async (_env, inputs, workflow) => sent.push({inputs, workflow});
-  assert.equal(await daily(e, dispatch, today), 0);   // two installs: counted, not a ticket yet
+  const form = (install, label = 'Salary expectation') => ({kind: 'form_issue', at: new Date().toISOString(), install, version: '0.4.1', platform: 'darwin', site: 'boards.greenhouse.io', label, reason: 'dropdown'});
+  await send(e, [form('install-aaaa'), form('install-bbbb')]);
+  stamp(e);
+  assert.equal(await daily(e, dispatch, today), 0);   // a form issue from two installs: counted, not a ticket yet
   assert.equal(sent.length, 0);
-  await send(e, [crash('install-cccc')]);
-  e.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
-  assert.equal(await daily(e, dispatch, today), 1);
+  await send(e, [form('install-cccc')]);
+  stamp(e);
+  assert.equal(await daily(e, dispatch, today), 1);   // three installs
   assert.equal(sent[0].workflow, 'telemetry-triage.yml');
   assert.equal(JSON.parse(sent[0].inputs.problems)[0].users, 3);
   // one install failing very often counts too
   const solo = env();
-  await send(solo, Array.from({length: 20}, (_, i) => crash('install-dddd', '0.4.1', 100 + i % 1)));
-  solo.STATS.db.prepare('UPDATE telemetry SET day = ?').run(today.toISOString().slice(0, 10));
+  await send(solo, Array.from({length: 20}, (_, i) => form('install-dddd', `Question ${i % 1}`)));
+  stamp(solo);
   assert.equal(await daily(solo, dispatch, today), 1);
+  // a single crash, and a single run the app had to stop, are enough: with a handful of users nothing else would reach an issue
+  const first = env();
+  await send(first, [crash('install-eeee'), {kind: 'run_failed', at: new Date().toISOString(), install: 'install-eeee', version: '0.4.1', platform: 'darwin', job: 'src daily', code: 124, error: 'stopped by the app: no output for 16 min'}]);
+  stamp(first);
+  assert.equal(await daily(first, dispatch, today), 2);
+  // a run that ended with warnings has to repeat (3 times) before it is a ticket
+  const warned = env();
+  const warning = install => ({kind: 'run_warning', at: new Date().toISOString(), install, version: '0.4.1', platform: 'darwin', job: 'src daily run', warning: 'AI limit reached', seconds: 60});
+  await send(warned, [warning('install-ffff'), warning('install-ffff')]);
+  stamp(warned);
+  assert.equal(await daily(warned, dispatch, today), 0);
+  await send(warned, [warning('install-ffff')]);
+  stamp(warned);
+  assert.equal(await daily(warned, dispatch, today), 1);
 });
 
 test('fingerprints ignore numbers and ids but keep what differs', () => {
