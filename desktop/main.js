@@ -1695,6 +1695,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
   const recipeReporter = recipeLibrary.createReporter(storage);
   recipeReporterRef = recipeReporter;
+  server.setProposalReporter(items => recipeReporter.proposal(items));
   // After a search: how much of the market the role keywords caught (data/coverage.json, src/coverage.py), as anonymous counts, once per crawl.
   pipeline.onRunEnd(({args, code}) => {
     if (code !== 0 || args[1] !== 'daily') return;

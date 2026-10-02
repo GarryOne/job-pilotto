@@ -5,10 +5,10 @@
 //   PUT  /api/aliases         the owner (the private proposer): add or change aliases, or record {reviewed: [{label}]} wordings that mean nothing. Sensitive fields (birth date, address ...)
 //                             only go live when the owner passes approved: true.
 // evaluateAliases (daily) grows a canary that works and halts one that fails, like the recipes' canary; sensitive ones are only ever halted.
-import {hints} from './intelligence.js';
+import {MIN_PEOPLE, hints} from './intelligence.js';
 import {BUTTON_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, validateAlias} from '../../extension/alias-schema.js';
 import {appliesTo} from '../../extension/recipe-schema.js';
-import {authorize, flag} from './guard.js';
+import {authorize, digestOf, flag} from './guard.js';
 import {benchmarks, report} from './knowledge.js';
 import {allowed} from './stats.js';
 
@@ -122,6 +122,32 @@ export async function storeUse(env, items, now = new Date()) {
     stored++;
   }
   return stored;
+}
+
+// From POST /api/controls: [{key, phrase}] a learned note says a label wording stands for a fixed profile field. Counted per install digest; once
+// MIN_PEOPLE different installs sent the same pair it becomes a candidate alias (never served: the owner's canary is what puts it live, and
+// sensitive fields need the owner's approval as always). A wording that already has a meaning is left alone.
+export async function storeProposals(env, items, install, now = new Date()) {
+  const who = (await digestOf(String(install || 'anonymous'))).slice(0, 8);
+  let stored = 0, promoted = 0;
+  for (const item of (Array.isArray(items) ? items : []).slice(0, 10)) {
+    const checked = validateAlias(item);
+    if (!checked.ok || BUTTON_KEYS.includes(checked.alias.key)) continue;
+    const {key, phrase} = checked.alias;
+    const row = await env.STATS.prepare('SELECT installs FROM alias_proposals WHERE phrase = ? AND key = ?').bind(phrase, key).first();
+    let installs = [];
+    try { installs = JSON.parse(row?.installs || '[]'); } catch { /* start again */ }
+    if (!installs.includes(who)) installs = [...installs, who].slice(-10);
+    await env.STATS.prepare(`INSERT INTO alias_proposals (phrase, key, installs, last_day) VALUES (?, ?, ?, ?)
+      ON CONFLICT (phrase, key) DO UPDATE SET installs = excluded.installs, last_day = excluded.last_day`).bind(phrase, key, JSON.stringify(installs), day(now)).run();
+    stored++;
+    if (installs.length >= MIN_PEOPLE) {
+      const made = await env.STATS.prepare(`INSERT INTO aliases (phrase, key, status, rollout, source, note, created_at, updated_at) VALUES (?, ?, 'candidate', 0, 'installs', ?, ?, ?)
+        ON CONFLICT (phrase) DO NOTHING`).bind(phrase, key, `proposed by ${installs.length} installs`, now.toISOString(), now.toISOString()).run();
+      if ((made.meta?.changes ?? made.changes) > 0) promoted++;
+    }
+  }
+  return {stored, promoted};
 }
 
 // Daily: a canary alias that works is given more installs (verified at the end), one that fails is stopped. Sensitive ones are only stopped.

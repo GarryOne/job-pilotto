@@ -4,12 +4,12 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {bucketOf} from '../../extension/recipe-schema.js';
-import {aliases, evaluateAliases, evaluateVerifiedAliases, pack} from '../src/aliases.js';
+import {aliases, evaluateAliases, evaluateVerifiedAliases, pack, storeProposals} from '../src/aliases.js';
 import {controls, installToken} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0008_guard.sql', '0009_knowledge.sql', '0010_aliases.sql', '0014_intelligence.sql', '0016_intel_signals.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0008_guard.sql', '0009_knowledge.sql', '0010_aliases.sql', '0014_intelligence.sql', '0016_intel_signals.sql', '0017_alias_proposals.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -107,4 +107,27 @@ test('changed-answer wordings become review targets only when enough people and 
   await owner(e, 'PUT', {status: 'verified', items: [{key: 'email', phrase: 'Courriel'}]});
   e.STATS.db.prepare("INSERT INTO alias_outcomes (day, phrase, ok, failed) VALUES ('2026-10-01', 'courriel', 10, 30)").run();
   assert.deepEqual((await evaluateVerifiedAliases(e.STATS, now)).map(a => [a.alias, a.action]), [['courriel', 'rolled back']]);
+});
+
+test('a wording proposed by learned notes becomes a candidate only once 3 different installs sent it, and is never served', async () => {
+  const e = env();
+  const item = {key: 'first_name', phrase: 'Preferred First Name'};
+  await storeProposals(e, [item, item], 'install-a-0001', now);   // the same install twice counts once
+  await storeProposals(e, [item], 'install-b-0002', now);
+  assert.deepEqual((await e.STATS.prepare('SELECT * FROM aliases').all()).results, []);
+  const third = await storeProposals(e, [item, {key: 'salary', phrase: 'pay'}, {key: 'email', phrase: 'I agree to terms'}], 'install-c-0003', now);
+  assert.deepEqual(third, {stored: 1, promoted: 1});   // the unknown field and the consent wording are refused
+  const row = (await e.STATS.prepare('SELECT phrase, key, status, rollout, source FROM aliases').all()).results[0];
+  assert.deepEqual({...row}, {phrase: 'preferred first name', key: 'first_name', status: 'candidate', rollout: 0, source: 'installs'});
+  assert.deepEqual((await (await serve(e, 'install-served-01')).json()).aliases, []);   // a candidate is not served
+  await owner(e, 'PUT', {status: 'canary', rollout: 5, items: [{key: 'first_name', phrase: 'preferred first name'}]});   // the owner's decision is not overwritten by more votes
+  await storeProposals(e, [{key: 'last_name', phrase: 'Preferred First Name'}], 'install-d-0004', now);
+  assert.equal((await e.STATS.prepare('SELECT status FROM aliases').first()).status, 'canary');
+});
+
+test('POST /api/controls takes proposals from an install', async () => {
+  const e = env();
+  const send = install => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install, proposals: [{key: 'linkedin', phrase: 'Your LinkedIn profile'}]})}), e, now);
+  for (const install of ['install-a-0001', 'install-b-0002', 'install-c-0003']) assert.equal((await send(install)).status, 200);
+  assert.equal((await e.STATS.prepare("SELECT key FROM aliases WHERE phrase = 'your linkedin profile'").first()).key, 'linkedin');
 });

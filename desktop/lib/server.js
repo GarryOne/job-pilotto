@@ -165,7 +165,8 @@ async function learnFromRun(storage, run, job) {
   storage.saveSettings({formKnowledgeVersion: version, formKnowledgeStudied: {...studied, [site]: [...new Set([...(studied[site] || []), ...fresh.map(f => learn.labelKey(f.label))])]}});
   if (!notes.length) return;
   await knowledge.add(storage, notes);
-  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} for next time (${job?.company || 'this form'}, $${usd.toFixed(3)}).`);
+  proposalReporter(learn.proposalsOf(notes));  // label wording + profile field only, counted by the site (3+ people) before it is even a candidate
+  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} saved in your Notion → Form knowledge (${job?.company || 'this form'}, $${usd.toFixed(3)}). Only you can see them.`);
 }
 
 // A note that has left its field empty three fills in a row is not working: drop it from the Notion page and let the field be studied again.
@@ -330,6 +331,8 @@ export function checkTicket(ticket, job, now = Date.now()) {
 
 // In-app Claude sessions (terminals.js) report their state here: the Claude Code hooks (JSON on stdin, with a
 // "message" for Notification) and tools/notify.sh (form field "message"). Local programs only, as for tickets.
+let proposalReporter = () => {};
+export function setProposalReporter(fn) { proposalReporter = fn; }
 let sessionReporter = () => {};
 export function setSessionReporter(fn) { sessionReporter = fn; }
 // The application form page (extension/review.js) and its session: what is left in the form, what to show (lib/review.js).

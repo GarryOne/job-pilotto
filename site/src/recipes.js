@@ -12,7 +12,7 @@
 import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
 import {allowed} from './stats.js';
 import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
-import {storeUse as storeAliasUse} from './aliases.js';
+import {storeProposals as storeAliasProposals, storeUse as storeAliasUse} from './aliases.js';
 import {store as storeIntelligence} from './intelligence.js';
 import {store as storeKnowledge} from './knowledge.js';
 
@@ -141,7 +141,7 @@ export async function controls(request, env, now = new Date()) {
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
-  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0)
+  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0)
     + (body.intel && typeof body.intel === 'object' ? 1 + Math.min(5, (body.intel.terms || []).length) + Math.min(20, (body.intel.dismissals || []).length) + Math.min(60, (body.intel.snapshot || []).length) : 0);
   const kv = env.WAITLIST, countKey = `controls:${install}:${day(now)}`;
   const count = kv ? Number(await kv.get(countKey)) || 0 : 0;
@@ -178,7 +178,8 @@ export async function controls(request, env, now = new Date()) {
     storedOutcomes++;
   }
   await storeIntelligence(env, body.intel, now, install).catch(() => ({}));   // what the installs teach about the job search (src/intelligence.js)
-  await storeAliasUse(env, body.aliasUse, now).catch(() => 0);   // how the service's label meanings fared (src/aliases.js)
+  await storeAliasUse(env, body.aliasUse, now).catch(() => 0);
+  await storeAliasProposals(env, body.proposals, install, now).catch(() => ({}));   // what learned notes say a wording means (src/aliases.js)   // how the service's label meanings fared (src/aliases.js)
   const learned = await storeKnowledge(env, body, install, now).catch(() => ({questions: 0, flows: 0, applications: 0}));   // question wording, flow counts and application outcomes (src/knowledge.js)
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned});
 }

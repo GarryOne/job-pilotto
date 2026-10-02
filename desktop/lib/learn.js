@@ -5,6 +5,7 @@
 // drafting and on-page answering, and where the user reads or deletes them). Missing personal facts are
 // not guessed: they stay in the "Answer once" list.
 import Anthropic from '@anthropic-ai/sdk';
+import {KEYS} from '../shared/alias-schema.js';
 
 export const MODEL = 'claude-haiku-4-5';
 const PRICE = {input: 1, output: 5};  // USD per million tokens
@@ -19,6 +20,7 @@ export const SCHEMA = object({
     kind: {type: 'string', enum: ['answer', 'option', 'widget', 'meaning']},
     value: {type: 'string', description: 'For answer/option: the exact value or option label to use; else ""'},
     note: {type: 'string', description: 'One short sentence: the reusable lesson'},
+    key: {type: 'string', enum: [...KEYS, ''], description: 'For answer/meaning: the fixed profile field this label stands for (first_name, email, linkedin ...), or "" if it is none of them'},
   })},
 });
 
@@ -29,6 +31,7 @@ Write short reusable notes that let the next fill complete these fields, ONLY fr
 - option: which listed option matches a standard answer (e.g. "How did you hear" → "Careers Website"). value = the option label, verbatim.
 - widget: how a field must be operated (e.g. "type the city, then pick the suggestion").
 - meaning: what an ambiguous label means for this candidate.
+For answer and meaning notes also set key when the label plainly asks for one of the fixed profile fields, so other people's forms can learn the wording; otherwise "".
 Never invent personal facts (salary, dates, identity, eligibility) that the given material doesn't state; skip those fields.
 Never write notes about legal or consent checkboxes. No notes if nothing is reusable. Keep each note under 25 words.`;
 
@@ -103,3 +106,7 @@ export async function learn({run, profile = '', answers = '', contact = {}, know
   const usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
   return {notes: JSON.parse(text).notes || [], usd};
 }
+
+// The anonymous part of a note that other installs can learn from: just a label wording and the fixed profile field it stands for.
+// Never the value, never the note's sentence. -> [{key, phrase}]
+export const proposalsOf = notes => (notes || []).filter(n => ['answer', 'meaning'].includes(n.kind) && KEYS.includes(n.key)).map(n => ({key: n.key, phrase: n.field}));
