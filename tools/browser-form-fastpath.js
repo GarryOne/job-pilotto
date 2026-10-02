@@ -59,6 +59,13 @@
       element.dispatchEvent(new Event('change', {bubbles: true}));
       filled.push(key);
     }
+    // Then leave each one the way a person does (focus, then blur). Sites hang their look on those events: a floating label that moves up
+    // once the field has been left with a value sat on top of the filled text (3 Oct 2026, consultandpepper.com).
+    for (const key of filled) {
+      const element = byField(String(key));
+      if (!element || element.tagName === 'SELECT') continue;
+      try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
+    }
     return {filled, skipped};
   };
   // Greenhouse removes the file input once a file is attached and shows its name instead, so the

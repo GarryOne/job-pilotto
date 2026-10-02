@@ -89,7 +89,10 @@ ${script}
 const CHAIN_PAGES = {
   posting: () => page(CHAIN, `<p>Join the team. <a id="apply_link" href="${CHAIN.stepUrl}" target="_blank" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a></p>`),
   step: () => page(CHAIN, `<p>Contact: a consultant looks forward to your application.</p><p><a id="to_apply" href="${CHAIN.formUrl}" style="display:inline-block;padding:12px 28px;background:#f5d98b;font-size:18px;text-decoration:none">To apply</a></p>`),
-  form: () => page(CHAIN, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${resume}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}${submit}</form>`),
+  // The agency's form has FLOATING labels: the label sits inside the field and moves up only when the field is left with a value (a blur, like a person's tab
+  // away), so a value written without focus and blur sits on top of its label (3 Oct 2026, consultandpepper.com).
+  form: () => page(CHAIN, `<style>.field label.up{font-size:11px;color:#667}</style><form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${resume}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}${submit}</form>`,
+  `document.querySelectorAll('input[type=text],input[type=email]').forEach(input => input.addEventListener('blur', () => document.querySelector('label[for=' + input.id + ']').classList.toggle('up', !!input.value)));`),
 };
 
 const submit = `<div class="field"><button type="submit" id="submit_app">Submit Application</button></div>`;
