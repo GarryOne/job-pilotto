@@ -174,7 +174,7 @@ def report_lines(run):
     if run.get('mode') == 'mail':
         return mail_lines(run)
     if run.get('mode') in ONE_OFF:  # a one-off job without a result line: say which job, never a crawl's summary
-        return [f"{ONE_OFF[run['mode']]} done ({cost_text(run)})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
+        return [f"{ONE_OFF[run['mode']]} {'failed' if run.get('failed') else 'done'} ({cost_text(run)})"] + [f'Warning: {w}' for w in run.get('warnings', [])]
     if run.get('mode') == 'rejection':  # its AI cost is kept under "insight" (a review of your own search)
         return [f"Rejection review: {len(run.get('updates') or [])} application(s); {cost_text(run)}."] + \
             list(run.get('updates') or []) + [f'Warning: {w}' for w in run.get('warnings', [])]
@@ -472,6 +472,8 @@ def log_run(tracker, run, failed=False):
     """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises)."""
     from .. import telegram
     try:
+        if failed:
+            run['failed'] = True  # the report's words (report_lines): a run that crashed never says "done"
         properties, children = run_page(run, final=not failed)
         if failed:
             properties['Status'] = {'select': {'name': 'Failed'}}

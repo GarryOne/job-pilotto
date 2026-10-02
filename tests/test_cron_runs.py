@@ -223,6 +223,22 @@ class RunTitleTest(unittest.TestCase):
         self.assertEqual(sent[0]['properties']['Run']['title'][0]['text']['content'], '2026-09-30 11:44 · Interview prep')
         self.assertEqual(sent[0]['properties']['Status']['select']['name'], 'Failed')
 
+    def test_a_failed_one_off_run_says_failed_not_done(self):
+        # 2 Oct 2026 (the activity e2e suite): an insight that crashed before its result had a Failed row whose Summary read "Insight done (AI cost $0.000)".
+        sent = []
+        class Tracker:
+            def _request(self, method, path, body):
+                sent.append(body)
+                return {'id': 'row-1', 'url': 'https://notion.so/row'}
+        for mode, name in (('insight', 'Insight'), ('weekly', 'Weekly report'), ('interview', 'Interview review')):
+            sent.clear()
+            run = {'mode': mode, 'started_at': self.AT, 'warnings': ['ended before its report (see the technical log)']}
+            cron_runs.log_run(Tracker(), run, failed=True)
+            summary = sent[0]['properties']['Summary']['rich_text'][0]['text']['content']
+            self.assertTrue(summary.startswith(f'{name} failed'), summary)
+            self.assertNotIn('done', summary)
+        self.assertEqual(cron_runs.report_lines({'mode': 'insight', 'warnings': []})[0], 'Insight done (AI cost $0.000)')  # a run that finished is unchanged
+
     def test_the_end_of_run_write_sets_the_title_once(self):
         from unittest import mock
         titles = []
