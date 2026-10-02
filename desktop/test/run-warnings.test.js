@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {runWarningLines, runWarnings} from '../renderer/run-warnings.js';
 
@@ -39,6 +40,13 @@ test('the same API error on many jobs reads as one line, and the spend limit cou
     'Skipped 1 job (99): Expecting value']);
   assert.equal(limitedJobs(warnings), 16);  // 4 failed on it (one line cut short) + 12 the run stopped before
   assert.equal(limitedJobs(['Skipped job 1: JSONDecodeError: x']), 0);
+});
+
+test('a 429 from the AI service is said as "rate-limited", not "refused the call"', async () => {
+  const {humanError, groupWarnings} = await import('../renderer/run-warnings.js');
+  assert.equal(humanError('RateLimitError: Error code: 429'), 'the AI service is rate-limited right now');
+  assert.deepEqual(groupWarnings(['Skipped job 5: Error code: 429']), ['Skipped 1 job (5): the AI service is rate-limited right now']);
+  assert.match(readFileSync(new URL('../renderer/pages/activity.js', import.meta.url), 'utf8'), /AI_BUSY\.test\(text\)/);
 });
 
 test('the API\'s own JSON never reaches the owner: it becomes the sentence it means', async () => {

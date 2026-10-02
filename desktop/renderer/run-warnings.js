@@ -28,6 +28,8 @@ const UNSCORED = /^(?:AI limit reached[^,]*,\s*)?(\d+)\s+job\(s\)\s+(?:left for 
 const PROVIDER = /\b(?:BadRequestError|APIError|RateLimitError|AuthenticationError|PermissionDeniedError|InternalServerError|APIConnectionError|OverloadedError|Error code: \d{3})\b/i;
 const MESSAGE = /['"]message['"]\s*:\s*['"]([^'"]{4,240})/i;
 const BACK = /(?:regain access|resets?)[^.\d]{0,40}(\d{4}-\d{2}-\d{2})/i;
+// The AI service answering "too many requests" / "overloaded" (429, 529): busy, not a key or permission problem.
+export const AI_BUSY = /RateLimitError|OverloadedError|Error code: (?:429|529)\b/i;
 export function humanError(text, limit = false) {
   const raw = String(text || '').trim();
   if (!PROVIDER.test(raw)) return raw.replace(/^\w*Error:\s*/, '') || raw;
@@ -36,6 +38,7 @@ export function humanError(text, limit = false) {
     const back = (BACK.exec(raw) || BACK.exec(message) || [])[1];
     return `the Anthropic API spending limit was reached${back ? ` (back on ${back})` : ''}`;
   }
+  if (AI_BUSY.test(raw)) return 'the AI service is rate-limited right now';
   return message || 'the AI service refused the call';
 }
 
