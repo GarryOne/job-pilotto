@@ -7,6 +7,13 @@ import * as quitDialog from './quit-dialog.js';
 import {sessionIpc} from './session-contracts.js';
 import {closeFormTab, listTabs, mergeTabs, withOpenForm} from './form-tab.js';
 
+// Close a session's form tab and say whether it is closed. A tab the app already knows is gone needs no wait: asking its page
+// to close costs the whole 6 s timeout when nobody answers (a cancel took 5-10 s with no sign of life, 3 Oct 2026).
+export async function closeSessionTab({review, closeTab}, old) {
+  if (review.tabOpen?.(old.id) === false) return true;
+  return (await review.delivered(old.id, 6000)) || await closeTab({url: old.url, company: old.company});
+}
+
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
   DEMO, apply, pipeline, review, server, notion, claudeConsent,
   closeTab = closeFormTab, tabs = listTabs}) {
@@ -18,11 +25,13 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     const {response} = await dialog.showMessageBox(getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined,
       {type: 'none', icon: nativeImage.createFromPath(path.join(here, 'assets', 'icon.png')), buttons, defaultId: 1, cancelId: 1, message, detail});
     if (response !== 0) return {ok: false, cancelled: true};
+    const started = Date.now();
     terminals.stop(old.id);
     review.queueClose(old.id);
-    const closed = (await review.delivered(old.id, 6000)) || await closeTab({url: old.url, company: old.company});
+    const closed = await closeSessionTab({review, closeTab}, old);
     const reset = DEMO ? {ok: true} : await pipeline.unapply(storage, old.url).catch(error => ({ok: false, error: error.message}));
     if (!reset.ok) return {ok: false, error: `Notion: ${reset.error || 'not updated'}. The session stays; try again.`, closed};
+    appLog('sessions', 'cancelled by the user: job back to Kit ready, session removed', {id: old.id, closed: !!closed, ms: Date.now() - started});
     terminals.setOutcome(old.id, 'cancelled');
     terminals.remove(old.id);
     return {ok: true, closed};
@@ -32,15 +41,16 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   checkedSessions.handle('sessionSkip', async (_, id) => {
     const old = terminals.get(String(id));
     if (!old) return {ok: false, error: 'This session is no longer in the list.'};
+    const started = Date.now();
     terminals.stop(old.id);
     review.queueClose(old.id);
-    const closed = (await review.delivered(old.id, 6000)) || await closeTab({url: old.url, company: old.company});
+    const closed = await closeSessionTab({review, closeTab}, old);
     // Applying is undone first (back to what it was: Kit ready), then the job is dismissed.
     const reset = DEMO ? {ok: true} : await pipeline.unapply(storage, old.url).catch(error => ({ok: false, error: error.message}));
     if (!reset.ok) return {ok: false, error: `Notion: ${reset.error || 'not updated'}. The session stays; try again.`, closed};
     const dismissed = DEMO ? {ok: true} : await pipeline.setStatus(storage, old.url, 'dismissed').catch(error => ({ok: false, error: error.message}));
     if (dismissed.ok === false) return {ok: false, error: `Notion: ${dismissed.error || 'could not dismiss the job'}. It is back to Kit ready; dismiss it from its menu.`, closed};
-    appLog('sessions', `skipped by the user: job dismissed, session removed`, {id: old.id, closed: !!closed});
+    appLog('sessions', `skipped by the user: job dismissed, session removed`, {id: old.id, closed: !!closed, ms: Date.now() - started});
     terminals.setOutcome(old.id, 'cancelled');
     terminals.remove(old.id);
     return {ok: true, closed};

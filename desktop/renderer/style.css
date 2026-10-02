@@ -1928,3 +1928,5 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 .rail-toggle[hidden] { display: none; }
 .app.rail .rail-toggle { font-size: 0; gap: 0; justify-content: center; width: 48px; padding: 12px 0; }
 .app.rail .dev-tag { display: none; }
+
+button.is-busy { cursor: progress; opacity: .7; }

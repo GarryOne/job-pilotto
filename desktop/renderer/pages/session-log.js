@@ -71,9 +71,9 @@ export function renderSessionPage() {
   $('ss-status').replaceChildren(pill(sessionReview(item, formReady(item)) && tone !== 'good' && item.kind !== 'form' ? 'Ready for review' : label, tone, {dot: true}));
   // Start again and Cancel beside ⋯: the two ways out of a session that isn't going well.
   const again = Object.assign(el('button', 'secondary', '↺ Start again'), {title: 'Close this session and start a new one on the same job'});
-  again.addEventListener('click', () => restartSession(item));
+  again.addEventListener('click', () => busy(again, 'Restarting…', () => restartSession(item)));
   const cancel = Object.assign(el('button', 'secondary', 'Cancel application'), {title: 'Claude stops, the form tab closes, the job goes back to Kit ready'});
-  cancel.addEventListener('click', () => cancelSession(item));
+  cancel.addEventListener('click', () => busy(cancel, 'Cancelling…', () => cancelSession(item)));
   if (item.kind === 'form') cancel.title = 'The form tab closes and the job goes back to Kit ready';
   $('ss-more').replaceChildren(...(isSubmitted(item) ? [] : item.kind === 'form' ? [cancel] : [again, cancel]), moreButton(sessionMenu(item), 'More'));
   show($('ss-log'), item.kind !== 'form');   // no terminal behind a form session: the form in Chrome is the whole story
@@ -106,6 +106,12 @@ export function renderSessionPage() {
     ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.'
     : 'This session has ended. Start a new session from the job to continue.';
   openLog(logChoice[item.id] ?? item.status === 'running', false);
+}
+// A button that waits on the main process (a confirmation, the form tab closing, Notion) says so and cannot be pressed twice.
+async function busy(button, label, work) {
+  const was = button.textContent;
+  button.disabled = true; button.classList.add('is-busy'); button.textContent = label;
+  try { await work(); } finally { button.disabled = false; button.classList.remove('is-busy'); button.textContent = was; }
 }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 export async function attachTerminal(id) {
