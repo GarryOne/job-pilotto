@@ -9,7 +9,10 @@ import {goStep} from './wizard.js';
 
 export function toastMessage(title, body, hint) {
   if (typeof title === 'object') ({title, body, hint} = title);
+  // The same message twice (a double click, two checks finding the same thing) replaces the first instead of stacking.
+  for (const old of $('toasts').children) if (old.dataset.key === `${title}\n${body}`) old.remove();
   const toast = Object.assign(document.createElement('div'), {className: 'toast'});
+  toast.dataset.key = `${title}\n${body}`;
   toast.append(Object.assign(document.createElement('b'), {textContent: title}), Object.assign(document.createElement('span'), {textContent: body}));
   if (hint) toast.append(Object.assign(document.createElement('small'), {textContent:
     window.pilot.platform === 'win32' ? 'Windows notifications are off for this app: Settings → System → Notifications → Job Pilotto → On.'
