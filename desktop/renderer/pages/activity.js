@@ -685,7 +685,7 @@ function mailSections(box, report, pending = [], answered = null) {
       const asked = NEEDS_YOU.has(email.action) ? questionState(email, pending, answered) : null;
       row.append(asked?.answered ? pill('confirmed by you', 'good') : pill(email.action, email.action === 'recorded' ? 'good' : asked ? 'warn' : 'neutral'));
       if (acted) row.append(el('span', 'mail-read-by', email.by));
-      if (asked) row.append(questionBlock(asked));
+      if (asked) row.append(questionBlock(asked, subjectKey(email.subject)));
       rows.append(row);
     }
     section.append(rows);
@@ -711,7 +711,9 @@ function questionState(email, pending, answered) {
 // original question kept one click away.
 const QUESTION = 'Which job is this email about?';
 const QUESTION_WHY = "The check couldn't tell which job this is about, so it moved nothing. Your answer places the email.";
-function questionBlock(state) {
+// The card is drawn again on every refresh: which original questions are open is remembered here, or they would snap shut.
+const openQuestions = new Set();
+function questionBlock(state, key) {
   const block = el('div', state.answered ? 'mail-question is-answered' : 'mail-question');
   const head = el('div', 'mail-question-head');
   if (!state.answered) {
@@ -728,6 +730,8 @@ function questionBlock(state) {
   block.append(head, el('p', 'mail-question-answer', state.job ? state.role : 'Not about a job, or the job was not recorded'),
     el('p', 'mail-question-text', state.job ? 'Role confirmed for this email.' : 'Nothing was moved for this email.'));
   const original = el('details', 'mail-question-original');
+  original.open = openQuestions.has(key);
+  original.addEventListener('toggle', () => { if (original.open) openQuestions.add(key); else openQuestions.delete(key); });
   original.append(el('summary', '', 'Original question'), el('p', '', `${QUESTION} ${QUESTION_WHY}`));
   block.append(original);
   return block;
