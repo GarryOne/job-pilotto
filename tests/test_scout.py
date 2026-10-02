@@ -60,6 +60,19 @@ class ScoutTests(unittest.TestCase):
         self.assertIn('Smallco', names)
         self.assertNotIn('Acme', names)
 
+    def test_a_candidate_on_a_board_already_in_the_starter_list_is_a_duplicate(self):
+        """E2E Acme Labs on the board of the starter source E2E Acme was registered as a new source and written to Employers & Sources again (found by the employers e2e suite, 2 Oct 2026)."""
+        seeds = {'excluded': [], 'tier1_known': [{'name': 'Bigco Labs', 'ats': 'lever', 'slug': 'bigco'}], 'tier1': [], 'manual_watch': [], 'regional': {}}
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'sources.json').write_text(json.dumps([{'company': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}]))
+            with mock.patch.object(scout, 'CONFIG', Path(tmp)), job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+                tracker = FakeTracker()
+                summary, results = scout.run(db, 10, tracker, seeds, fake_probe, harvest_sources=[lambda: scout.seed_candidates(seeds)])
+                self.assertEqual([o['status'] for _, o in results], ['duplicate'])
+                self.assertEqual(summary['total_feeds'], 0)
+                self.assertEqual(tracker.created, [])
+                self.assertEqual(db.execute('SELECT COUNT(*) FROM feed_sources').fetchone()[0], 0)
+
     def test_tier1_first_found_low_none_and_exclusions(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:

@@ -460,12 +460,17 @@ def write_notion(tracker, candidate, outcome):
 
 # ---------- one run ----------
 
-def run(db, batch=15, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6):
-    """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes)."""
+def run(db, batch=15, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None):
+    """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes).
+    A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the Active Employers & Sources rows."""
     seeds = seeds or json.loads(SEEDS.read_text())
+    if static is None:
+        starter = CONFIG / 'sources.json'
+        static = json.loads(starter.read_text()) if starter.exists() else []
     added = harvest(db, seeds, harvest_sources)
     candidates = next_batch(db, batch)
-    active = {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}
+    active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
+    active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
 
     def check(candidate):
         if candidate['status'] == 'manual':
