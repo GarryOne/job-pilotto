@@ -5,3 +5,6 @@ export function scheduleResume(pipeline, storage, {cloud = false, begin, delayMs
   timer(() => begin(jobs), delayMs);
   return jobs;
 }
+
+// The wait before the last session's jobs start again: 20 s, so the schedule's own catch-up has queued what is due. The end-to-end journey shortens it (never for a user).
+export const resumeDelay = (env = process.env) => (env.JOB_PILOTTO_E2E ? Number(env.JOB_PILOTTO_E2E_RESUME_MS) || 20 * 1000 : 20 * 1000);

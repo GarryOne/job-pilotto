@@ -26,7 +26,7 @@ import * as interviews from './lib/interviews.js';
 import * as calltap from './lib/calltap.js';
 import * as notion from './lib/notion.js';
 import {cloudNextAt, nextAt, nextMailAt, startSchedule} from './lib/schedule.js';
-import {scheduleResume} from './lib/resume-queue.js';
+import {resumeDelay, scheduleResume} from './lib/resume-queue.js';
 import * as telegram from './lib/telegram.js';
 import * as pipeline from './lib/pipeline.js';
 import * as server from './lib/server.js';
@@ -1885,7 +1885,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       scout: () => pipeline.scout(storage, log, 'schedule'),
     }, powerMonitor, {soon: () => notify('Checking for new jobs in 1 minute', 'Your scheduled check for new jobs is about to run.')});
     setInterval(announceRuns, 5000);
-    scheduleResume(pipeline, storage, {cloud: !!storage.settings().cloud?.repo, begin: resumeQueue});  // after the schedule's own catch-up check has queued what's due; the queue is read now, not then
+    scheduleResume(pipeline, storage, {cloud: !!storage.settings().cloud?.repo, begin: resumeQueue, delayMs: resumeDelay()});  // after the schedule's own catch-up check has queued what's due; the queue is read now, not then
   }
   if (!DEMO) setInterval(() => focusReminder().catch(() => {}), 5 * 60 * 1000);
 }});

@@ -128,7 +128,9 @@ export const setDemo = on => { demoMode = !!on; };
 // did not answer) and nothing, not the row in Notion, not a report, said it was stuck. SIGTERM lets the engine close its Notion row.
 // The end-to-end journey shortens the silence limit (JOB_PILOTTO_E2E_IDLE_MS) so a hung AI can be tested in under a minute; never set for a user.
 const E2E_IDLE = process.env.JOB_PILOTTO_E2E ? Number(process.env.JOB_PILOTTO_E2E_IDLE_MS) || 0 : 0;
-export const LIMITS = {idleMs: E2E_IDLE || 15 * 60 * 1000, totalMs: 45 * 60 * 1000, checkMs: 5000, killAfterMs: 8000, watchAll: false};   // watchAll: tests watch any module, not only `src …`
+export const LIMITS = {idleMs: E2E_IDLE || 15 * 60 * 1000, totalMs: 45 * 60 * 1000, checkMs: E2E_IDLE ? 1000 : 5000, killAfterMs: E2E_IDLE ? 3000 : 8000, watchAll: false};   // watchAll: tests watch any module, not only `src …`
+// How long a run was silent, for the watchdog's message: minutes for a real run, seconds when the journey shortens the limit.
+export const quietText = ms => (ms < 90 * 1000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60000)} min`);
 export function run(storage, args, onLine = () => {}, extraEnv = {}) {
   if (demoMode && !demo.pipelineAllowed(args)) { onLine('Demo mode: nothing runs and nothing is sent.'); return Promise.resolve({code: 1, stdout: ''}); }
   const started = Date.now(), tail = [];
@@ -149,7 +151,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}) {
     const watch = (args[0] === 'src' || LIMITS.watchAll) ? setInterval(() => {
       if (timedOut) return;
       const quiet = Date.now() - lastOutputAt, total = Date.now() - started;
-      timedOut = quiet > LIMITS.idleMs ? `no output for ${Math.round(quiet / 60000)} min` : total > LIMITS.totalMs ? `still running after ${Math.round(total / 60000)} min` : '';
+      timedOut = quiet > LIMITS.idleMs ? `no output for ${quietText(quiet)}` : total > LIMITS.totalMs ? `still running after ${Math.round(total / 60000)} min` : '';
       if (!timedOut) return;
       appLog('run', `watchdog: python -m ${args.join(' ')} stopped, ${timedOut}`, {run_id: runId, last: tail.at(-1) || ''});
       onLine(`⚠️ Stopped by Job Pilotto: ${timedOut}. The last thing it did: ${tail.at(-1) || 'nothing yet'}`);
