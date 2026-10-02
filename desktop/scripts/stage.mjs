@@ -15,8 +15,8 @@ const copy = (from, to) => fs.cpSync(path.join(repo, from), to, {recursive: true
 
 fs.rmSync(path.join(desktop, 'shared'), {recursive: true, force: true});
 copy('worker/src', path.join(desktop, 'shared', 'worker'));
-// The recipe format, one source for the site, the extension and the app (extension/recipe-schema.js).
-fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(desktop, 'shared', 'recipe-schema.js'));
+// The recipe format, one source for the site, the extension and the app (site/src/recipe-schema.js; the private extension repo keeps a copy).
+fs.copyFileSync(path.join(repo, 'site', 'src', 'recipe-schema.js'), path.join(desktop, 'shared', 'recipe-schema.js'));
 // The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
 // Cloudflare account for "Telegram buttons, always on" (lib/telegram-cloud.js).
 await (await import('esbuild')).build({entryPoints: [path.join(repo, 'worker', 'src', 'index.js')], bundle: true,
@@ -30,7 +30,7 @@ if (process.argv.includes('--app')) {
   if (keepPython) fs.renameSync(python, path.join(keepPython, 'python')); // the Python runtime is staged separately (CI)
   fs.rmSync(pilot, {recursive: true, force: true});
   fs.mkdirSync(pilot, {recursive: true});
-  for (const item of ['src', 'config', 'tools', 'extension', 'templates', 'requirements.txt', 'requirements-transcribe.txt']) copy(item, path.join(pilot, item));
+  for (const item of ['src', 'config', 'tools', 'templates', 'requirements.txt', 'requirements-transcribe.txt']) copy(item, path.join(pilot, item));
   for (const doc of ['notion-profile-template.md', 'job-pilotto-guide.md']) copy(`docs/${doc}`, path.join(pilot, 'docs', doc));
   // The skill Apply with Claude sessions follow: they start in this folder, where Claude Code finds .claude/skills.
   copy('.claude/skills/apply-to-job', path.join(pilot, '.claude', 'skills', 'apply-to-job'));

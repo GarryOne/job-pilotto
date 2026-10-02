@@ -101,14 +101,13 @@ def main():
 
     mark = cut_mark(BRAND / 'logo-original.png')
     mark.save(BRAND / 'logo-mark.png')
-    # Everywhere else (favicon, website, Chrome extension) in the same Ink look as the app, 29 Sep 2026.
+    # Everywhere else (favicon, website; the Chrome extension's icons are in its own repo: brand/icon-16|32|48|128.png here) in the same Ink look as the app, 29 Sep 2026.
     for size in (16, 32, 48, 128, 180, 512):
         ink_tile(ink, size, 0, max(3, size // 5), 0.80, glow=False).save(BRAND / f'icon-{size}.png')
 
     copies = {'logo-mark-ink.png': ['site/public/images/logo-mark.png'], 'site-logo.png': ['site/public/images/site-logo.png'], 'app-icon.png': ['desktop/assets/icon.png'], 'app-logo-128.png': ['desktop/renderer/logo.png'],
-              'icon-128.png': ['site/public/images/logo.png', 'extension/icons/icon-128.png'],
-              'icon-32.png': ['site/public/favicon-32.png', 'extension/icons/icon-32.png'],
-              'icon-16.png': ['extension/icons/icon-16.png'], 'icon-48.png': ['extension/icons/icon-48.png'],
+              'icon-128.png': ['site/public/images/logo.png'],
+              'icon-32.png': ['site/public/favicon-32.png'],
               'icon-180.png': ['site/public/apple-touch-icon.png'], 'icon-512.png': ['site/public/images/logo-512.png']}
     for name, targets in copies.items():
         for target in targets:

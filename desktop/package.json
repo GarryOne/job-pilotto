@@ -20,7 +20,7 @@
     "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",
     "apply-demo": "node scripts/apply-demo.mjs",
-    "lint": "cd .. && eslint --config eslint.config.mjs desktop extension"
+    "lint": "cd .. && eslint --config eslint.config.mjs desktop"
   },
   "devDependencies": {
     "electron": "^44.4.5",

@@ -19,6 +19,7 @@ let leftOpenAsked = false;  // the start-up question about sessions left open wa
 let statFilter = null;  // the counter clicked above the list: 'applied', 'waiting', 'interviews', 'closed', 'high', 'companies', 'stuck' or null (Inbound picks the menu's filter)
 // Apply with Claude: offered (and recommended) when Claude Code is installed and Notion is connected.
 let claudeReady = false;
+let extensionHere = true;   // the Chrome extension is part of this app (downloaded for a license or a trial); else Apply with Claude is the main button
 const claudeStarted = new Set();
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/$/, '');
 // The whole link, #part included: recruiter leads differ only there (linkedin.com/messaging/#jp-…, a Gmail thread).
@@ -265,6 +266,20 @@ export function renderJobs() {
         open.addEventListener('click', () => openSession(live.id));
         box.append(open);
         menu.push({icon: 'puzzle', label: 'Fill in Chrome', run: () => fillInChrome()});
+      } else if (!extensionHere) {
+        // No extension in this app: Apply with Claude is the way to apply (Claude Code), and says what is missing when it is not set up.
+        const started = claudeStarted.has(pageKey(job.url));
+        const claude = Object.assign(el('button', `row-main ${started ? 'state-opened' : 'state-apply'}`, started ? 'Claude is applying' : 'Apply with Claude'), {
+          title: claudeReady ? 'Claude opens the posting in Chrome, follows Apply to the employer\'s site, fills every page from your kit; you submit'
+            : 'Needs Claude Code installed and signed in: Settings → Apply with Claude'});
+        claude.disabled = started;
+        claude.addEventListener('click', async () => {
+          if (!claudeReady) { toastMessage('Claude Code is needed', 'Install Claude Code and sign in (Settings → Apply with Claude), then press Apply with Claude.'); return; }
+          const result = await window.pilot.applyWithClaude(job.url, {title: job.title, company: job.company, location: job.location, workMode: job.work_mode});
+          if (result.ok) { claudeStarted.add(pageKey(job.url)); if (result.session) await refreshSessions(); renderJobs(); return; }
+          if (/kit/i.test(result.error || '')) { toastMessage('Kit not found', 'Prepare it again.'); loadJobs(); } else toastMessage('Claude could not start', result.error || 'Try again.');
+        });
+        box.append(claude);
       } else {
         const fill = Object.assign(el('button', `row-main ${opened ? 'state-opened' : 'state-apply'}`, opened ? 'Opened ↻' : 'Apply'), {
           title: opened ? 'Opened in Chrome: click to open it there again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
@@ -731,6 +746,7 @@ export async function loadJobs() {
   showLoading();
   jobsLoading = true;
   claudeReady = (await window.pilot.claudeReady().catch(() => ({ok: false}))).ok;
+  extensionHere = (await window.pilot.extensionPack().catch(() => ({present: true}))).present !== false;
   try {
     // The last good list at once (lib/view-cache.js), then the fresh one from Notion replaces it.
     if (!shared.allJobs.length) {
@@ -1038,7 +1054,10 @@ export async function init() {
 
   $('apply-open').addEventListener('click', () => {
     message('apply-message', '');
-    document.querySelector(`input[name="apply-mode"][value="${claudeReady ? 'agents' : 'chrome'}"]`).checked = true;
+    document.querySelector(`input[name="apply-mode"][value="${claudeReady || !extensionHere ? 'agents' : 'chrome'}"]`).checked = true;
+    const plain = document.querySelector('input[name="apply-mode"][value="chrome"]');
+    plain.disabled = !extensionHere;   // the plain mode is the extension filling tabs
+    plain.closest('label').title = extensionHere ? '' : 'The Chrome extension is not part of this app yet';
     $('apply-dialog').showModal();
   });
   $('apply-go').addEventListener('click', async event => {

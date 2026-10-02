@@ -117,10 +117,14 @@ test('a stale extension is named, with the reload to do; matching or unknown ver
   assert.equal(server.staleExtension('0.8.23', ''), '');       // the app's copy isn't readable
 });
 
-test('the extension version the app reads is its own manifest', async () => {
+test('the extension version the app reads is the manifest of the folder it is pointed at', async () => {
   const fs = await import('node:fs');
-  const manifest = JSON.parse(fs.readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8'));
+  const dir = new URL('./fixtures/extension', import.meta.url).pathname;
+  const manifest = JSON.parse(fs.readFileSync(`${dir}/manifest.json`, 'utf8'));
+  server.setExtensionDir(() => dir);
   assert.equal(server.latestExtension(), manifest.version);
+  server.setExtensionDir(() => '/nowhere');
+  assert.equal(server.latestExtension(), '');   // no extension there: nothing to compare with
 });
 
 // A session that leaves the file must stay readable: the app's list is the only copy of "which sessions do I have",

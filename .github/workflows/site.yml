@@ -9,7 +9,6 @@ on:
     paths:
       - 'site/**'
       - 'worker/src/report.js'   # the site serves the app's form reports with it
-      - 'extension/recipe-schema.js'   # what the site accepts and serves as a recipe
       - '.github/workflows/site.yml'
   workflow_dispatch:
 

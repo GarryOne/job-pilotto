@@ -50,4 +50,4 @@ Claude stays out of those fields. It is still one action at a time for the walk,
 - A filter page with three or more inputs can be treated as the application form.
 - Another browser, or another Chrome profile, is invisible to Claude.
 
-Code: `desktop/lib/apply.js` opens the tab, `extension/tab-pages.js` (`pageRole`) classifies it, `extension/background.js` (`consider`, `followOpener`) fills or follows, `desktop/lib/claude-session.js` is the prompt Claude follows.
+Code: `desktop/lib/apply.js` opens the tab, the extension (private repo: `tab-pages.js` `pageRole` classifies it, `background.js` `consider`/`followOpener` fills or follows), `desktop/lib/claude-session.js` is the prompt Claude follows.

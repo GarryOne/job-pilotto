@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
-import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
+import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../src/recipe-schema.js';
 import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labPlan, labReport, lookup, publicUrl, recipes} from '../src/recipes.js';
 
 function d1() {

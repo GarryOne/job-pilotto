@@ -1,19 +1,22 @@
 #!/usr/bin/env node
-// The form lab: a headless browser runs the extension's REAL operators (extension/page/skeleton.js and controls.js) on public
+// The form lab: a headless browser runs the extension's REAL operators (page/skeleton.js and controls.js of the private extension
+// repo, GarryOne/job-pilotto-extension: its form-lab workflow checks this repo out and runs this script) on public
 // application forms with a test applicant, and reports what worked to the site (POST /api/lab). It never submits: every POST
 // request the page makes is blocked, and nothing but the operators' own clicks is done. It also tries the site's candidate recipes
 // and, when one works on enough different pages, gives it a small canary. Design: Notion "Self-improving form filling".
-//   node tools/form-lab.mjs --urls urls.txt [--max 25] [--site https://www.jobpilotto.workers.dev] [--key KEY | env LAB_KEY]
+//   node tools/form-lab.mjs --extension-dir <the extension's page/ folder> --urls urls.txt [--max 25] [--site https://www.jobpilotto.workers.dev] [--key KEY | env LAB_KEY]
 //                           [--promote] [--out result.json] [--dry]
 // Needs playwright-core and a Chromium (the workflow installs them); CHROME_PATH points at a local one.
 import fs from 'node:fs';
-import {fileURLToPath} from 'node:url';
+import path from 'node:path';
 import {applicationUrl, decidePromotion, runsFrom, siteOf, testAnswer} from './form-lab-lib.mjs';
 
 const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = (name, fallback = '') => { const i = args.indexOf(`--${name}`); return i >= 0 && args[i + 1] ? args[i + 1] : fallback; };
-const root = fileURLToPath(new URL('../extension/page/', import.meta.url));
+const dir = option('extension-dir', process.env.EXTENSION_PAGE_DIR || '');
+if (!dir || !fs.existsSync(path.join(dir, 'skeleton.js'))) { console.error('Pass --extension-dir <the extension\'s page/ folder> (or env EXTENSION_PAGE_DIR): the extension is in a private repo.'); process.exit(2); }
+const root = `${path.resolve(dir)}/`;
 const site = option('site', 'https://www.jobpilotto.workers.dev').replace(/\/$/, '');
 const key = option('key', process.env.LAB_KEY || '');
 const max = Number(option('max', '25')) || 25;
