@@ -1830,8 +1830,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     });
     // The repo's workflow files follow this version of the app (e.g. a new input), unchanged files untouched;
     // keys kept outside the app's store (the Google sign-in) go along.
-    // Updates: shortly after start, then every hour during the alpha (6 hours for the mass rollout; an installed app only; a source checkout updates with git).
-    if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 3600 * 1000); }
+    // Updates: shortly after start, then every 10 minutes during the alpha (back to 6 hours for the mass rollout: GitHub allows 60 anonymous checks an hour per IP; an installed app only; a source checkout updates with git).
+    if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 10 * 60 * 1000); }
     // Interview reminders: a Mac notification 10 and 1 minute before each Next interview (from the last read of the Jobs list).
     const remind = () => {
       if (DEMO || !storage.settings().setupDone || !reminders.on(storage)) return;
