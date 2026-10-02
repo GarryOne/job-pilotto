@@ -292,3 +292,15 @@ class SpendLimitTests(unittest.TestCase):
                 self.assertTrue(stats['limit'])
                 self.assertEqual(daily.left_out(stats, 'scored'), ['8 job(s) not scored: the Anthropic API spending limit was reached'])
                 self.assertEqual(daily.left_out({'pending': 3, 'done': 3}, 'scored'), [])
+
+
+class ScoringPromptGroundingTests(unittest.TestCase):
+    """The score text is read by a person deciding whether to apply. The golden-postings e2e judge (2 Oct 2026) found the scorer writing figures and places
+    that were in neither the posting nor the profile: "30% below minimum" for a 7-21% gap, "Geneva fits your Zurich home base" for a 5-day on-site job,
+    "in target range" for a figure outside it. The prompt must forbid each."""
+
+    def test_the_prompt_forbids_made_up_numbers_and_distances(self):
+        text = score.SYSTEM.lower()
+        for rule in ('do not compute percentages', 'commute times or distances', 'minimum and the target are different figures',
+                     'in the target range', 'in another city'):
+            self.assertIn(rule, text)

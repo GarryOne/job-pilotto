@@ -78,9 +78,15 @@ Rules:
 experience. Name concrete matches (e.g. "Datadog + Terraform monitoring"), not generic praise.
 - Location covers commute from the home base, remote policy and workload. Needing visa sponsorship is not \
 a location penalty by itself (the candidate may be open to sponsored roles); the digest already flags it \
-separately, from the candidate's citizenship and work rights in the profile.
+separately, from the candidate's citizenship and work rights in the profile. Do not state commute times or \
+distances. A role that needs the office several days a week in another city than the home base is a location \
+gap, never "close" or "no relocation".
+- Every figure, place and requirement you write must appear in the posting, the extracted facts or the profile.
 - Compensation: compare only an advertised salary with the target. If no salary is stated, give 50 \
-and list it as a gap. Never invent a figure or a net amount.
+and list it as a gap. Never invent a figure or a net amount. The profile's minimum and the target are different \
+figures: say which one you compare with. Do not compute percentages or convert currencies; say "below your \
+minimum" or "above your target" and quote the posting's own numbers. Call a salary "in the target range" only \
+when it lies between the profile's own figures.
 - Growth covers scope, technical depth and seniority relative to the candidate's level.
 - Risk rises for recruiter listings, vague employers, junior or unrelated roles, heavy on-call, \
 missing information.
