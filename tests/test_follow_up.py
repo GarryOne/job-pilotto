@@ -19,6 +19,9 @@ from tests.test_focus import event as focus_event, row as focus_row
 from tests.test_inbox import Inbox, SHOT, job, reading, row
 from tests.test_mail import FakeGoogle, FakeTracker, app
 from tests.test_opportunity import Client
+from tests import zone
+
+setUpModule, tearDownModule = zone.pinned()
 
 WEDNESDAY = date(2026, 9, 30)
 NOW = datetime(2026, 9, 30, 9, 0, tzinfo=timezone.utc)

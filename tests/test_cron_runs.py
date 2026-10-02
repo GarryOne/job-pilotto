@@ -8,6 +8,10 @@ from src import daily
 from src.ai import cost
 from src.notion import cron_runs
 from src.notion.client import Tracker
+from tests import zone
+
+
+setUpModule, tearDownModule = zone.pinned()   # run rows show the local time; the expected times here are Zurich's
 
 
 def sample_run(**extra):

@@ -14,6 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import mail
 from src.notion import ledger
 from src.sources import google as google_api
+from tests import zone
+
+setUpModule, tearDownModule = zone.pinned()
 
 NOW = datetime(2026, 9, 26, 16, 0, tzinfo=timezone.utc)  # 18:00 in Zurich
 

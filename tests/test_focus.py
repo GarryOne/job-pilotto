@@ -5,6 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import focus
+from tests import zone
+
+setUpModule, tearDownModule = zone.pinned()
 
 NOW = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)  # Monday 17:00 in Zurich
 

@@ -6,6 +6,9 @@ import unittest
 from types import SimpleNamespace
 
 from src.ai import cost, interview_insights, interviews
+from tests import zone
+
+setUpModule, tearDownModule = zone.pinned()
 
 
 def reply(stop='end_turn', text='{}'):
