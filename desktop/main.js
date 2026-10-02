@@ -781,11 +781,12 @@ function handlers() {
   // "Your search may be too narrow" (src/coverage.py): how much of the market the role keywords catch, and what adding a term would add.
   // The one-tap "why?" after Dismiss and the daily score snapshot (renderer/intel.js): counts for the product, on the Technical reports switch.
   ipcMain.handle('dismissReason', (_, input) => { recipeReporterRef?.dismissal(String(input?.reason || ''), String(input?.bucket || '')); return {ok: true}; });
-  ipcMain.handle('intelSnapshot', (_, list) => {
+  ipcMain.handle('intelSnapshot', (_, list, hosts) => {
     const today = new Date().toISOString().slice(0, 10);
     if (DEMO || storage.settings().intelSnapshotDay === today) return {ok: true, skipped: true};
     storage.saveSettings({intelSnapshotDay: today});
     recipeReporterRef?.snapshot(list);
+    recipeReporterRef?.sources(applicationOutcomes.sourceStats(hosts, controlEvents.boardName));
     return {ok: true};
   });
   ipcMain.handle('searchCoverage', async () => {
@@ -1188,6 +1189,7 @@ function handlers() {
     appLog('outcome', `marked ${outcome} (${stage})`, {board: applicationOutcomes.anonymous({url, outcome})?.board || ''});
     const result = await pipeline.markOutcome(storage, url, stage);
     if (result.ok) recipeReporterRef?.application(applicationOutcomes.anonymous({url, outcome, appliedOn: input?.appliedOn}));
+    if (result.ok) recipeReporterRef?.reply(String(input?.bucket || ''), outcome);   // the job's score band, to see whether the score predicts replies
     return result;
   });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
@@ -1715,6 +1717,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     if (Array.isArray(payload.trace)) recipeReporter.fill(board);   // one more form on this board (only a fill report carries the trace; a flow or alias event is not a fill)
     recipeReporter.question((Array.isArray(payload.buttons) ? payload.buttons : []).map(label => ({label, kind: 'button'})), board);   // button texts of a page with no Apply button we knew
     recipeReporter.alias(payload.aliasUse);   // which label meanings from the service placed a question, and whether the field took it
+    recipeReporter.fillQuality(payload.filled, payload.corrections);   // which answers were filled, and which the person changed by hand (labels only)
     recipeReporter.question(unplaced(payload.trace), board);   // the form's own wording for questions no answer matched
     if (payload.flow) recipeReporter.flow(board, flowState(payload.flow));   // where an application got to on this board
   });

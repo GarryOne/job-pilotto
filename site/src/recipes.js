@@ -177,7 +177,7 @@ export async function controls(request, env, now = new Date()) {
       .bind(day(now), fingerprint, recipe, ok, failed).run();
     storedOutcomes++;
   }
-  await storeIntelligence(env, body.intel, now).catch(() => ({}));   // what the installs teach about the job search (src/intelligence.js)
+  await storeIntelligence(env, body.intel, now, install).catch(() => ({}));   // what the installs teach about the job search (src/intelligence.js)
   await storeAliasUse(env, body.aliasUse, now).catch(() => 0);   // how the service's label meanings fared (src/aliases.js)
   const learned = await storeKnowledge(env, body, install, now).catch(() => ({questions: 0, flows: 0, applications: 0}));   // question wording, flow counts and application outcomes (src/knowledge.js)
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned});

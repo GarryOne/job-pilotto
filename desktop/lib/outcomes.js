@@ -25,3 +25,17 @@ export function anonymous({url, outcome, appliedOn}, now = Date.now()) {
   const board = boardName(host);
   return board ? {board, outcome, days: daysBucket(appliedOn, now)} : null;
 }
+
+// [{host, seen, acted, dismissed, heard}] (the renderer's per-host counts) -> per job-board KIND: a known ATS name, or "other" for any other site.
+// A hashed host never leaves the Mac, so a company's own careers site is only ever "other".
+export function sourceStats(hosts, boardName) {
+  const totals = new Map();
+  for (const item of Array.isArray(hosts) ? hosts : []) {
+    const board = boardName(String(item?.host || ''));
+    const kind = /^[a-z]+$/.test(board) ? board : 'other';
+    const entry = totals.get(kind) || {board: kind, seen: 0, acted: 0, dismissed: 0, heard: 0};
+    for (const field of ['seen', 'acted', 'dismissed', 'heard']) entry[field] += Math.max(0, Math.round(Number(item?.[field])) || 0);
+    totals.set(kind, entry);
+  }
+  return [...totals.values()];
+}

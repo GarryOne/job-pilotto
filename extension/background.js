@@ -385,7 +385,19 @@ function reportControls(config, tab, operated, trace) {
     .map(row => ({label: String(row.label || '').slice(0, 100), type: String(row.type || '').slice(0, 20), required: !!row.required, reason: NO_ANSWER}));
   // Which service meanings placed a question, and whether the field took the value (counts only: the canary's evidence).
   const aliasUse = (Array.isArray(trace) ? trace : []).filter(row => row && row.alias).slice(0, 20).map(row => ({phrase: String(row.alias).slice(0, 60), ok: row.outcome === 'filled'}));
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse})}).catch(() => {});
+  // The questions the fill did answer (form wording only), so corrections can be counted against them.
+  const filled = (Array.isArray(trace) ? trace : []).filter(row => row && row.outcome === 'filled' && row.source && row.type !== 'file').slice(0, 30).map(row => String(row.label || '').slice(0, 100));
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled})}).catch(() => {});
+}
+// Labels of filled fields the person later changed by hand (page/fill.js watchCorrection): sent once, then forgotten.
+async function reportCorrections(config, tabId) {
+  const frames = await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: () => (window.__jobPilottoCorrections || []).splice(0)}).catch(() => []);
+  const corrections = frames.flatMap(frame => frame.result || []).slice(0, 40);
+  if (!corrections.length) return;
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  let host = '';
+  try { host = new URL(tab?.url).hostname; } catch { /* not a url */ }
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: [], corrections})}).catch(() => {});
 }
 // Where an application got to on this page (a form, a page with no form, an account wall): counted per board, nothing else.
 async function reportFlow(tab, flow, extra = {}) {
@@ -652,6 +664,7 @@ async function reportTabs() {
   const stored = await chrome.storage.session.get(null).catch(() => ({}));
   const armedIds = Object.keys(stored).filter(key => key.startsWith('armed:') && stored[key]).map(key => Number(key.slice(6))).filter(Number.isInteger);
   const ids = reportedIds({jobSiteIds: open.map(tab => tab.id), armedIds, existingIds: (await chrome.tabs.query({})).map(tab => tab.id)});
+  for (const id of armedIds) reportCorrections(config, id);
   // Which tabs exist (ids), and which browser run they belong to: Chrome numbers tabs again after a restart.
   let {boot} = await chrome.storage.session.get('boot');
   if (!boot) { boot = String(Date.now()); await chrome.storage.session.set({boot}); }

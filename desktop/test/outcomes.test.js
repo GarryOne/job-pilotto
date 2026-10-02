@@ -38,3 +38,11 @@ test('a job offers the outcomes that make sense for its stage', () => {
   for (const stage of ['Applying', 'Kit ready', 'Offer', 'Rejected', 'Withdrawn', 'No response', undefined]) assert.deepEqual(outcomeChoices(stage), [], String(stage));
   assert.ok(outcomeChoices('Applied').every(c => OUTCOMES.includes(c.outcome) && /anonymously by job board and days only/.test(c.title)));
 });
+
+test('sources fold into known job-board kinds; any other site is "other" and nothing hashed leaves', async () => {
+  const {sourceStats} = await import('../lib/outcomes.js');
+  const {boardName} = await import('../lib/control-events.js');
+  const out = sourceStats([{host: 'boards.greenhouse.io', seen: 5, acted: 2, dismissed: 1, heard: 1}, {host: 'job-boards.greenhouse.io', seen: 5, acted: 0, dismissed: 3, heard: 0},
+    {host: 'careers.acme.com', seen: 2, acted: 1, dismissed: 0, heard: 0}, {host: 'jobs.lever.co', seen: 1}], boardName);
+  assert.deepEqual(out, [{board: 'greenhouse', seen: 10, acted: 2, dismissed: 4, heard: 1}, {board: 'other', seen: 2, acted: 1, dismissed: 0, heard: 0}, {board: 'lever', seen: 1, acted: 0, dismissed: 0, heard: 0}]);
+});

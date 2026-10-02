@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {controls} from '../src/recipes.js';
-import {report, store, view} from '../src/intelligence.js';
+import {report, store, tidy, view} from '../src/intelligence.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0014_intelligence.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0014_intelligence.sql', '0016_intel_signals.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -84,4 +84,29 @@ test('POST /api/controls carries it, counts it against the daily limit, and a mi
   assert.equal(tables(e).intel_dismiss.length, 1);
   e.STATS.db.exec('DROP TABLE intel_dismiss;');
   assert.equal((await send({intel: {dismissals: [{reason: 'tech', bucket: '80-100', n: 1}]}})).status, 200);   // swallowed: the report still succeeds
+});
+
+test('replies by score band, source kinds and corrected answers: stored, bounded and shown only when enough people and outcomes back them', async () => {
+  const e = env();
+  await store(e, {replies: [{bucket: '80-100', outcome: 'screening', n: 12}, {bucket: '80-100', outcome: 'no_response', n: 8}, {bucket: '40-59', outcome: 'reply', n: 2}, {bucket: '40-59', outcome: 'no_response', n: 18},
+    {bucket: 'bad', outcome: 'reply', n: 5}, {bucket: '80-100', outcome: 'banana', n: 5}],
+    sources: [{board: 'greenhouse', seen: 100, acted: 30, dismissed: 20, heard: 6}, {board: 'h:abc', seen: 50, acted: 1, dismissed: 1, heard: 0}, {board: 'other', seen: 5, acted: 99, dismissed: 0, heard: 0}]}, now, 'install-aaaa-1111');
+  for (const install of ['install-aaaa-1111', 'install-bbbb-2222', 'install-cccc-3333']) {
+    await store(e, {fixes: [{label: 'Notice period', filled: 10, corrected: 6}, {label: 'Your <b>name</b>', filled: 2, corrected: 1}]}, now, install);
+  }
+  await store(e, {fixes: [{label: 'Only mine', filled: 50, corrected: 50}]}, now, 'install-aaaa-1111');
+  const r = await report(e.STATS, 30, now);
+  assert.deepEqual(r.replies.map(x => [x.bucket, x.total, x.rate == null ? null : Math.round(x.rate * 100)]), [['40-59', 20, 10], ['80-100', 20, 60]]);
+  assert.deepEqual(r.sources.map(x => [x.board, x.seen, x.acted]), [['greenhouse', 100, 30], ['other', 5, 5]]);   // a hashed host is refused, acted is clamped to seen
+  assert.deepEqual(r.fixes.map(x => [x.label, x.filled, x.corrected]), [['notice period', 30, 18]]);   // "Only mine" has one install; the name label has too few fills
+  const page = await (await view(new Request('https://x/intelligence', {headers: {Authorization: 'Bearer secret'}}), e, now)).text();
+  assert.match(page, /Do higher scores get replies\?[\s\S]*80-100<\/td><td>20<\/td><td>60%/);
+  assert.match(page, /Answers people change[\s\S]*notice period<\/td><td>30<\/td><td><b>60%/);
+});
+
+test('tidy drops a corrected-answer label that fewer than 3 installs reported once it is two weeks old', async () => {
+  const e = env();
+  await store(e, {fixes: [{label: 'Only mine', filled: 5, corrected: 1}]}, now, 'install-aaaa-1111');
+  assert.deepEqual(await tidy(e.STATS, now), {dropped: 0});
+  assert.deepEqual(await tidy(e.STATS, new Date('2026-10-20T00:00:00Z')), {dropped: 1});
 });

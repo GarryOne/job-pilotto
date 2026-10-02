@@ -214,3 +214,21 @@ test('a failed send keeps the intelligence counts for the next try and does not 
   assert.deepEqual(calls[1].intel.dismissals, [{reason: 'location', bucket: '40-59', n: 2}]);
   assert.deepEqual(calls[1].intel.snapshot, [{bucket: '60-79', state: 'saved', n: 3}]);
 });
+
+test('replies by score band, source kinds and filled/corrected labels are sent as counts, and refused when off the lists', async () => {
+  const storage = tempStorage(), calls = [];
+  const fetcher = async (url, init = {}) => {
+    if (new URL(url).pathname === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+    calls.push(JSON.parse(init.body));
+    return {ok: true, status: 200, json: async () => ({ok: true})};
+  };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  reporter.reply('80-100', 'screening'); reporter.reply('80-100', 'screening'); reporter.reply('nope', 'reply'); reporter.reply('40-59', 'banana');
+  reporter.sources([{board: 'greenhouse', seen: 10, acted: 3, dismissed: 2, heard: 1}, {board: 'h:abc', seen: 4, acted: 0, dismissed: 0, heard: 0}, {board: 'lever', seen: 0}]);
+  reporter.fillQuality(['Notice period', 'Notice period', 'First name'], ['Notice period']);
+  await reporter.flush();
+  const intel = calls[0].intel;
+  assert.deepEqual(intel.replies, [{bucket: '80-100', outcome: 'screening', n: 2}]);
+  assert.deepEqual(intel.sources, [{board: 'greenhouse', seen: 10, acted: 3, dismissed: 2, heard: 1}]);
+  assert.deepEqual(intel.fixes.map(f => [f.label, f.filled, f.corrected]), [['notice period', 2, 1], ['first name', 1, 0]]);
+});

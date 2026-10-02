@@ -72,7 +72,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), intel = {terms: [], coverage: null, dismissals: new Map(), snapshot: null}, timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), intel = emptyIntel(), timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -153,6 +153,36 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
         .map(item => ({bucket: item.bucket, state: item.state, n: Math.min(5000, Math.round(Number(item.n)))}));
       schedule();
     },
+    // An outcome the user marked, with the job's fit-score band: does a higher score get more replies? (no board, no company)
+    reply(bucket, outcome) {
+      if (!enabled(storage) || !SCORE_BANDS.includes(bucket) || !OUTCOME_IDS.includes(outcome)) return;
+      const key = `${bucket}|${outcome}`;
+      intel.replies.set(key, {bucket, outcome, n: (intel.replies.get(key)?.n || 0) + 1});
+      schedule();
+    },
+    // Daily, per job-board kind (a known ATS name; any other site is "other"): jobs seen, acted on, dismissed, heard back. Which sources give useful jobs.
+    sources(list) {
+      if (!enabled(storage) || !Array.isArray(list)) return;
+      intel.sources = list.filter(item => /^[a-z]{3,20}$/.test(String(item?.board || ''))).slice(0, 12)
+        .map(item => ({board: item.board, seen: Math.min(5000, Math.round(Number(item.seen)) || 0), acted: Math.min(5000, Math.round(Number(item.acted)) || 0),
+          dismissed: Math.min(5000, Math.round(Number(item.dismissed)) || 0), heard: Math.min(5000, Math.round(Number(item.heard)) || 0)})).filter(item => item.seen > 0);
+      schedule();
+    },
+    // Form questions the filler answered (filled) and the ones the person then changed by hand (corrected): the form's own wording only, never a value.
+    fillQuality(filled, corrected) {
+      if (!enabled(storage)) return;
+      const bump = (labels, field) => {
+        for (const raw of Array.isArray(labels) ? labels.slice(0, 40) : []) {
+          const label = cleanLabel(raw);
+          if (!label || (!intel.fixes.has(label) && intel.fixes.size >= 40)) continue;
+          const entry = intel.fixes.get(label) || {label, filled: 0, corrected: 0};
+          entry[field]++;
+          intel.fixes.set(label, entry);
+        }
+      };
+      bump(filled, 'filled'); bump(corrected, 'corrected');
+      schedule();
+    },
     // What happened on one page of an application (lib/question-labels.js flowState), counted per board.
     flow(board, state) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || '')) || !FLOW_STATES.includes(state)) return;
@@ -171,10 +201,12 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     },
     async flush() { return flush(); },
   };
-  function hasIntel() { return !!(intel.terms.length || intel.coverage || intel.dismissals.size || intel.snapshot); }   // a function declaration: used above the return
+  function emptyIntel() { return {terms: [], coverage: null, dismissals: new Map(), snapshot: null, replies: new Map(), sources: null, fixes: new Map()}; }
+  function hasIntel() { return !!(intel.terms.length || intel.coverage || intel.dismissals.size || intel.snapshot || intel.replies.size || intel.sources || intel.fixes.size); }   // a function declaration: used above the return
   function takeIntel() {
-    const out = {terms: intel.terms, coverage: intel.coverage, dismissals: [...intel.dismissals.values()], snapshot: intel.snapshot || []};
-    intel = {terms: [], coverage: null, dismissals: new Map(), snapshot: null};
+    const out = {terms: intel.terms, coverage: intel.coverage, dismissals: [...intel.dismissals.values()], snapshot: intel.snapshot || [], replies: [...intel.replies.values()], sources: intel.sources || [],
+      fixes: [...intel.fixes.values()].slice(0, 40)};
+    intel = emptyIntel();
     return out;
   }
   function putBackIntel(sent) {   // the send failed: keep what was not replaced meanwhile
@@ -182,6 +214,9 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     intel.coverage = intel.coverage || sent.coverage;
     for (const item of sent.dismissals) { const key = `${item.reason}|${item.bucket}`; intel.dismissals.set(key, {...item, n: item.n + (intel.dismissals.get(key)?.n || 0)}); }
     intel.snapshot = intel.snapshot || (sent.snapshot.length ? sent.snapshot : null);
+    intel.sources = intel.sources || (sent.sources.length ? sent.sources : null);
+    for (const item of sent.replies) { const key = `${item.bucket}|${item.outcome}`; intel.replies.set(key, {...item, n: item.n + (intel.replies.get(key)?.n || 0)}); }
+    for (const item of sent.fixes) { const again = intel.fixes.get(item.label) || {label: item.label, filled: 0, corrected: 0}; again.filled += item.filled; again.corrected += item.corrected; intel.fixes.set(item.label, again); }
   }
   async function flush() {
     if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !hasIntel())) return {sent: 0};

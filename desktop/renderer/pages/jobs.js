@@ -14,7 +14,7 @@ import {SESSION_PILL, refreshSessions, removeSession, sessionFor, sessionJob, se
 import {toastMessage} from './startup.js';
 import {openFeedback} from './feedback.js';
 import {outcomeChoices} from '../outcome-tap.js';
-import {snapshot} from '../intel.js';
+import {hostStats, scoreBucket, snapshot} from '../intel.js';
 import {askWhy} from './dismiss-reason.js';
 
 let jobsLoading = false;  // the first load from Notion is under way: the list keeps its spinner
@@ -370,7 +370,7 @@ export function renderJobs() {
       menu.push('-');
       for (const choice of choices) {
         menu.push({icon: choice.icon, label: choice.label, title: choice.title, run: async () => {
-          const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on}).catch(error => ({ok: false, error: error.message}));
+          const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on, bucket: scoreBucket(job.fit)}).catch(error => ({ok: false, error: error.message}));
           if (!result.ok) { toastMessage('Not saved', result.error || 'Try again.'); return; }
           if (choice.outcome !== 'reply') job.stage = result.stage;   // a reply is an event only: the stage stays where it is
           toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in Notion.`);
@@ -773,7 +773,7 @@ export async function loadJobs() {
   if (freshJobs) {
     askAboutLeftOpen();
     // How the fit score relates to what became of each job, as counts per band and state (once a day; the app drops it if reports are off).
-    if (shared.allJobs.length) window.pilot.intelSnapshot(snapshot(shared.allJobs)).catch(() => {});
+    if (shared.allJobs.length) window.pilot.intelSnapshot(snapshot(shared.allJobs), hostStats(shared.allJobs)).catch(() => {});
   }
 }
 // Once per launch, on fresh data: sessions left open by the last run whose jobs are still Applying. Keep them, go

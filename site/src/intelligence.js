@@ -8,20 +8,25 @@
 // store() takes the `intel` part of POST /api/controls; view() is the owner's /intelligence page.
 import {report as aiCost} from './aicost.js';
 import {REGIONS, ROLES} from './pool.js';
+import {cleanLabel} from '../../extension/alias-schema.js';
+import {digestOf} from './guard.js';
 import {allowed} from './stats.js';
 
 export const REASONS = ['seniority', 'location', 'tech', 'company', 'role', 'other'];
 export const BUCKETS = ['0-39', '40-59', '60-79', '80-100', 'unscored'];
 export const STATES = ['new', 'saved', 'dismissed', 'applying', 'applied', 'screening', 'interviewing', 'offer', 'rejected', 'no_response', 'withdrawn'];
 export const MIN_PEOPLE = 3;
+export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response'];
+const GOOD = ['reply', 'screening', 'offer'];
+const BOARD_KIND = /^[a-z]{3,20}$/;
 const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
 const day = date => date.toISOString().slice(0, 10);
 const int = (value, max) => Math.max(0, Math.min(max, Math.round(Number(value)) || 0));
 const pick = (value, list, fallback) => (list.includes(value) ? value : fallback);
 
 // -> counts stored, for the response and the tests.
-export async function store(env, intel, now = new Date()) {
-  const out = {terms: 0, coverage: 0, dismissals: 0, snapshot: 0};
+export async function store(env, intel, now = new Date(), install = '') {
+  const out = {terms: 0, coverage: 0, dismissals: 0, snapshot: 0, replies: 0, sources: 0, fixes: 0};
   if (!env.STATS || !intel || typeof intel !== 'object') return out;
   const d = day(now);
   const tags = item => [pick(item?.role, ROLES, 'other'), pick(item?.region, REGIONS, 'none')];
@@ -60,7 +65,47 @@ export async function store(env, intel, now = new Date()) {
     await env.STATS.prepare('INSERT INTO intel_scores (day, bucket, state, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, bucket, state) DO UPDATE SET n = n + excluded.n').bind(d, bucket, state, n).run();
     out.snapshot++;
   }
+  for (const item of (Array.isArray(intel.replies) ? intel.replies : []).slice(0, 25)) {
+    const bucket = String(item?.bucket || ''), outcome = String(item?.outcome || ''), n = int(item?.n, 100);
+    if (!BUCKETS.includes(bucket) || !OUTCOMES.includes(outcome) || !n) continue;
+    await env.STATS.prepare('INSERT INTO intel_replies (day, bucket, outcome, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, bucket, outcome) DO UPDATE SET n = n + excluded.n').bind(d, bucket, outcome, n).run();
+    out.replies++;
+  }
+  for (const item of (Array.isArray(intel.sources) ? intel.sources : []).slice(0, 12)) {
+    const board = String(item?.board || '');
+    const [seen, acted, dismissed, heard] = ['seen', 'acted', 'dismissed', 'heard'].map(field => int(item?.[field], 5000));
+    if (!BOARD_KIND.test(board) || !seen) continue;
+    await env.STATS.prepare(`INSERT INTO intel_sources (day, board, seen, acted, dismissed, heard) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (day, board) DO UPDATE SET seen = seen + excluded.seen, acted = acted + excluded.acted, dismissed = dismissed + excluded.dismissed, heard = heard + excluded.heard`)
+      .bind(d, board, seen, Math.min(acted, seen), Math.min(dismissed, seen), Math.min(heard, seen)).run();
+    out.sources++;
+  }
+  const who = (await digestOf(String(install || 'anonymous'))).slice(0, 8);
+  for (const item of (Array.isArray(intel.fixes) ? intel.fixes : []).slice(0, 40)) {
+    const label = cleanLabel(item?.label), filled = int(item?.filled, 100), corrected = Math.min(int(item?.corrected, 100), Math.max(filled, 1));
+    if (!label || (!filled && !corrected)) continue;
+    const row = await env.STATS.prepare('SELECT installs FROM intel_fixes WHERE label = ?').bind(label).first();
+    let installs = [];
+    try { installs = JSON.parse(row?.installs || '[]'); } catch { /* start again */ }
+    if (!installs.includes(who)) installs = [...installs, who].slice(-5);
+    await env.STATS.prepare(`INSERT INTO intel_fixes (label, filled, corrected, installs, last_day) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (label) DO UPDATE SET filled = filled + excluded.filled, corrected = corrected + excluded.corrected, installs = excluded.installs, last_day = excluded.last_day`)
+      .bind(label, filled, corrected, JSON.stringify(installs), d).run();
+    out.fixes++;
+  }
   return out;
+}
+
+// Daily: a question wording only one or two installs ever reported is not kept (the same rule as question_labels).
+export async function tidy(db, now = new Date()) {
+  const cutoff = day(new Date(now.getTime() - 14 * 86400000));
+  let dropped = 0;
+  for (const row of await rows(db, 'SELECT label, installs FROM intel_fixes WHERE last_day < ?', cutoff)) {
+    let count = 0;
+    try { count = JSON.parse(row.installs).length; } catch { /* unreadable: drop */ }
+    if (count < MIN_PEOPLE) { await db.prepare('DELETE FROM intel_fixes WHERE label = ?').bind(row.label).run(); dropped++; }
+  }
+  return {dropped};
 }
 
 const rows = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all().catch(() => ({results: []}))).results || [];
@@ -87,8 +132,19 @@ export async function report(db, days = 30, now = new Date()) {
   const heard = reached(['screening', 'interviewing', 'offer']);
   const scores = BUCKETS.filter(bucket => byBucket[bucket]).map(bucket => ({bucket, total: byBucket[bucket].total, states: byBucket[bucket].states,
     acted: acted(bucket), interviewed: heard(bucket), dismissed: reached(['dismissed'])(bucket)}));
+  // Among applications with a marked outcome, the share that got a reply or better, per score band; a band under 20 outcomes is too thin to compare.
+  const marked = {};
+  for (const row of await rows(db, 'SELECT bucket, outcome, SUM(n) AS n FROM intel_replies WHERE day >= ? GROUP BY bucket, outcome', from)) (marked[row.bucket] ||= {})[row.outcome] = row.n;
+  const replies = BUCKETS.filter(bucket => marked[bucket]).map(bucket => {
+    const total = Object.values(marked[bucket]).reduce((sum, n) => sum + n, 0), good = GOOD.reduce((sum, o) => sum + (marked[bucket][o] || 0), 0);
+    return {bucket, total, good, rate: total >= 20 ? good / total : null};
+  });
+  const sources = (await rows(db, 'SELECT board, SUM(seen) AS seen, SUM(acted) AS acted, SUM(dismissed) AS dismissed, SUM(heard) AS heard FROM intel_sources WHERE day >= ? GROUP BY board ORDER BY seen DESC', from))
+    .map(row => ({...row, actedShare: row.seen ? row.acted / row.seen : null, dismissedShare: row.seen ? row.dismissed / row.seen : null, heardShare: row.acted ? row.heard / row.acted : null}));
+  const fixes = (await rows(db, 'SELECT label, filled, corrected, installs FROM intel_fixes WHERE filled >= 10 ORDER BY CAST(corrected AS REAL) / filled DESC, filled DESC LIMIT 20'))
+    .filter(row => { try { return JSON.parse(row.installs).length >= MIN_PEOPLE; } catch { return false; } }).map(({installs, ...row}) => ({...row, rate: row.corrected / row.filled}));
   const cost = await aiCost(db, days, now);
-  return {days, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
+  return {days, replies, sources, fixes, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
     coverage, missed, dismiss, scores};
 }
 
@@ -125,6 +181,15 @@ ${data.terms.map(row => `<tr><td>${esc(row.term)}</td><td><b>${row.n}</b></td><t
 <section class="card"><h2>🎯 Does the score predict action?</h2><small class="muted">Per fit-score band: the share of jobs that were acted on (saved, applied or past it), dismissed, or reached a call or interview. If the 80+ band is not clearly better than 60–79, the scoring rubric needs fixing.</small>
 <table><tr><th>Score band</th><th>Jobs seen</th><th>Acted on</th><th>Dismissed</th><th>Reached a call / interview</th></tr>
 ${data.scores.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.acted)}</td><td>${pct(row.dismissed)}</td><td>${pct(row.interviewed)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No snapshots yet.</td></tr>'}</table></section>
+<section class="card"><h2>📬 Do higher scores get replies?</h2><small class="muted">Of the applications people marked, the share that got a reply, a call or an offer, per fit-score band (shown from 20 outcomes). Calibrates the scoring.</small>
+<table><tr><th>Score band</th><th>Outcomes marked</th><th>Reply or better</th></tr>
+${data.replies.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.rate)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">No marked outcomes yet.</td></tr>'}</table></section>
+<section class="card"><h2>🧭 Which sources give useful jobs?</h2><small class="muted">Per job-board kind: the share of jobs people acted on or dismissed, and of the acted ones, how many got a call. "other" is every company site.</small>
+<table><tr><th>Source</th><th>Jobs seen</th><th>Acted on</th><th>Dismissed</th><th>Heard back (of acted)</th></tr>
+${data.sources.map(row => `<tr><td>${esc(row.board)}</td><td>${row.seen}</td><td>${pct(row.actedShare)}</td><td>${pct(row.dismissedShare)}</td><td>${pct(row.heardShare)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No snapshots yet.</td></tr>'}</table></section>
+<section class="card"><h2>✏️ Answers people change</h2><small class="muted">Questions the filler answered that the person then edited by hand, once ${MIN_PEOPLE}+ people and 10+ fills have reported them. The top of this list is where the alias or profile mapping is wrong.</small>
+<table><tr><th>Question wording</th><th>Filled</th><th>Changed by hand</th></tr>
+${data.fixes.map(row => `<tr><td>${esc(row.label)}</td><td>${row.filled}</td><td><b>${pct(row.rate)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported by enough people yet.</td></tr>'}</table></section>
 <section class="card"><h2>💸 What the AI costs us</h2><small class="muted">Included AI through the relay (founder and friend keys today, Pro later): money per step and per user per active day. This is what a pass price and a credit budget must cover.</small>
 <table><tr><th>Users</th><th>Total</th><th>Per user per active day</th><th>Median · 95th · max</th><th>Per user per month</th></tr>
 <tr><td>${data.cost.users}</td><td>$${data.cost.total.toFixed(2)}</td><td>$${data.cost.perUserDay.mean.toFixed(3)}</td><td>$${data.cost.perUserDay.median.toFixed(3)} · $${data.cost.perUserDay.p95.toFixed(3)} · $${data.cost.perUserDay.max.toFixed(3)}</td><td><b>$${data.cost.monthPerActiveUser.toFixed(2)}</b></td></tr></table>

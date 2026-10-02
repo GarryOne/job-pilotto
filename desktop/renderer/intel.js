@@ -32,3 +32,19 @@ export function snapshot(jobs) {
   }
   return [...counts].map(([key, n]) => { const [bucket, state] = key.split('|'); return {bucket, state, n}; });
 }
+
+// Per host of the job's address: jobs seen, acted on, dismissed, heard back. The app folds the hosts into job-board kinds and drops the rest.
+export function hostStats(jobs) {
+  const hosts = new Map();
+  for (const job of Array.isArray(jobs) ? jobs : []) {
+    let host = '';
+    try { host = new URL(String(job?.url)).hostname; } catch { continue; }
+    const state = jobState(job), entry = hosts.get(host) || {host, seen: 0, acted: 0, dismissed: 0, heard: 0};
+    entry.seen++;
+    if (state === 'dismissed') entry.dismissed++;
+    else if (state !== 'new') entry.acted++;
+    if (['screening', 'interviewing', 'offer'].includes(state)) entry.heard++;
+    hosts.set(host, entry);
+  }
+  return [...hosts.values()];
+}

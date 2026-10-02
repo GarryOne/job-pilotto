@@ -459,6 +459,19 @@
     const legal = [...after.filter(row => row.legal && !row.filled && !acceptConsents).map(row => `Your choice (legal): ${readable(row.label)}`),
       ...consented.map(text => `Ticked for you: ${text}`)];
     const unfilledRequired = open.filter(row => !(row.field === 'resume' && resumeAttached) && !row.legal).length;
+    // A value we put in that the person then changes by hand is a correction: the label is kept (never the value) so the product learns
+    // which questions it fills wrongly. The background drains window.__jobPilottoCorrections (extension/background.js reportTabs).
+    window.__jobPilottoCorrections = window.__jobPilottoCorrections || [];
+    const watchCorrection = (field, label) => {
+      const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
+      if (!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      const once = event => {
+        if (!event.isTrusted) return;
+        el.removeEventListener('input', once); el.removeEventListener('change', once);
+        if (window.__jobPilottoCorrections.length < 40) window.__jobPilottoCorrections.push(clean(label).slice(0, 100));
+      };
+      el.addEventListener('input', once); el.addEventListener('change', once);
+    };
     // Field-by-field log for the run record: where each answer came from and what happened.
     const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));
     // Upload widgets' own buttons (Attach, Dropbox, Enter manually…) aren't questions: not in the log.
@@ -472,6 +485,7 @@
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
+      if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};

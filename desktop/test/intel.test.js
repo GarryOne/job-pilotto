@@ -32,3 +32,10 @@ test('the snapshot is counts per band and state, and carries nothing that identi
   assert.deepEqual(snapshot(undefined), []);
   assert.deepEqual(REASONS.map(reason => reason.id), ['seniority', 'location', 'tech', 'company', 'role', 'other']);   // the site's fixed list
 });
+
+test('hostStats counts jobs per host: seen, acted on, dismissed, heard back', async () => {
+  const {hostStats} = await import('../renderer/intel.js');
+  const out = hostStats([{url: 'https://boards.greenhouse.io/a/1', status: 'saved'}, {url: 'https://boards.greenhouse.io/a/2', status: 'dismissed'}, {url: 'https://boards.greenhouse.io/a/3', stage: 'Interviewing'}, {url: 'nonsense'}, {url: 'https://x.com/1'}]);
+  assert.deepEqual(out.find(h => h.host === 'boards.greenhouse.io'), {host: 'boards.greenhouse.io', seen: 3, acted: 2, dismissed: 1, heard: 1});
+  assert.deepEqual(out.find(h => h.host === 'x.com'), {host: 'x.com', seen: 1, acted: 0, dismissed: 0, heard: 0});
+});
