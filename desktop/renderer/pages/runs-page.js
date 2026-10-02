@@ -5,6 +5,7 @@ import {shared} from './shared.js';
 import {KIND, capital, clockTime, hhmm, kindOf, lastActivity, openActivity, outcome, renderActivity} from './activity.js';
 import {$, runWhen, show} from './core.js';
 import {openView} from './nav.js';
+import {runStatus, runWarned} from '../run-status.js';
 
 // Status: what's running, the last and next search, the last and next Gmail check, as a small card.
 export async function showStatusCard() {
@@ -53,7 +54,7 @@ export function renderActionsPage(data) {
   }
   const rows = runs.slice(0, 5).map(run => {
     const kind = kindOf(run);
-    const [label, tone] = run.ok && !run.off ? ['Completed', 'good'] : ['Needs a look', 'bad'];
+    const [label, tone] = runStatus(run, runWarned(run));
     const li = el('li', 'runs-row');
     li.dataset.runId = run.id;   // which run this row is (the end-to-end suite opens a run by it)
     const tile = el('span', 'task-tile small');

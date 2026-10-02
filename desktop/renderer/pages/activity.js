@@ -1,6 +1,7 @@
 // Recent activity: the bar at the bottom of every screen and its panel.
 import {billingLabel} from '../ai-engine-view.js';
 import {groupWarnings, humanError, limitedJobs, runWarningLines, runWarnings} from '../run-warnings.js';
+import {runStatus, runWarned} from '../run-status.js';
 import {el, moreButton, openMenu, pill, tag, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {jobActions, jobHeadline, withListJob} from '../job-link.js';
@@ -72,13 +73,6 @@ export const KIND = {search: {icon: '🔎', line: 'search', name: 'Jobs check'},
 export const kindOf = run => (KIND[run?.kind] ? run.kind : 'search');
 const WHO = {schedule: 'scheduled', you: 'by you', first: 'first check'};
 const WHERE = {github: 'GitHub', mac: 'this Mac'};  // where a run ran, after who started it
-// A run's status pill (Recent activity): running, queued, failed, completed with warnings, completed.
-function runStatus(run, warned) {
-  if (run.live) return ['Running', 'info', {dot: true}];
-  if (run.waiting) return ['Queued', 'neutral'];
-  if (!run.ok || run.off) return ['Failed', 'bad'];
-  return warned ? ['With warnings', 'warn'] : ['Completed', 'good'];
-}
 // The warnings in one plain sentence (the list is one click away).
 function warningSummary(warnings) {
   // The Anthropic account's spending limit: jobs were left unscored. Said plainly, with what to do.
@@ -289,7 +283,7 @@ export function renderActivity(fresh) {
     button.dataset.state = run.live ? 'busy' : run.waiting ? 'queued' : run.ok && !run.off ? 'ok' : 'error';
     const kind = KIND[kindOf(run)];
     // Its warnings: from the log (a run on this Mac), else the row's Status in Notion (a GitHub run: no log until opened).
-    const warned = !run.live && !run.waiting && run.ok && !run.off && (run.warned || runWarningLines(run).length > 0);
+    const warned = runWarned(run);
 
     if (warned) button.dataset.state = 'warn';
     const words = el('span', 'run-words');
