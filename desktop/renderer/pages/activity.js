@@ -329,7 +329,7 @@ export function renderActivity(fresh) {
   // No time: "Off" only when Settings → Automation says so; else the app just doesn't know it yet (it was started
   // before an update: a restart fixes it), so it names where it runs.
   const unknown = cloud ? 'On GitHub' : 'On this Mac';
-  const items = [['Jobs', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
+  const items = [['Job search', 'search', nextSearchAt, plan.search ? unknown : 'When you ask'], ['Gmail', 'mail', nextMailAt, plan.mail ? unknown : 'Off'],
     ...(cloud ? [['Employers', 'building', nextScoutAt, plan.scout !== 'off' ? unknown : 'Off']] : [])];
   const soonest = Math.min(...items.map(([, , at]) => at || Infinity));
   $('activity-schedule').replaceChildren(...items.map(([name, , at, none]) => {

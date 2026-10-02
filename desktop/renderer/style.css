@@ -1670,7 +1670,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .conn-status { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: var(--fs-sm); color: var(--muted); min-height: 18px; }
 .conn-status.is-done { color: var(--good); }
 .conn-status .icon { width: 14px; height: 14px; }
-/* Recent activity → Upcoming checks: one row — "Next: Jobs Today 23:30 · Gmail Tomorrow 07:00 · Employers Tomorrow
+/* Recent activity → Upcoming checks: one row — "Jobs Today 23:30 · Gmail Tomorrow 07:00 · Employers Tomorrow
    08:15" — with the way to change it at the end. No cards and no "+2" (the mockup). */
 .ap-upcoming { display: grid; gap: var(--sp-2); padding-top: var(--sp-3); }
 .ap-strip { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; background: var(--surface);
@@ -1678,7 +1678,7 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .ap-strip-head { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink); font-size: var(--fs-base);
   font-weight: 600; white-space: nowrap; flex: none; }
 .ap-strip-head .icon { width: 18px; height: 18px; color: var(--muted); }
-/* A narrow strip drops the words "Upcoming checks" (the clock says it): that is what makes the room for the checks. */
+/* A narrow strip drops the words "Upcoming runs" (the clock says it): that is what makes the room for the checks. */
 @container (max-width: 900px) { .ap-strip-head span { display: none; } }
 /* The checks are whole units that wrap onto the next line, so they never run into "Manage schedule"; the "·" stays at
    the end of the line it belongs to. */
