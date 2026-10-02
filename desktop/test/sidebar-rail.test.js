@@ -17,7 +17,7 @@ test('a narrow window is always a rail; a wide one follows the choice; the butto
 test('the rail layout is one set of rules on .app.rail, not a second copy under a media query', () => {
   const css = read('style.css');
   assert.doesNotMatch(css, /@media \(max-width: 1179px\)\s*\{[^}]*\.(sidebar|nav|palette-hint|allowance-chip|nav-update|nav-sessions)\b/);
-  for (const rule of ['.app.rail { grid-template-columns: 72px', '.app.rail .sidebar .brand', '.app.rail .nav, .app.rail .notion-link', '.app.rail .dev-tag { display: none; }']) {
+  for (const rule of ['.app.rail { grid-template-columns: 72px', '.app.rail .sidebar .brand', '.app.rail .nav {', '.app.rail .dev-tag { display: none; }']) {
     assert.ok(css.includes(rule), rule);
   }
 });
@@ -25,4 +25,18 @@ test('the rail layout is one set of rules on .app.rail, not a second copy under 
 test('the button is in the menu, and the app starts the module', () => {
   assert.match(read('index.html'), /id="rail-toggle"[^>]*>.*data-icon="collapse"/);
   assert.match(read('app.js'), /import \{init as sidebarRail\} from '\.\/sidebar-rail\.js';[\s\S]*sidebarRail\(\);/);
+});
+
+test('the Notion pages stay out of the menu, rail or not: they are in the command palette', () => {
+  const css = read('style.css');
+  assert.match(css, /^\.notion-links \{ display: none; \}$/m);
+  assert.doesNotMatch(css, /\.app\.rail \.notion-link/);
+});
+
+test('the rail keeps every item of the menu, text removed: search and the plan bar stay as icons', () => {
+  const css = read('style.css'), html = read('index.html');
+  assert.match(html, /id="palette-hint"[^>]*><i data-icon="search">/);
+  assert.match(css, /\.app\.rail \.palette-hint \{ display: flex;/);
+  assert.match(css, /\.app\.rail \.allowance-chip-plan, \.app\.rail \.allowance-chip-text \{ display: none; \}/);
+  assert.doesNotMatch(css, /\.app\.rail \.(palette-hint|allowance-chip) \{ display: none; \}/);
 });
