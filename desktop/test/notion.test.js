@@ -16,6 +16,7 @@ function fakeNotion({dropDatabase = null, dropColumn = null} = {}) {
   const pages = Object.entries(T.pages).map(([env, name]) => ({object: 'page', id: `page_${env}`, parent: {page_id: 'workspace-copy'}, last_edited_time: '2026-09-27',
     properties: {title: {type: 'title', title: title(name)}}}));
   pages.push({object: 'page', id: 'stray', last_edited_time: '2026-09-27', properties: {title: {type: 'title', title: title('Groceries')}}});
+  let pageBlocks = ['b1', 'b2'];   // what a page holds: a delete removes a block
   const fetcher = async (url, init = {}) => {
     const route = url.replace('https://api.notion.com/v1/', '');
     const body = init.body ? JSON.parse(init.body) : null;
@@ -28,7 +29,8 @@ function fakeNotion({dropDatabase = null, dropColumn = null} = {}) {
       const names = T.required_properties[db[1]].filter(name => !(db[1] === 'NOTION_APPLICATIONS_DB' && name === dropColumn));
       return reply({properties: Object.fromEntries(names.map(name => [name, {}]))});
     }
-    if (route.startsWith('blocks/') && init.method === 'GET') return reply({results: [{id: 'b1'}, {id: 'b2'}], has_more: false});
+    if (route.startsWith('blocks/') && init.method === 'GET') return reply({results: pageBlocks.map(id => ({id})), has_more: false});
+    if (route.startsWith('blocks/') && init.method === 'DELETE') pageBlocks = pageBlocks.filter(id => route !== `blocks/${id}`);
     return reply({});
   };
   return {calls, fetcher};
@@ -104,17 +106,57 @@ test('nothing shared at all: Connect stops after a short wait and says so', asyn
 test('rewriting a page skips blocks that are already gone and reports progress', async () => {
   const notion = await import('../lib/notion.js');
   const calls = [];
+  let blocks = ['a', 'b'];
   const fetcher = async (url, {method}) => {
     calls.push(`${method} ${url.split('/v1/')[1]}`);
     const reply = (status, body) => ({ok: status < 300, status, json: async () => body});
-    if (method === 'GET') return reply(200, {results: [{id: 'a'}, {id: 'b'}], has_more: false});
-    if (method === 'DELETE' && url.endsWith('/b')) return reply(400, {message: "Can't edit block that is archived."});
+    if (method === 'GET') return reply(200, {results: blocks.map(id => ({id})), has_more: false});
+    if (method === 'DELETE') { blocks = blocks.filter(id => !url.endsWith(`/${id}`)); }
+    if (method === 'DELETE' && url.endsWith('/b')) return reply(400, {message: "Can't edit block that is archived."});   // gone already
     return reply(200, {});
   };
   const progress = [];
   await notion.writePage('ntn_x', 'page', '# Title\n\nText', fetcher, (done, total) => progress.push(`${done}/${total}`));
-  assert.deepEqual(calls, ['GET blocks/page/children?page_size=100', 'DELETE blocks/a', 'DELETE blocks/b', 'PATCH blocks/page/children']);
+  assert.deepEqual(calls, ['GET blocks/page/children?page_size=100', 'DELETE blocks/a', 'DELETE blocks/b', 'GET blocks/page/children?page_size=100', 'PATCH blocks/page/children']);
   assert.deepEqual(progress, ['1/3', '2/3', '3/3']);
+});
+
+// 2 Oct 2026: Notion answered "Can't edit block that is archived" to a DELETE of blocks that were still on the page; the old copy stayed, the new one
+// was appended beside it and the two copies of ⚙️ Search settings were merged into one list (an Austin analyst got São Paulo's places and work rights).
+test('a block Notion refuses to delete is deleted again, and nothing is appended until the page is empty', async () => {
+  const notion = await import('../lib/notion.js');
+  notion.rewriteTuning.waitMs = 0;
+  let blocks = ['a', 'b', 'c'];
+  const appended = [];
+  let refusals = 0;
+  const fetcher = async (url, {method}) => {
+    const reply = (status, body) => ({ok: status < 300, status, json: async () => body});
+    if (method === 'GET') return reply(200, {results: blocks.map(id => ({id})), has_more: false});
+    if (method === 'DELETE') {
+      if (!url.endsWith('/a') && refusals++ < 2) return reply(400, {message: "Can't edit block that is archived."});   // refused, still on the page
+      blocks = blocks.filter(id => !url.endsWith(`/${id}`));
+      return reply(200, {});
+    }
+    appended.push([...blocks]);   // what was on the page when the new content was appended
+    return reply(200, {});
+  };
+  await notion.writePage('ntn_x', 'page', '# Title\n- one', fetcher);
+  assert.deepEqual(appended, [[]]);
+});
+
+test('a page that keeps its old blocks is not written to, and the failure says so', async () => {
+  const notion = await import('../lib/notion.js');
+  notion.rewriteTuning.waitMs = 0;
+  const methods = [];
+  const fetcher = async (url, {method}) => {
+    methods.push(method);
+    const reply = (status, body) => ({ok: status < 300, status, json: async () => body});
+    if (method === 'GET') return reply(200, {results: [{id: 'a'}], has_more: false});
+    if (method === 'DELETE') return reply(400, {message: "Can't edit block that is archived."});
+    return reply(200, {});
+  };
+  await assert.rejects(notion.writePage('ntn_x', 'page', '# Title', fetcher), /kept 1 old block/);
+  assert.ok(!methods.includes('PATCH'), 'the new content is not appended beside the old');
 });
 
 test('two rewrites of the same page never interleave, so a page is never left with its content twice', async () => {
@@ -130,6 +172,6 @@ test('two rewrites of the same page never interleave, so a page is never left wi
     return reply(200, {});
   };
   await Promise.all([notion.writePage('t', 'page', '# A\n- one', fetcher), notion.writePage('t', 'page', '# A\n- one', fetcher)]);
-  assert.deepEqual(log, ['read', 'append', 'read', 'append']);   // the second read waits for the first append
+  assert.deepEqual(log, ['read', 'read', 'append', 'read', 'read', 'append']);   // the second read waits for the first append; each write checks that its delete took
   assert.equal(content.filter(id => id.startsWith('new')).length, 2);   // one write's blocks only: the second replaced the first's
 });

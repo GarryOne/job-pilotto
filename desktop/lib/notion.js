@@ -234,25 +234,40 @@ export function writePage(token, pageId, markdown, fetcher, onProgress) {
   run.catch(() => {}).then(() => { if (pageWrites.get(pageId) === run) pageWrites.delete(pageId); });
   return run;
 }
-async function writePageNow(token, pageId, markdown, fetcher, onProgress = () => {}) {
+const listBlocks = async (token, pageId, fetcher) => {
+  const found = [];
   let cursor;
-  const old = [];
   do {
     const page = await call(token, 'GET', `blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`, null, fetcher);
-    old.push(...page.results);
+    found.push(...page.results);
     cursor = page.has_more ? page.next_cursor : null;
   } while (cursor);
+  return found;
+};
+// Notion answers "Can't edit block that is archived" to a DELETE of a block that is still on the page (seen 2 Oct 2026: two thirds of a page's
+// blocks, the rest deleted fine), so an old copy survived and the new one was appended beside it: every Search settings section twice, and the
+// two copies merged into one setting list. So a delete is never trusted: the page is read again, and what is still there is deleted again
+// (a few passes) before anything is appended.
+const DELETE_PASSES = 4;
+export const rewriteTuning = {waitMs: 1500};   // between delete passes (a test sets 0)
+async function writePageNow(token, pageId, markdown, fetcher, onProgress = () => {}) {
   const blocks = markdownBlocks(markdown);
   const batches = Math.ceil(blocks.length / 100);
+  let old = await listBlocks(token, pageId, fetcher);
   const total = old.length + batches;
   let done = 0;
-  for (const block of old) {
-    try {
-      await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher);
-    } catch (error) {
-      if (!(error.status === 404 || /archived/i.test(error.message))) throw error;
+  for (let pass = 1; old.length; pass++) {
+    for (const block of old) {
+      try {
+        await call(token, 'DELETE', `blocks/${block.id}`, null, fetcher);
+      } catch (error) {
+        if (!(error.status === 404 || /archived/i.test(error.message))) throw error;
+      }
+      onProgress(Math.min(++done, total - batches), total);
     }
-    onProgress(++done, total);
+    old = await listBlocks(token, pageId, fetcher);
+    if (old.length && pass >= DELETE_PASSES) throw new Error(`Notion kept ${old.length} old block(s) of the page after ${pass} deletes; the page was not rewritten`);
+    if (old.length) await new Promise(resolve => setTimeout(resolve, rewriteTuning.waitMs * pass));
   }
   for (let i = 0; i < blocks.length; i += 100) {
     await call(token, 'PATCH', `blocks/${pageId}/children`, {children: blocks.slice(i, i + 100)}, fetcher);
