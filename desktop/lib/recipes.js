@@ -63,7 +63,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
-  let outcomes = new Map(), samples = [], timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -78,6 +78,12 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       }
       schedule();
     },
+    // One form filled on this board (lib/control-events.js boardName): how often users meet each board, to aim the form lab.
+    fill(board) {
+      if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;
+      fills.set(board, (fills.get(board) || 0) + 1);
+      schedule();
+    },
     // items [{fingerprint, kind, skeleton, question}] new to this Mac (lib/misses.js).
     sample(items) {
       if (!enabled(storage)) return;
@@ -90,15 +96,16 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     async flush() { return flush(); },
   };
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length)) return {sent: 0};
-    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40)};
-    const taken = {samples: samples.slice(0, 10), outcomes};
+    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size)) return {sent: 0};
+    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n}))};
+    const taken = {samples: samples.slice(0, 10), outcomes, fills};
     samples = samples.slice(10);
     outcomes = new Map();
+    fills = new Map();
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
-      return {sent: body.samples.length + body.outcomes.length};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try
@@ -107,6 +114,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
         again.ok += entry.ok; again.failed += entry.failed;
         outcomes.set(key, again);
       }
+      for (const [board, n] of taken.fills) fills.set(board, (fills.get(board) || 0) + n);
       return {sent: 0};
     }
   }

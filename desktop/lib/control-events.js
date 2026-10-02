@@ -26,3 +26,12 @@ export function fromMisses(payload, freshPrints, options = {}) {
     .filter(item => item && freshPrints.has(item.fingerprint))
     .map(item => ({control: clip(item.kind, 24), fp: item.fingerprint, outcome: 'missed', why: '', site}));
 }
+
+// The job board a form is on, as the lab and the site name it: a short name for the known boards, any other site a hash.
+const BOARDS = [['greenhouse', /greenhouse\.io$/], ['ashby', /ashbyhq\.com$/], ['lever', /lever\.co$/], ['workable', /workable\.com$/],
+  ['smartrecruiters', /smartrecruiters\.com$/], ['recruitee', /recruitee\.com$/], ['personio', /personio\.(de|com)$/], ['teamtailor', /teamtailor\.com$/]];
+export const boardName = host => {
+  const name = clip(host, 80).toLowerCase();
+  if (!name) return '';
+  return BOARDS.find(([, pattern]) => pattern.test(name))?.[0] || `h:${crypto.createHash('sha256').update(name).digest('hex').slice(0, 10)}`;
+};

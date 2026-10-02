@@ -3,6 +3,7 @@
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
 import {feedbackList} from './feedback.js';
+import {labPlan, labReport} from './recipes.js';
 import {allowed, esc, remember} from './stats.js';
 
 export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup', 'control'];
@@ -158,6 +159,14 @@ ${Object.keys(data.funnel?.stopped || {}).length ? `<h2 style="margin-top:14px">
     .map(([why, n]) => `${esc(STOP_REASONS[why] || why)} <b>×${n}</b>`).join(' · ')}</td></tr>`).join('')}</table>` : ''}</section>
 <section class="card"><h2>Problems, most users first</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
+<section class="card" style="margin-top:12px"><h2>🧪 Form lab &amp; coverage</h2>
+<small class="muted">Share of all real exposure that falls on controls the lab passes at 95% or more: <b>${data.plan?.coverage == null ? '–' : Math.round(data.plan.coverage * 100) + '%'}</b>
+ · target 90% · ${data.plan?.exposureTotal || 0} control meetings counted · boards by ${data.plan?.boards?.[0]?.source || 'prior'}</small>
+<table style="margin-top:8px"><tr><th>Control</th><th>Met</th><th>Users fail</th><th>Lab</th><th>Recipe</th></tr>
+${(data.plan?.head || []).map(item => `<tr><td><code>${esc(item.fingerprint)}</code></td><td>${item.exposure}</td><td>${Math.round(item.userFailRate * 100)}%</td>
+  <td>${item.labRate == null ? `untested (${item.labRuns})` : Math.round(item.labRate * 100) + '%'}</td><td>${item.recipe ? 'running' : item.candidate ? 'candidate' : '–'}</td></tr>`).join('')
+  || '<tr><td colspan="5" class="muted">Nothing failing or unproven: nothing to chase.</td></tr>'}</table>
+<small class="muted">Lab by board (last 7 days): ${(data.lab || []).slice(0, 8).map(row => `${esc(row.site)} ${esc(row.kind)} ${row.ok}/${row.ok + row.failed}`).join(' · ') || 'no runs yet'}</small></section>
 <section class="card" style="margin-top:12px"><h2>💬 Feedback, newest first</h2><small class="muted">From Send feedback in the app (also sent to the Job Pilotto Brain bot). Last ${data.days < 30 ? 30 : data.days} days.</small>
 <table style="margin-top:8px"><tr><th>When</th><th>Feedback</th><th>Reply to</th><th>Version</th></tr>
 ${(data.feedback || []).map(row => `<tr><td class="muted" style="white-space:nowrap">${esc(String(row.at).slice(0, 16).replace('T', ' '))}</td>
@@ -176,7 +185,8 @@ export async function view(request, env, now = new Date()) {
   try {
     const [data, feedback, setup] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
       funnel(env.STATS, Math.max(days, 30), now).catch(() => null)]);
-    return new Response(page({...data, feedback, funnel: setup}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []);
+    return new Response(page({...data, feedback, funnel: setup, plan, lab}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

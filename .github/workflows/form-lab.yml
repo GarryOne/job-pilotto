@@ -3,7 +3,8 @@ name: Form lab
 # submits (tools/form-lab.mjs), and reports what worked to the site (POST /api/lab): the success rate per board and kind of
 # control, measured before any user hits a failure. It also tries the site's candidate recipes and gives one a small canary when
 # it works on enough different pages. Design: Notion "Self-improving form filling".
-# Needs the repository secret LAB_KEY (the site's STATS_KEY, Keychain job-pilotto.site.stats_key); without it the run is a notice.
+# The pages are chosen from the site's plan (/api/lab/plan): revisits of failing or unproven controls first, then the boards users
+# fill most, with a small share of random exploration. Needs the repository secret LAB_KEY (the site's STATS_KEY, Keychain job-pilotto.site.stats_key); without it the run is a notice.
 on:
   schedule:
     - cron: '17 4 * * *'
@@ -38,9 +39,13 @@ jobs:
           pip install -r requirements.txt
           npm install --no-save --no-audit --no-fund playwright-core
           npx playwright-core install --with-deps chromium
+      - name: Where the lab should look (the site's plan, busiest boards and failing or unproven controls)
+        if: env.LAB_KEY != ''
+        run: |
+          curl -fsS -H "Authorization: Bearer $LAB_KEY" https://www.jobpilotto.workers.dev/api/lab/plan -o plan.json || echo '{}' > plan.json
       - name: Public application forms to visit
         if: env.LAB_KEY != ''
-        run: python3 tools/form_lab_urls.py --feeds "${{ github.event.inputs.feeds || '25' }}" > urls.txt
+        run: python3 tools/form_lab_urls.py --feeds "${{ github.event.inputs.feeds || '25' }}" --plan plan.json > urls.txt
       - name: Run the lab
         if: env.LAB_KEY != ''
         run: node tools/form-lab.mjs --urls urls.txt --max "${{ github.event.inputs.feeds || '25' }}" --promote --out lab-result.json

@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
-import {cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labReport, lookup, recipes} from '../src/recipes.js';
+import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labPlan, labReport, lookup, publicUrl, recipes} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0006_exposure.sql', import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -153,4 +153,27 @@ test('only the owner posts what the lab saw; candidates can be fetched by the ow
   await put(e, {recipe: recipe({fingerprint: 'cand0001'}), status: 'candidate'});
   const candidates = await (await recipes(new Request('https://x/api/recipes?status=candidate', {headers: {Authorization: 'Bearer secret'}}), e)).json();
   assert.deepEqual(candidates.recipes.map(r => [r.fingerprint, r.status]), [['cand0001', 'candidate']]);
+});
+
+test('the lab plan follows real use: busy boards by fills, the head is what fails or is unproven, coverage is exposure-weighted', async () => {
+  const e = env();
+  const send = body => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body})}), e, now);
+  // too little real use: the prior decides which boards
+  assert.deepEqual((await labPlan(e.STATS, now)).boards.map(b => [b.board, b.source]).slice(0, 2), [['greenhouse', 'prior'], ['lever', 'prior']]);
+  await send({exposure: [{board: 'ashby', n: 80}, {board: 'greenhouse', n: 20}, {board: 'h:0123456789', n: 500}, {board: 'bad board!', n: 5}],
+    outcomes: [{fp: 'busy0001', recipe: 0, ok: 90, failed: 10}, {fp: 'rare0001', recipe: 0, ok: 2, failed: 0}, {fp: 'okok0001', recipe: 0, ok: 60, failed: 0}]});
+  const run = (fp, ok, url) => e.STATS.db.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES (?, ?, ?, ?, 0, ?, ?, ?)').run('2026-10-02', 'ashby', fp, 'toggle-group', ok, '', url);
+  for (let i = 0; i < 6; i++) { run('okok0001', 1, `https://jobs.ashbyhq.com/a/${i}/application`); run('busy0001', i < 3 ? 1 : 0, 'https://jobs.ashbyhq.com/b/1/application'); }
+  const plan = await labPlan(e.STATS, now);
+  assert.deepEqual(plan.boards.map(b => [b.board, b.weight, b.source]), [['ashby', 80, 'usage'], ['greenhouse', 20, 'usage']]);   // hashed and invalid boards are not named
+  assert.deepEqual(plan.head.map(item => item.fingerprint), ['busy0001', 'rare0001']);   // failing first; the healthy one rests
+  assert.deepEqual(plan.head[0].urls, ['https://jobs.ashbyhq.com/b/1/application']);
+  assert.equal(plan.head[1].labRuns, 0);   // never tried by the lab: unproven
+  assert.equal(Math.round(plan.coverage * 100), Math.round(60 / 162 * 100));   // only okok0001 (60 of 162 meetings) is healthy
+  assert.equal(publicUrl('https://jobs.ashbyhq.com/a/1/application?token=secret#x'), 'https://jobs.ashbyhq.com/a/1/application');
+  assert.equal(publicUrl('http://insecure.example/x'), '');
+  const asked = await lab(new Request('https://x/api/lab', {headers: {Authorization: 'Bearer secret'}}), e, now);
+  assert.equal((await asked.json()).boards[0].board, 'ashby');
+  assert.equal((await lab(new Request('https://x/api/lab'), e, now)).status, 404);
+  assert.ok(PRIOR_BOARDS.greenhouse > PRIOR_BOARDS.lever);
 });

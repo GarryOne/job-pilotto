@@ -88,3 +88,16 @@ test('outcomes are counted per fingerprint and recipe and sent in one batch; a f
   reporter.outcome([{fp: '1d2pcapx18', ok: true}]);
   assert.deepEqual(await reporter.flush(), {sent: 0});   // switched off: nothing is kept or sent
 });
+
+test('each filled form counts for its board and goes in the same batch; nothing when reports are off', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({})});
+  reporter.fill('ashby'); reporter.fill('ashby'); reporter.fill('h:0123456789'); reporter.fill('bad board!'); reporter.fill('');
+  assert.deepEqual(await reporter.flush(), {sent: 2});
+  assert.deepEqual(sent[0].exposure, [{board: 'ashby', n: 2}, {board: 'h:0123456789', n: 1}]);
+  storage.saveSettings({telemetry: false});
+  reporter.fill('ashby');
+  assert.deepEqual(await reporter.flush(), {sent: 0});
+});

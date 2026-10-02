@@ -1,7 +1,7 @@
 // What leaves the Mac about controls: failures only, structure only, and other sites as a hash (lib/control-events.js).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {fromMisses, fromOperators, siteName} from '../lib/control-events.js';
+import {boardName, fromMisses, fromOperators, siteName} from '../lib/control-events.js';
 
 test('job boards are named, any other site is a stable hash, the owner sees plain hosts', () => {
   assert.equal(siteName('job-boards.greenhouse.io'), 'job-boards.greenhouse.io');
@@ -27,4 +27,10 @@ test('only the controls that were new to this Mac are reported as missed', () =>
   const events = fromMisses(payload, new Set(['bbb222']));
   assert.deepEqual(events.map(e => [e.control, e.fp, e.outcome]), [['radiogroup', 'bbb222', 'missed']]);
   assert.match(events[0].site, /^h:/);
+});
+
+test('a board is named in short for the known ones, any other site is a hash', () => {
+  assert.deepEqual(['job-boards.greenhouse.io', 'jobs.ashbyhq.com', 'jobs.lever.co', 'acme.recruitee.com'].map(boardName), ['greenhouse', 'ashby', 'lever', 'recruitee']);
+  assert.match(boardName('api.easytemp.ch'), /^h:[0-9a-f]{10}$/);
+  assert.equal(boardName(''), '');
 });

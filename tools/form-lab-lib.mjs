@@ -30,9 +30,9 @@ export function testAnswer(kind, options = []) {
 }
 
 // One row per control for the site: {site, fingerprint, kind, recipe, ok, why}. `results` are the operators' results.
-export function runsFrom(site, results) {
+export function runsFrom(site, results, url = '') {
   return (results || []).filter(result => result?.fp).map(result => ({site, fingerprint: result.fp, kind: result.kind, recipe: result.recipe || 0,
-    ok: !!result.ok, why: result.ok ? '' : String(result.why || 'failed').slice(0, 80)}));
+    ok: !!result.ok, why: result.ok ? '' : String(result.why || 'failed').slice(0, 80), url}));
 }
 
 // A candidate recipe earns a canary when it worked, on enough different pages and enough tries. Not otherwise.

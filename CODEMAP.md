@@ -280,7 +280,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/fix_issues.py` — No-AI steps of the daily self-fix run (fix-issues.yml): stale close, snapshot-only issue pick, Claude log summary.
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
-- `tools/form_lab_urls.py` — Public application-form URLs for the form lab (tools/form-lab.mjs): one open job from each of N feeds in the employer index.
+- `tools/form_lab_urls.py` — Public application-form URLs for the form lab (tools/form-lab.mjs), aimed where users actually are.
 - `tools/form-lab-lib.mjs` — The form lab's decisions, kept apart from the browser so they can be tested (tools/form-lab.mjs runs them).
 - `tools/form-lab.mjs` — The form lab: a headless browser runs the extension's REAL operators (extension/page/skeleton.js and controls.js) on public
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.

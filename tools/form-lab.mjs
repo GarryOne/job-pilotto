@@ -63,12 +63,12 @@ for (const url of urls) {
     const answers = [...found.filter(item => item.kind === 'toggle-group' && item.question).map(item => ({question: item.question, value: testAnswer(item.kind, item.options)})),
       ...dates.filter(item => item.question).map(item => ({question: item.question, value: testAnswer('date')}))];
     const results = await page.evaluate(async ({answers, recipes}) => window.__jobPilottoControls.fill(answers, {recipes}), {answers, recipes: recipeMap});
-    runs.push(...runsFrom(name, results));
+    runs.push(...runsFrom(name, results, url));
     for (const result of results) if (recipeMap[result.fp] && result.recipe) { const list = tries.get(result.fp) || []; list.push({page: url, ok: result.ok}); tries.set(result.fp, list); }
     // Controls with no operator: counted as not handled, and their structure kept for proposing recipes.
     const operated = new Set(results.map(result => result.fp));
     for (const item of found) {
-      if (!operated.has(item.fp) && item.kind !== 'toggle-group') runs.push({site: name, fingerprint: item.fp, kind: item.kind, recipe: 0, ok: false, why: 'no operator for this kind'});
+      if (!operated.has(item.fp) && item.kind !== 'toggle-group') runs.push({site: name, fingerprint: item.fp, kind: item.kind, recipe: 0, ok: false, why: 'no operator for this kind', url});
       if (!operated.has(item.fp) || !item.options.length) samples.push({fingerprint: item.fp, kind: item.kind, skeleton: item.skeleton, question: item.question});
     }
     console.log(`${name}: ${found.length} controls, ${results.filter(r => r.ok).length}/${results.length} operated  ${url}`);

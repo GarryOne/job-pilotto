@@ -1614,6 +1614,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setControlsHandler(payload => {
     for (const item of controlEvents.fromOperators(payload, {owner: owner()})) telemetry?.record('control', item);
     recipeReporter.outcome(payload.items);   // counts per fingerprint and recipe: the canary's evidence
+    recipeReporter.fill(controlEvents.boardName(payload.host));   // one more form on this board
   });
   server.setLearnedHandler(payload => learnedAnswers.save(storage, payload, {notify: (title, body) => toWindow('toast', {title, body}), contactSaved: contact => server.contactSaved(storage, contact)}));
   server.setTabsHandler(report => review.noteTabs(report));

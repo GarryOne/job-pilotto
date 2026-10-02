@@ -350,11 +350,11 @@ function prefetch(config, url) {
 // How the generic operators fared on this form (kind, fingerprint, worked or not, why): the app turns the failures into
 // reports that help everyone. No questions, no answers.
 function reportControls(config, tab, operated) {
-  if (!Array.isArray(operated) || !operated.length) return;
+  // Every fill counts for the board it was on, even when the operators had nothing to do there.
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
   let host = '';
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: operated.slice(0, 20)})}).catch(() => {});
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20)})}).catch(() => {});
 }
 
 // fast: the page is already there (the panel's Fill): no wait for it to render.

@@ -143,6 +143,12 @@ export async function controls(request, env, now = new Date()) {
   if (count + samples.length + outcomes.length > PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
   if (kv) await kv.put(countKey, String(count + samples.length + outcomes.length), {expirationTtl: 2 * 86400});
   let storedSamples = 0, storedOutcomes = 0;
+  for (const item of (Array.isArray(body.exposure) ? body.exposure : []).slice(0, 20)) {
+    const board = text(item?.board, 40).toLowerCase();
+    const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
+    if (!/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board) || !n) continue;
+    await env.STATS.prepare('INSERT INTO form_exposure (day, board, n) VALUES (?, ?, ?) ON CONFLICT (day, board) DO UPDATE SET n = n + excluded.n').bind(day(now), board, n).run();
+  }
   for (const item of samples) {
     const fingerprint = String(item?.fingerprint || '');
     const skeleton = cleanSkeleton(item?.skeleton);
@@ -169,9 +175,16 @@ export async function controls(request, env, now = new Date()) {
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes});
 }
 
+// A public page address for revisiting: https only, no query or fragment, bounded.
+export const publicUrl = value => { try { const url = new URL(String(value)); return url.protocol === 'https:' ? `${url.origin}${url.pathname}`.slice(0, 200) : ''; } catch { return ''; } };
+
 // ---- POST /api/lab (owner): what the form lab saw on public forms ----
 // {runs: [{site, fingerprint, kind, recipe, ok, why}], samples: [{fingerprint, kind, skeleton, question}]}
 export async function lab(request, env, now = new Date()) {
+  if (request.method === 'GET') {
+    if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
+    return Response.json(await labPlan(env.STATS, now), {headers: {'Cache-Control': 'private, no-store'}});
+  }
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
   if (!allowed(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const body = await request.json().catch(() => ({}));
@@ -179,8 +192,8 @@ export async function lab(request, env, now = new Date()) {
   for (const item of (Array.isArray(body.runs) ? body.runs : []).slice(0, 500)) {
     const fingerprint = String(item?.fingerprint || '');
     if (!/^[a-z0-9]{6,16}$/.test(fingerprint)) continue;
-    await env.STATS.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(day(now), text(item.site, 60).toLowerCase(), fingerprint, text(item.kind, 24), Math.min(9999, Math.max(0, Math.round(Number(item.recipe)) || 0)), item.ok ? 1 : 0, text(item.why, 80)).run();
+    await env.STATS.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(day(now), text(item.site, 60).toLowerCase(), fingerprint, text(item.kind, 24), Math.min(9999, Math.max(0, Math.round(Number(item.recipe)) || 0)), item.ok ? 1 : 0, text(item.why, 80), publicUrl(item.url)).run();
     runs++;
   }
   for (const item of (Array.isArray(body.samples) ? body.samples : []).slice(0, 50)) {
@@ -201,6 +214,45 @@ export async function labReport(db, days = 7, now = new Date()) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   return (await db.prepare(`SELECT site, kind, fingerprint, SUM(ok) AS ok, COUNT(*) - SUM(ok) AS failed, COUNT(DISTINCT day) AS days
     FROM lab_runs WHERE day >= ? GROUP BY site, kind, fingerprint ORDER BY failed DESC, ok DESC LIMIT 60`).bind(from).all()).results || [];
+}
+
+// ---- GET /api/lab/plan (owner): where the lab should spend its visits ----
+// What the board mix looks like before real usage exists (rough market share of the boards the lab can open).
+export const PRIOR_BOARDS = {greenhouse: 40, lever: 15, ashby: 15, workable: 8, smartrecruiters: 7, recruitee: 5, personio: 5, teamtailor: 5};
+const HEALTHY = 0.95, MIN_RUNS = 5;
+
+// By real exposure: boards (fills per board) and controls (how often operators met each fingerprint), with how the lab fares on
+// each and the public pages to revisit. coverage = the share of all exposure that lands on controls the lab passes at 95%+.
+export async function labPlan(db, now = new Date(), days = 30) {
+  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
+  const boardRows = (await db.prepare('SELECT board, SUM(n) AS n FROM form_exposure WHERE day >= ? GROUP BY board ORDER BY n DESC LIMIT 40').bind(from).all()).results || [];
+  const named = boardRows.filter(row => !row.board.startsWith('h:'));
+  const total = named.reduce((sum, row) => sum + row.n, 0);
+  const boards = total >= 20 ? named.map(row => ({board: row.board, weight: row.n, source: 'usage'}))
+    : Object.entries(PRIOR_BOARDS).map(([board, weight]) => ({board, weight, source: 'prior'}));   // too little real use to trust
+  const exposure = (await db.prepare(`SELECT fingerprint, SUM(ok + failed) AS n, SUM(failed) AS failed FROM control_outcomes WHERE day >= ?
+    GROUP BY fingerprint ORDER BY n DESC LIMIT 100`).bind(from).all()).results || [];
+  const lab = Object.fromEntries(((await db.prepare(`SELECT fingerprint, COUNT(*) AS runs, SUM(ok) AS ok FROM lab_runs WHERE day >= ? GROUP BY fingerprint`).bind(from).all()).results || [])
+    .map(row => [row.fingerprint, row]));
+  const urls = {};
+  for (const row of (await db.prepare(`SELECT fingerprint, url FROM lab_runs WHERE url != '' AND day >= ? ORDER BY day DESC LIMIT 400`).bind(from).all()).results || []) {
+    const list = urls[row.fingerprint] ||= [];
+    if (list.length < 3 && !list.includes(row.url)) list.push(row.url);
+  }
+  const candidates = new Set(((await db.prepare("SELECT fingerprint FROM recipes WHERE status = 'candidate'").all()).results || []).map(row => row.fingerprint));
+  const running = new Set(((await db.prepare("SELECT fingerprint FROM recipes WHERE status IN ('canary', 'verified')").all()).results || []).map(row => row.fingerprint));
+  let covered = 0, all = 0;
+  const controls = exposure.map(row => {
+    const seen = lab[row.fingerprint], rate = seen && seen.runs >= MIN_RUNS ? seen.ok / seen.runs : null;
+    const healthy = rate !== null && rate >= HEALTHY;
+    all += row.n;
+    if (healthy) covered += row.n;
+    return {fingerprint: row.fingerprint, exposure: row.n, userFailRate: row.n ? row.failed / row.n : 0, labRuns: seen?.runs || 0, labRate: rate,
+      healthy, candidate: candidates.has(row.fingerprint), recipe: running.has(row.fingerprint), urls: urls[row.fingerprint] || []};
+  });
+  // Visited every day: failing or unproven, with a candidate to try, or simply the most met. Healthy tail items rest.
+  const head = controls.filter(item => !item.healthy || item.candidate).slice(0, 20);
+  return {generated: now.toISOString(), boards, head, controls: controls.slice(0, 30), coverage: all ? covered / all : null, exposureTotal: all};
 }
 
 // ---- the canary, judged daily ----

@@ -22,8 +22,9 @@ test('the test applicant answers Yes where offered, else the first choice, and a
 
 test('operator results become rows for the site: failures with a reason, nothing without a fingerprint', () => {
   assert.deepEqual(runsFrom('ashby', [{fp: '1d2pcapx18', kind: 'toggle-group', recipe: 0, ok: true}, {fp: 'abc123', kind: 'date', ok: false, why: 'the field did not keep the date'}, {kind: 'x', ok: true}]),
-    [{site: 'ashby', fingerprint: '1d2pcapx18', kind: 'toggle-group', recipe: 0, ok: true, why: ''},
-      {site: 'ashby', fingerprint: 'abc123', kind: 'date', recipe: 0, ok: false, why: 'the field did not keep the date'}]);
+    [{site: 'ashby', fingerprint: '1d2pcapx18', kind: 'toggle-group', recipe: 0, ok: true, why: '', url: ''},
+      {site: 'ashby', fingerprint: 'abc123', kind: 'date', recipe: 0, ok: false, why: 'the field did not keep the date', url: ''}]);
+  assert.equal(runsFrom('ashby', [{fp: 'abc123', kind: 'date', ok: true}], 'https://jobs.ashbyhq.com/a/1/application')[0].url, 'https://jobs.ashbyhq.com/a/1/application');
 });
 
 test('a candidate recipe earns a canary only with enough tries, on enough different pages, that mostly worked', () => {
