@@ -332,3 +332,58 @@ export async function rowTitles(token, dbTitle) {
   } while (cursor);
   return titles;
 }
+
+// Every row of one database as plain values (read-only): {id, props: {Column: text | number | name | [names] | boolean | url | date}}. The suites that judge what
+// the app wrote read the rows with this, never through the app.
+export async function databaseRows(token, title) {
+  const db = await findDatabase(token, title);
+  if (!db) return [];
+  const rows = [];
+  let cursor;
+  do {
+    const found = await call(token, 'POST', `databases/${db.id}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    for (const row of found.results) if (!row.archived) rows.push({id: row.id, props: plainProps(row.properties)});
+    cursor = found.has_more ? found.next_cursor : null;
+  } while (cursor);
+  return rows;
+}
+
+const joinText = parts => (parts || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
+export function plainProps(properties) {
+  const out = {};
+  for (const [name, prop] of Object.entries(properties || {})) {
+    const value = prop[prop.type];
+    out[name] = prop.type === 'title' || prop.type === 'rich_text' ? joinText(value)
+      : prop.type === 'select' ? (value?.name ?? null)
+      : prop.type === 'multi_select' ? (value || []).map(option => option.name)
+      : prop.type === 'date' ? (value?.start ?? null)
+      : value ?? null;   // number, url, checkbox
+  }
+  return out;
+}
+
+// Rewrites lines of a page of the test workspace: every text block whose text matches `pattern` gets `text`. -> how many blocks changed. A suite uses it to put a
+// known value into a Profile line (the compensation target) instead of whatever the wizard's AI drafted, so what is judged does not depend on a draft.
+export async function rewriteLines(token, title, pattern, text) {
+  const page = await findPage(token, title);
+  if (!page) throw new Error(`the page "${title}" was not found in the test workspace`);
+  let changed = 0;
+  const walk = async (id, depth) => {
+    let cursor;
+    do {
+      const children = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`);
+      for (const block of children.results) {
+        const content = block[block.type];
+        if (content?.rich_text && pattern.test(joinText(content.rich_text))) {
+          await call(token, 'PATCH', `blocks/${block.id}`, {[block.type]: {rich_text: [{type: 'text', text: {content: text}}]}});
+          changed++;
+          await sleep(350);
+        }
+        if (block.has_children && depth < 3 && block.type !== 'child_database') await walk(block.id, depth + 1);
+      }
+      cursor = children.has_more ? children.next_cursor : null;
+    } while (cursor);
+  };
+  await walk(page.id, 0);
+  return changed;
+}

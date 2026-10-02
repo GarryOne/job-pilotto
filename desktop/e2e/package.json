@@ -12,7 +12,8 @@
     "employers": "node suite.mjs employers",
     "calendar": "node suite.mjs calendar",
     "focus": "node suite.mjs focus",
-    "apply": "node suite.mjs apply"
+    "apply": "node suite.mjs apply",
+    "quality": "node suite.mjs quality"
   },
   "devDependencies": {
     "playwright-core": "^1.55.0"

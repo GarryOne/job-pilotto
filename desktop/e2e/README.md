@@ -14,6 +14,7 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 | `focus` | a set-up install + dummy applications in every stage written to Notion | Up next order and buttons, every number checked against the Notion rows (`lib/focus-data.mjs`), Edit target, Done/Skip, Insight, a fresh account | ~3 min |
 | `apply` | a set-up install + 4 kit jobs it writes | the real **Chrome extension** on fixture forms: Apply click → fill from the kit, CV, legal boxes left, AI answers highlighted, late field, multi-step, unknown widget, Submit never touched | ~3 min |
 | `activity` | a set-up install, its own run rows reset, schedule off | what goes **wrong** on Actions + Recent activity: every task card (one row, an end, plain words, a log without keys/emails/paths, no Notion row left Running); the AI answering **429, 500, 401, no credit** and **never answering** (`lib/ai-proxy.mjs` modes); a double click, a Gmail check queued behind a search, **quitting mid-run**; the panel's filter, result card and a run read only from Notion | ~8 min |
+| `quality` | a set-up install, a known compensation target written into its Profile | whether the Jobs check's output is *right*: 11 golden postings with a known truth (`fixtures/golden/`): facts exact, a duplicate collapsed, ranking, scores stable (±8), no `undefined`/raw JSON in any text, no job text in the logs, and a Sonnet judge (`lib/factjudge.mjs`) for invented facts in the score reasons | ~3 min |
 
 ```
 cd desktop/e2e && npm install

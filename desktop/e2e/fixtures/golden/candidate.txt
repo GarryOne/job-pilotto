@@ -1,0 +1,5 @@
+Alex Example. Senior Site Reliability Engineer, Zurich, Switzerland. 9 years of experience in cloud infrastructure, Kubernetes, observability and incident response. Prefers distributed systems and platform engineering roles.
+Senior SRE, Acme Cloud, Zurich (2022 - present): ran 400 microservices on Kubernetes (AWS EKS); cut incident time by 40 percent with Datadog and OpenTelemetry; built the Terraform platform used by 120 engineers; led the on-call rotation of 8 people.
+Platform Engineer, Beta Systems, Berlin (2018 - 2022): migrated 60 services to Kubernetes; introduced SLOs and error budgets.
+Skills: Kubernetes, Terraform, AWS, Python, Go, Datadog, Prometheus, Grafana, PostgreSQL. BSc Computer Science.
+Languages: English (fluent), German (B1).

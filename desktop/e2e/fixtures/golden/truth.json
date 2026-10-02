@@ -1,0 +1,226 @@
+[
+ {
+  "id": 3001,
+  "title": "Senior Site Reliability Engineer",
+  "url": "https://boards.e2e.test/job/3001",
+  "location": "Zurich, Switzerland",
+  "seniority": "Senior",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [],
+  "salary": [
+   "185000",
+   "205000"
+  ],
+  "roleFamily": [
+   "sre",
+   "platform",
+   "devops",
+   "cloud_infrastructure"
+  ],
+  "fit": "high",
+  "description": "Own the reliability of a Kubernetes platform on AWS: SLOs, incident response, Terraform, observability with Datadog and OpenTelemetry. Senior role, hybrid in Zurich (three days in the office), English working language. 8+ years of experience running production systems. Salary: CHF 185,000 - 205,000 per year."
+ },
+ {
+  "id": 3002,
+  "title": "Staff Platform Engineer, Kubernetes",
+  "url": "https://boards.e2e.test/job/3002",
+  "location": "Zurich, Switzerland",
+  "seniority": "Staff/Principal",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "platform",
+   "sre",
+   "devops",
+   "cloud_infrastructure"
+  ],
+  "fit": "high",
+  "description": "Staff-level role: set the technical direction of our internal developer platform. EKS clusters, GitOps, Terraform modules used by 120 engineers, Python or Go. Hybrid in Zurich, English working language. No salary information is published for this role."
+ },
+ {
+  "id": 3003,
+  "title": "Senior DevOps Engineer",
+  "url": "https://boards.e2e.test/job/3003",
+  "location": "Remote - Europe",
+  "seniority": "Senior",
+  "workMode": "Remote",
+  "english": true,
+  "languagePlus": [],
+  "salary": [
+   "95000",
+   "120000"
+  ],
+  "roleFamily": [
+   "devops",
+   "sre",
+   "platform",
+   "cloud_infrastructure"
+  ],
+  "fit": "mid",
+  "description": "Fully remote within Europe, no office. Run CI/CD, Kubernetes and AWS infrastructure for a fintech product. Terraform, Prometheus, Grafana, on-call rotation one week in six. Senior level, English only. Compensation: EUR 95,000 - 120,000."
+ },
+ {
+  "id": 3004,
+  "title": "Junior DevOps Engineer",
+  "url": "https://boards.e2e.test/job/3004",
+  "location": "Basel, Switzerland",
+  "seniority": "Junior",
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "devops",
+   "sre",
+   "platform",
+   "cloud_infrastructure"
+  ],
+  "fit": "low",
+  "filterMayDrop": true,
+  "description": "Your first DevOps role. Junior position for someone with up to 2 years of experience: help the team with CI pipelines, Docker images and simple Terraform changes under close guidance. On-site in Basel, five days a week. English working language."
+ },
+ {
+  "id": 3005,
+  "title": "Senior Site Reliability Engineer (DE)",
+  "url": "https://boards.e2e.test/job/3005",
+  "location": "Bern, Switzerland",
+  "seniority": "Senior",
+  "workMode": "Hybrid",
+  "english": false,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "sre",
+   "platform",
+   "devops",
+   "cloud_infrastructure"
+  ],
+  "fit": "low",
+  "mustMention": "german|deutsch|language",
+  "description": "Senior SRE for our Swiss public-sector platform. Fliessend Deutsch (C1) is required: the team, the documentation and all meetings are in German, English alone is not enough. Kubernetes, Terraform, incident response. Hybrid in Bern, two days a week in the office."
+ },
+ {
+  "id": 3006,
+  "title": "Senior Site Reliability Engineer, Customer Care",
+  "url": "https://boards.e2e.test/job/3006",
+  "location": "Zurich, Switzerland",
+  "seniority": null,
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": [
+   "support_it",
+   "other"
+  ],
+  "fit": "low",
+  "mayBeEmpty": [
+   "Seniority",
+   "Technologies"
+  ],
+  "description": "Despite the title this is a phone and email helpdesk role: answer customer tickets, reset passwords, walk customers through our mobile app, log every call in the CRM. No infrastructure, no Kubernetes, no on-call, no coding. Customer care experience is a plus. On-site in Zurich. English working language."
+ },
+ {
+  "id": 3007,
+  "title": "Account Executive, DACH",
+  "url": "https://boards.e2e.test/job/3007",
+  "location": "Zurich, Switzerland",
+  "seniority": null,
+  "workMode": null,
+  "english": null,
+  "languagePlus": null,
+  "salary": null,
+  "roleFamily": null,
+  "fit": "low",
+  "filterMayDrop": true,
+  "description": "Sell our SaaS product to mid-market companies in Germany, Austria and Switzerland. Quota carrying, 5 years of enterprise sales experience, fluent German required. Hybrid in Zurich."
+ },
+ {
+  "id": 3008,
+  "title": "Senior Platform Engineer",
+  "url": "https://boards.e2e.test/job/3008",
+  "location": "Geneva, Switzerland",
+  "seniority": "Senior",
+  "workMode": "On-site",
+  "english": true,
+  "languagePlus": [
+   "French +"
+  ],
+  "salary": "",
+  "roleFamily": [
+   "platform",
+   "sre",
+   "devops",
+   "cloud_infrastructure"
+  ],
+  "fit": "mid",
+  "description": "Build and run the Kubernetes platform of an international organisation. Terraform, AWS, GitOps. Senior level. This is an on-site role in Geneva, five days a week in our office. English is the working language; French is a plus (un atout)."
+ },
+ {
+  "id": 3009,
+  "title": "Cloud Infrastructure Engineer",
+  "url": "https://boards.e2e.test/job/3009",
+  "location": "Zurich, Switzerland",
+  "seniority": "Mid",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [],
+  "salary": [
+   "110000",
+   "130000"
+  ],
+  "roleFamily": [
+   "cloud_infrastructure",
+   "devops",
+   "platform",
+   "sre"
+  ],
+  "fit": "mid",
+  "description": "Mid-level role, 3 to 5 years of experience: operate our AWS accounts, Terraform modules and monitoring. Hybrid in Zurich, English working language. Salary: CHF 110,000 - 130,000."
+ },
+ {
+  "id": 3010,
+  "title": "Senior Platform Engineer, Observability",
+  "url": "https://boards.e2e.test/job/3010",
+  "location": "Remote - Switzerland",
+  "seniority": "Senior",
+  "workMode": "Remote",
+  "english": true,
+  "languagePlus": [
+   "German +"
+  ],
+  "salary": "",
+  "roleFamily": [
+   "sre",
+   "platform",
+   "devops",
+   "cloud_infrastructure"
+  ],
+  "fit": "high",
+  "description": "Senior engineer for our observability platform: OpenTelemetry, Prometheus, Grafana, Datadog. Work remotely from anywhere in Switzerland. English working language; German is a plus (von Vorteil). No salary is stated."
+ },
+ {
+  "id": 3011,
+  "title": "Engineering Manager, Infrastructure",
+  "url": "https://boards.e2e.test/job/3011",
+  "location": "Zurich, Switzerland",
+  "seniority": "Lead/Manager",
+  "workMode": "Hybrid",
+  "english": true,
+  "languagePlus": [],
+  "salary": "",
+  "roleFamily": null,
+  "fit": "mid",
+  "filterMayDrop": true,
+  "description": "Lead a team of 8 infrastructure engineers: hiring, roadmap, on-call rota and stakeholder management. Management role, little hands-on work. Hybrid in Zurich, English working language."
+ },
+ {
+  "id": 3012,
+  "title": "Senior Site Reliability Engineer",
+  "url": "https://boards.e2e.test/job/3001?utm_source=linkedin&utm_medium=social",
+  "duplicateOf": 3001
+ }
+]
