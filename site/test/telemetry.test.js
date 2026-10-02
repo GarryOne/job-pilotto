@@ -11,7 +11,7 @@ function d1() {
   const db = new DatabaseSync(':memory:');
   for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_feedback.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
-    all: async () => ({results: db.prepare(sql).all(...args)})});
+    all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
 }
 const env = () => ({STATS: d1(), STATS_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')}});
@@ -164,4 +164,17 @@ test('a control report reads as one problem per fingerprint, outcome and reason,
   assert.equal(a.key, b.key);
   assert.notEqual(a.key, c.key);
   assert.match(a.summary, /toggle-group 1d2pcapx18: failed/);
+});
+
+test('the owner\'s page shows the access guard: what hit a limit or a decoy, only as digests', async () => {
+  const e = env();
+  e.STATS.db.exec(readFileSync(new URL('../migrations/0008_guard.sql', import.meta.url), 'utf8'));
+  const page = async () => (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  assert.match(await page(), /Access guard[\s\S]*Nothing odd/);
+  const day = new Date().toISOString().slice(0, 10);
+  e.STATS.db.prepare("INSERT INTO anomalies (day, kind, who, n, detail) VALUES (?, 'honeypot', 'abcdef0123456789', 2, 'x')").run(day);
+  e.STATS.db.prepare("INSERT INTO revoked (who, reason, created_at) VALUES ('abcdef0123456789', 'asked for a honeypot', ?)").run(new Date().toISOString());
+  const html = await page();
+  assert.match(html, /honeypot<\/td><td><code>abcdef0123456789<\/code><\/td><td>2/);
+  assert.match(html, /Revoked: <code>abcdef0123456789<\/code> \(asked for a honeypot\)/);
 });

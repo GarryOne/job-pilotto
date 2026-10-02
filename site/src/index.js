@@ -5,6 +5,7 @@
 import * as notion from './notion.js';
 import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
+import {guard} from './guard.js';
 import {install} from './install.js';
 import {signals} from './signals.js';
 import {feedback, view as feedbackView} from './feedback.js';
@@ -75,6 +76,7 @@ export default {
     if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
     if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
     if (pathname === '/api/recipes/targets') return recipeLibrary.targets(request, env);
+    if (pathname === '/api/guard') return guard(request, env);
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
     if (pathname === '/api/lab') return recipeLibrary.lab(request, env);

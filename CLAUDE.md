@@ -79,7 +79,7 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - The desktop Jobs list is built from Notion (Job Matches + Applications, `Tracker.notion_jobs`), with Notion's
   fields only; the cache is kept in step and only adds jobs a search couldn't write to Notion yet (marked).
 - **The employer index is product data, not user data:** the central scout (private repo `job-pilotto-internal`) publishes feeds +
-  quality + last verified to our website (`GET /api/index`, `site/src/employers.js`); every run downloads it (`src/employer_index.py`,
+  quality + last verified to our website (`GET /api/index`, `site/src/employers.js`; needs an install token and is capped per install a day, `site/src/guard.js`: tokens per purpose, revocation, honeypot recipes and access flags on /telemetry; `INDEX_GATE=soft` in `site/wrangler.toml` lets older installs without a token through while they update, remove it to enforce); every run downloads it (`src/employer_index.py`,
   cache `data/employer_index.json`, at most daily) and merges it with the starter `config/sources.json`. Worldwide, each feed lists its places; a run crawls only feeds matching the user's own `search.json`
   (`employer_index.relevant`). It never lives in
   users' Notion, and nothing about a user is sent to get it. The owner's Notion Employers & Sources stays their own list.

@@ -1,4 +1,5 @@
-// The central employer index route: public cacheable GET, key-protected PUT that can't wipe the list.
+// The central employer index route: GET needs an install token (or the owner's key) with a daily cap, a public summary holds only counts,
+// and the key-protected PUT can't wipe the list.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import worker from '../src/index.js';
@@ -10,6 +11,10 @@ const call = (e, method, headers = {}, body) => worker.fetch(new Request('https:
   {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, {});
 const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, relevant: 4.6, checked: '2026-09-30', places: ['Zurich, Switzerland', 7], ...extra});
 const auth = {Authorization: 'Bearer k3y'};
+// An install's token for the index, minted the way the engine does.
+const tokenOf = async (install, purpose = 'index') => (await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/install-token',
+  {method: 'POST', body: JSON.stringify({install, purpose})}), env(), {})).json()).token;
+const holder = async (install = 'abcd-1234-efgh') => ({'X-Install-Id': install, Authorization: `Bearer ${await tokenOf(install)}`});
 
 
 test('before anything is published: 404, so clients keep their starter list', async () => {
@@ -25,26 +30,54 @@ test('publishing needs the key; without it the route looks absent', async () => 
   assert.equal(store.size, 0);
 });
 
-test('publish, then anyone can download it: public, cacheable, ETag revalidation', async () => {
+test('publish, then installs with a token download it: private cache, ETag revalidation; no credentials get a 401', async () => {
   store.clear();
   const bad = [{company: 'Evil', ats: 'nonsense', slug: 'x'}, {company: 'NoSlug', ats: 'lever'}, 'junk', feed('a', {tier: 'weird'})];
   const put = await call(env(), 'PUT', auth, {feeds: [...bad, feed('a')]});
   assert.equal(put.status, 200);
   assert.equal((await put.json()).feeds, 1);   // unknown ATS, slug-less, junk and the duplicate are dropped
-  const get = await call(env(), 'GET');       // no credentials
+  assert.equal((await call(env(), 'GET')).status, 401);   // no credentials
+  const get = await call(env(), 'GET', await holder());
   assert.equal(get.status, 200);
-  assert.match(get.headers.get('Cache-Control'), /public, max-age=/);
+  assert.match(get.headers.get('Cache-Control'), /private, max-age=/);
   const body = await get.json();
   assert.deepEqual(body.feeds[0], {company: 'Co a', ats: 'lever', slug: 'a', tier: 'Standard', quality: 72, jobs: 12, checked: '2026-09-30', places: ['Zurich, Switzerland'], kind: 'employer', fits: {roles: [], regions: []}, relevant: 5});
-  const again = await call(env(), 'GET', {'If-None-Match': get.headers.get('ETag')});
+  const again = await call(env(), 'GET', {...await holder(), 'If-None-Match': get.headers.get('ETag')});
   assert.equal(again.status, 304);
+  assert.equal((await call(env(), 'GET', auth)).status, 200);   // the owner's scout
 });
 
-test('an install id header is accepted and changes nothing stored', async () => {
+test('a token opens only what it was minted for; a wrong or missing install id is refused', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a')]});
+  const forRecipes = await tokenOf('abcd-1234-efgh', 'recipes');
+  assert.equal((await call(env(), 'GET', {'X-Install-Id': 'abcd-1234-efgh', Authorization: `Bearer ${forRecipes}`})).status, 401);
+  assert.equal((await call(env(), 'GET', {...await holder(), 'X-Install-Id': 'someone-else-1'})).status, 401);
+  assert.equal((await call(env(), 'GET', {Authorization: `Bearer ${await tokenOf('abcd-1234-efgh')}`})).status, 401);
+});
+
+test('the summary is public and holds only counts, never the feeds', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a'), feed('b', {kind: 'board'}), feed('c', {jobs: 8})]});
+  const res = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index?summary=1'), env(), {});
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {employers: 2, jobs: 20});   // the job portal is not counted as an employer
+});
+
+test('an install can download a few times a day, then waits', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a')]});
+  const e = env(), headers = await holder('limit-install-1');
+  const get = () => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index', {headers}), e, {});
+  for (let i = 0; i < 24; i++) assert.equal((await get()).status, 200);
+  assert.equal((await get()).status, 429);
+});
+
+test('a download changes nothing stored', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a')]});
   const before = store.get('index:employers');
-  assert.equal((await call(env(), 'GET', {'X-Install-Id': 'abcd-1234-efgh'})).status, 200);
+  assert.equal((await call(env(), 'GET', await holder())).status, 200);
   assert.equal(store.get('index:employers'), before);
 });
 
@@ -63,10 +96,10 @@ test('other methods are refused', async () => {
   assert.equal((await call(env(), 'POST', auth, {feeds: []})).status, 405);
 });
 
-test('the landing page reads the pool size from this same route and says users can add their own employers', async () => {
+test('the landing page reads the pool size from the public summary of this route and says users can add their own employers', async () => {
   const {readFileSync} = await import('node:fs');
   const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(page, /fetch\('\/api\/index'\)/);
+  assert.match(page, /fetch\('\/api\/index\?summary=1'\)/);
   assert.doesNotMatch(page, /class="ico"|pool-tile|cov-head|fit-pill/);   // the original plain grid: no icons, no cards
   assert.match(page, /<b class="num" id="pool-employers">0<\/b> employers with <b class="num" id="pool-jobs">0<\/b> open jobs/);   // normal text, coloured
   assert.match(page, /id="pool-employers"/);
@@ -85,14 +118,23 @@ test('the landing page reads the pool size from this same route and says users c
 test('an entry can be marked as a job portal; anything else is an employer', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a'), feed('b', {kind: 'board'}), feed('c', {kind: 'weird'})]});
-  const kinds = (await (await call(env(), 'GET')).json()).feeds.map(f => f.kind);
+  const kinds = (await (await call(env(), 'GET', auth)).json()).feeds.map(f => f.kind);
   assert.deepEqual(kinds, ['employer', 'board', 'employer']);
 });
 
 test('the index keeps who a feed fits, from the fixed lists only', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a', {fits: {roles: ['sre_devops', 'my-secret'], regions: ['europe', 'Zurich']}}), feed('b')]});
-  const feeds = (await (await call(env(), 'GET')).json()).feeds;
+  const feeds = (await (await call(env(), 'GET', auth)).json()).feeds;
   assert.deepEqual(feeds[0].fits, {roles: ['sre_devops'], regions: ['europe']});
   assert.deepEqual(feeds[1].fits, {roles: [], regions: []});
+});
+
+test('in the soft rollout older installs without a token still get the list, and are counted', async () => {
+  store.clear();
+  await call(env(), 'PUT', auth, {feeds: [feed('a')]});
+  const soft = {...env(), INDEX_GATE: 'soft'};
+  assert.equal((await call(soft, 'GET')).status, 200);
+  assert.equal((await call(soft, 'GET', {'X-Install-Id': 'abcd-1234-efgh', Authorization: 'Bearer wrong'})).status, 200);
+  assert.equal((await call(env(), 'GET')).status, 401);   // the default enforces
 });

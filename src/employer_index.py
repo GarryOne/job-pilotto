@@ -1,7 +1,8 @@
 """The central employer index: feeds found and verified by one scout for everyone, downloaded by every install.
 
-Nothing about the user goes up: a plain GET (an optional random install id header). The result is cached on
-disk and fetched at most once a day; if the service is down the cache is used (however old), else nothing, and
+Nothing about the user goes up: a plain GET with a random install id and the token the website gives that id
+(the full list is not a public download; the website's own counters use a separate public summary). The result
+is cached on disk and fetched at most once a day; if the service is down the cache is used (however old), else nothing, and
 `merge` then falls back to the small starter list config/sources.json, so a run never fails because of this.
 """
 from datetime import datetime, timedelta, timezone
@@ -9,6 +10,7 @@ import json
 import time
 import os
 import re
+import secrets
 import urllib.request
 
 from .paths import DATA
@@ -32,6 +34,18 @@ def _get(url, headers):
         raise
 
 
+def _mint(base, install):
+    """The index token for this install id from the website ('' when it cannot be had: the download is then tried without)."""
+    request = urllib.request.Request(f'{base}/api/install-token', method='POST',
+                                     data=json.dumps({'install': install, 'purpose': 'index'}).encode(),
+                                     headers={'User-Agent': ats.USER_AGENT, 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            return str(json.load(response).get('token') or '')
+    except Exception:  # noqa: BLE001 — a missing token only means the website decides
+        return ''
+
+
 def clean(feeds):
     """Only well-formed entries for feeds we can crawl: unknown ATS names or missing slugs are dropped."""
     out = []
@@ -51,7 +65,8 @@ def clean(feeds):
 def _read(cache):
     try:
         data = json.loads(cache.read_text())
-        return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds'))}
+        return {'fetched': data.get('fetched'), 'etag': data.get('etag'), 'feeds': clean(data.get('feeds')),
+                'install': data.get('install')}
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -60,7 +75,7 @@ problem = ''   # why the last load() could not download the index ('' when it co
 RETRY_WAIT = 3   # seconds before the one retry of a failed download (a blip must not cost the whole crawl its 247 feeds)
 
 
-def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=None):
+def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=None, mint=None):
     """The downloaded index (list of feeds), from the cache when it is under a day old. Never raises."""
     global problem
     problem = ''
@@ -76,9 +91,15 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
         except ValueError:
             pass
     headers = {'Accept': 'application/json'}
-    install_id = install_id or os.getenv('JOB_PILOTTO_INSTALL_ID')
-    if install_id and re.fullmatch(r'[A-Za-z0-9_-]{8,64}', install_id):
-        headers['X-Install-Id'] = install_id
+    # The id is random and local: the one the app shares with the pool when you opted in, else one kept next to the cache.
+    install_id = install_id or os.getenv('JOB_PILOTTO_INSTALL_ID') or (stored or {}).get('install')
+    if not (install_id and re.fullmatch(r'[A-Za-z0-9_-]{8,64}', install_id)):
+        install_id = secrets.token_hex(12)
+    headers['X-Install-Id'] = install_id
+    mint = mint if mint is not None else (_mint if get is _get else (lambda base, install: ''))
+    token = mint(url.rsplit('/api/', 1)[0], install_id)
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
     if stored and stored['etag']:
         headers['If-None-Match'] = stored['etag']
     try:
@@ -94,7 +115,7 @@ def load(cache=None, url=None, get=_get, now=None, install_id=None, retry_wait=N
                 if attempt == 2:
                     raise
                 time.sleep(retry_wait)
-        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'feeds': feeds}
+        entry = {'fetched': now.isoformat(timespec='seconds'), 'etag': etag, 'install': install_id, 'feeds': feeds}
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(entry, indent=1, ensure_ascii=False) + '\n')
         return feeds

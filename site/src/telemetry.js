@@ -3,6 +3,7 @@
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
 import {feedbackList} from './feedback.js';
+import {flags} from './guard.js';
 import {labPlan, labReport} from './recipes.js';
 import {allowed, esc, remember} from './stats.js';
 
@@ -167,6 +168,12 @@ ${(data.plan?.head || []).map(item => `<tr><td><code>${esc(item.fingerprint)}</c
   <td>${item.labRate == null ? `untested (${item.labRuns})` : Math.round(item.labRate * 100) + '%'}</td><td>${item.recipe ? 'running' : item.candidate ? 'candidate' : '–'}</td></tr>`).join('')
   || '<tr><td colspan="5" class="muted">Nothing failing or unproven: nothing to chase.</td></tr>'}</table>
 <small class="muted">Lab by board (last 7 days): ${(data.lab || []).slice(0, 8).map(row => `${esc(row.site)} ${esc(row.kind)} ${row.ok}/${row.ok + row.failed}`).join(' · ') || 'no runs yet'}</small></section>
+<section class="card" style="margin-top:12px"><h2>🛡️ Access guard</h2>
+<small class="muted">Who hit a limit or touched a decoy (last 7 days; installs are shown only as a short digest). ${data.guard ? data.guard.honeypots : 0} honeypot fingerprints planted.</small>
+<table style="margin-top:8px"><tr><th>What</th><th>Who</th><th>Times</th></tr>
+${(data.guard?.seen || []).map(row => `<tr><td>${esc(row.kind)}</td><td><code>${esc(row.who)}</code></td><td>${row.n}</td></tr>`).join('')
+  || '<tr><td colspan="3" class="muted">Nothing odd. 🎉</td></tr>'}</table>
+${(data.guard?.revoked || []).length ? `<small class="muted">Revoked: ${(data.guard.revoked).map(row => `<code>${esc(row.who)}</code> (${esc(row.reason)})`).join(' · ')}</small>` : ''}</section>
 <section class="card" style="margin-top:12px"><h2>💬 Feedback, newest first</h2><small class="muted">From Send feedback in the app (also sent to the Job Pilotto Brain bot). Last ${data.days < 30 ? 30 : data.days} days.</small>
 <table style="margin-top:8px"><tr><th>When</th><th>Feedback</th><th>Reply to</th><th>Version</th></tr>
 ${(data.feedback || []).map(row => `<tr><td class="muted" style="white-space:nowrap">${esc(String(row.at).slice(0, 16).replace('T', ' '))}</td>
@@ -185,8 +192,8 @@ export async function view(request, env, now = new Date()) {
   try {
     const [data, feedback, setup] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
       funnel(env.STATS, Math.max(days, 30), now).catch(() => null)]);
-    const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []);
-    return new Response(page({...data, feedback, funnel: setup, plan, lab}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []), guardData = await flags(env.STATS, 7, now).catch(() => null);
+    return new Response(page({...data, feedback, funnel: setup, plan, lab, guard: guardData}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

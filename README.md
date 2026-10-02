@@ -58,7 +58,7 @@ otherwise. Nothing fails because a feature is missing: `python3 -m src doctor` j
 |---|---|---|---|---|
 | `discover` | jobs.ch + TechTree employers and jobs | nothing | free | on by default |
 | `scout` | your own search for new employer feeds to crawl (optional: the shared index already supplies a worldwide pool) | nothing (Notion to keep them) | free | on for existing installs, off for new ones |
-| `index` | downloads the shared employer index (`GET /api/index`), at most daily | nothing | free | on by default |
+| `index` | downloads the shared employer index (`GET /api/index`, with a random install id and a token the website gives it), at most daily | nothing but that random id | free | on by default |
 | `telegram` | the digest on your phone | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | free | 5 min |
 | Scheduled runs | a crawl every 4 hours without your laptop | a GitHub fork with Actions on | free | 5 min |
 | `notion` | Applications tracker, Job Matches, run log | `NOTION_TOKEN` + the pages in [docs/notion-schema.md](docs/notion-schema.md) | free | 30 min |

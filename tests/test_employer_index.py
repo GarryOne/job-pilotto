@@ -41,6 +41,35 @@ class LoadTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertTrue(self.cache.exists())
 
+    def test_sends_an_index_token_and_a_stable_install_id(self):
+        calls, minted = [], []
+        def mint(base, install):
+            minted.append((base, install))
+            return 'tok-' + install
+        employer_index.load(self.cache, 'https://x.test/api/index', server(calls), NOW, mint=mint)
+        headers = calls[0][1]
+        install = headers['X-Install-Id']
+        self.assertRegex(install, r'^[0-9a-f]{24}$')                      # random, local, nothing about the user
+        self.assertEqual(headers['Authorization'], f'Bearer tok-{install}')
+        self.assertEqual(minted, [('https://x.test', install)])
+        employer_index.load(self.cache, 'https://x.test/api/index', server(calls), NOW + timedelta(hours=21), mint=mint)
+        self.assertEqual(calls[1][1]['X-Install-Id'], install)             # the same id on the next download
+
+    def test_the_shared_install_id_wins_when_set(self):
+        calls = []
+        employer_index.load(self.cache, 'u', server(calls), NOW, install_id='shared-install-1', mint=lambda base, install: 't')
+        self.assertEqual(calls[0][1]['X-Install-Id'], 'shared-install-1')
+
+    def test_no_token_still_tries_and_a_refusal_falls_back_to_the_cache(self):
+        calls = []
+        employer_index.load(self.cache, 'u', server(calls), NOW, mint=lambda base, install: '')
+        self.assertNotIn('Authorization', calls[0][1])                     # a website in soft mode may still answer
+        def refused(url, headers):
+            raise urllib.error.HTTPError(url, 401, 'token needed', {}, None)
+        feeds = employer_index.load(self.cache, 'u', refused, NOW + timedelta(days=2), mint=lambda base, install: '')
+        self.assertEqual([f['slug'] for f in feeds], ['bigco'])            # the old cache, and the run says why
+        self.assertIn('401', employer_index.problem)
+
     def test_at_most_daily(self):
         calls = []
         employer_index.load(self.cache, 'u', server(calls), NOW)
@@ -90,14 +119,15 @@ class LoadTest(unittest.TestCase):
         bad = lambda url, headers: (200, '<html>oops</html>', None)  # noqa: E731
         self.assertEqual(employer_index.load(self.cache, 'u', bad, NOW), [])
 
-    def test_install_id_is_optional_and_validated(self):
+    def test_an_invalid_install_id_is_replaced_by_a_random_local_one(self):
         calls = []
         employer_index.load(self.cache, 'u', server(calls), NOW, install_id='abc-12345678')
         self.assertEqual(calls[0][1]['X-Install-Id'], 'abc-12345678')
         self.cache.unlink()
         calls.clear()
         employer_index.load(self.cache, 'u', server(calls), NOW, install_id='has spaces / and slashes')
-        self.assertNotIn('X-Install-Id', calls[0][1])
+        self.assertNotEqual(calls[0][1]['X-Install-Id'], 'has spaces / and slashes')   # not sent as given: a random local id instead
+        self.assertRegex(calls[0][1]['X-Install-Id'], r'^[0-9a-f]{24}$')
 
 
 class MergeTest(unittest.TestCase):

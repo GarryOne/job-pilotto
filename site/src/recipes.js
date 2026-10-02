@@ -11,6 +11,7 @@
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
 import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
 import {allowed} from './stats.js';
+import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];                  // a canary's rollout, in order
@@ -20,10 +21,7 @@ const SAMPLES_PER_FINGERPRINT = 3, MAX_SKELETON = 6000, PER_INSTALL_PER_DAY = 50
 const day = date => date.toISOString().slice(0, 10);
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
-async function digest(value) {
-  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
-  return [...bytes.slice(0, 8)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
+const digest = digestOf;
 
 // ---- GET / PUT /api/recipes ----
 export async function recipes(request, env, now = new Date()) {
@@ -62,30 +60,27 @@ export async function recipes(request, env, now = new Date()) {
 }
 
 // ---- access: a token per install, and lookups by fingerprint ----
-const MINTS_PER_ADDRESS_PER_DAY = 10, LOOKUPS_PER_INSTALL_PER_DAY = 2000, MAX_LOOKUP = 30;
-async function tokenFor(install, env) {
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.STATS_SALT || env.STATS_KEY || 'dev'), {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
-  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`recipes:${install}`)));
-  return [...sig.slice(0, 16)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
-const equal = (a, b) => { if (a.length !== b.length) return false; let diff = 0; for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i); return diff === 0; };
+// Recipe tokens are scarce (a token is a lookup quota); index tokens are plentiful because Always-on runs share GitHub's network
+// addresses and one download is the whole index anyway. A token only opens what it was minted for.
+const MINTS_PER_ADDRESS_PER_DAY = {recipes: 10, index: 300}, LOOKUPS_PER_INSTALL_PER_DAY = 2000, MAX_LOOKUP = 30;
 
-// POST /api/install-token {install}: the app's token. New tokens are limited per network address, so minting installs to
+// POST /api/install-token {install, purpose?}: the app's token ('recipes' by default, or 'index' for the employer index). New tokens are limited per network address, so minting installs to
 // raise the lookup quota is slow; the quota is per install.
 export async function installToken(request, env, now = new Date()) {
   if (request.method !== 'POST') return new Response('Method not allowed', {status: 405});
   const body = await request.json().catch(() => ({}));
   const install = String(body.install || '');
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
+  const purpose = body.purpose === 'index' ? 'index' : 'recipes';
   const kv = env.WAITLIST;
   if (kv) {
-    const address = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const key = `recipes-mint:${await digest(address)}:${day(now)}`;
+    const address = await digest(request.headers.get('CF-Connecting-IP') || 'unknown');
+    const key = `${purpose}-mint:${address}:${day(now)}`;
     const used = Number(await kv.get(key)) || 0;
-    if (used >= MINTS_PER_ADDRESS_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
+    if (used >= MINTS_PER_ADDRESS_PER_DAY[purpose]) { await flag(env, 'mint', address, purpose, now); return Response.json({ok: false, error: 'limit reached for today'}, {status: 429}); }
     await kv.put(key, String(used + 1), {expirationTtl: 2 * 86400});
   }
-  return Response.json({ok: true, token: await tokenFor(install, env)});
+  return Response.json({ok: true, token: await tokenFor(install, env, purpose)});
 }
 
 // POST /api/recipes/lookup {install, fingerprints: [...]} with Authorization: Bearer <token>.
@@ -95,11 +90,15 @@ export async function lookup(request, env, now = new Date()) {
   const body = await request.json().catch(() => ({}));
   const install = String(body.install || '');
   const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-  if (!/^[\w-]{8,64}$/.test(install) || !equal(bearer, await tokenFor(install, env))) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
+  const access = await authorize(env, install, bearer, 'recipes');
+  if (!access.ok) return Response.json({ok: false, error: 'unauthorized'}, {status: 401});
   const asked = [...new Set((Array.isArray(body.fingerprints) ? body.fingerprints : []).map(String).filter(fp => /^[a-z0-9]{6,16}$/.test(fp)))].slice(0, MAX_LOOKUP);
   const kv = env.WAITLIST, key = `recipes-lookup:${install}:${day(now)}`;
   const used = kv ? Number(await kv.get(key)) || 0 : 0;
-  if (used + asked.length > LOOKUPS_PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
+  // A decoy fingerprint no real form produces: whoever asks is scanning the library. Answer as if nothing was found; revoke quietly.
+  const decoy = await honeypotAmong(env, asked);
+  if (decoy) { await flag(env, 'honeypot', access.who, decoy, now); await revoke(env, access.who, 'asked for a honeypot', now); return Response.json({ok: true, recipes: []}, {headers: {'Cache-Control': 'private, no-store'}}); }
+  if (used + asked.length > LOOKUPS_PER_INSTALL_PER_DAY) { await flag(env, 'quota', access.who, 'recipe lookups', now); return Response.json({ok: false, error: 'limit reached for today'}, {status: 429}); }
   if (kv && asked.length) await kv.put(key, String(used + asked.length), {expirationTtl: 2 * 86400});
   const out = [];
   for (const fingerprint of asked) {

@@ -449,13 +449,12 @@
 </div>
 <script>
 // The shared employer pool's size, read from the same public list every app downloads; the sentence works without it.
-fetch('/api/index').then(r => r.ok ? r.json() : null).then(data => {
-  // Employers (a company's own career page) are counted apart from job portals; the open jobs are every posting, all roles
-  // (the feed also carries `relevant`, the engineering / IT roles, for when the site wants that number).
-  const feeds = (data && data.feeds ? data.feeds : []).filter(feed => feed.kind !== 'board');
-  const jobs = feeds.reduce((sum, feed) => sum + (feed.jobs || 0), 0);
-  if (!feeds.length) return;
-  document.getElementById('pool-employers').textContent = feeds.length.toLocaleString('en-US');
+fetch('/api/index?summary=1').then(r => r.ok ? r.json() : null).then(data => {
+  // The summary: how many employers (a company's own career page, not job portals) and how many open jobs, all roles.
+  const feeds = data && data.employers ? data.employers : 0;
+  const jobs = data && data.jobs ? data.jobs : 0;
+  if (!feeds) return;
+  document.getElementById('pool-employers').textContent = feeds.toLocaleString('en-US');
   document.getElementById('pool-jobs').textContent = jobs.toLocaleString('en-US');
   document.getElementById('pool-count').hidden = false;
   document.getElementById('pool-fallback').hidden = true;

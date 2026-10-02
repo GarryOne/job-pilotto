@@ -4,11 +4,12 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
+import {flags, guard} from '../src/guard.js';
 import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labPlan, labReport, lookup, publicUrl, recipes, targets} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0006_exposure.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0004_recipes.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0005_lab.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0006_exposure.sql', import.meta.url), 'utf8') + readFileSync(new URL('../migrations/0008_guard.sql', import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -196,4 +197,56 @@ test('the proposer\'s targets: failing controls without a recipe being tried, wo
   assert.deepEqual([list[0].kind, list[0].question, list[0].version, list[0].whys, list[0].userFailed, list[0].labFailed], ['toggle-group', 'Are you based in the US?', 1, ['no option found'], 40, 1]);
   assert.deepEqual(list[0].samples[0], {t: 'div', a: {role: 'radiogroup'}, c: ['yesno'], k: []});
   assert.equal((await targets(new Request('https://x/api/recipes/targets', {method: 'POST', headers: {Authorization: 'Bearer secret'}}), e, now)).status, 405);
+});
+
+const mintFor = async (e, install, purpose, ip = '198.51.100.20') => (await (await installToken(new Request('https://x/api/install-token', {method: 'POST', headers: {'CF-Connecting-IP': ip},
+  body: JSON.stringify({install, purpose})}), e, now)).json()).token;
+const lookupAs = (e, install, token, fingerprints) => lookup(new Request('https://x/api/recipes/lookup', {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: JSON.stringify({install, fingerprints})}), e, now);
+const owner = (e, body) => guard(new Request('https://x/api/guard', {method: body ? 'POST' : 'GET', headers: {Authorization: 'Bearer secret'}, body: body ? JSON.stringify(body) : undefined}), e, now);
+
+test('a token opens only its own door: an index token cannot look up recipes', async () => {
+  const e = {...env(), WAITLIST: kvStore()};
+  const forIndex = await mintFor(e, 'install-door-1', 'index');
+  const forRecipes = await mintFor(e, 'install-door-1', 'recipes');
+  assert.notEqual(forIndex, forRecipes);
+  assert.equal((await lookupAs(e, 'install-door-1', forIndex, ['abc12345'])).status, 401);
+  assert.equal((await lookupAs(e, 'install-door-1', forRecipes, ['abc12345'])).status, 200);
+});
+
+test('asking for a honeypot fingerprint quietly revokes the install, flags it, and the token stops working', async () => {
+  const e = {...env(), WAITLIST: kvStore()};
+  assert.equal((await owner(e, {action: 'honeypots', count: 3})).status, 200);
+  const decoy = e.STATS.db.prepare('SELECT fingerprint FROM honeypots LIMIT 1').get().fingerprint;
+  assert.match(decoy, /^[a-z0-9]{10}$/);
+  const token = await mintFor(e, 'install-scan-001', 'recipes');
+  const answer = await lookupAs(e, 'install-scan-001', token, [decoy]);
+  assert.deepEqual([answer.status, (await answer.json()).recipes], [200, []]);   // answered as if nothing was found
+  assert.equal((await lookupAs(e, 'install-scan-001', token, ['abc12345'])).status, 401);   // revoked
+  const seen = await flags(e.STATS, 7, now);
+  assert.deepEqual([seen.seen[0].kind, seen.revoked[0].reason, seen.honeypots], ['honeypot', 'asked for a honeypot', 3]);
+  assert.equal(JSON.stringify(seen).includes('install-scan-001'), false, 'only a digest of the install is kept');
+  const who = seen.revoked[0].who;
+  await owner(e, {action: 'unrevoke', who});
+  assert.equal((await lookupAs(e, 'install-scan-001', token, ['abc12345'])).status, 200);
+});
+
+test('reaching a quota or the minting limit is flagged for the owner to see; only the owner reads or changes the guard', async () => {
+  const e = {...env(), WAITLIST: kvStore()};
+  for (let i = 0; i < 11; i++) await mintFor(e, `install-mint-${i}-xx`, 'recipes', '198.51.100.30');
+  const token = await mintFor(e, 'install-quota-xx', 'recipes', '198.51.100.31');
+  const many = Array.from({length: 30}, (_, i) => `fp${String(i).padStart(5, '0')}`);
+  for (let i = 0; i < 70; i++) await lookupAs(e, 'install-quota-xx', token, many);
+  const kinds = (await flags(e.STATS, 7, now)).seen.map(row => row.kind).sort();
+  assert.deepEqual(kinds, ['mint', 'quota']);
+  assert.equal((await guard(new Request('https://x/api/guard'), e, now)).status, 404);
+  assert.equal((await guard(new Request('https://x/api/guard', {method: 'POST', headers: {Authorization: 'Bearer wrong'}, body: '{}'}), e, now)).status, 404);
+  assert.equal((await owner(e, {action: 'nope'})).status, 400);
+  assert.equal((await owner(e)).status, 200);
+});
+
+test('the guard never blocks a real user when its tables are missing', async () => {
+  const e = {...env(), WAITLIST: kvStore()};
+  e.STATS.db.exec('DROP TABLE revoked; DROP TABLE honeypots; DROP TABLE anomalies;');
+  const token = await mintFor(e, 'install-nogd-001', 'recipes');
+  assert.equal((await lookupAs(e, 'install-nogd-001', token, ['abc12345'])).status, 200);
 });
