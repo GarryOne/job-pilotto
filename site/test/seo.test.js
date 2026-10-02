@@ -21,5 +21,6 @@ test('Google can find the public pages: robots, sitemap, canonical, structured d
   }
   const ld = file('index.html').match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
   assert.equal(JSON.parse(ld[1])['@type'], 'SoftwareApplication');
+  assert.match(file('index.html'), /<meta name="google-site-verification" content="[\w-]{20,}">/);   // Search Console ownership: keep it, removing it un-verifies the site
   assert.match(file('friends.html'), /<meta name="robots" content="noindex">/);
 });
