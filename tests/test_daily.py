@@ -95,5 +95,28 @@ class DigestNoteTests(unittest.TestCase):
         self.assertIn('--send', daily.digest_note(3, 1, terminal=True))
 
 
+class InsightLimitTests(unittest.TestCase):
+    def test_an_insight_paused_by_the_spend_limit_is_a_run_with_a_warning_not_a_failure(self):
+        # 2 Oct 2026 (activity e2e suite): the run exited 0 without closing its row; the end-of-process guard then wrote it as Failed ("Insight failed") under a
+        # Completed pill. It is closed here, as a warning that names the limit.
+        import contextlib
+        import io
+        from unittest import mock
+        logged = []
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.notion.Tracker, 'from_env', return_value=object()), \
+                mock.patch.object(daily.insights, 'run', side_effect=RuntimeError('Your credit balance is too low to access the Anthropic API.')), \
+                mock.patch.object(daily.cron_runs, 'log_run', side_effect=lambda tracker, run, failed=False: logged.append((dict(run), failed)) or 'https://notion.so/row'), \
+                mock.patch.object(daily.telegram, 'to_app'), mock.patch.object(sys, 'argv', ['daily', '--mode', 'insight', '--log-run', '--db', str(Path(tmp) / 'jobs.sqlite')]), \
+                contextlib.redirect_stdout(out):
+            code = daily.main()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(logged), 1, out.getvalue())
+        run, failed = logged[0]
+        self.assertFalse(failed)
+        self.assertTrue(any('AI limit reached' in warning for warning in run['warnings']), run['warnings'])
+        self.assertTrue(any(line.startswith('AI limit reached') for line in out.getvalue().splitlines()))
+
+
 if __name__ == '__main__':
     unittest.main()

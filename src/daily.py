@@ -532,6 +532,12 @@ def main():
                     telegram.send(message, *telegram.credentials())
                 else:
                     telegram.to_app(message)
+                # Closed here as a warning that names the limit: left open, the end-of-process guard wrote the row as Failed ("Insight failed") while the run exited 0.
+                reason = f'AI limit reached: {cost.limit_reason(error)}'
+                print(reason)
+                run['warnings'].append(reason)
+                run['headline'] = f"{'Insight' if args.mode == 'insight' else 'Weekly report'} paused"
+                log_ai_run(tracker, run, args)
         return 0
     run = new_cron_run(args.mode)
     spend = None
