@@ -1,0 +1,37 @@
+// Which suites a push to main runs: only those whose files changed (the AI credit of the shared test key was spent by every test-file push running all suites).
+// Schedules and manual runs still run everything.
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {suitesFor, suitesNamed} from '../lib/plan.mjs';
+
+const ALL = ['activity', 'apply', 'calendar', 'employers', 'focus', 'interviews', 'jobs', 'personas', 'settings', 'strategy', 'wizard'];
+
+test('a changed suite file runs that suite, and only it', () => {
+  assert.deepEqual(suitesFor(['desktop/e2e/suites/activity.mjs'], ALL), ['activity']);
+  assert.deepEqual(suitesFor(['desktop/e2e/suites/jobs.mjs', 'desktop/e2e/suites/activity.mjs'], ALL), ['activity', 'jobs']);
+});
+
+test('a change to the extension runs the apply suite', () => {
+  assert.deepEqual(suitesFor(['extension/content/fill.js', 'extension/manifest.json'], ALL), ['apply']);
+});
+
+test('shared test code runs the cheap, AI-free settings suite as a smoke test, not everything', () => {
+  for (const file of ['desktop/e2e/lib/layout.mjs', 'desktop/e2e/suite.mjs', 'desktop/e2e/fixtures/feeds/acme.json', 'desktop/e2e/package.json', '.github/workflows/e2e.yml'])
+    assert.deepEqual(suitesFor([file], ALL), ['settings'], file);
+  assert.deepEqual(suitesFor(['desktop/e2e/lib/ai-proxy.mjs', 'desktop/e2e/suites/activity.mjs'], ALL), ['activity', 'settings']);
+});
+
+test('the unit tests of the tests and the docs run no suite (the plan job runs the unit tests itself)', () => {
+  assert.deepEqual(suitesFor(['desktop/e2e/test/plan.test.mjs', 'desktop/e2e/README.md'], ALL), []);
+  assert.deepEqual(suitesFor([], ALL), []);
+});
+
+test('a deleted or unknown suite file runs nothing by itself', () => {
+  assert.deepEqual(suitesFor(['desktop/e2e/suites/gone.mjs'], ALL), []);
+});
+
+test('a manual run can name its suites; no name means all; an unknown name is refused', () => {
+  assert.deepEqual(suitesNamed('', ALL), ALL);
+  assert.deepEqual(suitesNamed('jobs, activity', ALL), ['activity', 'jobs']);
+  assert.throws(() => suitesNamed('jobs,nope', ALL), /nope/);
+});

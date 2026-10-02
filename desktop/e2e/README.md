@@ -92,3 +92,10 @@ journey step checks that nothing was queued to send. (2 Oct 2026: before this, t
 - **Fresh posting ids every run** (`setFeed`): a posting an earlier run saw has a Job Matches row in Notion and is not new. The postings' titles mention both "Site Reliability Engineer" and "Data Analyst", so they match whatever the page's Search settings are.
 - **A Mac shares one page between suites** that have no token of their own; another session rebuilding it mid-run breaks the run ("database not found"). Use `E2E_NOTION_TOKEN_ACTIVITY` (Keychain `job-pilotto.e2e.notion_token_activity`).
 - **Isolation:** with `JOB_PILOTTO_E2E` the engine ignores this Mac's Keychain (`src/secret_store.py`); before that, a test "Gmail check" read the owner's real mail (2 Oct 2026).
+
+## What CI runs, and when (the test key's AI credit is shared, so this is deliberate)
+- **A schedule (every 4 hours) and a manual run:** every suite. A manual run may name some: `gh workflow run e2e.yml -f suite=jobs,activity`.
+- **A push to `main`:** only the suites whose files changed (`lib/plan.mjs`): `suites/<name>.mjs` runs `<name>`; `extension/**` runs `apply`; other shared test code
+  (`lib/`, `suite.mjs`, fixtures, `e2e.yml`) runs `settings` as an AI-free smoke test; the tests' own unit tests (`npm test`) and docs run no suite. The plan job runs
+  `npm test` every time (no secrets, no AI).
+- The UI-heal loop only follows scheduled and manual runs, never a push.

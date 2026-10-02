@@ -5,8 +5,12 @@ const name = process.argv[2];
 // The CI matrix is built from the suites that exist:   node suite.mjs --list
 if (name === '--list') {
   const {SUITES: all} = await import('./lib/context.mjs');
+  const {suitesFor, suitesNamed} = await import('./lib/plan.mjs');
+  const option = flag => { const at = process.argv.indexOf(flag); return at < 0 ? null : process.argv[at + 1] || ''; };
+  // --changed: the changed files, one per line on stdin (a push); --only a,b: a manual run's choice; neither: every suite.
+  const chosen = process.argv.includes('--changed') ? suitesFor((await import('node:fs')).readFileSync(0, 'utf8').split('\n'), all) : suitesNamed(option('--only'), all);
   const include = [];
-  for (const suite of all) include.push({suite, minutes: (await import(`./suites/${suite}.mjs`)).minutes || 15});
+  for (const suite of chosen) include.push({suite, minutes: (await import(`./suites/${suite}.mjs`)).minutes || 15});
   console.log(JSON.stringify({include}));
   process.exit(0);
 }

@@ -7,8 +7,14 @@ name: CI · End-to-end journey
 # before a build is promoted to stable (tools/release-stable.sh asks for a green run of the same commit).
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY (a key with a small spend cap), E2E_NOTION_TOKEN (a Notion
 # connection that can only see the empty "Job Pilotto E2E" test page). Without them only the offline steps run.
+# What runs: a schedule and a manual run start every suite (a manual run may name some: the `suite` input); a push to main starts only the suites whose files
+# changed (desktop/e2e/lib/plan.mjs), because every test-file push used to run all of them on the shared test key's AI credit.
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Suites to run, comma-separated (empty = all)'
+        required: false
   schedule:
     - cron: '47 */4 * * *'   # every 4 hours (the UI loop, ui-heal.yml, follows each run)
   push:
@@ -26,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
+      count: ${{ steps.list.outputs.count }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,13 +41,33 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
-      - name: The suites that exist (every file in desktop/e2e/suites)
+      - name: The tests' own tests (layout check, review parser, triage rules, which suites a push runs)
+        working-directory: desktop/e2e
+        run: npm test
+      - name: The suites to run (all, the ones named, or for a push only those whose files changed)
         id: list
         working-directory: desktop/e2e
-        run: echo "matrix=$(node suite.mjs --list)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          ONLY: ${{ inputs.suite }}
+        run: |
+          if [ "$EVENT" = push ]; then
+            files=$(gh api "repos/${{ github.repository }}/compare/${BEFORE}...${SHA}" --paginate -q '.files[].filename' 2>/dev/null || git diff-tree --no-commit-id --name-only -r "$SHA")
+            echo "Changed files:"; printf '%s\n' "$files" | awk '{print "  " $0}'
+            matrix=$(echo "$files" | node suite.mjs --list --changed)
+          else
+            matrix=$(node suite.mjs --list --only "$ONLY")
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$(echo "$matrix" | jq '.include | length')" >> "$GITHUB_OUTPUT"
+          echo "Suites: $(echo "$matrix" | jq -r '[.include[].suite] | join(", ")')" >> "$GITHUB_STEP_SUMMARY"
   suite:
     name: ${{ matrix.suite }}
     needs: plan
+    if: needs.plan.outputs.count != '0'   # a push that changed no suite runs none
     runs-on: macos-latest   # the Mac app is the product: real Keychain, no virtual display (on Linux Electron has no keyring to save the key in)
     timeout-minutes: ${{ matrix.minutes }}
     strategy:
@@ -92,10 +119,6 @@ jobs:
         working-directory: desktop/e2e
         timeout-minutes: 10
         run: node review-ui.mjs
-      - name: The tests' own tests (layout check, review parser, triage rules)
-        if: always() && matrix.suite == 'wizard'
-        working-directory: desktop/e2e
-        run: npm test
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v4
