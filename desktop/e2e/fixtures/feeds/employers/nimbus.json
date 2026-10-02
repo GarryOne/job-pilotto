@@ -1,0 +1,54 @@
+{
+ "jobs": [
+  {
+   "id": 5001,
+   "title": "Senior Site Reliability Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5001",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Run production on Kubernetes and AWS with Terraform, SLOs, incident response and on-call. Senior level. Hybrid in Zurich.</p>"
+  },
+  {
+   "id": 5002,
+   "title": "Staff Platform Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5002",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Run production on Kubernetes and AWS with Terraform, SLOs, incident response and on-call. Senior level. Platform team, hybrid.</p>"
+  },
+  {
+   "id": 5003,
+   "title": "Senior DevOps Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5003",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Run production on Kubernetes and AWS with Terraform, SLOs, incident response and on-call. Senior level. Terraform and GitOps.</p>"
+  },
+  {
+   "id": 5004,
+   "title": "Senior Infrastructure Engineer, Kubernetes",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5004",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Run production on Kubernetes and AWS with Terraform, SLOs, incident response and on-call. Senior level.</p>"
+  },
+  {
+   "id": 5005,
+   "title": "Account Executive",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5005",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Sell our product to banks.</p>"
+  }
+ ]
+}

@@ -148,3 +148,28 @@ export async function pageText(token, title) {
   await walk(page.id, 0);
   return out.join('\n');
 }
+
+// Every row of one database, flattened to plain values: {_id, <column>: text | number | boolean | url | date | select name}. Read-only.
+export async function readRows(token, title) {
+  const db = await findDatabase(token, title);
+  if (!db) return [];
+  const out = [];
+  let cursor;
+  do {
+    const rows = await call(token, 'POST', `databases/${db.id}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    for (const row of rows.results) if (!row.archived) out.push(flatten(row));
+    cursor = rows.has_more ? rows.next_cursor : null;
+  } while (cursor);
+  return out;
+}
+
+export function flatten(row) {
+  const out = {_id: row.id};
+  for (const [name, value] of Object.entries(row.properties || {})) {
+    const text = parts => (parts || []).map(part => part.plain_text).join('');
+    out[name] = {title: () => text(value.title), rich_text: () => text(value.rich_text), number: () => value.number, checkbox: () => value.checkbox, url: () => value.url,
+      select: () => value.select?.name ?? null, date: () => value.date?.start ?? null, status: () => value.status?.name ?? null,
+      multi_select: () => (value.multi_select || []).map(item => item.name)}[value.type]?.() ?? null;
+  }
+  return out;
+}

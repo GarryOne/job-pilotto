@@ -1,4 +1,5 @@
 // Runs one suite of the end-to-end tests:   node suite.mjs wizard|jobs|interviews|settings
+// A suite may export `env` (extra environment for the app) and `fresh` (empty its Notion page first).
 // Each suite has its own Notion test page and starts from its own state (see README.md), so suites can run at the same time.
 const name = process.argv[2];
 // The CI matrix is built from the suites that exist:   node suite.mjs --list
@@ -16,7 +17,7 @@ if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
 try {
-  ctx = await openContext(name, {fresh: !!suite.fresh});
+  ctx = await openContext(name, {fresh: !!suite.fresh, env: suite.env});
   if (ctx.skipAll) {
     console.log(`The ${name} suite is skipped: ${ctx.needs.filter(item => !item.value).map(item => item.name).join(' and ')} not set.`);
     process.exit(0);

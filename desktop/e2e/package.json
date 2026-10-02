@@ -8,7 +8,8 @@
     "wizard": "node suite.mjs wizard",
     "jobs": "node suite.mjs jobs",
     "interviews": "node suite.mjs interviews",
-    "settings": "node suite.mjs settings"
+    "settings": "node suite.mjs settings",
+    "employers": "node suite.mjs employers"
   },
   "devDependencies": {
     "playwright-core": "^1.55.0"

@@ -22,7 +22,7 @@ export function notionToken(suite) {
   return process.env.CI ? '' : process.env.E2E_NOTION_TOKEN || '';
 }
 
-export async function openContext(suite, {fresh = false} = {}) {
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}} = {}) {
   const key = KEY(), token = notionToken(suite);
   let session = null;
   const runner = createRunner(() => session);
@@ -35,7 +35,7 @@ export async function openContext(suite, {fresh = false} = {}) {
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
   ctx.proxy = await startAiProxy({delayMs: 0});
-  const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url};
+  const env = {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url, ...suiteEnv};
   const adopt = started => { session = started; ctx.session = session; ctx.page = session.page; ctx.app = session.app; ctx.profile = session.profile; };
   adopt(await launch({env}));
   ctx.close = async () => { await session?.shot('last'); await session?.close(); await ctx.proxy?.close(); };

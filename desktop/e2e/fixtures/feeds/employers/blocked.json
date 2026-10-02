@@ -1,0 +1,14 @@
+{
+ "jobs": [
+  {
+   "id": 5401,
+   "title": "Senior Site Reliability Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5401",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Run production on Kubernetes and AWS with Terraform, SLOs, incident response and on-call. Senior level.</p>"
+  }
+ ]
+}

@@ -1,6 +1,6 @@
 # End-to-end tests
 
-The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in five suites that each start from their own state and can run at the same time.
+The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in suites that each start from their own state and can run at the same time.
 
 | Suite | Starts from | Covers | Time |
 |---|---|---|---|
@@ -9,6 +9,7 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in fi
 | `interviews` | a set-up install | Interviews and Calendar pages | ~30 s |
 | `settings` | a set-up install | every Settings section, the AI engine panel with each engine chosen | ~30 s |
 | `personas` | a set-up install | two fictional users (a data analyst in Austin, a marketing manager in São Paulo) run one after the other: nothing Swiss or EU in the UI, digest or Notion; the visa flag follows citizenship and places; their search regions, Google Jobs places and currencies | ~15 min |
+| `employers` | a set-up install, its own employer rows and runs reset | Find new employers on a candidate list of every kind (good board, empty, wrong roles, dead feed, duplicate, excluded, manual watch): statuses, quality order, Employers & Sources rows, the run row's counts, a second run, the crawl's source list, a Sonnet judge | ~1 min |
 
 ```
 cd desktop/e2e && npm install
@@ -18,7 +19,7 @@ E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 ```
 
 ## How a suite gets its state
-- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
+- **Each suite has its own Notion test page and connection**, so suites never touch each other's data: `E2E_NOTION_TOKEN` (wizard), `E2E_NOTION_TOKEN_JOBS`, `E2E_NOTION_TOKEN_INTERVIEWS`, `E2E_NOTION_TOKEN_SETTINGS`, `E2E_NOTION_TOKEN_EMPLOYERS`, `E2E_NOTION_TOKEN_PERSONAS`. A suite without its token is skipped in CI; on a Mac it falls back to the wizard's token (one suite at a time).
 - **The workspace is built once and kept.** The wizard suite empties its page and builds it from scratch every run. The others find their page already built and **seed the app in about 5 seconds** with the app's own calls (`saveSecret`, `notionConnect`, `saveSettings`), not the wizard. A suite whose page is empty builds it once with the real wizard path (`lib/wizard.mjs`).
 - **A suite resets only its own data** (the jobs suite empties its job rows and run rows), never the workspace.
 - Files: `suite.mjs` the runner · `suites/*.mjs` the steps · `lib/context.mjs` secrets, Notion guard, feeds, proxy, launch · `lib/seed.mjs` the fast seed · `lib/wizard.mjs` the real first-run path · `lib/layout.mjs` screenshots + checks · `lib/activity.mjs` + `lib/ai-proxy.mjs` the slow-AI scenario.
@@ -28,6 +29,12 @@ E2E_ANTHROPIC_KEY=sk-ant-… E2E_NOTION_TOKEN=ntn_… node suite.mjs settings
 2. Start with `await ensureSetUp(ctx)` (from `lib/seed.mjs`) for a set-up install in seconds, then `ctx.run('what a person can now do', async () => {…}, {needs: ctx.needs})` per step; `snap`/`visit`/`finish` from `lib/layout.mjs` for screenshots and layout checks.
 3. A suite that writes to Notion needs **its own Notion test page and connection** (suites share nothing): add `E2E_NOTION_TOKEN_<NAME>: ${{ secrets.E2E_NOTION_TOKEN_<NAME> }}` to the `env:` block of `.github/workflows/e2e.yml` and the secret to GitHub. Without the token the suite is skipped in CI and falls back to the wizard's page on a Mac.
 4. Reset only your own data, keep the isolation rules below, put dummy data in through the Notion API (`lib/notion.mjs`) rather than the AI where you can.
+
+## The employers suite
+- Fixtures: `fixtures/feeds/employers/` (the boards, `scout_seeds.json`, `person.json` = the fictional SRE in Zurich the scout judges for, via `JOB_PILOTTO_LOCATIONS_FILE`, so the test workspace's own search settings cannot change the outcome). A suite may export `env` for the app.
+- The expected outcomes are also proven without the app or Notion in `tests/test_e2e_employers_fixtures.py` (seconds).
+- `lib/judge.mjs`: a Sonnet judge (no `temperature`) that says per added employer whether it suits the person; a missing or unreadable verdict is a failure, never a pass. `lib/employers.mjs` holds the pure row/run-line checks, tested in `test/employers.test.mjs`.
+- It empties only the Employers & Sources and run rows of its own page. Never run it on the wizard page while another suite uses that page (the fallback is for one suite at a time).
 
 ## What is real, what is faked
 | Part | How |

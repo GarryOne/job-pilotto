@@ -1,0 +1,51 @@
+{
+ "excluded": [
+  "E2E Blocked"
+ ],
+ "tier1_known": [
+  {
+   "name": "E2E Nimbus",
+   "ats": "greenhouse",
+   "slug": "e2e-nimbus"
+  },
+  {
+   "name": "E2E Orbit",
+   "ats": "greenhouse",
+   "slug": "e2e-orbit"
+  },
+  {
+   "name": "E2E Hollow",
+   "ats": "greenhouse",
+   "slug": "e2e-hollow"
+  },
+  {
+   "name": "E2E Noise",
+   "ats": "greenhouse",
+   "slug": "e2e-noise"
+  },
+  {
+   "name": "E2E Ghost",
+   "ats": "greenhouse",
+   "slug": "e2e-ghost"
+  },
+  {
+   "name": "E2E Acme Labs",
+   "ats": "greenhouse",
+   "slug": "e2e-acme"
+  },
+  {
+   "name": "E2E Blocked",
+   "ats": "greenhouse",
+   "slug": "e2e-blocked"
+  }
+ ],
+ "tier1": [],
+ "manual_watch": [
+  {
+   "name": "E2E Quiet",
+   "careers": "https://quiet.e2e.test/careers"
+  }
+ ],
+ "regional": {},
+ "boards": []
+}

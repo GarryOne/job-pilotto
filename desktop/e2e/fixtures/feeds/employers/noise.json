@@ -1,0 +1,44 @@
+{
+ "jobs": [
+  {
+   "id": 5301,
+   "title": "Account Executive",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5301",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Sell to enterprise.</p>"
+  },
+  {
+   "id": 5302,
+   "title": "Product Designer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5302",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Design the app.</p>"
+  },
+  {
+   "id": 5303,
+   "title": "Recruiter",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5303",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Hire for us.</p>"
+  },
+  {
+   "id": 5304,
+   "title": "Office Manager",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5304",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Keep the office running.</p>"
+  }
+ ]
+}

@@ -1,0 +1,34 @@
+{
+ "jobs": [
+  {
+   "id": 5101,
+   "title": "Site Reliability Engineer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5101",
+   "updated_at": "2026-03-01T09:00:00Z",
+   "content": "<p>Run production on Kubernetes and AWS with Terraform, SLOs, incident response and on-call. Senior level.</p>"
+  },
+  {
+   "id": 5102,
+   "title": "Platform Engineer",
+   "location": {
+    "name": "Lisbon, Portugal"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5102",
+   "updated_at": "2026-03-01T09:00:00Z",
+   "content": "<p>Kubernetes platform team in Lisbon, onsite.</p>"
+  },
+  {
+   "id": 5103,
+   "title": "Product Designer",
+   "location": {
+    "name": "Zurich, Switzerland"
+   },
+   "absolute_url": "https://boards.e2e.test/job/5103",
+   "updated_at": "2026-09-28T09:00:00Z",
+   "content": "<p>Design our onboarding.</p>"
+  }
+ ]
+}

@@ -1,0 +1,8 @@
+{
+ "_comment": "The fictional candidate of the employers suite: a senior SRE in Zurich. Read through JOB_PILOTTO_LOCATIONS_FILE, so the scout judges feeds for this person whatever the test workspace's search settings say.",
+ "role_keywords": ["site reliability", "\\bsre\\b", "platform engineer", "devops", "infrastructure engineer"],
+ "title_exclude_keywords": ["\\bintern(ship)?\\b", "\\bsales\\b", "recruit(er|ing)"],
+ "quality_stack_keywords": ["kubernetes", "terraform", "\\baws\\b"],
+ "locations": {"top_tier": ["zurich", "zürich"], "country_wide": ["switzerland"], "abroad": []},
+ "remote_excluded_regions": ["\\busa?\\b", "united states", "canada", "apac", "latam"]
+}
