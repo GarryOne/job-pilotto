@@ -8,6 +8,7 @@ import * as telemetry from './telemetry.js';
 import {install} from './install.js';
 import {signals} from './signals.js';
 import {feedback, view as feedbackView} from './feedback.js';
+import * as recipeLibrary from './recipes.js';
 import {trial} from './trial.js';
 import {brain} from './brain.js';
 import {index as employerIndex} from './employers.js';
@@ -67,6 +68,8 @@ export default {
     if (pathname === '/report/telemetry') return telemetry.collect(request, env);
     if (pathname === '/telemetry') return telemetry.view(request, env);
     if (pathname === '/api/index') return employerIndex(request, env);
+    if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
+    if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
     if (pathname === '/api/contribute') return pool.contribute(request, env);
     if (pathname === '/api/contributions') return pool.aggregate(request, env);
     if (pathname === '/api/signals') return signals(request, env);
@@ -84,6 +87,8 @@ export default {
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(pool.purge(env).catch(error => console.error(`pool purge: ${error.message}`)));
+    ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })
+      .catch(error => console.error(`recipe canary: ${error.message}`)));
     ctx.waitUntil(telemetry.daily(env, dispatch).catch(error => console.error(`telemetry triage: ${error.message}`)));
   },
 };
