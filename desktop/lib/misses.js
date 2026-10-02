@@ -19,13 +19,14 @@ export function merge(list, payload, now = Date.now()) {
   const host = clip(payload?.host, 80);
   const byKey = new Map(list.map(entry => [entry.fingerprint, entry]));
   let fresh = 0;
+  const freshPrints = new Set();
   for (const item of Array.isArray(payload?.items) ? payload.items.slice(0, 10) : []) {
     const fingerprint = clip(item?.fingerprint, 24);
     if (!/^[a-z0-9]{6,16}$/.test(fingerprint)) continue;
     const skeleton = JSON.stringify(item.skeleton ?? null);
     if (skeleton.length > MAX_SKELETON) continue;
     const entry = byKey.get(fingerprint) || {fingerprint, kind: clip(item.kind, 24), skeleton: item.skeleton, firstSeen: now, count: 0, hosts: [], questions: []};
-    if (!byKey.has(fingerprint)) fresh++;
+    if (!byKey.has(fingerprint)) { fresh++; freshPrints.add(fingerprint); }
     entry.count += 1;
     entry.lastSeen = now;
     if (host && !entry.hosts.includes(host) && entry.hosts.length < 5) entry.hosts.push(host);
@@ -35,16 +36,17 @@ export function merge(list, payload, now = Date.now()) {
   }
   const cutoff = now - KEEP_DAYS * 86400000;
   const kept = [...byKey.values()].filter(entry => entry.lastSeen >= cutoff).sort((a, b) => b.lastSeen - a.lastSeen).slice(0, MAX_ENTRIES);
-  return {list: kept, fresh};
+  return {list: kept, fresh, freshPrints};
 }
 
-export function record(storage, payload, now = Date.now()) {
+export function record(storage, payload, now = Date.now(), onFresh = () => {}) {
   try {
-    const {list, fresh} = merge(read(storage), payload, now);
+    const {list, fresh, freshPrints} = merge(read(storage), payload, now);
     storage.writeText(FILE, JSON.stringify(list));
     // Decisions, not content: which kinds and fingerprints, how many are new (never the questions' text).
     if (fresh) log('misses', `${fresh} new control(s) the form reader could not read`,
       {host: clip(payload?.host, 80), fingerprints: (payload.items || []).map(item => clip(item?.fingerprint, 16)).slice(0, 10)});
+    if (fresh) onFresh(freshPrints);
     return {ok: true, fresh};
   } catch (error) {
     log('misses', `not kept: ${error.message}`);

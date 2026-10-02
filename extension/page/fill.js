@@ -405,7 +405,8 @@
       for (const result of operated) {
         if (result.ok) filled += 1; else todo.push(`Pick "${result.value}" for: ${result.question}${result.why ? ` (${result.why})` : ''}`);
       }
-      window.__jobPilottoOperated = operated.map(({question, kind, ok, why}) => ({question, kind, ok, why: why || ''}));
+      // Which kind of control and fingerprint worked or not: no question, no answer.
+      window.__jobPilottoOperated = operated.map(({kind, fp, ok, why}) => ({kind, fp, ok, why: why || ''}));
     }
     const resumeAttached = resume?.data ? attachResume(resume) : false;
     const letterFileAttached = resume?.coverLetterFile ? attachCoverLetter(resume.coverLetterFile) : false;
@@ -462,7 +463,7 @@
     });
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
       reason: resumeAttached ? '' : 'no CV in the app'});
-    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
+    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
     for (const item of answers) {
       const row = rowOf[item.field];
       if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;

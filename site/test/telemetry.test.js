@@ -146,3 +146,12 @@ test('why they stopped: reasons per step on the funnel', async () => {
   const {funnel} = await import('../src/telemetry.js');
   assert.deepEqual((await funnel(e.STATS, 30)).stopped, {notion: {notion: 2, privacy: 1}});
 });
+
+test('a control report reads as one problem per fingerprint, outcome and reason, across users and sites', () => {
+  const a = describe({kind: 'control', control: 'toggle-group', fp: '1d2pcapx18', outcome: 'failed', why: 'the option did not stay selected', site: 'h:aaaaaaaaaa'});
+  const b = describe({kind: 'control', control: 'toggle-group', fp: '1d2pcapx18', outcome: 'failed', why: 'the option did not stay selected', site: 'jobs.ashbyhq.com'});
+  const c = describe({kind: 'control', control: 'toggle-group', fp: '1d2pcapx18', outcome: 'missed', why: '', site: 'h:aaaaaaaaaa'});
+  assert.equal(a.key, b.key);
+  assert.notEqual(a.key, c.key);
+  assert.match(a.summary, /toggle-group 1d2pcapx18: failed/);
+});

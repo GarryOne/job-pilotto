@@ -5,7 +5,7 @@
 import {feedbackList} from './feedback.js';
 import {allowed, esc, remember} from './stats.js';
 
-export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup'];
+export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup', 'control'];
 const MAX_EVENTS = 50, MAX_BYTES = 8000, PER_INSTALL_PER_DAY = 1000, KEEP_DAYS = 90;
 const day = date => date.toISOString().slice(0, 10);
 const text = (value, max = 300) => String(value ?? '').slice(0, max);
@@ -27,6 +27,8 @@ export function describe(item) {
       summary: `${item.type || 'Error'}: ${text(item.message, 140)}${place ? ` (${place})` : ''}`};
     case 'run_failed': return {key: `run|${item.job}|${normal(item.error)}`, summary: `${item.job}: ${text(item.error, 150)}${item.cutOff ? ' (cut off)' : ''}`};
     case 'form_issue': return {key: `form|${item.site}|${normal(item.label)}|${item.reason}`, summary: `${item.site}: ${text(item.label, 80)} (${item.reason || 'not filled'})`};
+    case 'control': return {key: `control|${item.fp}|${item.outcome}|${normal(item.why)}`,
+      summary: `Control ${text(item.control, 24)} ${text(item.fp, 16)}: ${item.outcome}${item.why ? ` (${text(item.why, 80)})` : ''}`};
     case 'stuck': return {key: `stuck|${item.action}|${item.page}`, summary: `Stuck: ${item.action} (${item.page || 'app'})`};
     default: return {key: 'health', summary: 'health'};
   }

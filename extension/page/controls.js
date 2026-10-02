@@ -125,7 +125,9 @@
       if (!answer) return;
       used.add(answer);
       const result = await run(answer.value).catch(error => ({ok: false, why: error.message}));
-      results.push({question, kind, value: answer.value, ...result});
+      let fp = '';
+      try { fp = kit ? kit.fingerprint(kit.skeleton(el)) : ''; } catch { /* a page that hides its own nodes */ }
+      results.push({question, kind, fp, value: answer.value, ...result});
     };
     for (const {el, kind} of kit ? kit.widgets(doc, visible) : []) {
       if (kind === 'toggle-group' && !el.querySelector('[aria-pressed="true"], [aria-checked="true"]')) await attempt(el, kind, value => setToggleGroup(el, value));

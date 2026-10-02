@@ -347,6 +347,16 @@ function prefetch(config, url) {
   return entry;
 }
 
+// How the generic operators fared on this form (kind, fingerprint, worked or not, why): the app turns the failures into
+// reports that help everyone. No questions, no answers.
+function reportControls(config, tab, operated) {
+  if (!Array.isArray(operated) || !operated.length) return;
+  if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
+  let host = '';
+  try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: operated.slice(0, 20)})}).catch(() => {});
+}
+
 // fast: the page is already there (the panel's Fill): no wait for it to render.
 async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = false} = {}) {
   await arm(tab.id);
@@ -365,6 +375,7 @@ async function fillOpenedTab(tab, url, force = false, {fast = false, quiet = fal
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});
+    reportControls(config, tab, result?.operated);
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
     await progress(tab.id, '', page);

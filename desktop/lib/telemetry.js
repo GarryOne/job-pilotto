@@ -10,7 +10,7 @@ import os from 'node:os';
 export const ENDPOINT = 'https://www.jobpilotto.workers.dev/report/telemetry';
 const QUEUE = 'telemetry-queue.json';
 const MAX_QUEUE = 500, SHOWN = 20, BATCH = 50;
-export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup'];
+export const KINDS = ['crash', 'run_failed', 'form_issue', 'stuck', 'health', 'setup', 'control'];
 
 // Personal or secret data out of any text: keys and tokens, emails, phone numbers, the user's home folder, link
 // queries and fragments, long digit runs (IDs, card-like numbers). Then cut to `max` characters.
