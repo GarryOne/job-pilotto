@@ -954,10 +954,26 @@ def reminders(tracker, row, event, start, end, state, now):
         messages.append(prep_message(tracker, row, event, start, 'Tomorrow' if tomorrow else 'Today'))
     if end < now < end + timedelta(hours=18) and 8 <= local.hour <= 22 and key_after not in state['notified']:
         state['notified'].append(key_after)
-        messages.append(f"🎤 How did <b>{_label(row)}</b> go? Send the transcript (or /interview with your notes) "
-                        f"with the caption \"{escape(_field(row, 'Company'))}, {escape(event.get('summary', 'interview'))[:40]}\" "
-                        "for a review.")
+        # Already reviewed (a recording or notes saved from the app, Telegram or /interview on or after the call's day): don't ask.
+        if not reviewed_since(tracker, row, start.astimezone(TZ).date().isoformat()):
+            messages.append(f"🎤 How did <b>{_label(row)}</b> go? Send the transcript (or /interview with your notes) "
+                            f"with the caption \"{escape(_who(row))}, {escape(event.get('summary', 'interview'))[:40]}\" "
+                            "for a review.")
     return messages
+
+
+def reviewed_since(tracker, row, day):
+    """True when a 🎤 Interviews row for this application is dated `day` (YYYY-MM-DD) or later: the review the nudge asks
+    for exists (2 Oct 2026: a recorded review was saved and Telegram asked "How did it go?" an hour later anyway)."""
+    from . import interviews  # local import: interviews imports the ledger too
+    if not interviews.INTERVIEWS_DATABASE_ID:
+        return False
+    page = row['id'].replace('-', '')
+    for review in tracker.query_database(interviews.INTERVIEWS_DATABASE_ID):
+        related = (review['properties'].get('Application') or {}).get('relation', [])
+        if any(link['id'].replace('-', '') == page for link in related) and (plain(review['properties'].get('Date')) or '')[:10] >= day:
+            return True
+    return False
 
 
 def prep_message(tracker, row, event, start, day):

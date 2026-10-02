@@ -501,6 +501,29 @@ class MailTests(unittest.TestCase):
         _, sent = self.run_mail(tracker, FakeGoogle(events=[event]), [], calendar=True)
         self.assertTrue(any('How did' in m and 'transcript' in m for m in sent))
 
+    def reviewed_run(self, related):
+        start = NOW - timedelta(hours=3)
+        event = {'id': 'e3', 'summary': 'AG Talent role discussion', 'start': {'dateTime': start.isoformat()},
+                 'end': {'dateTime': (start + timedelta(hours=1)).isoformat()}}
+        job = app('p1', 'AG Talent', 'Senior DevOps Engineer')
+        review = {'id': 'r1', 'properties': {'Application': {'type': 'relation', 'relation': [{'id': related}]},
+                                             'Date': {'type': 'date', 'date': {'start': start.date().isoformat()}}}}
+
+        class Reviewed(FakeTracker):
+            def query_database(self, database_id, filter_=None):
+                return [review] if database_id == 'interviews-db' else super().query_database(database_id, filter_)
+
+        with mock.patch('src.ai.interviews.INTERVIEWS_DATABASE_ID', 'interviews-db'):
+            return self.run_mail(Reviewed([job]), FakeGoogle(events=[event]), [], calendar=True)[1]
+
+    def test_after_the_interview_does_not_ask_when_a_review_is_already_saved(self):
+        self.assertFalse([m for m in self.reviewed_run('p1') if 'How did' in m])
+
+    def test_a_review_of_another_job_does_not_stop_the_nudge_and_the_caption_names_the_employer(self):
+        asked = [m for m in self.reviewed_run('other') if 'How did' in m]
+        self.assertEqual(len(asked), 1)
+        self.assertIn('caption "AG Talent, AG Talent role', asked[0])
+
 
 class HuxleyFollowUpTests(unittest.TestCase):
     """30 Sep 2026: Huxley's second invitation (1 Oct 08:30 Zurich, message 1a0f12c88badf86c) arrived ~19 h after the
