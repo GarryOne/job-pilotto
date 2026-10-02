@@ -153,7 +153,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
-- `desktop/renderer/license-chip.js` — The small counter in the sidebar ("28 free applications left"): where the user stands, at a glance (the numbers come from lib/license.js).
+- `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 28 of 40 applications left"): which plan this is and what the number counts, at a glance
 - `desktop/renderer/mail-report.js` — A Gmail check's message as the parts of it the owner reads. src/ai/mail.py writes the lines (prep_message and the
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back
 - `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,

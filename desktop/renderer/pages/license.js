@@ -12,6 +12,7 @@ function showChip(state) {
   const button = $('allowance-chip');
   button.hidden = !shown;
   if (!shown) return;
+  $('allowance-chip-plan').textContent = shown.plan;
   $('allowance-chip-text').textContent = shown.text;
   button.title = shown.title;
   button.dataset.tone = shown.tone;

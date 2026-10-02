@@ -913,6 +913,7 @@ main { min-width: 0; }
   border: 1px solid var(--navy-hover); border-radius: var(--r-md); color: var(--on-navy-2); font-size: var(--fs-xs); cursor: pointer; }
 .allowance-chip[hidden] { display: none; }
 .allowance-chip:hover { border-color: var(--navy-line); color: var(--on-accent); }
+.allowance-chip-plan { display: block; margin-bottom: 2px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-navy-3); }
 .allowance-chip-text { display: block; margin-bottom: 6px; }
 .allowance-chip-bar { display: block; height: 4px; border-radius: var(--r-pill); background: var(--navy-hover); overflow: hidden; }
 .allowance-chip-bar i { display: block; height: 100%; width: 0; border-radius: var(--r-pill); background: var(--info); }
