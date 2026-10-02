@@ -12,6 +12,7 @@ import sys
 
 from . import contribute, digest, employer_index, features, import_url, scout, store, telegram
 from . import doctor
+from . import coverage
 from .ai import added, budget, cost, enrich, inbox, insights, interview_insights, interviews, kit, provenance, score
 from .notion import client as notion, cron_runs, funnel, ledger, matches
 from pathlib import Path
@@ -560,6 +561,7 @@ def main():
                 run['warnings'].append(f'Employer index not downloaded ({employer_index.problem}): this check crawled {len(feed_list)} feeds, not the full list')
             with feeds.database(DATA / 'jobs.sqlite') as feed_db:
                 report = feeds.scan(feed_list, feed_db)
+                coverage.save(report.get('funnel'))   # how much of the market the role keywords catch (Strategy page)
                 # Paid per search, so only full crawls use it; off without SERPAPI_API_KEY.
                 if args.mode in ('scheduled', 'run') and google_jobs.api_key():
                     google = google_jobs.scan(feed_db, google_jobs.api_key(),

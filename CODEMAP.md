@@ -139,6 +139,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
+- `desktop/renderer/coverage-card.js` — The Strategy page's "your search may be too narrow" card (src/coverage.py says it; desktop/lib/strategy.js addRoles acts on it).
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
@@ -232,6 +233,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/score.py` — AI stage 2: score how well each job fits the owner's Profile.
 - `src/ai/transcribe.py` — Interview recording -> transcript with speakers, on this machine, free (no API).
 - `src/contribute.py` — Opt-in: tell the central pool which employer career pages this install uses, with coarse tags (docs/superpowers/specs/2026-09-30-pool-contributions.md).
+- `src/coverage.py` — How much of the market does the search catch? The funnel of one crawl, and the near misses.
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""

@@ -24,7 +24,9 @@ DEFAULT_MODEL = os.getenv('JOB_PILOTTO_SCORE_MODEL', 'claude-sonnet-5')
 # How hard the scorer thinks (medium by default; Haiku has no such setting and ignores it).
 EFFORT = os.getenv('JOB_PILOTTO_SCORE_EFFORT', 'medium')
 # A cheaper first pass (e.g. claude-haiku-4-5): every pending job gets it, and only jobs whose first-pass score reaches
-# ESCALATE_MIN are scored again by the main model. Off when empty. Measured with tools/score_eval.py before it is turned on.
+# ESCALATE_MIN are scored again by the main model. Off when empty. MEASURED 2 Oct 2026 (tools/score_eval.py, 60 jobs): Haiku agrees
+# poorly with Sonnet (rank correlation 0.70, scores 14 points high) and the cascade costs 123-152% of Sonnet alone, so leave it OFF.
+# Sonnet at effort "low" agreed as well as Sonnet agrees with its own re-run (0.92 vs 0.89) and was 19% cheaper per job.
 FIRST_PASS_MODEL = os.getenv('JOB_PILOTTO_SCORE_FIRST_PASS_MODEL', '')
 ESCALATE_MIN = int(os.getenv('JOB_PILOTTO_SCORE_ESCALATE_MIN', '40') or 40)
 # After a Profile edit only jobs that scored at least this (the digest's own bar) are re-scored on their own; the rest keep their score,

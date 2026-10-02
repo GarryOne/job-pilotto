@@ -7,6 +7,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {titleCase} from './strategy-review.js';
+import {coverageCard} from '../coverage-card.js';
 
 // ---------- Strategy: what you target, how matches score, what's avoided, counts, the latest insight ----------
 function chips(items, tone = '') {
@@ -29,6 +30,7 @@ export async function loadStrategy() {
   $('strategy-view-loading')?.remove();
   renderStrategy(data);
   $('strategy-synced').textContent = `Synced ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+  loadCoverage();
 }
 let strategyShown = false;
 // First load: every card in its final shape, greyed (the same rows, icons and chips), and a pill in the header.
@@ -77,8 +79,8 @@ function renderStrategy(data) {
       (data.stale ? ` Scores updating: ${data.stale} job${data.stale === 1 ? '' : 's'} wait for a new score after a Profile change (60 per search).` : '');
   show($('strategy-previous'), !!data.previous);
   if (data.previous) {
-    $('strategy-previous-text').textContent = `${data.previous} score${data.previous === 1 ? ' is' : 's are'} from the previous scoring method ` +
-      '(it also read your contact details and links). Kept to avoid the cost; they are re-scored when the job or your Profile changes.';
+    $('strategy-previous-text').textContent = `${data.previous} score${data.previous === 1 ? ' is' : 's are'} kept from before your last Profile change ` +
+      '(jobs that scored under 50, so they were not showing anyway). Nothing is spent re-scoring them unless you ask.';
     $('strategy-rescore').textContent = `Re-score them now (≈ $${(data.previous * 0.015).toFixed(2)})`;
   }
   $('strategy-scores').replaceChildren(...data.components.map(part => {
@@ -106,6 +108,30 @@ function renderStrategy(data) {
     $('strategy-insight-text').textContent = data.insight.action || data.insight.headline;
     $('strategy-insight-open').onclick = () => window.pilot.openExternal(data.insight.url);
   }
+}
+
+// "Your search may be too narrow": read after the strategy is drawn (a quick local file), shown only when the role keywords catch little
+// of the market and some role word would add real numbers. Adding a term rewrites the search settings, in the app and in Notion.
+const DISMISSED = 'jp.coverage.dismissed';
+const remembered = () => { try { return localStorage.getItem(DISMISSED) || ''; } catch { return ''; } };
+export async function loadCoverage() {
+  const answer = await window.pilot.searchCoverage().catch(() => null);
+  const card = answer?.ok ? coverageCard(answer.coverage, remembered()) : null;
+  show($('strategy-coverage'), !!card);
+  if (!card) return;
+  $('coverage-title').textContent = card.title;
+  $('coverage-text').textContent = card.text;
+  $('coverage-chips').replaceChildren(...card.chips.map(chip => {
+    const button = Object.assign(document.createElement('button'), {type: 'button', className: 'coverage-chip', textContent: chip.label, title: chip.title});
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const result = await window.pilot.addRoles([chip.term]).catch(error => ({ok: false, error: error.message}));
+      toastMessage(result.ok ? 'Search widened' : 'Not added', result.ok ? `"${chip.term}" is now a role word. The next searches look for it (also in your Search settings in Notion).` : result.error);
+      if (result.ok) loadCoverage(); else button.disabled = false;
+    });
+    return button;
+  }));
+  $('coverage-dismiss').onclick = () => { try { localStorage.setItem(DISMISSED, card.at); } catch {} show($('strategy-coverage'), false); };
 }
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).

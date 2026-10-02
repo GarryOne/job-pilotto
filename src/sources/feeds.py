@@ -12,6 +12,7 @@ import sqlite3
 import urllib.request
 
 from . import ats
+from .. import coverage
 from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config
 
 DESCRIPTION_LIMIT = 12000
@@ -103,20 +104,25 @@ def _fetched(fetcher, source):
 
 
 def scan(sources, db, fetcher=fetch, details=None):
-    """Fetch every source, keep SRE-type titles in preferred locations, record seen history."""
+    """Fetch every source, keep SRE-type titles in preferred locations, record seen history. report['funnel'] counts what the
+    crawl saw and what the role keywords caught (src/coverage.py), so a search that is too narrow can be said out loud."""
     with ThreadPoolExecutor(max_workers=FETCH_WORKERS) as pool:   # a few hundred feeds must fit in the job's time
         downloads = list(pool.map(lambda source: _fetched(fetcher, source), sources))
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     report = {"generated_at": now, "sources": [], "jobs": []}
+    tally = coverage.Tally()
     for source, (jobs, failure) in zip(sources, downloads):
         board = f'{source.get("ats", "greenhouse")}:{source.get("slug") or source["board"]}'
         try:
             if failure:
                 raise failure
             matched = []
+            tally.feed()
             with db:
                 for job in jobs:
-                    if wanted_title(job["title"]) and wanted_location(job):
+                    in_place, hit = wanted_location(job), wanted_title(job["title"])
+                    tally.add(job["title"], in_place, hit, excluded=excluded_title(job["title"]))
+                    if hit and in_place:
                         matched.append({
                             "company": source["company"], "id": str(job["id"]),
                             "title": job["title"], "location": job["location"] or "Unspecified",
@@ -141,6 +147,7 @@ def scan(sources, db, fetcher=fetch, details=None):
             report["sources"].append({"company": source["company"], "ok": False,
                                       "error": f"{type(error).__name__}: {error}"})
     report["jobs"].sort(key=lambda j: ({"new": 0, "changed": 1, "seen": 2}[j["status"]], j["company"], j["title"]))
+    report["funnel"] = tally.summary()
     return report
 
 

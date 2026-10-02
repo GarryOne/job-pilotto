@@ -284,10 +284,16 @@ def main(argv=None):
     sub.add_parser('posting').add_argument('code')
     sub.add_parser('strategy')
     sub.add_parser('rescore-previous')
+    sub.add_parser('coverage')   # how much of the market the role keywords catch, and what adding a term would add (src/coverage.py)
     args = parser.parse_args(argv)
     with store.connect(JOBS_DB) as db:
         if args.command == 'posting':
             print(json.dumps(posting(db, args.code), ensure_ascii=False))
+            return 0
+        if args.command == 'coverage':
+            from . import coverage
+            from .paths import load_search_config
+            print(json.dumps(coverage.verdict(coverage.load(), load_search_config().get('role_keywords') or []), ensure_ascii=False))
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()

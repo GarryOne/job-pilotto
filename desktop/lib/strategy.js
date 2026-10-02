@@ -243,6 +243,30 @@ export async function setDailyTarget(storage, value, {run, ensurePage, writePage
   return target;
 }
 
+// Role terms the user chose to add after the app said the search was narrow (src/coverage.py). Like the daily target they live in
+// ⚙️ Search settings: the page is read first (edits made in Notion are kept), the terms are added, the page is written again; if
+// Notion refuses, the cache is put back so the two never disagree.
+export const ROLE_TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/i;
+const escapeRegex = term => term.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
+export async function addRoles(storage, terms, {run, ensurePage, writePage}) {
+  const wanted = [...new Set((Array.isArray(terms) ? terms : []).map(term => String(term).trim().toLowerCase()).filter(term => ROLE_TERM.test(term)))].slice(0, 10);
+  if (!wanted.length) return {added: []};
+  await run(storage, ['src.notion.search_settings', 'sync']);
+  const before = storage.readText('config/search.json') || '{}';
+  const search = JSON.parse(before);
+  const have = new Set((search.role_keywords || []).map(entry => String(entry).toLowerCase()));
+  const added = wanted.filter(term => !have.has(escapeRegex(term)));
+  if (!added.length) return {added: []};
+  storage.writeText('config/search.json', JSON.stringify({...search, role_keywords: [...(search.role_keywords || []), ...added.map(escapeRegex)]}, null, 2) + '\n');
+  try {
+    await publishSearchSettings(storage, {run, ensurePage, writePage});
+  } catch (error) {
+    storage.writeText('config/search.json', before);
+    throw error;
+  }
+  return {added};
+}
+
 export function save(storage, accepted) {
   // The Profile, standard answers and contact details go to Notion (main.js saveStrategy); here only the
   // search settings' cache is written (published to ⚙️ Search settings right after).

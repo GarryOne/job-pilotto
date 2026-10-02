@@ -768,6 +768,21 @@ function handlers() {
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'rescore-previous']);
     return code === 0 ? {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())} : {ok: false, error: 'Could not queue them (see the activity log)'};
   });
+  // "Your search may be too narrow" (src/coverage.py): how much of the market the role keywords catch, and what adding a term would add.
+  ipcMain.handle('searchCoverage', async () => {
+    if (DEMO) return {ok: true, coverage: null};
+    const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'coverage']);
+    if (code !== 0) return {ok: false, error: 'Could not read the coverage (see the activity log)'};
+    try { return {ok: true, coverage: JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: true, coverage: null}; }
+  });
+  ipcMain.handle('addRoles', async (_, terms) => {
+    if (DEMO) return {ok: true, added: []};
+    try {
+      const result = await strategy.addRoles(storage, terms, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
+      appLog('search', `role terms added: ${result.added.join(', ') || 'none'}`);
+      return {ok: true, ...result};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('strategyData', async () => {
     // Demo mode: JOB_PILOTTO_DEMO_STRATEGY_DELAY ms first, to see (and screenshot) the loading state.
     if (DEMO && process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY)));
