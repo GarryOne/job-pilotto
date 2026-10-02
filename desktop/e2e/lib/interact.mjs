@@ -134,6 +134,7 @@ export async function probePage({page, view, ipc, scope = 'body', settleMs = 150
         calls = (await ipc.since(mark)).filter(call => call.start >= clickedAt - 50 && call.start <= clickedAt + 500);   // a poll that happened to run meanwhile is not this click's
         if (after && (after.busy > before.busy || after.own !== before.own)) loading = true;
         const running = calls.some(call => call.ms === null);
+        if (running && after && effectsOf(before, after).length) loading = true;   // the page said something while the call was still running ("updating…")
         if (!running && Date.now() - started >= 300 && (calls.length || effectsOf(before, after).length)) break;
       }
       const effects = effectsOf(before, after);

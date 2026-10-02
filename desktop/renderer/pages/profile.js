@@ -83,6 +83,7 @@ function showLinks() {
 }
 // Standard answers: read from Notion, one expandable item per question; edits happen in Notion.
 async function loadAnswers() {
+  $('answers-list').replaceChildren(el('p', 'muted small', 'Loading from Notion…'));
   const result = await window.pilot.standardAnswers();
   if (!result.ok) { $('answers-list').replaceChildren(el('p', 'message error', result.error)); return; }
   const items = result.groups.flatMap(group => group.items.map(item => ({...item, category: group.category})));

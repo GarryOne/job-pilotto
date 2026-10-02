@@ -13,6 +13,7 @@ const PAGE = `<body><section class="view" data-view="fixture"><h1>Fixture</h1><d
 <button id="expOk" aria-expanded="false" aria-controls="p2" onclick="const p=document.getElementById('p2'); p.hidden=!p.hidden; this.setAttribute('aria-expanded', String(!p.hidden))">Expand (works)</button><div id="p2" hidden>two</div>
 <button id="slow" onclick="window.fake(900)">Slow without loading</button>
 <button id="slowOk" onclick="this.disabled=true; window.fake(900).then(() => { this.disabled = false; })">Slow with loading</button>
+<button id="slowText" onclick="document.getElementById('out').textContent='Updating…'; window.fake(900)">Slow with a status line</button>
 <button id="boom" onclick="throw new Error('handler failed')">Throws</button>
 <button id="del" onclick="window.clicked = true">Delete everything</button>
 </section><script>
