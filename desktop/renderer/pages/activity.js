@@ -694,7 +694,7 @@ function mailConfirm(questions) {
     };
     if (item.suggested_url) actions.append(press('Yes, that job', 'primary', async event => {
       event.currentTarget.disabled = true;
-      await moveEmail(item.event_id, item.suggested_url);
+      await moveEmail(item.event_id, item.suggested_url, item);
     }));
     actions.append(press(item.suggested_url ? 'Other job…' : 'Pick the job', item.suggested_url ? 'secondary' : 'primary', () => whichJob(item)));
     row.append(words, actions);

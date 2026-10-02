@@ -62,7 +62,7 @@ let focusUpdatedAt = 0;
 // A row you just finished (Skip, Done) leaves the list at once. Notion is slow, so the next read can still
 // contain it: keep it hidden for a minute, and drop the hold as soon as a read no longer has it.
 const settled = new Map();
-const itemKey = item => `${item.kind}:${item.page_id || ''}`;
+const itemKey = item => `${item.kind}:${item.page_id || ''}${item.event_id ? `:${item.event_id}` : ''}`;
 function hideSettled(items, now = Date.now()) {
   for (const [key, until] of [...settled]) {
     if (now > until || !items.some(item => itemKey(item) === key)) settled.delete(key);
@@ -74,6 +74,9 @@ function dismiss(item) {
   if (lastFocus) renderFocus(lastFocus);
   focusStatus('Saving…', true);
 }
+// A question answered in a dialog (Which job?) leaves the list at once too; undone if Notion refuses it.
+export const holdItem = item => dismiss(item);
+export function releaseItem(item) { settled.delete(itemKey(item)); if (lastFocus) renderFocus(lastFocus); }
 async function finishItem(item, save) {
   dismiss(item);
   let done;
@@ -178,7 +181,7 @@ function focusCard(item) {
   if (item.kind === 'which_job') {  // an email the Gmail check wasn't sure about: your answer places it
     if (item.suggested_url) actions.append(focusButton('Yes, that job', 'primary', async event => {
       event.currentTarget.disabled = true;
-      await moveEmail(item.event_id, item.suggested_url);
+      await moveEmail(item.event_id, item.suggested_url, item);
     }));
     actions.append(focusButton(item.suggested_url ? 'Other job…' : 'Pick the job', item.suggested_url ? 'secondary' : 'primary', () => whichJob(item)));
   }
@@ -214,7 +217,7 @@ function focusCard(item) {
   }});
   if (item.notion_url) more.push({icon: 'layers', label: 'Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.job_url)});
-  if (item.kind === 'which_job') more.push({label: 'Not about a job', run: () => moveEmail(item.event_id, 'none')});
+  if (item.kind === 'which_job') more.push({label: 'Not about a job', run: () => moveEmail(item.event_id, 'none', item)});
   if (prep && item.page_id) prep.more.forEach(entry => more.push({icon: entry.icon, label: entry.label, run: prepRun(entry.run)}));
   if (item.kind === 'apply') more.push({icon: 'target', label: 'Change the daily target', run: () => editTarget()});
   if (item.detail) more.push({icon: 'info', label: 'Details', run: () => toastMessage(item.headline || item.title, item.detail)});

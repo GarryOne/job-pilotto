@@ -3,7 +3,7 @@
 // one copy).
 import {shared} from './shared.js';
 import {$, message} from './core.js';
-import {loadFocus} from './focus.js';
+import {loadFocus, holdItem, releaseItem} from './focus.js';
 import {loadJobs} from './jobs.js';
 import {toastMessage} from './startup.js';
 import {searchSelect} from '../search-select.js';
@@ -31,17 +31,18 @@ function open({title, context, help}) {
   $('reassign-dialog').showModal();
 }
 
-export async function moveEmail(eventId, target) {
+export async function moveEmail(eventId, target, item = null) {
+  if (item) holdItem(item);   // the question leaves Focus at once ("Saving…"); Notion takes seconds
   const result = await window.pilot.reassignEmail(eventId, target).catch(error => ({ok: false, text: error.message}));
   toastMessage(result.ok ? 'Saved ✓' : 'Not changed', result.text || '');
-  if (result.ok) { loadFocus(); loadJobs(); }
+  if (result.ok) { loadFocus(); loadJobs(); } else if (item) releaseItem(item);
   return result.ok;
 }
 
 // Focus → Other job…: the question's email, to the job you pick.
 export function whichJob(item) {
   targets('', item.suggested_url);
-  pending = () => moveEmail(item.event_id, $('reassign-target').value);
+  pending = () => moveEmail(item.event_id, $('reassign-target').value, item);
   open({title: 'Which job is this email about?', context: item.detail,
     help: 'The job you pick moves on with this email (stage, interview date). "Not in my list yet" tracks it from the email; Focus then asks for its details.'});
 }
