@@ -21,7 +21,7 @@ The **real** Job Pilotto app, driven by Playwright on a throwaway profile, in su
 ## When each suite runs (cadence)
 A suite exports `cadence` (`lib/plan.mjs` decides, `plan-run.mjs` plans the CI run):
 - `always` (the default): every automatic run, including the three-a-day schedule.
-- `nightly`: the nightly release gate, and a push that touches the suite's files or its `watches` (the paths it judges). `quality` is this: it costs about $0.3 a run.
+- `nightly`: the nightly release gate, and manual runs. `quality` is this: it costs about $0.3 a run.
 - `manual`: never by itself; a person names it (`gh workflow run e2e.yml -f suite=personas`, `npm run all -- --only personas`). `personas` is this: kept, not deleted.
 
 The paid AI-judge steps (`employers`) also run only in the nightly gate and in manual runs (`E2E_FULL=1`); on a Mac they always run.
@@ -111,10 +111,8 @@ journey step checks that nothing was queued to send. (2 Oct 2026: before this, t
 
 ## What CI runs, and when (the test key's AI credit is shared, so this is deliberate)
 - **After the nightly build (04:00 Zurich):** every suite on the build's commit; all green → the `promote` job makes the build stable (RELEASE.md). **Three scheduled runs a day on main (09:47, 13:47, 17:47 UTC):** every suite, skipped when main has not changed since the last run and no finding waits for a second sighting; the AI screenshot review runs only when `desktop/renderer`/`desktop/e2e` changed or a finding waits. All of it is decided in `plan-run.mjs`. **A manual run:** every suite. A manual run may name some: `gh workflow run e2e.yml -f suite=jobs,activity`.
-- **A push to `main`:** only the suites whose files changed (`lib/plan.mjs`): `suites/<name>.mjs` runs `<name>`; `extension/**` runs `apply`; other shared test code
-  (`lib/`, `suite.mjs`, fixtures, `e2e.yml`) runs `settings` as an AI-free smoke test; the tests' own unit tests (`npm test`) and docs run no suite. The plan job runs
-  `npm test` every time (no secrets, no AI).
-- The UI-heal loop only follows scheduled and manual runs, never a push.
+- **A push to `main`:** runs no e2e. Suites run only after the nightly build, on the three scheduled runs, or by hand. (`lib/plan.mjs` still knows how to pick suites from changed files, for a manual run.)
+- The UI-heal loop only follows scheduled and manual runs.
 
 ## Why `activity` is two suites
 One suite took about 10 minutes, the slowest by far (the others 1 to 4). It is split into two that run at the same time, each on its own Notion page, and the waits were cut:

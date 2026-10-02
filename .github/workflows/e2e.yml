@@ -5,7 +5,7 @@ name: CI · End-to-end journey
 #     when all pass (and build.yml is green on the commit) the `promote` job makes the build the stable release. Red or no build: nothing is promoted.
 #  2. IMPROVEMENT LOOP. Three runs on main in the working day (09:47, 13:47, 17:47 UTC) feed ui-findings.yml (issues; ui-fix.yml turns the most critical into a pull request once a day). A scheduled run is skipped when
 #     main has not changed since the last run and no finding waits for its second sighting; the AI review of screenshots (the costly part) runs only when the UI or its tests
-#     changed, or a finding waits. A push to main runs only the suites whose files changed; by hand: gh workflow run e2e.yml -f suite=jobs,activity.
+#     changed, or a finding waits. A push to main runs NO e2e (decided: e2e never runs on commit); by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
 on:
@@ -22,12 +22,6 @@ on:
   workflow_run:
     workflows: ['Release · Desktop app']   # the nightly build (or a manual one) finished: verify it, and promote it when it passes
     types: [completed]
-  push:
-    branches: [main]
-    paths:
-      - 'desktop/e2e/**'
-      - 'extension/**'
-      - '.github/workflows/e2e.yml'
 
 permissions:
   contents: read
