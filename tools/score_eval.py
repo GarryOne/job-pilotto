@@ -108,8 +108,6 @@ def estimate(n, variants):
 
 def load_scored(db):
     from src import digest
-    from src.ai import score as score_module
-    score_module.db_ready = True
     candidates, _ = digest.eligible_jobs(db)
     done = {}
     for row in db.execute('SELECT job_id, data_json FROM scores'):
@@ -140,7 +138,7 @@ def main(argv=None):
     from src import store
     from src.ai import cost, engine, score
     from src.paths import JOBS_DB, local_profile
-    from src import notion
+    from src.notion import client as notion
     with store.connect(JOBS_DB) as db:
         rows = load_scored(db)
     if len(rows) < 12:
