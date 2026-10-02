@@ -7,6 +7,21 @@
 import crypto from 'node:crypto';
 import os from 'node:os';
 
+// Why this run must not report anything to the product, or '' when it may (the user's own switch is checked separately). Test runs of every kind
+// are off by construction: CI, the packaged-app smoke tests and the end-to-end journey (JOB_PILOTTO_E2E). 2 Oct 2026: the journey passed
+// JOB_PILOTTO_TELEMETRY=0 to mean "off", the app read any non-empty value as "on", and eight test profiles showed up as installs.
+export function reportingOff(env = process.env, {packaged = false} = {}) {
+  if (env.JOB_PILOTTO_E2E) return 'the end-to-end journey';
+  if (env.JOB_PILOTTO_SMOKE || env.JOB_PILOTTO_PTY_SMOKE) return 'a smoke test';
+  if (env.CI || env.GITHUB_ACTIONS) return 'CI';
+  if (!packaged && !sourceRunReports(env)) return 'a development build';
+  return '';
+}
+
+// The journey on CI is the one test run that may reach Sentry (tagged environment "e2e", one fixed anonymous id, never your /telemetry store or PostHog):
+// a crash during the journey is a real bug and the stack trace helps. A local run reports nothing at all.
+export const sentryOnly = (env = process.env) => !!(env.JOB_PILOTTO_E2E && env.GITHUB_ACTIONS);
+
 export const ENDPOINT = 'https://www.jobpilotto.workers.dev/report/telemetry';
 const QUEUE = 'telemetry-queue.json';
 const MAX_QUEUE = 500, SHOWN = 20, BATCH = 50;
@@ -46,8 +61,8 @@ export function event(kind, fields, {install, version, platform = process.platfo
   return {kind: KINDS.includes(kind) ? kind : 'crash', at: new Date(now).toISOString(), install, version, platform, os: osVersion, ...safe};
 }
 
-export function create(storage, {version, fetcher = globalThis.fetch, endpoint = ENDPOINT, now = () => Date.now()} = {}) {
-  const enabled = () => storage.settings().telemetry !== false;
+export function create(storage, {version, fetcher = globalThis.fetch, endpoint = ENDPOINT, now = () => Date.now(), silent = false} = {}) {
+  const enabled = () => !silent && storage.settings().telemetry !== false;   // silent: the object exists so every call site works, but it never records or sends
   const install = () => {
     let id = storage.settings().telemetryId;
     if (!id) { id = crypto.randomUUID(); storage.saveSettings({telemetryId: id}); }

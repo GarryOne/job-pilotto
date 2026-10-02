@@ -6,7 +6,7 @@
 // Read README.md for the secrets, the cost and what is faked.
 import fs from 'node:fs';
 import path from 'node:path';
-import {ARTIFACTS, E2E, launch, pickFile, settle, step} from './lib/app.mjs';
+import {ARTIFACTS, E2E, assertNothingQueued, launch, pickFile, settle, step} from './lib/app.mjs';
 import {clearRoot, testRoot} from './lib/notion.mjs';
 import {LIMITS, VIEWS, inspect} from './lib/uicheck.mjs';
 
@@ -129,6 +129,7 @@ try {
     const severe = findings.filter(finding => finding.severity === 'severe');
     if (severe.length) throw new Error(`${severe.length} severe layout problem(s): ${severe.map(f => `${f.view}/${f.kind}`).join(', ')}`);
   }, {needs: [{name: 'E2E_NOTION_TOKEN', value: NOTION}, {name: 'E2E_ANTHROPIC_KEY', value: KEY}]});
+  await run('nothing was queued to report to the product', async () => { assertNothingQueued(session.profile); });
 } finally {
   await session?.shot('last');
   await session?.close();

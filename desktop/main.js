@@ -1603,16 +1603,19 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // The channel the install came from (the install link's ?src=): kept once, reported with the app's anonymous id.
   if (!DEMO) { const channel = installSource.consume(app.getPath('userData'), storage); if (channel) appLog('install', 'channel taken from the installer', {channel}); }
   // CI smoke runs (windows-smoke.mjs) launch the packaged app with a fresh profile each time: they (any launch with CI/GITHUB_ACTIONS set) must not count as installs.
-  const smokeRun = !!(process.env.JOB_PILOTTO_SMOKE || process.env.JOB_PILOTTO_PTY_SMOKE || process.env.CI || process.env.GITHUB_ACTIONS);
-  telemetry = DEMO || smokeRun || (!app.isPackaged && !telemetryLib.sourceRunReports()) ? null : telemetryLib.create(storage, {version: app.getVersion()});
+  const quiet = DEMO ? 'demo mode' : telemetryLib.reportingOff(process.env, {packaged: app.isPackaged});
+  const sentryOnly = telemetryLib.sentryOnly(process.env);   // the journey on CI: Sentry (environment e2e, id "e2e") yes; the store and PostHog never
+  telemetry = quiet && !sentryOnly ? null : telemetryLib.create(storage, {version: app.getVersion(), silent: sentryOnly});
+  appLog('telemetry', quiet ? `reporting is off: ${quiet}${sentryOnly ? ' (Sentry only, environment e2e)' : ''}` : 'reporting follows the Technical reports switch');   // the end-to-end harness reads this line
   if (!storage.settings().setupDone) trackSetup({wizardStep: 'welcome'}, storage.settings());  // the funnel's first step: the app opened
   if (telemetry) {
     // Crash reports (Sentry) and usage events (PostHog): only an installed build, only with Technical reports on, only when
     // config/analytics.json (or env) names where. Every problem the app records for itself goes to Sentry too; native crashes go through
     // Electron's own reporter. Nothing a person wrote or read is part of any of it (lib/sentry.js, lib/analytics.js).
     const keys = analyticsConfig.load(pipeline.REPO);
-    const identity = {installId: telemetryInstallId(storage), version: app.getVersion(), os: os.release()};
-    const sentryClient = sentryLib.create({dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId, os: identity.os, enabled: telemetry.enabled});
+    const identity = {installId: sentryOnly ? 'e2e' : telemetryInstallId(storage), version: app.getVersion(), os: os.release()};
+    const sentryClient = sentryLib.create({dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId, os: identity.os,
+      ...(sentryOnly ? {environment: 'e2e', enabled: () => true} : {enabled: telemetry.enabled})});
     if (sentryClient.active) {
       const record = telemetry.record.bind(telemetry);
       trail = sentryClient.note;
@@ -1620,10 +1623,10 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
       // rides along with a failed or hung run's report to Sentry (never to our own telemetry store).
       const logLines = kind => (['run_failed', 'stuck'].includes(kind) && identity.version.includes('alpha') && storage.settings().alphaLogs === true) ? engineLog.tailLines(200) : undefined;
       telemetry.record = (kind, fields) => { record(kind, fields); sentryClient.capture(kind, {...fields, logLines: logLines(kind)}); };
-      if (telemetry.enabled()) sentryLib.startNativeCrashes(crashReporter, {dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId});
-      pipeline.setCrashReports({dsn: keys.sentryDsn, version: identity.version, installId: identity.installId, enabled: telemetry.enabled});
+      if (sentryOnly || telemetry.enabled()) sentryLib.startNativeCrashes(crashReporter, {dsn: keys.sentryDsn, release: `job-pilotto@${identity.version}`, installId: identity.installId});
+      pipeline.setCrashReports({dsn: keys.sentryDsn, version: identity.version, installId: identity.installId, enabled: sentryOnly ? () => false : telemetry.enabled});   // the engine's own reports carry no environment tag: off in the journey
     }
-    analytics = analyticsLib.create({key: keys.posthogKey, host: keys.posthogHost, installId: identity.installId, version: identity.version, os: identity.os, enabled: telemetry.enabled});
+    analytics = sentryOnly ? null : analyticsLib.create({key: keys.posthogKey, host: keys.posthogHost, installId: identity.installId, version: identity.version, os: identity.os, enabled: telemetry.enabled});
     track('app_start', {});
     server.setAppliedHook(info => track('applied', info));
     app.on('before-quit', () => { void analytics?.flush(); });

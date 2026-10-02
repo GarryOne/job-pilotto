@@ -20,12 +20,13 @@ export async function launch({env = {}, executablePath, args} = {}) {
   const app = await electron.launch({
     executablePath: executablePath || path.join(DESKTOP, 'node_modules', '.bin', 'electron'),
     args: args || [DESKTOP, ...(process.platform === 'linux' ? ['--no-sandbox'] : [])],
-    env: {...process.env, JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_TELEMETRY: '0', ...env},
+    env: {...process.env, JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', ...env},
     timeout: 90000,
   });
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   page.on('pageerror', error => console.log(`  ! page error: ${error.message}`));
+  await confirmQuiet(profile);
   const shot = name => page.screenshot({path: path.join(ARTIFACTS, `${name}.png`)}).catch(() => {});
   return {app, page, profile, shot, close: () => closeApp(app)};
 }
@@ -57,4 +58,24 @@ export async function settle(page, seconds = 20) {
     await page.waitForTimeout(400);
     return true;
   } catch { return false; }
+}
+
+// The journey must never alter the live telemetry (the owner's rule, 2 Oct 2026). The app says in its own log why it is not reporting; no such line, no run.
+async function confirmQuiet(profile) {
+  const log = path.join(profile, 'logs', 'app.log');
+  for (let waited = 0; waited < 20000; waited += 500) {
+    const text = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+    if (/\[telemetry\] reporting is off: the end-to-end journey/.test(text)) return;
+    if (/\[telemetry\] reporting follows/.test(text)) throw new Error('the app would report to the live product: refusing to run the journey');
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error('the app did not confirm that reporting is off: refusing to run the journey');
+}
+
+// After a run: nothing may be waiting to be sent.
+export function assertNothingQueued(profile) {
+  for (const name of ['telemetry-queue.json', 'analytics-queue.json']) {
+    const file = path.join(profile, name);
+    if (fs.existsSync(file) && fs.readFileSync(file, 'utf8').replace(/\s/g, '').length > 2) throw new Error(`${name} has events waiting to be sent`);
+  }
 }

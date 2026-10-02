@@ -30,3 +30,15 @@ Both live in GitHub (Settings → Secrets → Actions) and, for local runs, in t
 
 ## Files
 `journey.mjs` the steps · `lib/app.mjs` launch, close, file picker · `fixtures/cv.pdf` a fictional CV (`make-cv.py` rewrites it)
+
+## What the test app reports (the rule: it never alters live data)
+| Channel | In the journey |
+|---|---|
+| Your telemetry store (`/telemetry`: machines, crashes, runs) | **off**, always |
+| PostHog (the usage funnel) | **off**, always |
+| Sentry | **off locally; on in CI**, tagged `environment: e2e`, one fixed anonymous id `e2e` |
+| Employer pool sharing, the app's recipe/alias reports | **off** (the test profile is seeded with `telemetry: false, shareEmployers: false`) |
+
+`launch()` sets `JOB_PILOTTO_E2E=1`, and refuses to run unless the app says in its own log `reporting is off: the end-to-end journey`. The last
+journey step checks that nothing was queued to send. (2 Oct 2026: before this, test profiles passed `JOB_PILOTTO_TELEMETRY=0`, which the app read as
+"on", and nine test runs counted as machines on `/telemetry`.)

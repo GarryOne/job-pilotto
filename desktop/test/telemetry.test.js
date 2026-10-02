@@ -77,3 +77,29 @@ test('a source run reports only when JOB_PILOTTO_TELEMETRY asks for it: "0" (the
   for (const on of ['1', 'on', 'true', 'yes']) assert.equal(sourceRunReports({JOB_PILOTTO_TELEMETRY: on}), true, on);
   assert.equal(sourceRunReports({}), false);
 });
+
+test('a test run never reports: CI, the end-to-end journey and an explicit "0" are off; a dev build opts in with a real value', async () => {
+  const {reportingOff} = await import('../lib/telemetry.js');
+  assert.equal(reportingOff({}, {packaged: true}), '');   // an installed app reports (if the user's switch is on)
+  assert.equal(reportingOff({}, {packaged: false}), 'a development build');
+  assert.equal(reportingOff({JOB_PILOTTO_TELEMETRY: '1'}, {packaged: false}), '');   // a developer who wants to see reports
+  assert.equal(reportingOff({JOB_PILOTTO_TELEMETRY: '0'}, {packaged: false}), 'a development build');   // "0" is off, not a value (8 test runs counted as installs on 2 Oct 2026)
+  assert.equal(reportingOff({JOB_PILOTTO_TELEMETRY: 'off'}, {packaged: false}), 'a development build');
+  for (const flag of ['JOB_PILOTTO_E2E', 'CI', 'GITHUB_ACTIONS', 'JOB_PILOTTO_SMOKE', 'JOB_PILOTTO_PTY_SMOKE']) {
+    assert.match(reportingOff({[flag]: '1', JOB_PILOTTO_TELEMETRY: '1'}, {packaged: true}), /test|CI|journey|smoke/i, flag);
+  }
+});
+
+test('in the end-to-end journey on CI only Sentry may report: the store stays silent even if its switch is on, and the id is the fixed "e2e"', async () => {
+  const {sentryOnly, create} = await import('../lib/telemetry.js');
+  assert.equal(sentryOnly({JOB_PILOTTO_E2E: '1', GITHUB_ACTIONS: 'true'}), true);
+  assert.equal(sentryOnly({JOB_PILOTTO_E2E: '1'}), false, 'a local run reports nothing at all');
+  assert.equal(sentryOnly({GITHUB_ACTIONS: 'true'}), false, 'another CI job is not the journey');
+  const files = new Map(), settings = {};
+  const storage = {settings: () => settings, saveSettings: patch => Object.assign(settings, patch), readText: name => files.get(name) || '', writeText: (name, text) => files.set(name, text)};
+  const silent = create(storage, {version: '1.0', silent: true});
+  assert.equal(silent.enabled(), false);
+  assert.equal(silent.record('crash', {summary: 'x'}), null);
+  assert.equal(files.size, 0, 'nothing queued, nothing to send');
+  assert.equal(create(storage, {version: '1.0'}).enabled(), true, 'the normal store is unchanged');
+});
