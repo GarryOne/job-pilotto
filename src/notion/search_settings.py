@@ -148,6 +148,17 @@ def render(files=None, show=None, intro=None):
     return '\n'.join(out).strip() + '\n'
 
 
+def _unique(entries):
+    """The entries once each (same text ignoring case and outer spaces), in page order."""
+    seen, out = set(), []
+    for entry in entries:
+        key = ' '.join(str(entry).split()).lower()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(entry)
+    return out
+
+
 def parse(text, to_fragment=None):
     """Page text (as Tracker.page_text gives it: "## Heading" and "- entry" lines) -> {(file, path): value}.
     A page without "Format 2" is read with the older whole-word rule, so its meaning never changes silently."""
@@ -166,6 +177,7 @@ def parse(text, to_fragment=None):
             found[current].append(line[2:].strip())
     values = {}
     for (name, path, kind), entries in found.items():
+        entries = _unique(entries)   # a page that shows a section twice (two writers at once) must not double a list
         if kind == 'number':
             numbers = [int(n) for n in re.findall(r'\d+', ' '.join(entries[:1]))]
             if numbers:
@@ -175,12 +187,18 @@ def parse(text, to_fragment=None):
             for entry in entries:
                 location, _, language = entry.partition(' · ')
                 places.append({'location': location.strip(), **({'language': language.strip()} if language.strip() else {})})
-            values[(name, path)] = places
+            values[(name, path)] = [p for i, p in enumerate(places) if p not in places[:i]]
         elif kind == 'match':
-            values[(name, path)] = [to_fragment(entry) for entry in entries]
+            values[(name, path)] = _unique([to_fragment(entry) for entry in entries])
         else:
             values[(name, path)] = entries
     return values
+
+
+def _is_tracked_example_dir():
+    from ..paths import ROOT
+    return (not os.getenv('JOB_PILOTTO_CONFIG_DIR') and not os.getenv('GITHUB_ACTIONS') and not os.getenv('JOB_PILOTTO_ALLOW_REPO_CONFIG')
+            and 'unittest' not in sys.modules and CONFIG == ROOT / 'config')
 
 
 def apply(values, files=None):
@@ -188,6 +206,12 @@ def apply(values, files=None):
     files = files or load_cached()
     for (name, path), value in values.items():
         _set(files[name], path, value)
+    if _is_tracked_example_dir():
+        # A source checkout with no config folder of its own: config/ here is the example files the repo ships (public). The user's
+        # real settings must never be written over them (1 Oct 2026: they were, then nearly committed). The desktop app and the
+        # scheduled runs set their own folder, so they are not affected.
+        print('Search settings: not written into the repo\'s example config/ (set JOB_PILOTTO_CONFIG_DIR to use your own).')
+        return files
     CONFIG.mkdir(parents=True, exist_ok=True)
     for name in ('search', 'preferences'):
         (CONFIG / f'{name}.json').write_text(json.dumps(files[name], indent=2, ensure_ascii=False) + '\n')

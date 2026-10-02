@@ -225,7 +225,16 @@ export function markdownBlocks(text) {
 // Replace a page's content with the Markdown (its old blocks go to Notion's trash, recoverable).
 // Replace a page's content: delete its blocks, then append the new ones. onProgress(done, total) counts
 // both. A block that's already gone (e.g. removed by an earlier, interrupted save) is skipped.
-export async function writePage(token, pageId, markdown, fetcher, onProgress = () => {}) {
+// One rewrite of a page at a time. Two at once both read the same old blocks, both delete them and both append, so the page ends up with
+// every section twice (the doubled search settings of 1 Oct 2026). A later write waits for the earlier one on the same page.
+const pageWrites = new Map();
+export function writePage(token, pageId, markdown, fetcher, onProgress) {
+  const run = (pageWrites.get(pageId) || Promise.resolve()).catch(() => {}).then(() => writePageNow(token, pageId, markdown, fetcher, onProgress));
+  pageWrites.set(pageId, run);
+  run.catch(() => {}).then(() => { if (pageWrites.get(pageId) === run) pageWrites.delete(pageId); });
+  return run;
+}
+async function writePageNow(token, pageId, markdown, fetcher, onProgress = () => {}) {
   let cursor;
   const old = [];
   do {

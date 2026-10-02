@@ -116,3 +116,20 @@ test('rewriting a page skips blocks that are already gone and reports progress',
   assert.deepEqual(calls, ['GET blocks/page/children?page_size=100', 'DELETE blocks/a', 'DELETE blocks/b', 'PATCH blocks/page/children']);
   assert.deepEqual(progress, ['1/3', '2/3', '3/3']);
 });
+
+test('two rewrites of the same page never interleave, so a page is never left with its content twice', async () => {
+  const notion = await import('../lib/notion.js');
+  const log = [];
+  let content = ['old'];
+  const fetcher = async (url, {method, body}) => {
+    const reply = (status, data) => ({ok: status < 300, status, json: async () => data});
+    await new Promise(resolve => setTimeout(resolve, 2));   // a real network gives the other write its chance to start
+    if (method === 'GET') { log.push('read'); return reply(200, {results: content.map(id => ({id})), has_more: false}); }
+    if (method === 'DELETE') { content = content.filter(id => !url.endsWith(`/${id}`)); return reply(200, {}); }
+    if (method === 'PATCH') { content.push(...JSON.parse(body).children.map((_, i) => `new${content.length}-${i}`)); log.push('append'); return reply(200, {}); }
+    return reply(200, {});
+  };
+  await Promise.all([notion.writePage('t', 'page', '# A\n- one', fetcher), notion.writePage('t', 'page', '# A\n- one', fetcher)]);
+  assert.deepEqual(log, ['read', 'append', 'read', 'append']);   // the second read waits for the first append
+  assert.equal(content.filter(id => id.startsWith('new')).length, 2);   // one write's blocks only: the second replaced the first's
+});

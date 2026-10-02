@@ -74,3 +74,35 @@ class SearchSettingsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DoubledPageTests(unittest.TestCase):
+    """1 Oct 2026: two writers published at once, the page showed every section twice, and every list in the config doubled."""
+
+    def test_a_page_that_shows_a_section_twice_gives_each_entry_once(self):
+        text = '## Roles to look for\n- sre\n- Platform Engineer\n## Companies to skip\n- Sonar\n## Roles to look for\n- sre\n- platform engineer\n## Companies to skip\n- Sonar\n- sonar\n'
+        values = s.parse(text + s.FORMAT)
+        self.assertEqual(values[('preferences', ('excluded_companies',))], ['Sonar'])
+        self.assertEqual(len(values[('search', ('role_keywords',))]), 2)
+
+    def test_rendering_a_parsed_doubled_page_is_the_single_page(self):
+        single = s.render(FILES, show=s.readable)
+        doubled = single + '\n' + single
+        again = {}
+        for (name, path), value in s.parse(doubled).items():
+            again.setdefault(name, {})[path] = value
+        self.assertEqual(again['search'][('role_keywords',)], s.parse(single)[('search', ('role_keywords',))])
+
+    def test_the_repos_example_config_is_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fake_root = Path(directory)
+            (fake_root / 'config').mkdir()
+            with mock.patch.object(s, 'CONFIG', fake_root / 'config'), mock.patch('src.paths.ROOT', fake_root), \
+                    mock.patch.dict('os.environ', {}, clear=False), mock.patch.object(s.sys, 'modules', {}):
+                for name in ('JOB_PILOTTO_CONFIG_DIR', 'GITHUB_ACTIONS', 'JOB_PILOTTO_ALLOW_REPO_CONFIG'):
+                    s.os.environ.pop(name, None)
+                s.apply({('preferences', ('daily_applications_target',)): 20}, json.loads(json.dumps(FILES)))
+                self.assertEqual(list((fake_root / 'config').iterdir()), [])   # nothing written
+                s.os.environ['GITHUB_ACTIONS'] = 'true'
+                s.apply({('preferences', ('daily_applications_target',)): 20}, json.loads(json.dumps(FILES)))   # a scheduled run does write
+                self.assertEqual(json.loads((fake_root / 'config' / 'preferences.json').read_text())['daily_applications_target'], 20)
