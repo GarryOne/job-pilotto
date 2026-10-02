@@ -49,3 +49,16 @@ test('judge() sends the request with the key and parses the reply; an API error 
   const rejected = async () => ({ok: false, status: 400, json: async () => ({error: {message: 'temperature is deprecated'}})});
   await assert.rejects(judge({key: 'k', posting, profile: 'p', produced: 'x', fetchImpl: rejected}), /400.*temperature is deprecated/);
 });
+
+test('a blank reply is asked again once; a second blank reply is an error', async () => {
+  let calls = 0;
+  const replies = [{content: [{type: 'text', text: ''}]}, {content: [{type: 'text', text: JSON.stringify(good)}]}];
+  const flaky = async () => ({ok: true, json: async () => replies[calls++]});
+  assert.deepEqual(await judge({key: 'k', posting, profile: 'p', produced: 'x', fetchImpl: flaky}), good);
+  assert.equal(calls, 2);
+  let blank = 0;
+  const always = async () => { blank++; return {ok: true, json: async () => ({content: []})}; };
+  await assert.rejects(judge({key: 'k', posting, profile: 'p', produced: 'x', fetchImpl: always}), /did not answer with JSON/);
+  assert.equal(blank, 2);
+  assert.match(buildRequest({posting, profile: 'p', produced: 'x'}).system, /not stated, unknown or unspecified/);
+});

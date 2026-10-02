@@ -7,7 +7,7 @@ export const SYSTEM = `You are a strict fact-checker for a job-search tool. You 
 Judge only the TEXT against the POSTING and the CANDIDATE:
 - grounded: every claim in the text can be found in the posting or the candidate's profile.
 - contradicts_posting: the text says something the posting says the opposite of (a place, a seniority, a language rule, a work mode, a salary).
-- invents_facts: the text states a fact (a figure, technology, requirement, benefit, employer detail) that is in neither the posting nor the profile. Reasonable judgement ("a strong match") is not a fact, and neither is correct common knowledge (rough geography, a currency conversion, simple arithmetic on the posting's own figures, what a role title usually means). A claim that is WRONG by common knowledge or arithmetic (a 2-hour trip called a short commute, a wrong percentage) is an invented fact.
+- invents_facts: the text states a fact (a figure, technology, requirement, benefit, employer detail) that is in neither the posting nor the profile. Reasonable judgement ("a strong match") is not a fact, and neither is correct common knowledge (rough geography, a currency conversion, simple arithmetic on the posting's own figures, what a role title usually means). A caveat that says something is not stated, unknown or unspecified ("visa sponsorship unspecified", "no salary stated") is not an invented fact: listing unknowns is wanted. A claim that is WRONG by common knowledge or arithmetic (a 2-hour trip called a short commute, a wrong percentage) is an invented fact.
 - useful: a person deciding whether to apply learns something specific from it (not just "good fit").
 Reply with ONE JSON object and nothing else: {"grounded":true|false,"contradicts_posting":true|false,"invents_facts":true|false,"useful":true|false,"why":"<one sentence of at most 30 words>"}`;
 
@@ -35,9 +35,15 @@ export function failures(verdict) {
 }
 
 export async function judge({key, posting, profile, produced, fetchImpl = fetch}) {
-  const response = await fetchImpl('https://api.anthropic.com/v1/messages', {method: 'POST',
-    headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: JSON.stringify(buildRequest({posting, profile, produced}))});
-  const data = await response.json();
-  if (!response.ok) throw new Error(`the judge call failed (${response.status}): ${data?.error?.message || 'unknown'}`);
-  return parseVerdict((data.content || []).map(part => part.text || '').join(''));
+  const ask = async () => {
+    const response = await fetchImpl('https://api.anthropic.com/v1/messages', {method: 'POST',
+      headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: JSON.stringify(buildRequest({posting, profile, produced}))});
+    const data = await response.json();
+    if (!response.ok) throw new Error(`the judge call failed (${response.status}): ${data?.error?.message || 'unknown'}`);
+    return parseVerdict((data.content || []).map(part => part.text || '').join(''));
+  };
+  try { return await ask(); } catch (error) {
+    if (/did not answer with JSON/.test(error.message)) return ask();   // a blank or cut-off reply happens; a second one is an error, never a pass
+    throw error;
+  }
 }

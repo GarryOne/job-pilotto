@@ -13,6 +13,9 @@ import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, matchRows, missin
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const name = 'quality';
+// This suite measures what a user gets, so the app under test runs on the shipped model (about $0.3 a run); the other suites run on Haiku. For a cheap run:
+// E2E_APP_MODEL=claude-haiku-4-5 (Haiku scores the same job up to 10 points apart between two scorings, Sonnet within 6).
+export const env = {JOB_PILOTTO_MODEL_OVERRIDE: process.env.E2E_APP_MODEL || 'claude-sonnet-5'};
 const GOLDEN = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'fixtures', 'golden');
 const read = file => JSON.parse(fs.readFileSync(path.join(GOLDEN, file), 'utf8'));
 const MATCHES = 'Job Matches — AI Scored';
