@@ -27,6 +27,9 @@ export function openSetting(id) {
     setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
     return;
   }
+  // Called from another page (the sidebar's allowance counter, a dialog's button): show Settings first, else only its inner page changed
+  // behind the screen that was open and the click seemed to do nothing.
+  if (document.querySelector('.view[data-view="settings"]')?.hidden) openView('settings');
   settingsPage(card.closest('[data-settings-page]')?.dataset.settingsPage || 'overview');
   if (card.classList.contains('conn-panel')) document.querySelectorAll('.conn-panel').forEach(panel => show(panel, panel === card));
   setTimeout(() => card.scrollIntoView({behavior: 'smooth', block: 'start'}), 50);
