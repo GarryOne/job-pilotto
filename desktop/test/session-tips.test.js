@@ -1,0 +1,69 @@
+// The tip ticker on Application sessions (owner, 2 Oct 2026): a pool of facts and advice scrolls through the page header
+// while the user applies. These keep the pool honest (sourced facts, no long lines, valid system names) and the rotation
+// fair (no repeats until all were shown, a system's own tips only on that system and first).
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {TIPS} from '../renderer/tips-pool.js';
+
+class FakeNode { constructor() { this.children = []; this.style = {}; } append(...n) { this.children.push(...n); } setAttribute() {} addEventListener() {} }
+globalThis.Node ??= FakeNode;
+globalThis.document ??= {createElement: () => new FakeNode(), createElementNS: () => new FakeNode(), body: new FakeNode(),
+  addEventListener() {}, querySelector: () => null, getElementById: () => null};
+globalThis.window ??= {addEventListener() {}};
+const {atsOf, nextTip} = await import('../renderer/tips.js');
+
+const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'workday', 'smartrecruiters'];
+
+test('the pool is valid: unique ids, short lines, known evidence, https sources, facts are sourced', () => {
+  assert.ok(TIPS.length >= 20, 'enough tips to rotate for a while');
+  assert.equal(new Set(TIPS.map(tip => tip.id)).size, TIPS.length, 'ids are unique');
+  for (const tip of TIPS) {
+    assert.ok(tip.text && tip.text.length <= 150, `${tip.id}: one short line`);
+    assert.ok(['research', 'advice', 'to-test'].includes(tip.evidence), `${tip.id}: evidence`);
+    if (tip.source) assert.match(tip.source, /^https:\/\//, `${tip.id}: source is https`);
+    if (tip.evidence === 'research') assert.ok(tip.source, `${tip.id}: a fact names its source`);
+    if (tip.ats) assert.ok(SYSTEMS.includes(tip.ats), `${tip.id}: known system`);
+    assert.doesNotMatch(tip.text, /\d+\s?%/, `${tip.id}: no invented percentages`);
+  }
+});
+
+test('atsOf names the system from the address', () => {
+  assert.equal(atsOf('https://job-boards.greenhouse.io/acme/jobs/1'), 'greenhouse');
+  assert.equal(atsOf('https://jobs.lever.co/acme/1/apply'), 'lever');
+  assert.equal(atsOf('https://jobs.ashbyhq.com/acme/1/application'), 'ashby');
+  assert.equal(atsOf('https://acme.wd3.myworkdayjobs.com/en-US/x'), 'workday');
+  assert.equal(atsOf('https://careers.example.com/apply'), '');
+  assert.equal(atsOf('not a url'), '');
+});
+
+test('nextTip shows every tip once before any repeats', () => {
+  let seen = [];
+  const shown = [];
+  for (let i = 0; i < TIPS.filter(tip => !tip.ats).length; i++) {
+    const picked = nextTip({seen});
+    shown.push(picked.tip.id);
+    seen = picked.seen;
+  }
+  assert.equal(new Set(shown).size, shown.length, 'no repeat in the first round');
+  assert.ok(shown.every(id => !TIPS.find(tip => tip.id === id).ats), 'system tips stay out when no system is known');
+});
+
+test('a system\'s own tips come first and only on that system', () => {
+  const first = nextTip({ats: 'workday', random: () => 0});
+  assert.equal(first.tip.ats, 'workday');
+  for (let i = 0; i < 40; i++) {
+    const picked = nextTip({ats: 'greenhouse', random: Math.random});
+    assert.ok(!picked.tip.ats || picked.tip.ats === 'greenhouse');
+  }
+});
+
+test('after a full round it starts over without repeating the last tip straight away', () => {
+  const everything = TIPS.map(tip => tip.id);
+  const picked = nextTip({seen: everything, random: () => 0});
+  assert.notEqual(picked.tip.id, everything[everything.length - 1]);
+  assert.deepEqual(picked.seen, [picked.tip.id]);
+});
+
+test('an empty pool gives no tip', () => {
+  assert.equal(nextTip({pool: []}).tip, null);
+});

@@ -13,6 +13,7 @@ import {sessionPanels} from '../sessions-cache.js';
 import {cancelSession, isLive, logChoice, openLog, refreshSessions, renderNextStep, restartSession, resumeSession, sessionCompany, sessionDuration, sessionJob, sessionList, sessionLogo, sessionMenu, sessionReview, sessionState, sessionTail, sessionTitle, sessionsFromCache, sessionsLoaded, ticking} from './sessions.js';
 import {richText} from './rich-text.js';
 import {toastMessage} from './startup.js';
+import {syncTips} from '../tips.js';
 
 export async function openSession(id) {
   if (!id) return;
@@ -48,6 +49,7 @@ export function renderSessionPage() {
   show($('ss-empty'), panels.empty);
   show($('ss-grid'), panels.grid);
   show($('ss-refreshing'), panels.refreshing);
+  syncTips({active: panels.grid, url: item?.url});
   if (panels.loading) { clearHeader(); return; }  // nothing to describe yet
   $('ss-list').replaceChildren(...sessionList.slice().reverse().map(entry => {
     const [label, tone] = stateOf(entry);

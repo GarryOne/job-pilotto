@@ -166,6 +166,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/session-message.js` — Claude's last message in an Apply with Claude session, sorted for the session page (its words are kept; only
 - `desktop/renderer/session-state.js` — A session's state as the window shows it, from what the app reports (lib/terminals.js publicView) and Claude's
 - `desktop/renderer/sessions-cache.js` — The last known session list, so the Applying page paints it at once instead of a spinner — or, before this, the
+- `desktop/renderer/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
+- `desktop/renderer/tips.js` — The tip ticker on the Application sessions page (owner, 2 Oct 2026): one line of fact or advice scrolls right to left
 - `desktop/renderer/update-text.js` — Settings → Diagnostics → Updates: whether this is the latest version, from main's updateStatus.
 - `desktop/renderer/view-history.js` — Back and forward through the screens you opened (⌘← / ⌘→, ⌘[ / ⌘], the mouse's side buttons; Alt+← / Alt+→ on
 - `desktop/renderer/weekly-card.js` — A weekly report's message as its card reads it, kept free of the DOM, like run-cards.js, mail-report.js and
