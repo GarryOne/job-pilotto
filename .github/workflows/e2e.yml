@@ -3,8 +3,8 @@ name: CI · End-to-end journey
 # Five suites run at the same time, each from its own state in its own Notion test page (desktop/e2e/README.md): wizard (the first-run path from nothing),
 # jobs (Actions, Recent activity, jobs check, slow AI), interviews, settings, apply (the real Chrome extension on fixture forms). The last four start from a set-up install in seconds, not through the wizard.
 # Before: one journey, ~4 minutes, all in one Notion page.
-# Playwright drives the real Electron app on a macOS runner (desktop/e2e/README.md). Runs by hand, every 4 hours on main, and
-# before a build is promoted to stable (tools/release-stable.sh asks for a green run of the same commit).
+# Playwright drives the real Electron app on a macOS runner (desktop/e2e/README.md). Runs by hand, twice a day on main, and
+# before a build is promoted to stable (tools/release-stable.sh needs a green run of that build's commit and starts one on the tag when there is none).
 # Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY (a key with a small spend cap), E2E_NOTION_TOKEN (a Notion
 # connection that can only see the empty "Job Pilotto E2E" test page). Without them only the offline steps run.
 # What runs: a schedule and a manual run start every suite (a manual run may name some: the `suite` input); a push to main starts only the suites whose files
@@ -16,7 +16,7 @@ on:
         description: 'Suites to run, comma-separated (empty = all)'
         required: false
   schedule:
-    - cron: '47 */4 * * *'   # every 4 hours (the UI loop, ui-heal.yml, follows each run)
+    - cron: '47 5,17 * * *'   # twice a day (the UI loop, ui-heal.yml, follows each run); it was every 4 hours until the test key's AI credit ran out
   push:
     branches: [main]
     paths:
