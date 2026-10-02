@@ -1,22 +1,15 @@
 // What installs report so the product can learn what questions mean and where applications get stuck (Notion: "Knowledge as data:
 // build plan"). Stored as counts. A question's wording is kept only while several installs report it; the rest is deleted by tidy().
 //   POST /api/controls (src/recipes.js) hands {questions, flows} here.   GET /api/knowledge (owner): what the proposers work from.
+import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
 import {allowed} from './stats.js';
 
+export {cleanLabel};
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
 export const MIN_INSTALLS = 3, KEEP_SINGLE_DAYS = 14, KEEP_FLOW_DAYS = 180;
 const BOARD = /^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/;
 const day = date => date.toISOString().slice(0, 10);
-
-// The same rules as the app's cleaner (desktop/lib/question-labels.js): the site does not trust the client.
-export function cleanLabel(label) {
-  let text = String(label ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
-  text = text.replace(/\*+/g, '').replace(/\((optional|required|erforderlich|obligatoire)\)/g, '').replace(/^\s*\d+[.)]\s+/, '').replace(/[\s:;,.?!-]+$/g, '').trim();
-  if (text.length < 3 || text.length > 100) return '';
-  if (/@|https?:|www\./.test(text) || /\d{4,}/.test(text) || (text.match(/\d/g) || []).length > 3 || /[<>{}\[\]\\|]/.test(text) || !/\p{L}{3}/u.test(text)) return '';
-  return text;
-}
 
 const merge = (json, value, max) => {
   let list = [];

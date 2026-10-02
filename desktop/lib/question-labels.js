@@ -2,19 +2,9 @@
 // Only the form's own public wording ("Heimatort", "Notice period") and never anything the user typed: this runs on the question label,
 // which comes from the page, and drops what could carry personal data (addresses, long numbers, links). The site keeps a label's text only
 // when several installs report it.
-const MAX = 100;
-
-// -> the normalised label, or '' when it must not leave this Mac.
-export function cleanLabel(label) {
-  let text = String(label ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
-  text = text.replace(/\*+/g, '').replace(/\((optional|required|erforderlich|obligatoire)\)/g, '').replace(/^\s*\d+[.)]\s+/, '').replace(/[\s:;,.?!-]+$/g, '').trim();
-  if (text.length < 3 || text.length > MAX) return '';
-  if (/@|https?:|www\./.test(text)) return '';           // an address or a link
-  if (/\d{4,}/.test(text) || (text.match(/\d/g) || []).length > 3) return '';   // a long number (phone, year-month-day, postcode ...)
-  if (/[<>{}\[\]\\|]/.test(text)) return '';              // markup or template text
-  if (!/\p{L}{3}/u.test(text)) return '';                  // no real words
-  return text;
-}
+// One cleaner for the app, the site and the extension's tests: extension/alias-schema.js (staged to ../shared by scripts/stage.mjs).
+import {cleanLabel} from '../shared/alias-schema.js';
+export {cleanLabel};
 
 // {trace: [{label, type, required, reason}]} rows of one fill -> [{label, kind, required}] for the questions no answer matched.
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';

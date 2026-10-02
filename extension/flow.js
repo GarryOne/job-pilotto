@@ -153,6 +153,12 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [found?.recipes || {}], func: recipes => { window.__jobPilottoRecipes = recipes; }});
     }
   } catch { /* recipes are a bonus: the operators work without them */ }
+  // Label meanings from the service (extension/alias-schema.js), asked of the app which asks the site and remembers: the filler uses them
+  // only for a question no built-in pattern placed. No answer, and the built-in patterns work as before.
+  try {
+    const packs = await api(config, '/extension/aliases', {method: 'POST', body: '{}'});
+    await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [Array.isArray(packs?.aliases) ? packs.aliases.slice(0, 2000) : []], func: aliases => { window.__jobPilottoAliases = aliases; }});
+  } catch { /* aliases are a bonus */ }
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high'}));
   let ai = null, aiError = null, later = [];

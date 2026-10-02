@@ -37,17 +37,31 @@
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
 
+  // Meanings from the service ("Heimatort" -> place_of_origin; extension/alias-schema.js, whose aliasKey this copies as a plain script, a test
+  // keeps them agreeing). Asked only when no built-in pattern above matched, so the service can add meanings but never override these.
+  const aliasFor = label => {
+    const text = clean(label).toLowerCase().replace(/\*+/g, '').replace(/\((optional|required|erforderlich|obligatoire)\)/g, '').replace(/^\s*\d+[.)]\s+/, '').replace(/[\s:;,.?!-]+$/g, '').trim();
+    if (text.length < 3 || text.length > 100 || /@|https?:|www\./.test(text)) return null;
+    for (const item of window.__jobPilottoAliases || []) {
+      if (item && item.key && item.phrase && (text === item.phrase || ` ${text} `.includes(` ${item.phrase} `))) return item;
+    }
+    return null;
+  };
   // Contact details by field label, for the fields every board names differently.
   window.__jobPilottoProfileEntries = (rows, profile, taken = []) => {
     const used = new Set(taken);
     const entries = [];
+    window.__jobPilottoAliasUsed = {};   // field -> the phrase that placed it (reported as counts, never the answer)
     for (const row of rows) {
       if (row.filled || row.legal || used.has(row.field) || !TEXT_TYPES.includes(row.type)) continue;
       if (/middle|maiden|nick/i.test(row.label || '')) continue;  // "Preferred first name" = your first name
       const match = PROFILE_LABELS.find(([key, pattern]) => profile[key] && pattern.test(row.label || row.field));
-      if (!match) continue;
-      if (match[0] === 'full_name' && rows.some(r => /first\s*name/i.test(r.label))) continue;
-      entries.push({field: row.field, value: String(profile[match[0]])});
+      const alias = match ? null : aliasFor(row.label);
+      const key = match ? match[0] : alias && profile[alias.key] ? alias.key : '';
+      if (!key) continue;
+      if (key === 'full_name' && rows.some(r => /first\s*name/i.test(r.label))) continue;
+      entries.push({field: row.field, value: String(profile[key])});
+      if (alias) window.__jobPilottoAliasUsed[row.field] = alias.phrase;
       used.add(row.field);
     }
     return entries;
@@ -459,6 +473,7 @@
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
+        alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};
     });
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',

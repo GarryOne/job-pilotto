@@ -6,6 +6,7 @@ import * as notion from './notion.js';
 import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
 import {guard} from './guard.js';
+import {aliases, evaluateAliases, pack as aliasPack} from './aliases.js';
 import {knowledge, tidy as tidyKnowledge} from './knowledge.js';
 import {playbook} from './playbook.js';
 import {install} from './install.js';
@@ -80,6 +81,8 @@ export default {
     if (pathname === '/api/recipes/targets') return recipeLibrary.targets(request, env);
     if (pathname === '/api/guard') return guard(request, env);
     if (pathname === '/api/knowledge') return knowledge(request, env);
+    if (pathname === '/api/packs/aliases') return aliasPack(request, env);
+    if (pathname === '/api/aliases') return aliases(request, env);
     if (pathname === '/api/playbook') return playbook(request, env);
     if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
     if (pathname === '/api/controls') return recipeLibrary.controls(request, env);
@@ -105,6 +108,8 @@ export default {
     ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })
       .catch(error => console.error(`recipe canary: ${error.message}`)));
     ctx.waitUntil(telemetry.daily(env, dispatch).catch(error => console.error(`telemetry triage: ${error.message}`)));
+    ctx.waitUntil((env.STATS ? evaluateAliases(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`aliases: ${JSON.stringify(actions)}`); })
+      .catch(error => console.error(`alias canary: ${error.message}`)));
     ctx.waitUntil((env.STATS ? tidyKnowledge(env.STATS) : Promise.resolve({dropped: 0})).catch(error => console.error(`knowledge tidy: ${error.message}`)));
   },
 };

@@ -361,7 +361,9 @@ function reportControls(config, tab, operated, trace) {
   try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
   const unplaced = (Array.isArray(trace) ? trace : []).filter(row => row && row.reason === NO_ANSWER && row.type !== 'file').slice(0, 25)
     .map(row => ({label: String(row.label || '').slice(0, 100), type: String(row.type || '').slice(0, 20), required: !!row.required, reason: NO_ANSWER}));
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced})}).catch(() => {});
+  // Which service meanings placed a question, and whether the field took the value (counts only: the canary's evidence).
+  const aliasUse = (Array.isArray(trace) ? trace : []).filter(row => row && row.alias).slice(0, 20).map(row => ({phrase: String(row.alias).slice(0, 60), ok: row.outcome === 'filled'}));
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse})}).catch(() => {});
 }
 // Where an application got to on this page (a form, a page with no form, an account wall): counted per board, nothing else.
 async function reportFlow(tab, flow) {

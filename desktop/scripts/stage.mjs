@@ -17,6 +17,8 @@ fs.rmSync(path.join(desktop, 'shared'), {recursive: true, force: true});
 copy('worker/src', path.join(desktop, 'shared', 'worker'));
 // The recipe format, one source for the site, the extension and the app (extension/recipe-schema.js).
 fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(desktop, 'shared', 'recipe-schema.js'));
+// The label meanings format (extension/alias-schema.js): the app validates the aliases it passes on and cleans question wording with it.
+fs.copyFileSync(path.join(repo, 'extension', 'alias-schema.js'), path.join(desktop, 'shared', 'alias-schema.js'));
 // The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
 // Cloudflare account for "Telegram buttons, always on" (lib/telegram-cloud.js).
 await (await import('esbuild')).build({entryPoints: [path.join(repo, 'worker', 'src', 'index.js')], bundle: true,

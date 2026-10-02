@@ -13,6 +13,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Desktop app: main-process modules
 
 - `desktop/lib/ai-trial.js` — The free AI credit for invited testers ($1, lib site/src/trial.js on the website): instead of their own Anthropic
+- `desktop/lib/aliases.js` — The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
 - `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
@@ -190,6 +191,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Chrome extension
 
+- `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the

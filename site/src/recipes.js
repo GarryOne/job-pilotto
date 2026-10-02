@@ -12,6 +12,7 @@
 import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
 import {allowed} from './stats.js';
 import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
+import {storeUse as storeAliasUse} from './aliases.js';
 import {store as storeKnowledge} from './knowledge.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
@@ -139,7 +140,7 @@ export async function controls(request, env, now = new Date()) {
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
-  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0);
+  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0);
   const kv = env.WAITLIST, countKey = `controls:${install}:${day(now)}`;
   const count = kv ? Number(await kv.get(countKey)) || 0 : 0;
   if (count + samples.length + outcomes.length + extra > PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
@@ -174,6 +175,7 @@ export async function controls(request, env, now = new Date()) {
       .bind(day(now), fingerprint, recipe, ok, failed).run();
     storedOutcomes++;
   }
+  await storeAliasUse(env, body.aliasUse, now).catch(() => 0);   // how the service's label meanings fared (src/aliases.js)
   const learned = await storeKnowledge(env, body, install, now).catch(() => ({questions: 0, flows: 0}));   // question wording and flow counts (src/knowledge.js)
   return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned});
 }

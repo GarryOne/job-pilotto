@@ -59,6 +59,7 @@ import * as learnedAnswers from './lib/learned.js';
 import * as misses from './lib/misses.js';
 import * as controlEvents from './lib/control-events.js';
 import * as recipeLibrary from './lib/recipes.js';
+import * as aliasLibrary from './lib/aliases.js';
 import {flowState, unplaced} from './lib/question-labels.js';
 import {createStorage, safeStorageCrypto, SECRET_NAMES} from './lib/storage.js';
 import {cleanSecret} from './lib/secrets.js';
@@ -1597,6 +1598,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   server.setReviewHandler(payload => review.report(terminals.list(), payload));
   const recipeReporter = recipeLibrary.createReporter(storage);
   server.setRecipesHandler(payload => recipeLibrary.lookup(storage, payload.fingerprints));
+  server.setAliasesHandler(() => aliasLibrary.lookup(storage));
   const owner = () => !!process.env.JOB_PILOTTO_OWNER;   // the owner's own installs name sites in plain, to debug with
   server.setMissesHandler(payload => misses.record(storage, payload, Date.now(), prints => {
     for (const item of controlEvents.fromMisses(payload, prints, {owner: owner()})) telemetry?.record('control', item);
@@ -1607,6 +1609,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     recipeReporter.outcome(payload.items);   // counts per fingerprint and recipe: the canary's evidence
     const board = controlEvents.boardName(payload.host);
     if (!payload.flow) recipeReporter.fill(board);   // one more form on this board (a flow event is a page, not a fill)
+    recipeReporter.alias(payload.aliasUse);   // which label meanings from the service placed a question, and whether the field took it
     recipeReporter.question(unplaced(payload.trace), board);   // the form's own wording for questions no answer matched
     if (payload.flow) recipeReporter.flow(board, flowState(payload.flow));   // where an application got to on this board
   });

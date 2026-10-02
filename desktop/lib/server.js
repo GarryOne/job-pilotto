@@ -315,6 +315,8 @@ let missesHandler = () => {};
 export function setMissesHandler(fn) { missesHandler = fn; }
 let controlsHandler = () => {};
 export function setControlsHandler(fn) { controlsHandler = fn; }
+let aliasesHandler = async () => [];
+export function setAliasesHandler(fn) { aliasesHandler = fn; }  // label meanings for the form in front of the extension (lib/aliases.js)
 let recipesHandler = async () => ({});
 export function setRecipesHandler(fn) { recipesHandler = fn; }  // recipes for the fingerprints on a form (lib/recipes.js)  // how the generic operators fared (lib/control-events.js)  // controls the form model could not read (lib/misses.js)  // what you answered yourself in a form (lib/learned.js)
 // Review in form, when the panel is not on the tab yet: which open tabs to inject into, and whether the field was there.
@@ -440,6 +442,15 @@ export function start(storage, onError = () => {}) {
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
         res.end(JSON.stringify(ok ? {recipes: await recipesHandler(payload)} : {error: 'Wrong token'}));
+        return;
+      }
+      if (req.url === '/extension/aliases') {
+        const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type'};
+        if (req.method === 'OPTIONS') { res.writeHead(204, cors); res.end(); return; }
+        const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
+        res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
+        res.end(JSON.stringify(ok ? {aliases: await aliasesHandler()} : {error: 'Wrong token'}));
         return;
       }
       if (req.url === '/extension/controls') {
