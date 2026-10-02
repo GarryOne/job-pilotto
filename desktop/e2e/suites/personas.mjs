@@ -63,7 +63,7 @@ function draftOf(profile) {
     profile_markdown: markdown, answers_markdown: `# Eligibility\n\n- Work authorisation: ${profile.citizenship} citizen\n`, open_questions: [],
     search: {role_keywords: profile.roles, title_exclude_keywords: ['\\bintern(ship)?\\b', '\\bsales\\b', 'est[aá]gio', 'designer'], board_discovery_keywords: [profile.board],
       jobs_board_search_queries: profile.roles.slice(0, 2), quality_stack_keywords: [], locations: profile.places, remote_excluded_regions: [], google_jobs: profile.google},
-    preferences: {disqualifying_languages: [], excluded_companies: [], work_rights: profile.work_rights}, contact: {}};
+    preferences: {disqualifying_languages: [], excluded_companies: [], work_rights: profile.work_rights, digest_min_score: 0}, contact: {location: profile.city}};   // digest_min_score 0: every job is shown, so what the digest says about places and visas does not depend on AI scores; the contact details of the first, default-CV setup are replaced by theirs
 }
 
 // All the text a person could read in the window: every view, every hidden step, tooltips and placeholders.
@@ -153,7 +153,8 @@ export async function run(ctx) {
         await page.waitForTimeout(800);
         texts.push(await page.evaluate(READ_UI));
       }
-      read.ui = texts.join('\n');
+      // The window says which time zone it shows: this machine's own, whatever it is (a Mac in Zurich is not a hard-coded Zurich).
+      read.ui = texts.join('\n').replace(/Times shown in [\w/+-]+\./g, '');
       read.notion = [await databaseText(NOTION, 'Job Matches — AI Scored'), await databaseText(NOTION, 'Job Tracker'), await databaseText(NOTION, 'Employers & Sources'),
         await databaseText(NOTION, 'Cronjob Runs'), await pageText(NOTION, 'Search settings'), await pageText(NOTION, 'Profile — CV and Preferences')].join('\n');
       const config = ['search.json', 'preferences.json'].map(file => fs.readFileSync(path.join(ctx.profile, 'config', file), 'utf8')).join('\n');

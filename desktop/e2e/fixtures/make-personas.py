@@ -36,7 +36,7 @@ PERSONAS = {
                '', 'SKILLS', 'SQL, Python, dbt, Looker, Tableau, Snowflake, Excel', '', 'EDUCATION', 'BA Statistics, Example State University',
                '', 'LANGUAGES', 'English (native), Spanish (B1)'],
         'profile': {
-            'name': 'Jordan Rivera (data analyst, Austin, US citizen)', 'citizenship': 'United States', 'work_rights': ['united states'],
+            'name': 'Jordan Rivera (data analyst, Austin, US citizen)', 'city': 'Austin, Texas, USA', 'citizenship': 'United States', 'work_rights': ['united states'],
             'places': {'top_tier': ['austin'], 'country_wide': ['united states', 'texas', 'dallas', 'houston'], 'abroad': ['portugal']},
             'languages': ['English'], 'currency': '$', 'remote': True, 'timezone': 'America/Chicago',
             'roles': ['data analyst', 'business intelligence', '\\bbi\\b', 'analytics engineer'],
@@ -62,7 +62,7 @@ PERSONAS = {
                '', 'SKILLS', 'Google Ads, Meta Ads, HubSpot, SEO, CRM, Google Analytics', '', 'EDUCATION', 'Bacharel em Administracao, Universidade Exemplo',
                '', 'LANGUAGES', 'Portuguese (native), English (C1), Spanish (B2)'],
         'profile': {
-            'name': 'Camila Souza (marketing manager, Sao Paulo, Brazilian)', 'citizenship': 'Brazil', 'work_rights': ['brazil'],
+            'name': 'Camila Souza (marketing manager, Sao Paulo, Brazilian)', 'city': 'São Paulo, Brazil', 'citizenship': 'Brazil', 'work_rights': ['brazil'],
             'places': {'top_tier': ['s[aã]o paulo'], 'country_wide': ['brazil', 'brasil', 'rio de janeiro', 'curitiba'], 'abroad': ['portugal', 'lisbon', 'spain', 'madrid']},
             'languages': ['Portuguese', 'English', 'Spanish'], 'currency': 'R$', 'remote': True, 'timezone': 'America/Sao_Paulo',
             'roles': ['marketing manager', 'gerente de marketing', 'growth marketing', 'performance marketing'],
