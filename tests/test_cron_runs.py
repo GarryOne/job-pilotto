@@ -356,3 +356,26 @@ class StageLineTest(unittest.TestCase):
         line = next(b['bulleted_list_item']['rich_text'][0]['text']['content'] for b in children
                     if 'Security code' in str(b))
         self.assertTrue(line.endswith('[read] · Canonical · nothing to record'), line)
+
+
+class NotionLimitTest(unittest.TestCase):
+    """Notion refuses a text of more than 2000 UTF-16 units, and an emoji is two: a scout log of 25 lines full of 🔎 went over by 2 and the whole run row was lost (2 Oct 2026)."""
+
+    def units(self, text):
+        return len(text.encode('utf-16-le')) // 2
+
+    def test_clip_counts_the_way_notion_does(self):
+        self.assertEqual(cron_runs.clip('a' * 3000), 'a' * 2000)
+        clipped = cron_runs.clip('🔎' * 1500)
+        self.assertLessEqual(self.units(clipped), 2000)
+        self.assertEqual(clipped, '🔎' * 1000)
+        self.assertEqual(cron_runs.clip('short 🔎'), 'short 🔎')
+
+    def test_a_technical_log_with_emoji_fits_notion(self):
+        lines = ['🔎 Source scout · checked 7 · 🆕 0 new sources ' + 'x' * 40] * 25 + ['🆕' * 50] * 25
+        blocks = cron_runs.extra_blocks(['done'], lines)
+        toggle = next(block for block in blocks if block['type'] == 'toggle')
+        for child in toggle['toggle']['children']:
+            self.assertLessEqual(self.units(child['code']['rich_text'][0]['text']['content']), 2000)
+        self.assertLessEqual(self.units(cron_runs._text('🔎' * 1500)['rich_text'][0]['text']['content']), 2000)
+        self.assertLessEqual(self.units(cron_runs._para('🔎' * 1500)['paragraph']['rich_text'][0]['text']['content']), 2000)

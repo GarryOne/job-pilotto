@@ -50,18 +50,25 @@ def auto_begin(tracker):
     _auto['tracker'] = tracker
 
 
+def clip(value, limit=2000):
+    """At most `limit` characters as Notion counts them: UTF-16 units, so an emoji is two (value[:2000] let a log with emoji through at 2002 and Notion refused the whole row)."""
+    if len(value.encode('utf-16-le')) <= 2 * limit:
+        return value
+    return value.encode('utf-16-le')[:2 * limit].decode('utf-16-le', errors='ignore')
+
+
 def _text(value):
-    return {'rich_text': [{'text': {'content': value[:2000]}}]} if value else {'rich_text': []}
+    return {'rich_text': [{'text': {'content': clip(value)}}]} if value else {'rich_text': []}
 
 
 def _para(content, kind='paragraph'):
-    return {'object': 'block', 'type': kind, kind: {'rich_text': [{'text': {'content': content[:2000]}}]}}
+    return {'object': 'block', 'type': kind, kind: {'rich_text': [{'text': {'content': clip(content)}}]}}
 
 
 def _linked(link, content, kind='bulleted_list_item'):
     """A line whose first words open `link` (on a run's page: an email's subject opens that email in Gmail)."""
-    rich = ([{'text': {'content': content[:2000], 'link': {'url': link}}}] if link
-            else [{'text': {'content': content[:2000]}}])
+    rich = ([{'text': {'content': clip(content), 'link': {'url': link}}}] if link
+            else [{'text': {'content': clip(content)}}])
     return {'object': 'block', 'type': kind, kind: {'rich_text': rich}}
 
 
@@ -442,7 +449,7 @@ def extra_blocks(messages, lines):
         blocks.append({'object': 'block', 'type': 'toggle', 'toggle': {
             'rich_text': [{'text': {'content': f'Technical log (last {len(lines)} lines)'}}],
             'children': [{'object': 'block', 'type': 'code', 'code': {'language': 'plain text',
-                          'rich_text': [{'text': {'content': chunk[:2000]}}]}} for chunk in chunks]}})
+                          'rich_text': [{'text': {'content': clip(chunk)}}]}} for chunk in chunks]}})
     return blocks
 
 
