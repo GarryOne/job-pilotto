@@ -744,7 +744,22 @@ chrome.runtime.onStartup.addListener(reportTabs);
 // Also every 30 s, so an app started after the tabs were opened still learns about them. Only if it isn't there
 // already: creating an alarm that exists resets it, and this worker wakes far more often than every 30 s.
 ensureAlarm({get: name => chrome.alarms.get(name), create: (name, info) => chrome.alarms.create(name, info)});
-chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') reportTabs(); });
+// Every 30 s: an armed page that finished loading and that nothing looked at (its load event came while the worker was starting, or before the tab was armed)
+// is looked at now. A page that has a fill state, or that `consider` already took, is left alone.
+async function considerMissed() {
+  const stored = await chrome.storage.session.get(null).catch(() => ({}));
+  for (const key of Object.keys(stored).filter(name => name.startsWith('armed:') && stored[name])) {
+    const tab = await chrome.tabs.get(Number(key.slice(6))).catch(() => null);
+    if (!tab || tab.status !== 'complete' || !/^https:/.test(tab.url || '') || neverForm(tab.url) || started.has(tab.id) || started.has(fillKey(tab.id, tab.url))) continue;
+    const [row] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: () => document.documentElement?.dataset.jobpilottoFill || ''}).catch(() => []);
+    if (!row || row.result) continue;   // unreadable, or it already has a state
+    let host = '';
+    try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
+    decide('fill', 'a loaded page nobody had looked at: looking now', {host});
+    await consider(tab, await jobOf(tab));
+  }
+}
+chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'report-tabs') { reportTabs(); considerMissed(); } });
 reportTabs();
 
 // Submitted? The submit press starts a short watch. A redirect or a change on the same page (a confirmation
