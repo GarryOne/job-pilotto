@@ -1,22 +1,27 @@
 name: CI · End-to-end journey
 
-# Five suites run at the same time, each from its own state in its own Notion test page (desktop/e2e/README.md): wizard (the first-run path from nothing),
-# jobs (Actions, Recent activity, jobs check, slow AI), interviews, settings, apply (the real Chrome extension on fixture forms). The last four start from a set-up install in seconds, not through the wizard.
-# Before: one journey, ~4 minutes, all in one Notion page.
-# Playwright drives the real Electron app on a macOS runner (desktop/e2e/README.md). Runs by hand, twice a day on main, and
-# before a build is promoted to stable (tools/release-stable.sh needs a green run of that build's commit and starts one on the tag when there is none).
-# Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY (a key with a small spend cap), E2E_NOTION_TOKEN (a Notion
-# connection that can only see the empty "Job Pilotto E2E" test page). Without them only the offline steps run.
-# What runs: a schedule and a manual run start every suite (a manual run may name some: the `suite` input); a push to main starts only the suites whose files
-# changed (desktop/e2e/lib/plan.mjs), because every test-file push used to run all of them on the shared test key's AI credit.
+# The real Job Pilotto app, driven by Playwright on a macOS runner, one suite per Notion test page (desktop/e2e/README.md). It does two jobs, on two clocks:
+#  1. RELEASE GATE. The nightly build (desktop.yml, 04:00 Zurich, only when the app changed) finishes -> this workflow runs EVERY suite on that build's own commit ->
+#     when all pass (and build.yml is green on the commit) the `promote` job makes the build the stable release. Red or no build: nothing is promoted.
+#  2. IMPROVEMENT LOOP. Three runs on main in the working day (09:47, 13:47, 17:47 UTC) feed ui-heal.yml (issues and fix pull requests). A scheduled run is skipped when
+#     main has not changed since the last run and no finding waits for its second sighting; the AI review of screenshots (the costly part) runs only when the UI or its tests
+#     changed, or a finding waits. A push to main runs only the suites whose files changed; by hand: gh workflow run e2e.yml -f suite=jobs,activity.
+# All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
+# Secrets (Settings → Secrets → Actions): E2E_ANTHROPIC_KEY, and one E2E_NOTION_TOKEN_<SUITE> per suite (a connection that sees only that suite's test page).
 on:
   workflow_dispatch:
     inputs:
       suite:
         description: 'Suites to run, comma-separated (empty = all)'
         required: false
+      promote_tag:
+        description: 'DRY RUN of the promotion step for this release tag (runs no suite, promotes nothing)'
+        required: false
   schedule:
-    - cron: '47 5,17 * * *'   # twice a day (the UI loop, ui-heal.yml, follows each run); it was every 4 hours until the test key's AI credit ran out
+    - cron: '47 9,13,17 * * *'   # 11:47, 15:47, 19:47 in Zurich in summer (the UI loop, ui-heal.yml, follows each run)
+  workflow_run:
+    workflows: ['Release · Desktop app']   # the nightly build (or a manual one) finished: verify it, and promote it when it passes
+    types: [completed]
   push:
     branches: [main]
     paths:
@@ -30,9 +35,16 @@ permissions:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      actions: read
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
       count: ${{ steps.list.outputs.count }}
+      ref: ${{ steps.list.outputs.ref }}
+      tag: ${{ steps.list.outputs.tag }}
+      review: ${{ steps.list.outputs.review }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,33 +53,28 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
-      - name: The tests' own tests (layout check, review parser, triage rules, which suites a push runs)
+      - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         working-directory: desktop/e2e
         run: npm test
-      - name: The suites to run (all, the ones named, or for a push only those whose files changed)
+      - name: What to run (suites, commit, AI review, release to promote)
         id: list
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
+          REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
           ONLY: ${{ inputs.suite }}
-        run: |
-          if [ "$EVENT" = push ]; then
-            files=$(gh api "repos/${{ github.repository }}/compare/${BEFORE}...${SHA}" --paginate -q '.files[].filename' 2>/dev/null || git diff-tree --no-commit-id --name-only -r "$SHA")
-            echo "Changed files:"; printf '%s\n' "$files" | awk '{print "  " $0}'
-            matrix=$(echo "$files" | node suite.mjs --list --changed)
-          else
-            matrix=$(node suite.mjs --list --only "$ONLY")
-          fi
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "count=$(echo "$matrix" | jq '.include | length')" >> "$GITHUB_OUTPUT"
-          echo "Suites: $(echo "$matrix" | jq -r '[.include[].suite] | join(", ")')" >> "$GITHUB_STEP_SUMMARY"
+          PROMOTE_TAG: ${{ inputs.promote_tag }}
+        run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
   suite:
     name: ${{ matrix.suite }}
     needs: plan
-    if: needs.plan.outputs.count != '0'   # a push that changed no suite runs none
+    if: needs.plan.outputs.count != '0'   # a push that changed no suite, a scheduled run with nothing new, or a night with no build: no suites
     runs-on: macos-latest   # the Mac app is the product: real Keychain, no virtual display (on Linux Electron has no keyring to save the key in)
     timeout-minutes: ${{ matrix.minutes }}
     strategy:
@@ -92,6 +99,8 @@ jobs:
       E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.ref }}   # a push or a schedule: that commit; the run after a build: the build's own commit
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -115,7 +124,7 @@ jobs:
         timeout-minutes: 25   # a hung suite stops here, not after the job's limit
         run: node suite.mjs ${{ matrix.suite }}
       - name: AI review of the screenshots
-        if: always() && env.E2E_ANTHROPIC_KEY != ''
+        if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # the costly part: only when the UI or its tests changed, or a finding waits
         working-directory: desktop/e2e
         timeout-minutes: 10
         run: node review-ui.mjs
@@ -126,3 +135,52 @@ jobs:
           name: e2e-artifacts-${{ matrix.suite }}
           path: e2e-artifacts/${{ matrix.suite }}
           if-no-files-found: ignore
+
+  # The release gate. Only after the nightly build: every suite passed on the build's commit, and so did build.yml.
+  promote:
+    needs: [plan, suite]
+    if: needs.plan.outputs.tag != '' && needs.suite.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # gh release edit (promote)
+      actions: read
+    concurrency:
+      group: release-promote
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      REF: ${{ needs.plan.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: build.yml (the unit suites) is green on the commit
+        run: |
+          verdict=$(gh run list -R "$GITHUB_REPOSITORY" --workflow build.yml --commit "$REF" --status completed --json conclusion | python3 tools/e2e_gate.py ci)
+          echo "build.yml on ${REF:0:7}: $verdict"
+          if [ "$verdict" != green ]; then echo "$TAG stays a pre-release: build.yml is not green on its commit." >> "$GITHUB_STEP_SUMMARY"; exit 1; fi
+      - name: Make the build stable
+        env:
+          E2E_ALREADY_GREEN: '1'   # every suite of this very run passed on this commit
+        run: |
+          tools/release-stable.sh "$TAG"
+          echo "Stable: $TAG (every suite passed on its commit)" >> "$GITHUB_STEP_SUMMARY"
+
+  # By hand: gh workflow run e2e.yml -f promote_tag=desktop-v0.4.0-alpha.253 : what the promotion step would do for a release, changing nothing.
+  promote-dry-run:
+    needs: plan
+    if: github.event_name == 'workflow_dispatch' && inputs.promote_tag != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: What the promotion would do
+        env:
+          E2E_ALREADY_GREEN: '1'
+          DRY_RUN: '1'
+          PROMOTE_TAG: ${{ inputs.promote_tag }}
+        run: tools/release-stable.sh "$PROMOTE_TAG" | tee -a "$GITHUB_STEP_SUMMARY"

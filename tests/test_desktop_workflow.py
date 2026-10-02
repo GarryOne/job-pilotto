@@ -19,10 +19,20 @@ class DesktopWorkflowTest(unittest.TestCase):
         # 2 Oct 2026: a release per push was a macOS + Windows build for every commit. Nightly, plus gh workflow run desktop.yml.
         triggers = WORKFLOW.split('permissions:')[0]
         self.assertIsNone(re.search(r'^\s*push:', triggers, re.M))   # a trigger key, not the word inside a comment
-        self.assertIn("cron: '30 2 * * *'", triggers)
+        # 04:00 in Zurich all year (2 Oct 2026): UTC+2 in summer, UTC+1 in winter, so both UTC hours are scheduled and a guard lets the one at 04:xx/05:xx Zurich time go on.
+        self.assertIn("cron: '0 2 * * *'", triggers)
+        self.assertIn("cron: '0 3 * * *'", triggers)
+        self.assertIn('TZ=Europe/Zurich date +%H', WORKFLOW)
+        self.assertIn('[ "$hour" != 04 ] && [ "$hour" != 05 ]', WORKFLOW)
         self.assertIn('workflow_dispatch:', triggers)
         self.assertIn("if: needs.changes.outputs.build == 'true'", WORKFLOW)
         self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ]', WORKFLOW)   # a manual run always builds
+
+    def test_a_night_when_only_the_apps_tests_changed_builds_nothing(self):
+        # desktop/ holds the app and its tests: the tests are not in the app, and the e2e pipeline promotes whatever the nightly builds.
+        paths = re.search(r'paths=\((.*?)\)', WORKFLOW, re.S).group(1).split()
+        self.assertIn("':!desktop/e2e'", paths)
+        self.assertIn("':!desktop/test'", paths)
 
     def test_release_403_after_main_moved_starts_a_fresh_build(self):
         self.assertIn("grep -q 'HTTP 403' release-error.txt", WORKFLOW)

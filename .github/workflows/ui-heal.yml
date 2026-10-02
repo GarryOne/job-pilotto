@@ -1,6 +1,6 @@
 name: CI · UI self-healing loop
 
-# After each scheduled end-to-end run (e2e.yml, twice a day): file what it found as issues (one per problem), and when a problem has been seen in two runs
+# After each scheduled end-to-end run (e2e.yml, after the nightly build and on its three daytime runs): file what it found as issues (one per problem), and when a problem has been seen in two runs
 # and a UI fix can address it, let Claude Code fix ONE of them and open a pull request for the owner to review. Never merges anything.
 # Claude only edits files (no git, no gh, no network); the last step checks the paths (desktop/renderer and its tests only), requires a test,
 # runs the whole desktop suite, and only then pushes a branch `auto-fix/<fingerprint>` and opens the PR. A false positive is closed with

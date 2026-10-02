@@ -1,14 +1,22 @@
 # Releasing Job Pilotto
 
-> **In short:** a **pre-release** is built **every night** (when the app changed) and **on demand** (`gh workflow run desktop.yml`). When one is good, run **`tools/release-stable.sh`**:
-> friends' apps offer it, the website serves it, and their Notion and GitHub runs follow by themselves.
+> **In short:** **every night at 04:00 Zurich**, if the app changed, a build is made, **every end-to-end suite runs on it, and when all pass it becomes the stable release**
+> (friends' apps offer it, the website serves it, their Notion and GitHub runs follow by themselves). Red or no build: nothing changes. A build on demand
+> (`gh workflow run desktop.yml`) is only a pre-release to try; promote it with **`tools/release-stable.sh`** (which runs the same gate).
 
 ## 1 · Channels
 
 | Channel | Who gets it | How it's made |
 |---|---|---|
-| 🧪 **Pre-release** (alpha) | you | nightly at 02:30 UTC if anything the app bundles changed since the last release, or on demand: `gh workflow run desktop.yml` (always builds). Not per push (`.github/workflows/desktop.yml`) |
-| ✅ **Stable** ("Latest" on GitHub) | friends' apps + the website's Download buttons | you promote one pre-release: `tools/release-stable.sh` |
+| 🧪 **Pre-release** (alpha) | you | nightly at 04:00 Zurich (cron: 02:00 and 03:00 UTC, the step lets the one at 04:xx/05:xx Zurich go on) if anything the app bundles changed since the last release, or on demand: `gh workflow run desktop.yml` (always builds). Not per push (`.github/workflows/desktop.yml`) |
+| ✅ **Stable** ("Latest" on GitHub) | friends' apps + the website's Download buttons | **the nightly pipeline** (below), or you with `tools/release-stable.sh` |
+
+### The nightly pipeline (`desktop.yml` → `e2e.yml`)
+1. **04:00 Zurich:** `desktop.yml` builds Mac + Windows if the app changed since the last release (tests alone do not count), as a pre-release. GitHub may start a scheduled run late.
+2. **When the build finishes**, `e2e.yml` runs **every suite on the build's own commit** (`desktop/e2e/plan-run.mjs`; only for the nightly build: one made by hand is for trying).
+3. **When all suites pass and `build.yml` is green on that commit**, its `promote` job runs `tools/release-stable.sh` (the Windows installer must be the build's own). Friends get the update by morning.
+4. **A red suite, a red `build.yml`, a failed Windows job, or no build:** nothing is promoted; stable stays; the next night's build carries the fixes.
+There is **no waiting period** and no telemetry check: the end-to-end journey is the gate. Dry run of step 3 for a release: `gh workflow run e2e.yml -f promote_tag=<tag>`.
 
 Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); each build gets the next number
 (`0.4.0-alpha.42`, tag `desktop-v0.4.0-alpha.42`). To start a new version, change the target there.
@@ -38,7 +46,9 @@ Version numbers: `desktop/package.json` holds the target (e.g. `0.4.0-alpha`); e
      deliberately skips drafts, so they linger until deleted by hand.
 4. Done. Friends see **"Update to 0.4 Alpha 42"** in the menu at their next start or within 6 hours.
 
-### Canary auto-promote (off until you switch it on)
+### Canary auto-promote (retired as the release path)
+
+> Replaced by the nightly pipeline above: `canary-promote.yml` has no schedule any more and is only run by hand to print its decision. The rule below still describes `tools/canary_promote.py`.
 
 > Daily, `.github/workflows/canary-promote.yml` → `tools/canary_promote.py` promotes a build **by itself** when all hold:
 
