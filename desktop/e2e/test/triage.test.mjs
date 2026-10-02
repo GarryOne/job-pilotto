@@ -83,5 +83,34 @@ test('findings of every suite are read, whatever its folder is called', async ()
   const found = filesNamed(dir);
   assert.equal(found['ui-findings.json'].length, 3);
   assert.equal(found['ai-findings.json'].length, 1);
-  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': []});
+  assert.deepEqual(filesNamed(path.join(dir, 'nowhere')), {'ui-findings.json': [], 'ai-findings.json': [], 'suite-failures.json': []});
+});
+
+// A step of a suite that failed is a finding too: filed as an issue so it is not only a red check, never picked for an automatic UI fix.
+test('a failed suite step becomes one high finding per step, whatever its message says', () => {
+  const out = normalize({suite: [{suite: 'activity', step: 'the AI never answers', message: 'took 90 s'}, {suite: 'activity', step: 'the AI never answers', message: 'took 120 s'}, {suite: 'jobs', step: 'a jobs check', message: 'x'}, {step: 'no suite'}]});
+  assert.deepEqual(out.map(item => [item.view, item.kind, item.severity, item.source, item.title]),
+    [['activity', 'test-failure', 'high', 'suite-failure', 'step failed: the AI never answers'], ['jobs', 'test-failure', 'high', 'suite-failure', 'step failed: a jobs check']]);
+  assert.match(out[0].detail, /took 90 s/);
+});
+
+test('a failed step is never ready for an automatic UI fix, however often it is seen', () => {
+  const finding = normalize({suite: [{suite: 'activity', step: 's', message: 'm'}]})[0];
+  const body = issueBody(finding, 'https://x/runs/1');
+  assert.match(body, /a step of the activity suite failed/i);
+  assert.equal(pickCandidate([{number: 1, state: 'OPEN', title: 't', body, labels: [{name: 'auto-ui'}, {name: `fp:${finding.id}`}], comments: [{body: 'Seen again in run 2'}, {body: 'Seen again in run 3'}]}]), null);
+});
+
+test('suite-failures.json files are read from every suite folder, and a failed step is filed by the CLI', async () => {
+  const {filesNamed, triage} = await import('../triage.mjs');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'failures-'));
+  fs.mkdirSync(path.join(dir, 'e2e-artifacts-activity'));
+  fs.writeFileSync(path.join(dir, 'e2e-artifacts-activity', 'suite-failures.json'), JSON.stringify([{suite: 'activity', step: 'a step', message: 'boom'}]));
+  assert.equal(filesNamed(dir)['suite-failures.json'].length, 1);
+  const created = [];
+  const gh = args => { if (args[0] === 'issue' && args[1] === 'create') created.push(args[3]); return args[0] === 'issue' && args[1] === 'list' ? '[]' : args[0] === 'pr' ? '[]' : ''; };
+  const result = triage({artifacts: dir, runUrl: 'https://x/runs/1', gh});
+  assert.deepEqual([result.filed.length, result.candidate], [1, null]);
+  assert.match(created[0], /^\[auto-ui\] activity: step failed: a step/);
 });

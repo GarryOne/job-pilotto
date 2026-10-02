@@ -44,3 +44,8 @@ test('the request never carries a temperature: claude-sonnet-5 rejects it with a
   assert.equal('temperature' in request, false);
   assert.equal(request.model, 'claude-sonnet-5');
 });
+
+test('the activity suite\'s screenshots of failure and queued states are judged against what the Actions page and its panel should show', async () => {
+  const {expectedFor} = await import('../lib/vision.mjs');
+  for (const view of ['activity-run-failed', 'activity-run-warned', 'activity-limit-paused', 'activity-queued']) assert.match(expectedFor(view), /Recent activity panel/);
+});

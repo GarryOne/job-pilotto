@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {facts, settle} from './app.mjs';
+import {writeFindings} from './artifacts.mjs';
 import {LIMITS, inspect} from './uicheck.mjs';
 
 // Look at one thing on screen that is already showing: screenshot `name`, facts, checks. `view` names the page for the checks.
@@ -25,7 +26,7 @@ export async function visit(ctx, views) {
 
 // Severe findings fail the step; every finding is written for the nightly triage.
 export function finish(ctx) {
-  fs.writeFileSync(path.join(ctx.ARTIFACTS, 'ui-findings.json'), JSON.stringify(ctx.findings, null, 2));
+  writeFindings(ctx);
   for (const finding of ctx.findings) console.log(`  ${finding.severity === 'severe' ? '✗' : '!'} [${finding.view}] ${finding.kind}: ${finding.detail}`);
   const severe = ctx.findings.filter(finding => finding.severity === 'severe');
   if (severe.length) throw new Error(`${severe.length} severe layout problem(s): ${severe.map(f => `${f.view}/${f.kind}`).join(', ')}`);

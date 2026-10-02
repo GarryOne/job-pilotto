@@ -15,22 +15,27 @@ export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) &
 
 // ui-findings.json (deterministic) + ai-findings.json (vision) -> one list: {id, view, severity, kind, title, detail, suggestion, source}.
 // AI findings rated "low" are noise by experience (about 1 in 16 was real) and are not filed; deterministic "severe" counts as high, "warning" as medium.
-export function normalize({ui = [], ai = []}) {
+export function normalize({ui = [], ai = [], suite = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
     const finding = {view: item.view, severity: item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
       title: `${item.kind.replace(/-/g, ' ')} on ${item.view}`, detail: item.detail, suggestion: '', source: 'layout-check'};
     return {...finding, id: fingerprint(finding)};
   });
   const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, id: item.id || fingerprint(item), source: 'ai-review'}));
+  // A step of a suite that failed: one finding per step (its message changes from run to run, the step does not). Never a kind a UI fix can address.
+  const fromSuite = suite.filter(item => item && item.suite && item.step).map(item => {
+    const finding = {view: item.suite, severity: 'high', kind: 'test-failure', title: `step failed: ${item.step}`, detail: String(item.message || 'The step failed.'), suggestion: '', source: 'suite-failure'};
+    return {...finding, id: fingerprint(finding)};
+  });
   const seen = new Set();
-  return [...fromUi, ...fromAi].filter(item => !seen.has(item.id) && seen.add(item.id));
+  return [...fromUi, ...fromAi, ...fromSuite].filter(item => !seen.has(item.id) && seen.add(item.id));
 }
 
 export const issueTitle = finding => `[auto-ui] ${finding.view}: ${finding.title}`.slice(0, 120);
 export const labelFor = id => `fp:${id}`.slice(0, 50);
 
 export function issueBody(finding, runUrl) {
-  return [`**${finding.severity.toUpperCase()}** · ${finding.kind} · found by the ${finding.source === 'layout-check' ? 'layout check' : 'AI screenshot review'}`, '',
+  return [`**${finding.severity.toUpperCase()}** · ${finding.kind} · found by ${finding.source === 'layout-check' ? 'the layout check' : finding.source === 'suite-failure' ? `a run of the ${finding.view} suite (a step of the ${finding.view} suite failed)` : 'the AI screenshot review'}`, '',
     finding.detail, '', finding.suggestion ? `Suggested: ${finding.suggestion}` : '', '',
     `First seen: ${runUrl}`, '', `<!-- fingerprint: ${finding.id} -->`].filter((line, index, all) => line || all[index - 1]).join('\n');
 }

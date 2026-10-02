@@ -13,6 +13,7 @@ if (name === '--list') {
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 const {assertNothingQueued} = await import('./lib/app.mjs');
 const {SUITES, openContext} = await import('./lib/context.mjs');
+const {writeFindings, writeSuiteFailures} = await import('./lib/artifacts.mjs');
 if (!SUITES.includes(name)) { console.error(`usage: node suite.mjs ${SUITES.join('|')}`); process.exit(2); }
 const suite = await import(`./suites/${name}.mjs`);
 let ctx;
@@ -28,6 +29,8 @@ try {
   if (!ctx?.runner.results.some(result => result.status === 'failed')) console.log(`✗ the ${name} suite stopped: ${error.message}`);
   process.exitCode = 1;
 } finally {
+  // For the nightly loop, whatever happened: the layout findings so far, and the steps that failed (a suite that stops early used to leave neither).
+  if (ctx && !ctx.skipAll) { try { if (ctx.findings) writeFindings(ctx); writeSuiteFailures(ctx.ARTIFACTS, name, ctx.runner.results); } catch (error) { console.log(`  (artifacts not written: ${error.message})`); } }
   if (ctx && !ctx.skipAll) { await ctx.close(); const code = ctx.runner.summary(); if (code) process.exitCode = 1; }
   // The app and Playwright can leave handles open: exit explicitly, never hang a CI job.
   process.exit(process.exitCode || 0);
