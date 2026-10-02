@@ -138,3 +138,13 @@ A fix pull request shows the finding's screenshot as "Before" and promises the "
   $0.5 to $1.5 an attempt) fixes it in `desktop/renderer` with a test first; a guard and the desktop suite must pass; ONE pull request opens, with the finding's screenshot as "Before". At most 3 are open at once.
   By hand: `gh workflow run ui-fix.yml`.
 Between the two a person can add `confirmed` or `wontfix-auto` to an issue: the fixer works on a curated list.
+
+## The interactions suite (does a press DO something?)
+Screenshots cannot show a button that does nothing. `suites/interactions.mjs` presses the safe controls of every page and records what happened (`lib/interact.mjs`):
+- **Recorded:** page change (text, structure, expanded state, location), the calls the window made to the app (`lib/e2e-ipc.js` wraps `ipcMain.handle` only when `JOB_PILOTTO_E2E` is set: channel, start, ms), signs of work while it ran (disabled, `aria-busy`, spinner, changed label), errors thrown.
+- **Findings** (`source: interaction-probe`, warning → medium issue, one per control, with a screenshot `ui-probe-<view>-<n>`):
+  `dead-control` (no change, no call) · `expand-broken` (an `aria-expanded`/`summary` that did not toggle) · `no-loading-state` (a call ≥ 500 ms with no sign of work) · `console-error`. The fixer may address the first three (`FIX_KINDS`).
+- **Never pressed:** anything that deletes, sends, signs in, leaves the app, runs a task or can spend AI credit (`isSafe`: word list, `danger` class, `data-command`, external links). The option already chosen is skipped.
+- **Artifacts:** `interactions.json` (every press: effects, calls, loading, errors) next to `ui-findings.json`.
+- **Secret:** `E2E_NOTION_TOKEN_INTERACTIONS` (a test page of its own); without it a local run falls back to the wizard token. No AI is called.
+- **Tests:** `test/interact.test.mjs` (a fixture page with one broken control of each kind, in real Chrome), `desktop/test/e2e-ipc.test.js`.

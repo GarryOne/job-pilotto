@@ -114,3 +114,12 @@ test('suite-failures.json files are read from every suite folder, and a failed s
   assert.deepEqual([result.filed.length, result.candidate], [1, null]);
   assert.match(created[0], /^\[auto-ui\] activity: step failed: a step/);
 });
+
+test('a finding of the interaction probe names the control in its title and keeps its source', async () => {
+  const {normalize, FIX_KINDS} = await import('../lib/triage.mjs');
+  const [finding] = normalize({ui: [{view: 'jobs', severity: 'warning', kind: 'dead-control', control: 'Show more', detail: 'Clicking "Show more" did nothing', source: 'interaction-probe', shot: 'probe-jobs-1'}]});
+  assert.equal(finding.title, 'dead control on jobs: "Show more"');
+  assert.equal(finding.source, 'interaction-probe');
+  assert.equal(finding.shot, 'probe-jobs-1');
+  assert.ok(FIX_KINDS.includes('dead-control') && FIX_KINDS.includes('expand-broken'));
+});

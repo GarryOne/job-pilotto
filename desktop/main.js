@@ -1,6 +1,7 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
 import {smallCopy} from './lib/shots.js';
+import {recordIpc} from './lib/e2e-ipc.js';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -448,6 +449,8 @@ function announceRuns() {
 function handlers() {
   // Demo mode: what would reach outside or change this computer answers "demo" instead (lib/demo.js BLOCKED).
   if (DEMO) ipcMain.handle = demo.guard(ipcMain.handle.bind(ipcMain));
+  // End-to-end run: log every call the window makes (the interaction probe reads it, see lib/e2e-ipc.js).
+  if (process.env.JOB_PILOTTO_E2E) { globalThis.__jpIpc = []; ipcMain.handle = recordIpc(ipcMain.handle.bind(ipcMain), globalThis.__jpIpc); }
   ipcMain.handle('state', () => ({
     about,
     settings: storage.settings(), secrets: storage.secretsPresent(),

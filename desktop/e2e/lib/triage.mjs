@@ -8,7 +8,7 @@ export const FALSE_POSITIVE = 'wontfix-auto';
 export const CONFIRMED = 'confirmed';   // a person looked at the finding and says it is real: ready without a second sighting
 export const NOT_SEEN = 'not-seen-latest';   // the page was photographed and reviewed again and the finding did not come back
 export const SIGHTINGS_NEEDED = 2;   // a finding must show in two runs before anyone (or anything) acts on it: one-off flakes and model noise drop out
-export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill'];
+export const FIX_KINDS = ['layout', 'text', 'empty-state', 'consistency', 'error-shown', 'tall-row', 'tall-cell', 'page-overflow', 'clipped-text', 'broken-image', 'spill', 'dead-control', 'expand-broken', 'no-loading-state'];
 const RANK = {high: 3, medium: 2, low: 1};
 
 // Allowed edits of an automatic fix: the window's pages, styles and their tests. Nothing that touches data, Notion, secrets, the engine, the site or workflows.
@@ -19,8 +19,9 @@ export const allowedPath = file => ALLOWED.some(pattern => pattern.test(file)) &
 // AI findings rated "low" are noise by experience (about 1 in 16 was real) and are not filed; deterministic "severe" counts as high, "warning" as medium.
 export function normalize({ui = [], ai = [], suite = []}) {
   const fromUi = ui.filter(item => item && item.view && item.kind && item.detail).map(item => {
+    const probed = item.source === 'interaction-probe';   // a control pressed by the interaction probe: the control is in the title
     const finding = {view: item.view, severity: item.severity === 'severe' ? 'high' : 'medium', kind: item.kind,
-      title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
+      title: `${item.kind.replace(/-/g, ' ')} on ${item.view}: ${probed ? `"${item.control}"` : String(item.detail).split(' ')[0]}`, detail: item.detail, suggestion: '', source: probed ? 'interaction-probe' : 'layout-check', dir: item._dir, shot: item.shot};   // the element is in the title: two problems of one page are two issues
     return {...finding, id: fingerprint(finding)};
   });
   const fromAi = ai.filter(item => item && item.view && item.title && item.severity !== 'low').map(item => ({...item, dir: item._dir, id: item.id || fingerprint(item), source: 'ai-review'}));
@@ -40,7 +41,7 @@ export const labelFor = id => `fp:${id}`.slice(0, 50);
 export const NO_CREDIT = /credit balance is too low|spend limit is reached|AI limit reached|usage limits?\b/i;
 export const LIMIT_TESTED = ['activityfailures'];
 
-const SOURCE_WORDS = {'layout-check': 'the layout check', 'suite-failure': 'a run of the suite (a step failed)', 'ai-review': 'the AI screenshot review'};
+const SOURCE_WORDS = {'layout-check': 'the layout check', 'suite-failure': 'a run of the suite (a step failed)', 'ai-review': 'the AI screenshot review', 'interaction-probe': 'the interaction probe (it pressed the control and recorded what happened)'};
 const sourceWords = finding => (finding.source === 'suite-failure' ? `a run of the ${finding.view} suite (a step of the ${finding.view} suite failed)` : SOURCE_WORDS[finding.source] || SOURCE_WORDS['ai-review']);
 
 // The app's own words for its state when the picture was taken (ui-<view>.json), as table rows; empty ones are left out.
