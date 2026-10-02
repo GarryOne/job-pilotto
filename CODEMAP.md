@@ -250,6 +250,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
+- `src/service.py` — The Job Pilotto service as the engine sees it: a random local install id, the token the website gives that id, and the private
 - `src/sources/ats.py` — Public job feeds of common applicant-tracking systems, normalised to one shape.
 - `src/sources/boards.py` — Discover Swiss software employers from public listings, then follow career links."""
 - `src/sources/describe.py` — Descriptions for jobs that arrived without one.

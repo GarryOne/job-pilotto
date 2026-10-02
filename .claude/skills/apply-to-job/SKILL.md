@@ -521,96 +521,11 @@ would, no menu, no portal, no animation to wait for.
   validation check. If they report fields showing as required/empty despite looking filled, that is
   this exact bug — re-fill with `onSelect`, not `selectReactOption`/`onChange`.
 
-## Platform notes (update after every application)
-### Greenhouse (job-boards.greenhouse.io) — verified 25 Sep 2026 on Grafana Labs, full fill
-- Text inputs: ids `first_name`, `last_name`, `preferred_name`, `email`, `phone`,
-  `question_<n>`; native setter + `input` event works. Fill all of them in one JS pass.
-- Dropdowns are react-select: `input#question_<n>[role=combobox]` inside `.select__container`.
-  **Use the Fast path's `selectViaOnSelect()` — not `selectReactOption()`.** Reading React props
-  off the input or `.select__control` directly gives the wrong handler (a native `onChange(e)`, not
-  react-select's own `onChange(option, actionMeta)`), and — the part that actually bit us in
-  production — even react-select's *own* `onChange` is still one layer too shallow: it only updates
-  react-select's own display, not Greenhouse's real validated form value. The one that matters is
-  `onSelect(option)`, a few more levels up the same fiber chain, on a Greenhouse-authored wrapper.
-  See Fast path above for the full writeup and snippet. Fallback if `onSelect` isn't found on a
-  given field: a real click on `.select__control` opens the menu; options are
-  `#react-select-question_<n>-option-<i>` and a JS `click()` on the right option selects it
-  (verified repeatedly, and this path *does* correctly reach Greenhouse's real onSelect too, since
-  it's a genuine click). Selected value shows in `[class*=single-value]`
-  (`.value` on the input itself stays empty — it's just react-select's search box) — but remember
-  this only confirms the *display*, not that `onSelect` actually fired; verify that separately.
-- **Clicking straight from one open dropdown into the next field's control can close the first one
-  without opening the second** (observed twice) — verify `aria-expanded` after clicking and click
-  again if it's still `false`.
-- **The resume/CV file input is a plain hidden `<input type="file">`**: use the `file_upload` tool
-  with its element ref (from `read_page`/`find`), never click the visible "Attach" button — that
-  opens a native OS file picker the tools can't see into.
-- **`id="country"` next to the Phone field is the phone country-code selector, not a mailing/work
-  country field** — its option list is dial codes (`"Switzerland +41"`, `"Romania +40"`, ...), not
-  country names. Match it against the candidate's phone number's country, not their work-location
-  country (a separate `question_<n>` field usually asks "In which country do you currently work?"
-  explicitly — fill that one with the work country instead). Confirmed by a wrong first guess
-  (25 Sep 2026, Canonical form) that dumped 150+ dial-code options into context before catching it.
-- **Verifying the resume/CV upload: don't re-query `input#resume.files`.** Greenhouse swaps the file
-  input's surrounding DOM out after a successful attach (the element may no longer be found the same
-  way), so a post-upload `.files.length` check can wrongly read as empty/not-found. Confirm instead
-  by reading the attached filename text that appears in the Resume/CV section (or a screenshot) —
-  both reliably show the uploaded filename. Observed 25 Sep 2026 on a Canonical form.
-- **The resume attach can also be genuinely, not just apparently, undone later in the flow** — a
-  real regression, not the stale-DOM-reference false negative above. On a Canonical form (26 Sep
-  2026) the CV showed attached (filename visible, `.files.length === 1`) right after upload, then
-  after further JS calls selected other dropdowns, both the filename text and `.files` came back
-  empty — the form had reverted to the Attach/Dropbox/Google Drive/Enter-manually button state.
-  Trigger not fully isolated; treat any later field interaction as a risk and see the fix in Steps
-  §6 (upload resume last, re-verify immediately before handover, don't trust an earlier success).
-- `candidate-location` (the required "Location (City)" field) is an async city-search combobox,
-  separate from the phone `country` selector right above it — easy to click the wrong one when the
-  page has scrolled between screenshots; always re-screenshot or re-`find` immediately before this
-  click. Type the city, wait ~1s for suggestions, click the top match.
-- Scroll the control into view with a real scroll before clicking; `scrollIntoView` from JS did
-  not move the page in the tool's tab.
-- Demographic (EEOC) and "which of the following best describes you" (bot-check: "I am a human
-  being" vs "I am an AI or automated program") questions are dropdowns too; answer from
-  Application Answers / the kit (default for the bot-check: human, since the applicant is human
-  and reviews/submits personally).
-- Invisible reCAPTCHA badge on the page: submission by a bot would be scored; another reason the
-  owner submits.
-### Ashby (jobs.ashbyhq.com/<board>/<id>/application) — verified 25 Sep 2026 on DeepL, no fiber trick needed
-- The listing/board API (`api.ashbyhq.com/posting-api/job-board/<slug>`) does **not** expose
-  application questions — only posting content. The real form only exists on the live
-  `/application` page. Fine for filling live; it just means the kit can't pre-draft Ashby answers
-  from an API the way it can for Greenhouse, only from likely-question guesses.
-- Plain `<input>`/`<textarea>` with native `<label for>` — `el.labels[0].textContent` gives the
-  real question text directly, no DOM archaeology needed. Native setter + `input` event fills them.
-- Selection questions are **native checkboxes and radios**, not a custom widget — a plain `.click()`
-  works, verified (`checkbox.checked` flips and persists). No react-select, no fiber walk required
-  despite the page being React — Ashby renders real native form controls.
-- System fields: `#_systemfield_name`, `#_systemfield_email`, resume via `input[type=file]`
-  (`#_systemfield_resume`), a phone field, and one `[role=combobox]` text input for
-  location/company autocomplete (type + wait + pick, same pattern as Greenhouse's `candidate-location`).
-- Overall: **simpler to fill than Greenhouse** once you're on the live page.
-### Lever (jobs.lever.co/<board>/<id>/apply) — verified 25 Sep 2026 on Palantir, not a React app at all
-- Confirmed `!Object.keys(el).find(k=>k.startsWith('__react'))` — Lever's form has zero React
-  involvement. Plain `.value` assignment + `input`/`change` events works on every text field, no
-  special technique needed anywhere.
-- Named fields, not id'd: use `input[name="org"]` etc., not `#org` — `name="name"`, `name="email"`,
-  `name="phone"`, `name="org"` (current company), `name="urls[LinkedIn]"` / `urls[GitHub]` /
-  `urls[Portfolio]`.
-- `#location-input` is a Google-Places-style autocomplete with a paired hidden
-  `#selected-location`; typing into it didn't surface a `.suggestions` list the way tested — needs
-  another look before relying on it; a plain typed value may or may not satisfy the paired hidden
-  field on its own.
-- Checkboxes (e.g. language/skill tags as `cards[<uuid>][field<n>]`) are plain native checkboxes,
-  `.click()` works, verified.
-- Resume: `#resume-upload-input`, a plain file input — same `file_upload` tool approach as Greenhouse.
-### Workable, Personio, SmartRecruiters
-- Not yet seen. Record ids, widget types and what worked the first time.
-### Workday, SuccessFactors, Taleo
-- Account per employer, multi-page. Sign in or sign up as in "Reaching the form"; the owner does
-  the CAPTCHA and terms. Fill page by page from the kit.
-- SuccessFactors career sites (`careers.<employer>/job/...`): the job page's **Apply now »** leads to
-  "Career Opportunities: Sign In" with a visible reCAPTCHA checkbox; "Create an account" is a link
-  below the sign-in form. Not yet filled end to end: record the sign-up and form field ids here.
+## Platform notes (kept private, delivered with the context)
+The per-board notes (Greenhouse, Ashby, Lever, and the application systems not seen often) are the product's learned knowledge, so they
+no longer live in this public file. `python3 -m src.ai.apply_run --context <url>` prints them for this job's board under
+"Platform notes" (fetched from the Job Pilotto service); if it prints none, work from the generic rules in this file. Do not write
+board-specific findings into this file: report them in the run's `--record` learning, and the owner folds them into the private playbook.
 
 ## Efficiency
 - Batch: one JS call to map, one to fill text, try the fast path for each dropdown, then

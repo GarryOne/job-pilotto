@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from .kit import KIT_HEADING
 from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
 from ..notion import runs
+from .. import service
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / 'tools' / 'apply-run-result.schema.json'
@@ -380,6 +381,9 @@ def main(argv=None):
         items = runs.recent_learnings(tracker, board)
         print(f'\n## Learnings from earlier runs on {board}')
         print('\n'.join(f'- {day} {company}: {text}' for day, _, company, _, text in items) or '- none yet')
+        notes = service.playbook(board) if not os.getenv('JOB_PILOTTO_NO_SERVICE') else ''
+        print(f'\n## Platform notes for {board} (private playbook)')
+        print(notes or '- none available (offline, or nothing recorded for this board yet): use the generic rules in the skill')
         return 0
     if args.learnings is not None:
         tracker = _tracker()
