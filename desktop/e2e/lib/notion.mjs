@@ -269,3 +269,66 @@ export async function removeJobsByUrl(token, urls) {
   }
   return count;
 }
+
+// Every live page next to `siblingId` (same parent) with this title, ignoring the leading emoji (the app keeps it as the page icon): a duplicate shows up
+// as a second one. Read from the parent's blocks, not from search, which lags behind a page that was just made.
+const plain = text => String(text || '').replace(/^[\p{Extended_Pictographic}\uFE0F\s]+/u, '').trim().toLowerCase();
+export async function findPagesBeside(token, siblingId, title) {
+  const parentId = (await call(token, 'GET', `pages/${siblingId}`)).parent?.page_id;
+  if (!parentId) return [];
+  return (await children(token, parentId)).filter(block => block.type === 'child_page' && plain(block.child_page?.title) === plain(title));
+}
+
+// Puts a page of the test workspace in the trash (recoverable for 30 days).
+export const trashPage = (token, id) => call(token, 'PATCH', `pages/${id}`, {archived: true});
+
+const textOf = block => (block[block.type]?.rich_text || []).map(part => part.plain_text).join('');
+async function children(token, id) {
+  const all = [];
+  let cursor;
+  do {
+    const batch = await call(token, 'GET', `blocks/${id}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ''}`);
+    all.push(...batch.results);
+    cursor = batch.has_more ? batch.next_cursor : null;
+  } while (cursor);
+  return all;
+}
+
+// A readable settings page as {heading: [bullet, …]} (what src/notion/search_settings.py reads: "## heading", then "- entry" lines).
+export async function pageSections(token, id) {
+  const sections = {};
+  let heading = null;
+  for (const block of await children(token, id)) {
+    if (block.type.startsWith('heading_')) { heading = textOf(block).trim(); sections[heading] = []; }
+    else if (block.type === 'bulleted_list_item' && heading) sections[heading].push(textOf(block).trim());
+  }
+  return sections;
+}
+
+// The way a person edits the page in Notion: replace the bullets under one heading.
+export async function setSection(token, id, heading, entries) {
+  const blocks = await children(token, id);
+  const at = blocks.findIndex(block => block.type.startsWith('heading_') && textOf(block).trim() === heading);
+  if (at < 0) throw new Error(`the page has no "${heading}" heading`);
+  for (let i = at + 1; i < blocks.length && !blocks[i].type.startsWith('heading_'); i++) {
+    if (blocks[i].type === 'bulleted_list_item') { await call(token, 'DELETE', `blocks/${blocks[i].id}`); await sleep(350); }
+  }
+  if (entries.length) {
+    await call(token, 'PATCH', `blocks/${id}/children`, {after: blocks[at].id,
+      children: entries.map(entry => ({object: 'block', type: 'bulleted_list_item', bulleted_list_item: {rich_text: [{type: 'text', text: {content: entry}}]}}))});
+  }
+}
+
+// The titles of every live row of one database (read straight from Notion, which is what the app lists from).
+export async function rowTitles(token, dbTitle) {
+  const db = await findDatabase(token, dbTitle);
+  if (!db) return [];
+  const titles = [];
+  let cursor;
+  do {
+    const rows = await call(token, 'POST', `databases/${db.id}/query`, {page_size: 100, ...(cursor ? {start_cursor: cursor} : {})});
+    titles.push(...rows.results.filter(row => !row.archived).map(titleOf));
+    cursor = rows.has_more ? rows.next_cursor : null;
+  } while (cursor);
+  return titles;
+}

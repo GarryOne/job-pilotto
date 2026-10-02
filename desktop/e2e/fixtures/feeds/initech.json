@@ -1,0 +1,14 @@
+{
+ "jobs": [
+  {
+   "id": 3101,
+   "title": "Staff Zebra Wrangler",
+   "location": {
+    "name": "Lugano"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3101",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Staff Zebra Wrangler at E2E Initech: look after the herd of production systems, Kubernetes and AWS with Terraform, SLOs and on-call. Senior level, English working language, Lugano.</p>"
+  }
+ ]
+}

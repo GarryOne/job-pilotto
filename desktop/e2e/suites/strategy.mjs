@@ -1,0 +1,170 @@
+/* global document, window */
+// Strategy propagation: a change to the roles, places or companies to skip reaches ⚙️ Search settings (Notion), config/search.json and the next Jobs check,
+// whichever side it was made on, and a reconnected app keeps the real settings instead of making new ones (2 Oct 2026: strategy changes never reached GitHub runs).
+import fs from 'node:fs';
+import path from 'node:path';
+import {launch} from '../lib/app.mjs';
+import {watch} from '../lib/activity.mjs';
+import {emptyDatabase, findPagesBeside, pageSections, rowTitles, setSection, trashPage} from '../lib/notion.mjs';
+import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
+
+export const minutes = 30;
+export const name = 'strategy';
+const TITLE = '⚙️ Search settings';
+const ROLE = 'zebra wrangler', GIRAFFE = 'giraffe keeper', PLACE = 'lugano', SKIP = 'E2E Initech';
+
+export async function run(ctx) {
+  const {page, token: NOTION} = ctx;
+  await ensureSetUp(ctx);
+  const read = file => JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', file), 'utf8'));
+  // The app links (or creates) the page a moment after it connects (lib/migrate.js runs in the background): wait for it.
+  const linkedPage = async window_ => {
+    for (let i = 0; i < 45; i++) {
+      const id = await window_.evaluate(() => window.pilot.state()).then(s => s?.settings?.notionIds?.NOTION_SEARCH_SETTINGS_PAGE || '');
+      if (id) return id;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    return '';
+  };
+  // fastSeed connects Notion before "setup done" is saved, and the Notion-side moves (lib/migrate.js) only run for a finished setup: connect once more, as a user
+  // reconnecting does, and they run.
+  const reconnect = async window_ => {
+    const done = await window_.evaluate(token => window.pilot.notionConnect(token), NOTION);
+    if (!done?.ok) throw new Error(`Notion did not reconnect: ${done?.error}`);
+  };
+  const settingsPage = () => linkedPage(page);
+  const profileId = await page.evaluate(() => window.pilot.state()).then(s => s.settings.notionIds.NOTION_PROFILE_PAGE_ID);
+  const sections = async () => pageSections(NOTION, await settingsPage());
+  const has = (list, word) => (list || []).some(entry => new RegExp(word, 'i').test(entry));
+
+  // One Jobs check on the feeds in this suite; resolves with the titles the app lists afterwards.
+  const check = async () => {
+    await page.click('.nav[data-view="jobs"]');
+    await page.click('#refresh');
+    const {samples, endedAt} = await watch(page, {every: 3000, maxMs: 420000});
+    if (endedAt == null) throw new Error('the Jobs check was still running after 7 minutes');
+    if (samples.at(-1).newest?.ok === false) throw new Error(`the Jobs check failed: ${samples.at(-1).newest.result}`);
+    return rowTitles(NOTION, 'Job Matches — AI Scored');
+  };
+  // A new posting on one of the boards (the seen ones are not "new" again, so each check is judged on postings added just before it).
+  const addPosting = (file, id, title, place = 'Lugano') => {
+    const feed = path.join(ctx.feeds, file), data = JSON.parse(fs.readFileSync(feed, 'utf8'));
+    data.jobs.push({id, title, location: {name: place}, absolute_url: `https://boards.e2e.test/job/${id}`, updated_at: '2026-10-02T09:00:00Z',
+      content: `<p>${title}: run production on Kubernetes and AWS with Terraform, SLOs and on-call. Senior level, English working language, ${place}.</p>`});
+    fs.writeFileSync(feed, JSON.stringify(data));
+  };
+  // Titles tell the two boards apart: "Senior …" is E2E Zebra's, "Staff …" is E2E Initech's.
+  const listed = (jobs, word, level) => jobs.some(job => new RegExp(word, 'i').test(job) && (!level || job.startsWith(level)));
+
+  await ctx.run('this suite starts with no jobs, two small boards and no strategy change', async () => {
+    await emptyDatabase(NOTION, 'Job Matches — AI Scored');
+    fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
+    fs.copyFileSync(path.join(ctx.E2E, 'fixtures', 'feeds', 'sources-strategy.json'), path.join(ctx.profile, 'config', 'sources.json'));
+    await reconnect(page);
+    const pageId = await settingsPage();
+    if (!pageId) throw new Error('the app has no ⚙️ Search settings page id after setup');
+    // Leftovers of older test runs (a duplicate page used to be made on every connect): keep only the one the app linked, so the checks below start clean.
+    for (const extra of (await findPagesBeside(NOTION, profileId, TITLE)).filter(block => block.id.replace(/-/g, '') !== pageId.replace(/-/g, ''))) await trashPage(NOTION, extra.id);
+    const found = await findPagesBeside(NOTION, profileId, TITLE);
+    // A page left changed by an earlier run goes back to the plain strategy first.
+    const now = await pageSections(NOTION, pageId);
+    for (const [heading, word] of [['Roles to look for', ROLE], ['Roles to look for', GIRAFFE], ['Best places', PLACE], ['Companies to skip', SKIP]]) {
+      if (has(now[heading], word)) await setSection(NOTION, pageId, heading, (await pageSections(NOTION, pageId))[heading].filter(entry => !has([entry], word)));
+    }
+    if (found.length !== 1 || found[0].id.replace(/-/g, '') !== pageId.replace(/-/g, '')) throw new Error(`expected exactly the linked ${TITLE} page, found ${found.length}`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('before any change the check finds neither new posting', async () => {
+    const jobs = await check();
+    if (listed(jobs, 'zebra|giraffe')) throw new Error(`jobs for roles nobody asked for were kept: ${jobs.filter(j => /zebra|giraffe/i.test(j)).join('; ')}`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('a role and a place added in the app reach the Notion page and config/search.json', async () => {
+    const added = await page.evaluate(terms => window.pilot.addRoles(terms), [ROLE]);
+    if (!added?.ok || !added.added.includes(ROLE)) throw new Error(`addRoles: ${JSON.stringify(added)}`);
+    const search = read('search.json'), preferences = read('preferences.json');
+    const saved = await page.evaluate(draft => window.pilot.saveStrategy(draft, ['search']), {
+      profile_markdown: 'Placeholder, not saved (only the search part is accepted).', answers_markdown: 'Placeholder.', contact: {},
+      search: {locations: {...search.locations, top_tier: [...search.locations.top_tier, PLACE]}}, preferences});
+    if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
+    const file = read('search.json'), notion = await sections();
+    if (!has(file.role_keywords, ROLE) || !has(file.locations.top_tier, PLACE)) throw new Error(`config/search.json lacks the new role or place (roles: ${file.role_keywords.join(', ')}; places: ${file.locations.top_tier.join(', ')})`);
+    if (!has(notion['Roles to look for'], ROLE)) throw new Error(`the Notion page lacks the role (it lists: ${(notion['Roles to look for'] || []).join(', ')})`);
+    if (!has(notion['Best places'], PLACE)) throw new Error(`the Notion page lacks the place (it lists: ${(notion['Best places'] || []).join(', ')})`);
+  }, {needs: ctx.needs});
+
+  await ctx.run('the next check keeps the posting that matches the new role and place, and still drops the other', async () => {
+    const jobs = await check();
+    if (!listed(jobs, 'zebra', 'Senior')) throw new Error(`the Zebra Wrangler posting was not kept (listed: ${jobs.join('; ') || 'nothing'})`);
+    if (listed(jobs, 'giraffe')) throw new Error('the Giraffe Keeper posting was kept without anybody asking for that role');
+    if (!listed(jobs, 'zebra', 'Staff')) throw new Error('the same role at the other board was not kept, although that company is not skipped yet');
+  }, {needs: ctx.needs});
+
+  await ctx.run('a company to skip, set in the app, reaches Notion and config/preferences.json', async () => {
+    const search = read('search.json'), preferences = read('preferences.json');
+    const saved = await page.evaluate(draft => window.pilot.saveStrategy(draft, ['filters']), {
+      profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search,
+      preferences: {...preferences, excluded_companies: [...(preferences.excluded_companies || []), SKIP]}});
+    if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
+    const notion = await sections();
+    if (!has(read('preferences.json').excluded_companies, SKIP)) throw new Error('config/preferences.json lacks the company');
+    if (!has(notion['Companies to skip'], SKIP)) throw new Error(`the Notion page lacks the company (it lists: ${(notion['Companies to skip'] || []).join(', ')})`);
+    if (!has(notion['Roles to look for'], ROLE)) throw new Error('saving the companies lost the role added before');
+  }, {needs: ctx.needs});
+
+  await ctx.run('the skipped company is not kept any more, while the same role at the other board still is', async () => {
+    addPosting('initech.json', 3102, 'Staff Zebra Wrangler, Platform');
+    addPosting('zebra.json', 3005, 'Senior Zebra Wrangler, Data');
+    const jobs = await check();
+    if (listed(jobs, 'Platform', 'Staff')) throw new Error('a new posting from the skipped company was kept');
+    if (!listed(jobs, 'Data', 'Senior')) throw new Error('a new posting from a company that is not skipped was lost');
+  }, {needs: ctx.needs});
+
+  await ctx.run('an edit made directly on the Notion page is used by the next check, and a removed role stops matching', async () => {
+    const id = await settingsPage();
+    const before = await sections();
+    // The page is the source of truth: a person adds a role there, and takes the other one out.
+    await setSection(NOTION, id, 'Roles to look for', [...before['Roles to look for'].filter(entry => !has([entry], ROLE)), GIRAFFE]);
+    addPosting('zebra.json', 3006, 'Senior Zebra Wrangler, Cloud');
+    addPosting('zebra.json', 3007, 'Senior Giraffe Keeper, Cloud');
+    const jobs = await check();
+    const file = read('search.json');
+    if (!has(file.role_keywords, GIRAFFE) || has(file.role_keywords, ROLE)) throw new Error(`config/search.json did not follow the page: ${file.role_keywords.join(', ')}`);
+    if (!listed(jobs, 'giraffe keeper, cloud')) throw new Error(`the role added in Notion found nothing (listed: ${jobs.join('; ') || 'nothing'})`);
+    if (listed(jobs, 'zebra wrangler, cloud')) throw new Error('the role removed in Notion still matches a new posting');
+  }, {needs: ctx.needs});
+
+  await ctx.run('accepting a strategy change in the app keeps what was edited on the Notion page meanwhile', async () => {
+    const id = await settingsPage();
+    const before = await pageSections(NOTION, id);
+    await setSection(NOTION, id, 'Companies to skip', [...(before['Companies to skip'] || []), 'E2E Hooli']);   // edited in Notion, no check has run since
+    const search = read('search.json');
+    const saved = await page.evaluate(draft => window.pilot.saveStrategy(draft, ['search']), {
+      profile_markdown: 'Placeholder.', answers_markdown: 'Placeholder.', contact: {}, search: {...search, remote_excluded_regions: [...(search.remote_excluded_regions || []), 'atlantis']}, preferences: {}});
+    if (!saved?.ok) throw new Error(`saveStrategy: ${saved?.error}`);
+    const after = await pageSections(NOTION, id);
+    if (!has(after['Companies to skip'], 'E2E Hooli')) throw new Error('the edit made on the Notion page was overwritten when a strategy change was accepted');
+    if (!has(after['Remote jobs: regions to skip'], 'atlantis')) throw new Error('the accepted change did not reach the page');
+  }, {needs: ctx.needs});
+
+  await ctx.run('a fresh install reconnecting to the same Notion page keeps the real settings and links the same page', async () => {
+    const id = await settingsPage();
+    const wanted = await sections();
+    await ctx.session.close();
+    const again = await launch({env: {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-4-5', JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, JOB_PILOTTO_E2E_AI_BASE_URL: ctx.proxy.url}});
+    try {
+      await fastSeed({...ctx, page: again.page, profile: again.profile});
+      await reconnect(again.page);
+      const linked = await linkedPage(again.page);
+      await new Promise(resolve => setTimeout(resolve, 10000));   // a second, duplicate page would be made in this window
+      const found = await findPagesBeside(NOTION, profileId, TITLE);
+      if (linked.replace(/-/g, '') !== id.replace(/-/g, '')) throw new Error(`the reconnected app linked a different page (${linked} instead of ${id})`);
+      if (found.length !== 1) throw new Error(`${found.length} "${TITLE}" pages exist after reconnecting`);
+      const now = await pageSections(NOTION, id);
+      if (JSON.stringify(now) !== JSON.stringify(wanted)) throw new Error('reconnecting changed the settings on the Notion page');
+      // The new profile has no config yet: the first crawl takes the page, so the real settings are what the engine uses.
+      const synced = await again.page.evaluate(() => window.pilot.addRoles([]));
+      if (synced?.ok === false) throw new Error(`addRoles: ${synced.error}`);
+    } finally { await again.close(); }
+  }, {needs: ctx.needs});
+}

@@ -6,5 +6,7 @@
  "/boards/e2e-orbit/jobs": "employers/orbit.json",
  "/boards/e2e-hollow/jobs": "employers/hollow.json",
  "/boards/e2e-noise/jobs": "employers/noise.json",
- "/boards/e2e-blocked/jobs": "employers/blocked.json"
+ "/boards/e2e-blocked/jobs": "employers/blocked.json",
+ "/boards/e2e-zebra/jobs": "zebra.json",
+ "/boards/e2e-initech/jobs": "initech.json"
 }

@@ -637,6 +637,8 @@ function handlers() {
         await notion.snapshotStrategy(token, ids, when);
         step('snapshot', {finished: true});
       }
+      // ⚙️ Search settings is the source of truth: read it first, so edits made there since the last search are not overwritten by the cached copy.
+      if (ids.NOTION_SEARCH_SETTINGS_PAGE) await pipeline.run(storage, ['src.notion.search_settings', 'sync']);
       // The daily target asked in the wizard goes on ⚙️ Search settings with the rest.
       const perDay = storage.settings().questionnaire?.applications_per_day;
       strategy.save(storage, {search: take('search') ? draft.search : null,

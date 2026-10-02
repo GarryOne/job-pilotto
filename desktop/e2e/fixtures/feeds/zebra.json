@@ -1,0 +1,24 @@
+{
+ "jobs": [
+  {
+   "id": 3001,
+   "title": "Senior Zebra Wrangler",
+   "location": {
+    "name": "Lugano"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3001",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Senior Zebra Wrangler at E2E Zebra: look after the herd of production systems, Kubernetes and AWS with Terraform, SLOs and on-call. Senior level, English working language, Lugano.</p>"
+  },
+  {
+   "id": 3002,
+   "title": "Senior Giraffe Keeper",
+   "location": {
+    "name": "Lugano"
+   },
+   "absolute_url": "https://boards.e2e.test/job/3002",
+   "updated_at": "2026-10-01T09:00:00Z",
+   "content": "<p>Senior Giraffe Keeper at E2E Zebra: look after the herd of production systems, Kubernetes and AWS with Terraform, SLOs and on-call. Senior level, English working language, Lugano.</p>"
+  }
+ ]
+}
