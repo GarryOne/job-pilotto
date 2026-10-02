@@ -178,3 +178,15 @@ export function withMark(url, mark = 'jobpilotto-fill') {
     return parsed.href;
   } catch { return ''; }
 }
+
+// A fill that used a shared fix (a recipe from Job Pilotto's service) says so in the panel, never silently (owner, 2 Oct 2026: the
+// service now changes what the extension does on a page, so the user sees when it did, and how to turn it off).
+const KIND_WORDS = {'toggle-group': 'a Yes/No-style choice', 'custom-select': 'a custom dropdown', date: 'a date field'};
+export function sharedFixes(operated) {
+  const used = (Array.isArray(operated) ? operated : []).filter(item => item && item.recipe > 0 && item.ok);
+  return {count: used.length, kinds: [...new Set(used.map(item => KIND_WORDS[item.kind] || 'a control'))]};
+}
+export const sharedFixNote = ({count, kinds}) => (count
+  ? `Used ${count} shared fix${count === 1 ? '' : 'es'} from Job Pilotto's service for ${kinds.join(' and ')}. Only the control's shape is shared, never your answers. Turn it off in the app: Settings → Technical reports.`
+  : '');
+

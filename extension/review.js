@@ -344,6 +344,7 @@
     endStep();
     if (result?.ineligible) note(`Not filled: ${result.note}`, true);
     else if (!result?.ok) note(`Couldn't fill: ${result?.error || 'try again'}`);
+    else if (result.sharedNote) note(result.sharedNote);   // the service changed how a control was filled: say so
     render();
   }
   function note(text, anyway = false) {

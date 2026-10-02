@@ -170,3 +170,15 @@ test('a kit that exists is a kit even when none of its answers fits the form: fi
   assert.deepEqual(kitStance({kitAnswers: [{field: 'x'}], matched: 0}), {withKit: true, skipEligibility: false});  // answers, none on this form: the old rule
   assert.deepEqual(kitStance({}), {withKit: false, skipEligibility: false});                                       // no kit: Claude answers and checks first
 });
+
+test('a fill that used shared fixes says so: only controls that worked with a recipe count', async () => {
+  const {sharedFixes, sharedFixNote} = await import('../../extension/tab-pages.js');
+  const operated = [{kind: 'toggle-group', recipe: 2, ok: true}, {kind: 'date', recipe: 1, ok: true}, {kind: 'custom-select', recipe: 0, ok: true},
+    {kind: 'toggle-group', recipe: 3, ok: false}, null];
+  const used = sharedFixes(operated);
+  assert.deepEqual(used, {count: 2, kinds: ['a Yes/No-style choice', 'a date field']});
+  assert.match(sharedFixNote(used), /^Used 2 shared fixes from Job Pilotto's service for a Yes\/No-style choice and a date field\..*never your answers.*Settings → Technical reports\.$/);
+  assert.match(sharedFixNote({count: 1, kinds: ['a custom dropdown']}), /^Used 1 shared fix from/);
+  assert.equal(sharedFixNote(sharedFixes([{kind: 'date', recipe: 0, ok: true}])), '');   // nothing from the service: nothing said
+  assert.deepEqual(sharedFixes(undefined), {count: 0, kinds: []});
+});
