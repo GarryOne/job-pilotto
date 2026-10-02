@@ -106,6 +106,20 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   outcomes.counted = counted;
   return {from, days, rows, installs, unique, everSeen, platforms, machines, outcomes, reporting: health.length};
 }
+// Machines by the channel they came from (the install link's ?src=, reported once by the app with its anonymous id):
+// how many installed, how many finished setup, how many are active (reported on 2+ days). "unknown" = installed from a
+// download button, or before the app reported a channel. A channel is a label, never a person.
+export async function channels(db, days, now = new Date()) {
+  const from = day(new Date(now.getTime() - (days - 1) * 86400000));
+  return (await db.prepare(`WITH per AS (
+      SELECT install, MAX(json_extract(data, '$.source')) AS source,
+        COUNT(DISTINCT CASE WHEN kind = 'health' THEN day END) AS health_days,
+        MAX(CASE WHEN kind = 'setup' AND json_extract(data, '$.step') = 'done' THEN 1 ELSE 0 END) AS done
+      FROM telemetry WHERE day >= ? GROUP BY install)
+    SELECT COALESCE(source, 'unknown') AS source, COUNT(*) AS machines, SUM(done) AS done, SUM(health_days >= 2) AS active
+    FROM per GROUP BY COALESCE(source, 'unknown') ORDER BY machines DESC, source LIMIT 30`).bind(from).all()).results || [];
+}
+
 // Setup funnel (desktop/lib/setup-funnel.js): per install, the furthest step reached; installs that got at least that far.
 export const STOP_REASONS = {notion: "Doesn't use Notion", ai: 'AI key or cost', time: 'Too long', privacy: 'Privacy',
   looking: 'Just looking', broke: 'Something broke', other: 'Other'};  // = desktop/lib/setup-funnel.js REASONS
@@ -178,6 +192,9 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
     return `<div class="tile"><span class="muted">${label}</span><b>${n ? data.outcomes[name] : '–'}</b>${n && n < data.reporting
       ? `<small class="muted">${n} of ${data.reporting} installs</small>` : ''}</div>`; }).join('')}</div>
 ${Object.keys(data.outcomes?.counted || {}).length ? '' : '<small class="muted">No counts yet: they arrive with each install\'s next daily report.</small>'}</section>
+<section class="card" style="margin-bottom:12px"><h2>📣 Channels</h2><small class="muted">where installs came from (last ${data.days < 30 ? 30 : data.days} days): finished setup, and active = reported on 2+ days</small>
+<div style="overflow-x:auto"><table class="machines"><tr><th>Channel</th><th>Machines</th><th>Finished setup</th><th>Active</th></tr>${(data.channels || []).map(c => `<tr><td>${esc(c.source)}</td><td class="num">${c.machines}</td><td class="num">${c.done}</td><td class="num">${c.active}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No machine has reported yet.</td></tr>'}</table></div>
+<small class="muted" style="display:block;margin-top:6px">"unknown" = installed from a download button or before the app reported a channel. Tag a link with <code>?utm_source=reddit-devops</code>; its install command then carries it.</small></section>
 <section class="card" style="margin-bottom:12px"><h2>🚦 Setup funnel</h2><small class="muted">installs that reached each step (last ${data.days < 30 ? 30 : data.days} days)${data.funnel?.medianMinutes != null ? ` · median time to finish: ${data.funnel.medianMinutes} min` : ''}${data.funnel?.trial ? ` · ${data.funnel.trial} used the free AI credit` : ''}</small>
 ${data.funnel?.started ? `<table class="funnel">${data.funnel.reached.map(({step, n}, i, all) => {
   const lost = i ? all[i - 1].n - n : 0;
@@ -232,10 +249,10 @@ export async function view(request, env, now = new Date()) {
   if (new URL(request.url).searchParams.has('key')) return remember(new URL(request.url), env);
   const days = [1, 7, 30].includes(Number(new URL(request.url).searchParams.get('days'))) ? Number(new URL(request.url).searchParams.get('days')) : 7;
   try {
-    const [data, feedback, setup] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
-      funnel(env.STATS, Math.max(days, 30), now).catch(() => null)]);
+    const [data, feedback, setup, byChannel] = await Promise.all([problems(env.STATS, days, now), feedbackList(env.STATS, Math.max(days, 30), now).catch(() => []),
+      funnel(env.STATS, Math.max(days, 30), now).catch(() => null), channels(env.STATS, Math.max(days, 30), now).catch(() => [])]);
     const plan = await labPlan(env.STATS, now).catch(() => null), lab = await labReport(env.STATS, 7, now).catch(() => []), guardData = await flags(env.STATS, 7, now).catch(() => null), learned = await knowledgeReport(env.STATS, 7, now).catch(() => null);
-    return new Response(page({...data, feedback, funnel: setup, plan, lab, guard: guardData, knowledge: learned}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
+    return new Response(page({...data, feedback, funnel: setup, channels: byChannel, plan, lab, guard: guardData, knowledge: learned}), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
   } catch (error) {  // e.g. the table isn't there yet: say what to do, not a blank error
     return new Response(`App reports can't be read yet: ${esc(error.message)}. Apply the database migrations: cd site && npx wrangler@4 d1 migrations apply www-stats --remote`,
       {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8'}});

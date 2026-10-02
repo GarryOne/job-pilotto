@@ -58,3 +58,15 @@ test('finished runs are counted per app version and taken (then reset) by the he
   telemetry.countRun(true);
   assert.deepEqual(telemetry.takeRuns(), {runsOk: 0, runsFailed: 0});
 });
+
+test('every report says which channel the install came from, once the installer left one (a label, shown in See what\'s sent)', async () => {
+  const storage = fakeStorage();
+  const sent = [];
+  const telemetry = create(storage, {version: '0.4.2', fetcher: async (url, init) => { sent.push(...JSON.parse(init.body).events); return {ok: true}; }});
+  telemetry.record('health', {});
+  storage.saveSettings({installSource: 'reddit-devops'});
+  telemetry.record('health', {});
+  telemetry.record('health', {source: 'hn'});   // an event's own field is not overwritten
+  await telemetry.flush();
+  assert.deepEqual(sent.map(item => item.source), [undefined, 'reddit-devops', 'hn']);
+});

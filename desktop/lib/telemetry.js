@@ -55,6 +55,8 @@ export function create(storage, {version, fetcher = globalThis.fetch, endpoint =
       try {
         if (!enabled()) return null;
         const item = event(kind, fields, {install: install(), version, now: now()});
+        const channel = storage.settings().installSource;  // where the install came from (lib/install-source.js); a label, never a person
+        if (channel && item.source == null) item.source = channel;
         const data = load();
         data.queue = [...(data.queue || []), item].slice(-MAX_QUEUE);
         data.shown = [item, ...(data.shown || [])].slice(0, SHOWN);

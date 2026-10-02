@@ -23,6 +23,15 @@
     const payload = JSON.stringify({api_key: KEY, event, distinct_id: id, properties: props});
     try { fetch('https://eu.i.posthog.com/capture/', {method: 'POST', body: payload, keepalive: true}).catch(() => {}); } catch { /* blocked: skip */ }
   };
+  // The install command (and its Copy button) carries where this visit came from, so the install can be traced to a
+  // channel: curl -fsSL "…/install?src=reddit-devops" | bash. Direct visits keep the plain command.
+  const slug = source.toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 40);
+  if (slug && slug !== 'direct') {
+    const plain = /curl -fsSL (https:\/\/[^\s"|]+\/install) \| bash/;
+    const tagged = text => text.replace(plain, (_, url) => `curl -fsSL "${url}?src=${slug}" | bash`);
+    for (const code of document.querySelectorAll('code')) if (plain.test(code.textContent)) code.textContent = tagged(code.textContent);
+    for (const button of document.querySelectorAll('[data-copy]')) button.dataset.copy = tagged(button.dataset.copy);
+  }
   send('$pageview', {$current_url: location.origin + page});
   for (const link of document.querySelectorAll('a[href^="/download/"]')) {
     link.addEventListener('click', () => send('download_click', {target: link.getAttribute('href').split('?')[0]}));

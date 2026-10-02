@@ -41,6 +41,7 @@ import * as setupFunnel from './lib/setup-funnel.js';
 import * as devMarker from './lib/dev-marker.js';
 import {sharedCheck} from './lib/shared-check.js';
 import * as pendingLicense from './lib/pending-license.js';
+import * as installSource from './lib/install-source.js';
 import * as review from './lib/review.js';
 import * as sessionRuns from './lib/session-runs.js';
 import {mergeTabs, openFormTab, reloadFormTab, withOpenForm} from './lib/form-tab.js';
@@ -1599,6 +1600,8 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     const taken = pendingLicense.consume(app.getPath('userData'), {license, storage, licenseState});
     if (taken) console.log(`Founder key from the installer: ${taken.ok ? `accepted${taken.trial ? ', free AI credit on' : ''}` : taken.error}`);
   }
+  // The channel the install came from (the install link's ?src=): kept once, reported with the app's anonymous id.
+  if (!DEMO) { const channel = installSource.consume(app.getPath('userData'), storage); if (channel) appLog('install', 'channel taken from the installer', {channel}); }
   // CI smoke runs (windows-smoke.mjs) launch the packaged app with a fresh profile each time: they (any launch with CI/GITHUB_ACTIONS set) must not count as installs.
   const smokeRun = !!(process.env.JOB_PILOTTO_SMOKE || process.env.JOB_PILOTTO_PTY_SMOKE || process.env.CI || process.env.GITHUB_ACTIONS);
   telemetry = DEMO || smokeRun || (!app.isPackaged && !process.env.JOB_PILOTTO_TELEMETRY) ? null : telemetryLib.create(storage, {version: app.getVersion()});

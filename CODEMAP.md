@@ -42,6 +42,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
 - `desktop/lib/google-keys.js` — The Google sign-in (Gmail and Calendar, read-only) as the Python side saved it (src/sources/google.py KEYCHAIN),
+- `desktop/lib/install-source.js` — Where an install came from: the website's install command carries the channel (curl …/install?src=reddit-devops), and
 - `desktop/lib/interview-reminders.js` — Interview reminders and job matching (pure; the timer and notifications are in main.js). The jobs come from Notion
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and

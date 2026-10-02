@@ -5,7 +5,14 @@
 
 const ZIP = 'https://github.com/GarryOne/job-pilotto/releases/latest/download/Job-Pilotto-mac-arm64.zip';
 
-export function script(origin) {
+// Where the person came from (the link they followed carried ?src=reddit-devops): a short slug, or nothing.
+export function cleanSource(value) {
+  const slug = String(value || '').trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9_.-]{0,39}$/.test(slug) ? slug : '';
+}
+
+export function script(origin, source = '') {
+  const channel = cleanSource(source);  // a validated slug: safe to put in the script
   return `#!/bin/bash
 # Job Pilotto for Mac: installs (or updates) the app in Applications and opens it.
 #   curl -fsSL ${origin}/install | bash
@@ -44,6 +51,13 @@ if [ -n "$key" ]; then
     *) echo "That isn't a Job Pilotto key (it starts with JP1.); installing without it." ;;
   esac
 fi
+# Where this install came from (the install link's ?src=): left for the app, which reports it once with its own anonymous
+# id so /telemetry can tell which channel brings people who finish setup (desktop/lib/install-source.js).
+channel='${channel}'
+if [ -n "$channel" ]; then
+  dir="$HOME/Library/Application Support/Job Pilotto"
+  mkdir -p "$dir" && printf '%s' "$channel" > "$dir/install-source.txt"
+fi
 echo "Installed $(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo '') in Applications. Opening it…"
 open "$APP"
 `;
@@ -53,8 +67,8 @@ export async function install(request, env, ctx, record) {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, {status: 405});
   const url = new URL(request.url);
   if (request.method === 'GET' && record) {
-    const save = record(request, env, {platform: 'mac', button: 'terminal'}).catch(error => console.log('install stat failed', error.message));
+    const save = record(request, env, {platform: 'mac', button: 'terminal', ...(cleanSource(url.searchParams.get('src')) ? {source: cleanSource(url.searchParams.get('src'))} : {})}).catch(error => console.log('install stat failed', error.message));
     if (ctx?.waitUntil) ctx.waitUntil(save); else await save;
   }
-  return new Response(script(url.origin), {headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'}});
+  return new Response(script(url.origin, url.searchParams.get('src')), {headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'}});
 }

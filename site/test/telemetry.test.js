@@ -211,3 +211,19 @@ test('Machines table: the version each install runs now, and the versions it has
   assert.match(html, /<span class="v now">0\.4\.2<\/span>/);
   assert.match(html, /<span class="v">0\.4\.0<\/span><span class="v">0\.4\.1<\/span><\/td>/);   // earlier versions only; the current one is the amber chip
 });
+
+test('Channels: machines, finished setup and active, by the channel each install reported', async () => {
+  const e = env();
+  const ev = (install, at, extra) => ({install, version: '0.4.2', platform: 'darwin', at, ...extra});
+  await send(e, [
+    ev('install-aaaa', '2026-09-29T08:00:00Z', {kind: 'health', source: 'reddit-devops'}), ev('install-aaaa', '2026-09-30T08:00:00Z', {kind: 'health', source: 'reddit-devops'}),
+    ev('install-aaaa', '2026-09-29T08:05:00Z', {kind: 'setup', step: 'done', minutes: 6, source: 'reddit-devops'}),
+    ev('install-bbbb', '2026-09-29T09:00:00Z', {kind: 'health', source: 'reddit-devops'}),
+    ev('install-cccc', '2026-09-29T09:00:00Z', {kind: 'health'})]);
+  e.STATS.db.exec('UPDATE telemetry SET day = substr(at, 1, 10)');   // the server stamps the day it received them; here, the day they happened
+  const {channels} = await import('../src/telemetry.js');
+  const rows = await channels(e.STATS, 30, new Date('2026-10-01T00:00:00Z'));
+  assert.deepEqual(rows.map(r => [r.source, r.machines, r.done, r.active]), [['reddit-devops', 2, 1, 1], ['unknown', 1, 0, 0]]);
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/telemetry?days=30', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  assert.match(html, /📣 Channels/);   // (the page reads the last 30 days from today, so only the heading is checked here)
+});

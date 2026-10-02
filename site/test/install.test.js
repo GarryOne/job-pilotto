@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {install, script} from '../src/install.js';
+import {cleanSource, install, script} from '../src/install.js';
 
 test('the installer is valid bash that installs to Applications from the stable release', () => {
   const text = script('https://www.jobpilotto.workers.dev');
@@ -35,4 +35,17 @@ test('with a founder key (bash -s JP1.…) the installer leaves it for the app, 
   assert.match(text, /key="\$\{1:-\}"/);
   assert.match(text, /pending-license\.txt/);
   assert.match(text, /umask 077/);
+});
+
+test('/install?src= is counted with its channel and leaves it for the app; anything odd is ignored', async () => {
+  const rows = [];
+  const count = async (request, env, fields) => rows.push(fields);
+  const tagged = await install(new Request('https://www.jobpilotto.workers.dev/install?src=Reddit-DevOps'), {}, null, count);
+  const text = await tagged.text();
+  assert.match(text, /channel='reddit-devops'/);
+  assert.match(text, /install-source\.txt/);
+  execFileSync('bash', ['-n'], {input: text});
+  assert.deepEqual(rows, [{platform: 'mac', button: 'terminal', source: 'reddit-devops'}]);
+  for (const bad of ['', 'a b', "x';rm -rf ~;'", 'é', 'a'.repeat(41)]) assert.equal(cleanSource(bad), '');
+  assert.match(script('https://x', "x';rm -rf ~;'"), /channel=''/);
 });
