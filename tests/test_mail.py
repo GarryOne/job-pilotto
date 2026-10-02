@@ -430,12 +430,8 @@ class MailTests(unittest.TestCase):
         self.assertIn('which job', ' '.join(sent))
 
     def test_an_invitation_whose_calendar_file_could_not_be_read_is_still_asked_about(self):
-        self.assertTrue(mail._unread_invitation(email('b3', 'Invitation from an unknown sender: Igor and Acme DM @ Mon 5 Oct'), NOW))
-        self.assertFalse(mail._unread_invitation(email('b4', 'Notification: Igor and Acme DM @ Mon 5 Oct'), NOW))
-
-    def test_an_invitation_for_a_time_already_past_is_not_asked_about(self):
-        old = {**email('b2', 'Invitation: Standup', sender='x@y.test'), 'invite_at': '2026-09-01T10:00:00+02:00'}
-        self.assertFalse(mail._unread_invitation(old, NOW))
+        self.assertTrue(mail._unread_invitation(email('b3', 'Invitation from an unknown sender: Igor and Acme DM @ Mon 5 Oct')))
+        self.assertFalse(mail._unread_invitation(email('b4', 'Notification: Igor and Acme DM @ Mon 5 Oct')))
 
     def test_an_email_is_never_attached_to_a_job_it_doesnt_name(self):
         # 29 Sep 2026: Huxley's SRE invitation was attached to AG Talent's DevOps pitch (the AI matched the role).

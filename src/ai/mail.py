@@ -232,13 +232,11 @@ def classify(client, model, apps, items, stats=None):
     return results
 
 
-def _unread_invitation(email, now=None):
+def _unread_invitation(email):
     """A calendar invitation (subject "Invitation …", or "Updated invitation …"): someone invited the owner to a call.
-    When its .ics start is known it must still be ahead; the file is not always readable, then the subject decides."""
-    if not re.match(r'\s*(updated )?invitation', email.get('subject', ''), re.I):
-        return False
-    start = _when(email.get('invite_at') or '')
-    return start is None or start > (now or datetime.now(timezone.utc))
+    Its time doesn't matter: the check only reads mail from the last days, and a call that has just started is still
+    one the owner wants on a job (2 Oct 2026: Friday's 21:30 booking was read at 22:05)."""
+    return bool(re.match(r'\s*(updated )?invitation', email.get('subject', ''), re.I))
 
 
 def _when(value):
@@ -551,7 +549,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             print(f"{email['date'][:16]} {email['subject'][:60]!r}: {result}")
             continue
         state['seen'].append(email['id'])
-        if not result.get('relevant') and _unread_invitation(email, now):
+        if not result.get('relevant') and _unread_invitation(email):
             # The AI read a meeting invitation as "not about your applications" (2 Oct 2026: a Calendly booking from
             # "Blockdaemon DM" was dropped that way). A person invited the owner to a call: never a silent skip. Focus
             # asks which job it is (or that it is none); nothing is attached or created until the owner answers.
