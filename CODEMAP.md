@@ -36,6 +36,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),
 - `desktop/lib/demo.js` — "Look around first": the app restarts on a fresh copy of the fictional demo data (demo/) and back to the user's
 - `desktop/lib/dev-marker.js` — Running from source (npm start / electron .) must never look like the installed app: a "DEV" badge on the Dock
+- `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log (5 MB, then .1). The app's own log says a run
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
