@@ -62,6 +62,11 @@
     }
     return false;
   }
+  // A required custom control the readers in fields() do not know (a slider, a switch, a rich-text box): nothing says what it should hold, so it is
+  // left for the person until its own state differs from the one first seen. Without it the panel said "Ready to submit" over an unanswered question.
+  const firstState = new WeakMap();
+  const widgetState = el => [...['aria-valuenow', 'aria-checked', 'aria-pressed', 'aria-selected'].map(name => el.getAttribute(name)), clean(el.textContent),
+    el.querySelector('[aria-selected=true], [aria-checked=true]') ? 1 : 0].join('|');
   function fields() {
     const groups = new Map();
     for (const el of document.querySelectorAll('input, textarea, select')) {
@@ -98,6 +103,15 @@
       groups.set(box, {el: box, label: clean(title.textContent), ai: false,
         required: /required/i.test(title.className) || /\*\s*$/.test(title.textContent || ''),
         filled: buttons.some(button => button.getAttribute('aria-pressed') === 'true')});
+    }
+    const known = [...groups.values()];
+    for (const {el} of window.__jobPilottoSkeleton?.widgets(document, visible) || []) {
+      if (known.some(entry => entry.el === el || entry.el?.contains?.(el) || el.contains(entry.el))) continue;   // a field the readers above already count
+      const named = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ');
+      if (el.getAttribute('aria-required') !== 'true' && !/\*\s*$/.test(named.trim())) continue;
+      const state = widgetState(el);
+      if (!firstState.has(el)) firstState.set(el, state);
+      groups.set(el, {el, label: question(el), required: true, filled: state !== firstState.get(el), ai: false, custom: true});   // custom: still a miss for reportMisses
     }
     return [...groups.values()];
   }
@@ -379,7 +393,7 @@
     missChecked = Date.now();
     const items = [];
     for (const {el, kind} of kit.widgets(document, visible)) {
-      if (list.some(field => field.el === el || field.el?.contains?.(el) || el.contains(field.el))) continue;
+      if (list.some(field => !field.custom && (field.el === el || field.el?.contains?.(el) || el.contains(field.el)))) continue;
       const shape = kit.skeleton(el), fingerprint = kit.fingerprint(shape);
       if (missSent.has(fingerprint)) continue;
       missSent.add(fingerprint);

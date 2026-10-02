@@ -150,9 +150,9 @@ export async function run(ctx) {
     await removeJobsByUrl(NOTION, urls);
   }, {needs: ctx.needs});
 
-  // KNOWN PRODUCT GAP (2 Oct 2026): extension/review.js builds the panel's list from native fields only, so a REQUIRED custom widget it cannot read (here a
-  // role=slider) is in no list and no count: the panel says "Ready to submit, every required field is filled" over a form that still needs an answer.
-  // The miss is reported to the app (learning) but not shown to the person. This step states the promise and fails until the panel counts such a control.
+  // Found by this suite (2 Oct 2026): extension/review.js built the panel's list from native fields only, so a REQUIRED custom widget it cannot read (here a
+  // role=slider) was in no list and no count, and the panel said "Ready to submit, every required field is filled" over a form that still needed an answer.
+  // The miss was reported to the app but not shown to the person. Fixed in review.js; this step keeps it fixed (worker/test/panel-widgets.test.js is the unit test).
   await ctx.run('the panel does not say "Ready to submit" over a required control it could not fill, and lists the question', async () => {
     const panel = await panelOf(unknownTab);
     console.log(`  panel: "${panel?.progress}"; left for you: ${panel?.left.join(' | ') || 'nothing'}; pill: "${panel?.pill}"`);
