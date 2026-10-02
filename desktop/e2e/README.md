@@ -122,7 +122,7 @@ the app's history poll (`JOB_PILOTTO_E2E_HISTORY_MS`), its resume wait (`JOB_PIL
 (`desktop/lib/e2e-timing.js`), and the AI proxy's refusals ask for an immediate retry.
 
 ## What the UI loop's issues carry
-`desktop/e2e/triage.mjs` (the first step of `ui-heal.yml`) reads every suite's artifacts and files one issue per problem. An issue has:
+`desktop/e2e/triage.mjs` (the step of `ui-findings.yml`, the producer, after every e2e run) reads every suite's artifacts and files one issue per problem. An issue has:
 - **Severity, kind, view, suite and source as labels** (`severity:high`, `kind:layout`, `view:focus`, `suite:activity`, `source:ai-review`), so the issue list can be filtered.
 - **The screenshot** (uploaded to the `pr-assets` branch under `ui-loop/<fingerprint>/`, an image link that outlives the Actions artifact), **the app's state** at that moment as a table, **where to look**
   in the code, **how to reproduce** (`node suite.mjs <suite>`), and, for a failed step, the step's message, its failure screenshot and the last lines of the app's and the engine's logs.
@@ -130,3 +130,11 @@ the app's history poll (`JOB_PILOTTO_E2E_HISTORY_MS`), its resume wait (`JOB_PIL
 - **"Not seen in run …"** when the page was photographed and reviewed again and the finding did not come back, with the new screenshot (also on the open fix pull request: its "after"), and the label `not-seen-latest`.
 - **`confirmed`** (a label a person adds): a finding that is real is ready for a fix without a second sighting. `wontfix-auto` closes a false positive for good; `needs-human` parks one.
 A fix pull request shows the finding's screenshot as "Before" and promises the "After" when a later run no longer sees it.
+
+## The loop is two workflows on two clocks
+- **`ui-findings.yml` (the producer), after every e2e run: four a day** (the run chained to the nightly build, and 09:47, 13:47, 17:47 UTC). It only files and updates issues, with the evidence above. No AI fix.
+- **`ui-fix.yml` (the fixer), once a day at 05:30 UTC (07:30 Zurich in summer).** `pick.mjs` chooses the most critical finding that is ready: **score = severity (high 3, medium 2, low 1) times its
+  sightings in the last 7 days, doubled by `confirmed`**; two sightings this week, or `confirmed`, are needed; only kinds a UI change can fix. Claude Code (Sonnet 5, at most 50 turns, about
+  $0.5 to $1.5 an attempt) fixes it in `desktop/renderer` with a test first; a guard and the desktop suite must pass; ONE pull request opens, with the finding's screenshot as "Before". At most 3 are open at once.
+  By hand: `gh workflow run ui-fix.yml`.
+Between the two a person can add `confirmed` or `wontfix-auto` to an issue: the fixer works on a curated list.

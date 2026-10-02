@@ -25,9 +25,9 @@ test('an issue is ready only after two sightings, for a kind a UI fix can addres
   assert.equal(pickCandidate([issue(1, 'a', {comments: 1, state: 'CLOSED'})]), null);
 });
 
-test('the most severe finding goes first, then the most often seen', () => {
+test('the most critical goes first: severity times how often it came back (old rule was severity first)', () => {
   const picked = pickCandidate([issue(1, 'a', {comments: 5, severity: 'MEDIUM'}), issue(2, 'b', {comments: 1, severity: 'HIGH'}), issue(3, 'c', {comments: 3, severity: 'HIGH'})]);
-  assert.equal(picked.number, 3);
+  assert.equal(picked.number, 1);   // 2 x 6 = 12, 3 x 4 = 12, 3 x 2 = 6: the tie goes to the older issue
 });
 
 test('a fix may only touch the window and its tests, and must come with a test', () => {

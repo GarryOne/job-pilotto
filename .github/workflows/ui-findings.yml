@@ -1,0 +1,60 @@
+name: CI · UI findings
+
+# THE PRODUCER of the UI loop. After EVERY end-to-end run (e2e.yml: the run after the nightly build, and the three daytime runs: four a day) it reads the run's artifacts
+# and files what they found as GitHub issues, one per problem: severity, kind, view and suite as labels, the screenshot, the app's state, the logs of a failed step, a
+# "Seen again" comment with a new screenshot each time a finding comes back, and "Not seen" when its page was reviewed again and it did not. No AI fix happens here
+# (ui-fix.yml does that, once a day, for the most critical issue). A false positive is closed with the label `wontfix-auto`; a real one a person marks `confirmed`.
+on:
+  workflow_run:
+    workflows: ['CI · End-to-end journey']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'An e2e run id whose artifacts to file'
+        required: false
+      plant:
+        description: 'DRY RUN, only on a branch other than main: a ui-findings.json array to file instead of a real run (see desktop/e2e/README.md)'
+        required: false
+
+permissions:
+  contents: write   # the evidence branch (pr-assets): the screenshots the issues show
+  issues: write
+  actions: read
+
+concurrency:
+  group: ui-findings
+  cancel-in-progress: false
+
+jobs:
+  findings:
+    # Scheduled, chained or by hand only; a push-triggered e2e run (a change to the tests themselves) is not evidence about the product.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+      RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.run_id || github.run_id) }}
+      PLANT: ${{ inputs.plant }}
+      BASE: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download the run's screenshots and findings (or plant one, for a dry run)
+        run: |
+          mkdir -p e2e-artifacts
+          if [ -n "$PLANT" ]; then
+            if [ "$GITHUB_REF" = refs/heads/main ]; then echo "A planted finding is only allowed off main." >&2; exit 1; fi
+            printf '%s' "$PLANT" > e2e-artifacts/ui-findings.json
+            echo "DRY RUN on $BASE: triaging a planted finding." >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --repo "$REPO" --pattern 'e2e-artifacts-*' --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"   # one folder per suite
+          fi
+      - name: File the findings
+        run: |
+          mkdir -p .heal
+          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only

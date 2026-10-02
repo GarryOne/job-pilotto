@@ -1,4 +1,4 @@
-// What a suite leaves behind for the nightly loop (ui-heal.yml), written even when the suite stops at a failing step: its layout findings so far, and which steps failed.
+// What a suite leaves behind for the UI loop (ui-findings.yml), written even when the suite stops at a failing step: its layout findings so far, and which steps failed.
 import fs from 'node:fs';
 import path from 'node:path';
 

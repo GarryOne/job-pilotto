@@ -1,5 +1,5 @@
 // The self-healing loop's judgement, as plain functions (no network): which findings are worth an issue, which one is ready for a fix, and
-// what a fix may touch. triage.mjs (the CLI) and .github/workflows/ui-heal.yml call these; tests/triage.test.mjs pins the rules.
+// what a fix may touch. triage.mjs (the producer's CLI), pick.mjs (the fixer's) and .github/workflows/ui-findings.yml, ui-fix.yml call these; tests/triage.test.mjs pins the rules.
 import {fingerprint} from './vision.mjs';
 
 export const LABEL = 'auto-ui';
@@ -105,21 +105,33 @@ export function matchExisting(finding, issues, threshold = 0.3) {
 // How many nights an issue has been seen: the finding itself plus one "Seen again" comment per later run.
 export const sightings = issue => 1 + (issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).length;
 
-// Which open issue is ready for a fix: seen often enough, a kind a UI change can fix, not parked for a person, no pull request open already.
-// Highest severity first, then the most sightings, then the oldest.
-export function pickCandidate(issues, {openBranches = []} = {}) {
+// Sightings of an issue in the last `days` days: the issue itself (when it was filed that recently) and each "Seen again" comment. Undated ones (older data, tests) count.
+export function recentSightings(issue, now = Date.now(), days = 7) {
+  const recent = date => !date || now - Date.parse(date) <= days * 86400000;
+  return (recent(issue.createdAt) ? 1 : 0) + (issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '') && recent(comment.createdAt)).length;
+}
+const WEIGHT = {HIGH: 3, MEDIUM: 2, LOW: 1};
+// How critical a finding is: its severity times how often it came back this week; a person's "confirmed" doubles it.
+export function score(issue, now = Date.now()) {
+  const label = (issue.labels || []).map(item => item.name || item);
+  const severity = /\*\*(HIGH|MEDIUM|LOW)\*\*/.exec(issue.body || '')?.[1] || 'LOW';
+  return WEIGHT[severity] * Math.max(1, recentSightings(issue, now)) * (label.includes(CONFIRMED) ? 2 : 1);
+}
+
+// Which open issue is ready for a fix: seen twice this week (or confirmed by a person), a kind a UI change can fix, not parked, no pull request open already.
+// The most critical first (score), then the oldest.
+export function pickCandidate(issues, {openBranches = [], now = Date.now()} = {}) {
   const ready = issues.filter(issue => {
     const labels = (issue.labels || []).map(label => label.name || label);
     const id = labels.find(name => name.startsWith('fp:'));
     if (issue.state !== 'OPEN' || !labels.includes(LABEL) || !id) return false;
     if (labels.includes(NEEDS_HUMAN) || labels.includes(FALSE_POSITIVE) || labels.includes(NOT_SEEN)) return false;
     if (openBranches.includes(`auto-fix/${id.slice(3)}`)) return false;
-    if (sightings(issue) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return false;
+    if (recentSightings(issue, now) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return false;
     const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
     return FIX_KINDS.includes(kind);
   });
-  const severity = issue => (/\*\*(HIGH|MEDIUM|LOW)\*\*/.exec(issue.body || '')?.[1] || 'LOW').toLowerCase();
-  ready.sort((a, b) => RANK[severity(b)] - RANK[severity(a)] || sightings(b) - sightings(a) || a.number - b.number);
+  ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
   return ready[0] || null;
 }
 

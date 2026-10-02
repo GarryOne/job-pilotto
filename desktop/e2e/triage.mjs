@@ -40,7 +40,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const withDir = (file, items) => items.map(item => ({...item, _dir: path.dirname(file)}));
   const findings = normalize({ui: found['ui-findings.json'].flatMap(file => withDir(file, read(file) || [])), ai: found['ai-findings.json'].flatMap(file => withDir(file, (read(file) || {}).findings || [])),
     suite: found['suite-failures.json'].flatMap(file => withDir(file, read(file) || []))});
-  const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title']));
+  const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
   let issues = list();
   const out = {filed: [], again: [], gone: [], candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
@@ -110,6 +110,20 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   return {...out, findings};
 }
 
+// The open issues of the loop and the open fix branches -> the most critical issue that is ready (or null). Used by the fixer (pick.mjs).
+export function chooseCandidate({gh = realGh, now = Date.now()} = {}) {
+  const issues = JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'open', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+  const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
+  return pickCandidate(issues, {openBranches: branches, now});
+}
+
+// The files the fix step reads: which issue, its id, its "before" screenshot, and the prompt.
+export function writeCandidate(candidate, outDir) {
+  const base = fs.readFileSync(new URL('./ui-fix-prompt.md', import.meta.url), 'utf8');
+  fs.writeFileSync(path.join(outDir, 'candidate.json'), JSON.stringify({number: candidate.number, title: candidate.title, id: candidate.labels.map(l => l.name).find(n => n.startsWith('fp:')).slice(3), screenshot: screenshotOf(candidate)}));
+  fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base));
+}
+
 export const promptFor = (issue, base) => `${base}\n\n---\nTHE FINDING (issue #${issue.number}):\n${issue.title}\n\n${issue.body}\n`;
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
@@ -118,15 +132,14 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const outDir = option('out') || '.heal';
   fs.mkdirSync(outDir, {recursive: true});
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url')});
-  const lines = [`## Nightly UI loop`, `${result.findings.length} finding(s) tonight: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more.`];
-  const candidate = result.candidate;
-  if (candidate) {
-    const base = fs.readFileSync(new URL('./ui-fix-prompt.md', import.meta.url), 'utf8');
-    fs.writeFileSync(path.join(outDir, 'candidate.json'), JSON.stringify({number: candidate.number, title: candidate.title, id: candidate.labels.map(l => l.name).find(n => n.startsWith('fp:')).slice(3), screenshot: screenshotOf(candidate)}));
-    fs.writeFileSync(path.join(outDir, 'prompt.md'), promptFor(candidate, base));
-    lines.push(`Ready to fix: #${candidate.number} ${candidate.title}`);
-  } else lines.push('Nothing is ready to fix (a finding needs to be seen in two runs).');
+  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more.`];
+  // The producer only files and updates issues. The fixer (ui-fix.yml, once a day) picks the most critical one: node pick.mjs.
+  if (!args.includes('--file-only')) {
+    const candidate = result.candidate;
+    if (candidate) { writeCandidate(candidate, outDir); lines.push(`Ready to fix: #${candidate.number} ${candidate.title}`); }
+    else lines.push('Nothing is ready to fix.');
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${candidate ? candidate.number : 'none'}\n`);
+  }
   console.log(lines.join('\n'));
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
-  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${candidate ? candidate.number : 'none'}\n`);
 }

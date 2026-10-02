@@ -1,23 +1,16 @@
-name: CI · UI self-healing loop
+name: CI · UI fixer
 
-# After each scheduled end-to-end run (e2e.yml, after the nightly build and on its three daytime runs): file what it found as issues (one per problem), and when a problem has been seen in two runs
-# and a UI fix can address it, let Claude Code fix ONE of them and open a pull request for the owner to review. Never merges anything.
-# Claude only edits files (no git, no gh, no network); the last step checks the paths (desktop/renderer and its tests only), requires a test,
-# runs the whole desktop suite, and only then pushes a branch `auto-fix/<fingerprint>` and opens the PR. A false positive is closed with
-# the label `wontfix-auto` so it never comes back. At most 3 automatic PRs may be open at once.
+# THE FIXER of the UI loop, once a day (early morning, after the nightly build and its end-to-end run). It reads the open issues the producer (ui-findings.yml) has been
+# filing all day, picks the MOST CRITICAL one that is ready (severity times how often it came back this week, doubled by a person's `confirmed` label; two sightings this
+# week or `confirmed` are needed), and lets Claude Code fix it and open ONE pull request for the owner to review. Never merges anything.
+# Claude only edits files (no git, no gh, no network); the last step checks the paths (desktop/renderer and its tests only), requires a test, runs the whole desktop suite,
+# and only then pushes a branch `auto-fix/<fingerprint>` and opens the PR with the finding's screenshot as "Before". At most 3 automatic PRs may be open at once.
+# A false positive is closed with the label `wontfix-auto`; a finding a person looked at and found real gets `confirmed`.
 # Needs: ANTHROPIC_API_KEY (the same repository secret as the weekly self-review).
 on:
-  workflow_run:
-    workflows: ['CI · End-to-end journey']
-    types: [completed]
+  schedule:
+    - cron: '30 5 * * *'   # 07:30 in Zurich in summer, 06:30 in winter
   workflow_dispatch:
-    inputs:
-      run_id:
-        description: 'An e2e run id whose artifacts to triage'
-        required: false
-      plant:
-        description: 'DRY RUN, only on a branch other than main: a ui-findings.json array to triage instead of a real run (see desktop/e2e/README.md)'
-        required: false
 
 permissions:
   contents: write
@@ -26,61 +19,46 @@ permissions:
   actions: read
 
 concurrency:
-  group: ui-heal
+  group: ui-fix
   cancel-in-progress: false
 
 jobs:
-  heal:
-    # Scheduled or by hand only; a push-triggered e2e run (a change to the tests themselves) is not evidence about the product.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event != 'push'
+  fix:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
-      RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.run_id || github.run_id) }}
-      PLANT: ${{ inputs.plant }}
+      RUN_URL: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
       BASE: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Download the run's screenshots and findings (or plant one, for a dry run)
-        run: |
-          mkdir -p e2e-artifacts
-          if [ -n "$PLANT" ]; then
-            if [ "$GITHUB_REF" = refs/heads/main ]; then echo "A planted finding is only allowed off main." >&2; exit 1; fi
-            printf '%s' "$PLANT" > e2e-artifacts/ui-findings.json
-            echo "DRY RUN on $BASE: triaging a planted finding." >> "$GITHUB_STEP_SUMMARY"
-          elif [ -n "$RUN_ID" ]; then
-            gh run download "$RUN_ID" --repo "$REPO" --pattern 'e2e-artifacts-*' --dir e2e-artifacts || echo "No artifacts for run $RUN_ID"   # one folder per suite
-          fi
-      - name: File the findings, pick one that is ready
-        id: triage
+      - name: Pick the most critical finding that is ready
+        id: pick
         run: |
           mkdir -p .heal
-          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal
+          node desktop/e2e/pick.mjs --out .heal
       - name: Not too many open automatic fixes
         id: capacity
-        if: steps.triage.outputs.candidate != 'none'
+        if: steps.pick.outputs.candidate != 'none'
         run: |
           open=$(gh pr list --repo "$REPO" --state open --label auto-ui-fix --json number --jq length)
           echo "Open automatic fixes: $open"
           if [ "$open" -ge 3 ]; then echo "full=true" >> "$GITHUB_OUTPUT"; echo "Three automatic fixes already wait for review; not starting another." >> "$GITHUB_STEP_SUMMARY"; fi
-      - name: Put the screenshot next to the finding
-        if: steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+      - name: Put the finding's screenshot next to it
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         run: |
-          view=$(jq -r '.title' .heal/candidate.json | sed -E 's/^\[auto-ui\] ([a-z0-9-]+):.*/\1/')
-          shot=$(find e2e-artifacts -name "ui-$view.png" | head -1)
-          if [ -n "$shot" ]; then cp "$shot" .heal/screenshot.png; else echo "no screenshot for $view"; fi
+          shot=$(jq -r '.screenshot // ""' .heal/candidate.json)
+          if [ -n "$shot" ]; then curl -fsSL -o .heal/screenshot.png "$shot" || echo "screenshot not downloaded"; else echo "the issue has no screenshot"; fi
       - name: Install the app's dependencies (for its tests)
-        if: steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         working-directory: desktop
         run: npm ci
       - name: Claude Code fixes the problem (files only)
-        if: steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        if: steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -91,14 +69,14 @@ jobs:
             --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(git diff:*),Bash(git status:*)"
           prompt: Read .heal/prompt.md and follow it exactly.
       - name: Keep Claude's transcript (to see where its turns went)
-        if: always() && steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: heal-transcript
           path: /home/runner/work/_temp/claude-execution-output.json
           if-no-files-found: ignore
       - name: Check the change, run the tests, open the pull request
-        if: always() && steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        if: always() && steps.pick.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         run: |
           set -euo pipefail
           # The labels the branches below use (a first run finds none).
@@ -140,7 +118,7 @@ jobs:
             echo "## After"
             echo "When a later end-to-end run photographs this page and the finding is gone, the loop comments here and on #$number with the new screenshot."; echo
             echo "Fixes #$number"; echo
-            echo "Opened by the UI loop (after each scheduled end-to-end run) after the problem was seen in two end-to-end runs (or confirmed by a person with the label confirmed). Review it like any change; it never merges itself."; } > .heal/body.md
+            echo "Opened by the UI fixer (once a day) for the most critical finding of the week: seen in two runs, or confirmed by a person. Review it like any change; it never merges itself."; } > .heal/body.md
           branch="auto-fix/$id"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

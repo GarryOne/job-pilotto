@@ -3,7 +3,7 @@ name: CI · End-to-end journey
 # The real Job Pilotto app, driven by Playwright on a macOS runner, one suite per Notion test page (desktop/e2e/README.md). It does two jobs, on two clocks:
 #  1. RELEASE GATE. The nightly build (desktop.yml, 04:00 Zurich, only when the app changed) finishes -> this workflow runs EVERY suite on that build's own commit ->
 #     when all pass (and build.yml is green on the commit) the `promote` job makes the build the stable release. Red or no build: nothing is promoted.
-#  2. IMPROVEMENT LOOP. Three runs on main in the working day (09:47, 13:47, 17:47 UTC) feed ui-heal.yml (issues and fix pull requests). A scheduled run is skipped when
+#  2. IMPROVEMENT LOOP. Three runs on main in the working day (09:47, 13:47, 17:47 UTC) feed ui-findings.yml (issues; ui-fix.yml turns the most critical into a pull request once a day). A scheduled run is skipped when
 #     main has not changed since the last run and no finding waits for its second sighting; the AI review of screenshots (the costly part) runs only when the UI or its tests
 #     changed, or a finding waits. A push to main runs only the suites whose files changed; by hand: gh workflow run e2e.yml -f suite=jobs,activity.
 # All of it is decided in desktop/e2e/plan-run.mjs (tested). The test key's AI credit is shared and small: see desktop/e2e/README.md.
@@ -18,7 +18,7 @@ on:
         description: 'DRY RUN of the promotion step for this release tag (runs no suite, promotes nothing)'
         required: false
   schedule:
-    - cron: '47 9,13,17 * * *'   # 11:47, 15:47, 19:47 in Zurich in summer (the UI loop, ui-heal.yml, follows each run)
+    - cron: '47 9,13,17 * * *'   # 11:47, 15:47, 19:47 in Zurich in summer (the UI loop's producer, ui-findings.yml, follows each run)
   workflow_run:
     workflows: ['Release · Desktop app']   # the nightly build (or a manual one) finished: verify it, and promote it when it passes
     types: [completed]
