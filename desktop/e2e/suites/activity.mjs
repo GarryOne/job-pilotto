@@ -64,6 +64,10 @@ async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
   throw new Error(`the ${command} task was still ${data?.running ? 'running' : 'not finished'} after ${Math.round(maxMs / 1000)} s`);
 }
 
+// Chooses an entry of the open menu with a click event, not a mouse click: Playwright scrolls an element into view first, and any scroll closes the menu (renderer/components.js),
+// so on the small window of a CI Mac the item vanished under the click ("element is not visible").
+const chooseMenu = (page, text) => page.locator('.ui-menu button', {hasText: text}).dispatchEvent('click');
+
 // Opens a run from the Actions page's Recent runs (the newest row of that kind) and reads what the panel shows a person; then closes it.
 async function openRun(ctx, label, {inPanel = false, id, snapAs, situation} = {}) {
   const {page} = ctx;
@@ -71,7 +75,7 @@ async function openRun(ctx, label, {inPanel = false, id, snapAs, situation} = {}
   if (inPanel) {   // an older run: the Actions page lists only the newest five, so find it through the panel's filter
     await openPanel(ctx);
     await page.click('#activity-filter');
-    await page.locator('.ui-menu button', {hasText: new RegExp(`^${label}`)}).click();
+    await chooseMenu(page, new RegExp(`^${label}`));
     await sleep(page, 500);
     await page.locator('#activity-recent .recent-row').first().click();
   } else {
@@ -218,12 +222,12 @@ export async function run(ctx) {
     for (const wanted of [LABEL.search, LABEL.mail, LABEL.today, LABEL.insight, LABEL.weekly, LABEL.scout]) {
       if (!entries.some(entry => entry.replace(/^✓ /, '').startsWith(`${wanted} ·`))) throw new Error(`the filter has no "${wanted}" entry although that task ran`);
     }
-    await page.locator('.ui-menu button', {hasText: new RegExp(`^${LABEL.mail}`)}).click();
+    await chooseMenu(page, new RegExp(`^${LABEL.mail}`));
     await sleep(page, 500);
     const mailOnly = await panelRows(page);
     if (!mailOnly.length || mailOnly.some(row => row.kind !== LABEL.mail)) throw new Error(`the Gmail filter shows: ${mailOnly.map(row => row.kind).join(', ') || 'nothing'}`);
     await page.click('#activity-filter');
-    await page.locator('.ui-menu button', {hasText: /^(✓ )?All runs/}).click();
+    await chooseMenu(page, /^(✓ )?All runs/);
     await sleep(page, 500);
     if ((await panelRows(page)).length < all.length) throw new Error('"All runs" did not bring the other runs back');
     await snap(ctx, 'activity-panel', {view: 'actions', situation: 'The Recent activity panel open over the Actions page after many runs'});
