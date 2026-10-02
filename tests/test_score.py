@@ -122,11 +122,11 @@ class CascadeTests(unittest.TestCase):
     def test_effort_is_set_for_sonnet_and_left_out_for_haiku(self):
         client = FakeClient()
         job = {'title': 'SRE', 'company': 'X', 'description': 'd'}
-        score.score_one(client, 'claude-sonnet-5', job, 'p', effort='low')
+        score.score_one(client, 'claude-sonnet-5-5', job, 'p', effort='low')
         score.score_one(client, 'claude-haiku-4-5', job, 'p', effort='low')
         self.assertEqual(client.requests[0]['output_config']['effort'], 'low')
         self.assertNotIn('effort', client.requests[1]['output_config'])
-        score.score_one(client, 'claude-sonnet-5', job, 'p')
+        score.score_one(client, 'claude-sonnet-5-5', job, 'p')
         self.assertEqual(client.requests[2]['output_config']['effort'], score.EFFORT)
 
     def test_only_jobs_the_cheap_pass_likes_reach_the_main_model(self):

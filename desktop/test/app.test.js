@@ -38,7 +38,7 @@ test('the pipeline runs on the user folder, with AI models only when a key is se
   storage.setSecret('ANTHROPIC_API_KEY', 'sk-ant-x');
   env = pipeline.pipelineEnv(storage);
   assert.equal(env.ANTHROPIC_API_KEY, 'sk-ant-x');
-  assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5');
+  assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5-5');
 });
 
 test('apply picks saved jobs first, then the best fit, only with a kit, never applied or dismissed ones', () => {
@@ -93,7 +93,7 @@ test('strategy draft: CV as a PDF document, structured output; only the search s
   }}};
   const result = await strategy.draft(storage, {roles: 'SRE'}, 'sk-ant-x', client);
   assert.equal(result.usd, 0.05);
-  assert.equal(seen[0].model, 'claude-sonnet-5');
+  assert.equal(seen[0].model, 'claude-sonnet-5-5');
   assert.equal(seen[0].messages[0].content[0].type, 'document');
   assert.equal(seen[0].output_config.format.type, 'json_schema');
   strategy.save(storage, result);

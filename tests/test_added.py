@@ -20,7 +20,7 @@ FACTS = {'languages': [], 'english_is_enough': {'value': 'yes', 'evidence': ''},
 FIT = {'score': 81, 'tier': 'A', 'reason': 'AWS/EKS ownership', 'strengths': ['EKS'], 'gaps': ['Aurora'], 'confidence': 'high',
        'components': {'role_fit': 90, 'location': 80, 'compensation': 60, 'growth': 70, 'risk': 40}}
 POSTING = 'Own AWS and EKS: networking, DNS, load balancing. Run Aurora PostgreSQL in production. Terraform + Argo CD. ' * 2
-AI_ON = {'ANTHROPIC_API_KEY': 'sk-test', 'NOTION_TOKEN': 'secret-test', 'JOB_PILOTTO_ENRICH_MODEL': 'claude-haiku-4-5', 'JOB_PILOTTO_SCORE_MODEL': 'claude-sonnet-5'}
+AI_ON = {'ANTHROPIC_API_KEY': 'sk-test', 'NOTION_TOKEN': 'secret-test', 'JOB_PILOTTO_ENRICH_MODEL': 'claude-haiku-4-5', 'JOB_PILOTTO_SCORE_MODEL': 'claude-sonnet-5-5'}
 
 
 class Client:
@@ -76,7 +76,7 @@ class AddedTests(unittest.TestCase):
         row = {'id': 'app-1', 'properties': {'Salary': {'type': 'rich_text', 'rich_text': []}}}
         line, stats = self.process(tracker, client, row=row)
         self.assertEqual(line, 'fit 81/100, tier A')
-        self.assertEqual(client.calls, ['claude-haiku-4-5', 'claude-sonnet-5'])
+        self.assertEqual(client.calls, ['claude-haiku-4-5', 'claude-sonnet-5-5'])
         self.assertEqual(tracker.matches, [])  # Job Matches = what a search found (owner's decision, 30 Sep 2026)
         page, changes = tracker.updates[0]
         self.assertEqual(page, 'app-1')

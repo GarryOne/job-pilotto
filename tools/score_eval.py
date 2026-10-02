@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 THRESHOLDS = (50, 60, 70, 80)
 BARS = (30, 35, 40, 45, 50, 55, 60)
-HAIKU, SONNET = 'claude-haiku-4-5', 'claude-sonnet-5'
+HAIKU, SONNET = 'claude-haiku-4-5', 'claude-sonnet-5-5'
 VARIANTS = {'haiku': (HAIKU, None), 'sonnet-low': (SONNET, 'low'), 'repeat': (SONNET, None)}   # repeat = the main setup again: the noise floor
 
 

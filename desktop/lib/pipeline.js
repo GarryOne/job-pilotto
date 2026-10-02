@@ -19,7 +19,7 @@ import {ROOT} from './root.js';
 export const REPO = ROOT;
 const OVERRIDE = process.env.JOB_PILOTTO_MODEL_OVERRIDE;   // set only by the end-to-end journey (desktop/e2e): every step on one cheap model
 export const MODELS = OVERRIDE ? {enrich: OVERRIDE, score: OVERRIDE, kit: OVERRIDE, insight: OVERRIDE}
-  : {enrich: 'claude-haiku-4-5', score: 'claude-sonnet-5', kit: 'claude-sonnet-5', insight: 'claude-sonnet-5'};
+  : {enrich: 'claude-haiku-4-5', score: 'claude-sonnet-5-5', kit: 'claude-sonnet-5-5', insight: 'claude-sonnet-5-5'};
 const DEFAULT_CONFIG = ['search.json', 'preferences.json', 'sources.json', 'scout_seeds.json'];
 
 // The packaged app's own Python (with the anthropic package), else the repo's virtualenv, else python3.

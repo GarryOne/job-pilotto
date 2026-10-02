@@ -3,7 +3,7 @@
 // review-ui.mjs makes the call. The answer is checked against a fixed shape so a bad reply can never become a "finding".
 export const KINDS = ['layout', 'text', 'error-shown', 'empty-state', 'consistency', 'functionality'];
 export const SEVERITIES = ['high', 'medium', 'low'];
-export const MODEL = process.env.E2E_REVIEW_MODEL || 'claude-sonnet-5';
+export const MODEL = process.env.E2E_REVIEW_MODEL || 'claude-sonnet-5-5';
 
 // What each page should show after the journey (a fictional SRE with two matching jobs).
 export const EXPECTED = {
@@ -35,7 +35,7 @@ Reply with ONE JSON object and nothing else:
 
 export function buildRequest({view, pngBase64, rules = '', facts = null, model = MODEL}) {
   return {
-    model, max_tokens: 1200, system: SYSTEM,   // no temperature: claude-sonnet-5 rejects it ("deprecated for this model", 400)
+    model, max_tokens: 1200, system: SYSTEM,   // no temperature: claude-sonnet-5-5 rejects it ("deprecated for this model", 400)
     messages: [{role: 'user', content: [
       {type: 'image', source: {type: 'base64', media_type: 'image/png', data: pngBase64}},
       {type: 'text', text: `Page: ${view}\nExpected to show: ${expectedFor(view)}\n${facts ? `\nFACTS about the app's state when this was taken:\n${JSON.stringify(facts, null, 1)}\n` : ''}\nThe app's design rules (excerpt):\n${rules.slice(0, 3000)}\n\nReview this screenshot.`},

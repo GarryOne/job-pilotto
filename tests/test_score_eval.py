@@ -72,7 +72,7 @@ class RunTest(unittest.TestCase):
                 db.execute("UPDATE jobs SET last_seen_at = '2099-01-01T00:00:00+00:00'")
                 db.executescript(score_module.SCORES_TABLE)
                 for row in db.execute('SELECT id FROM jobs').fetchall():
-                    db.execute("INSERT INTO scores (job_id, scorer_version, input_hash, model, created_at, data_json) VALUES (?, 2, 'h', 'claude-sonnet-5', 'now', ?)",
+                    db.execute("INSERT INTO scores (job_id, scorer_version, input_hash, model, created_at, data_json) VALUES (?, 2, 'h', 'claude-sonnet-5-5', 'now', ?)",
                                (row['id'], json.dumps({'score': 10 + row['id'] * 3})))
                 db.commit()
 

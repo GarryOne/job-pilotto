@@ -326,7 +326,7 @@ class PrepEffortTests(unittest.TestCase):
 
     def test_haiku_gets_no_effort_and_other_models_keep_medium(self):
         self.assertIsNone(self.effort_for('claude-haiku-4-5'))
-        self.assertEqual(self.effort_for('claude-sonnet-5'), 'medium')
+        self.assertEqual(self.effort_for('claude-sonnet-5-5'), 'medium')
 
 if __name__ == '__main__':
     unittest.main()

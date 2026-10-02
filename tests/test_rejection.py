@@ -80,7 +80,7 @@ class RejectionTests(unittest.TestCase):
     def test_review_writes_the_verdict_on_the_application(self):
         row = app('p1', 'Canonical', 'Senior SRE', stage='Rejected')
         tracker, client = Tracker([row], record=RECORD), Client(verdict())
-        result, line = rejection.review(tracker, row, client=client, model='claude-sonnet-5', stats={})
+        result, line = rejection.review(tracker, row, client=client, model='claude-sonnet-5-5', stats={})
         self.assertIn('## Job posting', client.calls[0]['messages'][0]['content'])
         self.assertIn('SRE, 8 years', client.calls[0]['system'][0]['text'])
         props = tracker.updates[0][1]

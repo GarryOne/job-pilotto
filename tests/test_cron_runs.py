@@ -20,7 +20,7 @@ def sample_run(**extra):
            'closed_stale': 2, 'seconds': 95, 'run_url': 'https://github.com/o/r/actions/runs/1',
            'enrich': {'model': 'claude-haiku-4-5', 'pending': 4, 'done': 4, 'failed': 0,
                       'tokens_in': 8000, 'tokens_out': 1200, 'cache_read': 0, 'usd': 0.014},
-           'score': {'model': 'claude-sonnet-5', 'pending': 3, 'done': 2, 'failed': 1,
+           'score': {'model': 'claude-sonnet-5-5', 'pending': 3, 'done': 2, 'failed': 1,
                      'tokens_in': 6000, 'tokens_out': 900, 'cache_read': 3000, 'usd': 0.02},
            'top_new': [('Staff SRE', 'Grafana Labs', 88), ('Platform Engineer', 'DeepL', 74)],
            'telegram': 'sent 2 message(s), 3 new'}
@@ -33,7 +33,7 @@ class CostTest(unittest.TestCase):
         usage = SimpleNamespace(input_tokens=1000, output_tokens=100, cache_read_input_tokens=2000,
                                 cache_creation_input_tokens=400)
         expected = (1000 * 2 + 400 * 2 * 1.25 + 2000 * 0.20 + 100 * 10) / 1e6
-        self.assertAlmostEqual(cost.usd('claude-sonnet-5', usage), expected)
+        self.assertAlmostEqual(cost.usd('claude-sonnet-5-5', usage), expected)
         self.assertEqual(cost.usd('unknown-model', usage), 0)
 
     def test_add_is_a_no_op_without_stats(self):
@@ -73,7 +73,7 @@ class ReportTest(unittest.TestCase):
     def test_a_one_off_run_fills_only_what_applies_to_it(self):
         run = {'mode': 'prep', 'started_at': '2026-09-29T14:02:00+00:00', 'trigger': 'Mac (you)', 'warnings': [], 'seconds': 73,
                'subject': 'Huxley — Principal SRE', 'application': 'app-page-1', 'headline': 'Huxley · Principal SRE: Prep kit ready',
-               'interview': {'model': 'claude-sonnet-5', 'usd': 0.0475, 'tokens_in': 10486, 'tokens_out': 3148}}
+               'interview': {'model': 'claude-sonnet-5-5', 'usd': 0.0475, 'tokens_in': 10486, 'tokens_out': 3148}}
         props, children = cron_runs.run_page(run)
         self.assertEqual(props['Run']['title'][0]['text']['content'], '2026-09-29 16:02 · Interview prep · Huxley — Principal SRE')
         for name in ('Feeds', 'New jobs', 'Closed stale', 'Emails', 'Updates', 'Kits', 'Scored'):

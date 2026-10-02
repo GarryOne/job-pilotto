@@ -44,7 +44,7 @@ from . import cost, transcribe
 # Opus thinks by default (it can't be switched off), so its answers get room: MAX_TOKENS. A request it declines is answered
 # once by FALLBACK_MODEL (ask()).
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INTERVIEW_MODEL', 'claude-opus-5-5')
-FALLBACK_MODEL = 'claude-sonnet-5'
+FALLBACK_MODEL = 'claude-sonnet-5-5'
 MAX_TOKENS = 16000
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 TEXT_TYPES = ('.txt', '.md', '.srt', '.vtt', '.text')

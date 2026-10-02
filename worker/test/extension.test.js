@@ -16,7 +16,7 @@ const row = {
   },
 };
 const kit = {
-  version: 3, url: JOB, model: 'claude-sonnet-5', cover_letter: 'Dear team', check_before_sending: ['Salary'],
+  version: 3, url: JOB, model: 'claude-sonnet-5-5', cover_letter: 'Dear team', check_before_sending: ['Salary'],
   answers: [{ field: 'question_1', question: 'Why us?', answer: 'Because', needs_review: false },
             { field: '', question: 'Not a form field', answer: 'x', needs_review: false }],
   analysis: { private: 'not for the extension' },
@@ -161,7 +161,7 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   assert.equal(result.cover_letter, 'Dear team');
   assert.equal(result.usd, 0.004);
   const request = seen[0];
-  assert.equal(request.model, 'claude-sonnet-5');
+  assert.equal(request.model, 'claude-sonnet-5-5');
   assert.equal(request.output_config.format.type, 'json_schema');
   assert.match(request.system[1].text, /SRE, B permit/);
   assert.match(request.system[1].text, /Notice \| 1 month/);

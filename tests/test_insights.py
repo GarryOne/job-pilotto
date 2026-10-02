@@ -181,10 +181,10 @@ class RunTests(unittest.TestCase):
         # a 3000 cap cut both answers off (stop_reason 'max_tokens') and failed the whole scheduled run.
         daily = FakeClient()
         with patched():
-            insights.run(None, FakeTracker(), 'claude-sonnet-5', now=NOW, client=daily)
+            insights.run(None, FakeTracker(), 'claude-sonnet-5-5', now=NOW, client=daily)
         monday, weekly = datetime(2026, 9, 28, 5, 0, tzinfo=timezone.utc), FakeClient(WEEKLY)
         with patched():
-            insights.run(None, FakeTracker(), 'claude-sonnet-5', now=monday, client=weekly)
+            insights.run(None, FakeTracker(), 'claude-sonnet-5-5', now=monday, client=weekly)
         self.assertEqual(len(daily.calls), len(weekly.calls))  # one call each: the daily insight, the weekly report
         for call in (daily.calls[0], weekly.calls[0]):
             self.assertEqual(call['output_config']['effort'], 'medium')
@@ -194,7 +194,7 @@ class RunTests(unittest.TestCase):
     def test_sends_one_insight_with_feedback_buttons_and_records_cost(self):
         tracker, client, sent, stats = FakeTracker(), FakeClient(), [], {}
         with patched():
-            summary = insights.run(None, tracker, 'claude-sonnet-5', send=lambda t, k: sent.append((t, k)),
+            summary = insights.run(None, tracker, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
                                    now=NOW, client=client, stats=stats)
         self.assertIn('Insight sent: Skills', summary)
         text, keyboard = sent[0]
@@ -246,7 +246,7 @@ class WeeklyTests(unittest.TestCase):
                                   'Application': {'type': 'relation', 'relation': []}}}]
         tracker, client, sent, stats = FakeTracker(events=events), FakeClient(WEEKLY), [], {}
         with patched():
-            summary = insights.run(None, tracker, 'claude-sonnet-5', send=lambda t, k: sent.append((t, k)),
+            summary = insights.run(None, tracker, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
                                    now=monday, client=client, stats=stats)
         self.assertIn('Weekly report sent', summary)
         database_id, props, children = tracker.created[0]
@@ -295,7 +295,7 @@ class EffortTests(unittest.TestCase):
     def test_no_effort_for_haiku_and_medium_for_the_rest(self):
         call = lambda client, model: insights.generate(client, model, PROFILE, {})
         self.assertNotIn('effort', self.sent(call, 'claude-haiku-4-5'))
-        self.assertEqual(self.sent(call, 'claude-sonnet-5')['effort'], 'medium')
+        self.assertEqual(self.sent(call, 'claude-sonnet-5-5')['effort'], 'medium')
         self.assertEqual(self.sent(call, 'claude-haiku-4-5')['format']['type'], 'json_schema')
 
     def test_the_shared_helper_the_weekly_report_uses(self):

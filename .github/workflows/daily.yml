@@ -146,7 +146,7 @@ jobs:
           # AI stage 2 (fit scoring) is switched on the same way by its own variable.
           JOB_PILOTTO_SCORE_MODEL: ${{ vars.JOB_PILOTTO_SCORE_MODEL }}
           # Application kits run only when asked (📝 Prepare); optional model override.
-          JOB_PILOTTO_KIT_MODEL: ${{ vars.JOB_PILOTTO_KIT_MODEL || 'claude-sonnet-5' }}
+          JOB_PILOTTO_KIT_MODEL: ${{ vars.JOB_PILOTTO_KIT_MODEL || 'claude-sonnet-5-5' }}
           # Your digest's display name; the tool's own name stays generic (Job Pilotto).
           DIGEST_BRAND_NAME: ${{ vars.DIGEST_BRAND_NAME }}
           # Auto-draft kits for the best new matches each run; 0/unset = off (📝 Prepare still works manually).

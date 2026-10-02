@@ -655,11 +655,11 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `NOTION_EVENTS_DB` | your 📈 Application Events database ID (outcome history: Applied, Screening, Rejected, ...; written by the ✅/`/applied` buttons, `mark-applied` and the scheduled sync) |
 | `NOTION_AGENT_RUNS_DB` | your 🤖 Agent Runs database ID (optional — form-filling runs are still recorded locally without it) |
 | `JOB_PILOTTO_ENRICH_MODEL` | e.g. `claude-haiku-4-5` — turns on AI stage 1 |
-| `JOB_PILOTTO_SCORE_MODEL` | e.g. `claude-sonnet-5` — turns on AI stage 2 |
-| `JOB_PILOTTO_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5` if unset) |
+| `JOB_PILOTTO_SCORE_MODEL` | e.g. `claude-sonnet-5-5` — turns on AI stage 2 |
+| `JOB_PILOTTO_KIT_MODEL` | model for 📝 Prepare (defaults to `claude-sonnet-5-5` if unset) |
 | `JOB_PILOTTO_AUTO_KIT_MAX` | auto-draft kits for up to N best new matches per crawl (0/unset = off) |
 | `JOB_PILOTTO_AUTO_KIT_MIN_SCORE` | minimum fit score to qualify (default 50) |
-| `JOB_PILOTTO_INSIGHT_MODEL` | model for the daily insight (repository variable; unset = no insights). Uses `claude-sonnet-5` |
+| `JOB_PILOTTO_INSIGHT_MODEL` | model for the daily insight (repository variable; unset = no insights). Uses `claude-sonnet-5-5` |
 | `NOTION_INSIGHTS_DB` | your 💡 Insights database ID |
 | `NOTION_INTERVIEWS_DB` | your 🎤 Interviews database ID |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | GitHub secrets for Gmail + Calendar (read-only), set by `python3 -m src.sources.google auth --github`; locally in the Keychain (`job-pilotto.google.*`) |
@@ -671,7 +671,7 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `JOB_PILOTTO_MONTHLY_BUDGET_USD` | your Anthropic monthly spend limit, for the budget guard (repository variable; default 15) |
 | `ANTHROPIC_ADMIN_KEY` | optional Admin API key (`sk-ant-admin…`, GitHub secret or Keychain `job-pilotto.anthropic.admin-key`): exact monthly spend from Anthropic's cost report |
 | `JOB_PILOTTO_GOOGLE_AUTH_AT` | when you last signed in to Google (set by `google auth --github`); the health check warns before the 7-day Testing limit |
-| `JOB_PILOTTO_INTERVIEW_MODEL` | model for interview reviews (default `claude-sonnet-5`) |
+| `JOB_PILOTTO_INTERVIEW_MODEL` | model for interview reviews (default `claude-sonnet-5-5`) |
 | `DIGEST_BRAND_NAME` | your digest's display name (default `Job Pilotto`) — the tool's own name stays generic; this is what your Telegram messages say, e.g. `"SRE Job Pilotto"` if you want to keep your own role in the name |
 
 Delete `JOB_PILOTTO_ENRICH_MODEL`/`JOB_PILOTTO_SCORE_MODEL` at any time to stop all AI spending.

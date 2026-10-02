@@ -13,7 +13,7 @@ from src.notion import ledger
 
 URL = 'https://job-boards.greenhouse.io/acme/jobs/123'
 NOW = datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc)
-KIT = {'version': 1, 'model': 'claude-sonnet-5', 'cover_letter': 'Dear Acme,\n\nI run things.',
+KIT = {'version': 1, 'model': 'claude-sonnet-5-5', 'cover_letter': 'Dear Acme,\n\nI run things.',
        'answers': [{'question': 'Why Acme?', 'answer': 'Drafted reason.', 'needs_review': False},
                    {'question': 'Notice period', 'answer': 'One month', 'needs_review': True}],
        'highlights': [], 'check_before_sending': []}

@@ -121,13 +121,13 @@ class CliClientTests(unittest.TestCase):
         self.assertFalse(Path(call['cwd']).exists())  # the fresh folder is gone afterwards
 
     def test_models_map_to_claude_code_aliases(self):
-        self.assertEqual([engine.alias(m) for m in ('claude-haiku-4-5', 'claude-sonnet-5', 'claude-opus-5-5', 'other')],
+        self.assertEqual([engine.alias(m) for m in ('claude-haiku-4-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'other')],
                          ['haiku', 'sonnet', 'opus', 'other'])
 
     def test_structured_output_uses_the_json_schema_flag(self):
         fake = FakeClaude(self, 'schema')
         response = fake.client().messages.create(
-            model='claude-sonnet-5', max_tokens=100, messages=[{'role': 'user', 'content': 'Score it'}],
+            model='claude-sonnet-5-5', max_tokens=100, messages=[{'role': 'user', 'content': 'Score it'}],
             output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'low'})
         self.assertEqual(json.loads(response.content[0].text), {'answer': 'yes', 'score': 7})
         args = fake.calls[0]['args']
@@ -139,7 +139,7 @@ class CliClientTests(unittest.TestCase):
         fake = FakeClaude(self, 'repair', old=True)
         logged = []
         response = fake.client(log=logged.append).messages.create(
-            model='claude-sonnet-5', max_tokens=100, messages=[{'role': 'user', 'content': 'Score it'}],
+            model='claude-sonnet-5-5', max_tokens=100, messages=[{'role': 'user', 'content': 'Score it'}],
             output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}})
         self.assertEqual(json.loads(response.content[0].text), {'answer': 'fixed', 'score': 1})
         calls = fake.calls
@@ -153,7 +153,7 @@ class CliClientTests(unittest.TestCase):
     def test_a_second_invalid_answer_is_an_error_not_a_loop(self):
         fake = FakeClaude(self, 'bad', old=True)
         with self.assertRaises(engine.CliError):
-            fake.client().messages.create(model='claude-sonnet-5', messages=[{'role': 'user', 'content': 'x'}],
+            fake.client().messages.create(model='claude-sonnet-5-5', messages=[{'role': 'user', 'content': 'x'}],
                                           output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}})
         self.assertEqual(len(fake.calls), 2)
 
@@ -314,16 +314,16 @@ class BillingTests(unittest.TestCase):
     def test_subscription_calls_cost_nothing_in_api_dollars(self):
         cli = engine.Usage(1_000_000, 1_000_000)
         api = SimpleNamespace(input_tokens=1_000_000, output_tokens=0)
-        self.assertEqual(cost.usd('claude-sonnet-5', cli), 0.0)
-        self.assertEqual(cost.usd('claude-sonnet-5', api), 2.0)
+        self.assertEqual(cost.usd('claude-sonnet-5-5', cli), 0.0)
+        self.assertEqual(cost.usd('claude-sonnet-5-5', api), 2.0)
         stats = {}
-        cost.add(stats, 'claude-sonnet-5', cli)
-        cost.add(stats, 'claude-sonnet-5', api)
+        cost.add(stats, 'claude-sonnet-5-5', cli)
+        cost.add(stats, 'claude-sonnet-5-5', api)
         self.assertEqual((stats['cli_calls'], stats['api_calls'], stats['usd']), (1, 1, 2.0))
 
     def test_run_row_says_claude_code_and_logs_zero_api_dollars(self):
         run = cron_runs.new_run('insight')
-        run.update(headline='Insight sent', insight={'model': 'claude-sonnet-5', 'tokens_in': 100, 'tokens_out': 10,
+        run.update(headline='Insight sent', insight={'model': 'claude-sonnet-5-5', 'tokens_in': 100, 'tokens_out': 10,
                                                      'usd': 0.0, 'cli_calls': 1})
         properties, children = cron_runs.run_page(run)
         self.assertEqual(properties['AI cost (USD)'], {'number': 0})  # the budget guard sums this column
@@ -334,7 +334,7 @@ class BillingTests(unittest.TestCase):
 
     def test_api_and_fallback_rows(self):
         run = cron_runs.new_run('insight')
-        run.update(headline='Insight sent', insight={'model': 'claude-sonnet-5', 'usd': 0.02, 'api_calls': 1})
+        run.update(headline='Insight sent', insight={'model': 'claude-sonnet-5-5', 'usd': 0.02, 'api_calls': 1})
         properties, _ = cron_runs.run_page(run)
         self.assertEqual(properties['Billed to'], {'select': {'name': 'Anthropic API credits'}})
         self.assertEqual(properties['Summary']['rich_text'][0]['text']['content'], 'Insight sent (AI cost $0.020)')

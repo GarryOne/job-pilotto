@@ -112,7 +112,7 @@ class KitTests(unittest.TestCase):
                     {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
                      'description': 'Kubernetes.'}]})
                 tracker, client = FakeTracker(), FakeClient()
-                messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5', opener)
+                messages, log = daily.prepare_kit(db, notion.job_code(URL), tracker, client, 'claude-sonnet-5-5', opener)
         self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
         self.assertIn('Kit cost (USD)', tracker.updates[0][1])
         page_id, heading, block = tracker.sections[0]
@@ -134,7 +134,7 @@ class KitTests(unittest.TestCase):
                     {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
                      'description': 'Kubernetes.'}]})
                 run = {'mode': 'prepare'}
-                daily.prepare_kit(db, notion.job_code(URL), FakeTracker(), FakeClient(), 'claude-sonnet-5', opener, run=run)
+                daily.prepare_kit(db, notion.job_code(URL), FakeTracker(), FakeClient(), 'claude-sonnet-5-5', opener, run=run)
         self.assertEqual(run['application'], 'page-1')  # its ⏱️ Search runs row shows on the job's page (Runs)
 
     def test_find_job_by_page_url(self):
@@ -175,13 +175,13 @@ class AutoKitTests(unittest.TestCase):
                 jobs = [{'id': 1, 'title': 'SRE', 'company': 'Acme', 'url': URL, 'description': 'd',
                         'fit': {'score': 80}}]
                 tracker, client = FakeTracker(), FakeClient()
-                summary, drafted = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5', max_jobs=5, min_score=50,
+                summary, drafted = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
                                                 client=client, opener=opener)
                 self.assertIn('Auto-drafted 1 of 1', summary)
                 self.assertEqual(len(drafted), 1)
                 self.assertEqual(tracker.marked, [(URL, 'Kit ready')])
                 # A second run must skip the same job (already recorded).
-                summary2, drafted2 = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5', max_jobs=5, min_score=50,
+                summary2, drafted2 = kit.auto_run(db, jobs, tracker, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
                                                   client=client, opener=opener)
                 self.assertIn('0 kit(s)', summary2)
                 self.assertEqual(drafted2, [])
@@ -206,7 +206,7 @@ class EffortTests(unittest.TestCase):
 
     def test_haiku_gets_no_effort_and_other_models_keep_medium(self):
         self.assertIsNone(self.effort_for('claude-haiku-4-5'))
-        self.assertEqual(self.effort_for('claude-sonnet-5'), 'medium')
+        self.assertEqual(self.effort_for('claude-sonnet-5-5'), 'medium')
 
 if __name__ == '__main__':
     unittest.main()

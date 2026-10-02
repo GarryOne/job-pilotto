@@ -71,7 +71,7 @@ test('jobs on this Mac get the choice; the plan-limit fallback only when ticked 
   // pipelineEnv: Claude Code without a key still gets the models, so the AI steps run.
   const env = pipeline.pipelineEnv(storage({aiEngine: 'cli', claudeCode: {path: '/x/claude'}}), {PATH: '/usr/bin'});
   assert.equal(env.JOB_PILOTTO_AI_ENGINE, 'cli');
-  assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5');
+  assert.equal(env.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5-5');
   assert.equal(env.ANTHROPIC_API_KEY, undefined);
   assert.ok(pipeline.dailyArgs(storage({aiEngine: 'cli'}), {mode: 'run'}).includes('--score-max'));
   assert.ok(!pipeline.dailyArgs(storage({}), {mode: 'run'}).includes('--score-max'));
@@ -116,7 +116,7 @@ test('the app\'s own calls on Claude Code: a PDF becomes a file only Read may op
   const fake = fakeClaude('schema');
   try {
     const client = claudeCode.cliClient(fake.file);
-    const response = await client.messages.create({model: 'claude-sonnet-5', system: 'Read the CV.', messages: [{role: 'user', content: [
+    const response = await client.messages.create({model: 'claude-sonnet-5-5', system: 'Read the CV.', messages: [{role: 'user', content: [
       {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: Buffer.from('%PDF fake').toString('base64')}},
       {type: 'text', text: 'Draft it.'}]}], output_config: {format: {type: 'json_schema', schema: {type: 'object', required: ['summary']}}}});
     assert.deepEqual(JSON.parse(response.content[0].text), {summary: 'done'});

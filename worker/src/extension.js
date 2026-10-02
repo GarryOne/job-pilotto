@@ -12,8 +12,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const KIT_HEADING = '📝 Application kit';
-const DEFAULT_MODEL = 'claude-sonnet-5';
-// USD per million tokens, for the cost shown to the user and logged (claude-sonnet-5).
+const DEFAULT_MODEL = 'claude-sonnet-5-5';
+// USD per million tokens, for the cost shown to the user and logged (claude-sonnet-5-5).
 const PRICE = { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 };
 const CORS = {
   'Access-Control-Allow-Origin': '*',

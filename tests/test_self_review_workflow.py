@@ -15,7 +15,7 @@ class SelfReviewWorkflowTests(unittest.TestCase):
         self.assertIn('workflow_dispatch:', self.text)
 
     def test_claude_is_capped_and_least_privilege(self):
-        self.assertIn('--model claude-sonnet-5', self.text)
+        self.assertIn('--model claude-sonnet-5-5', self.text)
         turns = int(re.search(r'--max-turns (\d+)', self.text).group(1))
         self.assertLessEqual(turns, 25)  # keeps a run under ~$0.50
         tools = re.search(r'--allowedTools "([^"]+)"', self.text).group(1).split(',')

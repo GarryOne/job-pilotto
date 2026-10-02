@@ -21,7 +21,7 @@ from ..notion import client as notion, ledger
 from ..notion.ledger import _block, plain
 from . import cost, engine, mail
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_PREP_MODEL', 'claude-sonnet-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_PREP_MODEL', 'claude-sonnet-5-5')
 HEADING = '🎤 Interview prep'
 DESCRIPTION_HEADING = '🧾 Job description'
 MIN_ROLE = 400  # characters about the role before a kit is worth building

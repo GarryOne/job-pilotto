@@ -21,7 +21,7 @@ FIT = {'score': 81, 'tier': 'A', 'reason': 'AWS/EKS ownership', 'strengths': ['E
 POSTING = 'Own AWS and EKS: networking, DNS, load balancing. Run Aurora PostgreSQL in production. Terraform + Argo CD. ' * 2
 URL = 'https://boards.greenhouse.io/acme/jobs/1'
 AI_ON = {'ANTHROPIC_API_KEY': 'sk-test', 'NOTION_TOKEN': 'secret-test',
-         'JOB_PILOTTO_ENRICH_MODEL': 'claude-haiku-4-5', 'JOB_PILOTTO_SCORE_MODEL': 'claude-sonnet-5'}
+         'JOB_PILOTTO_ENRICH_MODEL': 'claude-haiku-4-5', 'JOB_PILOTTO_SCORE_MODEL': 'claude-sonnet-5-5'}
 META = {'title': 'Senior DevOps Engineer', 'company': 'Acme', 'location': 'Remote', 'description': POSTING}
 
 
@@ -82,7 +82,7 @@ class ImportUrlTests(unittest.TestCase):
         self.assertTrue(outcome['ok'])
         self.assertTrue(outcome['created'])
         self.assertIn('fit 81/100, tier A', outcome['line'])
-        self.assertEqual(client.calls, ['claude-haiku-4-5', 'claude-sonnet-5'])
+        self.assertEqual(client.calls, ['claude-haiku-4-5', 'claude-sonnet-5-5'])
         self.assertEqual(tracker.applications, [])
         page_id, props = tracker.matches[0]
         self.assertIsNone(page_id)

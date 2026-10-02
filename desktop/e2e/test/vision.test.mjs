@@ -18,7 +18,7 @@ test('only well-formed findings survive, with the page they were found on', () =
 
 test('the request carries the picture, the page and the expectations, on Sonnet by default (interpreting a screenshot is where a cheap model cries wolf)', () => {
   const request = buildRequest({view: 'jobs', pngBase64: 'AAAA', rules: 'rule one'});
-  assert.equal(request.model, 'claude-sonnet-5');
+  assert.equal(request.model, 'claude-sonnet-5-5');
   assert.equal(request.messages[0].content[0].source.data, 'AAAA');
   assert.match(request.messages[0].content[1].text, /Page: jobs[\s\S]*Expected to show:[\s\S]*rule one/);
 });
@@ -39,10 +39,10 @@ test('the reviewer is given the app\'s own facts and told to look for contradict
   assert.equal(buildRequest({view: 'jobs', pngBase64: 'AAAA'}).messages[0].content[1].text.includes('FACTS'), false, 'no facts, no facts block');
 });
 
-test('the request never carries a temperature: claude-sonnet-5 rejects it with a 400 (the nightly review did nothing for days because of it)', () => {
+test('the request never carries a temperature: claude-sonnet-5-5 rejects it with a 400 (the nightly review did nothing for days because of it)', () => {
   const request = buildRequest({view: 'jobs', pngBase64: 'AAAA'});
   assert.equal('temperature' in request, false);
-  assert.equal(request.model, 'claude-sonnet-5');
+  assert.equal(request.model, 'claude-sonnet-5-5');
 });
 
 test('the activity suite\'s screenshots of failure and queued states are judged against what the Actions page and its panel should show', async () => {

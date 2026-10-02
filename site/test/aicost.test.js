@@ -24,7 +24,7 @@ const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? n
 const env = () => ({ANTHROPIC_TRIAL_KEY: 'sk-trial', WAITLIST: kv(), STATS: d1(), LICENSE_PUBLIC_KEY: publicKey, TRIAL_PER_KEY_USD: '5', TRIAL_MONTH_USD: '50'});
 const now = new Date('2026-10-02T12:00:00Z');
 const ask = (e, key, action, usage) => trial(new Request('https://x/api/ai/v1/messages', {method: 'POST', headers: {'x-api-key': key, ...(action ? {'x-jp-action': action} : {})},
-  body: JSON.stringify({model: 'claude-sonnet-5', max_tokens: 10, messages: []})}), e, async () => Response.json({model: 'claude-sonnet-5', usage, content: [{type: 'text', text: 'private answer'}]}), now);
+  body: JSON.stringify({model: 'claude-sonnet-5-5', max_tokens: 10, messages: []})}), e, async () => Response.json({model: 'claude-sonnet-5-5', usage, content: [{type: 'text', text: 'private answer'}]}), now);
 const rows = e => e.STATS.db.prepare('SELECT * FROM ai_calls ORDER BY action').all().map(r => ({...r}));
 
 test('each call through the relay is recorded under its step, with tokens and money, the holder only as a digest', async () => {
@@ -47,9 +47,9 @@ test('the report gives the cost per step, per user per active day and per month'
   const e = env();
   const day = n => new Date(Date.UTC(2026, 9, n, 12));
   for (const [id, d, calls] of [['u1', 1, 10], ['u1', 2, 10], ['u2', 2, 30]]) {
-    for (let i = 0; i < calls; i++) await record(e, id, 'score', 'claude-sonnet-5', {input_tokens: 2600, output_tokens: 433}, 0.01, day(d));
+    for (let i = 0; i < calls; i++) await record(e, id, 'score', 'claude-sonnet-5-5', {input_tokens: 2600, output_tokens: 433}, 0.01, day(d));
   }
-  await record(e, 'u1', 'kit', 'claude-sonnet-5', {input_tokens: 4000, output_tokens: 2000}, 0.04, day(2));
+  await record(e, 'u1', 'kit', 'claude-sonnet-5-5', {input_tokens: 4000, output_tokens: 2000}, 0.04, day(2));
   const r = await report(e.STATS, 30, now);
   assert.equal(r.users, 2);
   assert.deepEqual(r.steps.map(s => [s.action, s.calls, Math.round(s.usd * 100) / 100]), [['score', 50, 0.5], ['kit', 1, 0.04]]);

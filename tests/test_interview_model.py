@@ -35,7 +35,7 @@ class InterviewModel(unittest.TestCase):
         self.assertGreaterEqual(client.calls[0]['max_tokens'], 16000)
 
     def test_every_model_the_app_calls_is_priced(self):
-        for model in (interviews.DEFAULT_MODEL, interviews.FALLBACK_MODEL, 'claude-sonnet-5', 'claude-haiku-4-5'):
+        for model in (interviews.DEFAULT_MODEL, interviews.FALLBACK_MODEL, 'claude-sonnet-5-5', 'claude-haiku-4-5'):
             self.assertIn(model, cost.PRICES, model)
         self.assertEqual(cost.PRICES['claude-opus-5-5'], (4.00, 20.00, 0.20))
 

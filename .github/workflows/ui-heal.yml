@@ -87,7 +87,7 @@ jobs:
           github_token: ${{ github.token }}
           # Least privilege: read and edit files, run the desktop tests, read-only git. No push, no gh, no network.
           claude_args: >-
-            --model claude-sonnet-5 --max-turns 50
+            --model claude-sonnet-5-5 --max-turns 50
             --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(git diff:*),Bash(git status:*)"
           prompt: Read .heal/prompt.md and follow it exactly.
       - name: Keep Claude's transcript (to see where its turns went)

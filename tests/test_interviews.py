@@ -823,7 +823,7 @@ class EffortTests(unittest.TestCase):
         self.assertIsNone(self.effort_for('claude-haiku-4-5'))
 
     def test_other_models_keep_medium_effort(self):
-        self.assertEqual(self.effort_for('claude-sonnet-5'), 'medium')
+        self.assertEqual(self.effort_for('claude-sonnet-5-5'), 'medium')
         self.assertEqual(self.effort_for('claude-opus-4-7'), 'medium')
 
 

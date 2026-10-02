@@ -84,7 +84,7 @@ jobs:
           github_token: ${{ github.token }}
           # Least privilege: read/edit files, plus read-only git to check evidence. No push, no gh, no network.
           claude_args: >-
-            --model claude-sonnet-5 --max-turns 20
+            --model claude-sonnet-5-5 --max-turns 20
             --allowedTools "Read,Glob,Grep,Edit,Write,Bash(git show:*),Bash(git log:*)"
           prompt: ${{ secrets.SELF_REVIEW_PROMPT }}
 

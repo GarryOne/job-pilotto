@@ -36,7 +36,7 @@ from ..notion import client as notion, cron_runs
 from ..notion.ledger import EVENTS_DATABASE_ID, RECORD_HEADING, plain
 from . import cost
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_REJECTION_MODEL', os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5'))
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_REJECTION_MODEL', os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5-5'))
 INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 HEADING = '🔎 Why it was rejected'
 NOT_ON_YOU = 'Not a fit (not on you)'

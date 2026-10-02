@@ -26,7 +26,7 @@ test('with the override set, every model the app hands to the engine and every m
 test('without the override nothing changes: the app still uses its own models', () => {
   const out = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', script], {cwd: fileURLToPath(new URL('..', import.meta.url)), encoding: 'utf8',
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'JOB_PILOTTO_MODEL_OVERRIDE'))}).trim().split('\n').pop());
-  assert.equal(out.models.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5');
-  assert.equal(out.strategy, 'claude-sonnet-5');
+  assert.equal(out.models.JOB_PILOTTO_SCORE_MODEL, 'claude-sonnet-5-5');
+  assert.equal(out.strategy, 'claude-sonnet-5-5');
   assert.equal(out.models.JOB_PILOTTO_INTERVIEW_MODEL, undefined);
 });

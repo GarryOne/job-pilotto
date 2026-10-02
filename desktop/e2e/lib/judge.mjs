@@ -1,6 +1,6 @@
 // A Sonnet judge for what a feature wrote: it reads the rows and says, per item, whether they make sense for a stated person. Pure functions here (build the request,
 // validate the answer, apply the verdict); `judge` makes the one call. Sonnet only as a judge, never inside the app under test (that runs on Haiku).
-export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5';
+export const MODEL = process.env.E2E_JUDGE_MODEL || 'claude-sonnet-5-5';
 
 export const SYSTEM = `You are a strict reviewer of what a job-search tool wrote down for one person. You get the person and a list of items the tool wrote (each with its facts).
 For EACH item decide whether it makes sense for THIS person, using only the facts shown. An item makes no sense when its facts contradict each other, a field is empty or says
@@ -8,7 +8,7 @@ For EACH item decide whether it makes sense for THIS person, using only the fact
 Reply with ONE JSON object and nothing else: {"items":[{"name":"<exactly the item's name>","makes_sense":true|false,"reason":"<one short sentence>"}]}`;
 
 export function buildRequest({person, items, model = MODEL}) {
-  return {model, max_tokens: 1500, system: SYSTEM,   // no temperature: claude-sonnet-5 rejects it
+  return {model, max_tokens: 1500, system: SYSTEM,   // no temperature: claude-sonnet-5-5 rejects it
     messages: [{role: 'user', content: `The person: ${person}\n\nThe items the tool wrote:\n${JSON.stringify(items, null, 1)}`}]};
 }
 
