@@ -86,13 +86,23 @@ jobs:
           github_token: ${{ github.token }}
           # Least privilege: read and edit files, run the desktop tests, read-only git. No push, no gh, no network.
           claude_args: >-
-            --model claude-sonnet-5 --max-turns 25
+            --model claude-sonnet-5 --max-turns 40
             --allowedTools "Read,Glob,Grep,Edit,Write,Bash(node --test:*),Bash(git diff:*),Bash(git status:*)"
           prompt: Read .heal/prompt.md and follow it exactly.
+      - name: Keep Claude's transcript (to see where its turns went)
+        if: always() && steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: heal-transcript
+          path: /home/runner/work/_temp/claude-execution-output.json
+          if-no-files-found: ignore
       - name: Check the change, run the tests, open the pull request
         if: always() && steps.triage.outputs.candidate != 'none' && steps.capacity.outputs.full != 'true'
         run: |
           set -euo pipefail
+          # The labels the branches below use (a first run finds none).
+          gh label create needs-human --repo "$REPO" --force --color D93F0B --description 'The UI loop could not fix this by itself'
+          gh label create wontfix-auto --repo "$REPO" --force --color CCCCCC --description 'A false positive of the UI loop: never retried'
           number=$(jq -r '.number' .heal/candidate.json)
           id=$(jq -r '.id' .heal/candidate.json)
           changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v -E '^(\.heal/|e2e-artifacts/)' || true)

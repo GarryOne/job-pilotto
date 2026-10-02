@@ -1,6 +1,10 @@
 You fix ONE user-interface problem in the Job Pilotto desktop app (Electron; pages in desktop/renderer/, styles in desktop/renderer/style.css, tokens in tokens.css).
 The problem is described at the end. It was found by a nightly end-to-end run (a layout check or an AI review of a screenshot) and seen in two runs.
 
+You have about 40 turns: be quick and direct. Do NOT read all of CLAUDE.md or the whole skill: read only the "Desktop UI: one design system" section of CLAUDE.md and the first 60 lines of
+.claude/skills/ui-look-and-feel/SKILL.md. Start from the page named in the finding (the page's code is desktop/renderer/pages/<view>.js, its helpers are desktop/renderer/<view>-view.js or jobs-view.js),
+grep for the symptom (the text or class in the detail), and open only the files you need.
+
 Rules (a script checks them afterwards and refuses the change if you break one):
 1. Read CLAUDE.md, then .claude/skills/ui-look-and-feel/SKILL.md. Use only var(--…) tokens and the shared components; desktop/test/design.test.js fails on raw colours, sizes or fonts.
 2. Find the ROOT CAUSE in the code that renders the problem; do not paper over it. Name it (file:line) in the pull request text.
