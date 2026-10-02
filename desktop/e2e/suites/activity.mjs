@@ -37,6 +37,13 @@ const sleep = (page, ms) => page.waitForTimeout(ms);
 
 // This suite turns its own schedule off, so a "schedule" row is someone else's: on a Mac the suites share one Notion page (CI gives each its own), and another session's
 // app may be running its schedule into it. Rows by a schedule are ignored here.
+// Which of these runs are this app's. A Notion row with no local record may be another app's (CI and a Mac use the same page when a token is shared), so it is ignored,
+// unless it is the very same Notion page as one of this app's runs: then the app lists one run twice, which is a bug.
+const pageId = url => String(url || '').replace(/-/g, '').match(/[0-9a-f]{32}$/i)?.[0] || '';
+function own(runs) {
+  const ids = new Set(runs.filter(run => run.log.length && run.notionUrl).map(run => pageId(run.notionUrl)));
+  return {mine: runs.filter(run => run.log.length), twice: runs.filter(run => !run.log.length && ids.has(pageId(run.notionUrl)))};
+}
 // Clicks a task's Run button on the Actions page and waits until its run has ended (nothing running, nothing waiting) -> {fresh: the runs it added, seconds}.
 async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
   const {page} = ctx;
@@ -48,7 +55,9 @@ async function runTask(ctx, command, {maxMs = 240000, kind} = {}) {
   while (Date.now() - started < maxMs) {
     await sleep(page, 1500);
     data = await runsData(page);
-    const added = data.runs.filter(run => !before.has(run.id) && run.trigger !== 'schedule' && (!kind || run.kind === kind));
+    const {mine, twice} = own(data.runs.filter(run => !before.has(run.id) && run.trigger !== 'schedule' && (!kind || run.kind === kind)));
+    if (twice.length) throw new Error(`the app lists one run twice: its own record and the same Notion page again (${twice.map(run => run.kind).join(', ')})`);
+    const added = mine;
     seen = seen || !!data.running || added.length > 0;
     if (seen && !data.running && !data.queued.length && added.length) return {fresh: added, data, shown: await shownWith(page, added[0].id), seconds: Math.round((Date.now() - started) / 1000)};
   }
@@ -96,7 +105,7 @@ async function openPanel(ctx) {
   await sleep(page, 800);
 }
 // Search rows this app started (a "schedule" row is someone else's, see runTask).
-const searchRows = async (page, before) => (await runsData(page)).runs.filter(run => run.kind === 'search' && run.trigger !== 'schedule' && !before.has(run.id));
+const searchRows = async (page, before) => { const {mine, twice} = own((await runsData(page)).runs.filter(run => run.kind === 'search' && run.trigger !== 'schedule' && !before.has(run.id))); return [...mine, ...twice]; };
 const idsNow = async page => new Set((await runsData(page)).runs.map(run => run.id));
 
 // The feed the engine reads: these postings, nothing else (an empty list means a search finds nothing new and asks the AI nothing).
@@ -194,155 +203,8 @@ export async function run(ctx) {
       await noRowStaysRunning(ctx);
     }, {needs: ctx.needs});
   }
-  // ---------- (2) the AI fails ----------
-  // A search with one new posting: the AI is asked, and the proxy answers the way the real API does when it is in trouble.
-  const FAILURES = [
-    {mode: 'rate-limit', what: 'the AI answers 429 (rate limit)'},
-    {mode: 'server-error', what: 'the AI answers 500'},
-    {mode: 'invalid-key', what: 'the AI says the key is invalid (401)'},
-    {mode: 'no-credit', what: 'the AI says the credit balance is empty (the spending limit)', limit: true},
-  ];
-  for (const failure of FAILURES) {
-    await ctx.run(`${failure.what}: the run ends as Failed or with warnings, in words, with nothing left Running`, async () => {
-      setFeed(ctx, [`Senior Site Reliability Engineer, ${failure.mode}`]);
-      proxy.setMode(failure.mode);
-      const callsBefore = proxy.stats.calls;
-      try {
-        const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
-        const mine = shown.find(row => row.id === String(fresh[0].id));
-        const run = fresh[0];
-        const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id});
-        console.log(`  ${failure.mode}: ${seconds}s, ${proxy.stats.calls - callsBefore} AI call(s); ok=${run.ok} warned=${run.warned}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warningsTitle} | ${opened.warnings.slice(0, 160)}`);
-        const problems = [];
-        if (fresh.length !== 1) problems.push(`${fresh.length} Recent runs rows for one click`);
-        if (proxy.stats.calls - callsBefore < 1) problems.push('the AI was never asked, so nothing was tested');
-        const bad = badSummary(mine?.result);
-        if (bad) problems.push(`the list's words are wrong: ${bad}`);
-        if (/Completed$/.test(opened.status) && !opened.warnings && !opened.warningList) problems.push('the run says plain "Completed" with no warning, though the AI refused every call');
-        if (/no line about them/i.test(`${opened.warnings} ${opened.warningList}`)) problems.push('the panel warns but gives no reason ("the run recorded warnings, with no line about them")');
-        if (!/Failed|warning|Needs/i.test(`${opened.status} ${mine?.pill}`)) problems.push(`neither the panel ("${opened.status}") nor the list ("${mine?.pill}") says it did not fully work`);
-        const shownWords = `${opened.warnings} ${opened.warningList} ${opened.result} ${opened.message} ${mine?.result}`;
-        if (/rate_limit_error|api_error|authentication_error|invalid_request_error|\{'type': 'error'|Traceback/.test(shownWords)) problems.push(`raw API words are shown: "${shownWords.slice(0, 120)}"`);
-        if (failure.limit && !/spending limit|AI limit/i.test(shownWords)) problems.push(`the spending limit is not named as such: "${shownWords.slice(0, 160)}"`);
-        for (const leak of leaks(`${opened.log}\n${shownWords}`, {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the log shows ${leak}`);
-        if (problems.length) throw new Error(problems.join('; '));
-        await noRowStaysRunning(ctx);
-      } finally { proxy.setMode('pass'); }
-    }, {needs: ctx.needs});
-  }
-  await ctx.run('after the failures, the next Jobs check works again (the AI is back)', async () => {
-    setFeed(ctx, ['Staff Platform Engineer, recovery']);
-    const callsBefore = proxy.stats.calls;
-    const {fresh} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
-    if (fresh.length !== 1 || !fresh[0].ok) throw new Error(`the run after the failures did not end ok (${fresh.length} row(s), ok=${fresh[0]?.ok})`);
-    if (proxy.stats.calls - callsBefore < 1) throw new Error('the AI was never asked, so nothing was tested');
-    await noRowStaysRunning(ctx);
-  }, {needs: ctx.needs});
-
-  await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', async () => {
-    // The app stops a run that prints nothing for 15 minutes; this test shortens that to 30 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
-    await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '30000'});
-    await appReady(ctx);
-    setFeed(ctx, ['Lead Platform Engineer, silence']);
-    proxy.setMode('hang');
-    try {
-      const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 180000, kind: 'search'});
-      const mine = shown.find(row => row.id === String(fresh[0].id));
-      const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id});
-      console.log(`  silence: ${seconds}s; ok=${fresh[0].ok}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warnings.slice(0, 160)}`);
-      const problems = [];
-      if (fresh.length !== 1) problems.push(`${fresh.length} rows for one click: ${fresh.map(run => `[${run.id} ${run.trigger} ${run.where} ok=${run.ok} start=${run.startedAt} notion=${run.notionUrl.slice(-6)} result="${run.result.slice(0, 50)}" log=${run.log.length}]`).join(' ')}`);
-      if (fresh[0].ok) problems.push('a run whose AI never answered ended as a success');
-      if (seconds > 150) problems.push(`it took ${seconds} s to give up (the limit was 30 s)`);
-      const bad = badSummary(mine?.result);
-      if (bad) problems.push(`the list's words are wrong: ${bad}`);
-      if (!/no output|stopp|did not answer|silen/i.test(`${fresh[0].log.join('\n')} ${fresh[0].result} ${opened.log} ${opened.warnings}`)) problems.push('nothing in the log or the words says the run was stopped for its silence');
-      if (problems.length) throw new Error(problems.join('; '));
-      await noRowStaysRunning(ctx);
-    } finally { proxy.setMode('pass'); }
-  }, {needs: ctx.needs});
-
-  // ---------- (3) two things at once, and a quit in the middle ----------
-  await ctx.run('Run double-clicked: one row, not two', async () => {
-    await ctx.relaunch();
-    await appReady(ctx);
-    setFeed(ctx, ['Staff Platform Engineer, double']);
-    proxy.setDelay(6000);
-    try {
-      const before = await idsNow(page);
-      await page.click('.nav[data-view="actions"]');
-      await page.dblclick('[data-command="run"]');
-      await sleep(page, 2500);
-      const {samples, endedAt} = await watch(page, {every: 1500, maxMs: 240000});
-      if (endedAt == null) throw new Error('the task was still running after 4 minutes');
-      if (Math.max(...samples.map(s => s.queued)) > 1) throw new Error(`the second click queued ${Math.max(...samples.map(s => s.queued))} copies of the task`);
-      await sleep(page, 20000);   // a late duplicate (the run read back from Notion beside the Mac's own record) shows within a poll or two
-      const rows = await searchRows(page, before);
-      if (rows.length !== 1) throw new Error(`${rows.length} Jobs check rows for one task pressed twice`);
-      await noRowStaysRunning(ctx);
-    } finally { proxy.setDelay(0); }
-  }, {needs: ctx.needs});
-
-  await ctx.run('a Gmail check started while a search runs shows Queued, then runs after it', async () => {
-    setFeed(ctx, ['Principal Platform Engineer, queue']);
-    proxy.setDelay(8000);
-    try {
-      const before = await idsNow(page);
-      await openPanel(ctx);
-      await page.click('.nav[data-view="actions"]');
-      await page.click('[data-command="run"]');
-      await page.waitForFunction(() => window.pilot.runs().then(data => data.running?.kind === 'search'), null, {timeout: 60000, polling: 1000});
-      await page.click('[data-command="mail"]');
-      let sawQueued = null, ended = null;
-      const started = Date.now();
-      while (Date.now() - started < 240000) {
-        await sleep(page, 1000);
-        const s = await sample(page);
-        const rows = await page.evaluate(() => [...document.querySelectorAll('#activity-recent .recent-row')].map(row => ({kind: row.querySelector('.run-kind')?.textContent || '', state: row.dataset.state, what: row.querySelector('.run-what')?.textContent || ''})));
-        const waiting = rows.find(row => row.state === 'queued');
-        if (!sawQueued && s.queued && waiting) sawQueued = waiting;
-        if (!s.running && !s.queued) { ended = s; break; }
-      }
-      if (!ended) throw new Error('the search and the Gmail check were still not finished after 4 minutes');
-      if (!sawQueued) throw new Error('the Gmail check never showed as Queued while the search ran');
-      console.log(`  queued row: ${sawQueued.kind} "${sawQueued.what}"`);
-      if (sawQueued.kind !== LABEL.mail) throw new Error(`the queued row is "${sawQueued.kind}", not the Gmail check`);
-      if (!/starts after/i.test(sawQueued.what)) throw new Error(`the queued row does not say what it waits for: "${sawQueued.what}"`);
-      await sleep(page, 5000);
-      const data = await runsData(page);
-      const fresh = data.runs.filter(run => !before.has(run.id) && run.trigger !== 'schedule');
-      const search = fresh.find(run => run.kind === 'search'), mail = fresh.find(run => run.kind === 'mail');
-      if (!search || !mail || fresh.length !== 2) throw new Error(`expected one search and one Gmail check, got: ${fresh.map(run => run.kind).join(', ')}`);
-      if (Date.parse(mail.startedAt) < Date.parse(search.endedAt) - 2000) throw new Error('the Gmail check started before the search had ended');
-      await noRowStaysRunning(ctx);
-    } finally { proxy.setDelay(0); }
-  }, {needs: ctx.needs});
-
-  await ctx.run('quitting the app in the middle of a run: it is not shown Running for ever, and the app says what became of it', async () => {
-    setFeed(ctx, ['Senior Platform Engineer, restart']);
-    proxy.setDelay(25000);
-    try {
-      const before = await idsNow(page);
-      await page.click('.nav[data-view="actions"]');
-      await page.click('[data-command="run"]');
-      await page.waitForFunction(() => window.pilot.runs().then(data => data.running?.kind === 'search'), null, {timeout: 60000, polling: 1000});
-      await sleep(page, 3000);
-      await ctx.relaunch();   // the app is killed as a crash or a power cut would: nothing gets to tidy up
-      await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-      // The app picks up what you had started ("Picking up 1 job from before you quit") after about 20 s. Wait until it is idle again.
-      await sleep(page, 30000);
-      await quiet(ctx, {forMs: 15000, maxMs: 300000});
-      const data = await runsData(page);
-      const rows = data.runs.filter(run => run.kind === 'search' && run.trigger !== 'schedule' && !before.has(run.id));
-      console.log(`  after the quit: running=${JSON.stringify(data.running)}; search rows: ${rows.map(run => `${run.ok ? 'ok' : 'failed'} ${run.startedAt.slice(11, 19)}`).join(', ')}`);
-      if (data.running) throw new Error(`the app still says "${data.running.kind}" is running after everything ended (${data.running.step})`);
-      if (!rows.length) throw new Error('the interrupted search left no row in Recent runs at all');
-      if (!rows.some(run => run.ok)) throw new Error('the search you had started was not picked up again after the restart');
-      await noRowStaysRunning(ctx, {waitMs: 90000});
-    } finally { proxy.setDelay(0); }
-  }, {needs: ctx.needs});
-
   // ---------- (4) Recent activity itself ----------
+  // Before the failure tests: the history keeps about the newest 25 runs, and after the tests below the first tasks have scrolled out of it.
   await ctx.run('"View all activity" opens the panel, and its filter keeps one kind of run at a time', async () => {
     await openPanel(ctx);
     const all = await panelRows(page);
@@ -386,6 +248,173 @@ export async function run(ctx) {
     console.log(`  from Notion: ${data.runs.length} run(s); weekly log ${lines} line(s)`);
     if (/^(Nothing to show yet|No log for this run)/.test(opened.log.trim()) || !lines) throw new Error('a run read from Notion shows no log');
     for (const leak of leaks(opened.log, {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) throw new Error(`a Notion run's log shows ${leak}`);
+  }, {needs: ctx.needs});
+
+  // ---------- (2) the AI fails ----------
+  // A search with one new posting: the AI is asked, and the proxy answers the way the real API does when it is in trouble.
+  const FAILURES = [
+    {mode: 'rate-limit', what: 'the AI answers 429 (rate limit)'},
+    {mode: 'server-error', what: 'the AI answers 500'},
+    {mode: 'invalid-key', what: 'the AI says the key is invalid (401)'},
+    {mode: 'no-credit', what: 'the AI says the credit balance is empty (the spending limit)', limit: true},
+  ];
+  for (const failure of FAILURES) {
+    await ctx.run(`${failure.what}: the run ends as Failed or with warnings, in words, with nothing left Running`, async () => {
+      setFeed(ctx, [`Senior Site Reliability Engineer, ${failure.mode}`]);
+      proxy.setMode(failure.mode);
+      const callsBefore = proxy.stats.calls;
+      try {
+        const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
+        const mine = shown.find(row => row.id === String(fresh[0].id));
+        const run = fresh[0];
+        const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id});
+        console.log(`  ${failure.mode}: ${seconds}s, ${proxy.stats.calls - callsBefore} AI call(s); ok=${run.ok} warned=${run.warned}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warningsTitle} | ${opened.warnings.slice(0, 160)}`);
+        const problems = [];
+        if (fresh.length !== 1) problems.push(`${fresh.length} Recent runs rows for one click`);
+        if (proxy.stats.calls - callsBefore < 1) problems.push('the AI was never asked, so nothing was tested');
+        const bad = badSummary(mine?.result);
+        if (bad) problems.push(`the list's words are wrong: ${bad}`);
+        if (/Completed$/.test(opened.status) && !opened.warnings && !opened.warningList) problems.push('the run says plain "Completed" with no warning, though the AI refused every call');
+        if (/warning/i.test(opened.status) !== /warning/i.test(mine?.pill || '')) problems.push(`the list says "${mine?.pill}" and the panel "${opened.status}"`);
+        if (/no line about them/i.test(`${opened.warnings} ${opened.warningList}`)) problems.push('the panel warns but gives no reason ("the run recorded warnings, with no line about them")');
+        if (!/Failed|warning|Needs/i.test(`${opened.status} ${mine?.pill}`)) problems.push(`neither the panel ("${opened.status}") nor the list ("${mine?.pill}") says it did not fully work`);
+        const shownWords = `${opened.warnings} ${opened.warningList} ${opened.result} ${opened.message} ${mine?.result}`;
+        if (/rate_limit_error|api_error|authentication_error|invalid_request_error|\{'type': 'error'|Traceback/.test(shownWords)) problems.push(`raw API words are shown: "${shownWords.slice(0, 120)}"`);
+        if (failure.limit && !/spending limit|AI limit/i.test(shownWords)) problems.push(`the spending limit is not named as such: "${shownWords.slice(0, 160)}"`);
+        for (const leak of leaks(`${opened.log}\n${shownWords}`, {secrets: [ctx.key, ctx.token], dirs: [ctx.profile, ctx.feeds]})) problems.push(`the log shows ${leak}`);
+        if (problems.length) throw new Error(problems.join('; '));
+        await noRowStaysRunning(ctx);
+      } finally { proxy.setMode('pass'); }
+    }, {needs: ctx.needs});
+  }
+  await ctx.run('an insight paused by the spending limit is a run with a warning that names the limit, not a failure', async () => {
+    proxy.setMode('no-credit');
+    try {
+      const {fresh, shown} = await runTask(ctx, 'insight', {maxMs: 240000, kind: 'insight'});
+      const mine = shown.find(row => row.id === String(fresh[0].id));
+      const opened = await openRun(ctx, LABEL.insight, {id: fresh[0].id});
+      const words = `${opened.warnings} ${opened.warningList} ${mine?.result}`;
+      console.log(`  insight at the limit: list "${mine?.result}" [${mine?.pill}]; panel [${opened.status}] ${opened.warnings.slice(0, 120)}`);
+      const problems = [];
+      if (/failed/i.test(mine?.result || '') || /Failed/.test(mine?.pill || '')) problems.push(`a pause for the spending limit reads as a failure: "${mine?.result}" [${mine?.pill}]`);
+      if (!/spending limit|AI limit/i.test(words)) problems.push(`the limit is not named: "${words.slice(0, 160)}"`);
+      if (/terminal/i.test(words)) problems.push('the words send an app user to a terminal');
+      if (problems.length) throw new Error(problems.join('; '));
+      await noRowStaysRunning(ctx);
+    } finally { proxy.setMode('pass'); }
+  }, {needs: ctx.needs});
+  await ctx.run('after the failures, the next Jobs check works again (the AI is back)', async () => {
+    setFeed(ctx, ['Staff Platform Engineer, recovery']);
+    const callsBefore = proxy.stats.calls;
+    const {fresh} = await runTask(ctx, 'run', {maxMs: 300000, kind: 'search'});
+    if (fresh.length !== 1 || !fresh[0].ok) throw new Error(`the run after the failures did not end ok (${fresh.length} row(s), ok=${fresh[0]?.ok})`);
+    if (proxy.stats.calls - callsBefore < 1) throw new Error('the AI was never asked, so nothing was tested');
+    await noRowStaysRunning(ctx);
+  }, {needs: ctx.needs});
+
+  await ctx.run('the AI never answers: the run is stopped after its silence limit and ends as Failed, in words, with nothing left Running', async () => {
+    // The app stops a run that prints nothing for 15 minutes; this test shortens that to 30 s (JOB_PILOTTO_E2E_IDLE_MS, honoured only in the journey).
+    await ctx.relaunch({JOB_PILOTTO_E2E_IDLE_MS: '30000'});
+    await appReady(ctx);
+    setFeed(ctx, ['Lead Platform Engineer, silence']);
+    proxy.setMode('hang');
+    try {
+      const {fresh, shown, seconds} = await runTask(ctx, 'run', {maxMs: 180000, kind: 'search'});
+      const mine = shown.find(row => row.id === String(fresh[0].id));
+      const opened = await openRun(ctx, LABEL.search, {id: fresh[0].id});
+      console.log(`  silence: ${seconds}s; ok=${fresh[0].ok}; list: "${mine?.result}" [${mine?.pill}]; panel: [${opened.status}] ${opened.warnings.slice(0, 160)}`);
+      const problems = [];
+      if (fresh.length !== 1) problems.push(`${fresh.length} rows for one click: ${fresh.map(run => `[${run.id} ${run.trigger} ${run.where} ok=${run.ok} start=${run.startedAt} notion=${run.notionUrl.slice(-6)} result="${run.result.slice(0, 50)}" log=${run.log.length}]`).join(' ')}`);
+      if (fresh[0].ok) problems.push('a run whose AI never answered ended as a success');
+      if (seconds > 150) problems.push(`it took ${seconds} s to give up (the limit was 30 s)`);
+      const bad = badSummary(mine?.result);
+      if (bad) problems.push(`the list's words are wrong: ${bad}`);
+      if (!/no output|stopp|did not answer|silen/i.test(`${fresh[0].log.join('\n')} ${fresh[0].result} ${opened.log} ${opened.warnings}`)) problems.push('nothing in the log or the words says the run was stopped for its silence');
+      if (problems.length) throw new Error(problems.join('; '));
+      await noRowStaysRunning(ctx);
+    } finally { proxy.setMode('pass'); }
+  }, {needs: ctx.needs});
+
+  // ---------- (3) two things at once, and a quit in the middle ----------
+  await ctx.run('Run double-clicked, and asked again from elsewhere while it runs: one row, not two', async () => {
+    await ctx.relaunch();
+    await appReady(ctx);
+    setFeed(ctx, ['Staff Platform Engineer, double']);
+    proxy.setDelay(6000);
+    try {
+      const before = await idsNow(page);
+      await page.click('.nav[data-view="actions"]');
+      await page.dblclick('[data-command="run"]');
+      await sleep(page, 700);
+      await page.evaluate(() => { window.pilot.command('run'); });   // the same task asked from another place (Telegram, a shortcut) while it runs
+      await sleep(page, 2500);
+      const {samples, endedAt} = await watch(page, {every: 1500, maxMs: 240000});
+      if (endedAt == null) throw new Error('the task was still running after 4 minutes');
+      if (Math.max(...samples.map(s => s.queued)) > 1) throw new Error(`the second click queued ${Math.max(...samples.map(s => s.queued))} copies of the task`);
+      await sleep(page, 20000);   // a late duplicate (the run read back from Notion beside the Mac's own record) shows within a poll or two
+      const rows = await searchRows(page, before);
+      if (rows.length !== 1) throw new Error(`${rows.length} Jobs check rows for one task pressed twice`);
+      await noRowStaysRunning(ctx);
+    } finally { proxy.setDelay(0); }
+  }, {needs: ctx.needs});
+
+  await ctx.run('a Gmail check started while a search runs shows Queued, then runs after it', async () => {
+    setFeed(ctx, ['Principal Platform Engineer, queue']);
+    proxy.setDelay(8000);
+    try {
+      const before = await idsNow(page);
+      await openPanel(ctx);
+      await page.click('.nav[data-view="actions"]');
+      await page.click('[data-command="run"]');
+      await page.waitForFunction(() => window.pilot.runs().then(data => data.running?.kind === 'search'), null, {timeout: 60000, polling: 1000});
+      await page.click('[data-command="mail"]');
+      let sawQueued = null, ended = null;
+      const started = Date.now();
+      while (Date.now() - started < 240000) {
+        await sleep(page, 1000);
+        const s = await sample(page);
+        const rows = await page.evaluate(() => [...document.querySelectorAll('#activity-recent .recent-row')].map(row => ({kind: row.querySelector('.run-kind')?.textContent || '', state: row.dataset.state, what: row.querySelector('.run-what')?.textContent || ''})));
+        const waiting = rows.find(row => row.state === 'queued');
+        if (!sawQueued && s.queued && waiting) sawQueued = waiting;
+        if (!s.running && !s.queued) { ended = s; break; }
+      }
+      if (!ended) throw new Error('the search and the Gmail check were still not finished after 4 minutes');
+      if (!sawQueued) throw new Error('the Gmail check never showed as Queued while the search ran');
+      console.log(`  queued row: ${sawQueued.kind} "${sawQueued.what}"`);
+      if (sawQueued.kind !== LABEL.mail) throw new Error(`the queued row is "${sawQueued.kind}", not the Gmail check`);
+      if (!/starts after/i.test(sawQueued.what)) throw new Error(`the queued row does not say what it waits for: "${sawQueued.what}"`);
+      await sleep(page, 5000);
+      const data = await runsData(page);
+      const fresh = own(data.runs.filter(run => !before.has(run.id) && run.trigger !== 'schedule')).mine;
+      const search = fresh.find(run => run.kind === 'search'), mail = fresh.find(run => run.kind === 'mail');
+      if (!search || !mail || fresh.length !== 2) throw new Error(`expected one search and one Gmail check, got: ${fresh.map(run => run.kind).join(', ')}`);
+      if (Date.parse(mail.startedAt) < Date.parse(search.endedAt) - 2000) throw new Error('the Gmail check started before the search had ended');
+      await noRowStaysRunning(ctx);
+    } finally { proxy.setDelay(0); }
+  }, {needs: ctx.needs});
+
+  await ctx.run('quitting the app in the middle of a run: it is not shown Running for ever, and the app says what became of it', async () => {
+    setFeed(ctx, ['Senior Platform Engineer, restart']);
+    proxy.setDelay(25000);
+    try {
+      const before = await idsNow(page);
+      await page.click('.nav[data-view="actions"]');
+      await page.click('[data-command="run"]');
+      await page.waitForFunction(() => window.pilot.runs().then(data => data.running?.kind === 'search'), null, {timeout: 60000, polling: 1000});
+      await sleep(page, 3000);
+      await ctx.relaunch();   // the app is killed as a crash or a power cut would: nothing gets to tidy up
+      await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+      // The app picks up what you had started ("Picking up 1 job from before you quit") after about 20 s. Wait until it is idle again.
+      await sleep(page, 30000);
+      await quiet(ctx, {forMs: 15000, maxMs: 300000});
+      const data = await runsData(page);
+      const rows = own(data.runs.filter(run => run.kind === 'search' && run.trigger !== 'schedule' && !before.has(run.id))).mine;
+      console.log(`  after the quit: running=${JSON.stringify(data.running)}; search rows: ${rows.map(run => `${run.ok ? 'ok' : 'failed'} ${run.startedAt.slice(11, 19)}`).join(', ')}`);
+      if (data.running) throw new Error(`the app still says "${data.running.kind}" is running after everything ended (${data.running.step})`);
+      if (!rows.length) throw new Error('the interrupted search left no row in Recent runs at all');
+      if (!rows.some(run => run.ok)) throw new Error('the search you had started was not picked up again after the restart');
+      await noRowStaysRunning(ctx, {waitMs: 90000});
+    } finally { proxy.setDelay(0); }
   }, {needs: ctx.needs});
 
   await ctx.run('the Actions page and Recent runs render without layout problems after every task', async () => {
