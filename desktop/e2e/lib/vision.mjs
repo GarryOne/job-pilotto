@@ -3,7 +3,7 @@
 // review-ui.mjs makes the call. The answer is checked against a fixed shape so a bad reply can never become a "finding".
 export const KINDS = ['layout', 'text', 'error-shown', 'empty-state', 'consistency', 'functionality'];
 export const SEVERITIES = ['high', 'medium', 'low'];
-export const MODEL = process.env.E2E_REVIEW_MODEL || 'claude-haiku-4-5';
+export const MODEL = process.env.E2E_REVIEW_MODEL || 'claude-sonnet-5';
 
 // What each page should show after the journey (a fictional SRE with two matching jobs).
 export const EXPECTED = {

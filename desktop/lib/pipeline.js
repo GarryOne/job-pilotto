@@ -83,6 +83,9 @@ export function pipelineEnv(storage, parent = process.env) {
     env.JOB_PILOTTO_INSIGHT_MODEL = MODELS.insight;
     env.JOB_PILOTTO_MAIL_MODEL = MODELS.enrich;
   }
+  // The end-to-end journey: every other AI step the engine has (interview review, prep, rejection review) on the same cheap model, so a step added to
+  // the journey later can never quietly run on Opus or Sonnet.
+  if (OVERRIDE) Object.assign(env, {JOB_PILOTTO_INTERVIEW_MODEL: OVERRIDE, JOB_PILOTTO_PREP_MODEL: OVERRIDE, JOB_PILOTTO_REJECTION_MODEL: OVERRIDE});
   Object.assign(env, poolShare.variables(storage) || {});  // "Help the pool grow": only when the user turned it on
   if (settings.telegramChatId) env.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   for (const [key, value] of Object.entries(settings.notionIds || {})) if (value) env[key] = value;

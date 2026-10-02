@@ -1,5 +1,5 @@
 // Reviews the journey's screenshots (artifacts/ui-<view>.png) with AI and writes artifacts/ai-findings.json.
-//   E2E_ANTHROPIC_KEY=… node review-ui.mjs        (cost: about $0.01 a page on Haiku)
+//   E2E_ANTHROPIC_KEY=… node review-ui.mjs        (about $0.05-0.10 a page on Sonnet; the app itself runs on Haiku)
 import fs from 'node:fs';
 import path from 'node:path';
 import {ARTIFACTS, DESKTOP} from './lib/app.mjs';

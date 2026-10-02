@@ -16,9 +16,9 @@ test('only well-formed findings survive, with the page they were found on', () =
   assert.deepEqual(parseFindings('{"findings": "nope"}', 'jobs'), []);
 });
 
-test('the request carries the picture, the page and the expectations, on a cheap model by default', () => {
+test('the request carries the picture, the page and the expectations, on Sonnet by default (interpreting a screenshot is where a cheap model cries wolf)', () => {
   const request = buildRequest({view: 'jobs', pngBase64: 'AAAA', rules: 'rule one'});
-  assert.equal(request.model, 'claude-haiku-4-5');
+  assert.equal(request.model, 'claude-sonnet-5');
   assert.equal(request.messages[0].content[0].source.data, 'AAAA');
   assert.match(request.messages[0].content[1].text, /Page: jobs[\s\S]*Expected to show:[\s\S]*rule one/);
 });
