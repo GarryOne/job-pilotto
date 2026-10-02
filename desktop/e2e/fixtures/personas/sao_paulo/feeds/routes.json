@@ -1,5 +1,10 @@
 {
  "/boards/e2e-acme/jobs": "acme.json",
  "/boards/e2e-beta/jobs": "beta.json",
- "/boards/e2e-gamma/jobs": "gamma.json"
+ "/boards/e2e-gamma/jobs": "gamma.json",
+ "/boards/e2e-nimbus/jobs": "employers/nimbus.json",
+ "/boards/e2e-orbit/jobs": "employers/orbit.json",
+ "/boards/e2e-hollow/jobs": "employers/hollow.json",
+ "/boards/e2e-noise/jobs": "employers/noise.json",
+ "/boards/e2e-blocked/jobs": "employers/blocked.json"
 }

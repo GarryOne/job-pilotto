@@ -1,0 +1,55 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 889 >>
+stream
+BT /F1 10 Tf 40 800 Td 14 TL
+(Jordan Rivera) Tj T*
+(Senior Data Analyst, Austin, Texas, USA) Tj T*
+(jordan.rivera@example.test) Tj T*
+() Tj T*
+(SUMMARY) Tj T*
+(Data analyst with 7 years of experience in business intelligence, SQL and experimentation.) Tj T*
+(US citizen. Open to remote work within the United States.) Tj T*
+() Tj T*
+(EXPERIENCE) Tj T*
+(Senior Data Analyst, Lone Star Retail, Austin \(2021 - present\)) Tj T*
+(- Built the Looker and dbt reporting layer used by 40 managers; cut report time by 60 percent.) Tj T*
+(Data Analyst, Capital Metrics, Dallas \(2018 - 2021\)) Tj T*
+(- Modelled churn in Python and Snowflake; ran 30 A/B tests.) Tj T*
+() Tj T*
+(SKILLS) Tj T*
+(SQL, Python, dbt, Looker, Tableau, Snowflake, Excel) Tj T*
+() Tj T*
+(EDUCATION) Tj T*
+(BA Statistics, Example State University) Tj T*
+() Tj T*
+(LANGUAGES) Tj T*
+(English \(native\), Spanish \(B1\)) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001181 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1251
+%%EOF
