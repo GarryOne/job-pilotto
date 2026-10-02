@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {appliesTo, bucketOf, validateBundle, validateRecipe} from '../../extension/recipe-schema.js';
-import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labPlan, labReport, lookup, publicUrl, recipes} from '../src/recipes.js';
+import {PRIOR_BOARDS, cleanSkeleton, controlStats, controls, evaluateCanary, installToken, lab, labPlan, labReport, lookup, publicUrl, recipes, targets} from '../src/recipes.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -176,4 +176,24 @@ test('the lab plan follows real use: busy boards by fills, the head is what fail
   assert.equal((await asked.json()).boards[0].board, 'ashby');
   assert.equal((await lab(new Request('https://x/api/lab'), e, now)).status, 404);
   assert.ok(PRIOR_BOARDS.greenhouse > PRIOR_BOARDS.lever);
+});
+
+test('the proposer\'s targets: failing controls without a recipe being tried, worst first, with samples; owner only', async () => {
+  const e = env();
+  const send = body => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body})}), e, now);
+  const skeleton = {t: 'div', a: {role: 'radiogroup'}, c: ['yesno'], k: []};
+  await send({outcomes: [{fp: 'worst001', recipe: 0, ok: 5, failed: 40}, {fp: 'fine0001', recipe: 0, ok: 50, failed: 0}, {fp: 'tried001', recipe: 0, ok: 1, failed: 30},
+    {fp: 'nosample1', recipe: 0, ok: 0, failed: 99}, {fp: 'again001', recipe: 0, ok: 0, failed: 5}],
+    samples: [{fingerprint: 'worst001', kind: 'toggle-group', skeleton, question: 'Are you based in the US?'}, {fingerprint: 'tried001', kind: 'select', skeleton, question: 'Country'},
+      {fingerprint: 'again001', kind: 'date', skeleton, question: 'Start date'}]});
+  e.STATS.db.prepare('INSERT INTO lab_runs (day, site, fingerprint, kind, recipe, ok, why, url) VALUES (?, ?, ?, ?, 0, 0, ?, ?)').run('2026-10-02', 'ashby', 'worst001', 'toggle-group', 'no option found', '');
+  await put(e, {recipe: recipe({fingerprint: 'tried001'}), status: 'candidate'});
+  for (const version of [1, 2, 3]) await put(e, {recipe: recipe({fingerprint: 'again001', version}), status: 'disabled'});
+  const ask = (headers = {Authorization: 'Bearer secret'}, query = '') => targets(new Request(`https://x/api/recipes/targets${query}`, {headers}), e, now);
+  assert.equal((await ask({})).status, 404);
+  const { targets: list } = await (await ask()).json();
+  assert.deepEqual(list.map(item => item.fingerprint), ['worst001']);   // tried001 has a candidate, again001 rests after 3 tries, nosample1 has nothing to show, fine0001 does not fail
+  assert.deepEqual([list[0].kind, list[0].question, list[0].version, list[0].whys, list[0].userFailed, list[0].labFailed], ['toggle-group', 'Are you based in the US?', 1, ['no option found'], 40, 1]);
+  assert.deepEqual(list[0].samples[0], {t: 'div', a: {role: 'radiogroup'}, c: ['yesno'], k: []});
+  assert.equal((await targets(new Request('https://x/api/recipes/targets', {method: 'POST', headers: {Authorization: 'Bearer secret'}}), e, now)).status, 405);
 });

@@ -4,6 +4,7 @@
 //                       recipes for those (running ones, honouring the canary share). Nobody can download the library whole: a
 //                       recipe can only be asked for by presenting the structure it fits, and the hash space cannot be walked.
 //   GET  /api/recipes   the owner's key only: the whole running set, for the lab and the dashboard.
+//   GET  /api/recipes/targets  the owner's key only: the failing controls that have no recipe yet, with samples, for the private proposer.
 //   PUT  /api/recipes   the owner's key (same as /stats): the form lab or the owner adds a recipe, or changes its status.
 //   POST /api/controls  from apps: scrubbed control structures (to propose recipes from) and how the operators fared (the canary's
 //                       evidence). Product data only: no user data, no text, no answers.
@@ -253,6 +254,44 @@ export async function labPlan(db, now = new Date(), days = 30) {
   // Visited every day: failing or unproven, with a candidate to try, or simply the most met. Healthy tail items rest.
   const head = controls.filter(item => !item.healthy || item.candidate).slice(0, 20);
   return {generated: now.toISOString(), boards, head, controls: controls.slice(0, 30), coverage: all ? covered / all : null, exposureTotal: all};
+}
+
+// ---- GET /api/recipes/targets (owner): what the private recipe proposer should work on ----
+// Controls that fail for users or in the lab and have no recipe being tried (candidate, canary or verified), worst first. Each comes with
+// what the proposer needs and nothing else: the scrubbed skeleton samples, the form's question, the failure counts and the lab's reasons,
+// and any earlier recipes (disabled ones) so it does not propose the same thing twice. A control already tried 3 times rests.
+const MAX_ATTEMPTS = 3, USER_WEIGHT = 3;
+export async function targets(request, env, now = new Date(), limit = 20, days = 30) {
+  if (!env.STATS) return Response.json({ok: false, error: 'not configured'}, {status: 503});
+  if (request.method !== 'GET') return new Response('Method not allowed', {status: 405});
+  if (!allowed(request, env)) return new Response('Not found', {status: 404});
+  const db = env.STATS, from = day(new Date(now.getTime() - (days - 1) * 86400000));
+  const asked = Number(new URL(request.url).searchParams.get('limit'));
+  const max = Math.max(1, Math.min(50, Number.isFinite(asked) && asked > 0 ? Math.round(asked) : limit));
+  const found = new Map();
+  const entry = fingerprint => { if (!found.has(fingerprint)) found.set(fingerprint, {fingerprint, userFailed: 0, userAttempts: 0, labFailed: 0, labAttempts: 0}); return found.get(fingerprint); };
+  for (const row of (await db.prepare('SELECT fingerprint, SUM(failed) AS failed, SUM(ok + failed) AS n FROM control_outcomes WHERE day >= ? GROUP BY fingerprint HAVING SUM(failed) > 0').bind(from).all()).results || []) {
+    Object.assign(entry(row.fingerprint), {userFailed: row.failed, userAttempts: row.n});
+  }
+  for (const row of (await db.prepare('SELECT fingerprint, COUNT(*) - SUM(ok) AS failed, COUNT(*) AS n FROM lab_runs WHERE day >= ? GROUP BY fingerprint HAVING COUNT(*) - SUM(ok) > 0').bind(from).all()).results || []) {
+    Object.assign(entry(row.fingerprint), {labFailed: row.failed, labAttempts: row.n});
+  }
+  const out = [];
+  const ranked = [...found.values()].sort((a, b) => (b.userFailed * USER_WEIGHT + b.labFailed) - (a.userFailed * USER_WEIGHT + a.labFailed));
+  for (const item of ranked) {
+    if (out.length >= max) break;
+    const tried = (await db.prepare('SELECT version, status, note, body FROM recipes WHERE fingerprint = ? ORDER BY version').bind(item.fingerprint).all()).results || [];
+    if (tried.some(row => ['candidate', 'canary', 'verified'].includes(row.status)) || tried.length >= MAX_ATTEMPTS) continue;
+    const samples = ((await db.prepare('SELECT kind, skeleton, question FROM control_samples WHERE fingerprint = ? ORDER BY seen_at DESC LIMIT 3').bind(item.fingerprint).all()).results || [])
+      .map(row => { try { return {kind: row.kind, question: row.question, skeleton: JSON.parse(row.skeleton)}; } catch { return null; } }).filter(Boolean);
+    if (!samples.length) continue;   // nothing to show the proposer
+    const whys = ((await db.prepare("SELECT why, COUNT(*) AS n FROM lab_runs WHERE fingerprint = ? AND ok = 0 AND why != '' AND day >= ? GROUP BY why ORDER BY n DESC LIMIT 3").bind(item.fingerprint, from).all()).results || [])
+      .map(row => text(row.why, 120));
+    out.push({...item, kind: samples[0].kind, question: samples[0].question, samples: samples.map(sample => sample.skeleton), whys,
+      version: (tried.length ? Math.max(...tried.map(row => row.version)) : 0) + 1,
+      previous: tried.map(row => ({version: row.version, status: row.status, note: row.note, recipe: (() => { try { return JSON.parse(row.body); } catch { return null; } })()}))});
+  }
+  return Response.json({generated: now.toISOString(), targets: out}, {headers: {'Cache-Control': 'private, no-store'}});
 }
 
 // ---- the canary, judged daily ----
