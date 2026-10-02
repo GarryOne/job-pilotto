@@ -170,13 +170,60 @@ export function showCloud() {
   const cloud = shared.state.settings.cloud;
   showRunMode();
   $('cloud-status').textContent = cloud?.repo
-    ? osText(`${cloud.repo} · runs the schedule above, even with the Mac off`) : 'Jobs run on this Mac while the app is open.';
+    ? osText(`${cloud.repo} · runs the schedule above, even with the Mac off`) : 'Now: runs on this Mac while the app is open. With GitHub: runs 24/7, even with the Mac off.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
   $('cloud-open').hidden = $('cloud-more').hidden = !cloud?.repo;
   $('cloud-more').replaceChildren(...(cloud?.repo ? [moreButton([{label: 'Turn off Always on', danger: true, run: () => $('cloud-off').click()}])] : []));
   showCloudPill();
+  showCloudNeeds();
   $('auto-search').disabled = !!cloud?.repo;
   showTelegramCloud();
+}
+// What Always on needs before GitHub can run anything: the searches there use these keys. A checklist with a button per
+// missing step, not a red sentence (a friend pressed "Turn on", read a path in plain text, and did not know what to do).
+let cloudNeedsShown = false;
+function cloudMissing() {
+  const secrets = shared.state.secrets;
+  return [
+    !secrets.NOTION_TOKEN && {id: 'notion', title: 'Connect Notion', why: 'Your jobs are saved there.', button: 'Connect Notion →'},
+    !secrets.ANTHROPIC_API_KEY && {id: 'ai', title: 'Add an Anthropic API key',
+      why: 'GitHub runs in the cloud, so it cannot use Claude Code on this Mac. Paste a key; it is stored as an encrypted GitHub secret.', button: 'Add API key →'},
+  ].filter(Boolean);
+}
+function showCloudNeeds() {
+  const box = $('cloud-needs'), missing = cloudMissing();
+  const done = !missing.length;
+  if (done && !cloudNeedsShown) { show(box, false); return; }
+  if (done) cloudNeedsShown = false;
+  message('cloud-message', done ? 'Ready ✓ Press Turn on to connect GitHub.' : '', done ? 'ok' : '');
+  const title = document.createElement('b');
+  title.textContent = done ? 'Everything is ready' : `Before it can run (${2 - missing.length} of 2 done)`;
+  const rows = [['notion', 'Notion connected'], ['ai', 'Anthropic API key']].map(([id, label]) => {
+    const need = missing.find(m => m.id === id);
+    const row = document.createElement('div');
+    row.className = 'aon-need';
+    const text = document.createElement('div');
+    const head = document.createElement('span');
+    head.textContent = `${need ? '⬜' : '✅'} ${need ? need.title : label}`;
+    text.append(head);
+    if (need) {
+      const why = document.createElement('p');
+      why.className = 'muted';
+      why.textContent = need.why;
+      text.append(why);
+    }
+    row.append(text);
+    if (need) {
+      const go = document.createElement('button');
+      go.className = 'secondary';
+      go.textContent = need.button;
+      go.addEventListener('click', () => { cloudNeedsShown = true; openSetting(id === 'ai' ? 'ai' : 'notion'); });
+      row.append(go);
+    }
+    return row;
+  });
+  box.replaceChildren(title, ...rows);
+  show(box);
 }
 function showCloudPill() {
   const on = !!shared.state.settings.cloud?.repo;
@@ -268,10 +315,7 @@ export async function init() {
     message('tg-cloud-message', 'Off: the app answers your bot again while it\'s open.', 'ok');
   });
   $('cloud-connect').addEventListener('click', async () => {
-    if (!shared.state.secrets.ANTHROPIC_API_KEY || !shared.state.secrets.NOTION_TOKEN) {
-      message('cloud-message', shared.state.secrets.NOTION_TOKEN ? 'Needs an Anthropic API key. Always on runs on GitHub, which cannot use this Mac\'s Claude Code: add the key in Settings → Connections → AI.'
-        : 'Add an API key and connect Notion first: the searches in GitHub use them.', 'error'); return;
-    }
+    if (cloudMissing().length) { cloudNeedsShown = true; showCloudNeeds(); return; }
     $('cloud-connect').disabled = true;
     if (!cloudWaiting) message('cloud-message', 'Opening GitHub sign-in…');
     const result = await window.pilot.cloudConnect();

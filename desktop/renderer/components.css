@@ -523,3 +523,6 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
   place-items: center; border-radius: 50%; background: var(--signal); color: var(--on-accent); visibility: hidden; }
 .ui-choice-check svg { width: 14px; height: 14px; }
 .ui-choice.is-selected .ui-choice-check { visibility: visible; }
+
+.aon-need { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.aon-need p { margin: 2px 0 0; }
