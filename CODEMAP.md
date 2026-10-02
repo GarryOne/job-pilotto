@@ -300,6 +300,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
 - `tools/check.py` — Run consistent fast, area or full project verification with supported runtimes and actionable failures."""
 - `tools/check.sh` — Every agent uses this entry point; select a supported Python, then let check.py select Node and run CI checks.
+- `tools/e2e_gate.py` — The end-to-end gate of tools/release-stable.sh: may this build be promoted, judging by the e2e runs GitHub lists (newest first)?
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
