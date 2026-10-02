@@ -616,5 +616,13 @@ class Neighbours(unittest.TestCase):
             self.assertEqual(interviews.saved_insight(object()), {'headline': 'h'})
 
 
+class EffortTests(unittest.TestCase):
+    def test_haiku_is_not_sent_an_effort_and_others_are(self):
+        for model, expected in (('claude-haiku-4-5', None), ('claude-sonnet-5', 'medium')):
+            client = FakeClient(RESULT)
+            ii.generate(client, model, [])
+            self.assertEqual(client.calls[0]['output_config'].get('effort'), expected, model)
+
+
 if __name__ == '__main__':
     unittest.main()

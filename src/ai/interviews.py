@@ -176,6 +176,14 @@ def candidates(tracker):
     return sorted(rows, key=lambda r: plain(r['properties'].get('Applied on')) or '', reverse=True)
 
 
+def output_config(schema, model):
+    """The structured-output request; `effort` medium only for a model that takes it (Haiku rejects the parameter: score.py)."""
+    config = {'format': {'type': 'json_schema', 'schema': schema}}
+    if not model.startswith('claude-haiku'):
+        config['effort'] = 'medium'
+    return config
+
+
 def ask(client, model, **request):
     """One structured call; when `model` declines it (stop_reason "refusal"), the same request once on FALLBACK_MODEL.
     Returns (parsed JSON, usage, the model that answered): cost is counted at that model's price."""
@@ -198,7 +206,7 @@ def analyse(client, model, profile, apps, caption, transcript):
                system=[{'type': 'text', 'text': SYSTEM + profile}],
                messages=[{'role': 'user', 'content': f'Applications:\n{listing or "(none)"}\n\nCaption: {caption or "(none)"}\n\n'
                                                      f'Transcript or notes:\n{transcript}'}],
-               output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
+               output_config=output_config(SCHEMA, model))
 
 
 def _block(kind, content, bold=False):

@@ -263,7 +263,7 @@ def generate(client, model_, items):
     return interviews.ask(client, model_, max_tokens=interviews.MAX_TOKENS,
                           system=[{'type': 'text', 'text': SYSTEM}],
                           messages=[{'role': 'user', 'content': 'Reviewed interviews (JSON):\n' + json.dumps(prompt_input(items), ensure_ascii=False)}],
-                          output_config={'format': {'type': 'json_schema', 'schema': SCHEMA}, 'effort': 'medium'})
+                          output_config=interviews.output_config(SCHEMA, model_))
 
 
 def validate(result, items):

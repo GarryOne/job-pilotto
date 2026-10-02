@@ -810,5 +810,22 @@ class FocusAnswerTests(unittest.TestCase):
         self.assertEqual(tracker.updates, [('h-1', {'Stage': {'select': {'name': 'Interviewing'}}})])  # h-2: not recorded
 
 
+class EffortTests(unittest.TestCase):
+    """Haiku rejects the `effort` parameter ("This model does not support the effort parameter"): the end-to-end journey
+    runs every step on Haiku, and score.py already leaves effort out for it. The review sends it only to models that take it."""
+
+    def effort_for(self, model):
+        client = FakeClient()
+        interviews.analyse(client, model, 'profile', [], 'caption', 'transcript text')
+        return client.calls[0]['output_config'].get('effort')
+
+    def test_haiku_is_not_sent_an_effort(self):
+        self.assertIsNone(self.effort_for('claude-haiku-4-5'))
+
+    def test_other_models_keep_medium_effort(self):
+        self.assertEqual(self.effort_for('claude-sonnet-5'), 'medium')
+        self.assertEqual(self.effort_for('claude-opus-4-7'), 'medium')
+
+
 if __name__ == '__main__':
     unittest.main()
