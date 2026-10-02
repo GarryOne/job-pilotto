@@ -132,7 +132,7 @@ jobs:
       - name: Install the transcription add-on
         if: inputs.mode == 'interview' && inputs.file != ''
         run: pip install --quiet -r requirements-transcribe.txt
-      - name: Generate canonical digest
+      - name: Run the job scan and build the digest
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
