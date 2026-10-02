@@ -10,6 +10,8 @@ if (!key) { console.error('E2E_ANTHROPIC_KEY is needed.'); process.exit(2); }
 const skill = path.resolve(DESKTOP, '..', '.claude', 'skills', 'ui-look-and-feel', 'SKILL.md');
 const rules = fs.existsSync(skill) ? fs.readFileSync(skill, 'utf8').replace(/^---[\s\S]*?---/, '') : '';
 const all = [];
+// A skipped suite (no token yet) or a suite that stopped early leaves nothing to look at: that is not an error.
+if (!fs.existsSync(ARTIFACTS) || !fs.readdirSync(ARTIFACTS).some(name => /^ui-.+\.png$/.test(name))) { console.log('No screenshots to review.'); process.exit(0); }
 const views = fs.readdirSync(ARTIFACTS).filter(name => /^ui-.+\.png$/.test(name)).map(name => name.slice(3, -4)).sort();
 for (const view of views) {
   const file = path.join(ARTIFACTS, `ui-${view}.png`);
