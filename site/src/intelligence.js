@@ -10,6 +10,7 @@ import {report as aiCost} from './aicost.js';
 import {REGIONS, ROLES} from './pool.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
+import {LEFT_REASONS} from './knowledge.js';
 import {allowed} from './stats.js';
 
 export const REASONS = ['seniority', 'location', 'tech', 'company', 'role', 'other'];
@@ -20,6 +21,7 @@ export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response
 const GOOD = ['reply', 'screening', 'offer'];
 const BOARD_KIND = /^[a-z]{3,20}$/;
 const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
+const REASON_TEXT = {no_answer: 'No answer in the profile', not_taken: 'Answer given, field did not take it', real_click: 'Dropdown needs a real click', no_option: 'Dropdown opened, no option matched', other: 'Other'};
 const day = date => date.toISOString().slice(0, 10);
 const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 const int = (value, max) => Math.max(0, Math.min(max, Math.round(Number(value)) || 0));
@@ -168,8 +170,14 @@ export async function report(db, days = 30, now = new Date()) {
     .map(row => ({...row, actedShare: row.seen ? row.acted / row.seen : null, dismissedShare: row.seen ? row.dismissed / row.seen : null, heardShare: row.acted ? row.heard / row.acted : null}));
   const fixes = (await rows(db, 'SELECT label, filled, corrected, installs FROM intel_fixes WHERE filled >= 10 ORDER BY CAST(corrected AS REAL) / filled DESC, filled DESC LIMIT 20'))
     .filter(row => { try { return JSON.parse(row.installs).length >= MIN_PEOPLE; } catch { return false; } }).map(({installs, ...row}) => ({...row, rate: row.corrected / row.filled}));
+  const left = await rows(db, 'SELECT reason, SUM(n) AS n FROM fill_reasons WHERE day >= ? GROUP BY reason', from).catch(() => []);
+  const leftTotal = left.reduce((sum, row) => sum + row.n, 0);
+  const reasons = LEFT_REASONS.filter(reason => left.some(row => row.reason === reason)).map(reason => {
+    const n = left.find(row => row.reason === reason).n;
+    return {reason, n, share: n / leftTotal};
+  }).sort((a, b) => b.n - a.n);
   const cost = await aiCost(db, days, now);
-  return {days, calibration: calibration(replies), hints: await hints(db, now), replies, sources, fixes, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
+  return {days, calibration: calibration(replies), hints: await hints(db, now), replies, sources, fixes, reasons, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
     coverage, missed, dismiss, scores};
 }
 
@@ -215,6 +223,9 @@ ${data.sources.map(row => `<tr><td>${esc(row.board)}</td><td>${row.seen}</td><td
 <section class="card"><h2>✏️ Answers people change</h2><small class="muted">Questions the filler answered that the person then edited by hand, once ${MIN_PEOPLE}+ people and 10+ fills have reported them. The top of this list is where the alias or profile mapping is wrong.</small>
 <table><tr><th>Question wording</th><th>Filled</th><th>Changed by hand</th></tr>
 ${data.fixes.map(row => `<tr><td>${esc(row.label)}</td><td>${row.filled}</td><td><b>${pct(row.rate)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported by enough people yet.</td></tr>'}</table></section>
+<section class="card"><h2>🕳️ Why fields stay empty</h2><small class="muted">Fields the filler left empty, by reason (all boards). "No answer" means the profile has nothing for it; "not taken" means the field refused the value; "real click" and "no option" are dropdowns.</small>
+<table><tr><th>Reason</th><th>Fields</th><th>Share</th></tr>
+${data.reasons.map(row => `<tr><td>${esc(REASON_TEXT[row.reason] || row.reason)}</td><td>${row.n}</td><td>${pct(row.share)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported yet.</td></tr>'}</table></section>
 <section class="card"><h2>💸 What the AI costs us</h2><small class="muted">Included AI through the relay (founder and friend keys today, Pro later): money per step and per user per active day. This is what a pass price and a credit budget must cover.</small>
 <table><tr><th>Users</th><th>Total</th><th>Per user per active day</th><th>Median · 95th · max</th><th>Per user per month</th></tr>
 <tr><td>${data.cost.users}</td><td>$${data.cost.total.toFixed(2)}</td><td>$${data.cost.perUserDay.mean.toFixed(3)}</td><td>$${data.cost.perUserDay.median.toFixed(3)} · $${data.cost.perUserDay.p95.toFixed(3)} · $${data.cost.perUserDay.max.toFixed(3)}</td><td><b>$${data.cost.monthPerActiveUser.toFixed(2)}</b></td></tr></table>

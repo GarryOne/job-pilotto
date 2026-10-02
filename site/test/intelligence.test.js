@@ -8,7 +8,7 @@ import {report, store, tidy, view} from '../src/intelligence.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0014_intelligence.sql', '0016_intel_signals.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0014_intelligence.sql', '0009_knowledge.sql', '0016_intel_signals.sql', '0017_alias_proposals.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -133,4 +133,17 @@ test('board benchmarks need 30+ applications on a known board, and say how many 
   add('greenhouse', 'reply', '4-7', 10); add('greenhouse', 'screening', '8-14', 4); add('greenhouse', 'no_response', '31+', 36);   // 50 marked, 14 heard (28%), middle bucket 4-7
   add('lever', 'reply', '0-3', 5); add('h:abc1234567', 'reply', '0-3', 99);
   assert.deepEqual(await benchmarks(e.STATS, now), [{board: 'greenhouse', n: 50, heard: 0.28, days: '4-7'}]);
+});
+
+test('why fields stay empty: fixed reason words per board are summed, the rest is refused, and the page shows the shares', async () => {
+  const e = env();
+  const {store: storeKnowledge} = await import('../src/knowledge.js');
+  await storeKnowledge(e, {unfilled: [{board: 'ashby', reason: 'no_answer', n: 3}, {board: 'ashby', reason: 'not_taken', n: 1}, {board: 'bad board!', reason: 'no_answer', n: 9},
+    {board: 'ashby', reason: 'my salary is 90k', n: 5}]}, 'install-a-0001', now);
+  await storeKnowledge(e, {unfilled: [{board: 'lever', reason: 'no_answer', n: 2}]}, 'install-b-0002', now);
+  const data = await report(e.STATS, 30, now);
+  assert.deepEqual(data.reasons.map(r => [r.reason, r.n, r.share]), [['no_answer', 5, 5 / 6], ['not_taken', 1, 1 / 6]]);
+  const html = await (await view(new Request('https://x/intelligence', {headers: {Authorization: 'Bearer secret'}}), {...e, STATS: e.STATS}, now)).text();
+  assert.match(html, /Why fields stay empty/);
+  assert.match(html, /No answer in the profile/);
 });

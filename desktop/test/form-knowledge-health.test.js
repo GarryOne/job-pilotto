@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {judge, knowledgeKey, studiedFor} from '../lib/learn.js';
+import {leftCounts} from '../lib/question-labels.js';
 
 test('the studied fields are only trusted for the extension version that studied them', () => {
   const settings = {formKnowledgeVersion: '0.8.80', formKnowledgeStudied: {'a.test': ['city']}};
@@ -34,4 +35,12 @@ test('a fill that works resets the count; other sites, other kinds and fields no
   assert.equal(judge(run('left'), [{...note, kind: 'widget', value: ''}], {}).changed, false);
   assert.equal(judge({url: run('left').url, trace: []}, [note], {}).changed, false);
   assert.equal(judge(run('left'), [{...note, scope: 'any'}], {}).changed, true);
+});
+
+test('empty fields are counted by a fixed reason word; consent, the CV and filled fields are not counted', () => {
+  const trace = [{outcome: 'left', reason: 'no answer in the kit, Profile or your details'}, {outcome: 'left', reason: 'no answer in the kit, Profile or your details'},
+    {outcome: 'left', reason: 'dropdown clicked, but no option matched (1.5 s)'}, {outcome: 'left', reason: 'legal/consent: always your choice'}, {outcome: 'left', reason: 'no CV in the app'},
+    {outcome: 'filled', reason: ''}, {outcome: 'left', reason: 'something new'}];
+  assert.deepEqual(leftCounts(trace), [{reason: 'no_answer', n: 2}, {reason: 'no_option', n: 1}, {reason: 'other', n: 1}]);
+  assert.deepEqual(leftCounts(undefined), []);
 });

@@ -8,7 +8,7 @@ import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
 import {log} from './log.js';
-import {cleanLabel} from './question-labels.js';
+import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 
 export const SITE = 'https://www.jobpilotto.workers.dev';
 const CACHE = 'recipes-cache.json';
@@ -73,7 +73,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), intel = emptyIntel(), timer = null;
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), unfilled = new Map(), intel = emptyIntel(), timer = null;
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -112,6 +112,16 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
         const entry = aliasUse.get(phrase) || {phrase, ok: 0, failed: 0};
         if (item.ok) entry.ok++; else entry.failed++;
         aliasUse.set(phrase, entry);
+      }
+      schedule();
+    },
+    // Fields of one fill that stayed empty, counted by board and a fixed reason word (lib/question-labels.js leftCounts): which reason costs the most forms.
+    unfilled(board, counts) {
+      if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;
+      for (const item of Array.isArray(counts) ? counts.slice(0, 5) : []) {
+        if (!LEFT_REASONS.includes(item?.reason) || !(Number(item.n) > 0)) continue;
+        const key = `${board}|${item.reason}`;
+        unfilled.set(key, {board, reason: item.reason, n: (unfilled.get(key)?.n || 0) + Math.min(100, Math.round(Number(item.n)))});
       }
       schedule();
     },
@@ -230,11 +240,11 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     for (const item of sent.fixes) { const again = intel.fixes.get(item.label) || {label: item.label, filled: 0, corrected: 0}; again.filled += item.filled; again.corrected += item.corrected; intel.fixes.set(item.label, again); }
   }
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !hasIntel())) return {sent: 0};
+    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !unfilled.size && !hasIntel())) return {sent: 0};
     const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
-      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), ...(hasIntel() ? {intel: takeIntel()} : {})};
-    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse, applications, proposals, intel: body.intel};
+      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), unfilled: [...unfilled.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
+    const taken = {samples: samples.slice(0, 10), outcomes, fills, questions, flows, aliasUse, applications, proposals, unfilled, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
@@ -243,10 +253,11 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     aliasUse = new Map();
     applications = new Map();
     proposals = new Map();
+    unfilled = new Map();
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
-      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + (body.intel ? 1 : 0)};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.unfilled.length + (body.intel ? 1 : 0)};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try
@@ -261,6 +272,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       if (taken.intel) putBackIntel(taken.intel);
       for (const [key, entry] of taken.applications) applications.set(key, {...entry, n: entry.n + (applications.get(key)?.n || 0)});
       for (const [key, entry] of taken.proposals) proposals.set(key, entry);
+      for (const [key, entry] of taken.unfilled) unfilled.set(key, {...entry, n: entry.n + (unfilled.get(key)?.n || 0)});
       for (const [key, entry] of taken.aliasUse) { const again = aliasUse.get(key) || {phrase: key, ok: 0, failed: 0}; again.ok += entry.ok; again.failed += entry.failed; aliasUse.set(key, again); }
       return {sent: 0};
     }

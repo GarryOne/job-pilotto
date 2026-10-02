@@ -249,3 +249,15 @@ test('a learned note is sent as a wording and a fixed profile field only, once; 
   reporter.proposal([{key: 'email', phrase: 'courriel'}]);
   assert.deepEqual(await reporter.flush(), {sent: 0});
 });
+
+test('empty-field reasons are summed per board and reason word; unknown words and boards are dropped', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({})});
+  reporter.unfilled('ashby', [{reason: 'no_answer', n: 2}, {reason: 'my salary', n: 4}]);
+  reporter.unfilled('ashby', [{reason: 'no_answer', n: 1}]);
+  reporter.unfilled('bad board!', [{reason: 'no_answer', n: 1}]);
+  await reporter.flush();
+  assert.deepEqual(sent[0].unfilled, [{board: 'ashby', reason: 'no_answer', n: 3}]);
+});

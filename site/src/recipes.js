@@ -141,7 +141,7 @@ export async function controls(request, env, now = new Date()) {
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
-  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0)
+  const extra = (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0) + (Array.isArray(body.unfilled) ? Math.min(20, body.unfilled.length) : 0)
     + (body.intel && typeof body.intel === 'object' ? 1 + Math.min(5, (body.intel.terms || []).length) + Math.min(20, (body.intel.dismissals || []).length) + Math.min(60, (body.intel.snapshot || []).length) : 0);
   const kv = env.WAITLIST, countKey = `controls:${install}:${day(now)}`;
   const count = kv ? Number(await kv.get(countKey)) || 0 : 0;

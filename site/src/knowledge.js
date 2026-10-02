@@ -6,6 +6,7 @@ import {digestOf} from './guard.js';
 import {allowed} from './stats.js';
 
 export {cleanLabel};
+export const LEFT_REASONS = ['no_answer', 'not_taken', 'real_click', 'no_option', 'other'];
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
 export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response'], DAY_BUCKETS = ['', '0-3', '4-7', '8-14', '15-30', '31+'];
 export const MIN_INSTALLS = 3, KEEP_SINGLE_DAYS = 14, KEEP_FLOW_DAYS = 180;
@@ -45,6 +46,13 @@ export async function store(env, body, install, now = new Date()) {
       .bind(day(now), board, state, n).run();
     flows++;
   }
+  for (const item of (Array.isArray(body?.unfilled) ? body.unfilled : []).slice(0, 20)) {
+    const board = String(item?.board || ''), reason = String(item?.reason || '');
+    const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
+    if (!BOARD.test(board) || !LEFT_REASONS.includes(reason) || !n) continue;
+    await env.STATS.prepare('INSERT INTO fill_reasons (day, board, reason, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, board, reason) DO UPDATE SET n = n + excluded.n')
+      .bind(day(now), board, reason, n).run();
+  }
   for (const item of (Array.isArray(body?.applications) ? body.applications : []).slice(0, 20)) {
     const board = String(item?.board || ''), outcome = String(item?.outcome || ''), days = String(item?.days || '');
     const n = Math.max(0, Math.min(100, Math.round(Number(item?.n)) || 0));
@@ -67,6 +75,7 @@ export async function tidy(db, now = new Date()) {
     if (count < MIN_INSTALLS) { await db.prepare('DELETE FROM question_labels WHERE label = ?').bind(row.label).run(); dropped++; }
   }
   await db.prepare('DELETE FROM application_outcomes WHERE day < ?').bind(day(new Date(now.getTime() - 365 * 86400000))).run().catch(() => {});
+  await db.prepare('DELETE FROM fill_reasons WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_FLOW_DAYS * 86400000))).run().catch(() => {});
   await db.prepare('DELETE FROM flow_outcomes WHERE day < ?').bind(day(new Date(now.getTime() - KEEP_FLOW_DAYS * 86400000))).run();
   return {dropped};
 }

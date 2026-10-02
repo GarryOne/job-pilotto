@@ -29,3 +29,25 @@ export function flowState(flow) {
   if (role === 'no-form') return flow.pressed ? 'no-form-after-apply' : 'no-form';
   return '';
 }
+
+// Why fields of one fill stayed empty, as a fixed word per reason (counted per board by the site). The extension's reasons are a small fixed
+// set; anything else is "other". Legal/consent fields and the CV are not the filler's to fill and are not counted.
+export const LEFT_REASONS = ['no_answer', 'not_taken', 'real_click', 'no_option', 'other'];
+export function leftReason(reason) {
+  const text = String(reason || '');
+  if (/^(legal|no CV)/.test(text)) return '';
+  if (text.startsWith('no answer')) return 'no_answer';
+  if (text.startsWith('answer given')) return 'not_taken';
+  if (text.startsWith('dropdown that opens')) return 'real_click';
+  if (text.startsWith('dropdown clicked')) return 'no_option';
+  return 'other';
+}
+// {trace: [{outcome, reason}]} -> [{reason, n}]
+export function leftCounts(trace) {
+  const counts = new Map();
+  for (const row of Array.isArray(trace) ? trace : []) {
+    const reason = row?.outcome === 'filled' ? '' : leftReason(row?.reason);
+    if (reason) counts.set(reason, (counts.get(reason) || 0) + 1);
+  }
+  return [...counts].map(([reason, n]) => ({reason, n}));
+}
