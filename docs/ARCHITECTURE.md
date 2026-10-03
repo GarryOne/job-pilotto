@@ -16,6 +16,7 @@ sources → crawl → SQLite cache → AI → Notion + Telegram → you submit �
 2. **Cache.** `data/jobs.sqlite` remembers what was already seen. It is a cache, not the record.
 3. **Read and rank.** Stage 1 (Haiku) extracts facts from the posting. Stage 2 (Sonnet) scores fit against the Notion profile. Top matches get an application kit (cover letter and form answers).
 4. **Deliver.** A ranked Telegram digest, plus rows in Notion. Every run writes a row in Search runs.
+   Until Notion is connected the desktop app only *tries* (search, scores, Jobs list, Strategy); tracking asks to connect (`desktop/lib/notion-gate.js`, spec `docs/superpowers/specs/2026-10-03-notion-later.md`).
 5. **Act, locally.** The desktop app and the Chrome extension fill the form. The owner reviews and submits. How an application starts, who fills, and what is still open: [docs/apply-flow.md](apply-flow.md).
 6. **Learn.** Read-only Gmail and Calendar update stages. Interview recordings are transcribed on the machine. A daily insight and a Monday report go back to Telegram.
 

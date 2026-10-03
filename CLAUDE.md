@@ -65,8 +65,15 @@ Data is Notion-first. Before adding any stored field, file, setting or table, de
 - Files: the CV (every version, Profile → "📎 CV") and tailored CVs (Applications → "Tailored CV") are uploaded to
   Notion too (`desktop/lib/files.js`, ≤ 5 MB on Notion's free plan). What's too big (call recordings) is only on
   the Mac and in the weekly automatic backup (`desktop/lib/backup.js`: iCloud Drive or Documents, last 4, no keys).
-- Notion is required in the Desktop App (decided 28 Sep 2026): the setup can't finish without it, and a
-  set-up app without a Notion connection opens the Notion step. There is no Mac-only mode.
+- Notion is required to **track**, not at setup ("Notion later", decided 3 Oct 2026, replacing "required at setup" of
+  28 Sep): the setup finishes without it and the app is then only **trying**: search, fit scores, the Jobs list and
+  Strategy. Every tracking action (save, dismiss, kit, apply, applied elsewhere, add job, leads, interviews, Focus,
+  Gmail, Telegram, Always on) answers `notionGate.needs(reason)` (`desktop/lib/notion-gate.js`) and the window opens the
+  connect prompt (`renderer/pages/notion-connect.js`; `preload.cjs` turns any such answer into that prompt and retries the
+  action after a connect). The only user data on the Mac while trying is `profile.md`, `answers.md` and the search config
+  cache; `lib/migrate.js` 'strategy from this Mac' moves them into Notion at connect (a new workspace takes this Mac's;
+  an existing one wins) and deletes them. No other local copies: a feature that stores user data goes behind the gate.
+  Always on never moves data (it changes where runs happen, not where data lives). Spec: `docs/superpowers/specs/2026-10-03-notion-later.md`.
 - No new "local fallback" copies of user data, and **no cache-only fields**: if a screen or command needs a
   field, it is a Notion column. A feature that needs a new database, column or page adds it to Notion *and* to
   `config/notion_schema.json` (`tools/notion_schema.py snapshot`, or edit it), so every workspace can be rebuilt
