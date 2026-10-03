@@ -31,6 +31,7 @@ function stub(initial = []) {
     if (a === 'issue' && b === 'list') return JSON.stringify(state.issues);
     if (a === 'issue' && b === 'create') { state.created.push({title: args[3], body: args[5], labels: args[7]}); return ''; }
     if (a === 'issue' && b === 'comment') { state.comments.push({number: args[2], body: args[4]}); return ''; }
+    if (a === 'issue' && b === 'close') { (state.closed ||= []).push({number: args[2], reason: args[4]}); return ''; }
     if (a === 'issue' && b === 'edit') { state.edits.push(args.slice(2)); return ''; }
     if (a === 'pr' && b === 'list') return JSON.stringify(state.prs);
     if (a === 'pr' && b === 'comment') { state.prComments.push({number: args[2], body: args[4]}); return ''; }
@@ -213,4 +214,57 @@ test('a spill in the app chrome is one finding for the whole window (not one per
   assert.match(state.created[0].title, /spill on app-chrome: div\.brand/);
   assert.match(state.created[0].labels, /kind:spill/);
   assert.ok(uploads.some(name => /-ui-focus\.png$/.test(name)), 'the picture is the page the check ran on');
+});
+
+const BUILD = 'main @ abc1234 (scheduled run)';
+const suiteIssue = (number, suite, labels = []) => ({number, state: 'OPEN', title: `[auto-ui] ${suite}: step failed: x`, body: `**HIGH** · test-failure · found by a run of the ${suite} suite (a step of the ${suite} suite failed)\n\nx`,
+  labels: [{name: 'auto-ui'}, {name: `fp:${suite}-test-failure-q`}, ...labels.map(name => ({name}))], comments: []});
+
+test('a new issue, a "seen again" and a "not seen" comment all name the build that was tested', () => {
+  const fresh = stub(), r1 = triage({artifacts: artifacts({ai: [aiFinding], pngs: ['ui-focus.png']}), runUrl: RUN, gh: fresh.gh, publish: publish([]), repo: 'o/r', build: BUILD});
+  assert.equal(r1.filed.length, 1);
+  assert.ok(fresh.state.created[0].body.includes(`Build tested: ${BUILD}`));
+  const again = stub([openIssue(40, '[auto-ui] focus: DEV badge covers the page title', 'layout')]);
+  triage({artifacts: artifacts({ai: [aiFinding], pngs: ['ui-focus.png']}), runUrl: RUN, gh: again.gh, publish: publish([]), repo: 'o/r', build: BUILD});
+  assert.ok(again.state.comments[0].body.includes(`Build tested: ${BUILD}`));
+  const gone = stub([openIssue(37, '[auto-ui] focus: Side column missing from two-column layout', 'layout')]);
+  triage({artifacts: artifacts({ai: [], pngs: ['ui-focus.png']}), runUrl: RUN, gh: gone.gh, publish: publish([]), repo: 'o/r', build: BUILD});
+  assert.ok(gone.state.comments[0].body.includes(`Build tested: ${BUILD}`));
+});
+
+test('a second clean review closes the issue; the first one only marks it', () => {
+  const marked = stub([openIssue(37, '[auto-ui] focus: Side column missing from two-column layout', 'layout')]);
+  const first = triage({artifacts: artifacts({ai: [], pngs: ['ui-focus.png']}), runUrl: RUN, gh: marked.gh, publish: publish([]), repo: 'o/r', build: BUILD});
+  assert.deepEqual([first.gone.length, first.closed.length], [1, 0]);
+  const second = stub([openIssue(37, '[auto-ui] focus: Side column missing from two-column layout', 'layout', ['not-seen-latest'])]);
+  const out = triage({artifacts: artifacts({ai: [], pngs: ['ui-focus.png']}), runUrl: RUN, gh: second.gh, publish: publish([]), repo: 'o/r', build: BUILD});
+  assert.deepEqual(out.closed, [37]);
+  assert.deepEqual(second.state.closed, [{number: '37', reason: 'completed'}]);
+  assert.match(second.state.comments.at(-1).body, /^Closed: not seen in two runs in a row/);
+});
+
+test('an issue is not closed when the finding came back, when its page was not reviewed, or when this run was already told about', () => {
+  const back = stub([openIssue(40, '[auto-ui] focus: DEV badge covers the page title', 'layout', ['not-seen-latest'])]);
+  triage({artifacts: artifacts({ai: [aiFinding], pngs: ['ui-focus.png']}), runUrl: RUN, gh: back.gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(back.state.closed, undefined, 'it came back');
+  const blind = stub([openIssue(37, '[auto-ui] focus: Side column missing', 'layout', ['not-seen-latest'])]);
+  triage({artifacts: artifacts({ai: [], pngs: ['ui-focus.png'], withAi: false}), runUrl: RUN, gh: blind.gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(blind.state.closed, undefined, 'the AI did not look at that page in this run');
+  const told = stub([{...openIssue(37, '[auto-ui] focus: Side column missing', 'layout', ['not-seen-latest']), comments: [{body: `Not seen in run ${RUN}`}]}]);
+  triage({artifacts: artifacts({ai: [], pngs: ['ui-focus.png']}), runUrl: RUN, gh: told.gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(told.state.closed, undefined, 'one run counts once');
+});
+
+test('a failed-step issue is cleared only by a run of its suite with no failure at all', () => {
+  // artifacts() makes the folder e2e-artifacts-focus: the suite "focus" ran.
+  const clean = stub([suiteIssue(61, 'focus')]);
+  const out = triage({artifacts: artifacts({}), runUrl: RUN, gh: clean.gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(out.gone.length, 1, 'its suite ran green: not seen');
+  const other = stub([suiteIssue(61, 'apply')]);
+  assert.equal(triage({artifacts: artifacts({}), runUrl: RUN, gh: other.gh, publish: publish([]), repo: 'o/r'}).gone.length, 0, 'another suite ran: says nothing about apply');
+  const failing = stub([suiteIssue(61, 'focus', ['not-seen-latest'])]);
+  const failedRun = triage({artifacts: artifacts({failures: [{suite: 'focus', step: 'something else broke', message: 'boom'}]}), runUrl: RUN, gh: failing.gh, publish: publish([]), repo: 'o/r'});
+  assert.equal(failedRun.closed.length, 0, 'the suite failed on another step: the later steps never ran');
+  const closing = stub([suiteIssue(61, 'focus', ['not-seen-latest'])]);
+  assert.deepEqual(triage({artifacts: artifacts({}), runUrl: RUN, gh: closing.gh, publish: publish([]), repo: 'o/r'}).closed, [61]);
 });

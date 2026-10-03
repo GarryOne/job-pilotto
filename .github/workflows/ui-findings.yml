@@ -29,7 +29,8 @@ concurrency:
 jobs:
   findings:
     # Scheduled, chained or by hand only; a push-triggered e2e run (a change to the tests themselves) is not evidence about the product.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event != 'push'
+    # The daily stable canary (stable-canary.yml) names its runs "Stable canary …": it alarms by itself and never files into the backlog.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event != 'push' && !startsWith(github.event.workflow_run.display_title, 'Stable canary'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -38,6 +39,9 @@ jobs:
       RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
       RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.run_id || github.run_id) }}
       PLANT: ${{ inputs.plant }}
+      RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}   # main, or the release tag
+      RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_EVENT: ${{ github.event.workflow_run.event }}
       BASE: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
@@ -57,4 +61,7 @@ jobs:
       - name: File the findings
         run: |
           mkdir -p .heal
-          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only
+          # Which code was tested: an issue about a finding already fixed on main must be recognisable at a glance.
+          BUILD=""
+          if [ -n "$RUN_SHA" ]; then BUILD="${RUN_BRANCH} @ ${RUN_SHA:0:7} (${RUN_EVENT} run)"; fi
+          node desktop/e2e/triage.mjs --artifacts e2e-artifacts --run-url "$RUN_URL" --out .heal --file-only --build "$BUILD"

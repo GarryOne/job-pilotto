@@ -70,7 +70,7 @@ export function issueBody(finding, runUrl, evidence = {}) {
   if (evidence.codeFile) where.push(`- Code: \`${evidence.codeFile}\``);
   if (suite) where.push(`- The run's artifacts: \`e2e-artifacts-${suite}\` (\`ui-${view}.png\`, \`ui-${view}.json\`, the findings files)`);
   if (where.length) out.push('', '### Where to look', ...where);
-  out.push('', `First seen: ${runUrl}`, '', `<!-- fingerprint: ${finding.id} -->`);
+  out.push('', `First seen: ${runUrl}`, ...(evidence.build ? [`Build tested: ${evidence.build}`] : []), '', `<!-- fingerprint: ${finding.id} -->`);
   return out.join('\n');
 }
 
@@ -78,8 +78,20 @@ export function issueBody(finding, runUrl, evidence = {}) {
 export const labelsFor = (finding, suite = '') => [`severity:${finding.severity}`, `kind:${finding.kind}`, `view:${finding.view}`.slice(0, 50), ...(suite ? [`suite:${suite}`.slice(0, 50)] : []),
   `source:${finding.source}`];
 
-export const seenAgainComment = (runUrl, screenshot = '') => `Seen again in run ${runUrl}${screenshot ? `\n\n![the page in this run](${screenshot})` : ''}`;
-export const notSeenComment = (runUrl, screenshot = '') => `Not seen in run ${runUrl}: that page was photographed and reviewed again and the finding did not come back (a fix, or a one-off).${screenshot ? `\n\n![the page in this run](${screenshot})` : ''}`;
+const buildLine = build => (build ? `\n\nBuild tested: ${build}` : '');
+export const seenAgainComment = (runUrl, screenshot = '', build = '') => `Seen again in run ${runUrl}${buildLine(build)}${screenshot ? `\n\n![the page in this run](${screenshot})` : ''}`;
+export const notSeenComment = (runUrl, screenshot = '', build = '') => `Not seen in run ${runUrl}: that page was photographed and reviewed again and the finding did not come back (a fix, or a one-off).${buildLine(build)}${screenshot ? `\n\n![the page in this run](${screenshot})` : ''}`;
+// Closing: the finding was already "not seen" in an earlier run and a second, later run did not see it either. A person can reopen it; a finding that comes back files a new issue.
+export const closedComment = (runUrl, build = '') => `Closed: not seen in two runs in a row (latest ${runUrl}).${buildLine(build)}\n\nIf it comes back, the loop files a new issue.`;
+
+// The suite a suite-failure issue came from ("found by a run of the apply suite"), else ''.
+export const suiteOfIssue = issue => /found by a run of the (\w+) suite/.exec(issue.body || '')?.[1] || '';
+
+// Open issues that earned closing: labelled not-seen-latest, not matched by this run's findings, not already told about this run, and cleared by it.
+// `cleared(issue)` says whether this run looked at the issue's page/suite again (the caller knows the artifacts).
+export const toClose = (issues, matched, runUrl, cleared) => issues.filter(issue => issue.state === 'OPEN' && !matched.has(issue.number)
+  && (issue.labels || []).some(item => (item.name || item) === NOT_SEEN)
+  && !(issue.comments || []).some(comment => (comment.body || '').includes(runUrl)) && cleared(issue));
 
 // The first picture of an issue (its body, else its newest comment that has one): what a fix pull request shows as "before".
 export function screenshotOf(issue) {

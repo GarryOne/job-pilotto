@@ -1,0 +1,76 @@
+name: CI · Stable canary
+
+# Is what users have right now still working? The release gate (e2e.yml) proves a build BEFORE it becomes stable; this proves it AFTER, once a day, because the world
+# drifts under a frozen build (Notion's API, the job sites' forms, an expired certificate). It runs the e2e journey on the stable tag (no paid AI judge) and:
+#   red   -> one issue labelled `stable-canary` (a regression reached users: decide to fix forward or roll back; it is NOT in the UI loop's backlog and the AI fixer never touches it)
+#   green -> that issue, if open, gets a comment and is closed.
+# Skipped when the stable build's own e2e run (the gate) passed in the last 20 hours: nothing could have drifted since.
+on:
+  schedule:
+    - cron: '23 6 * * *'   # 08:23 Zurich in summer: before the working day, after the 04:00 nightly build and its gate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # gh workflow run
+  issues: write
+
+concurrency:
+  group: stable-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: The stable build, and whether it needs a look today
+        id: stable
+        run: |
+          tag=$(gh release list -R "$REPO" -L 20 --json tagName,isPrerelease,isDraft -q '[.[] | select(.isDraft | not) | select(.isPrerelease | not)][0].tagName')
+          [ -n "$tag" ] || { echo "No stable release yet." >> "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          sha=$(gh api "repos/$REPO/commits/$tag" -q .sha)
+          fresh=$(gh run list -R "$REPO" --workflow=e2e.yml --status success --commit "$sha" -L 5 --json createdAt \
+            -q '[.[] | select((.createdAt | fromdateiso8601) > (now - 72000))] | length')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ "${fresh:-0}" != 0 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "$tag: its own e2e run passed in the last 20 hours; nothing to check today." >> "$GITHUB_STEP_SUMMARY"; else echo "skip=0" >> "$GITHUB_OUTPUT"; fi
+      - name: Run the journey on the stable tag and wait for it
+        id: run
+        if: steps.stable.outputs.skip == '0'
+        env:
+          TAG: ${{ steps.stable.outputs.tag }}
+        run: |
+          started=$(date -u +%s)
+          gh workflow run e2e.yml -R "$REPO" --ref "$TAG" -f canary=true
+          id=""
+          for _ in $(seq 1 40); do
+            id=$(gh run list -R "$REPO" --workflow=e2e.yml --event workflow_dispatch -L 10 --json databaseId,createdAt,displayTitle \
+              -q "[.[] | select(.displayTitle | startswith(\"Stable canary\")) | select((.createdAt | fromdateiso8601) >= $((started - 5)))][0].databaseId // empty")
+            [ -n "$id" ] && break
+            sleep 6
+          done
+          [ -n "$id" ] || { echo "The canary run did not appear on GitHub." >&2; exit 1; }
+          echo "run=https://github.com/$REPO/actions/runs/$id" >> "$GITHUB_OUTPUT"
+          if gh run watch "$id" -R "$REPO" --exit-status > /dev/null; then echo "result=green" >> "$GITHUB_OUTPUT"; else echo "result=red" >> "$GITHUB_OUTPUT"; fi
+      - name: Alarm, or all clear
+        if: steps.stable.outputs.skip == '0' && steps.run.outputs.result != ''
+        env:
+          TAG: ${{ steps.stable.outputs.tag }}
+          SHA: ${{ steps.stable.outputs.sha }}
+          RESULT: ${{ steps.run.outputs.result }}
+          RUN: ${{ steps.run.outputs.run }}
+        run: |
+          gh label create stable-canary -R "$REPO" --force --color B60205 --description "The stable release fails the end-to-end journey" > /dev/null
+          open=$(gh issue list -R "$REPO" --label stable-canary --state open --json number -q '.[0].number // empty')
+          if [ "$RESULT" = red ]; then
+            note="The stable build \`$TAG\` (\`${SHA:0:7}\`) FAILED the end-to-end journey: $RUN"
+            if [ -n "$open" ]; then gh issue comment "$open" -R "$REPO" --body "Still failing. $note"
+            else gh issue create -R "$REPO" --label stable-canary --title "Stable $TAG fails the end-to-end journey" \
+              --body "$note"$'\n\nIt passed the release gate, so something outside the build changed (Notion, a job site, a certificate) or the gate missed it. Decide: fix forward, or promote the previous build (tools/release-stable.sh <tag>). Open the run for the failing suite and its screenshots.'; fi
+            echo "$note" >> "$GITHUB_STEP_SUMMARY"; exit 1
+          fi
+          echo "Stable $TAG passes: $RUN" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$open" ]; then gh issue comment "$open" -R "$REPO" --body "Passing again on \`$TAG\`: $RUN"; gh issue close "$open" -R "$REPO" --reason completed; fi

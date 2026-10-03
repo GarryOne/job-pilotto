@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {LABEL, NOT_SEEN, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -36,7 +36,7 @@ function evidenceFile(finding) {
 const urlOf = (urls, to) => (to && urls[to]) || '';
 
 // -> {filed, again, gone, candidate}. `gh` and `publish` (the screenshot upload: files -> {to: url}) are injected so the rules can be tested without GitHub.
-export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || ''}) {
+export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '', build = ''}) {
   const found = filesNamed(artifacts);   // every suite's folder (e2e-artifacts/e2e-artifacts-<suite>/…), or one flat folder
   const withDir = (file, items) => items.map(item => ({...item, _dir: path.dirname(file)}));
   // A suite's failed steps: only the first is a finding (the later ones are its consequences), and none when the AI had no credit (not a product problem).
@@ -53,7 +53,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     suite: suiteFailures});
   const list = () => JSON.parse(gh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
   let issues = list();
-  const out = {filed: [], again: [], gone: [], skipped, candidate: null};
+  const out = {filed: [], again: [], gone: [], closed: [], skipped, candidate: null};
   const runId = String(runUrl).split('/').pop() || 'run';
 
   // 1. decide what each finding is: new, a repeat of an open issue (even when the AI worded it differently), or already told in this run.
@@ -65,9 +65,20 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   const reviewed = {ai: new Set(), layout: new Set()};
   for (const file of found['ai-findings.json']) for (const view of views(path.dirname(file))) reviewed.ai.add(view);
   for (const file of found['ui-findings.json']) for (const view of views(path.dirname(file))) reviewed.layout.add(view);
+  // A suite-failure issue is cleared only when its suite ran in this run with NO failure at all (a different earlier failure would hide the later steps) and was not skipped.
+  const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => name.replace(/^e2e-artifacts-/, '')) : []);
+  const failedSuites = new Set([...suiteFailures.map(item => item.suite), ...skipped.map(item => item.suite)]);
+  const suiteCleared = issue => { const suite = suiteOfIssue(issue); return !!suite && ranSuites.has(suite) && !failedSuites.has(suite); };
+  const clearedNow = issue => {
+    if (suiteCleared(issue)) return true;
+    const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
+    const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
+    return source === 'the AI screenshot review' ? reviewed.ai.has(view) : source === 'the layout check' ? reviewed.layout.has(view) : false;
+  };
   const gone = issues.filter(issue => issue.state === 'OPEN' && !matched.has(issue.number) && !(issue.labels || []).some(item => (item.name || item) === NOT_SEEN)
     && !(issue.comments || []).some(comment => (comment.body || '').includes(runUrl))).map(issue => {
     const view = /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
+    if (suiteCleared(issue)) return {issue, view, dir: ''};   // a failed step's issue: its whole suite ran again and nothing failed in it
     const source = /found by (the AI screenshot review|the layout check)/.exec(issue.body || '')?.[1];
     const seen = source === 'the AI screenshot review' ? reviewed.ai : source === 'the layout check' ? reviewed.layout : new Set();
     const dir = found[source === 'the AI screenshot review' ? 'ai-findings.json' : 'ui-findings.json'].map(file => path.dirname(file)).find(folder => views(folder).includes(view));
@@ -95,10 +106,10 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
       const evidence = {suite, [finding.source === 'suite-failure' ? 'failedScreenshot' : 'screenshot']: picture, facts, logs, codeFile};
       const labels = [LABEL, labelFor(finding.id), ...labelsFor(finding, suite)];
       for (const label of labels.slice(1)) gh(['label', 'create', label, '--force', '--color', label.startsWith('severity:high') ? 'D93F0B' : label.startsWith('severity:') ? 'FBCA04' : 'EDEDED']);
-      gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, evidence), '--label', labels.join(',')]);
+      gh(['issue', 'create', '--title', issueTitle(finding), '--body', issueBody(finding, runUrl, {...evidence, build}), '--label', labels.join(',')]);
       out.filed.push(finding.id);
     } else if (existing.state === 'OPEN' && !(existing.comments || []).some(comment => (comment.body || '').includes(runUrl))) {
-      gh(['issue', 'comment', String(existing.number), '--body', seenAgainComment(runUrl, picture)]);
+      gh(['issue', 'comment', String(existing.number), '--body', seenAgainComment(runUrl, picture, build)]);
       if ((existing.labels || []).some(item => (item.name || item) === NOT_SEEN)) gh(['issue', 'edit', String(existing.number), '--remove-label', NOT_SEEN]);
       out.again.push(finding.id);
     }
@@ -107,13 +118,19 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
     const id = /fp:(\S+)/.exec((issue.labels || []).map(item => item.name || item).join(' '))?.[1] || `issue-${issue.number}`;
     const picture = urlOf(urls, `ui-loop/${id}/${runId}-${view}-clear.png`);
     gh(['label', 'create', NOT_SEEN, '--force', '--color', 'BFD4F2', '--description', 'The page was reviewed again and the finding did not come back']);
-    gh(['issue', 'comment', String(issue.number), '--body', notSeenComment(runUrl, picture)]);
+    gh(['issue', 'comment', String(issue.number), '--body', notSeenComment(runUrl, picture, build)]);
     gh(['issue', 'edit', String(issue.number), '--add-label', NOT_SEEN]);
     // The open fix pull request for it gets the same "after" picture.
     const branch = id ? `auto-fix/${id}` : '';
     const prs = branch ? JSON.parse(gh(['pr', 'list', '--head', branch, '--state', 'open', '--json', 'number'])) : [];
-    for (const pr of prs) gh(['pr', 'comment', String(pr.number), '--body', `${notSeenComment(runUrl, picture)}\n\nThis is the "after" for #${issue.number}.`]);
+    for (const pr of prs) gh(['pr', 'comment', String(pr.number), '--body', `${notSeenComment(runUrl, picture, build)}\n\nThis is the "after" for #${issue.number}.`]);
     out.gone.push(id);
+  }
+  // 4. second clean run in a row: close it, naming the build that did not show it.
+  for (const issue of toClose(issues, matched, runUrl, clearedNow)) {
+    gh(['issue', 'comment', String(issue.number), '--body', closedComment(runUrl, build)]);
+    gh(['issue', 'close', String(issue.number), '--reason', 'completed']);
+    out.closed.push(issue.number);
   }
   issues = list();
   const branches = JSON.parse(gh(['pr', 'list', '--state', 'open', '--limit', '100', '--json', 'headRefName'])).map(pr => pr.headRefName);
@@ -142,8 +159,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : ''; };
   const outDir = option('out') || '.heal';
   fs.mkdirSync(outDir, {recursive: true});
-  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url')});
-  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
+  const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build')});
+  const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, once a day) picks the most critical one: node pick.mjs.
   if (!args.includes('--file-only')) {
     const candidate = result.candidate;
