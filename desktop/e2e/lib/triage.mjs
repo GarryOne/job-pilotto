@@ -291,21 +291,54 @@ export function rankingBody(ranked, now = Date.now(), limit = 12) {
     '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
 }
 
+// Why an open issue is not ready for a fix ('' = ready): the fixer's rules, in the order they are checked. One place, so the pick and its summary agree.
+export const NOT_READY = {
+  parked: 'Parked: a person must look (`needs-human`) or it was judged a false positive (`wontfix-auto`)',
+  clean: 'Clean in the latest run (`not-seen-latest`): waiting to close',
+  'pr-open': 'A fix pull request is already open',
+  once: `Seen fewer than ${SIGHTINGS_NEEDED} times this week, and not \`confirmed\` by a person`,
+  kind: 'A kind a UI change cannot fix (a crashed test step, a console error, a wrong result in the data)',
+};
+export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}) {
+  const labels = (issue.labels || []).map(label => label.name || label);
+  const id = labels.find(name => name.startsWith('fp:'));
+  if (issue.state !== 'OPEN' || !labels.includes(LABEL) || !id) return 'not-loop';
+  if (labels.includes(NEEDS_HUMAN) || labels.includes(FALSE_POSITIVE)) return 'parked';
+  if (labels.includes(NOT_SEEN)) return 'clean';
+  if (openBranches.includes(`auto-fix/${id.slice(3)}`)) return 'pr-open';
+  if (recentSightings(issue, now) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return 'once';
+  const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+  return FIX_KINDS.includes(kind) ? '' : 'kind';
+}
+
 // Which open issue is ready for a fix: seen twice this week (or confirmed by a person), a kind a UI change can fix, not parked, no pull request open already.
 // The most critical first (score), then the oldest.
 export function pickCandidate(issues, {openBranches = [], now = Date.now()} = {}) {
-  const ready = issues.filter(issue => {
-    const labels = (issue.labels || []).map(label => label.name || label);
-    const id = labels.find(name => name.startsWith('fp:'));
-    if (issue.state !== 'OPEN' || !labels.includes(LABEL) || !id) return false;
-    if (labels.includes(NEEDS_HUMAN) || labels.includes(FALSE_POSITIVE) || labels.includes(NOT_SEEN)) return false;
-    if (openBranches.includes(`auto-fix/${id.slice(3)}`)) return false;
-    if (recentSightings(issue, now) < SIGHTINGS_NEEDED && !labels.includes(CONFIRMED)) return false;
-    const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
-    return FIX_KINDS.includes(kind);
-  });
+  const ready = issues.filter(issue => notReadyReason(issue, {openBranches, now}) === '');
   ready.sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
   return ready[0] || null;
+}
+
+// The fixer's job summary: how many findings are open, which are ready, why each other one was passed over, and the rules.
+export function readinessSummary(issues, {openBranches = [], now = Date.now(), candidate = null} = {}) {
+  const open = issues.filter(issue => notReadyReason(issue, {openBranches, now}) !== 'not-loop');
+  const byReason = {};
+  for (const issue of open) (byReason[notReadyReason(issue, {openBranches, now})] ||= []).push(issue);
+  const ready = (byReason[''] || []).sort((a, b) => score(b, now) - score(a, now) || a.number - b.number);
+  const list = items => items.map(issue => `#${issue.number}`).join(', ');
+  const head = candidate
+    ? `**Fixing #${candidate.number}** ${candidate.title}${candidate.mode === 'verdict' ? ' (verdict only: judged, not edited)' : ''}`
+    : `**Nothing is ready to fix.** ${open.length} open finding(s), none passed the rules below.`;
+  const rows = [['Ready (most critical first)', ready], ...Object.keys(NOT_READY).map(key => [NOT_READY[key], byReason[key] || []])]
+    .filter(([, items]) => items.length).map(([why, items]) => `| ${why} | ${items.length} | ${list(items)} |`);
+  return ['## UI fixer', '', head, '', `${open.length} open finding(s) · ${ready.length} ready`, '',
+    '| Status | Count | Issues |', '|---|---|---|', ...(rows.length ? rows : ['| No open findings | 0 | |']), '',
+    '<details><summary>The rules</summary>', '',
+    `- A finding is ready when it is open, not parked (\`needs-human\`, \`wontfix-auto\`), not clean in the latest run, has no fix pull request open,`,
+    `  was seen on at least ${SIGHTINGS_NEEDED} commits in the last 7 days (or a person labelled it \`confirmed\`), and is a kind a UI change can fix.`,
+    `- Kinds it fixes: ${FIX_KINDS.join(', ')}.`,
+    '- The most critical ready one goes first: severity (high 3, medium 2, low 1) × sightings this week, doubled by `confirmed`; then the oldest.',
+    '- At most 4 automatic fix pull requests wait for review at once; one fix per run.', '', '</details>', ''].join('\n');
 }
 
 // A change is only proposed if every file is allowed, there is a test among them, and nothing was deleted from the tests.
