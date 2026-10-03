@@ -1606,6 +1606,10 @@
               "color": "green"
             },
             {
+              "name": "successfactors",
+              "color": "blue"
+            },
+            {
               "name": "careers",
               "color": "gray"
             },

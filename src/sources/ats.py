@@ -229,6 +229,24 @@ def workday(slug):
     return jobs
 
 
+def successfactors(slug):
+    """SAP SuccessFactors career sites ("Recruiting Marketing", e.g. careers.swissre.com): every open job in the site's public feed for
+    search engines, /sitemal.xml (RSS with Google Base fields: location, employer). Slug: the site's host name."""
+    if not re.fullmatch(r'[a-z0-9-]+(\.[a-z0-9-]+)+', slug or ''):
+        raise ValueError('not a SuccessFactors site')
+    root = ET.fromstring(_get(f'https://{slug}/sitemal.xml'))
+    base = '{http://base.google.com/ns/1.0}'
+    jobs = []
+    for item in root.iter('item'):
+        title = item.findtext('title') or ''
+        where = item.findtext(f'{base}location') or ''
+        title = re.sub(r'\s*\(' + re.escape(where) + r'\)\s*$', '', title) if where else title   # "Client Manager (Kuala Lumpur, MY)"
+        link = item.findtext('link') or ''
+        jobs.append(_job(item.findtext(f'{base}id') or item.findtext('guid') or link, title, where, link, '',
+                         plain(item.findtext('description')), 'remote' in where.lower()))
+    return jobs
+
+
 def umantis(slug):
     """Haufe Umantis (common with Swiss employers and cantons): the HTML job list of `slug.umantis.com`, then each job's page for its
     place and text (the list shows neither). Slug: `recruitingapp-1234`."""
@@ -328,7 +346,7 @@ def netflix(slug='netflix'):
 DETAILS = {'smartrecruiters': smartrecruiters_detail}
 FETCHERS = {'greenhouse': greenhouse, 'lever': lever, 'ashby': ashby, 'smartrecruiters': smartrecruiters,
             'workable': workable, 'recruitee': recruitee, 'personio': personio,
-            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'careers': careers,
+            'teamtailor': teamtailor, 'join': join, 'workday': workday, 'umantis': umantis, 'successfactors': successfactors, 'careers': careers,
             'amazon': amazon, 'netflix': netflix}
 # Standard systems a company slug can be guessed for; company sites are listed explicitly.
 GUESSABLE = ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'personio', 'smartrecruiters', 'teamtailor', 'join')

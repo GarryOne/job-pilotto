@@ -235,18 +235,24 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual([j['title'] for j in found['jobs']], ['Site Reliability Engineer'])
         self.assertEqual(self.calls, ['https://acme.ch/jobs'])
 
-    def test_a_reader_that_was_not_asked_leaves_the_rules_result(self):
+    def test_menu_entries_are_not_a_list_of_jobs_when_no_reader_answers(self):
         self.reader(None)
-        found = careers.discover('acme.ch', site(self.PAGES))
-        self.assertEqual([j['title'] for j in found['jobs']], ['About us'])
+        self.assertIsNone(careers.discover('acme.ch', site(self.PAGES)))
 
     def test_a_reader_that_finds_no_jobs_means_no_feed(self):
         self.reader([])
         self.assertIsNone(careers.discover('acme.ch', site(self.PAGES)))
 
-    def test_no_reader_no_change(self):
+    def test_without_a_reader_menu_entries_are_dropped_too(self):
         careers.READER = None
-        self.assertEqual(len(careers.discover('acme.ch', site(self.PAGES))['jobs']), 1)
+        self.assertIsNone(careers.discover('acme.ch', site(self.PAGES)))
+
+    def test_a_successfactors_site_one_link_further_is_found(self):
+        careers.READER = None
+        pages = {'https://acme.ch': '<a href="/careers.html">Careers</a>',
+                 'https://acme.ch/careers.html': '<a href="/about">About us</a><a href="https://careers.acme.ch/">Open positions</a>',
+                 'https://acme.ch/about': '<h1>About us</h1>', 'https://careers.acme.ch/': '<script src="https://rmkcdn.successfactors.com/x.js"></script>'}
+        self.assertEqual(careers.discover('acme.ch', site(pages)), {'ats': 'successfactors', 'slug': 'careers.acme.ch'})
 
 
 class ShellTests(unittest.TestCase):

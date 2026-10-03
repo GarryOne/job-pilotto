@@ -266,8 +266,15 @@ TITLE_LIKE = re.compile(r'engineer|ingenieur|ing[ée]nieur|developer|entwickler|
                         r'assistent|assistant|praktik|intern\b|\d{2,3}\s*%|\(m/w|\(w/m|m/w/d|m/f/d|f/m/d|h/f|f/h|all genders|\(a\)', re.I)
 
 
+# Headings of career pages themselves, not jobs: "Search Swiss Re Careers", "Early talent opportunities", "Life at Acme", "Students".
+NOT_A_JOB = re.compile(r'career|karriere|carri[eè]re|talent|opportunit|\bsearch\b|suche|students?|graduates?|absolvent|benefits|culture|kultur|'
+                       r'life at|working at|arbeiten (?:bei|bei uns)|our people|why join|join us|who we are|über uns|about us|apprentice|lehrstellen|'
+                       r'europe|americas|asia|africa|middle east|emea|apac', re.I)
+
+
 def _plausible(jobs):
     """Rules found jobs: do they look like job titles (or roles you look for)? If not, the links were probably menu entries."""
+    jobs = [job for job in jobs if not NOT_A_JOB.search(job['title'])]
     if not jobs:
         return False
     from ..ai import page_reader
@@ -301,18 +308,21 @@ def _from_recipe(url, markup, fetch_page):
 def _asked(url, markup, jobs, fetch_page=None):
     """Rules' jobs when they look like jobs; else a recipe learned earlier (no AI); else, when a model can read the page, its answer,
     and a recipe derived from that answer so the next read needs no model."""
+    jobs = [job for job in jobs if not NOT_A_JOB.search(job['title'])]   # career-page headings are never jobs
     if _plausible(jobs):
         return jobs
     fetch_page = fetch_page or get_text
     replayed = _from_recipe(url, markup, fetch_page)
     if replayed:
         return replayed
+    # What the rules found does not look like job titles (menu entries, "About us"): not a list of jobs. Without a model to read the page,
+    # nothing is taken from it, and the scout goes on to the page's own links (the real job site is often one link further).
     read = reader()
     if not read:
-        return jobs
+        return []
     answer = read(url, markup)
     if answer is None:
-        return jobs
+        return []
     if answer and READER == 'auto':   # a real model answered: learn how to read this page without it
         from . import page_recipes
         recipe = page_recipes.derive(markup, url, answer)
@@ -346,11 +356,20 @@ def renderer():
     return render.render if render.available() else None
 
 
+def successfactors_site(page, link):
+    """The host of a SAP SuccessFactors career site ("Recruiting Marketing": its pages load from rmkcdn), whose /sitemal.xml lists every job."""
+    host = urllib.parse.urlsplit(link).hostname or ''
+    return host if re.search(r'rmkcdn\.successfactors\.com|rmk-map-\d|successfactors\.(?:eu|com)/career', page or '') and re.search(r'rmkcdn', page or '') else ''
+
+
 def _look(page, link, fetch_page):
     """What one careers page offers: {'ats', 'slug'}, {'ats': 'careers', 'jobs'} (slug added by the caller), or None."""
     found = embedded_system(page)
     if found:
         return {'ats': found[0], 'slug': found[1]}
+    site = successfactors_site(page, link)
+    if site:
+        return {'ats': 'successfactors', 'slug': site}
     jobs = jsonld_jobs(page, link) or read_page_from(page, link, fetch_page)
     if len(jobs) == 1 and jobs[0]['url'].rstrip('/') == link.rstrip('/'):
         jobs = []   # that link is one job's page, not the list of jobs

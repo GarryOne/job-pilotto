@@ -311,7 +311,8 @@ def board_url(system, slug):
         'recruitee': f'https://{slug}.recruitee.com', 'personio': f'https://{slug}.jobs.personio.de',
         'smartrecruiters': f'https://jobs.smartrecruiters.com/{slug}', 'amazon': 'https://www.amazon.jobs',
         'netflix': 'https://explore.jobs.netflix.net/careers', 'teamtailor': f'https://{slug}.teamtailor.com/jobs',
-        'join': f'https://join.com/companies/{slug}', 'workday': workday_url(slug) if system == 'workday' else '',
+        'join': f'https://join.com/companies/{slug}', 'workday': workday_url(slug) if system == 'workday' else '', 'umantis': f'https://{slug}.umantis.com/Jobs/All',
+        'successfactors': f'https://{slug}/search/',
         'careers': careers.decode(slug) if system == 'careers' else ''}[system]
 
 
