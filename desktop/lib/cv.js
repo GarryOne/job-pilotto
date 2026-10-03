@@ -274,6 +274,15 @@ export function forUrl(storage, url) {
 }
 
 // The review page: the tailored CV with its changes marked, the reasons, and a switch to see it clean.
+// The clean PDF under a name a person can send: CV_<Name>_<Company>.pdf, next to the internal <code>.pdf (rewritten from it each time).
+export function finalCopy(storage, record) {
+  const word = text => String(text || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const name = ['CV', word(baseCv(storage)?.name), word(record.job?.company)].filter(Boolean).join('_').slice(0, 90) + '.pdf';
+  const target = path.join(tailoredDir(storage), name);
+  fs.copyFileSync(pdfPath(storage, record.job.code), target);
+  return target;
+}
+
 export function reviewPage(storage, record) {
   // Marks are recomputed from the model's answer when it's kept, so older reviews get later diff improvements.
   const base = baseCv(storage);
@@ -285,11 +294,17 @@ export function reviewPage(storage, record) {
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const changes = record.changes.map(c => `<li><b>${esc(c.where)}</b>: ${esc(c.change)}<div class="why">${esc(c.why)}</div></li>`).join('');
   const warningList = warnings.map(w => `<li>⚠️ ${esc(w)}</li>`).join('');
+  let final = null;
+  try { final = finalCopy(storage, record); } catch {}
   const panel = `<aside id="jp-panel">
-    <div class="jp-title">Tailored CV · ${esc(record.job.title)} · ${esc(record.job.company)}</div>
+    ${final ? `<div class="jp-final"><div class="jp-final-h">Final CV: send this one</div>
+      <div class="jp-final-name">${esc(path.basename(final))}</div>
+      <div class="jp-actions"><a href="${esc(pathToFileURL(final).href)}" target="_blank">Open</a>
+        <a href="jobpilotto-cv:reveal">Show in Finder</a> <a href="jobpilotto-cv:copy">Copy path</a></div>
+      <div class="jp-note">Clean: no highlights or notes. The page on the right is only a preview of what changed.</div></div>` : ''}
+    <div class="jp-title">Preview of changes · ${esc(record.job.title)} · ${esc(record.job.company)}</div>
     <div class="jp-meta">${new Date(record.createdAt).toLocaleString()} · ${esc(record.model)} · $${record.usd.toFixed(2)}</div>
-    <div class="jp-actions"><a href="${esc(pathToFileURL(pdfPath(storage, record.job.code)).href)}" target="_blank">Open the PDF</a>
-      <label><input type="checkbox" id="jp-clean"> Hide highlights</label></div>
+    <div class="jp-actions"><label><input type="checkbox" id="jp-clean"> Hide highlights</label></div>
     <div class="jp-legend"><span class="k-rew">reworded</span> <span class="k-ins">added</span> <span class="k-del">removed</span> <span class="k-mov">moved up</span></div>
     ${warningList ? `<ul class="jp-warn">${warningList}</ul>` : ''}
     <div class="jp-h">What changed and why</div><ul class="jp-changes">${changes}</ul></aside>`;
@@ -299,6 +314,9 @@ export function reviewPage(storage, record) {
     body.review .page:not(.fixed) { width: 595pt; padding: 16mm; }
     #jp-panel { position: fixed; left: 0; top: 0; bottom: 0; width: 340px; overflow: auto; background: #132439; color: #e8eef6;
       font: 13px/1.45 -apple-system, system-ui, sans-serif; padding: 18px; box-sizing: border-box; }
+    #jp-panel .jp-final { background: #1d3a2c; border: 1px solid #3f8f63; border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; }
+    #jp-panel .jp-final-h { font-weight: 700; font-size: 14px; } #jp-panel .jp-final-name { font-size: 12px; margin: 4px 0 8px; word-break: break-all; }
+    #jp-panel .jp-note { color: #9fb2c8; font-size: 12px; }
     #jp-panel .jp-title { font-weight: 700; font-size: 15px; } #jp-panel .jp-meta { color: #9fb2c8; font-size: 12px; margin: 4px 0 12px; }
     #jp-panel .jp-actions { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; }
     #jp-panel a { color: #ffb27a; } #jp-panel label { cursor: pointer; }

@@ -354,7 +354,14 @@ function openTailoredCv(code) {
     if (url.startsWith('file:')) shell.openPath(fileURLToPath(url)); else shell.openExternal(url);
     return {action: 'deny'};
   });
-  review.webContents.on('will-navigate', (event, url) => { event.preventDefault(); if (!url.startsWith('file:')) shell.openExternal(url); });
+  review.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault();
+    // The panel's "Final CV" block: Show in Finder and Copy path (the review page has no preload, so they are links).
+    if (url.startsWith('jobpilotto-cv:')) {
+      const final = cvlib.finalCopy(storage, record);
+      if (url === 'jobpilotto-cv:reveal') shell.showItemInFolder(final); else if (url === 'jobpilotto-cv:copy') clipboard.writeText(final);
+    } else if (!url.startsWith('file:')) shell.openExternal(url);
+  });
   review.loadFile(cvlib.reviewPage(storage, record));
   return true;
 }
