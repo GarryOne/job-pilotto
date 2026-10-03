@@ -473,6 +473,8 @@ button.secondary.is-signal { color: var(--signal-ink); border-color: var(--signa
 .task-state.is-warn::before { background: var(--warn-bright); border-color: var(--warn-bright); }
 .task-state small { font-weight: 500; color: var(--muted); }
 .diag-update { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.diag-actions { display: flex; flex: none; gap: var(--sp-4); }
+.diag-actions button { white-space: nowrap; }
 #allowance-dialog .inline { margin-top: var(--sp-4); }
 
 /* Always on (Settings → Automation): a service row inside a card: tile, name + status pill + detail, actions; a body underneath. */

@@ -20,7 +20,7 @@ test('Settings → Beta says what is on, and shows "Back to stable" only while t
   assert.equal(betaText({on: true, current: '0.4.0-alpha.252', stable: '0.4.0-alpha.252', ahead: false}).toggle, 'Turn off');
   const ahead = betaText({on: true, current: '0.4.0-alpha.255', stable: '0.4.0-alpha.252', ahead: true});
   assert.equal(ahead.back, true);
-  assert.match(ahead.text, /ahead of stable 0\.4\.0-alpha\.252/);
+  assert.match(ahead.text, /^On · ahead of stable 0\.4\.0-alpha\.252$/);
   assert.equal(betaText({on: false, current: '0.4.0-alpha.255', stable: '0.4.0-alpha.252', ahead: true}).back, true, 'turning the beta off does not roll anyone back by itself');
   assert.equal(betaText({fromSource: true}).toggle, '');
 });
