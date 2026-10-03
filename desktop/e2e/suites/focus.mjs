@@ -197,6 +197,29 @@ export async function run(ctx) {
     await numbersMatchSource('after Skip');
   }, {needs: ctx.needs});
 
+  await ctx.run('Dismiss on a job in process leaves the In process list at once, and is still gone after a reload (it was bouncing back to "Interview scheduled", 3 Oct 2026)', async () => {
+    const ember = () => page.locator('#jobs-body .job-row', {hasText: 'Ember Data'});
+    await page.click('.nav[data-view="jobs"]');
+    await page.click('.stat[data-stat="interviews"]');
+    await ember().waitFor({timeout: 30000});
+    if (!/Interview scheduled/.test(await ember().innerText())) throw new Error('the Ember Data row should start as "Interview scheduled"');
+    await ember().getByRole('button', {name: 'More actions'}).click();
+    await page.getByRole('menuitem', {name: 'Dismiss'}).click();
+    // At once: no waiting for a refresh. The screen must not claim a change Notion has not taken.
+    await ember().waitFor({state: 'detached', timeout: 5000}).catch(() => { throw new Error('the dismissed job is still in the In process list 5 seconds after Dismiss'); });
+    const stageInNotion = async () => (await queryAll(NOTION, ids.tracker)).find(item => (item.properties.Company?.rich_text || []).some(part => part.plain_text === 'Ember Data'))?.properties.Stage?.select?.name;
+    let stage = null;
+    for (let i = 0; i < 10 && stage !== 'Closed'; i++) { stage = await stageInNotion(); if (stage !== 'Closed') await page.waitForTimeout(3000); }
+    if (stage !== 'Closed') throw new Error(`Notion's stage for the dismissed job should be Closed, it is "${stage}"`);
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    await page.click('.nav[data-view="jobs"]');
+    await page.click('.stat[data-stat="interviews"]');
+    await page.waitForTimeout(3000);
+    if (await ember().count()) throw new Error(`after a reload the dismissed job is back in the In process list: "${(await ember().innerText()).replace(/\s+/g, ' ')}" (Notion says ${await stageInNotion()})`);
+    await goFocus();   // the next step starts on Focus
+  }, {needs: ctx.needs});
+
   await ctx.run('a fresh account gets a helpful Focus: one next step, zeros, a funnel that says it fills in later, no insight, no raw errors', async () => {
     await resetFocusData(NOTION, ids, {target: 5});   // every row to the trash: a new user's workspace
     target = 5;

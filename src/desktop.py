@@ -132,6 +132,25 @@ def posting(db, code):
 NOTION_STAGES = {'saved': 'Saved', 'applied': 'Applied', 'dismissed': 'Dismissed'}
 
 
+class InProcess(Exception):
+    pass
+
+
+def _mark(tracker, job, status):
+    """Write the status as an Applications stage. Returns (outcome, stage now in Notion, or None when it is not known).
+    Notion keeps a real application stage (Interview scheduled, Applied...) against Saved/Dismissed (a Telegram misfire
+    must not close an application), so a Dismiss the person clicked here closes the job instead; Saved on one is
+    refused: telling the person it worked while Notion kept its stage is what made a dismissed interview come back."""
+    page, outcome = tracker.mark(job, NOTION_STAGES[status])
+    current = (((page or {}).get('properties') or {}).get('Stage', {}).get('select') or {}).get('name')
+    if outcome != 'unchanged' or not current or current == NOTION_STAGES[status] or stage_status(current) != 'applied':
+        return outcome, NOTION_STAGES[status] if outcome != 'unchanged' else current
+    if status == 'dismissed':
+        _, outcome = tracker.mark(job, 'Closed')
+        return outcome, 'Closed'
+    raise InProcess(f'It is already in process ({current}), so it can not be saved. Dismiss it to close it.')
+
+
 def set_status(db, url, status, tracker=None):
     """Record the status locally and, with Notion connected, as the job's Applications stage (the source
     of truth; Saved/Dismissed never overwrite a real application stage, see Tracker.mark)."""
@@ -143,22 +162,26 @@ def set_status(db, url, status, tracker=None):
         if not item:
             return {'ok': False, 'error': 'job not found'}
         try:
-            _, outcome = tracker.mark({'title': item['title'], 'company': item['company'], 'location': item['location'],
-                                       'url': url, 'posted_at': '', 'first_seen_at': item.get('first_seen', '')}, NOTION_STAGES[status])
+            outcome, stage = _mark(tracker, {'title': item['title'], 'company': item['company'], 'location': item['location'],
+                                             'url': url, 'posted_at': '', 'first_seen_at': item.get('first_seen', '')}, status)
+        except InProcess as error:
+            return {'ok': False, 'error': str(error)}
         except Exception as error:  # noqa: BLE001
             return {'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}
-        return {'ok': True, 'notion': outcome}
+        return {'ok': True, 'notion': outcome, 'stage': stage}
     if not row:
         return {'ok': False, 'error': 'job not found'}
-    outcome = None
+    outcome = stage = None
     if tracker and status in NOTION_STAGES:  # Notion first: if it can't be written, nothing changes
         try:
-            _, outcome = tracker.mark(dict(row), NOTION_STAGES[status])
+            outcome, stage = _mark(tracker, dict(row), status)
+        except InProcess as error:
+            return {'ok': False, 'error': str(error)}
         except Exception as error:  # noqa: BLE001 — shown to the user; the local cache stays as it was
             return {'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}
-    store.set_application_status(db, row['id'], status)
+    store.set_application_status(db, row['id'], 'dismissed' if stage == 'Closed' else status)
     db.commit()
-    return {'ok': True, 'notion': outcome} if outcome else {'ok': True}
+    return {'ok': True, 'notion': outcome, 'stage': stage} if outcome else {'ok': True}
 
 
 def _fit_detail(fit):

@@ -55,7 +55,7 @@ class DesktopTests(unittest.TestCase):
 
     def test_status_is_local_and_reaches_notion_applications(self):
         tracker = FakeTracker()
-        self.assertEqual(desktop.set_status(self.db, 'https://x.test/1', 'saved', tracker), {'ok': True, 'notion': 'created'})
+        self.assertEqual(desktop.set_status(self.db, 'https://x.test/1', 'saved', tracker), {'ok': True, 'notion': 'created', 'stage': 'Saved'})
         self.assertEqual(tracker.marked, [('https://x.test/1', 'Site Reliability Engineer', 'Acme', 'Saved')])
         self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'saved')
 
@@ -68,6 +68,24 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(desktop.jobs(self.db, stages={}, notion=True)['jobs'][0]['status'], 'unreviewed')
         self.assertEqual([desktop.stage_status(s) for s in (None, 'Kit ready', 'Saved', 'Dismissed', 'Closed', 'Interview scheduled')],
                          ['unreviewed', 'unreviewed', 'saved', 'dismissed', 'dismissed', 'applied'])
+
+    def test_dismissing_a_job_in_process_closes_it_instead_of_pretending(self):
+        class Stuck:  # Notion's Tracker.mark keeps a real stage against Saved/Dismissed
+            def __init__(self):
+                self.marked = []
+
+            def mark(self, job, stage):
+                self.marked.append(stage)
+                page = {'properties': {'Stage': {'select': {'name': 'Interview scheduled'}}}}
+                return (page, 'unchanged') if stage != 'Closed' else (page, 'updated')
+        tracker = Stuck()
+        result = desktop.set_status(self.db, 'https://x.test/1', 'dismissed', tracker)
+        self.assertEqual((result['ok'], result['stage'], tracker.marked), (True, 'Closed', ['Dismissed', 'Closed']))
+        self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'dismissed')
+        # Saved on a job in process is refused, so the screen never shows a change Notion did not take
+        refused = desktop.set_status(self.db, 'https://x.test/1', 'saved', Stuck())
+        self.assertFalse(refused['ok'])
+        self.assertIn('already in process', refused['error'])
 
     def test_a_status_notion_rejects_changes_nothing(self):
         class Down:

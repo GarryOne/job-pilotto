@@ -252,6 +252,8 @@ export function renderJobs() {
       const result = await window.pilot.setStatus(job.url, next).catch(error => ({ok: false, error: error.message}));
       if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
       job.status = next;
+      if (result.stage) job.stage = result.stage;   // what Notion now holds (a dismissed job in process becomes Closed)
+      if (next === 'dismissed' && statFilter?.urls) statFilter.urls.delete(fullKey(job.url));   // a counter's list is a fixed set of jobs: it must let the dismissed one go
       if (next === 'applied' && job.stage === 'Applying') job.stage = 'Applied';
       renderJobs();
       if (next === 'dismissed') askWhy(job);   // one optional tap: why (counted with the score band only)
