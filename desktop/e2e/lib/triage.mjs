@@ -293,11 +293,11 @@ export function rankingBody(ranked, now = Date.now(), limit = 12) {
 
 // Why an open issue is not ready for a fix ('' = ready): the fixer's rules, in the order they are checked. One place, so the pick and its summary agree.
 export const NOT_READY = {
-  parked: 'Parked: a person must look (`needs-human`) or it was judged a false positive (`wontfix-auto`)',
-  clean: 'Clean in the latest run (`not-seen-latest`): waiting to close',
-  'pr-open': 'A fix pull request is already open',
-  once: `Seen fewer than ${SIGHTINGS_NEEDED} times this week, and not \`confirmed\` by a person`,
-  kind: 'A kind a UI change cannot fix (a crashed test step, a console error, a wrong result in the data)',
+  parked: {why: 'Parked: a person must look (`needs-human`) or it was judged a false positive (`wontfix-auto`)', next: 'Remove the label once it is understood'},
+  clean: {why: 'Clean in the latest run (`not-seen-latest`): waiting to close', next: 'Nothing: it closes by itself after another clean run'},
+  'pr-open': {why: 'A fix pull request is already open', next: 'Review the pull request: merge it, or close it to let the fixer try again'},
+  once: {why: `Seen fewer than ${SIGHTINGS_NEEDED} times this week, and not \`confirmed\` by a person`, next: 'Label it `confirmed` if it is real (`gh issue edit N --add-label confirmed`), or wait for the next sighting'},
+  kind: {why: 'A kind a UI change cannot fix (a crashed test step, a console error, a wrong result in the data)', next: 'Fix it by hand: the fixer only edits the window\'s code'},
 };
 export function notReadyReason(issue, {openBranches = [], now = Date.now()} = {}) {
   const labels = (issue.labels || []).map(label => label.name || label);
@@ -329,10 +329,17 @@ export function readinessSummary(issues, {openBranches = [], now = Date.now(), c
   const head = candidate
     ? `**Fixing #${candidate.number}** ${candidate.title}${candidate.mode === 'verdict' ? ' (verdict only: judged, not edited)' : ''}`
     : `**Nothing is ready to fix.** ${open.length} open finding(s), none passed the rules below.`;
-  const rows = [['Ready (most critical first)', ready], ...Object.keys(NOT_READY).map(key => [NOT_READY[key], byReason[key] || []])]
-    .filter(([, items]) => items.length).map(([why, items]) => `| ${why} | ${items.length} | ${list(items)} |`);
+  const rows = [[{why: 'Ready (most critical first)', next: 'The fixer takes the first one'}, ready], ...Object.keys(NOT_READY).map(key => [NOT_READY[key], byReason[key] || []])]
+    .filter(([, items]) => items.length).map(([reason, items]) => `| ${reason.why} | ${items.length} | ${list(items)} | ${reason.next} |`);
+  // Nothing picked while findings are open: say plainly what would let the fixer take one now, issue by issue.
+  const waiting = byReason.once || [];
+  const suggest = !candidate && open.length ? ['**To have one fixed now:**',
+    ...(waiting.length ? [`- If ${waiting.length === 1 ? list(waiting) : `one of ${list(waiting)}`} is real, label it \`confirmed\` and run the fixer again: \`gh issue edit ${waiting[0].number} --add-label confirmed && gh workflow run ui-fix.yml\`.`] : []),
+    ...((byReason['pr-open'] || []).length ? [`- Review the open fix pull request(s) for ${list(byReason['pr-open'])}.`] : []),
+    ...((byReason.parked || []).length ? [`- Look at the parked ${list(byReason.parked)}; remove \`needs-human\` when one is ready for another try.`] : []),
+    `- Or lower the bar for every finding: \`SIGHTINGS_NEEDED\` in \`desktop/e2e/lib/triage.mjs\` (now ${SIGHTINGS_NEEDED}; it also decides which findings block a release).`, ''] : [];
   return ['## UI fixer', '', head, '', `${open.length} open finding(s) · ${ready.length} ready`, '',
-    '| Status | Count | Issues |', '|---|---|---|', ...(rows.length ? rows : ['| No open findings | 0 | |']), '',
+    '| Status | Count | Issues | To have it picked |', '|---|---|---|---|', ...(rows.length ? rows : ['| No open findings | 0 | | |']), '', ...suggest,
     '<details><summary>The rules</summary>', '',
     `- A finding is ready when it is open, not parked (\`needs-human\`, \`wontfix-auto\`), not clean in the latest run, has no fix pull request open,`,
     `  was seen on at least ${SIGHTINGS_NEEDED} commits in the last 7 days (or a person labelled it \`confirmed\`), and is a kind a UI change can fix.`,

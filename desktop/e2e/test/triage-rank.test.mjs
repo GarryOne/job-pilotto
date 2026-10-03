@@ -58,5 +58,10 @@ test('the fixer\'s summary says how many findings are open, which are ready, why
   assert.match(text, /cannot fix[^|]*\| 1 \| #4 \|/);
   assert.match(text, /Parked[^|]*\| 1 \| #5 \|/);
   assert.match(text, /The rules[\s\S]*at least 2 commits in the last 7 days/);
-  assert.match(readinessSummary([issue(2)], {now: NOW}), /\*\*Nothing is ready to fix\.\*\* 1 open finding\(s\), none passed the rules below/);
+  assert.doesNotMatch(text, /To have one fixed now/, 'a fix is under way: no suggestions');
+  const none = readinessSummary([issue(2)], {now: NOW});
+  assert.match(none, /\*\*Nothing is ready to fix\.\*\* 1 open finding\(s\), none passed the rules below/);
+  assert.match(none, /To have one fixed now:[\s\S]*label it `confirmed`[\s\S]*gh issue edit 2 --add-label confirmed && gh workflow run ui-fix\.yml/);
+  assert.match(none, /lower the bar[\s\S]*SIGHTINGS_NEEDED[\s\S]*now 2/);
+  assert.match(none, /\| Status \| Count \| Issues \| To have it picked \|/);
 });
