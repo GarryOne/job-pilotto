@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
+import {fixerCard, scorecard, appVersionAt, versionLabel, CONFIRMED, FALSE_POSITIVE, NEEDS_HUMAN, recentSightings, score, LABEL, NOT_SEEN, closedByFixComment, probeCleared, namesIssue, firstBuildSha, testedSha, SEEN_AGAIN, SIGHTINGS_NEEDED, sightings, PRIORITIES, priorityLabel, rankIssues, rankingBody, issueBody, issueTitle, labelFor, labelsFor, LIMIT_TESTED, NO_CREDIT, matchExisting, normalize, notSeenComment, closedComment, suiteOfIssue, toClose, suppressedBy, pickCandidate, readinessSummary, screenshotOf, seenAgainComment} from './lib/triage.mjs';
 import {publishFiles} from './lib/evidence.mjs';
 
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
@@ -49,7 +49,9 @@ export function refreshRanking({gh = realGh, issues, repo = '', now = Date.now()
     for (const old of have.filter(name => name !== priorityLabel(priority))) args.push('--remove-label', old);
     gh(args);
   }
-  const body = rankingBody(ranked, now, 12, scorecard(issues, now));
+  let prs = [];
+  try { prs = JSON.parse(gh(['pr', 'list', '--label', 'auto-ui-fix', '--state', 'all', '--limit', '100', '--json', 'state,createdAt'])); } catch { /* no numbers this time */ }
+  const body = rankingBody(ranked, now, 12, scorecard(issues, now), fixerCard(Array.isArray(prs) ? prs : [], issues, now));
   const found = JSON.parse(gh(['issue', 'list', '--label', 'top-issues', '--state', 'open', '--json', 'number,body,id']));
   if (found[0]) { if (found[0].body !== body) gh(['issue', 'edit', String(found[0].number), '--title', RANKING_TITLE, '--body', body]); return {ranked, number: found[0].number}; }
   gh(['label', 'create', 'top-issues', '--force', '--color', 'B60205', '--description', 'The pinned ranked list of open findings']);

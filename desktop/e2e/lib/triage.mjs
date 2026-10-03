@@ -316,7 +316,22 @@ export function scorecard(issues, now = Date.now(), days = 30) {
 export const scorecardLines = rows => (rows.length ? ['', '**Detectors, last 30 days**', '', '| Detector | Filed | False positives | Real | Open |', '|---|---|---|---|---|',
   ...rows.map(row => `| ${row.source} | ${row.filed} | ${row.falsePositive}${row.filed ? ` (${Math.round(100 * row.falsePositive / row.filed)}%)` : ''} | ${row.real} | ${row.open} |`),
   '', '<sub>Real = confirmed by a person or the verdict pass, or closed as fixed. Closed as "not seen" counts as neither. Recall (known bugs planted into the page, caught or not) is in each interactions run\'s summary.</sub>'] : []);
-export function rankingBody(ranked, now = Date.now(), limit = 12, card = []) {
+// The fixer and the verdict pass over the same 30 days: pull requests opened, merged, closed unmerged, still open; verdicts real and false. With the detectors'
+// scorecard this says whether the loop works on its own (4 Oct 2026). `prs`: [{state, createdAt}] of the label auto-ui-fix.
+export function fixerCard(prs, issues, now = Date.now(), days = 30) {
+  const recent = date => !date || now - Date.parse(date) <= days * 86400000;
+  const pr = {opened: 0, merged: 0, closed: 0, open: 0};
+  for (const item of prs || []) { if (!recent(item.createdAt)) continue; pr.opened++; pr[item.state === 'MERGED' ? 'merged' : item.state === 'CLOSED' ? 'closed' : 'open']++; }
+  let real = 0, falsePositive = 0;
+  for (const issue of issues || []) for (const comment of issue.comments || []) {
+    if (!recent(comment.createdAt)) continue;
+    if (/^Judged real by the UI loop's verdict pass/.test(comment.body || '')) real++;
+    if (/^Closed by the UI loop as a false positive/.test(comment.body || '')) falsePositive++;
+  }
+  return {pr, verdicts: {real, falsePositive}};
+}
+export const fixerLines = card => (card ? ['', `**Fixer and verdicts, last 30 days:** ${card.pr.opened} pull request(s) opened, ${card.pr.merged} merged, ${card.pr.closed} closed unmerged, ${card.pr.open} open · verdict pass: ${card.verdicts.real} real, ${card.verdicts.falsePositive} false positive(s).`] : []);
+export function rankingBody(ranked, now = Date.now(), limit = 12, card = [], fixer = null) {
   const rows = ranked.slice(0, limit).map(({issue, priority, score: points}, index) => {
     const at = lastSeen(issue), days = at ? Math.floor((now - Date.parse(at)) / 86400000) : null;
     const age = days === null ? '' : days <= 0 ? 'today' : `${days} d ago${days >= 7 ? ' ⚠️' : ''}`;
@@ -328,7 +343,7 @@ export function rankingBody(ranked, now = Date.now(), limit = 12, card = []) {
   return ['**The open findings, most important first.** Re-ranked after every run.', '', `${counts} · ${ranked.length} open`, '',
     '| # | Priority | Finding | Platform | Score | Last build seen on |', '|---|---|---|---|---|---|', ...(rows.length ? rows : ['| | | nothing open | | | |']),
     '', '**P0** would keep a build from beta or stable · **P1** seen again and again, or high and confirmed · **P2** worth a look · **P3** seen once, or already clean in the latest run. Score = severity × sightings this week (× 2 when a person confirmed it). Within a priority: a wrong result before a dead control before a missing spinner (a crashed test step counts least), the critical path (apply, strategy, activity, setup) first, Mac before Windows. ⚠️ = not seen for 7 days or more. A finding closes after two clean runs of its page, or one when a commit says it fixes it.',
-    ...scorecardLines(card), '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
+    ...scorecardLines(card), ...fixerLines(fixer), '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
 }
 
 // Why an open issue is not ready for a fix ('' = ready): the fixer's rules, in the order they are checked. One place, so the pick and its summary agree.

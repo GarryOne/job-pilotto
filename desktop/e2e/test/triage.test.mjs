@@ -430,3 +430,13 @@ test('the verdict list is the most critical unjudged one-off findings, at most f
   assert.deepEqual(picked.map(issue => issue.number), [1, 2, 3, 4, 5]);
   assert.ok(picked.every(issue => issue.mode === 'verdict'));
 });
+
+// Whether the loop works on its own: the fixer's pull requests and the verdict pass's answers, next to the detectors' scorecard.
+test('the fixer card counts pull requests by outcome and the verdict pass\'s real and false answers, last 30 days', async () => {
+  const {fixerCard, fixerLines} = await import('../lib/triage.mjs');
+  const now = Date.parse('2026-10-04T00:00:00Z');
+  const card = fixerCard([{state: 'MERGED', createdAt: '2026-10-03T10:00:00Z'}, {state: 'CLOSED', createdAt: '2026-10-03T11:00:00Z'}, {state: 'OPEN', createdAt: '2026-10-03T12:00:00Z'}, {state: 'MERGED', createdAt: '2026-08-01T00:00:00Z'}],
+    [{comments: [{body: 'Judged real by the UI loop\'s verdict pass (no edits made): x', createdAt: '2026-10-03T13:00:00Z'}, {body: 'Closed by the UI loop as a false positive: y', createdAt: '2026-10-03T14:00:00Z'}, {body: 'a person', createdAt: '2026-10-03T15:00:00Z'}]}], now);
+  assert.deepEqual(card, {pr: {opened: 3, merged: 1, closed: 1, open: 1}, verdicts: {real: 1, falsePositive: 1}});
+  assert.match(fixerLines(card).join('\n'), /3 pull request\(s\) opened, 1 merged, 1 closed unmerged, 1 open · verdict pass: 1 real, 1 false positive/);
+});
