@@ -10,6 +10,7 @@ import * as apply from './lib/apply.js';
 import {claimInstance, startWhenReady, installQuitHandling} from './lib/lifecycle.js';
 import {registerSessionHandlers} from './lib/session-handlers.js';
 import * as cvlib from './lib/cv.js';
+import * as cvLook from './lib/cv-look.js';
 import * as letters from './lib/cover-letter.js';
 import * as github from './lib/github.js';
 import * as updater from './lib/updater.js';
@@ -328,6 +329,11 @@ const dispatchCloud = (why, inputs, workflow) =>
 
 // A CV page (cv/template.js) printed to PDF by Chromium in a hidden window. Fixed pages (a custom design)
 // never grow, so a page whose content doesn't fit is reported instead of silently cut.
+// The CV PDF's photo, icons, logos and page breaks, cut out of it so the tailored CV looks like it (lib/cv-look.js).
+async function keepLook(cv) {
+  const probe = await cvLook.probeWindow(BrowserWindow, storage.path('cv.pdf'));
+  try { return await cvLook.apply(cvlib.dir(storage), cv, cvLook.plan(await probe.scan(), cv), probe); } finally { probe.close(); }
+}
 async function printPdf(htmlFile) {
   const printer = new BrowserWindow({show: false, width: 794, height: 1123, webPreferences: {sandbox: true, contextIsolation: true, javascript: true}});
   try {
@@ -1339,7 +1345,7 @@ function handlers() {
       let cost = 0;
       if (!cvlib.baseCv(storage)) {
         if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
-        cost += (await cvlib.importPdf(storage, key, ai)).usd;
+        cost += (await cvlib.importPdf(storage, key, ai, {look: keepLook})).usd;
       }
       const job = await pipeline.posting(storage, code);
       if (!job.ok) return {ok: false, error: job.error};
@@ -1376,12 +1382,12 @@ function handlers() {
   });
   ipcMain.handle('openTailoredCv', (_, code) => openTailoredCv(code));
   // The base CV the tailoring starts from: import it from the CV PDF (again), see it, or edit its files.
-  ipcMain.handle('cvStatus', () => ({base: !!cvlib.baseCv(storage), custom: fs.existsSync(path.join(cvlib.dir(storage), 'style.css'))}));
+  ipcMain.handle('cvStatus', () => ({base: !!cvlib.baseCv(storage), custom: fs.existsSync(path.join(cvlib.dir(storage), 'style.css')) || cvlib.baseCv(storage)?.look === 'rich'}));
   ipcMain.handle('importCv', async () => {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
-    try { return {ok: true, usd: (await cvlib.importPdf(storage, key, ai)).usd}; } catch (error) { return {ok: false, error: error.message}; }
+    try { return {ok: true, usd: (await cvlib.importPdf(storage, key, ai, {look: keepLook})).usd}; } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('viewBaseCv', async () => {
     const base = cvlib.baseCv(storage);
@@ -1401,7 +1407,7 @@ function handlers() {
     try {
       if (!cvlib.baseCv(storage)) {
         if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
-        await cvlib.importPdf(storage, key, ai);
+        await cvlib.importPdf(storage, key, ai, {look: keepLook});
       }
       const {profile, answers} = await strategy.profileTexts(storage);
       const contact = await contactDetails.read(storage).catch(() => ({}));

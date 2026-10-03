@@ -12,6 +12,8 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_CSS = fs.readFileSync(path.join(here, 'default.css'), 'utf8');
+// The look of a CV that has a photo, icons or logos (cv.look = 'rich', set when its PDF was read: lib/cv-look.js): the owner's Figma design, generalised.
+export const RICH_CSS = fs.readFileSync(path.join(here, 'rich.css'), 'utf8');
 const font = name => pathToFileURL(path.join(here, 'fonts', name)).href;
 const FONTS = `@font-face { font-family: Inter; font-weight: 100 900; src: url(${font('inter-latin.woff2')}) format('woff2'); }
 @font-face { font-family: Inter; font-weight: 100 900; src: url(${font('inter-latin-ext.woff2')}) format('woff2');
@@ -51,7 +53,7 @@ function role(r, job) {
     </div></div>`;
 }
 
-const job = j => `<div class="job${j.class ? ` ${esc(j.class)}` : ''}">
+const job = j => `<div class="job${j.class ? ` ${esc(j.class)}` : ''}"${j.outdent ? ` style="margin-left:-${Number(j.outdent)}pt"` : ''}>
   ${j.logo ? `<div class="logo"><img src="${asset(j.logo)}" alt=""></div>` : ''}
   <div class="body">${j.roles.map(r => role(r, j)).join('')}</div></div>`;
 
@@ -83,12 +85,12 @@ export function render(cv, {style = '', review = false, base = ''} = {}) {
   const fixed = !!cv.layout?.pages?.length;
   const body = pages(cv).map(page => `<section class="page ${fixed ? 'fixed' : ''} ${esc(page.class || '')}">
     ${page.header ? header(cv) : ''}
-    <div class="jobs">${page.jobs.map(job).join('')}</div>
+    <div class="jobs"${page.indent ? ` style="padding-left:${Number(page.indent)}pt"` : ''}>${page.jobs.map(job).join('')}</div>
     ${page.tail ? tail(cv) : ''}
     ${page.banner ? `<img class="banner" src="${asset(page.banner)}" alt="">` : ''}
   </section>`).join('');
   return `<!doctype html><html><head><meta charset="utf-8">${base ? `<base href="${esc(base)}">` : ''}<title>${esc(cv.name)} CV</title>
-<style>${FONTS}\n${CORE}\n${fixed ? '@page { margin: 0; }' : ''}\n${style || DEFAULT_CSS}\n${review ? REVIEW_CSS : ''}</style></head><body class="${review ? 'review' : ''}">${body}</body></html>`;
+<style>${FONTS}\n${CORE}\n${fixed ? '@page { margin: 0; }' : ''}\n${style || (cv.look === 'rich' ? RICH_CSS : DEFAULT_CSS)}\n${review ? REVIEW_CSS : ''}</style></head><body class="${review ? 'review' : ''}">${body}</body></html>`;
 }
 
 // Highlights for the review page (never printed into the PDF).

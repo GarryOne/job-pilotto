@@ -1,0 +1,37 @@
+/* The look of a CV with a photo, icons and employer logos, in points (1 Figma unit = 1 pt): first page as designed, later pages denser.
+   Used when cv.look is 'rich' (lib/cv-look.js sets it when the CV PDF has such images). Indents and outdents come from the data (page.indent, job.outdent). */
+body { color: #000; line-height: normal; }
+a { color: inherit; text-decoration: none; }
+.page { padding: 25pt 20pt 50pt; display: flex; flex-direction: column; gap: 23.3pt; }
+.page.first { padding-top: 10pt; gap: 6.9pt; }
+.head { display: flex; flex-direction: column; gap: 11.4pt; }
+.name-row { display: flex; justify-content: space-between; align-items: flex-start; }
+.name { font-size: 24pt; } .loc { font-size: 10pt; margin-top: 3pt; }
+.photo { width: 42pt; height: 42pt; display: flex; justify-content: flex-end; align-items: center; }
+.photo img { width: 38.9pt; height: 38.9pt; object-fit: cover; }
+.links { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, 15pt); grid-template-columns: repeat(3, auto);
+  justify-content: space-between; row-gap: 5pt; }
+.link { display: flex; align-items: center; gap: 5pt; height: 15pt; font-size: 8pt; font-weight: 500; color: #0073b1; }
+.link a { text-decoration: underline; white-space: nowrap; }
+.link img { width: 15pt; height: 15pt; object-fit: contain; }
+h2 { font-size: 14pt; font-weight: 700; }
+.summary p { font-size: 9pt; margin-top: 2.2pt; }
+.job { display: flex; gap: 5pt; padding: 5pt 0; }
+.logo { width: 18pt; height: 18pt; flex: none; overflow: hidden; }
+.logo img { width: 100%; height: 100%; object-fit: cover; }
+.body { flex: 1; min-width: 0; }
+.role + .role { padding-top: 6pt; }
+.row { display: flex; justify-content: space-between; white-space: nowrap; }
+.title { font-size: 12pt; font-weight: 700; }
+.when { font-size: 10pt; margin-top: 2pt; } .when span { text-decoration: underline; }
+.text { font-size: 9pt; padding-top: 5pt; }
+.first .job:first-child .text { padding-top: 9pt; }
+.text p + ul, .text ul + p { margin-top: 1.21em; }
+li { position: relative; padding-left: 13.5pt; }
+li::before { content: '•'; position: absolute; left: 4.5pt; }
+.page:not(.first) .jobs { display: flex; flex-direction: column; gap: 25pt; }
+.page:not(.first) .job { padding: 0; }
+.page:not(.first) .text { font-size: 10pt; }
+.page:not(.first) li { padding-left: 11pt; } .page:not(.first) li::before { left: 2pt; }
+.intro a { color: #0073b1; text-decoration: underline; }
+.banner { height: 140.3pt; }

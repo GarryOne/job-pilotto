@@ -42,7 +42,8 @@ the bullets ("" if none); skills is a role's own "Skills:" line ("" if none). To
 such sections. links: phone, email and profile URLs shown in the header (href as tel:, mailto: or https://). Keep the CV's
 bold figures as **bold**. Use "" for anything the CV doesn't show.`;
 
-export async function importPdf(storage, apiKey, client = null) {
+// look: async cv => cv, keeps the PDF's photo, icons, logos and page breaks (lib/cv-look.js; needs a window, so main.js passes it). A failure there keeps the plain CV.
+export async function importPdf(storage, apiKey, client = null, {look = null} = {}) {
   const pdf = fs.readFileSync(storage.path('cv.pdf'));
   const anthropic = client || new Anthropic({apiKey});
   const response = await anthropic.messages.create({
@@ -57,9 +58,11 @@ export async function importPdf(storage, apiKey, client = null) {
   const clean = {...data, jobs: data.jobs.map(({href, ...job}) => ({...job, ...(href ? {href} : {}),
     roles: job.roles.map(({intro, skills, ...r}) => ({...r, ...(intro ? {intro} : {}), ...(skills ? {skills} : {})}))}))};
   for (const key of ['skills', 'languages', 'location', 'summary']) if (!clean[key]) delete clean[key];
+  let kept = clean;
+  if (look) { try { kept = await look(clean); } catch (error) { console.error(`CV look not kept: ${error.message}`); } }
   fs.mkdirSync(dir(storage), {recursive: true});
-  fs.writeFileSync(path.join(dir(storage), 'cv.json'), JSON.stringify(clean, null, 2) + '\n', {mode: 0o600});
-  return {cv: clean, usd: usd(response.usage)};
+  fs.writeFileSync(path.join(dir(storage), 'cv.json'), JSON.stringify(kept, null, 2) + '\n', {mode: 0o600});
+  return {cv: kept, usd: usd(response.usage)};
 }
 
 // ---------- tailoring ----------

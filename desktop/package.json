@@ -37,7 +37,8 @@
     "@xterm/addon-serialize": "^0.14.0",
     "@xterm/headless": "^6.0.0",
     "@xterm/xterm": "^6.0.0",
-    "libsodium-wrappers": "^0.7.16"
+    "libsodium-wrappers": "^0.7.16",
+    "pdfjs-dist": "^6.3.289"
   },
   "description": "Job Pilotto: finds jobs that fit you, drafts your answers and fills forms; you submit.",
   "author": "Job Pilotto",
@@ -54,7 +55,7 @@
       "lib/**",
       "cv/**",
       "renderer/**",
-    "demo/**",
+      "demo/**",
       "shared/**",
       "package.json",
       "build-info.json"

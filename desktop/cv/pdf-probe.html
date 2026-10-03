@@ -1,0 +1,106 @@
+<!doctype html>
+<!-- Runs in a hidden window (lib/cv-look.js probe): reads a CV PDF with pdf.js, lists where its images and words sit (points, origin top left)
+     and cuts regions out of a sharp render of a page. Nothing here touches the network. -->
+<meta charset="utf-8">
+<script type="module">
+import * as pdfjs from '../node_modules/pdfjs-dist/build/pdf.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('../node_modules/pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
+
+const SCALE = 4;
+let doc = null;
+const renders = new Map();
+const mul = (a, b) => [a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3],
+  a[4] * b[0] + a[5] * b[2] + b[4], a[4] * b[1] + a[5] * b[3] + b[5]];
+
+window.cvProbe = {
+  async open(base64) {
+    doc = await pdfjs.getDocument({data: Uint8Array.from(atob(base64), c => c.charCodeAt(0))}).promise;
+    return doc.numPages;
+  },
+  // Every page: its size, the images painted on it and the text items, in points from the top left.
+  async scan() {
+    const O = pdfjs.OPS, pages = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n), view = page.view, W = view[2] - view[0], H = view[3] - view[1];
+      const list = await page.getOperatorList(), images = [], stack = [];
+      let ctm = [1, 0, 0, 1, 0, 0];
+      list.fnArray.forEach((fn, i) => {
+        const args = list.argsArray[i];
+        if (fn === O.save) stack.push(ctm);
+        else if (fn === O.restore) ctm = stack.pop() || ctm;
+        else if (fn === O.transform) ctm = mul(args, ctm);
+        else if (fn === O.paintImageXObject || fn === O.paintImageMaskXObject) {
+          images.push({id: args[0], x: ctm[4], y: H - (ctm[5] + ctm[3]), w: Math.abs(ctm[0]), h: Math.abs(ctm[3])});
+        }
+      });
+      const text = (await page.getTextContent()).items.filter(item => item.str.trim())
+        .map(item => ({str: item.str, x: item.transform[4], y: H - item.transform[5] - (item.height || 0), w: item.width, h: item.height || 0}));
+      pages.push({n, width: W, height: H, images, text});
+    }
+    return pages;
+  },
+  // A region (points) of a page as PNG, cut from a render at 4x. trim: cut away the white around what is drawn.
+  async crop(n, x, y, w, h, trim = false) {
+    if (!renders.has(n)) {
+      const page = await doc.getPage(n), viewport = page.getViewport({scale: SCALE});
+      const canvas = Object.assign(document.createElement('canvas'), {width: Math.ceil(viewport.width), height: Math.ceil(viewport.height)});
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({canvasContext: context, viewport}).promise;
+      renders.set(n, canvas);
+    }
+    const source = renders.get(n);
+    let sx = Math.max(0, Math.round(x * SCALE)), sy = Math.max(0, Math.round(y * SCALE));
+    let sw = Math.min(source.width - sx, Math.round(w * SCALE)), sh = Math.min(source.height - sy, Math.round(h * SCALE));
+    const out = Object.assign(document.createElement('canvas'), {width: sw, height: sh});
+    out.getContext('2d').drawImage(source, sx, sy, sw, sh, 0, 0, sw, sh);
+    let rect = {x: 0, y: 0, w: sw, h: sh};
+    if (trim) {
+      const data = out.getContext('2d').getImageData(0, 0, sw, sh).data;
+      let x0 = sw, y0 = sh, x1 = -1, y1 = -1;
+      for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) {
+        const k = (j * sw + i) * 4;
+        if (data[k] < 245 || data[k + 1] < 245 || data[k + 2] < 245) { x0 = Math.min(x0, i); x1 = Math.max(x1, i); y0 = Math.min(y0, j); y1 = Math.max(y1, j); }
+      }
+      if (x1 >= 0) rect = {x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1};
+    }
+    const final = Object.assign(document.createElement('canvas'), {width: rect.w, height: rect.h});
+    final.getContext('2d').drawImage(out, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+    return {png: final.toDataURL('image/png').split(',')[1], width: rect.w / SCALE, height: rect.h / SCALE};
+  },
+  // The pictures themselves (not a cut of the render, which would carry what is drawn under them): ids = the image objects painted at one
+  // place (an image and its mask come as two), drawn in order; fraction < 1 keeps only the left part (a logo the CV clips to its mark).
+  async image(n, ids, fraction = 1) {
+    const page = await doc.getPage(n);
+    await page.getOperatorList();
+    let canvas = null;
+    for (const id of ids) {
+      const object = await new Promise((resolve, reject) => { try { page.objs.get(id, resolve); } catch (error) { reject(error); } });
+      const width = object.width, height = object.height;
+      if (!canvas) canvas = Object.assign(document.createElement('canvas'), {width, height});
+      const context = canvas.getContext('2d');
+      if (object.bitmap) context.drawImage(object.bitmap, 0, 0, width, height);
+      else {
+        const rgba = new Uint8ClampedArray(width * height * 4), source = object.data, channels = source.length / (width * height);
+        for (let i = 0, j = 0; i < width * height; i++) {
+          rgba[j++] = source[i * channels]; rgba[j++] = source[i * channels + (channels > 2 ? 1 : 0)]; rgba[j++] = source[i * channels + (channels > 2 ? 2 : 0)];
+          rgba[j++] = channels === 4 ? source[i * 4 + 3] : 255;
+        }
+        const layer = Object.assign(document.createElement('canvas'), {width, height});
+        layer.getContext('2d').putImageData(new ImageData(rgba, width, height), 0, 0);
+        context.drawImage(layer, 0, 0);
+      }
+    }
+    const keep = Math.max(1, Math.round(canvas.width * Math.min(1, fraction)));
+    const out = Object.assign(document.createElement('canvas'), {width: keep, height: canvas.height});
+    out.getContext('2d').drawImage(canvas, 0, 0, keep, canvas.height, 0, 0, keep, canvas.height);
+    return {png: out.toDataURL('image/png').split(',')[1], width: keep, height: canvas.height};
+  },
+  // The whole page as a PNG (for comparing a rebuilt CV with the original).
+  async page(n, scale = 1) {
+    const {png} = await this.crop(n, 0, 0, 10000, 10000);
+    return png;
+  },
+};
+window.cvProbeReady = true;
+</script>
