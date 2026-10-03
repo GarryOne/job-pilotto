@@ -122,23 +122,31 @@ def scan(db, google, client, now=None):
     for name, source in SOURCES.items():
         if budget <= 0:
             break
-        found, matched, read = [], [], 0
+        found, matched, read, failed = [], [], [], []
         try:
             ids = google.search(f'newer_than:{DAYS}d -in:spam -in:trash {source["query"]}', limit=10)
             for message_id in ids:
                 if budget <= 0 or db.execute('SELECT 1 FROM alert_reads WHERE message_id = ?', (message_id,)).fetchone():
                     continue
-                data = google.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}', {'format': 'full'})
-                plain, markup = parts(data.get('payload'))
-                pairs = links(markup, plain, source['site'])
-                text = plain or re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', re.sub(r'(?is)<(script|style).*?</\1>', ' ', markup))))
-                jobs = extract(client, text, pairs, source['site']) if pairs else []
                 budget -= 1
-                read += 1
-                db.execute('INSERT OR REPLACE INTO alert_reads (message_id, source, jobs, read_at) VALUES (?, ?, ?, ?)',
-                           (message_id, name, len(jobs), now.isoformat(timespec='seconds')))
+                # One email failing (Gmail, the model) loses nothing and blocks nothing: it stays unread and is tried again next run (#109, 3 Oct 2026:
+                # the jobs of the emails read before it were lost, their "read" mark committed later without them, and the emails behind it never read).
+                try:
+                    data = google.get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}', {'format': 'full'})
+                    plain, markup = parts(data.get('payload'))
+                    pairs = links(markup, plain, source['site'])
+                    text = plain or re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', re.sub(r'(?is)<(script|style).*?</\1>', ' ', markup))))
+                    jobs = extract(client, text, pairs, source['site']) if pairs else []
+                except Exception as error:  # noqa: BLE001
+                    failed.append(f'{type(error).__name__}: {error}')
+                    continue
+                read.append((message_id, len(jobs)))
                 found += jobs
+            # An email is marked read in the same transaction as its jobs: never one without the other.
             with db:
+                for message_id, count in read:
+                    db.execute('INSERT OR REPLACE INTO alert_reads (message_id, source, jobs, read_at) VALUES (?, ?, ?, ?)',
+                               (message_id, name, count, now.isoformat(timespec='seconds')))
                 for job in found:
                     item = {**ats._job(f'{name}:{hashlib.sha1(job["url"].encode()).hexdigest()[:16]}', job['title'], job['location'], job['url']),
                             'company': job['company']}
@@ -149,7 +157,10 @@ def scan(db, google, client, now=None):
                                     'notes': f'From your {name} job alert email', 'source': f'{name} alert', 'source_kind': 'job board',
                                     'status': feeds.record(db, f'alert:{name.lower()}', item, now.isoformat(timespec='seconds'))})
             report['jobs'].extend(matched)
-            report['sources'].append({'company': f'{name} alerts', 'ok': True, 'total': len(found), 'matches': len(matched), 'emails': read})
+            entry = {'company': f'{name} alerts', 'ok': bool(read) or not failed, 'total': len(found), 'matches': len(matched), 'emails': len(read)}
+            if failed:
+                entry['error'] = f'{len(failed)} email(s) not read, tried again next time: {failed[0]}'
+            report['sources'].append(entry)
         except Exception as error:  # noqa: BLE001 — one source failing (Gmail, the model) must not stop the others or the check
             report['sources'].append({'company': f'{name} alerts', 'ok': False, 'error': f'{type(error).__name__}: {error}'})
     return report

@@ -91,3 +91,33 @@ class JobAlertTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OneEmailFailingTests(unittest.TestCase):
+    """#109: when one alert email failed (the model, Gmail), the jobs of the emails read before it were lost (their 'read' mark was committed later
+    without the jobs), and the failing email blocked the ones behind it on every run."""
+
+    def test_a_failing_email_loses_nothing_blocks_nothing_and_is_tried_again(self):
+        db = sqlite3.connect(':memory:')
+
+        class FailsOnce(FakeClient):
+            def create(self, **kwargs):
+                self.calls.append(kwargs)
+                if len(self.calls) == 2:
+                    raise RuntimeError('max_tokens')
+                return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(self.answer))], usage=None)
+
+        client = FailsOnce(ANSWER)
+        with mock.patch.object(feeds, 'record', return_value='new'):
+            report = job_alerts.scan(db, FakeGmail({'m1': HTML, 'm2': HTML, 'm3': HTML}), client)
+        self.assertEqual(len(client.calls), 3, 'the email after the failing one is still read')
+        self.assertTrue(report['jobs'], 'the jobs of the emails that were read are kept')
+        read = {row[0] for row in db.execute('SELECT message_id FROM alert_reads')}
+        self.assertEqual(read, {'m1', 'm3'}, 'only the emails really read are marked read')
+        linkedin = report['sources'][0]
+        self.assertTrue(linkedin['ok'])
+        self.assertEqual(linkedin['emails'], 2)
+        self.assertIn('1 email(s) not read', linkedin['error'])
+        with mock.patch.object(feeds, 'record', return_value='new'):
+            job_alerts.scan(db, FakeGmail({'m1': HTML, 'm2': HTML, 'm3': HTML}), client)
+        self.assertEqual(len(client.calls), 4, 'the failed email is tried again on the next run, and only it')
