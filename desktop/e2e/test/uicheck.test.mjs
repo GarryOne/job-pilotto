@@ -120,3 +120,22 @@ test('technical text shown to a person is a severe error-shown finding; logs, co
     assert.equal(stack.filter(item => item.kind === 'error-shown').length, 1, 'a stack trace is caught');
   } finally { await browser.close(); }
 });
+
+// #97: the tip ticker (style.css .ss-tip-text, a 20 s scroll) was caught mid-scroll and reported as clipped text. The AI review is now told what moves and what is cut on purpose.
+test('what is moving and what is clipped on purpose are facts for the AI review', async () => {
+  const {motionFacts} = await import('../lib/uicheck.mjs');
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1280, height: 800}, reducedMotion: 'no-preference'});   // the app stops the ticker for reduced motion (style.css)
+    const sheet = name => fs.readFileSync(path.join(css, name), 'utf8');   // inlined: a file:// sheet under setContent does not reliably apply
+    await page.setContent(`<style>${sheet('tokens.css')}</style><style>${sheet('style.css')}</style>
+      <div class="ss-tips" style="width:400px"><span class="ss-tip-chip">Worth trying</span><div class="ss-tip-frame"><span class="ss-tip-text">The employer's own career page is usually the freshest source of openings for you</span></div></div>
+      <p style="width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">A long headline that is cut on purpose</p>
+      <p style="width:120px;white-space:nowrap;overflow:hidden">A long line cut by accident</p>`);
+    await page.waitForTimeout(300);
+    const facts = await page.evaluate(motionFacts);
+    assert.ok(facts.moving.some(item => /ss-tip-text/.test(item)), JSON.stringify(facts));
+    assert.ok(facts.clippedOnPurpose.some(item => /cut on purpose/.test(item)), JSON.stringify(facts));
+    assert.ok(!facts.clippedOnPurpose.some(item => /by accident/.test(item)), 'a cut without an ellipsis, clamp or mask is not "on purpose"');
+  } finally { await browser.close(); }
+});

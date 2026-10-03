@@ -34,6 +34,8 @@ and icons or controls that are misaligned are real defects, each its own finding
 Do NOT report: taste, anything you cannot see, brand-new accounts having empty lists where the page says so nicely, or things listed as expected.
 Do NOT report transient interface: a toast or notification (it goes away by itself, and one over the page is by design), a tooltip, a spinner, a menu in the middle of opening.
 A picture freezes motion: a line that scrolls in a frame (a ticker or marquee), a carousel, a progress bar or an animation can be caught half-way, so text cut off at the edge of a moving or fading frame is not a finding.
+The FACTS may list "moving" (elements animating when the picture was taken) and "clippedOnPurpose" (text cut by design: an ellipsis, a line clamp, a fade). Text cut in those is not a finding,
+unless the cut hides the meaning and the full text is nowhere else on the page.
 Do NOT report a guess about how the app works inside or what it "should" know. A contradiction needs proof: two things you can SEE disagree, or the picture disagrees with a stated FACT; quote both.
 A status that merely looks odd, but that data the app keeps elsewhere could explain (a follow-up built from logged events while Gmail is disconnected), is not a contradiction. When you only suspect, say nothing.
 Severity is judged by what it does to the PERSON using the app, nothing else:

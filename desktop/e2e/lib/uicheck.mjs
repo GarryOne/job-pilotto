@@ -85,3 +85,27 @@ export function inspect({view, limits}) {
   }
   return found;
 }
+
+// Runs inside the page. What a single picture cannot show: what was MOVING when it was taken (a scrolling ticker, a spinner, a fading toast) and which text is cut ON PURPOSE
+// (an ellipsis, a line clamp, a fade mask). The AI review gets both as facts, so a frozen ticker (#97) or a deliberate clamp is known, not guessed.
+export function motionFacts() {
+  const label = el => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${typeof el.className === 'string' && el.className ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}`;
+  const text = el => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const shown = el => { const box = el.getBoundingClientRect(); return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+  const moving = [], clipped = [];
+  for (const animation of (document.getAnimations ? document.getAnimations() : [])) {
+    const el = animation.effect?.target;
+    if (!el || animation.playState !== 'running' || !shown(el) || moving.length >= 8) continue;
+    const entry = `${label(el)}${text(el) ? `: "${text(el)}"` : ''}`;
+    if (!moving.includes(entry)) moving.push(entry);
+  }
+  for (const el of document.querySelectorAll('body *')) {
+    if (clipped.length >= 8) break;
+    if (!shown(el) || !(el.innerText || '').trim() || el.children.length > 3) continue;
+    const style = getComputedStyle(el);
+    const cut = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+    const onPurpose = style.textOverflow === 'ellipsis' || (style.webkitLineClamp && style.webkitLineClamp !== 'none') || (style.maskImage && style.maskImage !== 'none') || (style.webkitMaskImage && style.webkitMaskImage !== 'none');
+    if (cut && onPurpose) clipped.push(`${label(el)}: "${text(el)}"`);
+  }
+  return {moving, clippedOnPurpose: clipped};
+}

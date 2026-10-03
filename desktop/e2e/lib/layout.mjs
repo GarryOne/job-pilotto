@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {facts, settle} from './app.mjs';
 import {writeFindings} from './artifacts.mjs';
-import {LIMITS, inspect} from './uicheck.mjs';
+import {LIMITS, inspect, motionFacts} from './uicheck.mjs';
 
 // Look at one thing on screen that is already showing: screenshot `name`, facts, checks. `view` names the page for the checks.
 // `busy`: a task is running on purpose, so its spinner is not a page stuck loading.
@@ -14,7 +14,7 @@ export async function snap(ctx, name, {view, situation = 'default', busy = false
   const settled = busy ? true : await settle(page);
   if (!settled) ctx.findings.push({view: name, severity: 'warning', kind: 'stuck-loading', detail: `${name} still shows its loading state (skeleton or spinner) after 20 seconds`});
   await session.shot(`ui-${name}`);
-  fs.writeFileSync(path.join(ARTIFACTS, `ui-${name}.json`), JSON.stringify({...await facts(page), situation}, null, 2));
+  fs.writeFileSync(path.join(ARTIFACTS, `ui-${name}.json`), JSON.stringify({...await facts(page), ...await page.evaluate(motionFacts).catch(() => ({})), situation}, null, 2));
   ctx.findings.push(...(await page.evaluate(inspect, {view: view || name, limits: LIMITS})).map(item => ({...item, view: item.chrome ? 'app-chrome' : name, shot: name})));   // the sidebar and the bottom bar are on every page: one finding, not one per page
 }
 
