@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Job Pilotto: finds tech jobs and fills the applications, on Mac and Windows</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:image" content="https://www.jobpilotto.workers.dev/images/logo-512.png">
+<meta name="description" content="Job Pilotto is a Mac and Windows app that finds the right tech jobs, drafts your answers and fills the form, with everything tracked in your own Notion. You review and click Submit.">
+<meta name="google-site-verification" content="FoOkoj42FjBF88SFojuGmYeoqtSXgLWdYKg6nmaaWGA">
+<link rel="canonical" href="https://www.jobpilotto.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Job Pilotto">
+<meta property="og:title" content="Job Pilotto: finds tech jobs and fills the applications, on Mac and Windows">
+<meta property="og:description" content="Job Pilotto is a Mac and Windows app that finds the right tech jobs, drafts your answers and fills the form, with everything tracked in your own Notion. You review and click Submit.">
+<meta property="og:url" content="https://www.jobpilotto.workers.dev/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "SoftwareApplication",
+ "name": "Job Pilotto",
+ "applicationCategory": "BusinessApplication",
+ "operatingSystem": "macOS, Windows",
+ "description": "Job Pilotto is a Mac and Windows app that finds the right tech jobs, drafts your answers and fills the form, with everything tracked in your own Notion. You review and click Submit.",
+ "url": "https://www.jobpilotto.workers.dev/",
+ "image": "https://www.jobpilotto.workers.dev/images/logo-512.png",
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "USD"
+ }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <nav class="topnav on-dark" id="topnav">
+    <a class="brand" href="#top"><img class="brand-mark" src="images/site-logo.png" alt="" width="34" height="34">Job Pilotto</a>
+    <div class="links">
+      <div class="menu">
+        <a class="menu-label" href="#how" aria-haspopup="true">Product <span aria-hidden="true">▾</span></a>
+        <div class="menu-panel">
+          <a href="#how">How it works</a>
+          <a href="#app">Inside the app</a>
+          <a href="#autoapply">Auto apply</a>
+          <a href="#see">Screens</a>
+        </div>
+      </div>
+      <a href="#intelligence">Intelligence</a>
+      <a href="#evidence">Research</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="gh" href="https://github.com/GarryOne/job-pilotto" aria-label="Job Pilotto on GitHub (source available)" title="Source code on GitHub"><svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2z"/></svg></a>
+    <a class="btn btn-primary btn-small" href="/download/mac?from=header">Download for Mac</a>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="hero-copy">
+      <span class="eyebrow">For software, SRE and IT jobs · Mac and Windows · Free</span>
+      <h1><span class="h1-line">Apply where it's <span class="flightpath">worth it</span>.</span> <span class="h1-line">Skip the other 500.</span></h1>
+      <p class="lede">Every few hours it finds new openings, scores each one against your CV, drafts your answers and fills the form. You review and press Submit.</p>
+      <div class="hero-actions">
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/download/mac?from=hero">Download for Mac</a>
+          <a class="btn btn-ghost" href="#early">Get Pro early access</a>
+        </div>
+        <ul class="hero-proof">
+          <li>✋ Never applies for you</li>
+          <li>🔒 Your data stays in your accounts</li>
+          <li><a href="#evidence">📖 Built on 42 real job-search stories</a></li>
+        </ul>
+        <details class="install-more">
+          <summary>Prefer Terminal? Install in one line</summary>
+        <div class="install-box">
+          <span class="install-label">Mac, fastest: paste in Terminal · no security prompts</span>
+          <div class="install-line"><code>curl -fsSL https://www.jobpilotto.workers.dev/install | bash</code><button type="button" class="copy-btn" data-copy="curl -fsSL https://www.jobpilotto.workers.dev/install | bash">Copy</button></div>
+        </div>
+        </details>
+        <a class="alt-download" href="/download/windows?from=hero"><svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14"><path fill="currentColor" d="M0 2.2 6.5 1.3v6.2H0zm7.3-1 8.7-1.2v7.5H7.3zM0 8.3h6.5v6.3L0 13.7zm7.3 0H16V16l-8.7-1.2z"/></svg><span>Also for <b>Windows 10 / 11</b></span><em>beta</em></a>
+        <span class="cta-note">Free · Mac: Apple silicon (M1 or newer) · <a href="#setup">What setup takes</a></span>
+      </div>
+      <p class="maker"><img src="images/logo.png" alt="" width="28" height="28"><span>Built by an SRE in Geneva who needed it for a real job search, and now uses it every day.</span></p>
+    </div>
+
+    <div class="hero-visual">
+      <div class="board" aria-label="Illustrative departures board: five matching jobs at made-up companies, with fit scores and application status">
+        <div class="board-head"><b>Departures · your matches</b><span>Illustrative</span></div>
+        <table>
+          <colgroup><col class="c-time"><col class="c-role"><col class="c-co"><col class="c-fit"><col class="c-gate"></colgroup>
+          <thead><tr><th>Time</th><th>Role</th><th>Company</th><th>Fit</th><th>Gate</th></tr></thead>
+          <tbody>
+            <tr><td data-flap>06:30</td><td class="role" data-flap>STAFF SRE</td><td data-flap>ALPENLINK</td><td class="fit" data-flap>86</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+            <tr><td data-flap>06:30</td><td class="role" data-flap>PLATFORM ENG</td><td data-flap>ALPINE DATA</td><td class="fit" data-flap>81</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+            <tr><td data-flap>02:30</td><td class="role" data-flap>SRE EDGE</td><td data-flap>GLACIER LABS</td><td class="fit" data-flap>78</td><td><span class="gate kit" data-gate>KIT READY</span></td></tr>
+            <tr><td data-flap>YEST</td><td class="role" data-flap>INFRA ENG</td><td data-flap>LAKESIDE</td><td class="fit" data-flap>74</td><td><span class="gate sent">APPLIED</span></td></tr>
+            <tr><td data-flap>TUE</td><td class="role" data-flap>DEVOPS ENG</td><td data-flap>NORTHWIND</td><td class="fit" data-flap>71</td><td><span class="gate reply">SCREENING</span></td></tr>
+          </tbody>
+        </table>
+        <div class="board-foot">Made-up companies · Fit = match with your CV, out of 100</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="block reveal" id="how">
+    <div class="section-head">
+      <span class="eyebrow">How it works</span>
+      <h2>One route, from new opening to reply</h2>
+      <p class="lede">Every stop runs on its own. Pick one to see what happens there.</p>
+    </div>
+    <div class="route" data-route>
+      <div class="route-track" aria-hidden="true"><span class="route-plane" data-plane>✈</span></div>
+      <div class="route-stops" role="tablist" aria-label="Stops">
+        <button class="stop-tab" role="tab" id="tab-find" aria-controls="panel-find" aria-selected="true">
+          <span class="tile">01</span><span class="code">FIND</span><b>Finds and scores jobs</b><small>Every few hours, a fit score out of 100</small></button>
+        <button class="stop-tab" role="tab" id="tab-prepare" aria-controls="panel-prepare" aria-selected="false">
+          <span class="tile">02</span><span class="code">PREPARE</span><b>Drafts your application</b><small>Answers, cover letter, tailored CV</small></button>
+        <button class="stop-tab" role="tab" id="tab-apply" aria-controls="panel-apply" aria-selected="false">
+          <span class="tile">03</span><span class="code">APPLY</span><b>Fills the form</b><small>In seconds. You submit</small></button>
+        <button class="stop-tab" role="tab" id="tab-track" aria-controls="panel-track" aria-selected="false">
+          <span class="tile">04</span><span class="code">TRACK</span><b>Replies and interviews</b><small>From Gmail, with transcripts</small></button>
+      </div>
+    </div>
+    <div class="stop-panels">
+      <div class="stop-panel" role="tabpanel" id="panel-find" aria-labelledby="tab-find">
+        <dl class="items">
+          <div><dt>A shared pool of employers</dt><dd><span id="pool-count" hidden><b class="num" id="pool-employers">0</b> employers with <b class="num" id="pool-jobs">0</b> open jobs</span><span id="pool-fallback">Career pages of employers</span>, worldwide, checked every day by our own scout</dd></div>
+          <div><dt>Job portals</dt><dd>jobs.ch and TechTree (Switzerland) today, plus Google Jobs if you want it. They come on top of the employers</dd></div>
+          <div><dt>Your own employers</dt><dd>Add any company you care about, or run your own scout. Your list stays in your Notion and is always crawled first</dd></div>
+          <div><dt>Filters that matter</dt><dd>City, remote, and languages you don't speak</dd></div>
+          <div><dt>Facts with proof</dt><dd>Languages, seniority, salary and visa, each quoted from the posting</dd></div>
+          <div><dt>Fit score</dt><dd>Out of 100 with the reason; re-scored when your profile changes</dd></div>
+        </dl>
+      </div>
+      <div class="stop-panel" role="tabpanel" id="panel-prepare" aria-labelledby="tab-prepare">
+        <dl class="items">
+          <div><dt>Application kit</dt><dd>An answer for every question on the employer's real form</dd></div>
+          <div><dt>Cover letter</dt><dd>In your voice, from your CV and answers you've written</dd></div>
+          <div><dt>Tailored CV</dt><dd>Reordered toward the job; every change highlighted</dd></div>
+          <div><dt>Eligibility check</dt><dd>"Not eligible" and why, before you spend time on it</dd></div>
+          <div><dt>Answer once</dt><dd>New questions are asked once and reused on every form</dd></div>
+          <div><dt>Never guesses</dt><dd>Anything uncertain is flagged for you to check</dd></div>
+        </dl>
+      </div>
+      <div class="stop-panel" role="tabpanel" id="panel-apply" aria-labelledby="tab-apply">
+        <dl class="items">
+          <div><dt>Fill in Chrome</dt><dd>Text, dropdowns, phone, city, CV and cover letter in seconds</dd></div>
+          <div><dt>Live checklist</dt><dd>What's left on the page, turning green when it's ready</dd></div>
+          <div><dt>AI answers outlined</dt><dd>So you read them before anything else</dd></div>
+          <div><dt>Apply with Claude</dt><dd>Job board → employer site → sign-up → form, with Claude Code</dd></div>
+          <div><dt>Employer accounts</dt><dd>Password generated into your Keychain; never seen</dd></div>
+          <div><dt>Apply in batches <span class="new">New</span></dt><dd>Pick several jobs; one Claude session each, side by side</dd></div>
+          <div><dt>Submit stays yours</dt><dd>It stops on the last page. <a href="#your-click">See where your click happens</a></dd></div>
+        </dl>
+      </div>
+      <div class="stop-panel" role="tabpanel" id="panel-track" aria-labelledby="tab-track">
+        <dl class="items">
+          <div><dt>Recruiters find you too <span class="new">New</span></dt><dd>Log their message or a screenshot: a tracked job with its own funnel, apart from your applications so your stats stay honest</dd></div>
+          <div><dt>Gmail and Calendar</dt><dd>Replies and interviews update each application; read-only</dd></div>
+          <div><dt>Calendar <span class="new">New</span></dt><dd>Every screening and interview on one calendar: coming up from your email, held ones from your recordings. Click a call to open its job</dd></div>
+          <div><dt>Interview prep</dt><dd>A message the evening before, with what to practise</dd></div>
+          <div><dt>Interview transcripts <span class="new">New</span></dt><dd>Recorded on your Mac, speakers told apart, filed under the job</dd></div>
+          <div><dt>Interview review</dt><dd>Every question, how you answered, what to improve; about $0.25 with Claude Opus</dd></div>
+          <div><dt>Interview insights <span class="new">New</span></dt><dd>What your interviews show together: the pattern behind them, what to practise next, and the quotes it rests on. It says "low confidence" until it has seen a few</dd></div>
+          <div><dt>Insights</dt><dd>A daily insight, a weekly report and your funnel</dd></div>
+          <div><dt>Everywhere</dt><dd>Telegram, Notion's mobile app, and runs while your Mac is off</dd></div>
+        </dl>
+        <p class="consent-note"><b>Ask first, every time.</b> The app won't record until you confirm everyone on the call agreed. Recording people without their consent is illegal in Switzerland and many other places.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block reveal" id="evidence">
+    <div class="section-head">
+      <span class="eyebrow">Research</span>
+      <h2>Built on what job seekers actually report</h2>
+      <p class="lede">We went through 42 Reddit threads in which software engineers described their own job searches, from 2020 to 2026: the boom, the layoffs and today's crowded market. Then we checked Job Pilotto against every problem they named.</p>
+    </div>
+    <ul class="evidence-stats">
+      <li><b>42</b><span>threads from r/cscareerquestions, r/cscareerquestionsEU, r/csMajors and r/ExperiencedDevs</span></li>
+      <li><b>4.5 months</b><span>median length of the searches that ended in a job</span></li>
+      <li><b>350–564</b><span>applications behind a single offer in those searches</span></li>
+    </ul>
+    <p class="evidence-verdict">Their main problem wasn't that sending applications took too long. It was not knowing where to spend the effort, and why nothing came back. So Job Pilotto is built for <b>fewer, better applications</b>.</p>
+    <div class="access-wrap">
+      <table class="access evidence">
+        <thead><tr><th>What they reported</th><th>What Job Pilotto does</th><th>Threads</th></tr></thead>
+        <tbody>
+          <tr><td>A good skills match, then a visa or language barrier</td><td>Reads each posting's languages and visa sponsorship, quoting the posting's own words. It hides jobs in languages you don't work in, flags the ones that need a sponsor, and moves work-permit questions to the top of the form</td><td>5 threads</td></tr>
+          <tr><td>Hundreds of applications, no idea what isn't working</td><td>Your funnel shows where applications stop (reply, screening, interview, offer) and which step to improve. A daily insight compares what gets replies</td><td>6 threads</td></tr>
+          <tr><td>Recruiter keen on the call, then silence</td><td>Reads replies from Gmail and tells you when to follow up and who hasn't answered</td><td>3 threads</td></tr>
+          <tr><td>Postings disappear; which CV did I send?</td><td>At Submit it keeps the posting, every answer as sent, the cover letter and the CV version</td><td>2 threads</td></tr>
+          <tr><td>Autofill that enters the wrong thing</td><td>Fills from answers you approved, marks anything the AI wrote itself for you to read, and never presses Submit</td><td>2 threads</td></tr>
+          <tr><td>Keyword-stuffed or made-up CV rewrites</td><td>A tailored CV uses only facts from your CV; code checks the numbers, and every change is shown with its reason. No fake “ATS score”</td><td>3 threads</td></tr>
+          <tr><td>Easy Apply volume that goes nowhere</td><td>Searches employers' own career sites and ranks each job for fit with your CV</td><td>1 thread</td></tr>
+          <tr><td>Interview practice that doesn't carry over</td><td>Records (with everyone's consent) and transcribes on your Mac, reviews the call with what to practise, and builds prep from the job and your past interviews</td><td>3 threads</td></tr>
+          <tr><td>Applications scattered across channels</td><td>Found jobs, applications made elsewhere, recruiter messages, screenshots and job-alert emails in one tracker</td><td>3 threads</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 class="evidence-next">Next, from the same research</h3>
+    <ul class="trust-grid">
+      <li><b>🎯 Your bottleneck, in one line</b><span>No replies, failing interviews or no offers: each needs a different fix</span></li>
+      <li><b>⏸️ A pace you can keep</b><span>Pause mode and a weekly budget, not a daily quota</span></li>
+      <li><b>⏱️ The cost of take-home tests</b><span>A time estimate, and a polite ask for scope and feedback before you start</span></li>
+      <li><b>🤝 Referrals that count</b><span>From asked to actually submitted to a live role</span></li>
+    </ul>
+    <details class="evidence-sources">
+      <summary>How we did it, and all 42 sources</summary>
+      <p>An AI-assisted review of public threads posted between October 2020 and September 2026, read and checked by us. Counts are distinct threads, not percentages. Stories are self-reported and the numbers come from a handful of accounts: real experiences, not statistics. No usernames are quoted, and promotional posts were left out.</p>
+      <ol>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/jjp2md/" rel="noopener">Unemployed daily schedule</a> <small>r/cscareerquestions · 2020</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/kdr3qx/" rel="noopener">Mass-application tool request</a> <small>r/cscareerquestions · 2020</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/n0627a/" rel="noopener">Nearly 400 web-development applications</a> <small>r/cscareerquestions · 2021</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/ngna84/" rel="noopener">Graduate first offer after 400+ applications</a> <small>r/cscareerquestions · 2021</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/ngtapg/" rel="noopener">Interview discussion</a> <small>r/cscareerquestions · 2021</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/onoxmb/" rel="noopener">Take-home warning</a> <small>r/cscareerquestions · 2021</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/ouwqh2/" rel="noopener">New-graduate first-offer account</a> <small>r/cscareerquestions · 2021</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/q10bmr/" rel="noopener">Interview discussion</a> <small>r/cscareerquestions · 2021</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/w4fbxo/" rel="noopener">Cover-letter effort</a> <small>r/cscareerquestions · 2022</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/wj7u47/" rel="noopener">Predefined-data extension request</a> <small>r/cscareerquestions · 2022</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/wqbgqa/" rel="noopener">Offer withdrawn during negotiation</a> <small>r/cscareerquestions · 2022</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestionsEU/comments/z6ysjh/" rel="noopener">International graduate and permit deadline</a> <small>r/cscareerquestionsEU · 2022</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/12qnrxq/" rel="noopener">Recruiter enthusiasm followed by silence</a> <small>r/cscareerquestions · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1337t9r/" rel="noopener">Graduate search during freezes</a> <small>r/cscareerquestions · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/csMajors/comments/13bc1u4/" rel="noopener">Application tracking</a> <small>r/csMajors · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/13lil3k/" rel="noopener">Referral requests to strangers</a> <small>r/cscareerquestions · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/csMajors/comments/14flfp9/" rel="noopener">Simplify privacy and workflow</a> <small>r/csMajors · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/14njpm0/" rel="noopener">Experienced seeker’s 35-day search</a> <small>r/cscareerquestions · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/14wsmim/" rel="noopener">Bootcamp graduate’s long search</a> <small>r/cscareerquestions · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestionsEU/comments/16n6ok5/" rel="noopener">Sponsorship filtering</a> <small>r/cscareerquestionsEU · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/17x5vn9/" rel="noopener">Paid Jobscan experience</a> <small>r/cscareerquestions · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestionsEU/comments/188erx7/" rel="noopener">Sponsorship wording / Blue Card</a> <small>r/cscareerquestionsEU · 2023</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/194dzr3/" rel="noopener">Intensive preparation and job search</a> <small>r/cscareerquestions · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1aomsot/" rel="noopener">Trackers and saved application records</a> <small>r/cscareerquestions · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1b0mszg/" rel="noopener">Earlier versus current search</a> <small>r/cscareerquestions · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/csMajors/comments/1c2ayrk/" rel="noopener">10,322-application account</a> <small>r/csMajors · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1ec66se/" rel="noopener">Take-home effort and ghosting</a> <small>r/cscareerquestions · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestionsEU/comments/1fbfhty/" rel="noopener">Non-EU applications and relocation</a> <small>r/cscareerquestionsEU · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1h513fv/" rel="noopener">Easy Apply results</a> <small>r/cscareerquestions · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestionsEU/comments/1hm1edi/" rel="noopener">Germany and language requirements</a> <small>r/cscareerquestionsEU · 2024</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1ht5ahx/" rel="noopener">Cover-letter usefulness</a> <small>r/cscareerquestions · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1jfbvpj/" rel="noopener">Experienced frontend search</a> <small>r/cscareerquestions · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/ExperiencedDevs/comments/1kb5u5e/" rel="noopener">Impartial resume-review help</a> <small>r/ExperiencedDevs · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1lrsu74/" rel="noopener">Applicant volume and application methods</a> <small>r/cscareerquestions · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1n3eix9/" rel="noopener">Mobile application tracker</a> <small>r/cscareerquestions · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestionsEU/comments/1n3aklo/" rel="noopener">Interview recording discussion</a> <small>r/cscareerquestionsEU · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1nwss1b/" rel="noopener">Later search with more offers</a> <small>r/cscareerquestions · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1p92cy3/" rel="noopener">Experienced frontend search funnel</a> <small>r/cscareerquestions · 2025</small></li>
+          <li><a href="https://www.reddit.com/r/ExperiencedDevs/comments/1qbw1t3/" rel="noopener">AI and hiring credibility</a> <small>r/ExperiencedDevs · 2026</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1s5vn7h/" rel="noopener">Communication under interview pressure</a> <small>r/cscareerquestions · 2026</small></li>
+          <li><a href="https://www.reddit.com/r/cscareerquestions/comments/1t86ldv/" rel="noopener">564-application experienced search</a> <small>r/cscareerquestions · 2026</small></li>
+          <li><a href="https://www.reddit.com/r/csMajors/comments/1wdxqfq/" rel="noopener">Autofill errors and cleanup</a> <small>r/csMajors · 2026</small></li>
+      </ol>
+    </details>
+  </section>
+
+  <section class="block reveal" id="your-click">
+    <div class="section-head">
+      <span class="eyebrow">You stay in control</span>
+      <h2>Where your click happens</h2>
+      <p class="lede">It does the legwork, even the employer's sign-up. Two moments are always yours, and it never presses Submit.</p>
+    </div>
+    <ol class="clickflow" aria-label="Apply with Claude, step by step">
+      <li><span class="who">Auto</span><b>Posting</b><small>opens the job, follows Apply</small></li>
+      <li><span class="who">Auto</span><b>Employer site</b><small>its own Apply now</small></li>
+      <li><span class="who">Auto</span><b>Account</b><small>sign-up; password to your Keychain; email code from Gmail</small></li>
+      <li><span class="who">Auto</span><b>Form filled</b><small>extension + Claude, from your kit</small></li>
+      <li class="you"><span class="who">You</span><b>CAPTCHA and terms</b><small>it asks, you tick</small></li>
+      <li class="you"><span class="who">You</span><b>Review and Submit</b><small>it stops here, always</small></li>
+    </ol>
+    <p class="flow-note">With the Chrome extension alone it's shorter: the extension fills the form on the page you're on, and the same last step is yours.</p>
+  </section>
+
+  <section class="block reveal" id="app">
+    <div class="section-head">
+      <span class="eyebrow">Inside the app</span>
+      <h2>Your job search, one screen a day</h2>
+      <p class="lede">Open it in the morning: it says what to do next, runs the rest, and tells you when it needs you.</p>
+    </div>
+    <div class="stop-panel">
+      <dl class="items">
+        <div><dt>Focus page <span class="new">New</span></dt><dd>A ranked to-do: reply to recruiters, review filled forms, apply to the next role</dd></div>
+        <div><dt>Daily target <span class="new">New</span></dt><dd>How many applications a day, your progress, and reminders at the times you pick</dd></div>
+        <div><dt>Your funnel <span class="new">New</span></dt><dd>Applied → reply → screening → interviews → offer, and the step to improve. Recruiters who contact you get their own funnel</dd></div>
+        <div><dt>Claude sessions in the app <span class="new">New</span></dt><dd>Watch each application live; a notification when it needs you</dd></div>
+        <div><dt>One-click answers <span class="new">New</span></dt><dd>What Claude needs from you, with its suggested answer; saved for every later form</dd></div>
+        <div><dt>Picks up after a restart <span class="new">New</span></dt><dd>Sessions come back where they were and continue the same conversation</dd></div>
+        <div><dt>A recruiter chat becomes a job <span class="new">New</span></dt><dd>Paste a message or drop screenshots: you confirm what it read, then role, company and pay are filled in and fit scored. Anyone talking to you shows under In conversation</dd></div>
+        <div><dt>Interview prep kit <span class="new">New</span></dt><dd>Likely questions with what from your CV to answer, your gaps, what to ask them, from the job and your past interviews</dd></div>
+        <div><dt>Every cent, shown <span class="new">New</span></dt><dd>Your own AI key: each run shows what it cost, every cent is logged in your Notion, and a monthly budget pauses the extras before you overspend</dd></div>
+        <div><dt>Recent activity</dt><dd>Every search, Gmail check and report, wherever it ran, with its result</dd></div>
+        <div><dt>Always on, or off</dt><dd>Runs on your own private GitHub while your Mac is off, or only on your Mac</dd></div>
+        <div><dt>Export, import, reset <span class="new">New</span></dt><dd>Your data in one file; a fresh start never deletes your Notion</dd></div>
+        <div><dt>Weekly backup <span class="new">New</span></dt><dd>Recordings and files to iCloud Drive or Documents; keys never leave the Mac</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block reveal" id="autoapply">
+    <div class="section-head">
+      <span class="eyebrow">Automatic apply</span>
+      <h2>Watch a form fill itself, and your app keep up</h2>
+      <p class="lede">Claude reaches the form, the Chrome extension fills it from your kit in seconds, and Job Pilotto on your
+        Mac follows every field live. Anything it doesn't know, it asks you once. You press Submit.</p>
+    </div>
+    <div class="stage apply-stage">
+      <video class="apply-video wide" src="images/app/apply-split.mp4" poster="images/app/apply-split-poster.jpg" autoplay muted loop playsinline preload="metadata"
+        aria-label="Split screen: in the browser the Job Pilotto extension fills a job application field by field while the Job Pilotto app on the Mac follows along; one question is answered in the app, then both show Ready to submit"></video>
+      <video class="apply-video narrow" src="images/app/apply-demo.mp4" poster="images/app/apply-demo-poster.jpg" autoplay muted loop playsinline preload="metadata"
+        aria-label="The Job Pilotto extension fills a job application field by field, asks one question, then shows Ready to submit"></video>
+    </div>
+    <ol class="apply-steps">
+      <li><b>Pick your jobs</b><span>In the app, one or a batch: Apply with Claude opens each in your Chrome.</span></li>
+      <li><b>Claude reaches the form</b><span>From the job board to the employer's site; it creates the account if needed, with the password in your Keychain and the email code from Gmail.</span></li>
+      <li><b>The extension fills it</b><span>Contact details, your tailored CV, cover letter and every question, from your application kit, in seconds.</span></li>
+      <li><b>It asks, once</b><span>A question it can't answer comes to your app with a suggested answer; one click fills it and saves it for every later form.</span></li>
+      <li><b>You submit</b><span>Both sides say Ready to submit. You review and press Submit: Job Pilotto never does.</span></li>
+    </ol>
+    <div class="stop-panel quality-panel">
+      <h3>Fewer, better applications.</h3>
+      <dl class="items">
+        <div><dt>Your words, your facts</dt><dd>Every draft comes from your own profile and CV. It never invents experience or facts.</dd></div>
+        <div><dt>You send every one</dt><dd>You review each application and press Submit yourself. Job Pilotto never applies on its own.</dd></div>
+        <div><dt>Fit first</dt><dd>Jobs are ranked by how well they fit you, so your time goes to the few worth it, not to mass applying.</dd></div>
+      </dl>
+    </div>
+    <p class="apply-fine">A staged demo with a made-up candidate; the panel and the app are the real designs.</p>
+  </section>
+
+  <section class="block reveal" id="intelligence">
+    <div class="section-head">
+      <span class="eyebrow">Intelligence</span>
+      <h2>AI at every step, and it keeps learning</h2>
+      <p class="lede">Reading postings, scoring fit, writing your CV for each job, filling the form, coaching you after each interview.
+        29 steps of AI and plain rules, each one yours to accept or ignore.</p>
+    </div>
+    <div class="stop-panel">
+      <dl class="items">
+        <div><dt>A scout that evolves <span class="new">New</span></dt><dd>Claude proposes employers to look at and learns from what each probe found</dd></div>
+        <div><dt>A CV for each job <span class="new">New</span></dt><dd>Reworded toward the posting from your own facts, with a preview of every change</dd></div>
+        <div><dt>Fit you can explain</dt><dd>A score out of 100 with the reasons, and hints learned from what people dismiss</dd></div>
+        <div><dt>Forms filled for you</dt><dd>From your kit first; Claude answers only the rest and marks it for you to read. Knockout questions come first</dd></div>
+        <div><dt>Your inbox, read for you</dt><dd>Replies, interviews and rejections matched to the right application</dd></div>
+        <div><dt>A coach after every interview</dt><dd>What went well, what to practise, and the patterns across all of them</dd></div>
+      </dl>
+      <p style="margin-top: 24px"><a class="btn btn-ghost" href="intelligence.html">See all 29 steps</a></p>
+    </div>
+  </section>
+
+  <section class="block reveal" id="learns">
+    <div class="section-head">
+      <span class="eyebrow">Gets smarter every week</span>
+      <h2>It learns you, then coaches you</h2>
+      <p class="lede">Every interview, rejection, reply and form teaches Job Pilotto something about you: where you're strong,
+        where you slip, what employers said. It turns that into advice for your next step.</p>
+    </div>
+    <div class="stop-panel">
+      <dl class="items">
+        <div><dt>Your weak spots</dt><dd>Topics you answered weakly in past interviews come back in your next prep, to practise</dd></div>
+        <div><dt>Patterns across your interviews <span class="new">New</span></dt><dd>What keeps helping or hurting you, read across every reviewed interview, with a short practice list to tick off</dd></div>
+        <div><dt>Why you were rejected</dt><dd>Each rejection reviewed (presentation, skills, or not on you); the lesson is reused next time</dd></div>
+        <div><dt>What employers said</dt><dd>Feedback you get is kept with the job and worked into your preparation</dd></div>
+        <div><dt>Where your search leaks</dt><dd>A daily insight and a weekly report: the one step of your funnel to fix next</dd></div>
+        <div><dt>Every form you fill</dt><dd>Answer a question once; every later application gets it right</dd></div>
+        <div><dt>Example: your interview prep kit <span class="new">New</span></dt><dd>Likely questions with what from your CV to answer, your gaps, what to ask them, and the weak topics from past interviews to practise</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block reveal" id="see">
+    <div class="section-head">
+      <span class="eyebrow">See it</span>
+      <h2>The real screens</h2>
+      <p class="lede">The Mac app, your Telegram and your Notion. The candidate and companies here are made up.</p>
+    </div>
+    <div class="stage">
+      <figure class="mac-window">
+        <div class="mac-bar" aria-hidden="true"><span class="mac-dots"><i></i><i></i><i></i></span><span class="mac-title">Job Pilotto</span></div>
+        <video class="demo" src="images/app/demo.mp4" poster="images/app/demo-poster.jpg" autoplay muted loop playsinline preload="auto"
+          aria-label="The Job Pilotto app: what to do next, the job list, applying with Claude, a session asking you a question, recent activity, actions, strategy and interviews"></video>
+      </figure>
+    </div>
+    <div class="carousel">
+      <div class="car-head"><h3>Up close</h3>
+        <div class="car-nav"><button type="button" class="car-btn" data-dir="-1" aria-label="Previous">←</button><button type="button" class="car-btn" data-dir="1" aria-label="Next">→</button></div></div>
+      <div class="car-track" tabindex="0" aria-label="Close-ups of the app, Telegram and Notion (scroll sideways)">
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/claude-asks.png" loading="lazy" alt="Card in the app: Claude waiting for you with two kit answers to check and Continue or Skip buttons"></div>
+          <figcaption><b>Claude asks before it guesses.</b> A session stops on the answers it isn't sure of; you reply in one click.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/up-next.png" loading="lazy" alt="Up next list: reply to two recruiters, then apply to your next role"></div>
+          <figcaption><b>What to do next, most important first.</b> Replies waiting, interviews coming, today's applications.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame is-wide"><img src="images/app/snips/job-row.png" loading="lazy" alt="A job row with a fit score of 86, the reason and its tags"></div>
+          <figcaption><b>Every job scored, with the reason.</b> Fit out of 100 against your CV, and why.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame is-wide"><img src="images/app/snips/sessions.png" loading="lazy" alt="Application sessions: one needs your input, one applying, one form filled"></div>
+          <figcaption><b>Several applications at once.</b> Each Claude session in its own card; you're told when one needs you.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/activity.png" loading="lazy" alt="Recent activity: a completed new jobs check with 12 new jobs"></div>
+          <figcaption><b>Every run, and what it found.</b> Searches, Gmail checks and reports, with their result.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/funnel.png" loading="lazy" alt="Application funnel from prepared to interviews, with the step to improve"></div>
+          <figcaption><b>Where your applications stall.</b> The step to improve, with what to change.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame is-wide"><img src="images/app/snips/calendar.png" loading="lazy" alt="Calendar: a month grid with screenings and interviews, and a Coming up list beside it"></div>
+          <figcaption><b>Every call, on one calendar.</b> Screenings and interviews from your email; the ones you recorded are ticked.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/interview.png" loading="lazy" alt="An interview transcript with speakers and the job it belongs to"></div>
+          <figcaption><b>Interviews transcribed on your Mac.</b> Speakers named, filed under the job, reviewed by Claude.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/app/snips/interview-insights.png" loading="lazy" alt="Interview insights: the main signal across two interviews, patterns with strengths and slips, a practice list to tick off, and how sure it is"></div>
+          <figcaption><b>What your interviews show together.</b> The pattern, how sure it is, and what to practise next.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/proof/telegram-interview.png" loading="lazy" alt="Telegram message: interview review with strong answers, weak answers and what to practise"></div>
+          <figcaption><b>The review, in Telegram.</b> Strong answers, weak ones and what to practise.</figcaption></figure>
+        <figure class="car-item"><div class="car-frame"><img src="images/proof/notion-interview-review.png" loading="lazy" alt="Notion page: interview review with strengths, weak spots, signals and every question"></div>
+          <figcaption><b>Everything in your own Notion.</b> The full review, question by question.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="block reveal" id="privacy">
+    <div class="section-head">
+      <span class="eyebrow">Privacy</span>
+      <h2>What it can access</h2>
+      <p class="lede">Everything runs in your own accounts. Nothing is stored on a Job Pilotto server.</p>
+    </div>
+    <div class="access-wrap">
+      <table class="access">
+        <thead><tr><th>What</th><th>Access</th><th>Where it stays</th></tr></thead>
+        <tbody>
+          <tr><td>🔑 Your keys</td><td>Encrypted with your Mac's Keychain; each sent only to its own service</td><td>Your Mac</td></tr>
+          <tr><td>🗂️ Notion</td><td>One connection, only to the Job Pilotto page you pick</td><td>Your Notion</td></tr>
+          <tr><td>📧 Gmail · 📅 Calendar</td><td><b>Read-only</b>. Job emails are classified by Claude with your key</td><td>Your Google account</td></tr>
+          <tr><td>📄 CV</td><td>Read by Claude to draft your profile, kits and tailored CVs</td><td>Your Mac</td></tr>
+          <tr><td>🎙️ Recordings</td><td>Transcribed on your Mac. Only the transcript goes to Notion</td><td>Your Mac</td></tr>
+          <tr><td>🧩 Chrome</td><td>Fills forms on job sites. Never presses Submit</td><td>Your browser</td></tr>
+          <tr><td>🔐 Employer accounts</td><td>Passwords generated straight into your Keychain; Claude never sees them</td><td>Your Mac</td></tr>
+          <tr><td>💸 AI spending</td><td>Your Anthropic account, with a monthly cap: alert at 70%, extras paused at 90%</td><td>Your Anthropic account</td></tr>
+          <tr><td>☁️ GitHub <small>optional</small></td><td>One private repository you choose, nothing else</td><td>Your GitHub</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block reveal" id="trust">
+    <div class="section-head">
+      <span class="eyebrow">Trust</span>
+      <h2>Why you can trust the download</h2>
+      <p class="lede">You don't have to take our word for it: the code is public and every download can be checked.</p>
+    </div>
+    <ul class="trust-grid">
+      <li><b>📖 Public code</b><span>Every line is public: what it reads, what it sends, where your keys go. <a href="https://github.com/GarryOne/job-pilotto">Read it on GitHub</a></span></li>
+      <li><b>🏗️ Built in public</b><span>Each download is built by GitHub Actions from a tagged commit, not on anyone's laptop. The build logs are public.</span></li>
+      <li><b>✅ Checkable</b><span>GitHub signs each download with the commit it was built from. With the <a href="https://cli.github.com">GitHub CLI</a>:</span>
+        <code class="trust-cmd">gh attestation verify Job-Pilotto-mac-arm64.dmg -R GarryOne/job-pilotto</code></li>
+      <li><b>🔒 Your data never touches our servers</b><span>The AI runs on your Mac with your own key. Your CV, answers and applications stay on your Mac and in your own Notion. We only receive scrubbed technical reports, and you can turn them off. <a href="#privacy">What it can access</a></span></li>
+      <li><b>✋ You submit</b><span>It fills forms and never presses Submit or applies in bulk.</span></li>
+      <li><b>⚠️ Not Apple-signed yet</b><span>That's why macOS asks once ("Open Anyway"). Apple signing is next. Found a problem? <a href="https://github.com/GarryOne/job-pilotto/security/policy">Report it privately</a></span></li>
+    </ul>
+  </section>
+
+  <section class="block reveal" id="setup">
+    <div class="section-head">
+      <span class="eyebrow">Setup</span>
+      <h2>What setup takes</h2>
+      <p class="lede">The app walks you through it either way. Today's Free version asks you to paste two keys; Pro will do that for you.</p>
+    </div>
+    <div class="setup-cols">
+      <div>
+        <h3 class="setup-title">Free · today <span class="for">for technical users</span></h3>
+        <ol class="checkin-list">
+          <li><div><b>Install the app</b><span class="how">In Terminal: <code class="install-cmd">curl -fsSL https://www.jobpilotto.workers.dev/install | bash</code> Or download it and allow it once: System Settings → Privacy &amp; Security → Open Anyway (not signed by Apple yet)</span></div><span class="time">1 min</span></li>
+          <li><div><b>Paste your Anthropic key</b><span class="how">From console.anthropic.com; the app checks it</span></div><span class="time">2 min</span></li>
+          <li><div><b>Copy the Notion workspace</b><span class="how">Duplicate the template, create a connection, paste its token</span></div><span class="time">3 min</span></li>
+          <li><div><b>Choose your CV, say what you want</b><span class="how">The AI drafts your strategy for you to review</span></div><span class="time">3 min</span></li>
+          <li><div><b>Optional</b><span class="how">Telegram bot, Chrome extension, Gmail; your GitHub to run while the Mac is off; Claude Code for Apply with Claude</span></div><span class="time">+ 5 min</span></li>
+        </ol>
+      </div>
+      <div>
+        <h3 class="setup-title">Pro · soon <span class="for">for everyone</span></h3>
+        <ol class="checkin-list soon">
+          <li><div><b>Install the app</b><span class="how">Signed by Apple: no warnings, updates itself</span></div><span class="time">1 min</span></li>
+          <li><div><b>Sign in to Notion</b><span class="how">One click, no token to copy</span></div><span class="time">1 min</span></li>
+          <li><div><b>Choose your CV, say what you want</b><span class="how">Same drafted strategy</span></div><span class="time">3 min</span></li>
+          <li><div><b>Nothing to host</b><span class="how">Searches run for you, as often as hourly</span></div><span class="time">0 min</span></li>
+        </ol>
+        <a class="btn btn-ghost setup-cta" href="#early">Get Pro early access · first month free</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="block reveal" id="pricing">
+    <div class="section-head">
+      <span class="eyebrow">Pricing</span>
+      <h2>Free to use. Pro when you want more.</h2>
+      <p class="lede">You bring your own AI key, and your own free Notion once you want to track applications. AI usage is billed by Anthropic to you: usually a few dollars a month, capped by your own budget.</p>
+    </div>
+    <div class="passes">
+      <article class="pass">
+        <div class="pass-main">
+          <div class="pass-top"><span class="pass-airline">✈ Job Pilotto</span><span class="tag">Boarding now</span></div>
+          <div class="pass-route"><div><small>From</small><b>ZRH</b></div><span class="pass-line" aria-hidden="true"></span><div><small>To</small><b>OFFER</b></div></div>
+          <h3>Free · Mac app</h3>
+          <ul>
+            <li>Every stop: find, prepare, apply, track</li>
+            <li>Apply with Claude (with your Claude Code)</li>
+            <li>Interviews transcribed on your Mac</li>
+            <li>Always on: runs while your Mac is off, with your free GitHub</li>
+            <li>The shared employer pool, updated daily, plus your own employers</li>
+            <li>Source available: read or run the code yourself</li>
+            <li><b>Free for your first 30 applications or 60 days</b>, whichever is longer. Founder keys for early testers</li>
+          </ul>
+          <a class="btn btn-primary" href="/download/mac?from=pricing">Download for Mac</a>
+          <a class="alt-download" href="/download/windows?from=pricing"><svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14"><path fill="currentColor" d="M0 2.2 6.5 1.3v6.2H0zm7.3-1 8.7-1.2v7.5H7.3zM0 8.3h6.5v6.3L0 13.7zm7.3 0H16V16l-8.7-1.2z"/></svg><span>Also for <b>Windows 10 / 11</b></span><em>beta</em></a>
+          <span class="pass-fine">Mac: Apple silicon (M1 or newer) · <a href="https://github.com/GarryOne/job-pilotto">or run it from the source</a></span>
+        </div>
+        <div class="pass-stub">
+          <div><small>Class</small><b>FREE</b></div>
+          <div><small>Fare</small><b>CHF 0</b></div>
+          <div><small>Gate</small><b>NOW</b></div>
+          <span class="barcode" aria-hidden="true"></span>
+        </div>
+      </article>
+      <article class="pass soon">
+        <div class="pass-main">
+          <div class="pass-top"><span class="pass-airline">✈ Job Pilotto</span><span class="tag soon">Coming soon</span></div>
+          <div class="pass-route"><div><small>From</small><b>ZRH</b></div><span class="pass-line" aria-hidden="true"></span><div><small>To</small><b>OFFER</b></div></div>
+          <h3>Pro</h3>
+          <ul>
+            <li>Signed by Apple, updates itself; one-click Notion</li>
+            <li>Hosted searches, as often as hourly</li>
+            <li>Curated employer pools by role and region</li>
+            <li>More countries: DE, NL, UK, remote Europe</li>
+            <li>Gets better at every form, by itself: a form that trips it up is fixed and retried, so the next one just works</li>
+            <li>Salary and response-rate benchmarks; priority help</li>
+          </ul>
+          <a class="btn btn-ghost" href="#early">Get early access</a>
+          <span class="pass-fine">Early sign-ups get their first month free</span>
+        </div>
+        <div class="pass-stub">
+          <div><small>Class</small><b>PRO</b></div>
+          <div><small>Fare</small><b>SOON</b></div>
+          <div><small>Gate</small><b>TBA</b></div>
+          <span class="barcode" aria-hidden="true"></span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="early">
+    <div class="boarding">
+      <div>
+        <span class="eyebrow">Pro · early access</span>
+        <h2>Be first to try Pro</h2>
+        <p>Hosted searches, curated employer pools and more countries are on the way. Leave your email and you'll hear from us once, when Pro is ready. Early sign-ups get their first month free.</p>
+      </div>
+      <form id="waitlist" novalidate>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        <label for="role">What you're looking for <span class="optional">(optional)</span></label>
+        <input id="role" name="role" type="text" maxlength="200" placeholder="e.g. Senior SRE in Zurich">
+        <input class="trap" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-primary" type="submit">Get early access</button>
+        <p class="fine" id="waitlist-note">One email when Pro is ready. No newsletter.</p>
+      </form>
+    </div>
+  </section>
+
+  <section class="block reveal" id="faq">
+    <div class="section-head">
+      <span class="eyebrow">FAQ</span>
+      <h2>Questions before take-off</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Does it apply to jobs for me?</summary><p>No, never. It finds, scores, drafts and fills. Submitting is always your click, after you've reviewed the form.</p></details>
+      <details><summary>Do I need Notion?</summary><p>Not to try it. Without Notion you can search, see fit scores, browse your jobs and get your strategy. To track applications, interviews and insights, connect a free Notion account: the app copies a ready-made workspace into it, whenever you're ready.</p></details>
+      <details><summary>What does the AI cost?</summary><p>You use your own Anthropic account, so the cost goes to you directly and you can see it: usually a few dollars a month, capped by the monthly budget you set. Each run shows what it cost in your Notion.</p></details>
+      <details><summary>How is it different from Simplify, Teal, Huntr or JobCopilot?</summary><p>It does the whole search, not one step: finds and scores jobs, drafts each form's answers, tailors your CV, fills the form and tracks replies from your Gmail, with your data in your own Notion. It never mass-applies. <a href="compare.html">See the side-by-side comparison</a>.</p></details>
+      <details><summary>Windows or Linux?</summary><p>Windows 10 or 11 (x64): <a href="/download/windows?from=faq">download the beta</a>. It isn't signed yet, so Windows asks once: <b>More info → Run anyway</b>. Apply with Claude works there too (it needs Git for Windows; new, so tell us how it goes); Fill in Chrome works the same. Linux: run it from the source.</p></details>
+      <details><summary>Which jobs does it cover?</summary><p>Built for IT, software and engineering roles, anywhere in the world (software, data, SRE and DevOps, security, QA, mobile and more). Other fields can work too, since you choose the job titles and places you want, but the employer pool and the tuning are for tech today, and we will extend them. It starts from a shared pool of employers with public career pages (Anthropic, OpenAI, Stripe, Datadog, Cloudflare and many more), checked daily and growing, plus jobs.ch, TechTree and Google Jobs. You choose your roles and places; a search only shows jobs that match them, so a search in Zurich and one in Singapore use the same pool and see different jobs.</p></details>
+      <details><summary>Can I add my own employers?</summary><p>Yes. Add any company to your Employers &amp; Sources in Notion and it is crawled with the shared pool, or turn on your own scout to find more. Your list is yours: it stays in your Notion and is never uploaded. Only the public pool is downloaded, and it holds no personal data. By default the app also shares which employer career pages you use to help the pool grow; you can switch that off in Settings (<a href="privacy.html">details</a>).</p></details>
+      <details><summary>Does it work with LinkedIn?</summary><p>It doesn't read or post on LinkedIn, but you can paste or screenshot a recruiter's conversation and it is tracked. Most roles you'd find there are also on the employer's own career page, which is where it looks and where you apply.</p></details>
+      <details><summary>What happens to my CV?</summary><p>It stays on your Mac. The AI reads it to draft your Profile (which you review in Notion) and, when you ask, to make a version tailored to one job; you see every change before it's used. Nothing is stored on a Job Pilotto server.</p></details>
+      <details><summary>Is it really free? What happens after the free period?</summary><p>Free for your first 30 applications or your first 60 days, whichever lasts longer. After that the app pauses only new work (preparing kits, filling forms, searching); tracking, Notion, export and your data keep working, and it never stops in the middle of an application. Early testers get a founder key that removes the limit: <a href="#early">ask for one</a>.</p></details>
+      <details><summary>Can I run it myself for free?</summary><p>Yes. Job Pilotto's source code is public: run it from source with the same Notion workspace. The Mac app is free too. Pro, coming soon, adds hosted searches and curated employer pools.</p></details>
+    </div>
+  </section>
+
+  <footer>
+    <span>✈ Job Pilotto · made in Geneva by an SRE who needed it</span>
+    <span><a href="compare.html">Compare with other tools</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/GarryOne/job-pilotto">Source code</a></span>
+  </footer>
+</div>
+<script>
+// The shared employer pool's size, read from the same public list every app downloads; the sentence works without it.
+fetch('/api/index?summary=1').then(r => r.ok ? r.json() : null).then(data => {
+  // The summary: how many employers (a company's own career page, not job portals) and how many open jobs, all roles.
+  const feeds = data && data.employers ? data.employers : 0;
+  const jobs = data && data.jobs ? data.jobs : 0;
+  if (!feeds) return;
+  document.getElementById('pool-employers').textContent = feeds.toLocaleString('en-US');
+  document.getElementById('pool-jobs').textContent = jobs.toLocaleString('en-US');
+  document.getElementById('pool-count').hidden = false;
+  document.getElementById('pool-fallback').hidden = true;
+}).catch(() => {});
+// Copy buttons (the install command): "Copied" for a moment; the command stays selectable if the clipboard is blocked.
+for (const button of document.querySelectorAll('[data-copy]')) button.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(button.dataset.copy); button.textContent = 'Copied'; }
+  catch { getSelection().selectAllChildren(button.previousElementSibling); button.textContent = 'Press ⌘C'; }
+  setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+});
+for (const button of document.querySelectorAll('.car-btn')) button.addEventListener('click', () => {
+  const track = button.closest('.carousel').querySelector('.car-track');
+  const card = track.querySelector('.car-item');
+  track.scrollBy({left: Number(button.dataset.dir) * ((card?.offsetWidth || 400) + 20), behavior: 'smooth'});
+});
+
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.documentElement.classList.add('js');
+
+  // Split-flap: each board cell's letters flip through the alphabet and land on the text.
+  const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:';
+  function flap(el, text, delay = 0) {
+    el.textContent = '';
+    el.setAttribute('aria-label', text);
+    [...text].forEach((ch, i) => {
+      const cell = Object.assign(document.createElement('span'), {className: 'flap', textContent: calm ? ch : ' '});
+      cell.setAttribute('aria-hidden', 'true');
+      el.append(cell);
+      if (calm || ch === ' ') { cell.textContent = ch; return; }
+      let turns = 6 + Math.floor(Math.random() * 8);
+      setTimeout(function spin() {
+        cell.textContent = turns-- > 0 ? GLYPHS[Math.floor(Math.random() * GLYPHS.length)] : ch;
+        if (turns >= 0) setTimeout(spin, 45);
+      }, delay + i * 28);
+    });
+  }
+  document.querySelectorAll('[data-flap]').forEach((el, i) => flap(el, el.textContent.trim(), 150 + (i % 4) * 90 + Math.floor(i / 4) * 120));
+
+  // The gates move like a real board: a kit becomes Filling, then Your turn (you review and submit).
+  const gates = [...document.querySelectorAll('[data-gate]')];
+  const STATES = [['KIT READY', 'kit'], ['FILLING', 'now'], ['YOUR TURN', 'you']];
+  gates.forEach(g => { g.dataset.step = 0; });
+  let turn = 0;
+  if (!calm) setInterval(() => {
+    const gate = gates[turn % gates.length];
+    const step = (Number(gate.dataset.step) + 1) % STATES.length;
+    gate.dataset.step = step;
+    gate.className = `gate ${STATES[step][1]}`;
+    flap(gate, STATES[step][0]);
+    if (step === 0) turn += 1;
+  }, 2600);
+
+  // Route: one stop open at a time; the plane flies to it.
+  const tabs = [...document.querySelectorAll('.stop-tab')], plane = document.querySelector('[data-plane]');
+  function open(tab) {
+    tabs.forEach(t => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    const i = tabs.indexOf(tab);
+    plane.style.setProperty('--at', `${tabs.length > 1 ? i / (tabs.length - 1) * 100 : 50}%`);
+  }
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => open(tab));
+    tab.addEventListener('keydown', event => {
+      const step = {ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1}[event.key];
+      if (!step) return;
+      const next = tabs[(tabs.indexOf(tab) + step + tabs.length) % tabs.length];
+      next.focus(); open(next);
+    });
+  });
+  if (tabs.length) open(tabs[0]);
+
+  // Sections ease in as they reach the screen.
+  if (!calm && 'IntersectionObserver' in window) {
+    const seen = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { entry.target.classList.add('in'); seen.unobserve(entry.target); }
+    }), {rootMargin: '0px 0px -10% 0px'});
+    document.querySelectorAll('.reveal').forEach(el => seen.observe(el));
+  } else document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+
+  // The sticky nav gets its edge once the page scrolls.
+  const nav = document.getElementById('topnav');
+  addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 8), {passive: true});
+
+  // Pro early access: sent to /api/waitlist (site/src/index.js), kept in Cloudflare KV.
+  const form = document.getElementById('waitlist');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const email = document.getElementById('email');
+    const note = document.getElementById('waitlist-note');
+    const button = form.querySelector('button');
+    if (!email.value || !email.checkValidity()) {
+      note.textContent = 'Enter an email address like you@example.com.';
+      email.focus();
+      return;
+    }
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/waitlist', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email.value, role: document.getElementById('role').value, website: form.website.value})});
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      note.className = 'fine thanks';
+      note.textContent = result.already ? "You're already on the list. We'll email you when Pro is ready."
+        : "Thanks, you're on the list. We'll email you once, when Pro is ready.";
+    } catch (error) {
+      button.disabled = false;
+      note.textContent = error.message || "That didn't go through. Please try again.";
+    }
+  });
+</script>
+<script src="/track.js" defer></script>
+<!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
+</body>
+</html>

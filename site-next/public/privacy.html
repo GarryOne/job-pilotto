@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy · Job Pilotto</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta name="description" content="How Job Pilotto handles your data: your Notion, your computer, nothing kept by us.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Geist+Mono:wght@400..600&family=Space+Grotesk:wght@500..700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>.legal{max-width:720px;margin:48px auto;padding:0 20px} .legal h1{margin-bottom:4px} .legal h2{margin-top:28px} .legal p,.legal li{line-height:1.6}</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topnav"><a class="brand" href="index.html"><img class="brand-mark" src="images/logo.png" alt="" width="30" height="30">Job Pilotto</a></nav>
+  <main class="legal">
+    <h1>Privacy</h1>
+    <p class="muted">Last updated 2 October 2026</p>
+    <p><b>In short:</b> your job search lives in <b>your own Notion workspace</b> and on <b>your own computer</b>. We don't run a
+      database of your data and we don't sell or share anything.</p>
+    <h2>What Job Pilotto stores, and where</h2>
+    <ul>
+      <li><b>Your Notion workspace</b> (the page you connect): job matches, applications, replies, interviews, insights, your Profile,
+        standard answers and search settings. You can read, edit or delete everything there.</li>
+      <li><b>Your computer</b>: your keys (encrypted by the operating system), your CV and tailored CVs, call recordings, and a cache of
+        job listings. Settings → Your data lets you export or delete them.</li>
+      <li><b>Optional, only if you connect them</b>: Gmail and Calendar (read-only, to track replies and interviews), Telegram (to send you
+        matches), a private GitHub repository (to run while your computer is off), and the AI provider you give a key for
+        (Anthropic), which receives job postings and the parts of your profile needed to score jobs and draft answers.</li>
+    </ul>
+    <h2>Technical reports from the app</h2>
+    <p>To fix problems for everyone, the app sends us technical reports, <b>on by default</b>: errors and crashes, jobs that failed
+      (which step, the error line), form fields it couldn't fill (the site, the field's label and type, never your answer), how the form's special controls
+      (Yes/No buttons, custom dropdowns, date fields) behaved, described only by an anonymous structural fingerprint and counts
+      of worked or failed, and once a
+      day the app version, operating system, which features are on, and anonymous counts of how it helped you (jobs matched, forms
+      filled, applications, replies, interviews, offers). Each report carries a random install number, not your name, and the channel the install came from if you used a tagged link (a label such as "reddit-devops", set once by the install command).</p>
+    <p>Before anything leaves your computer, the app removes personal data: your answers, CV, cover letters, emails, Notion content,
+      names, email addresses, phone numbers, keys, file paths and the query part of links. We keep reports for 90 days, use them only
+      to improve Job Pilotto and to publish overall numbers (never about one person), and never sell them. <b>Settings → Advanced →
+      Technical reports</b> shows exactly what was sent, and turns them off.</p>
+    <h2>Crash reports and usage steps (Sentry and PostHog)</h2>
+    <p>While Technical reports are on, an installed Job Pilotto also uses two services, with the same rules. <b>Sentry</b> (hosted in the
+      EU) receives crash and error reports: the kind of error, a cleaned-up message, which parts of the app's code it passed
+      through, the app version, your operating system and the random install number. <b>PostHog</b> (hosted in the EU) receives which steps
+      people take, so we can see where setup or applying gets stuck: for example "setup step: CV", "search finished", "kit prepared",
+      "application started", "marked applied", and which page was opened (Jobs, Settings…), never what is on it. Neither service
+      receives your answers, CV, cover letters, emails, jobs, companies, names, keys or file paths, and neither records your screen, keystrokes
+      or IP-based location. Both are off in a copy run from source and when Technical reports is off. A crash report also carries the last few of those step names.
+      Alpha-test builds have one more switch, off until the tester turns it on: when a search fails or hangs, the last 200 lines of its log
+      are attached to that report, with emails, folder paths, keys, links' query parts and numbers removed first.</p>
+    <p>This website also tells <b>PostHog</b> (EU) which page was viewed, where the visit came from (for example a search engine) and when the
+      Download button was clicked. It sets no cookie, keeps no id between page views, and discards IP and location.</p>
+    <h2>Shared fixes from our service</h2>
+    <p>Forms differ, so Job Pilotto learns from everyone's failed fills. While Technical reports are on, the app and the Chrome
+      extension ask our website for <em>shared fixes</em> for the special controls on the form in front of you. The request holds
+      only the anonymous structural fingerprints of those controls and your random install number, never the form's text, your
+      answers or your CV. A fix is a small data record (for example which element counts as the "Yes" button); it can only change
+      how one control is filled, never press Submit or tick a consent box, and you still review and click Submit yourself. The
+      form panel tells you when it used one. For Apply with Claude, the app also asks our website for notes about the job board's
+      forms (the board's name only). We limit these requests per install and may block an install that tries to copy the shared data.
+      <strong>Settings → Advanced → Technical reports</strong> turns reports and shared fixes off together; everything else keeps working.</p>
+    <p>When you tell Job Pilotto how an application went (a reply, a call or interview, an offer, a rejection, no answer), it is saved
+      in your Notion, and, while Technical reports are on, counted anonymously by <em>job board</em>, the outcome and a rough number of
+      days (for example 8–14) since you applied, to learn which applications get answers. Never the company, the role, the job's address
+      or your answers, and the count is not kept per person.</p>
+    <p>The same goes for a few more counts about your search, while Technical reports are on: which role words you add to widen it (from a fixed
+      list), how much of the market your role keywords catch, why you dismiss a job if you tap a reason (seniority, location, technology, company,
+      kind of role), and once a day how many of your jobs sit in each fit-score band and what became of them (new, saved, applied, replied ...) and, for each
+      kind of job board, how many you acted on or dismissed. When you mark how an application went, the job's fit-score band is counted with it.
+      When you change by hand an answer that was filled in, only the form's own question wording (for example "Notice period") is counted, never what you wrote.
+      They are grouped by a coarse kind of role and region from fixed lists. Never a job, its title, its company, its link or any text, and they
+      are not kept per person. They help us make the score and the suggestions better for everyone.</p>
+    <h2>Help the pool grow</h2>
+    <p>Job Pilotto downloads a shared list of employer career pages (with a random install number and an access token from our website, a few times a day at most). New installs also help it grow, <b>on by default</b>: about once
+      a day the app sends the public career pages you use (company, job-board system and
+      address) and two labels: your kind of role and your region, from a fixed list (for example "SRE / DevOps, Europe"), with a
+      random install number. Never your jobs, applications, CV, answers, emails, Notion content or keys. We check every page
+      ourselves before adding it, publish a label for a page only when several people agree, keep this data for 90 days and never
+      sell it. <b>Settings → Help the pool grow</b> shows the exact message under <b>See what would be sent</b>, and turning it off stops it at once.
+      Installs set up before this existed start with it off.</p>
+    <h2>Connect with Notion</h2>
+    <p>When you connect Notion, Notion asks you which pages Job Pilotto may use. Our server receives a one-time code from Notion,
+      trades it for your access token and hands that token to the Job Pilotto app on your computer. The token is held for at most
+      10 minutes, only until your app collects it, then deleted; it is never logged. Job Pilotto only reads and writes the pages you
+      chose. You can remove its access at any time in Notion (Settings → Connections).</p>
+    <h2>Website</h2>
+    <p>If you join the Pro early-access list, we keep the email address (and the role you typed) to write to you about it, and
+      nothing else. Ask us to delete it any time.</p>
+    <p>The website counts visits and Download clicks without cookies: the page, where you came from (for example google.com),
+      country and device type. Visitors are told apart for one day by a one-way hash, so we never store your IP address.
+      Cloudflare Web Analytics measures page speed and visits the same way, without cookies.</p>
+    <h2>Contact</h2>
+    <p>Questions or deletion requests: open an issue at <a href="https://github.com/GarryOne/job-pilotto">github.com/GarryOne/job-pilotto</a>.</p>
+  </main>
+  <footer>
+    <span>✈ Job Pilotto</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="index.html">Home</a></span>
+  </footer>
+</div>
+<script src="/track.js" defer></script>
+<!-- Cloudflare Web Analytics (cookie-free; the token is public) --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "37313e8b9f4345c3aac34a5121904e8a"}'></script>
+</body>
+</html>

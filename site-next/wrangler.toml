@@ -1,0 +1,11 @@
+# The preview of the website: https://next.jobpilotto.workers.dev (a separate Worker, "next").
+# What changes here is reviewed before it moves to site/ (the live site, www). No databases, no secrets, no crons:
+# nothing here can touch the live site's data.
+# Deploy: cd site-next && npx wrangler@4 deploy   (CI: .github/workflows/site-next.yml on changes under site-next/)
+name = "next"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
