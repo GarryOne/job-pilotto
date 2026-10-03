@@ -438,3 +438,27 @@ table.compare { width: 100%; min-width: 820px; border-collapse: collapse; font-s
 
 /* The Pro waitlist on the smallest phones: less padding so the form keeps its room. */
 @media (max-width: 400px) { .boarding { padding: 28px 18px; } .boarding form { padding: 16px; } }
+
+/* Research: what job seekers report, and what the app does about it */
+.evidence-stats { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.evidence-stats li { display: grid; gap: 4px; padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.evidence-stats b { font: 600 1.6rem var(--mono); color: var(--teal); }
+.evidence-stats span { color: var(--muted); font-size: .88rem; }
+.evidence-verdict { margin: 0 0 22px; max-width: 68ch; color: var(--muted); }
+.evidence-verdict b { color: var(--ink); }
+.access.evidence td:first-child { white-space: normal; min-width: 180px; }
+.access.evidence td:nth-child(2) { color: var(--ink); }
+.evidence-next { margin: 34px 0 14px; font-size: 1.05rem; }
+.evidence-sources { margin-top: 22px; color: var(--muted); font-size: .9rem; }
+.evidence-sources summary { cursor: pointer; color: var(--ink); }
+.evidence-sources ol { columns: 2 320px; column-gap: 28px; padding-left: 20px; }
+.evidence-sources li { margin: 0 0 6px; break-inside: avoid; }
+.evidence-sources a { color: var(--ink); text-underline-offset: 3px; }
+.evidence-sources small { font: 400 .72rem var(--mono); margin-left: 4px; }
+@media (max-width: 640px) {
+  .access.evidence, .access.evidence tbody { display: block; min-width: 0; }
+  .access.evidence thead { display: none; }
+  .access.evidence tr { display: grid; gap: 6px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .access.evidence tr:last-child { border-bottom: 0; }
+  .access.evidence td { display: block; padding: 0; border: 0; min-width: 0; }
+}
