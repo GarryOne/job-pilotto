@@ -166,7 +166,10 @@ export async function run(ctx) {
     // button ("Opened ↻"), and clicking it fills the form again and stays on the Jobs list (apply run 37134779221). A session card in the dock opens the same page for everyone,
     // and the Sessions page lists them all when the dock (three cards at most) does not show this one.
     const card = page.locator('#sd-cards .sd-card').filter({hasText: form.company}).first();
-    if (await card.count()) await card.click();
+    if (await card.count()) {
+      if (!await card.isVisible() && await page.locator('#sd-toggle').isVisible()) await page.click('#sd-toggle');   // the dock starts collapsed: its cards are in the page but hidden (apply run 37135786161)
+      await card.click();
+    }
     else {
       await page.click('.nav[data-view="sessions"]');
       await page.locator('.view[data-view="sessions"]').getByText(form.company).first().click({timeout: 15000}).catch(() => { throw new Error(`no session for ${form.company} on the Sessions page or in the dock`); });
