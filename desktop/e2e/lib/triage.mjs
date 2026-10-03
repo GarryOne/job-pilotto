@@ -194,28 +194,43 @@ export function priorityOf(issue, now = Date.now()) {
   const severity = /\*\*(HIGH|MEDIUM|LOW)\*\*/.exec(issue.body || '')?.[1] || 'LOW';
   const kind = /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
   const seen = recentSightings(issue, now), points = score(issue, now);
+  if (labels.includes(NOT_SEEN)) return 'P3';   // already clean in the latest run: waiting to close, never above the rest
   if (severity === 'HIGH' && BLOCKING_KINDS.includes(kind) && (seen >= 2 || labels.includes(CONFIRMED))) return 'P0';
   return points >= 6 ? 'P1' : points >= 3 ? 'P2' : 'P3';
 }
 
-// -> the open UI-loop issues, most important first: priority, then score, then the oldest. Parked ones (needs-human, wontfix-auto) are left out.
+// What breaks the product outranks what is only rough: a wrong result > a dead or broken control > a missing spinner; a crashed test step is the harness, not the product.
+// The score alone tied eleven of twelve rows on 3 Oct 2026 (a red status dot ranked like a missing spinner).
+const KIND_WEIGHT = {functionality: 3, 'error-shown': 3, 'console-error': 3, 'dead-control': 2, 'expand-broken': 2, 'page-overflow': 2, 'tall-row': 2, 'broken-image': 2, 'no-loading-state': 1, 'test-failure': 0.5};
+const CRITICAL_VIEWS = ['apply', 'strategy', 'activity', 'wizard'];   // the critical path: apply, strategy sync, run results, setup
+const kindOf = issue => /·\s*([a-z-]+)\s*·/.exec(issue.body || '')?.[1] || '';
+const viewOf = issue => /^\[auto-ui\] ([^:]+):/.exec(issue.title || '')?.[1] || '';
+export const rankWeight = (issue, now = Date.now()) => score(issue, now) * (KIND_WEIGHT[kindOf(issue)] ?? 1) * (CRITICAL_VIEWS.includes(viewOf(issue)) ? 1.5 : 1);
+
+// -> the open UI-loop issues, most important first: priority, then (already clean last), then weighted score, Mac before Windows (Windows never blocks a release), then the oldest.
+// Parked ones (needs-human, wontfix-auto) are left out.
 export function rankIssues(issues, now = Date.now()) {
+  const has = (issue, name) => (issue.labels || []).some(item => (item.name || item) === name);
   return issues.filter(issue => issue.state === 'OPEN' && !(issue.labels || []).some(item => [NEEDS_HUMAN, FALSE_POSITIVE].includes(item.name || item)))
-    .map(issue => ({issue, priority: priorityOf(issue, now), score: score(issue, now)}))
-    .sort((a, b) => PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || b.score - a.score || a.issue.number - b.issue.number);
+    .map(issue => ({issue, priority: priorityOf(issue, now), score: score(issue, now), weight: rankWeight(issue, now)}))
+    .sort((a, b) => PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || Number(has(a.issue, NOT_SEEN)) - Number(has(b.issue, NOT_SEEN)) || b.weight - a.weight
+      || Number(has(a.issue, 'platform:windows')) - Number(has(b.issue, 'platform:windows')) || a.issue.number - b.issue.number);
 }
 
+const lastBuild = issue => [issue.body, ...(issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).map(comment => comment.body)].map(commitOf).filter(Boolean).at(-1) || '';
 const lastSeen = issue => [issue.createdAt, ...(issue.comments || []).filter(comment => /^Seen again\b/.test(comment.body || '')).map(comment => comment.createdAt)].filter(Boolean).sort().at(-1) || '';
 export function rankingBody(ranked, now = Date.now(), limit = 12) {
   const rows = ranked.slice(0, limit).map(({issue, priority, score: points}, index) => {
     const at = lastSeen(issue), days = at ? Math.floor((now - Date.parse(at)) / 86400000) : null;
     const age = days === null ? '' : days <= 0 ? 'today' : `${days} d ago${days >= 7 ? ' ⚠️' : ''}`;
-    return `| ${index + 1} | **${priority}** | #${issue.number} ${String(issue.title || '').replace(/^\[auto-ui\] /, '').replace(/\|/g, '/').slice(0, 80)} | ${points} | ${age} |`;
+    const platform = (issue.labels || []).some(item => (item.name || item) === 'platform:windows') ? 'Windows' : 'Mac';
+    const clean = (issue.labels || []).some(item => (item.name || item) === NOT_SEEN) ? ' · clean last run' : '';
+    return `| ${index + 1} | **${priority}** | #${issue.number} ${String(issue.title || '').replace(/^\[auto-ui\] /, '').replace(/\|/g, '/').slice(0, 80)} | ${platform} | ${points} | ${[lastBuild(issue) ? `\`${lastBuild(issue)}\`` : '?', age].filter(Boolean).join(' · ')}${clean} |`;
   });
   const counts = PRIORITIES.map(band => `${band}: ${ranked.filter(item => item.priority === band).length}`).join(' · ');
   return ['**The open findings, most important first.** Re-ranked after every run.', '', `${counts} · ${ranked.length} open`, '',
-    '| # | Priority | Finding | Score | Last seen |', '|---|---|---|---|---|', ...(rows.length ? rows : ['| | | nothing open | | |']),
-    '', '**P0** would keep a build from beta or stable · **P1** seen again and again, or high and confirmed · **P2** worth a look · **P3** seen once. Score = severity × sightings this week (× 2 when a person confirmed it). ⚠️ = not seen for 7 days or more: it closes itself after two clean runs of its page.',
+    '| # | Priority | Finding | Platform | Score | Last build seen on |', '|---|---|---|---|---|---|', ...(rows.length ? rows : ['| | | nothing open | | | |']),
+    '', '**P0** would keep a build from beta or stable · **P1** seen again and again, or high and confirmed · **P2** worth a look · **P3** seen once, or already clean in the latest run. Score = severity × sightings this week (× 2 when a person confirmed it). Within a priority: a wrong result before a dead control before a missing spinner (a crashed test step counts least), the critical path (apply, strategy, activity, setup) first, Mac before Windows. ⚠️ = not seen for 7 days or more. A finding closes after two clean runs of its page, or one when a commit says it fixes it.',
     '', '<sub>Written by `desktop/e2e/triage.mjs`. Do not edit by hand.</sub>'].join('\n');
 }
 

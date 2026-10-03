@@ -234,3 +234,25 @@ test('the CLI closes a probe issue on the second clean run, or on the first when
   const other = run([make(3, [], body)], [{sha: 'ddddddd', message: 'Fixes #99'}]);
   assert.deepEqual([other.out.gone.length, other.out.closed.length], [1, 0], 'a commit for another issue changes nothing');
 });
+
+// 3 Oct 2026: eleven of twelve rows tied at score 2, the first row was a crashed test step, Mac and Windows were mixed and every row said "today".
+test('the ranking puts what breaks the product first, a harness crash and already-clean issues last, Mac before Windows', async () => {
+  const {rankIssues, rankingBody} = await import('../lib/triage.mjs');
+  const issue = (number, kind, view, labels = [], severity = 'MEDIUM', extra = '') => ({number, state: 'OPEN', title: `[auto-ui] ${view}: ${kind} on ${view}`, body: `**${severity}** · ${kind} · found by the interaction probe\n\nBuild tested: main @ abc123${number % 10}${extra}`, labels: [{name: 'auto-ui'}, ...labels.map(name => ({name}))], comments: [], createdAt: new Date().toISOString()});
+  const list = [
+    issue(1, 'no-loading-state', 'strategy'),
+    issue(2, 'dead-control', 'settings', ['platform:windows']),
+    issue(3, 'functionality', 'settings'),
+    issue(4, 'dead-control', 'settings'),
+    issue(5, 'test-failure', 'interviews', ['not-seen-latest', 'platform:windows'], 'HIGH'),
+    issue(6, 'dead-control', 'apply'),
+  ];
+  const ranked = rankIssues(list);
+  assert.deepEqual(ranked.map(item => item.issue.number), [3, 6, 4, 2, 1, 5]);   // wrong result, critical-path dead control (they tie: the older number first), dead control, same on Windows, spinner, the clean harness crash
+  assert.equal(ranked.at(-1).priority, 'P3', 'clean in the latest run: never above the rest');
+  const body = rankingBody(ranked);
+  assert.match(body, /\| Platform \| Score \| Last build seen on \|/);
+  assert.match(body, /\| #2 settings: dead-control on settings \| Windows \|/);
+  assert.match(body, /\| #5 [^\n]*`abc1235` · today · clean last run \|/);
+  assert.match(body, /\| 6 \| \*\*P3\*\* \| #5 /, 'the clean harness crash is last');
+});

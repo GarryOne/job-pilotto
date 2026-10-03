@@ -1,0 +1,34 @@
+name: CI · Top issues list
+
+# The pinned "Top issues" list was rebuilt only after an e2e run, so it listed issues that had been closed since (3 Oct 2026: four of twelve rows).
+# Now it is also rebuilt when an issue of the UI loop is opened, closed, reopened or relabelled. Events made with the workflow's own token start no workflow,
+# so the ranking's own label and body edits never loop back here.
+on:
+  issues:
+    types: [opened, closed, reopened, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: ui-ranking
+  cancel-in-progress: true   # only the newest list matters
+
+jobs:
+  rank:
+    # Only the loop's own issues (not the pinned list itself, not unrelated issues).
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'auto-ui')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Rebuild the Top issues list
+        run: node desktop/e2e/triage.mjs --rank-only

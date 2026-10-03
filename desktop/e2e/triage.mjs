@@ -223,6 +223,13 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : ''; };
   const outDir = option('out') || '.heal';
   fs.mkdirSync(outDir, {recursive: true});
+  // Only the pinned list: rebuilt when an issue is opened, closed or relabelled (ui-ranking.yml), not just after an e2e run.
+  if (args.includes('--rank-only')) {
+    const issues = JSON.parse(realGh(['issue', 'list', '--label', LABEL, '--state', 'all', '--limit', '300', '--json', 'number,state,labels,body,comments,title,createdAt']));
+    const {ranked} = refreshRanking({issues, repo: process.env.REPO || process.env.GITHUB_REPOSITORY || ''});
+    console.log(`Ranking rebuilt: ${ranked.length} open.`);
+    process.exit(0);
+  }
   const result = triage({artifacts: option('artifacts'), runUrl: option('run-url'), build: option('build'), platform: option('platform') || 'mac'});
   const lines = [`## UI findings`, `${result.findings.length} finding(s) in this run: ${result.filed.length} new, ${result.again.length} seen again, ${result.gone.length} not seen any more, ${result.closed.length} closed after a second clean run${result.skipped.length ? `; ${result.skipped.length} suite(s) not filed (${result.skipped.map(item => `${item.suite}: ${item.why}`).join(', ')})` : ''}.`];
   // The producer only files and updates issues. The fixer (ui-fix.yml, four times a day) picks the most critical one: node pick.mjs.
