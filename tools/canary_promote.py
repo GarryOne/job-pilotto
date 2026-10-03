@@ -224,6 +224,13 @@ def rc_problems(runs, blockers, sha7, now):
 BLOCKING_KINDS = ('functionality', 'error-shown', 'test-failure', 'page-overflow', 'tall-row', 'broken-image')
 
 
+def runs_for(workflow_runs, sha, tag):
+    """The completed end-to-end runs that tested this release: the ones on its own commit (the gate's, a scheduled one that landed on it) and the soak top-ups, which run main's
+    workflow file on the tag's commit and are named "RC soak <tag>", and the release gate's own run, named "Gate <sha>" (e2e.yml run-name). Newest first."""
+    return [{'conclusion': r.get('conclusion'), 'createdAt': r['created_at']} for r in workflow_runs
+            if r.get('head_sha') == sha or r.get('display_title') in (f'RC soak {tag}', f'Gate {sha}')]
+
+
 def blocking_findings(issues, sha7):
     """The open high-severity UI-loop issues of a blocking kind whose text (body or a 'Build tested' comment) names this commit."""
     def names(issue):
@@ -318,8 +325,8 @@ class GitHub:
 
     def e2e_runs(self, tag):
         """Completed end-to-end runs on the tag's commit, newest first (the gate's own, the soak's top-ups, scheduled ones on main at that commit)."""
-        data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/e2e.yml/runs?head_sha={self.sha(tag)}&status=completed&per_page=30'))
-        return [{'conclusion': r.get('conclusion'), 'createdAt': r['created_at']} for r in data.get('workflow_runs', [])]
+        data = json.loads(self._gh('api', f'repos/{self.repo}/actions/workflows/e2e.yml/runs?status=completed&per_page=100'))
+        return runs_for(data.get('workflow_runs', []), self.sha(tag), tag)
 
     def blocking_issues(self):
         return json.loads(self._gh('issue', 'list', '-R', self.repo, '--label', 'auto-ui', '--label', 'severity:high', '--state', 'open', '-L', '300',

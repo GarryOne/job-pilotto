@@ -33,8 +33,9 @@ jobs:
           tag=$(gh release list -R "$REPO" -L 20 --json tagName,isPrerelease,isDraft -q '[.[] | select(.isDraft | not) | select(.isPrerelease | not)][0].tagName')
           [ -n "$tag" ] || { echo "No stable release yet." >> "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
           sha=$(gh api "repos/$REPO/commits/$tag" -q .sha)
-          fresh=$(gh run list -R "$REPO" --workflow=e2e.yml --status success --commit "$sha" -L 5 --json createdAt \
-            -q '[.[] | select((.createdAt | fromdateiso8601) > (now - 72000))] | length')
+          # the release gate's own run counts too: it is named "Gate <sha>" (its own commit is main's, the tested one is in the name)
+          fresh=$(gh run list -R "$REPO" --workflow=e2e.yml --status success -L 40 --json createdAt,headSha,displayTitle \
+            -q "[.[] | select(.headSha == \"$sha\" or .displayTitle == \"Gate $sha\") | select((.createdAt | fromdateiso8601) > (now - 72000))] | length")
           echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "sha=$sha" >> "$GITHUB_OUTPUT"
           if [ "${fresh:-0}" != 0 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "$tag: its own e2e run passed in the last 20 hours; nothing to check today." >> "$GITHUB_STEP_SUMMARY"; else echo "skip=0" >> "$GITHUB_OUTPUT"; fi
       - name: Run the journey on the stable tag and wait for it
@@ -44,7 +45,7 @@ jobs:
           TAG: ${{ steps.stable.outputs.tag }}
         run: |
           started=$(date -u +%s)
-          gh workflow run e2e.yml -R "$REPO" --ref "$TAG" -f canary=true
+          gh workflow run e2e.yml -R "$REPO" --ref main -f canary=true -f target_ref="$TAG"   # main's workflow file: the tag's own may predate the inputs
           id=""
           for _ in $(seq 1 40); do
             id=$(gh run list -R "$REPO" --workflow=e2e.yml --event workflow_dispatch -L 10 --json databaseId,createdAt,displayTitle \

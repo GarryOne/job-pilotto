@@ -110,3 +110,12 @@ test('cadence: the nightly release gate runs the always and nightly suites, not 
     gh: gh({releases: [['desktop-v1', HEAD]]}), all: ALL, cadence, minutes: () => 15});
   assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['apply', 'jobs', 'settings']);
 });
+
+test('a manual run with target_ref tests that release\'s commit, not main\'s', async () => {
+  const stub = args => (args[0] === 'api' && /commits\/desktop-v0\.4\.0-alpha\.252$/.test(args[1]) ? 'deadbeef00000000000000000000000000000000\n' : '[]');
+  const out = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha', TARGET_REF: 'desktop-v0.4.0-alpha.252'}, gh: stub, all: ALL, minutes: () => 15});
+  assert.equal(out.ref, 'deadbeef00000000000000000000000000000000');
+  const plain = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha'}, gh: stub, all: ALL, minutes: () => 15});
+  assert.equal(plain.ref, 'mainsha', 'no target_ref: main as before');
+  await assert.rejects(planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha', TARGET_REF: 'nope'}, gh: () => { throw new Error('404'); }, all: ALL, minutes: () => 15}), /not a commit/);
+});

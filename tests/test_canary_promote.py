@@ -289,6 +289,21 @@ class GateFourAndFiveTests(unittest.TestCase):
         self.assertFalse(canary.decide([release(65, 50), STABLE], NOW, Facts(runs=e2e(2)), require_beta=False)['promote'])
 
 
+class RunsForTests(unittest.TestCase):
+    def test_counts_runs_on_its_commit_and_its_named_top_ups_only(self):
+        runs = [
+            {'head_sha': 'mainsha', 'display_title': 'RC soak desktop-v0.5.0-alpha.65', 'conclusion': 'success', 'created_at': 'a'},   # a top-up
+            {'head_sha': 'mainsha', 'display_title': 'RC soak desktop-v0.5.0-alpha.64', 'conclusion': 'success', 'created_at': 'b'},   # another release's top-up
+            {'head_sha': 'mainsha', 'display_title': 'Stable canary desktop-v0.5.0-alpha.60', 'conclusion': 'success', 'created_at': 'c'},
+            {'head_sha': 'abc1234def', 'display_title': 'CI · End-to-end journey', 'conclusion': 'success', 'created_at': 'd'},        # the gate's own run
+            {'head_sha': 'mainsha', 'display_title': 'CI · End-to-end journey', 'conclusion': 'failure', 'created_at': 'e'},          # a run of main
+            {'head_sha': 'mainsha', 'display_title': 'Gate abc1234def', 'conclusion': 'success', 'created_at': 'f'},                  # the gate: its own commit is main's, the tested one is in the name
+            {'head_sha': 'mainsha', 'display_title': 'Gate 999999', 'conclusion': 'success', 'created_at': 'g'},
+        ]
+        got = canary.runs_for(runs, 'abc1234def', 'desktop-v0.5.0-alpha.65')
+        self.assertEqual([r['createdAt'] for r in got], ['a', 'd', 'f'])
+
+
 class PromotesWithoutStartingARun(unittest.TestCase):
     def test_the_promotion_may_not_start_an_end_to_end_run(self):
         # release-stable.sh starts one by default and waits ~15 minutes; this job has 10 minutes and cannot start workflows.

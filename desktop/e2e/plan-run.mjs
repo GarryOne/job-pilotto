@@ -11,7 +11,13 @@ const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
 export async function planRun({env, gh = realGh, all, minutes, cadence = {}, watches = {}}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
-  const ref = event === 'workflow_run' ? env.RUN_HEAD_SHA : sha;
+  // TARGET_REF (a manual run of the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
+  // inputs (canary, soak), so the run is started on main and told which tag to check out.
+  let target = '';
+  if (event === 'workflow_dispatch' && env.TARGET_REF) {
+    try { target = gh(['api', `repos/${repo}/commits/${env.TARGET_REF}`, '-q', '.sha']).trim(); } catch { throw new Error(`target_ref ${env.TARGET_REF} is not a commit of ${repo}`); }
+  }
+  const ref = event === 'workflow_run' ? env.RUN_HEAD_SHA : target || sha;
   const lines = text => String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
   const changed = (from, to) => { try { return lines(gh(['api', `repos/${repo}/compare/${from}...${to}`, '--paginate', '-q', '.files[].filename'])); } catch { return null; } };
   const json = args => { try { return JSON.parse(gh(args)); } catch { return []; } };
