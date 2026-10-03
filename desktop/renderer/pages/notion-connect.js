@@ -69,9 +69,16 @@ async function connect() {
 }
 
 // Open one of the user's Notion pages (a key of state.notion), or the connect prompt when Notion isn't connected.
-export function openInNotion(key, event, reason = 'profile') {
+// Opening takes about a second: the button that asked shows it (disabled, "Opening…"), for every caller at once (#66 Strategy, #74 Settings).
+export async function openInNotion(key, event, reason = 'profile') {
   if (!notionConnected()) { openNotionConnect({reason, where: 'dialog', from: `gate:${reason}`}); return; }
-  return window.pilot.openNotion(shared.state.notion[key], !!event?.metaKey);
+  const button = event?.currentTarget?.tagName === 'BUTTON' ? event.currentTarget : null;
+  // The words change only where they are plain text (a <span>, or a button with no icon): an icon inside must survive.
+  const label = button && (button.querySelector('span') || (button.children.length ? null : button));
+  const was = label?.textContent;
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); if (label) label.textContent = 'Opening…'; }
+  try { return await window.pilot.openNotion(shared.state.notion[key], !!event?.metaKey); }
+  finally { if (button) { button.disabled = false; button.removeAttribute('aria-busy'); if (label) label.textContent = was; } }
 }
 
 // Settings → Notion: the advantages and "Connect" until it is connected; "Reconnect" after.

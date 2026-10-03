@@ -1,22 +1,41 @@
-// "Edit in Notion" on Strategy shows work while Notion opens (source-level check of the page wiring).
+// "Open … in Notion" buttons show work while Notion opens (about a second): openInNotion disables the button that asked and says
+// "Opening…" until the app's call ends, for every caller (#66 Strategy, #74 Settings). It runs the real module on a minimal fake DOM.
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import {test} from 'node:test';
-import {fileURLToPath} from 'node:url';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const read = file => fs.readFileSync(path.join(here, '..', 'renderer', 'pages', file), 'utf8');
+class FakeNode {
+  constructor(tag = 'div') { this.tagName = tag.toUpperCase(); this.children = []; this.style = {}; this.attrs = {}; this.textContent = ''; this.classList = {add() {}, remove() {}, toggle() {}, contains: () => false}; }
+  append(...nodes) { this.children.push(...nodes.filter(node => typeof node === 'object')); }
+  appendChild(node) { this.append(node); return node; }
+  replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
+  setAttribute(name, value) { this.attrs[name] = String(value); }
+  getAttribute(name) { return this.attrs[name] ?? null; }
+  removeAttribute(name) { delete this.attrs[name]; }
+  addEventListener() {}
+  querySelector(selector) { return selector === 'span' ? this.children.find(child => child.tagName === 'SPAN') || null : null; }
+  querySelectorAll() { return []; }
+}
+globalThis.Node = FakeNode;
+globalThis.document = {createElement: tag => new FakeNode(tag), createElementNS: (_, tag) => new FakeNode(tag), createTextNode: text => ({text}),
+  body: new FakeNode('body'), addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null};
+let finish;
+globalThis.window = {addEventListener() {}, pilot: {state: async () => ({notion: {NOTION_PROFILE_PAGE_ID: 'p'}}), openNotion: () => new Promise(resolve => { finish = resolve; })}};
 
-test('openInNotion returns the app call so callers can wait for it', () => {
-  assert.match(read('notion-connect.js'), /return window\.pilot\.openNotion\(shared\.state\.notion\[key\]/);
-});
+const {openInNotion} = await import('../renderer/pages/notion-connect.js');
+const {shared} = await import('../renderer/pages/shared.js');
 
-test('Strategy "Edit in Notion" is disabled and relabelled while it opens', () => {
-  const src = read('strategy.js');
-  const handler = src.slice(src.indexOf("$('strategy-edit').addEventListener"), src.indexOf("$('strategy-jobs')"));
-  assert.match(handler, /await openInNotion/);
-  assert.match(handler, /disabled = true/);
-  assert.match(handler, /Opening/);
-  assert.match(handler, /finally/);
+test('the button that asked is disabled and says "Opening…" until Notion has opened, then is as before', async () => {
+  shared.state = {...(shared.state || {}), notion: {NOTION_PROFILE_PAGE_ID: 'https://notion.so/p'}, notionConnected: true, settings: {notionIds: {NOTION_PROFILE_PAGE_ID: 'p'}}};
+  const button = new FakeNode('button'), label = new FakeNode('span');
+  label.textContent = 'Edit in Notion';
+  button.append(new FakeNode('i'), label);
+  const opening = openInNotion('NOTION_PROFILE_PAGE_ID', {currentTarget: button});
+  assert.equal(button.disabled, true);
+  assert.equal(label.textContent, 'Opening…');
+  assert.equal(button.children[0].tagName, 'I');   // the icon is kept
+  finish(true);
+  await opening;
+  assert.equal(button.disabled, false);
+  assert.equal(label.textContent, 'Edit in Notion');
+  assert.equal(button.getAttribute('aria-busy'), null);
 });

@@ -145,13 +145,7 @@ function showCard(card, ids, add, done) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  $('strategy-edit').addEventListener('click', async event => {
-    const button = $('strategy-edit'), label = button.querySelector('span');
-    const was = label.textContent;
-    button.disabled = true; label.textContent = 'Opening…';
-    try { await openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event); }
-    finally { button.disabled = false; label.textContent = was; }
-  });
+  $('strategy-edit').addEventListener('click', event => openInNotion(shared.state.notion?.NOTION_SEARCH_SETTINGS_PAGE ? 'NOTION_SEARCH_SETTINGS_PAGE' : 'NOTION_PROFILE_PAGE_ID', event));   // busy state: openInNotion
   $('strategy-jobs').addEventListener('click', () => openView('jobs'));
   $('strategy-rescore').addEventListener('click', async () => {
     $('strategy-rescore').disabled = true;
