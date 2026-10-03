@@ -36,8 +36,17 @@ test('the snapshot is counts per band and state, and carries nothing that identi
 test('hostStats counts jobs per host: seen, acted on, dismissed, heard back', async () => {
   const {hostStats} = await import('../renderer/intel.js');
   const out = hostStats([{url: 'https://boards.greenhouse.io/a/1', status: 'saved'}, {url: 'https://boards.greenhouse.io/a/2', status: 'dismissed'}, {url: 'https://boards.greenhouse.io/a/3', stage: 'Interviewing'}, {url: 'nonsense'}, {url: 'https://x.com/1'}]);
-  assert.deepEqual(out.find(h => h.host === 'boards.greenhouse.io'), {host: 'boards.greenhouse.io', seen: 3, acted: 2, dismissed: 1, heard: 1});
-  assert.deepEqual(out.find(h => h.host === 'x.com'), {host: 'x.com', seen: 1, acted: 0, dismissed: 0, heard: 0});
+  assert.deepEqual(out.find(h => h.host === 'boards.greenhouse.io'), {host: 'boards.greenhouse.io', seen: 3, acted: 2, dismissed: 1, heard: 1, good: 0, hours: []});
+  assert.deepEqual(out.find(h => h.host === 'x.com'), {host: 'x.com', seen: 1, acted: 0, dismissed: 0, heard: 0, good: 0, hours: []});
+});
+
+test('hostStats also counts jobs scored 70+ and the hours from posting to first seen', async () => {
+  const {hostStats, discoveryHours} = await import('../renderer/intel.js');
+  const out = hostStats([{url: 'https://jobs.lever.co/a/1', fit: 82, posted_at: '2026-10-01T08:00:00Z', first_seen_at: '2026-10-01T20:00:00Z'},
+    {url: 'https://jobs.lever.co/a/2', fit: 55, posted_at: '2026-10-01', first_seen_at: '2026-10-03'}, {url: 'https://jobs.lever.co/a/3', fit: 70}]);
+  assert.deepEqual(out[0], {host: 'jobs.lever.co', seen: 3, acted: 0, dismissed: 0, heard: 0, good: 2, hours: [12, 48]});
+  assert.equal(discoveryHours({posted_at: '2026-10-03', first_seen_at: '2026-10-01'}), null, 'seen before posted: the dates are wrong, not counted');
+  assert.equal(discoveryHours({posted_at: 'soon'}), null);
 });
 
 test('a snapshot of only unscored, untouched jobs is not informative', async () => {

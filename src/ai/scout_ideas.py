@@ -78,11 +78,17 @@ READ_SCHEMA = {
 
 # ---------- what Claude is shown ----------
 
+def origin_kind(origin):
+    """The kind of source a candidate came from, without its month, date or crawl tag: 'Hacker News: (September 2026' -> 'Hacker News',
+    'AI idea 2026-10-03' -> 'AI idea', 'Common Crawl CC-MAIN-2026-39' -> 'Common Crawl'. Also used by the private learned priorities."""
+    return re.split(r'[:(]|\s\d{4}-|\sCC-MAIN', origin or '')[0].strip()
+
+
 def origin_yield(db):
     """[{origin, probed, found, share}] for each kind of source (the origin without its month or batch tag), best first."""
     rows = {}
     for row in db.execute('SELECT origin, status, COUNT(*) n FROM scout_candidates GROUP BY origin, status'):
-        kind = re.split(r'[:(]', row['origin'])[0].strip()
+        kind = origin_kind(row['origin'])
         entry = rows.setdefault(kind, {'origin': kind, 'probed': 0, 'found': 0})
         if row['status'] in ('found', 'low', 'none', 'watch'):
             entry['probed'] += row['n']

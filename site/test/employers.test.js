@@ -189,3 +189,23 @@ test('a list too large for one KV value still goes to D1, and older apps keep th
   assert.equal((await (await sliced(e, 'europe', await holder())).json()).feeds.length, 4000);
   assert.equal((await (await call(e, 'GET', await holder())).json()).feeds.length, 1);
 });
+
+test('the central scout sends its own numbers with the index; they are checked to a fixed shape and shown on /intel', async () => {
+  store.clear();
+  const db = d1();
+  db.db.exec(readFileSync(new URL('../migrations/0019_scouting.sql', import.meta.url), 'utf8').split('\n').filter(line => !line.startsWith('ALTER')).join('\n'));
+  const e = {...env(), STATS: db};
+  const stats = {feeds: 412, jobs: 39000, relevant: 2100, by_ats: {greenhouse: 120, '<script>': 1}, by_region: {europe: 300}, queue: {pending: 2954, found: 400},
+    recipes: 12, page_reads: 30, link_choices: 9, commoncrawl: 'CC-MAIN-2026-39', ideas_at: '2026-10-03T04:30:00', ideas_note: 'Tried Swiss banks <b>now</b>',
+    sources: [{origin: 'Common Crawl', probed: 500, found: 40}], market: [{term: 'devops', ours: 61, jobsch: 305}], extra: 'dropped'};
+  await call(e, 'PUT', auth, {feeds: [feed('a', {regions: ['europe']})], stats});
+  const {load, section} = await import('../src/scouting.js');
+  const shown = await load(db);
+  assert.equal(shown.feeds, 412);
+  assert.equal(shown.extra, undefined);
+  assert.deepEqual(Object.keys(shown.by_ats), ['greenhouse', 'script']);
+  const html = section(shown);
+  assert.match(html, /Market coverage/);
+  assert.match(html, /<b>20%<\/b>/);                 // 61 of 305
+  assert.doesNotMatch(html, /<b>now<\/b>/, 'text from the scout is escaped');
+});

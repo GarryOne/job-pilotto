@@ -10,6 +10,7 @@ import {report as aiCost} from './aicost.js';
 import {REGIONS, ROLES} from './pool.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
+import {load as loadScouting, section as scoutingSection} from './scouting.js';
 import {LEFT_REASONS} from './knowledge.js';
 import {allowed} from './stats.js';
 
@@ -76,11 +77,13 @@ export async function store(env, intel, now = new Date(), install = '') {
   }
   for (const item of (Array.isArray(intel.sources) ? intel.sources : []).slice(0, 12)) {
     const board = String(item?.board || '');
-    const [seen, acted, dismissed, heard] = ['seen', 'acted', 'dismissed', 'heard'].map(field => int(item?.[field], 5000));
+    const [seen, acted, dismissed, heard, good] = ['seen', 'acted', 'dismissed', 'heard', 'good'].map(field => int(item?.[field], 5000));
     if (!BOARD_KIND.test(board) || !seen) continue;
-    await env.STATS.prepare(`INSERT INTO intel_sources (day, board, seen, acted, dismissed, heard) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT (day, board) DO UPDATE SET seen = seen + excluded.seen, acted = acted + excluded.acted, dismissed = dismissed + excluded.dismissed, heard = heard + excluded.heard`)
-      .bind(d, board, seen, Math.min(acted, seen), Math.min(dismissed, seen), Math.min(heard, seen)).run();
+    const hours = item?.hours == null || !Number.isFinite(Number(item.hours)) ? null : Math.max(0, Math.min(2880, Number(item.hours)));
+    await env.STATS.prepare(`INSERT INTO intel_sources (day, board, seen, acted, dismissed, heard, good, hours_sum, hours_n) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (day, board) DO UPDATE SET seen = seen + excluded.seen, acted = acted + excluded.acted, dismissed = dismissed + excluded.dismissed, heard = heard + excluded.heard,
+      good = good + excluded.good, hours_sum = hours_sum + excluded.hours_sum, hours_n = hours_n + excluded.hours_n`)
+      .bind(d, board, seen, Math.min(acted, seen), Math.min(dismissed, seen), Math.min(heard, seen), Math.min(good, seen), hours ?? 0, hours == null ? 0 : 1).run();
     out.sources++;
   }
   const who = (await digestOf(String(install || 'anonymous'))).slice(0, 8);
@@ -166,8 +169,9 @@ export async function report(db, days = 30, now = new Date()) {
     const total = Object.values(marked[bucket]).reduce((sum, n) => sum + n, 0), good = GOOD.reduce((sum, o) => sum + (marked[bucket][o] || 0), 0);
     return {bucket, total, good, rate: total >= 20 ? good / total : null};
   });
-  const sources = (await rows(db, 'SELECT board, SUM(seen) AS seen, SUM(acted) AS acted, SUM(dismissed) AS dismissed, SUM(heard) AS heard FROM intel_sources WHERE day >= ? GROUP BY board ORDER BY seen DESC', from))
-    .map(row => ({...row, actedShare: row.seen ? row.acted / row.seen : null, dismissedShare: row.seen ? row.dismissed / row.seen : null, heardShare: row.acted ? row.heard / row.acted : null}));
+  const sources = (await rows(db, 'SELECT board, SUM(seen) AS seen, SUM(acted) AS acted, SUM(dismissed) AS dismissed, SUM(heard) AS heard, SUM(good) AS good, SUM(hours_sum) AS hours_sum, SUM(hours_n) AS hours_n FROM intel_sources WHERE day >= ? GROUP BY board ORDER BY seen DESC', from))
+    .map(row => ({...row, actedShare: row.seen ? row.acted / row.seen : null, dismissedShare: row.seen ? row.dismissed / row.seen : null, heardShare: row.acted ? row.heard / row.acted : null,
+      goodShare: row.seen ? row.good / row.seen : null, hours: row.hours_n ? row.hours_sum / row.hours_n : null}));
   const fixes = (await rows(db, 'SELECT label, filled, corrected, installs FROM intel_fixes WHERE filled >= 10 ORDER BY CAST(corrected AS REAL) / filled DESC, filled DESC LIMIT 20'))
     .filter(row => { try { return JSON.parse(row.installs).length >= MIN_PEOPLE; } catch { return false; } }).map(({installs, ...row}) => ({...row, rate: row.corrected / row.filled}));
   const left = await rows(db, 'SELECT reason, SUM(n) AS n FROM fill_reasons WHERE day >= ? GROUP BY reason', from).catch(() => []);
@@ -178,7 +182,7 @@ export async function report(db, days = 30, now = new Date()) {
   }).sort((a, b) => b.n - a.n);
   const cost = await aiCost(db, days, now);
   return {days, calibration: calibration(replies), hints: await hints(db, now), replies, sources, fixes, reasons, cost, terms: shown.map(row => ({term: row.term, n: row.n, where: where[row.term] || []})), hiddenTerms: terms.length - shown.length,
-    coverage, missed, dismiss, scores};
+    coverage, missed, dismiss, scores, scouting: await loadScouting(db)};
 }
 
 const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
@@ -217,9 +221,10 @@ ${data.scores.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><t
 <p><b>${data.calibration.status === 'ok' ? '✅' : data.calibration.status === 'thin' ? '⏳' : '⚠️'} ${esc(data.calibration.note)}</b></p>
 <table><tr><th>Score band</th><th>Outcomes marked</th><th>Reply or better</th></tr>
 ${data.replies.map(row => `<tr><td>${esc(row.bucket)}</td><td>${row.total}</td><td>${pct(row.rate)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">No marked outcomes yet.</td></tr>'}</table></section>
-<section class="card"><h2>🧭 Which sources give useful jobs?</h2><small class="muted">Per job-board kind: the share of jobs people acted on or dismissed, and of the acted ones, how many got a call. "other" is every company site.</small>
-<table><tr><th>Source</th><th>Jobs seen</th><th>Acted on</th><th>Dismissed</th><th>Heard back (of acted)</th></tr>
-${data.sources.map(row => `<tr><td>${esc(row.board)}</td><td>${row.seen}</td><td>${pct(row.actedShare)}</td><td>${pct(row.dismissedShare)}</td><td>${pct(row.heardShare)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No snapshots yet.</td></tr>'}</table></section>
+<section class="card"><h2>🧭 Which sources give useful jobs?</h2><small class="muted">Per source kind (job systems, job boards, aggregators): the share of jobs scored 70+, acted on or dismissed, how many acted ones got a call, and how many hours after posting the jobs were found. "other" is every company site.</small>
+<table><tr><th>Source</th><th>Jobs seen</th><th>Scored 70+</th><th>Acted on</th><th>Dismissed</th><th>Heard back (of acted)</th><th>Hours posted → found</th></tr>
+${data.sources.map(row => `<tr><td>${esc(row.board)}</td><td>${row.seen}</td><td>${pct(row.goodShare)}</td><td>${pct(row.actedShare)}</td><td>${pct(row.dismissedShare)}</td><td>${pct(row.heardShare)}</td><td>${row.hours == null ? '—' : Math.round(row.hours)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">No snapshots yet.</td></tr>'}</table></section>
+${scoutingSection(data.scouting)}
 <section class="card"><h2>✏️ Answers people change</h2><small class="muted">Questions the filler answered that the person then edited by hand, once ${MIN_PEOPLE}+ people and 10+ fills have reported them. The top of this list is where the alias or profile mapping is wrong.</small>
 <table><tr><th>Question wording</th><th>Filled</th><th>Changed by hand</th></tr>
 ${data.fixes.map(row => `<tr><td>${esc(row.label)}</td><td>${row.filled}</td><td><b>${pct(row.rate)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nothing reported by enough people yet.</td></tr>'}</table></section>

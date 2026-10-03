@@ -187,7 +187,10 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       if (!enabled(storage) || !Array.isArray(list)) return;
       intel.sources = list.filter(item => /^[a-z]{3,20}$/.test(String(item?.board || ''))).slice(0, 12)
         .map(item => ({board: item.board, seen: Math.min(5000, Math.round(Number(item.seen)) || 0), acted: Math.min(5000, Math.round(Number(item.acted)) || 0),
-          dismissed: Math.min(5000, Math.round(Number(item.dismissed)) || 0), heard: Math.min(5000, Math.round(Number(item.heard)) || 0)})).filter(item => item.seen > 0);
+          dismissed: Math.min(5000, Math.round(Number(item.dismissed)) || 0), heard: Math.min(5000, Math.round(Number(item.heard)) || 0),
+          good: Math.min(5000, Math.round(Number(item.good)) || 0),
+          hours: Number.isFinite(Number(item.hours)) && item.hours !== null ? Math.min(2880, Math.max(0, Math.round(Number(item.hours) * 10) / 10)) : null}))
+        .filter(item => item.seen > 0);
       schedule();
     },
     // Form questions the filler answered (filled) and the ones the person then changed by hand (corrected): the form's own wording only, never a value.

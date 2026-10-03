@@ -229,7 +229,7 @@ test('replies by score band, source kinds and filled/corrected labels are sent a
   await reporter.flush();
   const intel = calls[0].intel;
   assert.deepEqual(intel.replies, [{bucket: '80-100', outcome: 'screening', n: 2}]);
-  assert.deepEqual(intel.sources, [{board: 'greenhouse', seen: 10, acted: 3, dismissed: 2, heard: 1}]);
+  assert.deepEqual(intel.sources, [{board: 'greenhouse', seen: 10, acted: 3, dismissed: 2, heard: 1, good: 0, hours: null}]);
   assert.deepEqual(intel.fixes.map(f => [f.label, f.filled, f.corrected]), [['notice period', 2, 1], ['first name', 1, 0]]);
 });
 

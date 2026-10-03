@@ -33,14 +33,26 @@ export function snapshot(jobs) {
   return [...counts].map(([key, n]) => { const [bucket, state] = key.split('|'); return {bucket, state, n}; });
 }
 
-// Per host of the job's address: jobs seen, acted on, dismissed, heard back. The app folds the hosts into job-board kinds and drops the rest.
+// Hours from a posting's own date to the day this install first saw it (null when either is missing or the dates make no sense).
+export function discoveryHours(job) {
+  const posted = Date.parse(String(job?.posted_at || job?.date_posted || '')), seen = Date.parse(String(job?.first_seen_at || ''));
+  if (!Number.isFinite(posted) || !Number.isFinite(seen)) return null;
+  const hours = (seen - posted) / 3600000;
+  return hours >= 0 && hours <= 24 * 120 ? hours : null;
+}
+
+// Per host of the job's address: jobs seen, acted on, dismissed, heard back, scored 70+, and the hours each took to be found.
+// The app folds the hosts into source kinds and drops the rest.
 export function hostStats(jobs) {
   const hosts = new Map();
   for (const job of Array.isArray(jobs) ? jobs : []) {
     let host = '';
     try { host = new URL(String(job?.url)).hostname; } catch { continue; }
-    const state = jobState(job), entry = hosts.get(host) || {host, seen: 0, acted: 0, dismissed: 0, heard: 0};
+    const state = jobState(job), entry = hosts.get(host) || {host, seen: 0, acted: 0, dismissed: 0, heard: 0, good: 0, hours: []};
     entry.seen++;
+    if (Number(job?.fit) >= 70) entry.good++;
+    const hours = discoveryHours(job);
+    if (hours !== null) entry.hours.push(hours);
     if (state === 'dismissed') entry.dismissed++;
     else if (state !== 'new') entry.acted++;
     if (['screening', 'interviewing', 'offer'].includes(state)) entry.heard++;

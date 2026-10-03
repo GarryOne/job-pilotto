@@ -27,16 +27,27 @@ export function anonymous({url, outcome, appliedOn}, now = Date.now()) {
   return board ? {board, outcome, days: daysBucket(appliedOn, now)} : null;
 }
 
-// [{host, seen, acted, dismissed, heard}] (the renderer's per-host counts) -> per job-board KIND: a known ATS name, or "other" for any other site.
-// A hashed host never leaves the Mac, so a company's own careers site is only ever "other".
+// Job boards and aggregators the app reads besides the ATS feeds (src/sources/*): a source kind of their own, so the product can see which
+// ones give useful jobs. Fixed names only.
+const SOURCE_HOSTS = [['jobsch', /(^|\.)jobs\.ch$/], ['swissdevjobs', /swissdevjobs\.ch$/], ['techtree', /techtree\.dev$/], ['arbeitnow', /arbeitnow\.com$/],
+  ['himalayas', /himalayas\.app$/], ['jobicy', /jobicy\.com$/], ['adzuna', /adzuna\./], ['jooble', /jooble\.org$/], ['join', /(^|\.)join\.com$/],
+  ['workday', /myworkdayjobs\.com$/], ['umantis', /umantis\.com$/], ['abacus', /abaservices\.ch$/]];
+
+const median = list => { const sorted = [...list].sort((a, b) => a - b); return sorted.length ? sorted[Math.floor(sorted.length / 2)] : null; };
+
+// [{host, seen, acted, dismissed, heard, good, hours}] (the renderer's per-host counts) -> per source KIND: a known ATS or board name, or "other"
+// for any other site (a company's own careers site). A host never leaves the Mac. `good`: jobs scored 70+; `hours`: the median hours from a
+// posting's date to the day it was found, over the kind's jobs that have both dates.
 export function sourceStats(hosts, boardName) {
-  const totals = new Map();
+  const totals = new Map(), delays = new Map();
   for (const item of Array.isArray(hosts) ? hosts : []) {
-    const board = boardName(String(item?.host || ''));
-    const kind = /^[a-z]+$/.test(board) ? board : 'other';
-    const entry = totals.get(kind) || {board: kind, seen: 0, acted: 0, dismissed: 0, heard: 0};
-    for (const field of ['seen', 'acted', 'dismissed', 'heard']) entry[field] += Math.max(0, Math.round(Number(item?.[field])) || 0);
+    const host = String(item?.host || '').toLowerCase();
+    const board = boardName(host);
+    const kind = /^[a-z]+$/.test(board) ? board : (SOURCE_HOSTS.find(([, pattern]) => pattern.test(host))?.[0] || 'other');
+    const entry = totals.get(kind) || {board: kind, seen: 0, acted: 0, dismissed: 0, heard: 0, good: 0};
+    for (const field of ['seen', 'acted', 'dismissed', 'heard', 'good']) entry[field] += Math.max(0, Math.round(Number(item?.[field])) || 0);
     totals.set(kind, entry);
+    delays.set(kind, [...(delays.get(kind) || []), ...(Array.isArray(item?.hours) ? item.hours.filter(Number.isFinite) : [])]);
   }
-  return [...totals.values()];
+  return [...totals.values()].map(entry => ({...entry, hours: median(delays.get(entry.board) || [])}));
 }

@@ -428,7 +428,7 @@ def fits(contribution):
     return {name: tags for name, tags in out.items() if tags}
 
 
-def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=()):
+def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contributions=(), boards=(), swiss_titles=None):
     """Every feed we know (starter list + what this scout found), fetched once: [{company, ats, slug, tier, quality,
     jobs, checked}]. A feed that doesn't answer is left out (it comes back when it does); returns (feeds, failed)."""
     db.executescript(TABLES)
@@ -447,6 +447,8 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
         (system, slug), meta = item
         try:
             jobs = fetch(system, slug)
+            if swiss_titles is not None:   # for the market coverage: the titles of this feed's jobs in Swiss places
+                swiss_titles.extend(j['title'] for j in jobs if SWISS.search(j.get('location') or ''))
             score, _ = quality(jobs)
             kind = 'board' if (system, slug.lower()) in board_keys else 'employer'   # a job board of many companies is not an employer
             entry = {'company': clean_name(meta['company']) or meta['company'], 'ats': system, 'slug': slug, 'kind': kind, 'tier': meta['tier'], 'quality': score,
@@ -468,11 +470,60 @@ def build_index(db, starter=(), fetch=ats.fetch, today=None, workers=8, contribu
     return kept, [r for r in results if 'error' in r]
 
 
-def publish_index(feeds, url, key, send=None):
-    """Upload the index to the website worker (PUT, Bearer key). Raises when the service refuses it."""
+SWISS = re.compile(r'switzerland|schweiz|suisse|svizzera|z[uü]rich|gen[eè]v|genf|basel|\bbern\b|lausanne|\bzug\b|lugano|luzern|lucerne|winterthur|st\.? ?gallen', re.I)
+# Fixed words for the market coverage (engineering and IT, the central scout's own scope): the same words are asked of jobs.ch.
+MARKET_TERMS = ('devops', 'site reliability', 'platform engineer', 'cloud engineer', 'kubernetes', 'software engineer', 'data engineer',
+                'security engineer', 'system engineer', 'backend', 'frontend', 'machine learning')
+
+
+def market_coverage(titles, get=None, terms=MARKET_TERMS, pause=1.0):
+    """[{term, ours, jobsch}]: open jobs in Swiss places whose title has the word, in our index vs jobs.ch's own total for it (None when
+    jobs.ch did not answer). Indicative: jobs.ch also lists agencies and repeats, and our index holds employer feeds only."""
+    import time
+    get = get or _get_text
+    lowered = [t.lower() for t in titles]
+    out = []
+    for term in terms:
+        jobsch = None
+        try:
+            page = get('https://www.jobs.ch/en/vacancies/?' + urllib.parse.urlencode({'term': term}))
+            found = re.search(r'(\d[\d,\u2019\'.]*)\s+jobs\b', page)
+            jobsch = int(re.sub(r'\D', '', found.group(1))) if found else None
+        except Exception as error:  # noqa: BLE001 — a count we cannot read is shown as unknown
+            print(f'Warning: jobs.ch count for {term}: {type(error).__name__}')
+        out.append({'term': term, 'ours': sum(1 for t in lowered if term in t), 'jobsch': jobsch})
+        time.sleep(pause)
+    return out
+
+
+def central_stats(db, feeds_out, market=()):
+    """The central scout's own numbers for the website's /intel page: no user data, only counts and its own source names."""
+    from .ai import scout_ideas
+
+    def scalar(sql):
+        try:
+            return db.execute(sql).fetchone()[0] or 0
+        except Exception:  # noqa: BLE001 — a table this scout never made counts as 0
+            return 0
+    try:
+        meta = {row[0]: row[1] for row in db.execute('SELECT key, value FROM scout_meta')}
+    except Exception:  # noqa: BLE001
+        meta = {}
+    return {'feeds': len(feeds_out), 'jobs': sum(f.get('jobs') or 0 for f in feeds_out), 'relevant': sum(f.get('relevant') or 0 for f in feeds_out),
+            'by_ats': dict(Counter(f['ats'] for f in feeds_out)), 'by_region': dict(Counter(r for f in feeds_out for r in f.get('regions') or [])),
+            'queue': {row[0]: row[1] for row in db.execute('SELECT status, COUNT(*) FROM scout_candidates GROUP BY status')},
+            'recipes': scalar('SELECT COUNT(*) FROM page_recipes'), 'page_reads': scalar('SELECT COUNT(*) FROM page_reads'),
+            'link_choices': scalar('SELECT COUNT(*) FROM link_choices'), 'commoncrawl': meta.get('commoncrawl', ''),
+            'ideas_at': meta.get('ideas_at', ''), 'ideas_note': meta.get('ideas_note', ''),
+            'sources': [{'origin': s['origin'], 'probed': s['probed'], 'found': s['found']} for s in scout_ideas.origin_yield(db)[:25]],
+            'market': list(market)}
+
+
+def publish_index(feeds, url, key, send=None, stats=None):
+    """Upload the index to the website worker (PUT, Bearer key), with the scout's own numbers. Raises when the service refuses it."""
     if not feeds:
         raise ValueError('nothing to publish: no feed answered')
-    body = json.dumps({'feeds': feeds, 'generated': now().isoformat(timespec='seconds')}).encode()
+    body = json.dumps({'feeds': feeds, 'generated': now().isoformat(timespec='seconds'), **({'stats': stats} if stats else {})}).encode()
 
     def put(request):
         with urllib.request.urlopen(request, timeout=60) as response:
@@ -682,9 +733,12 @@ def main():
                 raise SystemExit('--publish-index needs INDEX_PUBLISH_KEY')
             index_url = os.getenv('JOB_PILOTTO_INDEX_URL') or employer_index.URL
             contributions = fetch_contributions(index_url, key)
+            swiss_titles = []
             feeds_out, failed = build_index(db, json.loads((CONFIG / 'sources.json').read_text()), contributions=contributions,
-                                            boards=json.loads(SEEDS.read_text()).get('boards', []))
-            count = publish_index(feeds_out, index_url, key)
+                                            boards=json.loads(SEEDS.read_text()).get('boards', []), swiss_titles=swiss_titles)
+            stats = central_stats(db, feeds_out, market_coverage(swiss_titles))
+            count = publish_index(feeds_out, index_url, key, stats=stats)
+            print('Market coverage (our index / jobs.ch): ' + ', '.join(f"{m['term']} {m['ours']}/{m['jobsch']}" for m in stats['market']))
             print(f'Published {count} feeds to the employer index ({len(failed)} did not answer)')
     message = telegram_summary(summary, results)
     log['headline'] = cron_runs.plain(message).split('\n')[0]

@@ -4,6 +4,7 @@
 // Product data only: feeds, quality, last verified. Nothing about any user. Stored as one KV value (binding WAITLIST).
 import {REGIONS, ROLES} from './pool.js';
 import {authorize, digestOf, equal, flag} from './guard.js';
+import {store as storeScouting} from './scouting.js';
 const KEY = 'index:employers';
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'careers', 'amazon', 'netflix'];
 const MAX_BYTES = 1_000_000;          // the KV copy older app versions download (one KV value)
@@ -127,6 +128,8 @@ async function publish(request, env) {
   if (previous >= 10 && feeds.length < previous / 2) return text(409, `Refused: ${feeds.length} feeds would replace ${previous}`);
   const generated = new Date().toISOString();
   if (env.STATS) await store(env.STATS, feeds, generated);
+  // The central scout's own numbers for /intel (src/scouting.js): never a reason to refuse the index.
+  if (env.STATS && body.stats) await storeScouting(env.STATS, body.stats, generated.slice(0, 10)).catch(() => false);
   // Older app versions download the whole list from KV: kept while it fits in one value, else left as it was (they update soon).
   const legacy = JSON.stringify({version: 1, generated, feeds});
   const kept = legacy.length <= MAX_BYTES;

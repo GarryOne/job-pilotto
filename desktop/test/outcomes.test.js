@@ -44,5 +44,14 @@ test('sources fold into known job-board kinds; any other site is "other" and not
   const {boardName} = await import('../lib/control-events.js');
   const out = sourceStats([{host: 'boards.greenhouse.io', seen: 5, acted: 2, dismissed: 1, heard: 1}, {host: 'job-boards.greenhouse.io', seen: 5, acted: 0, dismissed: 3, heard: 0},
     {host: 'careers.acme.com', seen: 2, acted: 1, dismissed: 0, heard: 0}, {host: 'jobs.lever.co', seen: 1}], boardName);
-  assert.deepEqual(out, [{board: 'greenhouse', seen: 10, acted: 2, dismissed: 4, heard: 1}, {board: 'other', seen: 2, acted: 1, dismissed: 0, heard: 0}, {board: 'lever', seen: 1, acted: 0, dismissed: 0, heard: 0}]);
+  assert.deepEqual(out, [{board: 'greenhouse', seen: 10, acted: 2, dismissed: 4, heard: 1, good: 0, hours: null}, {board: 'other', seen: 2, acted: 1, dismissed: 0, heard: 0, good: 0, hours: null},
+    {board: 'lever', seen: 1, acted: 0, dismissed: 0, heard: 0, good: 0, hours: null}]);
+});
+
+test('job boards and aggregators are source kinds of their own, with jobs scored 70+ and the median hours to discovery', async () => {
+  const {sourceStats} = await import('../lib/outcomes.js');
+  const {boardName} = await import('../lib/control-events.js');
+  const out = sourceStats([{host: 'www.arbeitnow.com', seen: 4, good: 2, hours: [30, 10, 50]}, {host: 'www.jobs.ch', seen: 3, good: 1, hours: [5]},
+    {host: 'jobicy.com', seen: 1}, {host: 'recruitingapp-2824.umantis.com', seen: 2}], boardName);
+  assert.deepEqual(out.map(o => [o.board, o.good, o.hours]), [['arbeitnow', 2, 30], ['jobsch', 1, 5], ['jobicy', 0, null], ['umantis', 0, null]]);
 });
