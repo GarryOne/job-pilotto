@@ -83,6 +83,8 @@ test('a canary that works grows and finally becomes verified; one that fails is 
   await put(e, {recipe: recipe(), status: 'canary', rollout: 5}, 'secret');
   await put(e, {recipe: recipe({fingerprint: 'bad0001'}), status: 'canary', rollout: 5});
   await put(e, {recipe: recipe({fingerprint: 'new0001'}), status: 'canary', rollout: 5});
+  // `put` stamps updated_at from the real clock; the attempts below are dated by the test's own day, so pin it (the test failed once the real date passed it).
+  e.STATS.db.prepare("UPDATE recipes SET updated_at = '2026-10-02T00:00:00Z' WHERE status = 'canary'").run();
   record('1d2pcapx18', 1, 58, 2);      // 3% failed over 60 attempts: grow
   record('bad0001', 1, 12, 10);        // 45% failed over 22: halt
   record('new0001', 1, 4, 0);          // too few attempts: leave
